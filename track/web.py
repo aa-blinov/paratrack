@@ -8,6 +8,7 @@ from flask import Flask, jsonify, redirect, render_template, request, url_for
 from track.db import get_db
 
 app = Flask(__name__, template_folder=str(Path(__file__).parent / "templates"))
+app.secret_key = "dev-secret-key-change-in-production"
 
 
 def format_duration_seconds(seconds: int) -> str:
@@ -35,6 +36,61 @@ def calculate_session_duration(session) -> int:
         resume_point = session.last_resume_at or session.start_at
         running_seconds = int((now - resume_point).total_seconds())
         return session.accumulated_seconds + running_seconds
+
+
+def get_period_range(period: str, now: datetime = None):
+    """Calculate start and end datetime for a given period.
+
+    Args:
+        period: Period name ('today', 'yesterday', 'week', 'month')
+        now: Current datetime (defaults to datetime.now())
+
+    Returns:
+        Tuple of (start, end, period_label)
+    """
+    if now is None:
+        now = datetime.now()
+
+    if period == "today":
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now
+        period_label = "Today"
+    elif period == "yesterday":
+        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        start = end - timedelta(days=1)
+        period_label = "Yesterday"
+    elif period == "week":
+        start = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        end = now
+        period_label = "This Week"
+    elif period == "month":
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = now
+        period_label = "This Month"
+    else:
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = now
+        period_label = "Today"
+
+    return start, end, period_label
+
+
+def clip_session_seconds(session, start: datetime, end: datetime) -> int:
+    """Clip session duration to a time window.
+
+    Args:
+        session: Session object
+        start: Window start time
+        end: Window end time
+
+    Returns:
+        Clipped duration in seconds
+    """
+    s_start = max(session.start_at, start)
+    s_end = min(session.end_at or end, end)
+    return max(0, int((s_end - s_start).total_seconds()))
 
 
 @app.route("/")
@@ -128,41 +184,14 @@ def log():
 
     # Default to today
     period = request.args.get("period", "today")
-    now = datetime.now()
-
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "Today"
-    elif period == "yesterday":
-        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start = end - timedelta(days=1)
-        period_label = "Yesterday"
-    elif period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "This Week"
-    elif period == "month":
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "This Month"
-    else:
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "Today"
+    start, end, period_label = get_period_range(period)
 
     sessions = db.get_closed_sessions_overlapping(start, end, None)
-
-    # Clip sessions to window
-    def clip_seconds(s):
-        s_start = max(s.start_at, start)
-        s_end = min(s.end_at or end, end)
-        return max(0, int((s_end - s_start).total_seconds()))
 
     sessions_data = []
     total_seconds = 0
     for session, activity in sessions:
-        sec = clip_seconds(session)
+        sec = clip_session_seconds(session, start, end)
         if sec <= 0:
             continue
         total_seconds += sec
@@ -192,41 +221,15 @@ def stats():
 
     # Default to today
     period = request.args.get("period", "today")
-    now = datetime.now()
-
-    if period == "today":
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "Today"
-    elif period == "yesterday":
-        end = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        start = end - timedelta(days=1)
-        period_label = "Yesterday"
-    elif period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "This Week"
-    elif period == "month":
-        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "This Month"
-    else:
-        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        end = now
-        period_label = "Today"
+    start, end, period_label = get_period_range(period)
 
     sessions = db.get_closed_sessions_overlapping(start, end, None)
 
     # Clip and aggregate
-    def clip_seconds(s):
-        s_start = max(s.start_at, start)
-        s_end = min(s.end_at or end, end)
-        return max(0, int((s_end - s_start).total_seconds()))
-
     agg = {}
     total_seconds = 0
     for session, activity in sessions:
-        sec = clip_seconds(session)
+        sec = clip_session_seconds(session, start, end)
         if sec <= 0:
             continue
         total_seconds += sec

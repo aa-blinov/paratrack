@@ -102,13 +102,22 @@
             fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {
-                    // Update durations in the table
+                    // Update durations in the table by matching session IDs
                     const rows = document.querySelectorAll('tbody tr');
-                    data.forEach((session, index) => {
-                        if (rows[index]) {
-                            const durationCell = rows[index].querySelectorAll('td')[2];
+                    rows.forEach(row => {
+                        // Get the session ID from the first button's form action
+                        const firstForm = row.querySelector('form');
+                        if (!firstForm) return;
+                        
+                        const actionPath = firstForm.getAttribute('action');
+                        const sessionId = parseInt(actionPath.split('/').pop());
+                        
+                        // Find matching session data
+                        const sessionData = data.find(s => s.id === sessionId);
+                        if (sessionData) {
+                            const durationCell = row.querySelectorAll('td')[2];
                             if (durationCell) {
-                                durationCell.textContent = session.duration;
+                                durationCell.textContent = sessionData.duration;
                             }
                         }
                     });
