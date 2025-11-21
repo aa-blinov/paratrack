@@ -278,7 +278,7 @@ def api_status():
 
 def run_server(host="127.0.0.1", port=8000, debug=False):
     """Run the Flask development server.
-    
+
     Args:
         host: Host address to bind to (default: 127.0.0.1)
         port: Port to bind to (default: 8000)
