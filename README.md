@@ -79,6 +79,9 @@ track-web
 python -m track.web
 
 # The UI will be available at http://127.0.0.1:8000
+
+# Enable debug mode (development only)
+FLASK_DEBUG=true python -m track.web
 ```
 
 ### Web UI Features

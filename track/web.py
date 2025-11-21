@@ -277,9 +277,18 @@ def api_status():
 
 
 def run_server(host="127.0.0.1", port=8000, debug=False):
-    """Run the Flask development server."""
+    """Run the Flask development server.
+    
+    Args:
+        host: Host address to bind to (default: 127.0.0.1)
+        port: Port to bind to (default: 8000)
+        debug: Enable debug mode (default: False, use only in development)
+    """
     app.run(host=host, port=port, debug=debug)
 
 
 if __name__ == "__main__":
-    run_server(debug=True)
+    import os
+    # Only enable debug mode if explicitly set in environment
+    debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
+    run_server(debug=debug_mode)
