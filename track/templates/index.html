@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Better Track{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Start Tracking</h2>
+    <form method="POST" action="/start" class="form-inline">
+        <div class="form-group" style="flex: 2;">
+            <label for="activity">Activity</label>
+            <input type="text" id="activity" name="activity" placeholder="Enter activity name" required list="activities">
+            <datalist id="activities">
+                {% for activity in activities %}
+                <option value="{{ activity.name }}">
+                {% endfor %}
+            </datalist>
+        </div>
+        <div class="form-group" style="flex: 3;">
+            <label for="note">Note (optional)</label>
+            <input type="text" id="note" name="note" placeholder="Add a note">
+        </div>
+        <button type="submit" class="btn btn-primary">Start</button>
+    </form>
+</div>
+
+<div class="card">
+    <h2>Active Sessions</h2>
+    {% if sessions %}
+    <table>
+        <thead>
+            <tr>
+                <th>Activity</th>
+                <th>Started</th>
+                <th>Duration</th>
+                <th>Status</th>
+                <th>Note</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr>
+                <td><strong>{{ session.activity }}</strong></td>
+                <td>{{ session.start_at }}</td>
+                <td>{{ session.duration }}</td>
+                <td class="{% if session.status == 'Active' %}status-active{% else %}status-paused{% endif %}">
+                    {{ session.status }}
+                </td>
+                <td>{{ session.note }}</td>
+                <td>
+                    <div class="actions">
+                        {% if session.status == 'Active' %}
+                        <form method="POST" action="/pause/{{ session.id }}" style="display: inline;">
+                            <button type="submit" class="btn btn-warning btn-sm">Pause</button>
+                        </form>
+                        {% else %}
+                        <form method="POST" action="/resume/{{ session.id }}" style="display: inline;">
+                            <button type="submit" class="btn btn-success btn-sm">Resume</button>
+                        </form>
+                        {% endif %}
+                        <form method="POST" action="/stop/{{ session.id }}" style="display: inline;">
+                            <button type="submit" class="btn btn-danger btn-sm">Stop</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <h3>No active sessions</h3>
+        <p>Start tracking an activity to see it here.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .auto-refresh-indicator {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #1e293b;
+        padding: 10px 15px;
+        border-radius: 6px;
+        font-size: 0.875rem;
+        color: #94a3b8;
+        border: 1px solid #334155;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Auto-refresh every 5 seconds to update durations
+    let refreshInterval = null;
+    
+    function startAutoRefresh() {
+        refreshInterval = setInterval(() => {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update durations in the table
+                    const rows = document.querySelectorAll('tbody tr');
+                    data.forEach((session, index) => {
+                        if (rows[index]) {
+                            const durationCell = rows[index].querySelectorAll('td')[2];
+                            if (durationCell) {
+                                durationCell.textContent = session.duration;
+                            }
+                        }
+                    });
+                })
+                .catch(error => console.error('Error fetching status:', error));
+        }, 5000);
+    }
+    
+    // Start auto-refresh when page loads
+    if (document.querySelectorAll('tbody tr').length > 0) {
+        startAutoRefresh();
+    }
+    
+    // Clean up interval when page unloads
+    window.addEventListener('beforeunload', () => {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+    });
+</script>
+{% endblock %}

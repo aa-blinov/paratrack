@@ -65,6 +65,33 @@ uv run track stats
 | `track log` | `l` | Closed sessions for selected period with total |
 | `track stats` | — | Aggregation by activity with shares |
 
+## Web UI
+
+Better Track now includes a simple web interface as an alternative to the CLI!
+
+### Starting the Web UI
+
+```bash
+# Start the web server
+track-web
+
+# Or with Python
+python -m track.web
+
+# The UI will be available at http://127.0.0.1:8000
+```
+
+### Web UI Features
+
+- **Dashboard**: View and manage active tracking sessions
+  - Start new activities with optional notes
+  - Pause/Resume/Stop active sessions
+  - Real-time duration updates
+- **Log**: View completed sessions by period (Today, Yesterday, This Week, This Month)
+- **Stats**: Aggregated statistics with time shares by activity
+
+The web UI provides the same core functionality as the CLI in a simple, user-friendly interface.
+
 ## Development
 
 ```bash

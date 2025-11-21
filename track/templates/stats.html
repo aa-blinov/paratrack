@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Stats - Better Track{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Statistics</h2>
+    
+    <div class="filter-tabs">
+        <a href="/stats?period=today" class="{% if period == 'today' %}active{% endif %}">Today</a>
+        <a href="/stats?period=yesterday" class="{% if period == 'yesterday' %}active{% endif %}">Yesterday</a>
+        <a href="/stats?period=week" class="{% if period == 'week' %}active{% endif %}">This Week</a>
+        <a href="/stats?period=month" class="{% if period == 'month' %}active{% endif %}">This Month</a>
+    </div>
+    
+    <p style="color: #94a3b8; margin-bottom: 20px;">
+        <strong>{{ period_label }}</strong>: {{ start }} → {{ end }}
+    </p>
+    
+    {% if stats %}
+    <table>
+        <thead>
+            <tr>
+                <th>Activity</th>
+                <th>Time</th>
+                <th>Share</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for stat in stats %}
+            <tr>
+                <td><strong>{{ stat.activity }}</strong></td>
+                <td>{{ stat.duration }}</td>
+                <td>{{ stat.share }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td style="text-align: right;">Total:</td>
+                <td>{{ total }}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <h3>No data available</h3>
+        <p>No completed sessions in the selected period.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
