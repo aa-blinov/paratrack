@@ -104,14 +104,16 @@ def index():
     for session, activity in active_sessions:
         duration = calculate_session_duration(session)
         status = "Paused" if session.paused else "Active"
-        sessions_data.append({
-            "id": session.id,
-            "activity": activity.name,
-            "start_at": session.start_at.strftime("%Y-%m-%d %H:%M"),
-            "duration": format_duration_seconds(duration),
-            "status": status,
-            "note": session.note or "",
-        })
+        sessions_data.append(
+            {
+                "id": session.id,
+                "activity": activity.name,
+                "start_at": session.start_at.strftime("%Y-%m-%d %H:%M"),
+                "duration": format_duration_seconds(duration),
+                "status": status,
+                "note": session.note or "",
+            }
+        )
 
     # Get all activities for the start form
     activities = db.list_activities(archived=False)
@@ -196,17 +198,19 @@ def stats():
         if sec <= 0:
             continue
         total_seconds += sec
-        sessions_data.append({
-            "id": session.id,
-            "activity": activity.name,
-            "start_at": session.start_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "start_at_iso": session.start_at.strftime("%Y-%m-%dT%H:%M:%S"),
-            "end_at": (session.end_at or end).strftime("%Y-%m-%d %H:%M:%S"),
-            "end_at_iso": (session.end_at or end).strftime("%Y-%m-%dT%H:%M:%S"),
-            "duration": format_duration_seconds(sec),
-            "duration_seconds": sec,
-            "note": session.note or "",
-        })
+        sessions_data.append(
+            {
+                "id": session.id,
+                "activity": activity.name,
+                "start_at": session.start_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "start_at_iso": session.start_at.strftime("%Y-%m-%dT%H:%M:%S"),
+                "end_at": (session.end_at or end).strftime("%Y-%m-%d %H:%M:%S"),
+                "end_at_iso": (session.end_at or end).strftime("%Y-%m-%dT%H:%M:%S"),
+                "duration": format_duration_seconds(sec),
+                "duration_seconds": sec,
+                "note": session.note or "",
+            }
+        )
 
     return render_template(
         "stats.html",
@@ -251,8 +255,12 @@ def update_session(session_id):
 
         if start_str and end_str:
             # Parse datetime strings (remove timezone info for naive datetime)
-            start_dt = datetime.fromisoformat(start_str.replace('Z', '').replace('+00:00', ''))
-            end_dt = datetime.fromisoformat(end_str.replace('Z', '').replace('+00:00', ''))
+            start_dt = datetime.fromisoformat(
+                start_str.replace("Z", "").replace("+00:00", "")
+            )
+            end_dt = datetime.fromisoformat(
+                end_str.replace("Z", "").replace("+00:00", "")
+            )
 
             if end_dt <= start_dt:
                 return jsonify({"error": "End time must be after start time"}), 400
@@ -263,13 +271,19 @@ def update_session(session_id):
             db.update_session(session_id, **update_params)
         elif duration_str:
             # Parse and validate duration (HH:MM:SS format)
-            parts = duration_str.split(':')
+            parts = duration_str.split(":")
             if len(parts) != 3:
                 return jsonify({"error": "Duration must be in HH:MM:SS format"}), 400
 
             try:
                 hours, minutes, seconds = map(int, parts)
-                if hours < 0 or minutes < 0 or minutes >= 60 or seconds < 0 or seconds >= 60:
+                if (
+                    hours < 0
+                    or minutes < 0
+                    or minutes >= 60
+                    or seconds < 0
+                    or seconds >= 60
+                ):
                     return jsonify({"error": "Invalid time values"}), 400
 
                 new_duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
@@ -278,11 +292,13 @@ def update_session(session_id):
 
                 # Use new start time if provided, otherwise use existing
                 if start_str:
-                    base_start = datetime.fromisoformat(start_str.replace('Z', '').replace('+00:00', ''))
+                    base_start = datetime.fromisoformat(
+                        start_str.replace("Z", "").replace("+00:00", "")
+                    )
                     update_params["start_at"] = base_start
                 else:
                     base_start = session.start_at
-                    
+
                 new_end = base_start + new_duration
                 update_params["end_at"] = new_end
                 db.update_session(session_id, **update_params)
@@ -310,6 +326,7 @@ def graph():
 
     # Group sessions by day and check for overlaps
     from collections import defaultdict
+
     daily_data = defaultdict(lambda: {"activities": [], "overlaps": []})
 
     for session, activity in sessions:
@@ -322,12 +339,14 @@ def graph():
         # Get the day
         day_key = session_start.strftime("%Y-%m-%d")
 
-        daily_data[day_key]["activities"].append({
-            "name": activity.name,
-            "start": session_start,
-            "end": session_end,
-            "duration": int((session_end - session_start).total_seconds()),
-        })
+        daily_data[day_key]["activities"].append(
+            {
+                "name": activity.name,
+                "start": session_start,
+                "end": session_end,
+                "duration": int((session_end - session_start).total_seconds()),
+            }
+        )
 
     # Check for overlaps within each day
     for _day_key, data in daily_data.items():
@@ -345,12 +364,14 @@ def graph():
                     overlap_end = min(a1["end"], a2["end"])
                     overlap_seconds = int((overlap_end - overlap_start).total_seconds())
                     if overlap_seconds > 0:
-                        data["overlaps"].append({
-                            "activities": [a1["name"], a2["name"]],
-                            "start": overlap_start,
-                            "end": overlap_end,
-                            "duration": overlap_seconds,
-                        })
+                        data["overlaps"].append(
+                            {
+                                "activities": [a1["name"], a2["name"]],
+                                "start": overlap_start,
+                                "end": overlap_end,
+                                "duration": overlap_seconds,
+                            }
+                        )
         # Mark which activities have overlaps
         for i, activity in enumerate(activities):
             activity["has_overlap"] = i in overlapping_indices
@@ -360,13 +381,15 @@ def graph():
     for day_key in sorted(daily_data.keys()):
         data = daily_data[day_key]
         total_seconds = sum(a["duration"] for a in data["activities"])
-        graph_data.append({
-            "date": day_key,
-            "activities": data["activities"],
-            "overlaps": data["overlaps"],
-            "total": format_duration_seconds(total_seconds),
-            "has_overlaps": len(data["overlaps"]) > 0,
-        })
+        graph_data.append(
+            {
+                "date": day_key,
+                "activities": data["activities"],
+                "overlaps": data["overlaps"],
+                "total": format_duration_seconds(total_seconds),
+                "has_overlaps": len(data["overlaps"]) > 0,
+            }
+        )
 
     return render_template(
         "graph.html",
@@ -387,13 +410,15 @@ def api_status():
     sessions_data = []
     for session, activity in active_sessions:
         duration = calculate_session_duration(session)
-        sessions_data.append({
-            "id": session.id,
-            "activity": activity.name,
-            "duration_seconds": duration,
-            "duration": format_duration_seconds(duration),
-            "status": "Paused" if session.paused else "Active",
-        })
+        sessions_data.append(
+            {
+                "id": session.id,
+                "activity": activity.name,
+                "duration_seconds": duration,
+                "duration": format_duration_seconds(duration),
+                "status": "Paused" if session.paused else "Active",
+            }
+        )
 
     return jsonify(sessions_data)
 
@@ -411,6 +436,7 @@ def run_server(host="127.0.0.1", port=8000, debug=False):
 
 if __name__ == "__main__":
     import os
+
     # Only enable debug mode if explicitly set in environment
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     run_server(debug=debug_mode)
