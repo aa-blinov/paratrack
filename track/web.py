@@ -313,6 +313,17 @@ def update_session(session_id):
         return jsonify({"error": str(e)}), 400
 
 
+@app.route("/delete_session/<int:session_id>", methods=["POST"])
+def delete_session(session_id):
+    """Delete a session."""
+    db = get_db()
+    try:
+        db.delete_session(session_id)
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+
 @app.route("/graph")
 def graph():
     """View daily distribution graph."""
