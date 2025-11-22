@@ -21,7 +21,9 @@ class Database:
         # Convert Path to string for SQLite
         db_str = str(self.db_path) if isinstance(self.db_path, Path) else self.db_path
         # Use check_same_thread=False for web applications
-        self.conn = sqlite3.connect(db_str, isolation_level=None, check_same_thread=False)
+        self.conn = sqlite3.connect(
+            db_str, isolation_level=None, check_same_thread=False
+        )
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
 
@@ -122,14 +124,15 @@ class Database:
 
     def get_activity(self, activity_id: int) -> Activity | None:
         """Get activity by ID."""
-        cursor = self.conn.execute("SELECT * FROM activities WHERE id = ?", (activity_id,))
+        cursor = self.conn.execute(
+            "SELECT * FROM activities WHERE id = ?", (activity_id,)
+        )
         row = cursor.fetchone()
         return self._row_to_activity(row) if row else None
 
     def get_activity_by_name(self, name: str) -> Activity | None:
         """Get activity by name."""
-        cursor = self.conn.execute("SELECT * FROM activities WHERE name = ?", (name,)
-        )
+        cursor = self.conn.execute("SELECT * FROM activities WHERE name = ?", (name,))
         row = cursor.fetchone()
         return self._row_to_activity(row) if row else None
 
@@ -274,7 +277,9 @@ class Database:
             params.append(activity_id)
         cursor = self.conn.execute(
             f"""
-            SELECT s.*, a.name as activity_name
+            SELECT s.id, s.activity_id, s.start_at, s.end_at, s.note,
+                   s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
+                   s.created_at, s.updated_at, a.name as activity_name
             FROM sessions s
             JOIN activities a ON s.activity_id = a.id
             WHERE s.end_at IS NOT NULL
@@ -300,7 +305,9 @@ class Database:
     # Tags
     def create_tag(self, name: str) -> Tag:
         """Create new tag."""
-        cursor = self.conn.execute("INSERT INTO tags (name) VALUES (?) RETURNING *", (name,))
+        cursor = self.conn.execute(
+            "INSERT INTO tags (name) VALUES (?) RETURNING *", (name,)
+        )
         row = cursor.fetchone()
         return self._row_to_tag(row)
 
@@ -343,8 +350,12 @@ class Database:
             id=row["id"],
             name=row["name"],
             archived=bool(row["archived"]),
-            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
-            updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
+            created_at=(
+                datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None
+            ),
         )
 
     def _row_to_session(self, row: sqlite3.Row) -> Session:
@@ -364,9 +375,15 @@ class Database:
             paused=bool(paused_val),
             paused_at=datetime.fromisoformat(paused_at_val) if paused_at_val else None,
             accumulated_seconds=int(acc_val or 0),
-            last_resume_at=datetime.fromisoformat(last_resume_val) if last_resume_val else None,
-            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
-            updated_at=datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None,
+            last_resume_at=(
+                datetime.fromisoformat(last_resume_val) if last_resume_val else None
+            ),
+            created_at=(
+                datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
+            ),
+            updated_at=(
+                datetime.fromisoformat(row["updated_at"]) if row["updated_at"] else None
+            ),
         )
 
     # Pause/Resume operations
@@ -406,7 +423,9 @@ class Database:
         return Tag(
             id=row["id"],
             name=row["name"],
-            created_at=datetime.fromisoformat(row["created_at"]) if row["created_at"] else None,
+            created_at=(
+                datetime.fromisoformat(row["created_at"]) if row["created_at"] else None
+            ),
         )
 
 
