@@ -101,12 +101,6 @@ block content %}
           >
             Cancel
           </button>
-          <button
-            class="btn btn-sm btn-danger delete-btn"
-            onclick="deleteSession('{{ session.id }}')"
-          >
-            Delete
-          </button>
         </td>
       </tr>
       {% endfor %}
@@ -123,22 +117,7 @@ block content %}
     <p>No completed sessions in the selected period.</p>
   </div>
   {% endif %}
-</div>
 
-<div id="delete-modal" class="modal-brutal" style="display: none">
-  <div class="modal-content-brutal">
-    <h3>Delete Session</h3>
-    <p>
-      Are you sure you want to delete this session?<br /><b
-        >This action cannot be undone.</b
-      >
-    </p>
-    <div class="modal-actions-brutal">
-      <button id="confirm-delete-btn" class="btn btn-danger">Delete</button>
-      <button id="cancel-delete-btn" class="btn btn-warning">Cancel</button>
-    </div>
-  </div>
-</div>
 {% endblock %} {% block extra_head %}
 <style>
   .editable-cell {
@@ -161,43 +140,7 @@ block content %}
   textarea.edit-input {
     min-height: 60px;
   }
-  .modal-brutal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(26, 26, 26, 0.85);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .modal-content-brutal {
-    background: #0a0a0a;
-    border: 4px solid #ffd93d;
-    box-shadow: 8px 8px 0 #ffd93d;
-    padding: 32px 40px;
-    color: #ffd93d;
-    text-align: center;
-    font-family: inherit;
-    font-size: 1.1rem;
-    border-radius: 0;
-    min-width: 320px;
-  }
-  .modal-content-brutal h3 {
-    color: #ff6b6b;
-    font-size: 1.3rem;
-    font-weight: 900;
-    margin-bottom: 16px;
-    text-transform: uppercase;
-  }
-  .modal-actions-brutal {
-    margin-top: 24px;
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-  }
+
 </style>
 {% endblock %} {% block extra_scripts %}
 <script>
@@ -247,38 +190,6 @@ block content %}
     row.querySelector(".cancel-btn").style.display = "none";
 
     delete originalValues[sessionId];
-  }
-
-  let deleteSessionId = null;
-  function showDeleteModal(sessionId) {
-    deleteSessionId = sessionId;
-    document.getElementById("delete-modal").style.display = "flex";
-  }
-  document.getElementById("cancel-delete-btn").onclick = function () {
-    document.getElementById("delete-modal").style.display = "none";
-    deleteSessionId = null;
-  };
-  document.getElementById("confirm-delete-btn").onclick = function () {
-    if (!deleteSessionId) return;
-    fetch(`/delete_session/${deleteSessionId}`, {
-      method: "POST",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          window.location.reload();
-        } else {
-          alert("Error deleting session: " + (data.error || "Unknown error"));
-        }
-      })
-      .catch((error) => {
-        alert("Error deleting session: " + error);
-      });
-    document.getElementById("delete-modal").style.display = "none";
-    deleteSessionId = null;
-  };
-  function deleteSession(sessionId) {
-    showDeleteModal(sessionId);
   }
   function saveSession(sessionId) {
     const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
