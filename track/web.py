@@ -241,8 +241,14 @@ def update_session(session_id):
     start_str = request.form.get("start_at")
     end_str = request.form.get("end_at")
     duration_str = request.form.get("duration")
+    note = request.form.get("note")
 
     try:
+        # Update note if provided
+        update_params = {}
+        if note is not None:
+            update_params["note"] = note if note.strip() else None
+
         if start_str and end_str:
             # Parse datetime strings (remove timezone info for naive datetime)
             start_dt = datetime.fromisoformat(start_str.replace('Z', '').replace('+00:00', ''))
@@ -252,7 +258,9 @@ def update_session(session_id):
                 return jsonify({"error": "End time must be after start time"}), 400
 
             # Update session
-            db.update_session(session_id, start_at=start_dt, end_at=end_dt)
+            update_params["start_at"] = start_dt
+            update_params["end_at"] = end_dt
+            db.update_session(session_id, **update_params)
         elif duration_str:
             # Parse and validate duration (HH:MM:SS format)
             parts = duration_str.split(':')
@@ -269,9 +277,13 @@ def update_session(session_id):
                     return jsonify({"error": "Duration must be greater than zero"}), 400
 
                 new_end = session.start_at + new_duration
-                db.update_session(session_id, end_at=new_end)
+                update_params["end_at"] = new_end
+                db.update_session(session_id, **update_params)
             except ValueError:
                 return jsonify({"error": "Duration must contain only numbers"}), 400
+        elif update_params:
+            # Only updating note
+            db.update_session(session_id, **update_params)
 
         return jsonify({"success": True})
     except Exception as e:
@@ -313,11 +325,15 @@ def graph():
     # Check for overlaps within each day
     for _day_key, data in daily_data.items():
         activities = sorted(data["activities"], key=lambda x: x["start"])
+        # Mark activities that have overlaps
+        overlapping_indices = set()
         for i in range(len(activities)):
             for j in range(i + 1, len(activities)):
                 a1, a2 = activities[i], activities[j]
                 # Check if they truly overlap: a1 must end after a2 starts AND a1 must start before a2 ends
                 if a1["end"] > a2["start"] and a1["start"] < a2["end"]:
+                    overlapping_indices.add(i)
+                    overlapping_indices.add(j)
                     overlap_start = max(a1["start"], a2["start"])
                     overlap_end = min(a1["end"], a2["end"])
                     overlap_seconds = int((overlap_end - overlap_start).total_seconds())
@@ -328,6 +344,9 @@ def graph():
                             "end": overlap_end,
                             "duration": overlap_seconds,
                         })
+        # Mark which activities have overlaps
+        for i, activity in enumerate(activities):
+            activity["has_overlap"] = i in overlapping_indices
 
     # Prepare data for template
     graph_data = []

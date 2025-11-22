@@ -8,12 +8,13 @@
     <form method="POST" action="/start" class="form-inline">
         <div class="form-group" style="flex: 2;">
             <label for="activity">Activity</label>
-            <input type="text" id="activity" name="activity" placeholder="Enter activity name" required list="activities">
-            <datalist id="activities">
+            <select id="activity-select" name="activity" class="activity-select">
+                <option value="">-- Select or type new --</option>
                 {% for activity in activities %}
-                <option value="{{ activity.name }}">
+                <option value="{{ activity.name }}">{{ activity.name }}</option>
                 {% endfor %}
-            </datalist>
+            </select>
+            <input type="text" id="activity" name="activity" placeholder="Or type new activity" style="display: none;">
         </div>
         <div class="form-group" style="flex: 3;">
             <label for="note">Note (optional)</label>
@@ -89,11 +90,43 @@
         color: #94a3b8;
         border: 1px solid #334155;
     }
+    
+    .activity-select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: #0f172a;
+        color: #e2e8f0;
+        font-size: 1rem;
+    }
+    
+    .activity-select:focus {
+        outline: none;
+        border-color: #22d3ee;
+    }
 </style>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+    // Handle activity selection - switch between dropdown and text input
+    const activitySelect = document.getElementById('activity-select');
+    const activityInput = document.getElementById('activity');
+    
+    activitySelect.addEventListener('change', function() {
+        if (this.value === '') {
+            // Show text input for new activity
+            this.style.display = 'none';
+            activityInput.style.display = 'block';
+            activityInput.focus();
+            activityInput.required = true;
+        } else {
+            // Use selected activity
+            activityInput.value = this.value;
+        }
+    });
+    
     // Auto-refresh every second to update durations
     let refreshInterval = null;
     

@@ -45,7 +45,10 @@
                     <span class="display-value">{{ session.duration }}</span>
                     <input type="text" class="edit-input" value="{{ session.duration }}" pattern="[0-9]{2}:[0-9]{2}:[0-9]{2}" style="display: none;">
                 </td>
-                <td>{{ session.note }}</td>
+                <td class="editable-cell" data-field="note">
+                    <span class="display-value">{{ session.note }}</span>
+                    <input type="text" class="edit-input" value="{{ session.note }}" style="display: none;">
+                </td>
                 <td>
                     <button class="btn btn-sm btn-primary edit-btn" onclick="editSession({{ session.id }})">Edit</button>
                     <button class="btn btn-sm btn-success save-btn" onclick="saveSession({{ session.id }})" style="display: none;">Save</button>
@@ -140,6 +143,7 @@ function saveSession(sessionId) {
     const startInput = row.querySelector('[data-field="start"] .edit-input');
     const endInput = row.querySelector('[data-field="end"] .edit-input');
     const durationInput = row.querySelector('[data-field="duration"] .edit-input');
+    const noteInput = row.querySelector('[data-field="note"] .edit-input');
     
     // Determine what changed
     const formData = new FormData();
@@ -161,6 +165,9 @@ function saveSession(sessionId) {
         formData.append('start_at', new Date(startInput.value).toISOString());
         formData.append('end_at', new Date(endInput.value).toISOString());
     }
+    
+    // Add note
+    formData.append('note', noteInput.value);
     
     fetch(`/update_session/${sessionId}`, {
         method: 'POST',

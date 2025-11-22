@@ -25,40 +25,38 @@
                 {{ day.date }}
                 <span class="day-total">Total: {{ day.total }}</span>
                 {% if day.has_overlaps %}
-                <span class="overlap-badge">⚠️ Has Overlaps</span>
+                <span class="overlap-badge">Has Overlaps</span>
                 {% endif %}
             </h3>
             
-            <div class="timeline">
-                {% for activity in day.activities %}
-                <div class="timeline-item">
-                    <span class="activity-name">{{ activity.name }}</span>
-                    <span class="activity-time">
-                        {{ activity.start.strftime('%H:%M') }} - {{ activity.end.strftime('%H:%M') }}
-                    </span>
-                    <div class="activity-bar" style="width: {{ (activity.duration / 86400 * 100) }}%">
-                        <span class="activity-duration">
-                            {{ '%02d' % (activity.duration // 3600) }}:{{ '%02d' % ((activity.duration % 3600) // 60) }}:{{ '%02d' % (activity.duration % 60) }}
-                        </span>
+            <div class="timeline-container">
+                <!-- Time axis labels -->
+                <div class="time-axis">
+                    <span class="time-label">00:00</span>
+                    <span class="time-label">06:00</span>
+                    <span class="time-label">12:00</span>
+                    <span class="time-label">18:00</span>
+                    <span class="time-label">24:00</span>
+                </div>
+                
+                <!-- Activity rows -->
+                <div class="activity-rows">
+                    {% for activity in day.activities %}
+                    <div class="activity-row">
+                        <div class="activity-label">{{ activity.name }}</div>
+                        <div class="timeline-track">
+                            {% set start_percent = (activity.start.hour * 60 + activity.start.minute) / 1440 * 100 %}
+                            {% set duration_percent = activity.duration / 86400 * 100 %}
+                            <div class="activity-segment {% if activity.has_overlap %}overlap-highlight{% endif %}" 
+                                 style="left: {{ start_percent }}%; width: {{ duration_percent }}%;"
+                                 title="{{ activity.name }}: {{ activity.start.strftime('%H:%M') }} - {{ activity.end.strftime('%H:%M') }}">
+                                <span class="segment-time">{{ activity.start.strftime('%H:%M') }} - {{ activity.end.strftime('%H:%M') }}</span>
+                            </div>
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
-            
-            {% if day.overlaps %}
-            <div class="overlaps-section">
-                <h4 class="overlap-header">⚠️ Overlapping Sessions:</h4>
-                {% for overlap in day.overlaps %}
-                <div class="overlap-item">
-                    <span class="overlap-activities">{{ overlap.activities | join(' ↔ ') }}</span>
-                    <span class="overlap-time">
-                        {{ overlap.start.strftime('%H:%M') }} - {{ overlap.end.strftime('%H:%M') }}
-                        ({{ '%02d' % (overlap.duration // 3600) }}:{{ '%02d' % ((overlap.duration % 3600) // 60) }}:{{ '%02d' % (overlap.duration % 60) }} overlap)
-                    </span>
-                </div>
-                {% endfor %}
-            </div>
-            {% endif %}
         </div>
         {% endfor %}
     </div>
@@ -110,79 +108,91 @@
         font-weight: 600;
     }
     
-    .timeline {
+    .timeline-container {
+        margin-top: 20px;
+    }
+    
+    .time-axis {
         display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-bottom: 20px;
-    }
-    
-    .timeline-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-    
-    .activity-name {
-        min-width: 150px;
-        color: #e2e8f0;
-        font-weight: 600;
-    }
-    
-    .activity-time {
-        min-width: 120px;
-        color: #94a3b8;
-        font-size: 0.875rem;
-    }
-    
-    .activity-bar {
-        flex: 1;
-        background: linear-gradient(90deg, #22d3ee, #06b6d4);
-        height: 32px;
-        border-radius: 6px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 80px;
-    }
-    
-    .activity-duration {
-        color: #0f172a;
-        font-weight: 600;
-        font-size: 0.875rem;
-    }
-    
-    .overlaps-section {
-        border-top: 2px solid #334155;
-        padding-top: 15px;
-        margin-top: 15px;
-    }
-    
-    .overlap-header {
-        color: #ef4444;
-        font-size: 1rem;
+        justify-content: space-between;
+        padding: 0 150px 10px 150px;
+        border-bottom: 2px solid #334155;
         margin-bottom: 10px;
     }
     
-    .overlap-item {
-        background: #7f1d1d;
-        border: 1px solid #ef4444;
-        padding: 10px 15px;
-        border-radius: 6px;
-        margin-bottom: 8px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-    }
-    
-    .overlap-activities {
-        color: #fca5a5;
+    .time-label {
+        color: #64748b;
+        font-size: 0.75rem;
         font-weight: 600;
     }
     
-    .overlap-time {
-        color: #fca5a5;
+    .activity-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .activity-row {
+        display: flex;
+        align-items: center;
+        min-height: 40px;
+    }
+    
+    .activity-label {
+        width: 140px;
+        color: #e2e8f0;
+        font-weight: 600;
         font-size: 0.875rem;
+        padding-right: 10px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+    
+    .timeline-track {
+        flex: 1;
+        position: relative;
+        height: 36px;
+        background: #1e293b;
+        border-radius: 4px;
+        border: 1px solid #334155;
+    }
+    
+    .activity-segment {
+        position: absolute;
+        height: 100%;
+        background: linear-gradient(90deg, #22d3ee, #06b6d4);
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        border: 1px solid #06b6d4;
+    }
+    
+    .activity-segment:hover {
+        transform: scaleY(1.1);
+        z-index: 10;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    }
+    
+    .activity-segment.overlap-highlight {
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+        border: 2px solid #ef4444;
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+    }
+    
+    .segment-time {
+        color: #0f172a;
+        font-weight: 600;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding: 0 8px;
+    }
+    
+    .activity-segment.overlap-highlight .segment-time {
+        color: white;
     }
 </style>
 {% endblock %}
