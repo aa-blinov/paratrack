@@ -101,6 +101,12 @@ block content %}
           >
             Cancel
           </button>
+          <button
+            class="btn btn-sm btn-danger delete-btn"
+            onclick="deleteSession({{ session.id }})"
+          >
+            Delete
+          </button>
         </td>
       </tr>
       {% endfor %}
@@ -191,6 +197,31 @@ block content %}
     delete originalValues[sessionId];
   }
 
+  function deleteSession(sessionId) {
+    if (
+      !confirm(
+        "Are you sure you want to delete this session? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    fetch(`/delete_session/${sessionId}`, {
+      method: "POST",
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        if (data.success) {
+          // Reload the page to show updated data
+          window.location.reload();
+        } else {
+          alert("Error deleting session: " + (data.error || "Unknown error"));
+        }
+      })
+      .catch((error) => {
+        alert("Error deleting session: " + error);
+      });
+  }
   function saveSession(sessionId) {
     const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
     const startInput = row.querySelector('[data-field="start"] .edit-input');
