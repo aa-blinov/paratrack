@@ -47,7 +47,7 @@
                 </td>
                 <td class="editable-cell" data-field="note">
                     <span class="display-value">{{ session.note }}</span>
-                    <input type="text" class="edit-input" value="{{ session.note }}" style="display: none;">
+                    <textarea class="edit-input" rows="2" style="display: none;">{{ session.note }}</textarea>
                 </td>
                 <td>
                     <button class="btn btn-sm btn-primary edit-btn" onclick="editSession({{ session.id }})">Edit</button>
@@ -79,11 +79,20 @@
     }
     .edit-input {
         width: 100%;
-        padding: 4px;
-        background: #0f172a;
-        color: #e2e8f0;
-        border: 1px solid #22d3ee;
-        border-radius: 4px;
+        padding: 8px;
+        background: #2a2a2a;
+        color: #fff;
+        border: 3px solid #6C5CE7;
+        font-size: 0.875rem;
+        font-family: inherit;
+        resize: vertical;
+    }
+    .edit-input:focus {
+        outline: none;
+        border-color: #FFD93D;
+    }
+    textarea.edit-input {
+        min-height: 60px;
     }
 </style>
 {% endblock %}
@@ -148,26 +157,35 @@ function saveSession(sessionId) {
     // Determine what changed
     const formData = new FormData();
     
-    // Check if duration was changed
+    // Check if fields were changed
     const durationChanged = durationInput.value !== originalValues[sessionId]['duration'];
+    const startChanged = startInput.value !== originalValues[sessionId]['start'];
+    const endChanged = endInput.value !== originalValues[sessionId]['end'];
+    const noteChanged = noteInput.value !== originalValues[sessionId]['note'];
     
     if (durationChanged) {
-        // If duration changed, recalculate end based on start + duration
-        const start = new Date(startInput.value);
-        const [hours, minutes, seconds] = durationInput.value.split(':').map(Number);
-        const durationSeconds = hours * 3600 + minutes * 60 + seconds;
-        const end = new Date(start.getTime() + durationSeconds * 1000);
-        
-        formData.append('start_at', start.toISOString());
-        formData.append('end_at', end.toISOString());
-    } else {
-        // Otherwise use the entered start and end times
+        // If duration changed, send duration (server will calculate end from current start)
+        // If start also changed, we need to update start first
+        if (startChanged) {
+            formData.append('start_at', new Date(startInput.value).toISOString());
+        }
+        formData.append('duration', durationInput.value);
+    } else if (startChanged || endChanged) {
+        // If start or end changed (but not duration), send both
         formData.append('start_at', new Date(startInput.value).toISOString());
         formData.append('end_at', new Date(endInput.value).toISOString());
     }
     
-    // Add note
-    formData.append('note', noteInput.value);
+    // Always add note if changed
+    if (noteChanged) {
+        formData.append('note', noteInput.value);
+    }
+    
+    // If nothing changed, just cancel
+    if (!durationChanged && !startChanged && !endChanged && !noteChanged) {
+        cancelEdit(sessionId);
+        return;
+    }
     
     fetch(`/update_session/${sessionId}`, {
         method: 'POST',
