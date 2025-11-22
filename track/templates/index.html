@@ -8,13 +8,13 @@
     <form method="POST" action="/start" class="form-inline">
         <div class="form-group" style="flex: 2;">
             <label for="activity">Activity</label>
-            <select id="activity-select" name="activity" class="activity-select">
+            <select id="activity-select" name="activity-select" class="activity-select">
                 <option value="">-- Select or type new --</option>
                 {% for activity in activities %}
                 <option value="{{ activity.name }}">{{ activity.name }}</option>
                 {% endfor %}
             </select>
-            <input type="text" id="activity" name="activity" placeholder="Or type new activity" style="display: none;">
+            <input type="text" id="activity" name="activity" placeholder="Or type new activity" style="display: none;" required>
         </div>
         <div class="form-group" style="flex: 3;">
             <label for="note">Note (optional)</label>
@@ -118,12 +118,15 @@
         if (this.value === '') {
             // Show text input for new activity
             this.style.display = 'none';
+            this.removeAttribute('name'); // Don't submit dropdown value
             activityInput.style.display = 'block';
+            activityInput.setAttribute('name', 'activity'); // Submit input value
             activityInput.focus();
-            activityInput.required = true;
         } else {
-            // Use selected activity
+            // Use selected activity - set input value and prepare for submission
             activityInput.value = this.value;
+            // Submit the dropdown value
+            this.setAttribute('name', 'activity');
         }
     });
     
