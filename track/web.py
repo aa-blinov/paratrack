@@ -223,42 +223,56 @@ def stats():
 def update_session(session_id):
     """Update session start, end, or duration."""
     db = get_db()
-    
-    # Get the session
+
+    # Get the specific session efficiently
     sessions = db.get_closed_sessions_overlapping(
         datetime(2000, 1, 1), datetime.now() + timedelta(days=1), None
     )
     session = None
-    for s, a in sessions:
+    for s, _a in sessions:
         if s.id == session_id:
             session = s
             break
-    
+
     if not session:
         return jsonify({"error": "Session not found"}), 404
-    
+
     # Get form data
     start_str = request.form.get("start_at")
     end_str = request.form.get("end_at")
     duration_str = request.form.get("duration")
-    
+
     try:
         if start_str and end_str:
-            # Parse datetime strings
-            start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
-            end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
-            
+            # Parse datetime strings (remove timezone info for naive datetime)
+            start_dt = datetime.fromisoformat(start_str.replace('Z', '').replace('+00:00', ''))
+            end_dt = datetime.fromisoformat(end_str.replace('Z', '').replace('+00:00', ''))
+
+            if end_dt <= start_dt:
+                return jsonify({"error": "End time must be after start time"}), 400
+
             # Update session
             db.update_session(session_id, start_at=start_dt, end_at=end_dt)
         elif duration_str:
-            # Parse duration (HH:MM:SS format)
+            # Parse and validate duration (HH:MM:SS format)
             parts = duration_str.split(':')
-            if len(parts) == 3:
+            if len(parts) != 3:
+                return jsonify({"error": "Duration must be in HH:MM:SS format"}), 400
+
+            try:
                 hours, minutes, seconds = map(int, parts)
+                if hours < 0 or minutes < 0 or minutes >= 60 or seconds < 0 or seconds >= 60:
+                    return jsonify({"error": "Invalid time values"}), 400
+
                 new_duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                if new_duration.total_seconds() == 0:
+                    return jsonify({"error": "Duration must be greater than zero"}), 400
+
                 new_end = session.start_at + new_duration
                 db.update_session(session_id, end_at=new_end)
-        
+            except ValueError:
+                return jsonify({"error": "Duration must contain only numbers"}), 400
+
         return jsonify({"success": True})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
@@ -268,43 +282,43 @@ def update_session(session_id):
 def graph():
     """View daily distribution graph."""
     db = get_db()
-    
+
     # Default to this week
     period = request.args.get("period", "week")
     start, end, period_label = get_period_range(period)
-    
+
     sessions = db.get_closed_sessions_overlapping(start, end, None)
-    
+
     # Group sessions by day and check for overlaps
     from collections import defaultdict
     daily_data = defaultdict(lambda: {"activities": [], "overlaps": []})
-    
+
     for session, activity in sessions:
         if not session.end_at:
             continue
-            
+
         session_start = max(session.start_at, start)
         session_end = min(session.end_at, end)
-        
+
         # Get the day
         day_key = session_start.strftime("%Y-%m-%d")
-        
+
         daily_data[day_key]["activities"].append({
             "name": activity.name,
             "start": session_start,
             "end": session_end,
             "duration": int((session_end - session_start).total_seconds()),
         })
-    
+
     # Check for overlaps within each day
-    for day_key, data in daily_data.items():
+    for _day_key, data in daily_data.items():
         activities = sorted(data["activities"], key=lambda x: x["start"])
         for i in range(len(activities)):
             for j in range(i + 1, len(activities)):
                 a1, a2 = activities[i], activities[j]
-                # Check if they overlap
-                if a1["end"] > a2["start"]:
-                    overlap_start = a2["start"]
+                # Check if they truly overlap: a1 must end after a2 starts AND a1 must start before a2 ends
+                if a1["end"] > a2["start"] and a1["start"] < a2["end"]:
+                    overlap_start = max(a1["start"], a2["start"])
                     overlap_end = min(a1["end"], a2["end"])
                     overlap_seconds = int((overlap_end - overlap_start).total_seconds())
                     if overlap_seconds > 0:
@@ -314,7 +328,7 @@ def graph():
                             "end": overlap_end,
                             "duration": overlap_seconds,
                         })
-    
+
     # Prepare data for template
     graph_data = []
     for day_key in sorted(daily_data.keys()):
@@ -327,7 +341,7 @@ def graph():
             "total": format_duration_seconds(total_seconds),
             "has_overlaps": len(data["overlaps"]) > 0,
         })
-    
+
     return render_template(
         "graph.html",
         graph_data=graph_data,
