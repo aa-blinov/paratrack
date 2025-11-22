@@ -116,143 +116,141 @@ block content %}
     <h3>No data available</h3>
     <p>No completed sessions in the selected period.</p>
   </div>
-  {% endif %}
-
-{% endblock %} {% block extra_head %}
-<style>
-  .editable-cell {
-    cursor: pointer;
-  }
-  .edit-input {
-    width: 100%;
-    padding: 8px;
-    background: #2a2a2a;
-    color: #fff;
-    border: 3px solid #6c5ce7;
-    font-size: 0.875rem;
-    font-family: inherit;
-    resize: vertical;
-  }
-  .edit-input:focus {
-    outline: none;
-    border-color: #ffd93d;
-  }
-  textarea.edit-input {
-    min-height: 60px;
-  }
-
-</style>
-{% endblock %} {% block extra_scripts %}
-<script>
-  let originalValues = {};
-
-  function editSession(sessionId) {
-    const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
-    const editableCells = row.querySelectorAll(".editable-cell");
-
-    // Store original values
-    originalValues[sessionId] = {};
-    editableCells.forEach((cell) => {
-      const field = cell.dataset.field;
-      const displayValue = cell.querySelector(".display-value");
-      const editInput = cell.querySelector(".edit-input");
-
-      originalValues[sessionId][field] = editInput.value;
-
-      // Hide display, show input
-      displayValue.style.display = "none";
-      editInput.style.display = "block";
-    });
-
-    // Toggle buttons
-    row.querySelector(".edit-btn").style.display = "none";
-    row.querySelector(".save-btn").style.display = "inline-block";
-    row.querySelector(".cancel-btn").style.display = "inline-block";
-  }
-
-  function cancelEdit(sessionId) {
-    const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
-    const editableCells = row.querySelectorAll(".editable-cell");
-
-    // Restore original values
-    editableCells.forEach((cell) => {
-      const displayValue = cell.querySelector(".display-value");
-      const editInput = cell.querySelector(".edit-input");
-
-      // Show display, hide input
-      displayValue.style.display = "inline";
-      editInput.style.display = "none";
-    });
-
-    // Toggle buttons
-    row.querySelector(".edit-btn").style.display = "inline-block";
-    row.querySelector(".save-btn").style.display = "none";
-    row.querySelector(".cancel-btn").style.display = "none";
-
-    delete originalValues[sessionId];
-  }
-  function saveSession(sessionId) {
-    const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
-    const startInput = row.querySelector('[data-field="start"] .edit-input');
-    const endInput = row.querySelector('[data-field="end"] .edit-input');
-    const durationInput = row.querySelector(
-      '[data-field="duration"] .edit-input'
-    );
-    const noteInput = row.querySelector('[data-field="note"] .edit-input');
-
-    // Determine what changed
-    const formData = new FormData();
-
-    // Check if fields were changed
-    const durationChanged =
-      durationInput.value !== originalValues[sessionId]["duration"];
-    const startChanged =
-      startInput.value !== originalValues[sessionId]["start"];
-    const endChanged = endInput.value !== originalValues[sessionId]["end"];
-    const noteChanged = noteInput.value !== originalValues[sessionId]["note"];
-
-    if (durationChanged) {
-      // If duration changed, send duration (server will calculate end from current start)
-      // If start also changed, we need to update start first
-      if (startChanged) {
-        formData.append("start_at", new Date(startInput.value).toISOString());
-      }
-      formData.append("duration", durationInput.value);
-    } else if (startChanged || endChanged) {
-      // If start or end changed (but not duration), send both
-      formData.append("start_at", new Date(startInput.value).toISOString());
-      formData.append("end_at", new Date(endInput.value).toISOString());
+  {% endif %} {% endblock %} {% block extra_head %}
+  <style>
+    .editable-cell {
+      cursor: pointer;
     }
-
-    // Always add note if changed
-    if (noteChanged) {
-      formData.append("note", noteInput.value);
+    .edit-input {
+      width: 100%;
+      padding: 8px;
+      background: #2a2a2a;
+      color: #fff;
+      border: 3px solid #6c5ce7;
+      font-size: 0.875rem;
+      font-family: inherit;
+      resize: vertical;
     }
-
-    // If nothing changed, just cancel
-    if (!durationChanged && !startChanged && !endChanged && !noteChanged) {
-      cancelEdit(sessionId);
-      return;
+    .edit-input:focus {
+      outline: none;
+      border-color: #ffd93d;
     }
+    textarea.edit-input {
+      min-height: 60px;
+    }
+  </style>
+  {% endblock %} {% block extra_scripts %}
+  <script>
+    let originalValues = {};
 
-    fetch(`/update_session/${sessionId}`, {
-      method: "POST",
-      body: formData,
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          // Reload the page to show updated data
-          window.location.reload();
-        } else {
-          alert("Error updating session: " + (data.error || "Unknown error"));
-          cancelEdit(sessionId);
-        }
-      })
-      .catch((error) => {
-        alert("Error updating session: " + error);
-        cancelEdit(sessionId);
+    function editSession(sessionId) {
+      const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
+      const editableCells = row.querySelectorAll(".editable-cell");
+
+      // Store original values
+      originalValues[sessionId] = {};
+      editableCells.forEach((cell) => {
+        const field = cell.dataset.field;
+        const displayValue = cell.querySelector(".display-value");
+        const editInput = cell.querySelector(".edit-input");
+
+        originalValues[sessionId][field] = editInput.value;
+
+        // Hide display, show input
+        displayValue.style.display = "none";
+        editInput.style.display = "block";
       });
-  }
-</script>
-{% endblock %}
+
+      // Toggle buttons
+      row.querySelector(".edit-btn").style.display = "none";
+      row.querySelector(".save-btn").style.display = "inline-block";
+      row.querySelector(".cancel-btn").style.display = "inline-block";
+    }
+
+    function cancelEdit(sessionId) {
+      const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
+      const editableCells = row.querySelectorAll(".editable-cell");
+
+      // Restore original values
+      editableCells.forEach((cell) => {
+        const displayValue = cell.querySelector(".display-value");
+        const editInput = cell.querySelector(".edit-input");
+
+        // Show display, hide input
+        displayValue.style.display = "inline";
+        editInput.style.display = "none";
+      });
+
+      // Toggle buttons
+      row.querySelector(".edit-btn").style.display = "inline-block";
+      row.querySelector(".save-btn").style.display = "none";
+      row.querySelector(".cancel-btn").style.display = "none";
+
+      delete originalValues[sessionId];
+    }
+    function saveSession(sessionId) {
+      const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
+      const startInput = row.querySelector('[data-field="start"] .edit-input');
+      const endInput = row.querySelector('[data-field="end"] .edit-input');
+      const durationInput = row.querySelector(
+        '[data-field="duration"] .edit-input'
+      );
+      const noteInput = row.querySelector('[data-field="note"] .edit-input');
+
+      // Determine what changed
+      const formData = new FormData();
+
+      // Check if fields were changed
+      const durationChanged =
+        durationInput.value !== originalValues[sessionId]["duration"];
+      const startChanged =
+        startInput.value !== originalValues[sessionId]["start"];
+      const endChanged = endInput.value !== originalValues[sessionId]["end"];
+      const noteChanged = noteInput.value !== originalValues[sessionId]["note"];
+
+      if (durationChanged) {
+        // If duration changed, send duration (server will calculate end from current start)
+        // If start also changed, we need to update start first
+        if (startChanged) {
+          formData.append("start_at", new Date(startInput.value).toISOString());
+        }
+        formData.append("duration", durationInput.value);
+      } else if (startChanged || endChanged) {
+        // If start or end changed (but not duration), send both
+        formData.append("start_at", new Date(startInput.value).toISOString());
+        formData.append("end_at", new Date(endInput.value).toISOString());
+      }
+
+      // Always add note if changed
+      if (noteChanged) {
+        formData.append("note", noteInput.value);
+      }
+
+      // If nothing changed, just cancel
+      if (!durationChanged && !startChanged && !endChanged && !noteChanged) {
+        cancelEdit(sessionId);
+        return;
+      }
+
+      fetch(`/update_session/${sessionId}`, {
+        method: "POST",
+        body: formData,
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.success) {
+            // Reload the page to show updated data
+            window.location.reload();
+          } else {
+            alert("Error updating session: " + (data.error || "Unknown error"));
+            cancelEdit(sessionId);
+          }
+        })
+        .catch((error) => {
+          alert("Error updating session: " + error);
+          cancelEdit(sessionId);
+        });
+    }
+  </script>
+  {% endblock %}
+</div>
