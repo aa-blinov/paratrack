@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Log - Better Track{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Session Log</h2>
+    
+    <div class="filter-tabs">
+        <a href="/log?period=today" class="{% if period == 'today' %}active{% endif %}">Today</a>
+        <a href="/log?period=yesterday" class="{% if period == 'yesterday' %}active{% endif %}">Yesterday</a>
+        <a href="/log?period=week" class="{% if period == 'week' %}active{% endif %}">This Week</a>
+        <a href="/log?period=month" class="{% if period == 'month' %}active{% endif %}">This Month</a>
+    </div>
+    
+    <p style="color: #94a3b8; margin-bottom: 20px;">
+        <strong>{{ period_label }}</strong>: {{ start }} → {{ end }}
+    </p>
+    
+    {% if sessions %}
+    <table>
+        <thead>
+            <tr>
+                <th>Activity</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Duration</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for session in sessions %}
+            <tr>
+                <td><strong>{{ session.activity }}</strong></td>
+                <td>{{ session.start_at }}</td>
+                <td>{{ session.end_at }}</td>
+                <td>{{ session.duration }}</td>
+                <td>{{ session.note }}</td>
+            </tr>
+            {% endfor %}
+            <tr class="total-row">
+                <td colspan="3" style="text-align: right;">Total:</td>
+                <td>{{ total }}</td>
+                <td></td>
+            </tr>
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+        <h3>No sessions found</h3>
+        <p>No completed sessions in the selected period.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

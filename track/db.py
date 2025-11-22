@@ -20,7 +20,8 @@ class Database:
         """Initialize database schema."""
         # Convert Path to string for SQLite
         db_str = str(self.db_path) if isinstance(self.db_path, Path) else self.db_path
-        self.conn = sqlite3.connect(db_str, isolation_level=None)  # autocommit mode
+        # Use check_same_thread=False for web applications
+        self.conn = sqlite3.connect(db_str, isolation_level=None, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
 

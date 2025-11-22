@@ -3,6 +3,8 @@
 import sys
 from datetime import datetime, timedelta
 
+import dateparser
+import questionary
 import typer
 from rich.console import Console
 from rich.table import Table
@@ -13,11 +15,9 @@ from track.interactive import (
     display_active_sessions,
     input_text,
     select_activity,
-    select_sessions_to_stop,
     select_period,
+    select_sessions_to_stop,
 )
-import dateparser
-import questionary
 
 app = typer.Typer(
     name="track",
