@@ -17,27 +17,46 @@
         <strong>{{ period_label }}</strong>: {{ start }} → {{ end }}
     </p>
     
-    {% if stats %}
+    {% if sessions %}
     <table>
         <thead>
             <tr>
                 <th>Activity</th>
-                <th>Time</th>
-                <th>Share</th>
+                <th>Start</th>
+                <th>End</th>
+                <th>Duration</th>
+                <th>Note</th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            {% for stat in stats %}
-            <tr>
-                <td><strong>{{ stat.activity }}</strong></td>
-                <td>{{ stat.duration }}</td>
-                <td>{{ stat.share }}</td>
+            {% for session in sessions %}
+            <tr data-session-id="{{ session.id }}">
+                <td><strong>{{ session.activity }}</strong></td>
+                <td class="editable-cell" data-field="start">
+                    <span class="display-value">{{ session.start_at }}</span>
+                    <input type="datetime-local" class="edit-input" value="{{ session.start_at_iso }}" style="display: none;">
+                </td>
+                <td class="editable-cell" data-field="end">
+                    <span class="display-value">{{ session.end_at }}</span>
+                    <input type="datetime-local" class="edit-input" value="{{ session.end_at_iso }}" style="display: none;">
+                </td>
+                <td class="editable-cell" data-field="duration">
+                    <span class="display-value">{{ session.duration }}</span>
+                    <input type="text" class="edit-input" value="{{ session.duration }}" pattern="[0-9]{2}:[0-9]{2}:[0-9]{2}" style="display: none;">
+                </td>
+                <td>{{ session.note }}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary edit-btn" onclick="editSession({{ session.id }})">Edit</button>
+                    <button class="btn btn-sm btn-success save-btn" onclick="saveSession({{ session.id }})" style="display: none;">Save</button>
+                    <button class="btn btn-sm btn-warning cancel-btn" onclick="cancelEdit({{ session.id }})" style="display: none;">Cancel</button>
+                </td>
             </tr>
             {% endfor %}
             <tr class="total-row">
-                <td style="text-align: right;">Total:</td>
+                <td colspan="3" style="text-align: right;">Total:</td>
                 <td>{{ total }}</td>
-                <td></td>
+                <td colspan="2"></td>
             </tr>
         </tbody>
     </table>
@@ -48,4 +67,119 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .editable-cell {
+        cursor: pointer;
+    }
+    .edit-input {
+        width: 100%;
+        padding: 4px;
+        background: #0f172a;
+        color: #e2e8f0;
+        border: 1px solid #22d3ee;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let originalValues = {};
+
+function editSession(sessionId) {
+    const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
+    const editableCells = row.querySelectorAll('.editable-cell');
+    
+    // Store original values
+    originalValues[sessionId] = {};
+    editableCells.forEach(cell => {
+        const field = cell.dataset.field;
+        const displayValue = cell.querySelector('.display-value');
+        const editInput = cell.querySelector('.edit-input');
+        
+        originalValues[sessionId][field] = editInput.value;
+        
+        // Hide display, show input
+        displayValue.style.display = 'none';
+        editInput.style.display = 'block';
+    });
+    
+    // Toggle buttons
+    row.querySelector('.edit-btn').style.display = 'none';
+    row.querySelector('.save-btn').style.display = 'inline-block';
+    row.querySelector('.cancel-btn').style.display = 'inline-block';
+}
+
+function cancelEdit(sessionId) {
+    const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
+    const editableCells = row.querySelectorAll('.editable-cell');
+    
+    // Restore original values
+    editableCells.forEach(cell => {
+        const displayValue = cell.querySelector('.display-value');
+        const editInput = cell.querySelector('.edit-input');
+        
+        // Show display, hide input
+        displayValue.style.display = 'inline';
+        editInput.style.display = 'none';
+    });
+    
+    // Toggle buttons
+    row.querySelector('.edit-btn').style.display = 'inline-block';
+    row.querySelector('.save-btn').style.display = 'none';
+    row.querySelector('.cancel-btn').style.display = 'none';
+    
+    delete originalValues[sessionId];
+}
+
+function saveSession(sessionId) {
+    const row = document.querySelector(`tr[data-session-id="${sessionId}"]`);
+    const startInput = row.querySelector('[data-field="start"] .edit-input');
+    const endInput = row.querySelector('[data-field="end"] .edit-input');
+    const durationInput = row.querySelector('[data-field="duration"] .edit-input');
+    
+    // Determine what changed
+    const formData = new FormData();
+    
+    // Check if duration was changed
+    const durationChanged = durationInput.value !== originalValues[sessionId]['duration'];
+    
+    if (durationChanged) {
+        // If duration changed, recalculate end based on start + duration
+        const start = new Date(startInput.value);
+        const [hours, minutes, seconds] = durationInput.value.split(':').map(Number);
+        const durationSeconds = hours * 3600 + minutes * 60 + seconds;
+        const end = new Date(start.getTime() + durationSeconds * 1000);
+        
+        formData.append('start_at', start.toISOString());
+        formData.append('end_at', end.toISOString());
+    } else {
+        // Otherwise use the entered start and end times
+        formData.append('start_at', new Date(startInput.value).toISOString());
+        formData.append('end_at', new Date(endInput.value).toISOString());
+    }
+    
+    fetch(`/update_session/${sessionId}`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Reload the page to show updated data
+            window.location.reload();
+        } else {
+            alert('Error updating session: ' + (data.error || 'Unknown error'));
+            cancelEdit(sessionId);
+        }
+    })
+    .catch(error => {
+        alert('Error updating session: ' + error);
+        cancelEdit(sessionId);
+    });
+}
+</script>
 {% endblock %}

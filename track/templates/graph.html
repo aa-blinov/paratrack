@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block title %}Graph - Better Track{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Daily Distribution Graph</h2>
+    
+    <div class="filter-tabs">
+        <a href="/graph?period=today" class="{% if period == 'today' %}active{% endif %}">Today</a>
+        <a href="/graph?period=yesterday" class="{% if period == 'yesterday' %}active{% endif %}">Yesterday</a>
+        <a href="/graph?period=week" class="{% if period == 'week' %}active{% endif %}">This Week</a>
+        <a href="/graph?period=month" class="{% if period == 'month' %}active{% endif %}">This Month</a>
+    </div>
+    
+    <p style="color: #94a3b8; margin-bottom: 20px;">
+        <strong>{{ period_label }}</strong>: {{ start }} → {{ end }}
+    </p>
+    
+    {% if graph_data %}
+    <div class="graph-container">
+        {% for day in graph_data %}
+        <div class="day-section">
+            <h3 class="day-header">
+                {{ day.date }}
+                <span class="day-total">Total: {{ day.total }}</span>
+                {% if day.has_overlaps %}
+                <span class="overlap-badge">⚠️ Has Overlaps</span>
+                {% endif %}
+            </h3>
+            
+            <div class="timeline">
+                {% for activity in day.activities %}
+                <div class="timeline-item">
+                    <span class="activity-name">{{ activity.name }}</span>
+                    <span class="activity-time">
+                        {{ activity.start.strftime('%H:%M') }} - {{ activity.end.strftime('%H:%M') }}
+                    </span>
+                    <div class="activity-bar" style="width: {{ (activity.duration / 86400 * 100) }}%">
+                        <span class="activity-duration">
+                            {{ '%02d' % (activity.duration // 3600) }}:{{ '%02d' % ((activity.duration % 3600) // 60) }}:{{ '%02d' % (activity.duration % 60) }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            {% if day.overlaps %}
+            <div class="overlaps-section">
+                <h4 class="overlap-header">⚠️ Overlapping Sessions:</h4>
+                {% for overlap in day.overlaps %}
+                <div class="overlap-item">
+                    <span class="overlap-activities">{{ overlap.activities | join(' ↔ ') }}</span>
+                    <span class="overlap-time">
+                        {{ overlap.start.strftime('%H:%M') }} - {{ overlap.end.strftime('%H:%M') }}
+                        ({{ '%02d' % (overlap.duration // 3600) }}:{{ '%02d' % ((overlap.duration % 3600) // 60) }}:{{ '%02d' % (overlap.duration % 60) }} overlap)
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>No data available</h3>
+        <p>No sessions in the selected period.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .graph-container {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+    
+    .day-section {
+        background: #0f172a;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        padding: 20px;
+    }
+    
+    .day-header {
+        color: #22d3ee;
+        font-size: 1.2rem;
+        margin-bottom: 15px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .day-total {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        font-weight: normal;
+    }
+    
+    .overlap-badge {
+        background: #ef4444;
+        color: white;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .timeline-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .activity-name {
+        min-width: 150px;
+        color: #e2e8f0;
+        font-weight: 600;
+    }
+    
+    .activity-time {
+        min-width: 120px;
+        color: #94a3b8;
+        font-size: 0.875rem;
+    }
+    
+    .activity-bar {
+        flex: 1;
+        background: linear-gradient(90deg, #22d3ee, #06b6d4);
+        height: 32px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 80px;
+    }
+    
+    .activity-duration {
+        color: #0f172a;
+        font-weight: 600;
+        font-size: 0.875rem;
+    }
+    
+    .overlaps-section {
+        border-top: 2px solid #334155;
+        padding-top: 15px;
+        margin-top: 15px;
+    }
+    
+    .overlap-header {
+        color: #ef4444;
+        font-size: 1rem;
+        margin-bottom: 10px;
+    }
+    
+    .overlap-item {
+        background: #7f1d1d;
+        border: 1px solid #ef4444;
+        padding: 10px 15px;
+        border-radius: 6px;
+        margin-bottom: 8px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .overlap-activities {
+        color: #fca5a5;
+        font-weight: 600;
+    }
+    
+    .overlap-time {
+        color: #fca5a5;
+        font-size: 0.875rem;
+    }
+</style>
+{% endblock %}

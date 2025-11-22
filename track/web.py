@@ -177,9 +177,9 @@ def resume_session(session_id):
     return redirect(url_for("index"))
 
 
-@app.route("/log")
-def log():
-    """View session log."""
+@app.route("/stats")
+def stats():
+    """View statistics with detailed sessions."""
     db = get_db()
 
     # Default to today
@@ -188,6 +188,7 @@ def log():
 
     sessions = db.get_closed_sessions_overlapping(start, end, None)
 
+    # Prepare session data with all details
     sessions_data = []
     total_seconds = 0
     for session, activity in sessions:
@@ -196,15 +197,19 @@ def log():
             continue
         total_seconds += sec
         sessions_data.append({
+            "id": session.id,
             "activity": activity.name,
-            "start_at": session.start_at.strftime("%Y-%m-%d %H:%M"),
-            "end_at": (session.end_at or end).strftime("%Y-%m-%d %H:%M"),
+            "start_at": session.start_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "start_at_iso": session.start_at.strftime("%Y-%m-%dT%H:%M:%S"),
+            "end_at": (session.end_at or end).strftime("%Y-%m-%d %H:%M:%S"),
+            "end_at_iso": (session.end_at or end).strftime("%Y-%m-%dT%H:%M:%S"),
             "duration": format_duration_seconds(sec),
+            "duration_seconds": sec,
             "note": session.note or "",
         })
 
     return render_template(
-        "log.html",
+        "stats.html",
         sessions=sessions_data,
         total=format_duration_seconds(total_seconds),
         period=period,
@@ -214,45 +219,122 @@ def log():
     )
 
 
-@app.route("/stats")
-def stats():
-    """View statistics."""
+@app.route("/update_session/<int:session_id>", methods=["POST"])
+def update_session(session_id):
+    """Update session start, end, or duration."""
     db = get_db()
+    
+    # Get the session
+    sessions = db.get_closed_sessions_overlapping(
+        datetime(2000, 1, 1), datetime.now() + timedelta(days=1), None
+    )
+    session = None
+    for s, a in sessions:
+        if s.id == session_id:
+            session = s
+            break
+    
+    if not session:
+        return jsonify({"error": "Session not found"}), 404
+    
+    # Get form data
+    start_str = request.form.get("start_at")
+    end_str = request.form.get("end_at")
+    duration_str = request.form.get("duration")
+    
+    try:
+        if start_str and end_str:
+            # Parse datetime strings
+            start_dt = datetime.fromisoformat(start_str.replace('Z', '+00:00'))
+            end_dt = datetime.fromisoformat(end_str.replace('Z', '+00:00'))
+            
+            # Update session
+            db.update_session(session_id, start_at=start_dt, end_at=end_dt)
+        elif duration_str:
+            # Parse duration (HH:MM:SS format)
+            parts = duration_str.split(':')
+            if len(parts) == 3:
+                hours, minutes, seconds = map(int, parts)
+                new_duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
+                new_end = session.start_at + new_duration
+                db.update_session(session_id, end_at=new_end)
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-    # Default to today
-    period = request.args.get("period", "today")
+
+@app.route("/graph")
+def graph():
+    """View daily distribution graph."""
+    db = get_db()
+    
+    # Default to this week
+    period = request.args.get("period", "week")
     start, end, period_label = get_period_range(period)
-
+    
     sessions = db.get_closed_sessions_overlapping(start, end, None)
-
-    # Clip and aggregate
-    agg = {}
-    total_seconds = 0
+    
+    # Group sessions by day and check for overlaps
+    from collections import defaultdict
+    daily_data = defaultdict(lambda: {"activities": [], "overlaps": []})
+    
     for session, activity in sessions:
-        sec = clip_session_seconds(session, start, end)
-        if sec <= 0:
+        if not session.end_at:
             continue
-        total_seconds += sec
-        agg[activity.name] = agg.get(activity.name, 0) + sec
-
-    # Sort by duration descending
-    stats_data = []
-    for name, sec in sorted(agg.items(), key=lambda kv: kv[1], reverse=True):
-        share = (sec / total_seconds * 100) if total_seconds else 0
-        stats_data.append({
-            "activity": name,
-            "duration": format_duration_seconds(sec),
-            "share": f"{share:.1f}%",
+            
+        session_start = max(session.start_at, start)
+        session_end = min(session.end_at, end)
+        
+        # Get the day
+        day_key = session_start.strftime("%Y-%m-%d")
+        
+        daily_data[day_key]["activities"].append({
+            "name": activity.name,
+            "start": session_start,
+            "end": session_end,
+            "duration": int((session_end - session_start).total_seconds()),
         })
-
+    
+    # Check for overlaps within each day
+    for day_key, data in daily_data.items():
+        activities = sorted(data["activities"], key=lambda x: x["start"])
+        for i in range(len(activities)):
+            for j in range(i + 1, len(activities)):
+                a1, a2 = activities[i], activities[j]
+                # Check if they overlap
+                if a1["end"] > a2["start"]:
+                    overlap_start = a2["start"]
+                    overlap_end = min(a1["end"], a2["end"])
+                    overlap_seconds = int((overlap_end - overlap_start).total_seconds())
+                    if overlap_seconds > 0:
+                        data["overlaps"].append({
+                            "activities": [a1["name"], a2["name"]],
+                            "start": overlap_start,
+                            "end": overlap_end,
+                            "duration": overlap_seconds,
+                        })
+    
+    # Prepare data for template
+    graph_data = []
+    for day_key in sorted(daily_data.keys()):
+        data = daily_data[day_key]
+        total_seconds = sum(a["duration"] for a in data["activities"])
+        graph_data.append({
+            "date": day_key,
+            "activities": data["activities"],
+            "overlaps": data["overlaps"],
+            "total": format_duration_seconds(total_seconds),
+            "has_overlaps": len(data["overlaps"]) > 0,
+        })
+    
     return render_template(
-        "stats.html",
-        stats=stats_data,
-        total=format_duration_seconds(total_seconds),
+        "graph.html",
+        graph_data=graph_data,
         period=period,
         period_label=period_label,
-        start=start.strftime("%Y-%m-%d %H:%M"),
-        end=end.strftime("%Y-%m-%d %H:%M"),
+        start=start.strftime("%Y-%m-%d"),
+        end=end.strftime("%Y-%m-%d"),
     )
 
 

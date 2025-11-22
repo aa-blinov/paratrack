@@ -73,15 +73,12 @@ Better Track now includes a simple web interface as an alternative to the CLI!
 
 ```bash
 # Start the web server
-track-web
-
-# Or with Python
-python -m track.web
+uv run track-web
 
 # The UI will be available at http://127.0.0.1:8000
 
 # Enable debug mode (development only)
-FLASK_DEBUG=true python -m track.web
+FLASK_DEBUG=true uv run track-web
 ```
 
 ### Web UI Features
@@ -89,9 +86,16 @@ FLASK_DEBUG=true python -m track.web
 - **Dashboard**: View and manage active tracking sessions
   - Start new activities with optional notes
   - Pause/Resume/Stop active sessions
-  - Real-time duration updates
-- **Log**: View completed sessions by period (Today, Yesterday, This Week, This Month)
-- **Stats**: Aggregated statistics with time shares by activity
+  - Real-time duration updates (every second)
+- **Stats**: View completed sessions with editing capabilities
+  - View Start, End, Duration, and Note for each session
+  - Edit Start/End times with date-time picker
+  - Edit Duration manually (recalculates End time based on Start)
+  - Filter by period (Today, Yesterday, This Week, This Month)
+- **Graph**: Daily distribution visualization
+  - Visual timeline of activities by day
+  - Highlights overlapping sessions
+  - Shows duration and time ranges
 
 The web UI provides the same core functionality as the CLI in a simple, user-friendly interface.
 
