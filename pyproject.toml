@@ -10,11 +10,13 @@ dependencies = [
     "questionary>=2.0.0",
     "dateparser>=1.2.0",
     "python-dateutil>=2.8.0",
+    "flask>=3.0.0",
 ]
 
 [project.scripts]
 track = "track.cli:run"
 t = "track.cli:run"
+track-web = "track.web:run_server"
 
 [build-system]
 requires = ["hatchling"]
