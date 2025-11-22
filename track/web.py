@@ -276,7 +276,14 @@ def update_session(session_id):
                 if new_duration.total_seconds() == 0:
                     return jsonify({"error": "Duration must be greater than zero"}), 400
 
-                new_end = session.start_at + new_duration
+                # Use new start time if provided, otherwise use existing
+                if start_str:
+                    base_start = datetime.fromisoformat(start_str.replace('Z', '').replace('+00:00', ''))
+                    update_params["start_at"] = base_start
+                else:
+                    base_start = session.start_at
+                    
+                new_end = base_start + new_duration
                 update_params["end_at"] = new_end
                 db.update_session(session_id, **update_params)
             except ValueError:
