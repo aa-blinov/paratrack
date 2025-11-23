@@ -124,9 +124,7 @@ def input_time(message: str = "Enter time (e.g., '2 hours ago', 'yesterday 14:00
     return questionary.text(message, default="now").ask()
 
 
-def input_duration(
-    message: str = "Enter duration (e.g., '1.5h', '90m', '1h 30m')"
-) -> str:
+def input_duration(message: str = "Enter duration (e.g., '1.5h', '90m', '1h 30m')") -> str:
     """Interactive duration input."""
     return questionary.text(message).ask()
 
@@ -215,7 +213,9 @@ def select_sessions_to_stop(active: list[tuple[Session, Activity]]) -> list[int]
     choices = []
     for session, activity in active:
         sec = compute_session_seconds(session)
-        label = f"{activity.name} | since {session.start_at.strftime('%H:%M')} | {format_hhmmss(sec)}"
+        label = (
+            f"{activity.name} | since {session.start_at.strftime('%H:%M')} | {format_hhmmss(sec)}"
+        )
         if session.note:
             label += f" | {session.note[:20]}"
         choices.append({"name": label, "value": session.id})
@@ -244,7 +244,11 @@ def display_sessions(sessions: list[tuple[Session, Activity]]):
         start = session.start_at.strftime("%Y-%m-%d %H:%M")
         end = session.end_at.strftime("%H:%M") if session.end_at else "active"
         duration = format_duration(session)
-        note = (session.note[:30] + "...") if session.note and len(session.note) > 30 else (session.note or "")
+        note = (
+            (session.note[:30] + "...")
+            if session.note and len(session.note) > 30
+            else (session.note or "")
+        )
 
         table.add_row(str(session.id), activity.name, start, end, duration, note)
 
