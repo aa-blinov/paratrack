@@ -5,13 +5,39 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from io import StringIO
 from pathlib import Path
+import sys
 
 from flask import Flask, jsonify, redirect, render_template, request, url_for, Response
+
+# Conditional imports for Gunicorn (Unix-like systems)
+if sys.platform != "win32":
+    import multiprocessing
+    from gunicorn.app.base import BaseApplication
+else:
+    from waitress import serve
 
 from track.db import get_db
 
 app = Flask(__name__, template_folder=str(Path(__file__).parent / "templates"))
 app.secret_key = "dev-secret-key-change-in-production"
+
+
+# Conditional Gunicorn Application class
+if sys.platform != "win32":
+    class StandaloneGunicornApplication(BaseApplication):
+        def __init__(self, app, options=None):
+            self.options = options or {}
+            self.application = app
+            super().__init__()
+
+        def load_config(self):
+            config = {key: value for key, value in self.options.items()
+                      if key in self.cfg.settings and value is not None}
+            for key, value in config.items():
+                self.cfg.set(key.lower(), value)
+
+        def load(self):
+            return self.application
 
 
 def format_duration_seconds(seconds: int) -> str:
@@ -438,8 +464,22 @@ def delete_session(session_id):
 
 
 def run_server(host="127.0.0.1", port=8000, debug=False):
-    """Run the Flask development server."""
-    app.run(host=host, port=port, debug=debug)
+    """Run the development server (Flask for Windows, Gunicorn for others)."""
+    if sys.platform != "win32":
+        options = {
+            "bind": f"{host}:{port}",
+            "workers": (multiprocessing.cpu_count() * 2) + 1,
+            "worker_class": "sync",
+            "loglevel": "debug" if debug else "info",
+            "reload": debug,  # Reload workers on code changes in debug mode
+            "timeout": 30,
+            "graceful_timeout": 30,
+        }
+        StandaloneGunicornApplication(app, options).run()
+    else:
+        # Use Waitress for production on Windows
+        print(f"Serving with Waitress on http://{host}:{port}")
+        serve(app, host=host, port=port)
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 [project]
 name = "para-track"
 version = "0.1.0"
-description = "ParaTrack - Minimalist CLI time tracker with parallel activity tracking and advanced analytics"
+description = "ParaTrack - Minimalist time tracker (CLI & Web UI) with parallel activity tracking and advanced analytics"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,6 +11,8 @@ dependencies = [
     "dateparser>=1.2.0",
     "python-dateutil>=2.8.0",
     "flask>=3.0.0",
+    "gunicorn>=20.0.0; sys_platform != 'win32'",
+    "waitress>=2.1.0; sys_platform == 'win32'",
 ]
 
 [project.scripts]
@@ -24,13 +26,6 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["track"]
-
-[tool.uv]
-dev-dependencies = [
-    "pytest>=8.0.0",
-    "pytest-cov>=4.1.0",
-    "ruff>=0.3.0",
-]
 
 [tool.ruff]
 line-length = 100
