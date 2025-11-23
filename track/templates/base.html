@@ -328,19 +328,9 @@
       <header>
         <h1>Better Track</h1>
         <nav>
-          <a href="/" class="{% if request.path == '/' %}active{% endif %}"
-            >Dashboard</a
-          >
-          <a
-            href="/stats"
-            class="{% if request.path == '/stats' %}active{% endif %}"
-            >Stats</a
-          >
-          <a
-            href="/graph"
-            class="{% if request.path == '/graph' %}active{% endif %}"
-            >Graph</a
-          >
+          <button id="nav-dashboard" class="nav-btn active">Dashboard</button>
+          <button id="nav-stats" class="nav-btn">Stats</button>
+          <button id="nav-graph" class="nav-btn">Graph</button>
         </nav>
       </header>
 

@@ -1,120 +1,83 @@
 {% extends "base.html" %} {% block title %}Dashboard - Better Track{% endblock
 %} {% block content %}
-<div class="card">
-  <h2>Start Tracking</h2>
-  <form method="POST" action="/start" class="form-inline">
-    <div class="form-group" style="flex: 2">
-      <label for="activity">Activity</label>
-      <input
-        type="text"
-        id="activity"
-        name="activity"
-        placeholder="Type or select activity"
-        list="activities-list"
-        autocomplete="off"
-        required
-      />
-      <datalist id="activities-list">
-        {% for activity in activities %}
-        <option value="{{ activity.name }}">{% endfor %}</option>
-      </datalist>
+
+<!-- Dashboard Content -->
+<div id="dashboard-content" class="page-content">
+  <div class="card">
+    <h2>Start Tracking</h2>
+    <form id="start-form" class="form-inline">
+      <div class="form-group" style="flex: 2">
+        <label for="activity">Activity</label>
+        <input
+          type="text"
+          id="activity"
+          name="activity"
+          placeholder="Type or select activity"
+          list="activities-list"
+          autocomplete="off"
+          required
+        />
+        <datalist id="activities-list">
+          {% for activity in activities %}
+          <option value="{{ activity.name }}">{% endfor %}</option>
+        </datalist>
+      </div>
+      <div class="form-group" style="flex: 3">
+        <label for="note">Note (optional)</label>
+        <input type="text" id="note" name="note" placeholder="Add a note" />
+      </div>
+      <button type="submit" class="btn btn-primary" style="margin-bottom: 0">
+        Start
+      </button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Active Sessions</h2>
+    <div id="active-sessions-container">
+      <!-- Active sessions will be rendered here by JavaScript -->
     </div>
-    <div class="form-group" style="flex: 3">
-      <label for="note">Note (optional)</label>
-      <input type="text" id="note" name="note" placeholder="Add a note" />
-    </div>
-    <button type="submit" class="btn btn-primary" style="margin-bottom: 0">
-      Start
-    </button>
-  </form>
+  </div>
 </div>
 
-<div class="card">
-  <h2>Active Sessions</h2>
-  {% if sessions %}
-  <table>
-    <thead>
-      <tr>
-        <th>Activity</th>
-        <th>Started</th>
-        <th>Duration</th>
-        <th>Status</th>
-        <th>Note</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for session in sessions %}
-      <tr>
-        <td><strong>{{ session.activity }}</strong></td>
-        <td>{{ session.start_at }}</td>
-        <td>{{ session.duration }}</td>
-        <td style="text-align: center">
-          <span
-            class="{% if session.status == 'Active' %}status-active{% else %}status-paused{% endif %}"
-          >
-            {{ session.status }}
-          </span>
-        </td>
-        <td>{{ session.note }}</td>
-        <td>
-          <div class="actions">
-            {% if session.status == 'Active' %}
-            <form
-              method="POST"
-              action="/pause/{{ session.id }}"
-              style="display: inline"
-            >
-              <button type="submit" class="btn btn-warning btn-sm">
-                Pause
-              </button>
-            </form>
-            {% else %}
-            <form
-              method="POST"
-              action="/resume/{{ session.id }}"
-              style="display: inline"
-            >
-              <button type="submit" class="btn btn-success btn-sm">
-                Resume
-              </button>
-            </form>
-            {% endif %}
-            <form
-              method="POST"
-              action="/stop/{{ session.id }}"
-              style="display: inline"
-            >
-              <button type="submit" class="btn btn-danger btn-sm">Stop</button>
-            </form>
-            <button
-              class="btn btn-danger btn-sm"
-              onclick="deleteActiveSession('{{ session.id }}')"
-            >
-              Delete
-            </button>
-          </div>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <div class="empty-state">
-    <h3>No active sessions</h3>
-    <p>Start tracking an activity to see it here.</p>
+<!-- Stats Content -->
+<div id="stats-content" class="page-content" style="display: none">
+  <div class="card">
+    <h2>Statistics</h2>
+    <div class="filter-tabs">
+      <a href="#" data-period="today" class="filter-btn active">Today</a>
+      <a href="#" data-period="yesterday" class="filter-btn">Yesterday</a>
+      <a href="#" data-period="week" class="filter-btn">This Week</a>
+      <a href="#" data-period="month" class="filter-btn">This Month</a>
+    </div>
+    <p id="stats-period-label" style="color: #94a3b8; margin-bottom: 20px"></p>
+    <div id="stats-table-container">
+      <!-- Stats table will be rendered here by JavaScript -->
+    </div>
   </div>
-  {% endif %}
+</div>
+
+<!-- Graph Content -->
+<div id="graph-content" class="page-content" style="display: none">
+  <div class="card">
+    <h2>Daily Distribution Graph</h2>
+    <div class="filter-tabs">
+      <a href="#" data-period="today" class="filter-btn active">Today</a>
+      <a href="#" data-period="yesterday" class="filter-btn">Yesterday</a>
+      <a href="#" data-period="week" class="filter-btn">This Week</a>
+      <a href="#" data-period="month" class="filter-btn">This Month</a>
+    </div>
+    <p id="graph-period-label" style="color: #94a3b8; margin-bottom: 20px"></p>
+    <div id="graph-container">
+      <!-- Graph will be rendered here by JavaScript -->
+    </div>
+  </div>
 </div>
 
 <div id="delete-modal" class="modal-brutal" style="display: none">
   <div class="modal-content-brutal">
     <h3>Delete Session</h3>
-    <p>
-      Are you sure you want to delete this session?<br /><b
-        >This action cannot be undone.</b
-      >
-    </p>
+    <p>Are you sure you want to delete this session?<br /><b>This action cannot be undone.</b></p>
     <div class="modal-actions-brutal">
       <button id="confirm-delete-btn" class="btn btn-danger">Delete</button>
       <button id="cancel-delete-btn" class="btn btn-warning">Cancel</button>
@@ -124,16 +87,18 @@
 
 {% endblock %} {% block extra_head %}
 <style>
-  .auto-refresh-indicator {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #1e293b;
-    padding: 10px 15px;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    color: #94a3b8;
-    border: 1px solid #334155;
+  .page-content {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   .modal-brutal {
     position: fixed;
@@ -146,6 +111,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: fadeIn 0.2s ease;
   }
   .modal-content-brutal {
     background: #0a0a0a;
@@ -172,80 +138,540 @@
     gap: 20px;
     justify-content: center;
   }
+  .editable-cell {
+    cursor: pointer;
+  }
+  .edit-input {
+    width: 100%;
+    padding: 8px;
+    background: #2a2a2a;
+    color: #fff;
+    border: 3px solid #6c5ce7;
+    font-size: 0.875rem;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .edit-input:focus {
+    outline: none;
+    border-color: #ffd93d;
+  }
+  textarea.edit-input {
+    min-height: 60px;
+  }
+
+  /* Graph Styles from old graph.html, slightly adapted */
+  .graph-container {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+  .day-section {
+    background: #0a0a0a;
+    border: 4px solid #6c5ce7;
+    padding: 20px;
+    box-shadow: 8px 8px 0 #6c5ce7;
+  }
+  .day-header {
+    color: #6c5ce7;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  .day-total {
+    color: #000;
+    font-size: 0.9rem;
+    font-weight: 700;
+    background: #ffd93d;
+    padding: 6px 12px;
+    border: 3px solid #000;
+  }
+  .timeline-container {
+    margin-top: 20px;
+  }
+  .time-axis {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 150px 10px 150px;
+    border-bottom: 4px solid #6c5ce7;
+    margin-bottom: 15px;
+  }
+  .time-label {
+    color: #ffd93d;
+    font-size: 0.75rem;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+  .activity-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .activity-row {
+    display: flex;
+    align-items: center;
+    min-height: 45px;
+  }
+  .activity-label {
+    width: 140px;
+    color: #ffd93d;
+    font-weight: 900;
+    font-size: 0.875rem;
+    padding-right: 10px;
+    text-align: right;
+    flex-shrink: 0;
+    text-transform: uppercase;
+  }
+  .timeline-track {
+    flex: 1;
+    position: relative;
+    height: 40px;
+    background: #2a2a2a;
+    border: 3px solid #6c5ce7;
+    overflow: hidden;
+  }
+  .activity-segment {
+    position: absolute;
+    height: 100%;
+    background: #6c5ce7;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s;
+    border-right: 3px solid #000;
+    max-width: 100%;
+  }
+  .activity-segment:hover {
+    transform: translateY(-2px);
+    z-index: 10;
+  }
+  .segment-time {
+    color: #fff;
+    font-weight: 900;
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 8px;
+    text-transform: uppercase;
+  }
 </style>
 {% endblock %} {% block extra_scripts %}
 <script>
-  let deleteSessionId = null;
-  function showDeleteModal(sessionId) {
-    deleteSessionId = sessionId;
-    document.getElementById("delete-modal").style.display = "flex";
-  }
-  document.getElementById("cancel-delete-btn").onclick = function () {
-    document.getElementById("delete-modal").style.display = "none";
-    deleteSessionId = null;
-  };
-  document.getElementById("confirm-delete-btn").onclick = function () {
-    if (!deleteSessionId) return;
-    fetch(`/delete_session/${deleteSessionId}`, {
-      method: "POST",
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        if (data.success) {
-          window.location.reload();
-        } else {
-          alert("Error deleting session: " + (data.error || "Unknown error"));
-        }
-      })
-      .catch((error) => {
-        alert("Error deleting session: " + error);
-      });
-    document.getElementById("delete-modal").style.display = "none";
-    deleteSessionId = null;
-  };
+  document.addEventListener("DOMContentLoaded", function () {
+    // --- STATE ---
+    let state = {
+      currentPage: "dashboard",
+      currentPeriod: "today",
+      autoRefreshInterval: null,
+      editMode: {
+        active: false,
+        sessionId: null,
+        originalValues: {},
+      },
+    };
 
-  // Auto-refresh every second to update durations
-  let refreshInterval = null;
+    // --- DOM ELEMENTS ---
+    const elements = {
+      pages: {
+        dashboard: document.getElementById("dashboard-content"),
+        stats: document.getElementById("stats-content"),
+        graph: document.getElementById("graph-content"),
+      },
+      navButtons: {
+        dashboard: document.getElementById("nav-dashboard"),
+        stats: document.getElementById("nav-stats"),
+        graph: document.getElementById("nav-graph"),
+      },
+      containers: {
+        activeSessions: document.getElementById("active-sessions-container"),
+        statsTable: document.getElementById("stats-table-container"),
+        graph: document.getElementById("graph-container"),
+      },
+      labels: {
+        statsPeriod: document.getElementById("stats-period-label"),
+        graphPeriod: document.getElementById("graph-period-label"),
+      },
+      modals: {
+        delete: document.getElementById("delete-modal"),
+        confirmDeleteBtn: document.getElementById("confirm-delete-btn"),
+        cancelDeleteBtn: document.getElementById("cancel-delete-btn"),
+      },
+      startForm: document.getElementById("start-form"),
+      filterButtons: document.querySelectorAll(".filter-btn"),
+    };
 
-  function startAutoRefresh() {
-    refreshInterval = setInterval(() => {
-      fetch("/api/status")
-        .then((response) => response.json())
-        .then((data) => {
-          // Update durations in the table by matching session IDs
-          const rows = document.querySelectorAll("tbody tr");
-          rows.forEach((row) => {
-            // Get the session ID from the first button's form action
-            const firstForm = row.querySelector("form");
-            if (!firstForm) return;
+    // --- API & ACTIONS ---
+    const api = {
+      getData: (period) => fetch(`/api/data?period=${period}`).then((res) => res.json()),
+      postAction: (url, data) => fetch(url, { method: "POST", body: data }).then((res) => res.json()),
+    };
 
-            const actionPath = firstForm.getAttribute("action");
-            const sessionId = parseInt(actionPath.split("/").pop());
-
-            // Find matching session data
-            const sessionData = data.find((s) => s.id === sessionId);
-            if (sessionData) {
-              const durationCell = row.querySelectorAll("td")[2];
-              if (durationCell) {
-                durationCell.textContent = sessionData.duration;
-              }
-            }
-          });
-        })
-        .catch((error) => console.error("Error fetching status:", error));
-    }, 1000); // Update every second
-  }
-
-  // Start auto-refresh when page loads
-  if (document.querySelectorAll("tbody tr").length > 0) {
-    startAutoRefresh();
-  }
-
-  // Clean up interval when page unloads
-  window.addEventListener("beforeunload", () => {
-    if (refreshInterval) {
-      clearInterval(refreshInterval);
+    // --- RENDER FUNCTIONS ---
+    function renderDashboard(sessions) {
+      if (sessions.length === 0) {
+        elements.containers.activeSessions.innerHTML = `
+          <div class="empty-state">
+            <h3>No active sessions</h3>
+            <p>Start tracking an activity to see it here.</p>
+          </div>`;
+        return;
+      }
+      elements.containers.activeSessions.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Started</th>
+              <th>Duration</th>
+              <th>Status</th>
+              <th>Note</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sessions
+              .map(
+                (s) => `
+              <tr data-session-id="${s.id}">
+                <td><strong>${s.activity}</strong></td>
+                <td>${s.start_at}</td>
+                <td>${s.duration}</td>
+                <td style="text-align: center">
+                  <span class="${s.status === 'Active' ? 'status-active' : 'status-paused'}">${s.status}</span>
+                </td>
+                <td>${s.note}</td>
+                <td>
+                  <div class="actions">
+                    ${
+                      s.status === 'Active'
+                        ? `<button class="btn btn-warning btn-sm" data-action="pause" data-id="${s.id}">Pause</button>`
+                        : `<button class="btn btn-success btn-sm" data-action="resume" data-id="${s.id}">Resume</button>`
+                    }
+                    <button class="btn btn-danger btn-sm" data-action="stop" data-id="${s.id}">Stop</button>
+                    <button class="btn btn-danger btn-sm" data-action="delete" data-id="${s.id}">Delete</button>
+                  </div>
+                </td>
+              </tr>`
+              )
+              .join("")}
+          </tbody>
+        </table>`;
     }
+
+    function renderStats(stats) {
+      elements.labels.statsPeriod.innerHTML = `<strong>${stats.period_label}</strong>: ${stats.start} → ${stats.end}`;
+      if (stats.sessions.length === 0) {
+        elements.containers.statsTable.innerHTML = `
+          <div class="empty-state">
+            <h3>No data available</h3>
+            <p>No completed sessions in the selected period.</p>
+          </div>`;
+        return;
+      }
+      elements.containers.statsTable.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Start</th>
+              <th>End</th>
+              <th>Duration</th>
+              <th>Note</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${stats.sessions
+              .map(
+                (s) => `
+              <tr data-session-id="${s.id}">
+                <td><strong>${s.activity}</strong></td>
+                <td class="editable-cell" data-field="start">
+                  <span class="display-value">${s.start_at}</span>
+                  <input type="datetime-local" class="edit-input" value="${s.start_at_iso.slice(0, 16)}" style="display: none" />
+                </td>
+                <td class="editable-cell" data-field="end">
+                  <span class="display-value">${s.end_at}</span>
+                  <input type="datetime-local" class="edit-input" value="${s.end_at_iso.slice(0, 16)}" style="display: none" />
+                </td>
+                <td class="editable-cell" data-field="duration">
+                  <span class="display-value">${s.duration}</span>
+                  <input type="text" class="edit-input" value="${s.duration}" pattern="[0-9]{2}:[0-9]{2}:[0-9]{2}" style="display: none" />
+                </td>
+                <td class="editable-cell" data-field="note">
+                  <span class="display-value">${s.note}</span>
+                  <textarea class="edit-input" rows="2" style="display: none">${s.note}</textarea>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-primary edit-btn" data-action="edit" data-id="${s.id}">Edit</button>
+                  <button class="btn btn-sm btn-success save-btn" data-action="save" data-id="${s.id}" style="display: none">Save</button>
+                  <button class="btn btn-sm btn-warning cancel-btn" data-action="cancel" data-id="${s.id}" style="display: none">Cancel</button>
+                </td>
+              </tr>`
+              )
+              .join("")}
+            <tr class="total-row">
+              <td colspan="3" style="text-align: right">Total:</td>
+              <td>${stats.total}</td>
+              <td colspan="2"></td>
+            </tr>
+          </tbody>
+        </table>`;
+    }
+
+    function renderGraph(graph) {
+        elements.labels.graphPeriod.innerHTML = `<strong>${graph.period_label}</strong>: ${graph.start} → ${graph.end}`;
+        if (graph.data.length === 0) {
+            elements.containers.graph.innerHTML = `
+            <div class="empty-state">
+                <h3>No data available</h3>
+                <p>No sessions in the selected period.</p>
+            </div>`;
+            return;
+        }
+
+        elements.containers.graph.innerHTML = graph.data.map(day => `
+            <div class="day-section">
+                <h3 class="day-header">
+                    ${day.date}
+                    <span class="day-total">Total: ${day.total}</span>
+                </h3>
+                <div class="timeline-container">
+                    <div class="time-axis">
+                        <span class="time-label">00:00</span>
+                        <span class="time-label">06:00</span>
+                        <span class="time-label">12:00</span>
+                        <span class="time-label">18:00</span>
+                        <span class="time-label">24:00</span>
+                    </div>
+                    <div class="activity-rows">
+                        ${day.activities.map(act => {
+                            const startDt = new Date(act.start_iso);
+                            const startPercent = (startDt.getUTCHours() * 60 + startDt.getUTCMinutes()) / 1440 * 100;
+                            const durationPercent = act.duration / 86400 * 100;
+                            return `
+                            <div class="activity-row">
+                                <div class="activity-label">${act.name}</div>
+                                <div class="timeline-track">
+                                    <div class="activity-segment"
+                                        style="left: ${startPercent}%; width: ${durationPercent}%;"
+                                        title="${act.name}: ${act.start_hm} - ${act.end_hm}">
+                                        <span class="segment-time">${act.start_hm} - ${act.end_hm}</span>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // --- EVENT HANDLERS ---
+    function handleNavClick(pageName) {
+      state.currentPage = pageName;
+      // Hide all pages & deactivate all nav buttons
+      Object.values(elements.pages).forEach((p) => (p.style.display = "none"));
+      Object.values(elements.navButtons).forEach((b) => b.classList.remove("active"));
+      // Show the selected page and activate its button
+      elements.pages[pageName].style.display = "block";
+      elements.navButtons[pageName].classList.add("active");
+      // Fetch data for the new page
+      fetchAndRenderData();
+    }
+
+    function handleFilterClick(e) {
+      e.preventDefault();
+      const period = e.target.dataset.period;
+      if (period === state.currentPeriod) return;
+      state.currentPeriod = period;
+      
+      // Update active class on all filter groups
+      elements.filterButtons.forEach(btn => {
+        if(btn.dataset.period === period) {
+            btn.classList.add('active')
+        } else {
+            btn.classList.remove('active');
+        }
+      });
+      
+      fetchAndRenderData();
+    }
+
+    async function handleStartForm(e) {
+      e.preventDefault();
+      const formData = new FormData(elements.startForm);
+      const response = await api.postAction("/start", formData);
+      if (response.success) {
+        elements.startForm.reset();
+        fetchAndRenderData();
+      } else {
+        alert("Error: " + response.error);
+      }
+    }
+
+    function handleDeleteClick(sessionId) {
+      state.editMode.sessionId = sessionId;
+      elements.modals.delete.style.display = "flex";
+    }
+
+    async function confirmDelete() {
+      if (state.editMode.sessionId === null) return;
+      const response = await api.postAction(`/delete_session/${state.editMode.sessionId}`);
+      if (response.success) {
+        fetchAndRenderData();
+      } else {
+        alert("Error: " + response.error);
+      }
+      closeDeleteModal();
+    }
+
+
+
+    function closeDeleteModal() {
+      state.editMode.sessionId = null;
+      elements.modals.delete.style.display = "none";
+    }
+
+    function handleActionClick(e) {
+        const target = e.target;
+        const action = target.dataset.action;
+        const id = target.dataset.id;
+        if (!action || !id) return;
+        
+        switch (action) {
+            case 'pause':
+            case 'resume':
+            case 'stop':
+                api.postAction(`/${action}/${id}`).then(fetchAndRenderData);
+                break;
+            case 'delete':
+                handleDeleteClick(id);
+                break;
+            case 'edit':
+                handleEdit(id, e.target);
+                break;
+            case 'save':
+                handleSave(id, e.target);
+                break;
+            case 'cancel':
+                handleCancel(id, e.target);
+                break;
+        }
+    }
+
+    function handleEdit(sessionId, btn) {
+        const row = btn.closest('tr');
+        state.editMode.originalValues[sessionId] = {};
+        row.querySelectorAll(".editable-cell").forEach(cell => {
+            const field = cell.dataset.field;
+            const display = cell.querySelector('.display-value');
+            const input = cell.querySelector('.edit-input');
+            state.editMode.originalValues[sessionId][field] = input.value;
+            display.style.display = 'none';
+            input.style.display = 'block';
+        });
+        row.querySelector('.edit-btn').style.display = 'none';
+        row.querySelector('.save-btn').style.display = 'inline-block';
+        row.querySelector('.cancel-btn').style.display = 'inline-block';
+    }
+
+    function handleCancel(sessionId, btn) {
+        const row = btn.closest('tr');
+        row.querySelectorAll('.editable-cell').forEach(cell => {
+            cell.querySelector('.display-value').style.display = 'inline';
+            cell.querySelector('.edit-input').style.display = 'none';
+        });
+        row.querySelector('.edit-btn').style.display = 'inline-block';
+        row.querySelector('.save-btn').style.display = 'none';
+        row.querySelector('.cancel-btn').style.display = 'none';
+        delete state.editMode.originalValues[sessionId];
+    }
+
+    async function handleSave(sessionId, btn) {
+        const row = btn.closest('tr');
+        const formData = new FormData();
+        const original = state.editMode.originalValues[sessionId];
+        let changed = false;
+
+        const inputs = {
+            start: row.querySelector('[data-field="start"] .edit-input'),
+            end: row.querySelector('[data-field="end"] .edit-input'),
+            duration: row.querySelector('[data-field="duration"] .edit-input'),
+            note: row.querySelector('[data-field="note"] .edit-input'),
+        };
+
+        if (inputs.start.value !== original.start) {
+            formData.append('start_at', new Date(inputs.start.value).toISOString());
+            changed = true;
+        }
+        if (inputs.end.value !== original.end) {
+            formData.append('end_at', new Date(inputs.end.value).toISOString());
+            changed = true;
+        }
+        if (inputs.duration.value !== original.duration) {
+            formData.append('duration', inputs.duration.value);
+            changed = true;
+        }
+         if (inputs.note.value !== original.note) {
+            formData.append('note', inputs.note.value);
+            changed = true;
+        }
+
+        if (!changed) {
+            handleCancel(sessionId, btn);
+            return;
+        }
+
+        const response = await api.postAction(`/update_session/${sessionId}`, formData);
+        if (response.success) {
+            fetchAndRenderData();
+        } else {
+            alert('Error updating: ' + response.error);
+            handleCancel(sessionId, btn);
+_
+        }
+    }
+
+
+    // --- MAIN LOGIC ---
+    async function fetchAndRenderData() {
+      try {
+        const data = await api.getData(state.currentPeriod);
+        renderDashboard(data.active_sessions);
+        renderStats(data.stats);
+        renderGraph(data.graph);
+        
+        // Start/stop auto-refresh
+        if (data.active_sessions.length > 0 && !state.autoRefreshInterval) {
+          state.autoRefreshInterval = setInterval(fetchAndRenderData, 5000);
+        } else if (data.active_sessions.length === 0 && state.autoRefreshInterval) {
+          clearInterval(state.autoRefreshInterval);
+          state.autoRefreshInterval = null;
+        }
+      } catch (error) {
+        console.error("Failed to fetch or render data:", error);
+      }
+    }
+
+    // --- INITIALIZATION ---
+    elements.navButtons.dashboard.addEventListener("click", () => handleNavClick("dashboard"));
+    elements.navButtons.stats.addEventListener("click", () => handleNavClick("stats"));
+    elements.navButtons.graph.addEventListener("click", () => handleNavClick("graph"));
+    elements.filterButtons.forEach((btn) => btn.addEventListener("click", handleFilterClick));
+    elements.startForm.addEventListener("submit", handleStartForm);
+    elements.modals.confirmDeleteBtn.addEventListener("click", confirmDelete);
+    elements.modals.cancelDeleteBtn.addEventListener("click", closeDeleteModal);
+
+    document.body.addEventListener('click', handleActionClick);
+
+    // Initial load
+    fetchAndRenderData();
   });
 </script>
 {% endblock %}
+
