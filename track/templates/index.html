@@ -416,6 +416,7 @@
                                 <td>
                                   <div class="actions">
                                     <button class="btn btn-sm btn-primary edit-btn" data-action="edit" data-id="${s.id}">Edit</button>
+                                    <button class="btn btn-sm btn-danger delete-btn" data-action="delete" data-id="${s.id}">Delete</button>
                                     <button class="btn btn-sm btn-success save-btn" data-action="save" data-id="${s.id}" style="display: none">Save</button>
                                     <button class="btn btn-sm btn-warning cancel-btn" data-action="cancel" data-id="${s.id}" style="display: none">Cancel</button>
                                   </div>
@@ -583,6 +584,7 @@
         input.style.display = "block";
       });
       row.querySelector(".edit-btn").style.display = "none";
+      row.querySelector(".delete-btn").style.display = "none";
       row.querySelector(".save-btn").style.display = "inline-block";
       row.querySelector(".cancel-btn").style.display = "inline-block";
     }
@@ -594,6 +596,7 @@
         cell.querySelector(".edit-input").style.display = "none";
       });
       row.querySelector(".edit-btn").style.display = "inline-block";
+      row.querySelector(".delete-btn").style.display = "inline-block";
       row.querySelector(".save-btn").style.display = "none";
       row.querySelector(".cancel-btn").style.display = "none";
       delete state.editMode.originalValues[sessionId];
