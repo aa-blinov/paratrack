@@ -1,4 +1,4 @@
-"""Simple web UI for Better Track."""
+"""Simple web UI for ParaTrack."""
 
 from collections import defaultdict
 from datetime import datetime, timedelta
