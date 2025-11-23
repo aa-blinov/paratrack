@@ -1,6 +1,6 @@
 # better-track
 
-Minimalist CLI time tracker with parallel activity tracking and interactive UX.
+Minimalist time tracker (CLI & Web UI) with parallel activity tracking and interactive UX.
 
 ## Features
 
