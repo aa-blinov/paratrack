@@ -102,6 +102,64 @@ def index():
     return render_template("index.html", activities=activities)
 
 
+def _process_day_for_graph(sessions: list[dict]) -> dict:
+    """Process daily sessions to find overlaps and assign lanes."""
+    if not sessions:
+        return {"lanes": [], "overlaps": [], "total_seconds": 0}
+
+    # Sort sessions by start time
+    sessions.sort(key=lambda s: s["start_iso"])
+
+    lanes: list[list[dict]] = []
+    for session in sessions:
+        placed = False
+        session_start = datetime.fromisoformat(session["start_iso"])
+        session_end = datetime.fromisoformat(session["end_iso"])
+
+        for lane in lanes:
+            can_place = True
+            for s_in_lane in lane:
+                lane_s_start = datetime.fromisoformat(s_in_lane["start_iso"])
+                lane_s_end = datetime.fromisoformat(s_in_lane["end_iso"])
+                # Check for overlap
+                if session_start < lane_s_end and session_end > lane_s_start:
+                    can_place = False
+                    break
+            if can_place:
+                lane.append(session)
+                placed = True
+                break
+        if not placed:
+            lanes.append([session])
+
+    overlaps = []
+    for i in range(len(sessions)):
+        for j in range(i + 1, len(sessions)):
+            s1 = sessions[i]
+            s2 = sessions[j]
+            s1_start = datetime.fromisoformat(s1["start_iso"])
+            s1_end = datetime.fromisoformat(s1["end_iso"])
+            s2_start = datetime.fromisoformat(s2["start_iso"])
+            s2_end = datetime.fromisoformat(s2["end_iso"])
+
+            # Find overlap
+            overlap_start = max(s1_start, s2_start)
+            overlap_end = min(s1_end, s2_end)
+
+            if overlap_start < overlap_end:
+                overlaps.append(
+                    {
+                        "start_iso": overlap_start.isoformat(),
+                        "end_iso": overlap_end.isoformat(),
+                        "duration": int((overlap_end - overlap_start).total_seconds()),
+                    }
+                )
+    
+    total_seconds = sum(s['duration'] for s in sessions)
+
+    return {"lanes": lanes, "overlaps": overlaps, "total_seconds": total_seconds}
+
+
 @app.route("/api/data")
 def api_data():
     """API endpoint for all app data."""
@@ -152,7 +210,7 @@ def api_data():
         )
 
     # --- Graph Data ---
-    daily_data = defaultdict(lambda: {"activities": [], "total_seconds": 0})
+    daily_sessions = defaultdict(list)
     for session, activity in sessions_raw:
         if not session.end_at:
             continue
@@ -165,7 +223,7 @@ def api_data():
             continue
         
         day_key = s_start.strftime("%Y-%m-%d")
-        daily_data[day_key]['activities'].append(
+        daily_sessions[day_key].append(
             {
                 "name": activity.name,
                 "start_iso": s_start.isoformat(),
@@ -175,16 +233,16 @@ def api_data():
                 "duration": duration_seconds,
             }
         )
-        daily_data[day_key]['total_seconds'] += duration_seconds
 
     graph_data = []
-    for day_key in sorted(daily_data.keys()):
-        data = daily_data[day_key]
+    for day_key in sorted(daily_sessions.keys()):
+        processed_day = _process_day_for_graph(daily_sessions[day_key])
         graph_data.append(
             {
                 "date": day_key,
-                "activities": data["activities"],
-                "total": format_duration_seconds(data["total_seconds"]),
+                "lanes": processed_day["lanes"],
+                "overlaps": processed_day["overlaps"],
+                "total": format_duration_seconds(processed_day["total_seconds"]),
             }
         )
 
