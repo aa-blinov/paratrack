@@ -55,7 +55,12 @@
 <!-- Stats Content -->
 <div id="stats-content" class="page-content">
   <div class="card card-green">
-    <h2>Statistics</h2>
+    <h2>
+      Statistics
+      <button id="download-stats-csv-btn" class="btn btn-primary btn-sm" style="float: right;">
+        Download CSV
+      </button>
+    </h2>
     <p id="stats-period-label" style="color: #a89984; margin-bottom: 20px"></p>
     <div id="stats-table-container">
       <!-- Stats table will be rendered here by JavaScript -->
@@ -708,6 +713,49 @@
     elements.modals.cancelDeleteBtn.addEventListener("click", closeDeleteModal);
 
     document.body.addEventListener("click", handleActionClick);
+
+    // --- DOWNLOAD STATS CSV LOGIC ---
+    const downloadStatsCsvBtn = document.getElementById("download-stats-csv-btn");
+    if (downloadStatsCsvBtn) {
+      downloadStatsCsvBtn.addEventListener("click", function () {
+        const period = state.currentPeriod;
+        let start_date = null;
+        let end_date = null;
+
+        // Replicate get_period_range logic from web.py to determine date range for the current period
+        const now = new Date();
+        now.setHours(0,0,0,0); // Reset to beginning of day for accurate calculations
+
+        if (period === "today") {
+          start_date = now;
+          end_date = new Date(); // Use current time for end_date for "today"
+        } else if (period === "yesterday") {
+          start_date = new Date(now);
+          start_date.setDate(now.getDate() - 1);
+          end_date = new Date(now); // End of yesterday
+        } else if (period === "week") {
+          const dayOfWeek = now.getDay(); // Sunday - Saturday : 0 - 6
+          const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Adjust for Sunday being 0, make Monday 1st day of week
+          start_date = new Date(now.setDate(diff));
+          start_date.setHours(0,0,0,0);
+          end_date = new Date(); // Use current time for end_date for "this week"
+        } else if (period === "month") {
+          start_date = new Date(now.getFullYear(), now.getMonth(), 1);
+          end_date = new Date(); // Use current time for end_date for "this month"
+        }
+
+        const params = new URLSearchParams();
+        if (start_date) {
+          params.append("start_date", start_date.toISOString());
+        }
+        if (end_date) {
+          params.append("end_date", end_date.toISOString());
+        }
+        
+        const queryString = params.toString();
+        window.location.href = `/api/reports/csv?${queryString}`;
+      });
+    }
 
     // Initial load
     fetchAndRenderData();

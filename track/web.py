@@ -1,10 +1,12 @@
 """Simple web UI for ParaTrack."""
 
+import csv
 from collections import defaultdict
 from datetime import datetime, timedelta
+from io import StringIO
 from pathlib import Path
 
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, render_template, request, url_for, Response
 
 from track.db import get_db
 
@@ -99,7 +101,8 @@ def index():
     """Home page shell."""
     db = get_db()
     activities = db.list_activities(archived=False)
-    return render_template("index.html", activities=activities)
+    tags = db.list_tags()
+    return render_template("index.html", activities=activities, tags=tags)
 
 
 def _process_day_for_graph(sessions: list[dict]) -> dict:
@@ -262,6 +265,61 @@ def api_data():
             "end": end.strftime("%Y-%m-%d"),
         }
     })
+
+
+@app.route("/api/reports/csv")
+def api_reports_csv():
+    """API endpoint to generate and download a CSV report of sessions."""
+    db = get_db()
+
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
+    activity_id_str = request.args.get("activity_id")
+    tag_ids_str = request.args.get("tag_ids")
+
+    start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
+    end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
+    activity_id = int(activity_id_str) if activity_id_str else None
+    tag_ids = [int(tid) for tid in tag_ids_str.split(',')] if tag_ids_str else None
+
+    sessions_data = db.get_filtered_sessions(start_date, end_date, activity_id, tag_ids)
+
+    # Prepare CSV data
+    si = StringIO()
+    cw = csv.writer(si)
+
+    headers = [
+        "Session ID",
+        "Activity",
+        "Start Time",
+        "End Time",
+        "Duration (seconds)",
+        "Duration (HH:MM:SS)",
+        "Note",
+        "Tags",
+    ]
+    cw.writerow(headers)
+
+    for session, activity, tags in sessions_data:
+        duration_seconds = int((session.end_at - session.start_at).total_seconds()) if session.end_at else 0
+        tag_names = ", ".join([tag.name for tag in tags])
+        cw.writerow(
+            [
+                session.id,
+                activity.name,
+                session.start_at.isoformat(),
+                session.end_at.isoformat() if session.end_at else "",
+                duration_seconds,
+                format_duration_seconds(duration_seconds),
+                session.note or "",
+                tag_names,
+            ]
+        )
+
+    output = si.getvalue()
+    response = Response(output, mimetype="text/csv")
+    response.headers["Content-Disposition"] = "attachment; filename=session_report.csv"
+    return response
 
 
 @app.route("/start", methods=["POST"])
