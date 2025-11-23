@@ -685,7 +685,7 @@
           state.autoRefreshInterval = setInterval(
             () =>
               api.getData(state.currentPeriod).then((d) => renderDashboard(d.active_sessions)),
-            5000
+            1000
           );
         } else if (
           data.active_sessions.length === 0 &&
