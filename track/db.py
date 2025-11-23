@@ -343,6 +343,76 @@ class Database:
         cursor = self.conn.execute("SELECT * FROM tags ORDER BY name")
         return [self._row_to_tag(row) for row in cursor.fetchall()]
 
+    def get_filtered_sessions(
+        self,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        activity_id: int | None = None,
+        tag_ids: list[int] | None = None,
+    ) -> list[tuple[Session, Activity, list[Tag]]]:
+        """Get sessions filtered by date range, activity, and tags."""
+        query = """
+            SELECT
+                s.id, s.activity_id, s.start_at, s.end_at, s.note,
+                s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
+                s.created_at, s.updated_at,
+                a.name as activity_name, a.archived as activity_archived,
+                GROUP_CONCAT(t.id || ':' || t.name) AS tag_info
+            FROM sessions s
+            JOIN activities a ON s.activity_id = a.id
+            LEFT JOIN session_tags st ON s.id = st.session_id
+            LEFT JOIN tags t ON st.tag_id = t.id
+            WHERE s.end_at IS NOT NULL
+        """
+        params = []
+        
+        if start_date:
+            query += " AND s.start_at >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND s.end_at <= ?"
+            params.append(end_date)
+        if activity_id is not None:
+            query += " AND s.activity_id = ?"
+            params.append(activity_id)
+        if tag_ids:
+            # This handles sessions that have ALL selected tags
+            # For sessions with ANY selected tag, use `IN` clause instead
+            # Currently, it means "sessions that are associated with at least one of the provided tags"
+            placeholders = ','.join('?' * len(tag_ids))
+            query += f" AND s.id IN (SELECT session_id FROM session_tags WHERE tag_id IN ({placeholders}) GROUP BY session_id HAVING COUNT(DISTINCT tag_id) = ?)"
+            params.extend(tag_ids)
+            params.append(len(tag_ids)) # For the HAVING COUNT clause
+        
+        query += """
+            GROUP BY s.id
+            ORDER BY s.start_at DESC
+        """
+
+        cursor = self.conn.execute(query, params)
+        
+        result = []
+        for row in cursor.fetchall():
+            session = self._row_to_session(row)
+            activity = Activity(
+                id=row["activity_id"],
+                name=row["activity_name"],
+                archived=bool(row["activity_archived"]),
+                created_at=None,
+                updated_at=None,
+            )
+            
+            tags = []
+            if row["tag_info"]:
+                tag_parts = row["tag_info"].split(',')
+                for tag_part in tag_parts:
+                    tag_id, tag_name = tag_part.split(':')
+                    tags.append(Tag(id=int(tag_id), name=tag_name, created_at=None))
+            
+            result.append((session, activity, tags))
+        return result
+
+
     # Helper methods
     def _row_to_activity(self, row: sqlite3.Row) -> Activity:
         """Convert database row to Activity."""
