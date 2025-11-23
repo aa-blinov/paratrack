@@ -1,6 +1,6 @@
-# better-track
+# Paratrack
 
-Minimalist time tracker (CLI & Web UI) with parallel activity tracking and interactive UX.
+Minimalist time tracker (CLI & Web UI) with parallel activity tracking and advanced analytics
 
 ## Features
 
@@ -76,9 +76,6 @@ ParaTrack now includes a simple web interface as an alternative to the CLI!
 uv run track-web
 
 # The UI will be available at http://127.0.0.1:8000
-
-# Enable debug mode (development only)
-FLASK_DEBUG=true uv run track-web
 ```
 
 ### Web UI Features
