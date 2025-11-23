@@ -285,7 +285,7 @@ class Database:
             WHERE s.end_at IS NOT NULL
               AND s.start_at <= ? AND s.end_at >= ?
               {activity_filter}
-            ORDER BY s.start_at ASC
+            ORDER BY s.start_at DESC
             """,
             params,
         )
