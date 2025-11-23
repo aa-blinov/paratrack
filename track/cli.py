@@ -149,6 +149,7 @@ def resume(activity: str | None = typer.Argument(None, help="Activity name to re
     else:
         console.print("[yellow]Nothing to resume[/yellow]")
 
+
 @app.command()
 def focus(activity: str | None = typer.Argument(None, help="Activity to focus")):
     """Focus on one activity: pause others, resume or start the selected."""
@@ -181,7 +182,9 @@ def focus(activity: str | None = typer.Argument(None, help="Activity to focus"))
     # If no session exists for target activity, start one
     if not target_has_any:
         _start_activity_flow(target_name)
-        console.print(f"[green]✓[/green] Focus started on [cyan]{target_name}[/cyan]; paused {paused} other(s)")
+        console.print(
+            f"[green]✓[/green] Focus started on [cyan]{target_name}[/cyan]; paused {paused} other(s)"
+        )
         return
 
     console.print(
@@ -343,10 +346,14 @@ def log():
         start = end - timedelta(days=1)
     elif period == "week":
         # start of this week (Mon)
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         end = now
     elif period == "last_week":
-        end_of_last_week = (now - timedelta(days=now.weekday()+1)).replace(hour=23, minute=59, second=59, microsecond=0)
+        end_of_last_week = (now - timedelta(days=now.weekday() + 1)).replace(
+            hour=23, minute=59, second=59, microsecond=0
+        )
         start = end_of_last_week - timedelta(days=6)
         end = now
     elif period == "month":
@@ -382,7 +389,9 @@ def log():
         s_end = min(s.end_at or end, end)
         return max(0, int((s_end - s_start).total_seconds()))
 
-    table = Table(title=f"Log {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}")
+    table = Table(
+        title=f"Log {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}"
+    )
     table.add_column("Activity", style="cyan")
     table.add_column("Start", style="green")
     table.add_column("End", style="red")
@@ -396,12 +405,18 @@ def log():
         total += sec
         table.add_row(
             activity.name,
-            session.start_at.strftime('%Y-%m-%d %H:%M'),
-            (session.end_at or end).strftime('%Y-%m-%d %H:%M'),
-            f"{sec//3600:02d}:{(sec%3600)//60:02d}:{sec%60:02d}",
+            session.start_at.strftime("%Y-%m-%d %H:%M"),
+            (session.end_at or end).strftime("%Y-%m-%d %H:%M"),
+            f"{sec // 3600:02d}:{(sec % 3600) // 60:02d}:{sec % 60:02d}",
             session.note or "",
         )
-    table.add_row("", "", "", f"[bold]{total//3600:02d}:{(total%3600)//60:02d}:{total%60:02d}[/bold]", "")
+    table.add_row(
+        "",
+        "",
+        "",
+        f"[bold]{total // 3600:02d}:{(total % 3600) // 60:02d}:{total % 60:02d}[/bold]",
+        "",
+    )
     console.print(table)
 
 
@@ -424,10 +439,14 @@ def stats():
         end = now.replace(hour=0, minute=0, second=0, microsecond=0)
         start = end - timedelta(days=1)
     elif period == "week":
-        start = (now - timedelta(days=now.weekday())).replace(hour=0, minute=0, second=0, microsecond=0)
+        start = (now - timedelta(days=now.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         end = now
     elif period == "last_week":
-        end_of_last_week = (now - timedelta(days=now.weekday()+1)).replace(hour=23, minute=59, second=59, microsecond=0)
+        end_of_last_week = (now - timedelta(days=now.weekday() + 1)).replace(
+            hour=23, minute=59, second=59, microsecond=0
+        )
         start = end_of_last_week - timedelta(days=6)
         end = now
     elif period == "month":
@@ -448,6 +467,7 @@ def stats():
             return
 
     sessions = db.get_closed_sessions_overlapping(start, end, None)
+
     # aggregate per activity with clipping
     def clip_seconds(s):
         s_start = max(s.start_at, start)
@@ -463,14 +483,20 @@ def stats():
         total += sec
         agg[activity.name] = agg.get(activity.name, 0) + sec
 
-    table = Table(title=f"Stats {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}")
+    table = Table(
+        title=f"Stats {start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}"
+    )
     table.add_column("Activity", style="cyan")
     table.add_column("Time", style="yellow")
     table.add_column("Share", style="magenta")
     for name, sec in sorted(agg.items(), key=lambda kv: kv[1], reverse=True):
         share = (sec / total * 100) if total else 0
-        table.add_row(name, f"{sec//3600:02d}:{(sec%3600)//60:02d}:{sec%60:02d}", f"{share:.1f}%")
-    table.add_row("", f"[bold]{total//3600:02d}:{(total%3600)//60:02d}:{total%60:02d}[/bold]", "")
+        table.add_row(
+            name, f"{sec // 3600:02d}:{(sec % 3600) // 60:02d}:{sec % 60:02d}", f"{share:.1f}%"
+        )
+    table.add_row(
+        "", f"[bold]{total // 3600:02d}:{(total % 3600) // 60:02d}:{total % 60:02d}[/bold]", ""
+    )
     console.print(table)
 
 
@@ -551,9 +577,25 @@ def run():
 
         # Known commands (explicit list) + aliases
         known_commands = {
-            "track", "stop", "pause", "resume", "status", "add", "edit", "delete",
-            "log", "sessions", "stats", "report", "export", "goal", "remind", "tag",
-            "config", "focus", "switch",
+            "track",
+            "stop",
+            "pause",
+            "resume",
+            "status",
+            "add",
+            "edit",
+            "delete",
+            "log",
+            "sessions",
+            "stats",
+            "report",
+            "export",
+            "goal",
+            "remind",
+            "tag",
+            "config",
+            "focus",
+            "switch",
         } | set(alias_map.keys())
 
         # If alias used, replace it so Typer can parse correctly

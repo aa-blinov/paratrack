@@ -24,6 +24,7 @@ app.secret_key = "dev-secret-key-change-in-production"
 
 # Conditional Gunicorn Application class
 if sys.platform != "win32":
+
     class StandaloneGunicornApplication(BaseApplication):
         def __init__(self, app, options=None):
             self.options = options or {}
@@ -31,8 +32,11 @@ if sys.platform != "win32":
             super().__init__()
 
         def load_config(self):
-            config = {key: value for key, value in self.options.items()
-                      if key in self.cfg.settings and value is not None}
+            config = {
+                key: value
+                for key, value in self.options.items()
+                if key in self.cfg.settings and value is not None
+            }
             for key, value in config.items():
                 self.cfg.set(key.lower(), value)
 
@@ -183,8 +187,8 @@ def _process_day_for_graph(sessions: list[dict]) -> dict:
                         "duration": int((overlap_end - overlap_start).total_seconds()),
                     }
                 )
-    
-    total_seconds = sum(s['duration'] for s in sessions)
+
+    total_seconds = sum(s["duration"] for s in sessions)
 
     return {"lanes": lanes, "overlaps": overlaps, "total_seconds": total_seconds}
 
@@ -250,15 +254,15 @@ def api_data():
 
         if duration_seconds <= 0:
             continue
-        
+
         day_key = s_start.strftime("%Y-%m-%d")
         daily_sessions[day_key].append(
             {
                 "name": activity.name,
                 "start_iso": s_start.isoformat(),
                 "end_iso": s_end.isoformat(),
-                "start_hm": s_start.strftime('%H:%M'),
-                "end_hm": s_end.strftime('%H:%M'),
+                "start_hm": s_start.strftime("%H:%M"),
+                "end_hm": s_end.strftime("%H:%M"),
                 "duration": duration_seconds,
             }
         )
@@ -275,22 +279,24 @@ def api_data():
             }
         )
 
-    return jsonify({
-        "active_sessions": active_sessions_data,
-        "stats": {
-            "sessions": stats_sessions_data,
-            "total": format_duration_seconds(total_seconds_stats),
-            "period_label": period_label,
-            "start": start.strftime("%Y-%m-%d %H:%M"),
-            "end": end.strftime("%Y-%m-%d %H:%M"),
-        },
-        "graph": {
-            "data": graph_data,
-            "period_label": period_label,
-            "start": start.strftime("%Y-%m-%d"),
-            "end": end.strftime("%Y-%m-%d"),
+    return jsonify(
+        {
+            "active_sessions": active_sessions_data,
+            "stats": {
+                "sessions": stats_sessions_data,
+                "total": format_duration_seconds(total_seconds_stats),
+                "period_label": period_label,
+                "start": start.strftime("%Y-%m-%d %H:%M"),
+                "end": end.strftime("%Y-%m-%d %H:%M"),
+            },
+            "graph": {
+                "data": graph_data,
+                "period_label": period_label,
+                "start": start.strftime("%Y-%m-%d"),
+                "end": end.strftime("%Y-%m-%d"),
+            },
         }
-    })
+    )
 
 
 @app.route("/api/reports/csv")
@@ -306,7 +312,7 @@ def api_reports_csv():
     start_date = datetime.fromisoformat(start_date_str) if start_date_str else None
     end_date = datetime.fromisoformat(end_date_str) if end_date_str else None
     activity_id = int(activity_id_str) if activity_id_str else None
-    tag_ids = [int(tid) for tid in tag_ids_str.split(',')] if tag_ids_str else None
+    tag_ids = [int(tid) for tid in tag_ids_str.split(",")] if tag_ids_str else None
 
     sessions_data = db.get_filtered_sessions(start_date, end_date, activity_id, tag_ids)
 
@@ -327,7 +333,9 @@ def api_reports_csv():
     cw.writerow(headers)
 
     for session, activity, tags in sessions_data:
-        duration_seconds = int((session.end_at - session.start_at).total_seconds()) if session.end_at else 0
+        duration_seconds = (
+            int((session.end_at - session.start_at).total_seconds()) if session.end_at else 0
+        )
         tag_names = ", ".join([tag.name for tag in tags])
         cw.writerow(
             [
@@ -362,7 +370,9 @@ def start_activity():
     active = db.get_active_sessions()
     for session, act in active:
         if act.id == activity.id and session.end_at is None:
-            return jsonify({"success": False, "error": "Activity already has an active session"}), 409
+            return jsonify(
+                {"success": False, "error": "Activity already has an active session"}
+            ), 409
 
     db.create_session(
         activity_id=activity.id,
@@ -434,12 +444,12 @@ def update_session(session_id):
                 new_duration = timedelta(hours=h, minutes=m, seconds=s)
                 if new_duration.total_seconds() <= 0:
                     return jsonify({"error": "Duration must be positive"}), 400
-                
+
                 base_start = session.start_at
                 if start_str:
                     base_start = datetime.fromisoformat(start_str.replace("Z", ""))
                     update_params["start_at"] = base_start
-                
+
                 update_params["end_at"] = base_start + new_duration
                 db.update_session(session_id, **update_params)
             except ValueError:
@@ -484,5 +494,6 @@ def run_server(host="127.0.0.1", port=8000, debug=False):
 
 if __name__ == "__main__":
     import os
+
     debug_mode = os.getenv("FLASK_DEBUG", "false").lower() == "true"
     run_server(debug=debug_mode)
