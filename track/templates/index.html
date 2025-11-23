@@ -413,17 +413,13 @@
                     s.note
                   }</textarea>
                 </td>
-                <td>
-                  <button class="btn btn-sm btn-primary edit-btn" data-action="edit" data-id="${
-                    s.id
-                  }">Edit</button>
-                  <button class="btn btn-sm btn-success save-btn" data-action="save" data-id="${
-                    s.id
-                  }" style="display: none">Save</button>
-                  <button class="btn btn-sm btn-warning cancel-btn" data-action="cancel" data-id="${
-                    s.id
-                  }" style="display: none">Cancel</button>
-                </td>
+                                <td>
+                                  <div class="actions">
+                                    <button class="btn btn-sm btn-primary edit-btn" data-action="edit" data-id="${s.id}">Edit</button>
+                                    <button class="btn btn-sm btn-success save-btn" data-action="save" data-id="${s.id}" style="display: none">Save</button>
+                                    <button class="btn btn-sm btn-warning cancel-btn" data-action="cancel" data-id="${s.id}" style="display: none">Cancel</button>
+                                  </div>
+                                </td>
               </tr>`
               )
               .join("")}
