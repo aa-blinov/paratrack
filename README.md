@@ -4,13 +4,13 @@ Minimalist time tracker (CLI & Web UI) with parallel activity tracking and inter
 
 ## Features
 
-- **Quick start** — `track <activity>` сразу запускает таймер (спрашивает только заметку)
-- **Parallel timers** — несколько активностей одновременно; одноимённые сессии запрещены
-- **Pause/Resume** — реальные паузы с корректным учётом времени и статусом `Active/Paused`
-- **Focus/Switch** — `focus`/`switch` паузят остальные и возобновляют/запускают выбранную активность
-- **Retro add** — интерактивное добавление прошедших сессий через natural language (`dateparser`)
-- **Log** — журнал завершённых сессий за период, клиппинг интервалов и итог
-- **Stats** — сумма по активностям за период и процентные доли
+- **Quick start** — `track <activity>` starts the timer immediately (only asks for a note)
+- **Parallel timers** — multiple activities simultaneously; sessions with the same name are not allowed
+- **Pause/Resume** — real pauses with correct time accounting and `Active/Paused` status
+- **Focus/Switch** — `focus`/`switch` pauses others and resumes/starts the selected activity
+- **Retro add** — interactive addition of past sessions via natural language (`dateparser`)
+- **Log** — log of completed sessions for a period, clipping intervals and total
+- **Stats** — sum by activities for a period and percentage shares
 
 ## Installation
 
