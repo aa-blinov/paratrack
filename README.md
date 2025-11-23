@@ -67,7 +67,7 @@ uv run track stats
 
 ## Web UI
 
-Better Track now includes a simple web interface as an alternative to the CLI!
+ParaTrack now includes a simple web interface as an alternative to the CLI!
 
 ### Starting the Web UI
 

@@ -1,7 +1,7 @@
 [project]
-name = "better-track"
+name = "para-track"
 version = "0.1.0"
-description = "Minimalist CLI time tracker with parallel activity tracking and advanced analytics"
+description = "ParaTrack - Minimalist CLI time tracker with parallel activity tracking and advanced analytics"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
