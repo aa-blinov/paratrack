@@ -2,9 +2,9 @@
 <datalist id="known-tags-all">
   {{range $.AllTagNames}}<option value="{{.}}">{{end}}
 </datalist>
-<h1>Stats</h1>
+<h1 class="text-2xl font-semibold mb-4">Stats</h1>
 
-<div class="period-tabs">
+<div class="period-tabs mb-4">
   {{$cur := .Period.Label}}
   <a href="?period=today{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">Today</a>
   <a href="?period=yesterday{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">Yesterday</a>
@@ -15,113 +15,124 @@
 </div>
 
 {{if .TagFilter}}
-<div class="card" style="border-left: 3px solid var(--accent); padding: 10px 14px;">
-  <span class="text-muted" style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Filtering by tag:</span>
-  <strong style="margin-left: 6px;">#{{.TagFilter}}</strong>
-  <a href="?period={{.Period.Label}}" class="btn btn-sm btn-ghost" style="margin-left: 12px;">Clear filter</a>
+<div class="alert alert-info mb-4 flex items-center gap-3">
+  <span class="text-xs uppercase tracking-wider opacity-70">Filtering by tag:</span>
+  <strong>#{{.TagFilter}}</strong>
+  <a href="?period={{.Period.Label}}" class="btn btn-sm btn-ghost ml-auto">Clear filter</a>
 </div>
 {{end}}
 
-<div class="grid-2">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   <!-- Aggregated breakdown -->
-  <div class="card">
-    <div class="card-title">Breakdown</div>
-    {{if .Aggregated}}
-    <table class="responsive-collapse">
-      <thead>
-        <tr><th>Activity</th><th class="text-right">Time</th><th class="text-right">Share</th></tr>
-      </thead>
-      <tbody>
-        {{range .Aggregated}}
-        <tr>
-          <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-          <td data-label="Time" class="text-right mono">{{.Duration}}</td>
-          <td data-label="Share" class="text-right mono text-muted">{{printf "%.1f%%" .Share}}</td>
-        </tr>
-        {{end}}
-        <tr>
-          <td data-label=""><strong>Total</strong></td>
-          <td data-label="Time" class="text-right mono"><strong>{{.Total}}</strong></td>
-          <td data-label="Share"></td>
-        </tr>
-      </tbody>
-    </table>
-    {{else}}
-    <div class="empty"><div class="empty-sub">No sessions in this period.</div></div>
-    {{end}}
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <div class="card-title text-base font-medium mb-3">Breakdown</div>
+      {{if .Aggregated}}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra responsive-collapse">
+          <thead>
+            <tr><th>Activity</th><th class="text-right">Time</th><th class="text-right">Share</th></tr>
+          </thead>
+          <tbody>
+            {{range .Aggregated}}
+            <tr>
+              <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}};"></span>{{.ActivityName}}</td>
+              <td data-label="Time" class="text-right font-mono">{{.Duration}}</td>
+              <td data-label="Share" class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
+            </tr>
+            {{end}}
+            <tr class="font-semibold">
+              <td>Total</td>
+              <td class="text-right font-mono">{{.Total}}</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {{else}}
+      <div class="text-center py-6 opacity-60">No sessions in this period.</div>
+      {{end}}
+    </div>
   </div>
 
   <!-- Bar visualization -->
-  <div class="card">
-    <div class="card-title">Distribution</div>
-    {{if .Aggregated}}
-    <div style="display: flex; flex-direction: column; gap: 6px;">
-      {{range .Aggregated}}
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <div style="width: 100px; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{.ActivityName}}</div>
-        <div style="flex: 1; height: 18px; background: var(--surface-2); border-radius: 4px; overflow: hidden;">
-          <div style="height: 100%; width: {{printf "%.1f" .Share}}%; background: {{.Color}}; transition: width 300ms ease;"></div>
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <div class="card-title text-base font-medium mb-3">Distribution</div>
+      {{if .Aggregated}}
+      <div class="flex flex-col gap-1.5">
+        {{range .Aggregated}}
+        <div class="flex items-center gap-2">
+          <div class="w-24 truncate text-xs opacity-60">{{.ActivityName}}</div>
+          <div class="flex-1 h-4 rounded bg-base-200 overflow-hidden">
+            <div class="h-full transition-all duration-300" style="width: {{printf "%.1f" .Share}}%; background: {{.Color}};"></div>
+          </div>
+          <div class="font-mono w-12 text-right text-xs">{{printf "%.0f%%" .Share}}</div>
         </div>
-        <div class="mono" style="width: 60px; text-align: right; font-size: 12px;">{{printf "%.0f%%" .Share}}</div>
+        {{end}}
       </div>
+      {{else}}
+      <div class="text-center py-6 opacity-60">Nothing to chart yet.</div>
       {{end}}
     </div>
-    {{else}}
-    <div class="empty"><div class="empty-sub">Nothing to chart yet.</div></div>
-    {{end}}
   </div>
 </div>
 
 <!-- Session log with inline edit -->
-<div class="card">
-  <div class="card-title">Sessions ({{.SessionCount}})</div>
-  {{if .Sessions}}
-  <table class="responsive-collapse">
-    <thead>
-      <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .Sessions}}
-      {{template "session-row" .}}
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty">
-    <div class="empty-title">No sessions yet</div>
-    <div class="empty-sub">Run <code>paratrack add</code> to backfill, or <code>paratrack start</code> and stop an activity.</div>
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body p-5">
+    <div class="card-title text-base font-medium mb-3">Sessions ({{.SessionCount}})</div>
+    {{if .Sessions}}
+    <div class="overflow-x-auto">
+      <table class="table table-zebra responsive-collapse">
+        <thead>
+          <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th><th></th></tr>
+        </thead>
+        <tbody>
+          {{range .Sessions}}
+          {{template "session-row" .}}
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="text-center py-6 opacity-60">
+      <div class="font-medium">No sessions yet</div>
+      <div class="text-sm">Run <code>paratrack add</code> to backfill, or <code>paratrack start</code> and stop an activity.</div>
+    </div>
+    {{end}}
   </div>
-  {{end}}
 </div>
 {{end}}
 
 {{define "session-row"}}
 <tr id="row-{{.ID}}">
-  <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-  <td data-label="Start" class="mono">
+  <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}};"></span>{{.ActivityName}}</td>
+  <td data-label="Start" class="font-mono">
     <input type="datetime-local" name="start_at"
            value="{{.StartInput}}"
            hx-patch="/api/sessions/{{.ID}}"
            hx-include="#row-{{.ID}} [name='end_at'],[name='note']"
            hx-trigger="change"
            hx-target="#row-{{.ID}}"
-           hx-swap="outerHTML">
+           hx-swap="outerHTML"
+           class="input input-sm input-bordered">
   </td>
-  <td data-label="End" class="mono">
+  <td data-label="End" class="font-mono">
     <input type="datetime-local" name="end_at"
            value="{{.EndInput}}"
            hx-patch="/api/sessions/{{.ID}}"
            hx-include="#row-{{.ID}} [name='start_at'],[name='note']"
            hx-trigger="change"
            hx-target="#row-{{.ID}}"
-           hx-swap="outerHTML">
+           hx-swap="outerHTML"
+           class="input input-sm input-bordered">
   </td>
-  <td data-label="Duration" class="mono">
+  <td data-label="Duration" class="font-mono">
     <input type="text" name="duration" value="{{.DurationInput}}"
            placeholder="1h 30m"
            title="Set duration — end will be recomputed from start"
-           class="duration-input"
-           style="width: 90px;"
+           class="input input-sm input-bordered w-24"
            onchange="paratrackResize(this, {{.ID}})">
   </td>
   <td data-label="Note">
@@ -131,28 +142,30 @@
            hx-include="#row-{{.ID}} [name='start_at'],[name='end_at']"
            hx-trigger="change"
            hx-target="#row-{{.ID}}"
-           hx-swap="outerHTML">
+           hx-swap="outerHTML"
+           class="input input-sm input-bordered w-full">
   </td>
   <td data-label="Tags">
-    <div class="tags-cell">
-      {{range .Tags}}<span class="tag-mini tag-removable">#{{.Name}}<button class="tag-x" hx-delete="/api/sessions/{{$.ID}}/tags?name={{.Name}}" hx-target="#row-{{$.ID}}" hx-swap="outerHTML" aria-label="remove tag">×</button></span>{{end}}
-      <input type="text" class="tag-input"
+    <div class="flex flex-wrap items-center gap-1">
+      {{range .Tags}}<span class="badge badge-outline gap-1">#{{.Name}}<button class="opacity-50 hover:opacity-100" hx-delete="/api/sessions/{{$.ID}}/tags?name={{.Name}}" hx-target="#row-{{$.ID}}" hx-swap="outerHTML" aria-label="remove tag">×</button></span>{{end}}
+      <input type="text"
              placeholder="+ tag"
              list="known-tags-all"
              hx-post="/api/sessions/{{.ID}}/tags"
              hx-trigger="keydown[key=='Enter'] from:input"
              hx-on::after-request="this.value=''"
-             name="name">
+             name="name"
+             class="input input-xs input-bordered w-20">
     </div>
   </td>
   <td data-label="" class="text-right">
-    <button class="btn btn-sm btn-ghost btn-delete-row"
+    <button class="btn btn-sm btn-ghost btn-circle"
             title="Delete session"
             aria-label="Delete session"
             hx-delete="/api/sessions/{{.ID}}"
             hx-confirm="Delete this session?"
             hx-target="#row-{{.ID}}"
-            hx-swap="delete">×</button>
+            hx-swap="delete">✕</button>
   </td>
 </tr>
 {{end}}

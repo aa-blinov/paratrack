@@ -9,6 +9,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **DaisyUI v5 + Tailwind v4 CSS pipeline**: a new `web/` directory
+  holds the source (`input.css`) and `package.json` for the npm toolchain.
+  `make ui` (or `make build`, which depends on it) installs npm deps and
+  produces the vendored `internal/web/static/css/paratrack.css` that gets
+  embedded into the Go binary. Two custom themes (`paratrack-light` and
+  `paratrack-dark`) carry the previous palette. The bundled CSS is
+  ~16 KB minified — Tailwind only ships the classes we actually use.
 - **Per-activity goals**: `paratrack goal set/list/unset`, full CRUD
   via `/api/goals`. Dashboard widget shows progress bars per goal
   with live updates from active sessions. Period-aware windows
@@ -25,9 +32,11 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   change.
 - **GitHub Actions workflow** (`.github/workflows/ci.yml`) runs
   `go vet`, `go test -race`, and the Playwright suite on every
-  push and PR. Uploads screenshots as artefacts on e2e failure.
+  push and PR. Three jobs: `ui` (npm install + CSS build),
+  `unit` (Go tests), `e2e` (Playwright). Uploads screenshots as
+  artefacts on e2e failure.
 - **Makefile** + `scripts/setup_e2e.sh` for one-line build, run and
-  e2e setup.
+  e2e setup. `make ui` builds the CSS bundle; `make build` depends on it.
 - **22 Go unit tests** for the db package (`internal/db/goals_test.go`,
   `internal/db/tags_test.go`) covering period-range math, goal CRUD
   validation, tag auto-create, batched tag hydration, FK cascade.
@@ -36,6 +45,13 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   download, goals CRUD and tags CRUD + filter.
 
 ### Changed
+- **Whole UI ported to DaisyUI v5 components.** Every page now uses
+  `card`, `btn`, `input`, `table`, `badge`, `alert`, `progress`, `tabs`,
+  `stat` and the rest of the DaisyUI component vocabulary — replacing
+  the previous hand-rolled CSS that lived in `app.css` (deleted).
+  Light/dark parity is now driven entirely by DaisyUI's
+  `data-theme` attribute, the same hook our Alpine theme toggle was
+  already writing — so theme switching can't drift between pages.
 - **Case-insensitive activity and tag names.** The `activities.name`
   and `tags.name` columns now use `COLLATE NOCASE`, and every Go-side
   insert / lookup lowercases its input. Same activity in `Work`,

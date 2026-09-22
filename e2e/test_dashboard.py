@@ -79,7 +79,7 @@ def main() -> int:
         page.goto(BASE + "/")
         expect(page.locator("h1")).to_have_text("Dashboard")
         check("dashboard renders h1=Dashboard", True)
-        nav_text = page.locator(".nav").inner_text()
+        nav_text = page.locator("header nav").inner_text()
         for label in ["Dashboard", "Stats", "Graph", "CSV"]:
             check(f"nav has '{label}' link", label in nav_text)
         check(
@@ -90,7 +90,7 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 2
         print("\n== 2. Start a new activity via the form (UI)")
-        before = page.locator(".badge-active").count()
+        before = page.locator(".status-pill.is-active").count()
         page.fill('input[name="activity"]', "writing")
         page.fill('input[name="note"]', "e2e playwright test")
         page.click('button[type="submit"]:has-text("Start")')
@@ -98,7 +98,7 @@ def main() -> int:
         # so we know the HTMX swap has happened.
         page.wait_for_selector('#active-list td:has-text("writing")', timeout=5000)
         check("active list contains 'writing' after HTMX swap", True)
-        after = page.locator(".badge-active").count()
+        after = page.locator(".status-pill.is-active").count()
         check(
             "active count grew by 1 after starting",
             after == before + 1,
@@ -113,14 +113,14 @@ def main() -> int:
         page.wait_for_timeout(300)  # htmx settle
         check(
             "exactly one paused badge",
-            page.locator(".badge-paused").count() == 1,
-            f"got {page.locator('.badge-paused').count()}",
+            page.locator(".status-pill.is-paused").count() == 1,
+            f"got {page.locator('.status-pill.is-paused').count()}",
         )
         shot(page, "03-dashboard-after-pause")
 
         # ------------------------------------------------------------------ 4
         print("\n== 4. Stats page")
-        page.click('a.nav-link, .nav a:has-text("Stats")')
+        page.click('header nav a:has-text("Stats")')
         page.wait_for_url("**/stats")
         expect(page.locator("h1")).to_have_text("Stats")
         check("stats h1=Stats", True)
@@ -137,7 +137,7 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 5
         print("\n== 5. Graph page")
-        page.click('.nav a:has-text("Graph")')
+        page.click('header nav a:has-text("Graph")')
         page.wait_for_url("**/graph")
         expect(page.locator("h1")).to_have_text("Graph")
         # ECharts renders into a <canvas>; wait for that.
@@ -174,7 +174,7 @@ def main() -> int:
         page.click('[data-theme-toggle]')  # auto -> light
         page.click('[data-theme-toggle]')  # light -> dark
         page.wait_for_timeout(200)
-        page.click('.nav a:has-text("Dashboard")')
+        page.click('header nav a:has-text("Dashboard")')
         page.wait_for_url(BASE + "/")
         page.wait_for_selector("h1:has-text('Dashboard')")
         shot(page, "06-dashboard-dark")

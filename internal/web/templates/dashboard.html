@@ -1,116 +1,127 @@
 {{define "dashboard-content"}}
-<h1>Dashboard</h1>
+<h1 class="text-2xl font-semibold mb-4">Dashboard</h1>
 
-<div class="grid-2">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   <!-- Start form -->
-  <div class="card">
-    <div class="card-title">Start a new activity</div>
-    <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
-      <div class="form-row">
-        <div>
-          <label for="activity">Activity</label>
-          <input type="text" id="activity" name="activity" required placeholder="reading, work, exercise…" autocomplete="off" list="known-activities">
-          <datalist id="known-activities">
-            {{range .Activities}}<option value="{{.Name}}">{{end}}
-          </datalist>
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <div class="card-title text-base font-medium mb-3">Start a new activity</div>
+      <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
+        <div class="flex gap-2 items-end">
+          <div class="flex-1">
+            <label class="label py-1" for="activity"><span class="label-text">Activity</span></label>
+            <input type="text" id="activity" name="activity" required
+                   placeholder="reading, work, exercise…"
+                   autocomplete="off" list="known-activities"
+                   class="input input-bordered w-full">
+            <datalist id="known-activities">
+              {{range .Activities}}<option value="{{.Name}}">{{end}}
+            </datalist>
+          </div>
+          <button type="submit" class="btn btn-primary">Start</button>
         </div>
-        <button type="submit" class="btn btn-primary">Start</button>
-      </div>
-      <div class="mt-16">
-        <label for="note">Note (optional)</label>
-        <input type="text" id="note" name="note" placeholder="chapter 3, deep work session…">
-      </div>
-    </form>
+        <div class="mt-3">
+          <label class="label py-1" for="note"><span class="label-text">Note (optional)</span></label>
+          <input type="text" id="note" name="note" placeholder="chapter 3, deep work session…" class="input input-bordered w-full">
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- Quick stats -->
-  <div class="card">
-    <div class="card-title">Today</div>
-    <div class="flex stat-tiles" style="gap: 32px;">
-      <div>
-        <div class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">Active</div>
-        <div style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums;">{{.ActiveCount}}</div>
-      </div>
-      <div>
-        <div class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">Tracked today</div>
-        <div class="mono" style="font-size: 24px; font-weight: 600;">{{.TodayTotal}}</div>
-      </div>
-      <div>
-        <div class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">Top activity</div>
-        <div style="font-size: 16px; font-weight: 500;">{{if .TopToday}}{{.TopToday}}{{else}}—{{end}}</div>
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <div class="card-title text-base font-medium mb-3">Today</div>
+      <div class="stats stats-vertical sm:stats-horizontal shadow-none bg-transparent w-full">
+        <div class="stat px-3 py-2">
+          <div class="stat-title text-xs uppercase tracking-wider">Active</div>
+          <div class="stat-value text-2xl font-semibold tabular-nums">{{.ActiveCount}}</div>
+        </div>
+        <div class="stat px-3 py-2">
+          <div class="stat-title text-xs uppercase tracking-wider">Tracked today</div>
+          <div class="stat-value text-2xl font-semibold tabular-nums">{{.TodayTotal}}</div>
+        </div>
+        <div class="stat px-3 py-2">
+          <div class="stat-title text-xs uppercase tracking-wider">Top activity</div>
+          <div class="stat-value text-base font-medium">{{if .TopToday}}{{.TopToday}}{{else}}—{{end}}</div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <!-- Active sessions list -->
-<div class="card">
-  <div class="card-title">Active sessions</div>
-  <div id="active-list" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
-    {{template "active-list" .ActiveSessions}}
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body p-5">
+    <div class="card-title text-base font-medium mb-3">Active sessions</div>
+    <div id="active-list" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
+      {{template "active-list" .ActiveSessions}}
+    </div>
   </div>
 </div>
 
 <!-- Recent closed sessions -->
-<div class="card">
-  <div class="flex-between">
-    <div class="card-title" style="margin-bottom: 0;">Recent sessions (last 7 days)</div>
-    <a href="/stats" class="btn btn-sm">View all</a>
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="card-title text-base font-medium">Recent sessions (last 7 days)</div>
+      <a href="/stats" class="btn btn-sm btn-ghost">View all</a>
+    </div>
+    {{if .Recent}}
+    <div class="overflow-x-auto">
+      <table class="table table-zebra responsive-collapse">
+        <thead>
+          <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th></tr>
+        </thead>
+        <tbody>
+          {{range .Recent}}
+          <tr>
+            <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}};"></span>{{.ActivityName}}</td>
+            <td data-label="Start" class="font-mono">{{.StartLocal}}</td>
+            <td data-label="End" class="font-mono">{{.EndLocal}}</td>
+            <td data-label="Duration" class="font-mono">{{.Duration}}</td>
+            <td data-label="Note" class="opacity-60">{{.Note}}</td>
+            <td data-label="Tags">
+              <div class="flex flex-wrap gap-1">
+                {{range .Tags}}<a class="badge badge-outline badge-sm" href="/stats?tag={{.Name}}">#{{.Name}}</a>{{end}}
+              </div>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+    {{else}}
+    <div class="text-center py-6 opacity-60">
+      No recent sessions yet. <a href="/stats" class="link link-primary">Log a past session →</a>
+    </div>
+    {{end}}
   </div>
-  {{if .Recent}}
-  <table class="responsive-collapse" style="margin-top: 12px;">
-    <thead>
-      <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th></tr>
-    </thead>
-    <tbody>
-      {{range .Recent}}
-      <tr>
-        <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-        <td data-label="Start" class="mono">{{.StartLocal}}</td>
-        <td data-label="End" class="mono">{{.EndLocal}}</td>
-        <td data-label="Duration" class="mono">{{.Duration}}</td>
-        <td data-label="Note" class="text-muted">{{.Note}}</td>
-        <td data-label="Tags">
-          <div class="tags-row">
-            {{range .Tags}}<a class="tag-mini" href="/stats?tag={{.Name}}">#{{.Name}}</a>{{end}}
-          </div>
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
-  {{else}}
-  <div class="empty">
-    <div class="empty-sub">No recent sessions yet. <a href="/stats">Log a past session →</a></div>
-  </div>
-  {{end}}
 </div>
 
 <!-- Daily / weekly / monthly goals — only rendered when there is at least one. -->
 {{if .Goals}}
-<div class="card">
-  <div class="flex-between" style="margin-bottom: 12px;">
-    <div class="card-title" style="margin-bottom: 0;">Goals</div>
-    <a href="/goals" class="btn btn-sm">Manage</a>
-  </div>
-  <div class="goals-list">
-    {{range .Goals}}
-    <div class="goal-row" data-state="{{.AchievedClass}}">
-      <div class="goal-head">
-        <span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>
-        <strong>{{.ActivityName}}</strong>
-        <span class="text-muted goal-period">{{.PeriodRangeLabel}}</span>
-        <span class="goal-progress-text mono">
-          {{.AchievedLabel}}<span class="text-muted"> / {{.TargetLabel}}</span>
-        </span>
-      </div>
-      <div class="goal-bar">
-        <div class="goal-bar-fill"
-             style="width: {{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}%;
-                    background: {{.Color}};"></div>
-      </div>
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body p-5">
+    <div class="flex items-center justify-between mb-3">
+      <div class="card-title text-base font-medium">Goals</div>
+      <a href="/goals" class="btn btn-sm btn-ghost">Manage</a>
     </div>
-    {{end}}
+    <div class="space-y-3">
+      {{range .Goals}}
+      <div class="space-y-1">
+        <div class="flex items-center justify-between text-sm">
+          <div class="flex items-center gap-2">
+            <span class="activity-dot" style="background: {{.Color}};"></span>
+            <strong>{{.ActivityName}}</strong>
+            <span class="opacity-60">{{.PeriodRangeLabel}}</span>
+          </div>
+          <span class="font-mono">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
+        </div>
+        <progress class="progress w-full" value="{{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}" max="100" style="color: {{.Color}};"></progress>
+      </div>
+      {{end}}
+    </div>
   </div>
 </div>
 {{end}}
@@ -118,50 +129,53 @@
 
 {{define "active-list"}}
   {{if .}}
-  <table class="responsive-collapse">
-    <thead>
-      <tr><th>Activity</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr>
-    </thead>
-    <tbody>
-      {{range .}}
-      <tr>
-        <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-        <td data-label="Status">
-          {{if .Paused}}
-          <span class="badge badge-paused">Paused</span>
-          {{else}}
-          <span class="badge badge-active">Active</span>
-          {{end}}
-        </td>
-        <td data-label="Started" class="mono">{{.StartLocal}}</td>
-        <td data-label="Duration" class="duration-live"
-            x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
-            x-text="formatted">--:--:--</td>
-        <td data-label="" class="text-right">
-          <div class="flex active-actions" style="justify-content: flex-end; gap: 4px;">
+  <div class="overflow-x-auto">
+    <table class="table table-zebra responsive-collapse">
+      <thead>
+        <tr><th>Activity</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{range .}}
+        <tr>
+          <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}};"></span>{{.ActivityName}}</td>
+          <td data-label="Status">
             {{if .Paused}}
-            <button class="btn btn-sm"
-                    hx-post="/api/sessions/{{.ID}}/resume"
-                    hx-target="#active-list" hx-swap="innerHTML">Resume</button>
+            <span class="status-pill is-paused">⏸ Paused</span>
             {{else}}
-            <button class="btn btn-sm"
-                    hx-post="/api/sessions/{{.ID}}/pause"
-                    hx-target="#active-list" hx-swap="innerHTML">Pause</button>
+            <span class="status-pill is-active">▶ Active</span>
             {{end}}
-            <button class="btn btn-sm btn-danger"
-                    hx-post="/api/sessions/{{.ID}}/stop"
-                    hx-target="#active-list" hx-swap="innerHTML"
-                    hx-confirm="Stop {{.ActivityName}}?">Stop</button>
-          </div>
-        </td>
-      </tr>
-      {{end}}
-    </tbody>
-  </table>
+          </td>
+          <td data-label="Started" class="font-mono">{{.StartLocal}}</td>
+          <td data-label="Duration"
+              class="font-mono"
+              x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
+              x-text="formatted">--:--:--</td>
+          <td data-label="" class="text-right">
+            <div class="flex justify-end gap-1">
+              {{if .Paused}}
+              <button class="btn btn-sm"
+                      hx-post="/api/sessions/{{.ID}}/resume"
+                      hx-target="#active-list" hx-swap="innerHTML">Resume</button>
+              {{else}}
+              <button class="btn btn-sm"
+                      hx-post="/api/sessions/{{.ID}}/pause"
+                      hx-target="#active-list" hx-swap="innerHTML">Pause</button>
+              {{end}}
+              <button class="btn btn-sm btn-error"
+                      hx-post="/api/sessions/{{.ID}}/stop"
+                      hx-target="#active-list" hx-swap="innerHTML"
+                      hx-confirm="Stop {{.ActivityName}}?">Stop</button>
+            </div>
+          </td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </div>
   {{else}}
-  <div class="empty">
-    <div class="empty-title">No active sessions</div>
-    <div class="empty-sub">Start one above — it'll tick live in this list.</div>
+  <div class="text-center py-6 opacity-60">
+    <div class="font-medium">No active sessions</div>
+    <div class="text-sm">Start one above — it'll tick live in this list.</div>
   </div>
   {{end}}
 {{end}}
