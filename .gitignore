@@ -9,6 +9,11 @@
 coverage.txt
 *.prof
 
+# The compiled paratrack binary (Makefile writes ./paratrack).
+# Match by name rather than just `*.exe` so Linux builds are covered too.
+/paratrack
+/paratrack.exe
+
 # Vendored dependencies (we don't use go mod vendor)
 vendor/
 
@@ -40,6 +45,8 @@ coverage.html
 
 # Logs
 *.log
+/tmp/paratrack.log
+/tmp/paratrack.pid
 
 # OS
 .DS_Store
