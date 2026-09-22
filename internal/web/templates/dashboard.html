@@ -80,6 +80,35 @@
   </div>
   {{end}}
 </div>
+
+<!-- Daily / weekly / monthly goals — only rendered when there is at least one. -->
+{{if .Goals}}
+<div class="card">
+  <div class="flex-between" style="margin-bottom: 12px;">
+    <div class="card-title" style="margin-bottom: 0;">Goals</div>
+    <a href="/goals" class="btn btn-sm">Manage</a>
+  </div>
+  <div class="goals-list">
+    {{range .Goals}}
+    <div class="goal-row" data-state="{{.AchievedClass}}">
+      <div class="goal-head">
+        <span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>
+        <strong>{{.ActivityName}}</strong>
+        <span class="text-muted goal-period">{{.PeriodRangeLabel}}</span>
+        <span class="goal-progress-text mono">
+          {{.AchievedLabel}}<span class="text-muted"> / {{.TargetLabel}}</span>
+        </span>
+      </div>
+      <div class="goal-bar">
+        <div class="goal-bar-fill"
+             style="width: {{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}%;
+                    background: {{.Color}};"></div>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
 {{end}}
 
 {{define "active-list"}}
