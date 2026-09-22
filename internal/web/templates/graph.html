@@ -1,0 +1,64 @@
+{{define "graph-content"}}
+<h1>Graph</h1>
+
+<div class="period-tabs">
+  {{$cur := .Period.Label}}
+  <a href="?period=today"      class="{{if eq $cur "today"}}active{{end}}">Today</a>
+  <a href="?period=yesterday"  class="{{if eq $cur "yesterday"}}active{{end}}">Yesterday</a>
+  <a href="?period=week"       class="{{if eq $cur "week"}}active{{end}}">This week</a>
+  <a href="?period=last_week"  class="{{if eq $cur "last_week"}}active{{end}}">Last week</a>
+  <a href="?period=month"      class="{{if eq $cur "month"}}active{{end}}">This month</a>
+</div>
+
+<script>
+  // ECharts imperative init — runs after Alpine has mounted so the
+  // canvas has its final size and layout. Without this hook the
+  // ECharts hover events are eaten by Alpine's reactive proxy.
+  document.addEventListener('alpine:initialized', () => {
+    requestAnimationFrame(() => window.paratrackInitEcharts && window.paratrackInitEcharts());
+  });
+</script>
+
+<div class="card">
+  <div class="card-title">Activity distribution by hour of day</div>
+  <p class="text-muted" style="margin: 0 0 12px; font-size: 13px;">
+    Bars show time spent per hour across all days in the period, stacked by activity.
+    Click a legend item to hide / show an activity.
+  </p>
+
+  <div class="echart-wrap"
+       id="echart-wrap"
+       {{if .Chart.HasData}}data-chart='{{.ChartJSON}}'{{end}}>
+    <div class="echart-canvas" id="echart-canvas" style="height: 380px;"></div>
+
+    {{if .Chart.HasData}}
+    <div class="chart-meta">
+      <span class="text-muted">Total tracked:</span>
+      <strong>{{.Chart.TotalLabel}}</strong>
+    </div>
+    {{end}}
+  </div>
+
+  {{if not .Chart.HasData}}
+  <div class="empty">
+    <div class="empty-title">No data yet</div>
+    <div class="empty-sub">Start tracking some activities and they'll appear here.</div>
+  </div>
+  {{end}}
+</div>
+
+<!-- Legend chip below the chart for tap-friendly toggling on touch devices -->
+{{if .Chart.HasData}}
+<div class="card">
+  <div class="card-title">Activities</div>
+  <div class="flex" style="flex-wrap: wrap; gap: 10px;">
+    {{range .Chart.Legend}}
+    <div class="legend-chip">
+      <span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>
+      <span>{{.Name}}</span>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+{{end}}

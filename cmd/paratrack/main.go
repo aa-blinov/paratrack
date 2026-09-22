@@ -1,0 +1,810 @@
+// Command paratrack is a minimalist time tracker (CLI + embedded web UI).
+//
+// Usage:
+//
+//	paratrack status                 # show active sessions
+//	paratrack start <activity>       # quick start
+//	paratrack stop [activity]        # stop specific or all active
+//	paratrack web [--addr :8000]     # launch embedded web UI
+//
+// All commands read/write ~/.track/track.db.
+package main
+
+import (
+	"context"
+	"errors"
+	"flag"
+	"fmt"
+	"os"
+	"strings"
+	"text/tabwriter"
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/cli"
+	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/timeparse"
+	"github.com/aa-blinov/paratrack/internal/web"
+
+	"os/exec"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		runStatus() // default: show what's running
+		return
+	}
+	switch os.Args[1] {
+	case "status", "st":
+		runStatus()
+	case "start":
+		runStart(os.Args[2:])
+	case "stop", "s":
+		runStop(os.Args[2:])
+	case "pause", "p":
+		runPause(os.Args[2:])
+	case "resume", "r":
+		runResume(os.Args[2:])
+	case "focus", "switch", "sw":
+		runFocus(os.Args[2:])
+	case "add", "a":
+		runAdd(os.Args[2:])
+	case "log", "l":
+		runLog(os.Args[2:])
+	case "stats":
+		runStats(os.Args[2:])
+	case "web":
+		runWeb(os.Args[2:])
+	case "-h", "--help", "help":
+		printUsage()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", os.Args[1])
+		printUsage()
+		os.Exit(2)
+	}
+}
+
+func printUsage() {
+	fmt.Println(`paratrack — minimalist time tracker
+
+Usage:
+  paratrack                         show active sessions
+  paratrack start <activity>        quick start (asks for note)
+  paratrack stop [activity]         stop specific or selected sessions
+  paratrack pause [activity]        pause active session(s)
+  paratrack resume [activity]       resume paused session(s)
+  paratrack focus <activity>        pause others, resume/start selected
+  paratrack add                     add a past session (interactive)
+  paratrack log                     show log for a period
+  paratrack stats                   show aggregated stats
+  paratrack web [--addr :8000]      launch embedded web UI
+
+Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log`)
+}
+
+// --- helpers ---------------------------------------------------------
+
+// openDB returns a database opened against the default path, or exits
+// with a friendly message. Centralises error formatting.
+func openDB() (*db.DB, context.Context) {
+	path, err := db.DefaultPath()
+	if err != nil {
+		fatal("resolve db path: %v", err)
+	}
+	d, err := db.Open(path)
+	if err != nil {
+		fatal("open %s: %v", path, err)
+	}
+	return d, context.Background()
+}
+
+func fatal(format string, args ...any) {
+	fmt.Fprintf(os.Stderr, "paratrack: "+format+"\n", args...)
+	os.Exit(1)
+}
+
+func shortDur(d time.Duration) string {
+	if d < 0 {
+		d = 0
+	}
+	total := int(d.Seconds())
+	return fmt.Sprintf("%02d:%02d:%02d", total/3600, (total/60)%60, total%60)
+}
+
+// printActive renders the active-session table for both `status` and
+// the bare `paratrack` invocation.
+func printActive(rows []model.ActiveSession) {
+	if len(rows) == 0 {
+		fmt.Println("No active sessions. Start one with: paratrack start <activity>")
+		return
+	}
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ACTIVITY\tSTATUS\tSTARTED\tDURATION")
+	fmt.Fprintln(tw, "--------\t------\t-------\t--------")
+	now := time.Now()
+	for _, as := range rows {
+		status := "Active"
+		if as.Session.Paused {
+			status = "Paused"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n",
+			as.Activity.Name,
+			status,
+			as.Session.StartAt.Local().Format("15:04:05"),
+			shortDur(time.Duration(as.Session.DurationSeconds(now))*time.Second),
+		)
+	}
+	_ = tw.Flush()
+}
+
+// --- commands --------------------------------------------------------
+
+func runStatus() {
+	d, ctx := openDB()
+	defer d.Close()
+	rows, err := d.ListActiveSessions(ctx)
+	if err != nil {
+		fatal("list active: %v", err)
+	}
+	printActive(rows)
+}
+
+func runStart(args []string) {
+	fs := flag.NewFlagSet("start", flag.ExitOnError)
+	note := fs.String("note", "", "optional note for the session")
+	_ = fs.Parse(args)
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack start <activity> [--note ...]")
+		os.Exit(2)
+	}
+	name := fs.Arg(0)
+	d, ctx := openDB()
+	defer d.Close()
+
+	act, err := d.GetOrCreateActivity(ctx, name)
+	if err != nil {
+		fatal("get-or-create activity: %v", err)
+	}
+	// Reject if there's already an open session for this activity.
+	active, err := d.ListActiveSessions(ctx)
+	if err != nil {
+		fatal("list active: %v", err)
+	}
+	for _, as := range active {
+		if as.Session.ActivityID == act.ID {
+			fmt.Fprintf(os.Stderr, "activity %q already has an active session (id %d) — use stop or pause first\n", act.Name, as.Session.ID)
+			os.Exit(1)
+		}
+	}
+	s, err := d.CreateSession(ctx, act.ID, time.Now(), *note)
+	if err != nil {
+		fatal("create session: %v", err)
+	}
+	fmt.Printf("✓ started %q (session #%d)\n", act.Name, s.ID)
+	if *note != "" {
+		fmt.Printf("  note: %s\n", *note)
+	}
+}
+
+func runStop(args []string) {
+	d, ctx := openDB()
+	defer d.Close()
+	active, err := d.ListActiveSessions(ctx)
+	if err != nil {
+		fatal("list active: %v", err)
+	}
+	if len(active) == 0 {
+		fmt.Println("No active sessions to stop.")
+		return
+	}
+	fs := flag.NewFlagSet("stop", flag.ExitOnError)
+	_ = fs.Parse(args)
+	target := ""
+	if fs.NArg() > 0 {
+		target = fs.Arg(0)
+	}
+	stopped := 0
+	for _, as := range active {
+		if target == "" || equalsFold(as.Activity.Name, target) {
+			if _, err := d.UpdateSessionEnd(ctx, as.Session.ID, time.Now()); err != nil {
+				fatal("stop %d: %v", as.Session.ID, err)
+			}
+			fmt.Printf("✓ stopped %q\n", as.Activity.Name)
+			stopped++
+		}
+	}
+	if stopped == 0 && target != "" {
+		fmt.Fprintf(os.Stderr, "no active session for %q\n", target)
+		os.Exit(1)
+	}
+}
+
+func runPause(args []string) {
+	d, ctx := openDB()
+	defer d.Close()
+	fs := flag.NewFlagSet("pause", flag.ExitOnError)
+	_ = fs.Parse(args)
+	target := ""
+	if fs.NArg() > 0 {
+		target = fs.Arg(0)
+	}
+	now := time.Now()
+	count := 0
+	active, err := d.ListActiveSessions(ctx)
+	if err != nil {
+		fatal("list active: %v", err)
+	}
+	for _, as := range active {
+		if as.Session.Paused {
+			continue
+		}
+		if target != "" && !equalsFold(as.Activity.Name, target) {
+			continue
+		}
+		if _, err := d.PauseSession(ctx, as.Session.ID, now); err != nil {
+			fatal("pause %d: %v", as.Session.ID, err)
+		}
+		count++
+	}
+	if count == 0 {
+		fmt.Println("Nothing to pause.")
+		return
+	}
+	fmt.Printf("✓ paused %d session(s)\n", count)
+}
+
+func runResume(args []string) {
+	d, ctx := openDB()
+	defer d.Close()
+	fs := flag.NewFlagSet("resume", flag.ExitOnError)
+	_ = fs.Parse(args)
+	target := ""
+	if fs.NArg() > 0 {
+		target = fs.Arg(0)
+	}
+	now := time.Now()
+	count := 0
+	active, err := d.ListActiveSessions(ctx)
+	if err != nil {
+		fatal("list active: %v", err)
+	}
+	for _, as := range active {
+		if !as.Session.Paused {
+			continue
+		}
+		if target != "" && !equalsFold(as.Activity.Name, target) {
+			continue
+		}
+		if _, err := d.ResumeSession(ctx, as.Session.ID, now); err != nil {
+			fatal("resume %d: %v", as.Session.ID, err)
+		}
+		count++
+	}
+	if count == 0 {
+		fmt.Println("Nothing to resume.")
+		return
+	}
+	fmt.Printf("✓ resumed %d session(s)\n", count)
+}
+
+func runFocus(args []string) {
+	fs := flag.NewFlagSet("focus", flag.ExitOnError)
+	_ = fs.Parse(args)
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack focus <activity>")
+		os.Exit(2)
+	}
+	target := fs.Arg(0)
+	d, ctx := openDB()
+	defer d.Close()
+	act, err := d.FindActivityByName(ctx, target)
+	if err != nil && !errors.Is(err, db.ErrNotFound) {
+		fatal("find activity: %v", err)
+	}
+	if errors.Is(err, db.ErrNotFound) {
+		// Auto-create on focus (matches Python behaviour).
+		act, err = d.CreateActivity(ctx, target)
+		if err != nil {
+			fatal("create activity: %v", err)
+		}
+	}
+	active, err := d.ListActiveSessions(ctx)
+	if err != nil {
+		fatal("list active: %v", err)
+	}
+	paused, resumed := 0, 0
+	targetExists := false
+	now := time.Now()
+	for _, as := range active {
+		if as.Activity.ID == act.ID {
+			targetExists = true
+			if as.Session.Paused {
+				if _, err := d.ResumeSession(ctx, as.Session.ID, now); err != nil {
+					fatal("resume: %v", err)
+				}
+				resumed++
+			}
+			continue
+		}
+		if !as.Session.Paused {
+			if _, err := d.PauseSession(ctx, as.Session.ID, now); err != nil {
+				fatal("pause: %v", err)
+			}
+			paused++
+		}
+	}
+	if !targetExists {
+		if _, err := d.CreateSession(ctx, act.ID, now, ""); err != nil {
+			fatal("start: %v", err)
+		}
+		fmt.Printf("✓ focus started on %q (paused %d other)\n", act.Name, paused)
+		return
+	}
+	fmt.Printf("✓ focus on %q (resumed %d, paused %d other)\n", act.Name, resumed, paused)
+}
+
+func runAdd(args []string) {
+	fs := flag.NewFlagSet("add", flag.ExitOnError)
+	activityFlag := fs.String("activity", "", "activity name (skip interactive picker)")
+	startFlag := fs.String("start", "", "start time NL (e.g. '2 hours ago')")
+	modeFlag := fs.String("mode", "", "duration | end (skip prompt)")
+	durationFlag := fs.String("duration", "", "duration NL (e.g. '1h 30m')")
+	endFlag := fs.String("end", "", "end time NL")
+	noteFlag := fs.String("note", "", "session note")
+	_ = fs.Parse(args)
+
+	d, ctx := openDB()
+	defer d.Close()
+	now := time.Now()
+
+	// 1) Activity
+	var act model.Activity
+	if *activityFlag != "" {
+		a, err := d.GetOrCreateActivity(ctx, *activityFlag)
+		if err != nil {
+			fatal("get-or-create: %v", err)
+		}
+		act = a
+	} else {
+		a, err := pickActivity(ctx, d, "activity (or new):", true)
+		if err != nil {
+			if errors.Is(err, cli.ErrCancelled) {
+				fmt.Println("cancelled")
+				return
+			}
+			fatal("%v", err)
+		}
+		if a == nil {
+			fmt.Println("cancelled")
+			return
+		}
+		act = *a
+	}
+
+	// 2) Start time
+	startStr := *startFlag
+	if startStr == "" {
+		s, err := cli.Prompt(cli.Stdin, cli.Stderr, "start (e.g. '2 hours ago', 'yesterday 14:00')", "2 hours ago")
+		if err != nil {
+			fatal("read start: %v", err)
+		}
+		startStr = s
+	}
+	startAt, err := timeparse.ParseDateTime(startStr, now)
+	if err != nil {
+		fatal("parse start %q: %v", startStr, err)
+	}
+
+	// 3) Mode (duration vs end)
+	mode := *modeFlag
+	if mode == "" {
+		idx, err := cli.Choose(cli.Stdin, cli.Stderr, "provide duration or end time?",
+			[]string{"duration (e.g. 1h, 90m)", "end time (e.g. 'yesterday 16:30')"}, 0)
+		if err != nil {
+			fatal("read mode: %v", err)
+		}
+		if idx == 0 {
+			mode = "duration"
+		} else {
+			mode = "end"
+		}
+	}
+
+	// 4) Compute end
+	var endAt time.Time
+	switch mode {
+	case "duration":
+		durStr := *durationFlag
+		if durStr == "" {
+			s, err := cli.Prompt(cli.Stdin, cli.Stderr, "duration", "1h")
+			if err != nil {
+				fatal("read duration: %v", err)
+			}
+			durStr = s
+		}
+		secs, err := timeparse.ParseDuration(durStr)
+		if err != nil {
+			fatal("parse duration %q: %v", durStr, err)
+		}
+		endAt = startAt.Add(time.Duration(secs) * time.Second)
+	case "end":
+		endStr := *endFlag
+		if endStr == "" {
+			s, err := cli.Prompt(cli.Stdin, cli.Stderr, "end time (e.g. 'yesterday 16:30')", "")
+			if err != nil {
+				fatal("read end: %v", err)
+			}
+			endStr = s
+		}
+		t, err := timeparse.ParseDateTime(endStr, now)
+		if err != nil {
+			fatal("parse end %q: %v", endStr, err)
+		}
+		if !t.After(startAt) {
+			fatal("end time must be after start time")
+		}
+		endAt = t
+	default:
+		fatal("unknown mode %q (use 'duration' or 'end')", mode)
+	}
+
+	// 5) Note
+	note := *noteFlag
+	if !flagWasSet(fs, "note") {
+		if s, err := cli.Prompt(cli.Stdin, cli.Stderr, "note (optional)", ""); err == nil {
+			note = s
+		}
+	}
+
+	// 6) Create closed session
+	_, err = d.CreateClosedSession(ctx, act.ID, startAt, endAt, note)
+	if err != nil {
+		fatal("create session: %v", err)
+	}
+	fmt.Printf("✓ added %q %s → %s\n", act.Name,
+		startAt.Format("2006-01-02 15:04"), endAt.Format("2006-01-02 15:04"))
+}
+
+// pickActivity shows a numbered list of known activities and asks the user
+// to pick one. When allowNew is true, the last option is "+ new".
+// Returns (nil, ErrCancelled) if the user types ".".
+func pickActivity(ctx context.Context, d *db.DB, label string, allowNew bool) (*model.Activity, error) {
+	acts, err := d.ListActivities(ctx, false)
+	if err != nil {
+		return nil, err
+	}
+	options := make([]string, 0, len(acts)+1)
+	for _, a := range acts {
+		options = append(options, a.Name)
+	}
+	if allowNew {
+		options = append(options, "+ new activity")
+	}
+	if len(options) == 0 {
+		// No activities yet — straight into create-new prompt.
+		s, err := cli.Prompt(cli.Stdin, cli.Stderr, "new activity name", "")
+		if err != nil {
+			return nil, err
+		}
+		if s == "" {
+			return nil, cli.ErrCancelled
+		}
+		a, err := d.CreateActivity(ctx, s)
+		if err != nil {
+			return nil, err
+		}
+		return &a, nil
+	}
+	idx, err := cli.Choose(cli.Stdin, cli.Stderr, label, options, 0)
+	if err != nil {
+		return nil, err
+	}
+	if idx < 0 {
+		return nil, cli.ErrCancelled
+	}
+	if allowNew && idx == len(options)-1 {
+		s, err := cli.Prompt(cli.Stdin, cli.Stderr, "new activity name", "")
+		if err != nil {
+			return nil, err
+		}
+		if s == "" {
+			return nil, cli.ErrCancelled
+		}
+		a, err := d.CreateActivity(ctx, s)
+		if err != nil {
+			return nil, err
+		}
+		return &a, nil
+	}
+	a := acts[idx]
+	return &a, nil
+}
+
+// flagWasSet reports whether the user actually set a flag (vs. just the
+// default zero value).
+func flagWasSet(fs *flag.FlagSet, name string) bool {
+	found := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			found = true
+		}
+	})
+	return found
+}
+
+func runLog(args []string) {
+	fs := flag.NewFlagSet("log", flag.ExitOnError)
+	periodFlag := fs.String("period", "", "today|yesterday|week|last_week|month|last_month|custom")
+	activityFlag := fs.String("activity", "", "filter by activity name")
+	startFlag := fs.String("start", "", "start NL (for custom period)")
+	endFlag := fs.String("end", "", "end NL (for custom period)")
+	_ = fs.Parse(args)
+
+	d, ctx := openDB()
+	defer d.Close()
+	now := time.Now()
+
+	period, err := resolvePeriodCLI(fs, *periodFlag, *startFlag, *endFlag, now)
+	if err != nil {
+		fatal("%v", err)
+	}
+
+	var actID *int64
+	if *activityFlag != "" {
+		a, err := d.FindActivityByName(ctx, *activityFlag)
+		if err != nil {
+			fatal("activity %q: %v", *activityFlag, err)
+		}
+		actID = &a.ID
+	}
+
+	sessions, err := d.ListClosedSessionsInRange(ctx, period.Start, period.End, actID)
+	if err != nil {
+		fatal("list: %v", err)
+	}
+	if len(sessions) == 0 {
+		fmt.Printf("no sessions in %s\n", period.Label)
+		return
+	}
+
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(tw, "ACTIVITY\tSTART\tEND\tDURATION\tNOTE\n")
+	total := 0
+	for _, as := range sessions {
+		clipped := clip(as.Session, period.Start, period.End)
+		if clipped <= 0 {
+			continue
+		}
+		total += clipped
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
+			as.Activity.Name,
+			as.Session.StartAt.Local().Format("01-02 15:04"),
+			as.Session.EndAt.Local().Format("01-02 15:04"),
+			shortDur(time.Duration(clipped)*time.Second),
+			deref(as.Session.Note),
+		)
+	}
+	fmt.Fprintf(tw, "\t\t\t%s\t\n", shortDur(time.Duration(total)*time.Second))
+	_ = tw.Flush()
+}
+
+func runStats(args []string) {
+	fs := flag.NewFlagSet("stats", flag.ExitOnError)
+	periodFlag := fs.String("period", "", "today|yesterday|week|last_week|month|last_month|custom")
+	startFlag := fs.String("start", "", "start NL (for custom period)")
+	endFlag := fs.String("end", "", "end NL (for custom period)")
+	_ = fs.Parse(args)
+
+	d, ctx := openDB()
+	defer d.Close()
+	now := time.Now()
+
+	period, err := resolvePeriodCLI(fs, *periodFlag, *startFlag, *endFlag, now)
+	if err != nil {
+		fatal("%v", err)
+	}
+
+	sessions, err := d.ListClosedSessionsInRange(ctx, period.Start, period.End, nil)
+	if err != nil {
+		fatal("list: %v", err)
+	}
+
+	agg := map[string]int{}
+	total := 0
+	for _, as := range sessions {
+		c := clip(as.Session, period.Start, period.End)
+		if c <= 0 {
+			continue
+		}
+		agg[as.Activity.Name] += c
+		total += c
+	}
+	if len(agg) == 0 {
+		fmt.Printf("no data in %s\n", period.Label)
+		return
+	}
+
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(tw, "ACTIVITY\tTIME\tSHARE\n")
+	type row struct {
+		name string
+		sec  int
+	}
+	rows := make([]row, 0, len(agg))
+	for n, s := range agg {
+		rows = append(rows, row{n, s})
+	}
+	// sort desc
+	for i := 0; i < len(rows); i++ {
+		for j := i + 1; j < len(rows); j++ {
+			if rows[j].sec > rows[i].sec {
+				rows[i], rows[j] = rows[j], rows[i]
+			}
+		}
+	}
+	for _, r := range rows {
+		share := 0.0
+		if total > 0 {
+			share = float64(r.sec) / float64(total) * 100
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%.1f%%\n", r.name, shortDur(time.Duration(r.sec)*time.Second), share)
+	}
+	fmt.Fprintf(tw, "\t%s\t\n", shortDur(time.Duration(total)*time.Second))
+	_ = tw.Flush()
+}
+
+// resolvePeriodCLI parses --period and falls back to an interactive picker
+// when not provided. Custom range uses --start/--end (NL) or prompts.
+func resolvePeriodCLI(fs *flag.FlagSet, period, startStr, endStr string, now time.Time) (timeparse.Period, error) {
+	if period != "" {
+		if period == "custom" {
+			return resolveCustom(startStr, endStr, now)
+		}
+		return timeparse.ResolvePeriod(period, now)
+	}
+	idx, err := cli.Choose(cli.Stdin, cli.Stderr, "period?",
+		[]string{"today", "yesterday", "this week", "last week", "this month", "last month", "custom"}, 0)
+	if err != nil {
+		return timeparse.Period{}, err
+	}
+	names := []string{"today", "yesterday", "week", "last_week", "month", "last_month"}
+	if idx == len(names) {
+		return resolveCustom("", "", now)
+	}
+	return timeparse.ResolvePeriod(names[idx], now)
+}
+
+func resolveCustom(startStr, endStr string, now time.Time) (timeparse.Period, error) {
+	if startStr == "" {
+		s, err := cli.Prompt(cli.Stdin, cli.Stderr, "start (NL, e.g. '2025-10-01 09:00')", "")
+		if err != nil {
+			return timeparse.Period{}, err
+		}
+		startStr = s
+	}
+	if endStr == "" {
+		s, err := cli.Prompt(cli.Stdin, cli.Stderr, "end (NL, e.g. 'yesterday 23:59')", "now")
+		if err != nil {
+			return timeparse.Period{}, err
+		}
+		endStr = s
+	}
+	start, err := timeparse.ParseDateTime(startStr, now)
+	if err != nil {
+		return timeparse.Period{}, fmt.Errorf("parse start: %w", err)
+	}
+	end, err := timeparse.ParseDateTime(endStr, now)
+	if err != nil {
+		return timeparse.Period{}, fmt.Errorf("parse end: %w", err)
+	}
+	if !end.After(start) {
+		return timeparse.Period{}, fmt.Errorf("end must be after start")
+	}
+	return timeparse.Period{Start: start, End: end, Label: "custom"}, nil
+}
+
+// clip returns the seconds of session s that fall within [start, end].
+// Returns 0 if the session is entirely outside the window.
+func clip(s model.Session, start, end time.Time) int {
+	if s.EndAt == nil {
+		return 0
+	}
+	sStart := s.StartAt
+	sEnd := *s.EndAt
+	if sEnd.Before(start) || sStart.After(end) {
+		return 0
+	}
+	if sStart.Before(start) {
+		sStart = start
+	}
+	if sEnd.After(end) {
+		sEnd = end
+	}
+	secs := int(sEnd.Sub(sStart).Seconds())
+	if secs < 0 {
+		return 0
+	}
+	return secs
+}
+
+// deref returns "" for nil pointer, else the string value.
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// containsFold is a tiny helper to keep main.go self-contained.
+func containsFold(s, substr string) bool {
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+func runWeb(args []string) {
+	fs := flag.NewFlagSet("web", flag.ExitOnError)
+	addr := fs.String("addr", "127.0.0.1:8000", "address to listen on")
+	open := fs.Bool("open", false, "open the UI in the default browser once ready")
+	_ = fs.Parse(args)
+
+	d, ctx := openDB()
+	defer d.Close()
+	_ = ctx
+
+	srv, err := web.New(d, *addr)
+	if err != nil {
+		fatal("init web server: %v", err)
+	}
+	fmt.Printf("paratrack web: http://%s\n", *addr)
+	if *open {
+		url := "http://" + *addr
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			openBrowser(url)
+		}()
+	}
+	if err := srv.ListenAndServe(); err != nil {
+		fatal("serve: %v", err)
+	}
+}
+
+// openBrowser asks the OS to open a URL. Best-effort: if it fails
+// (e.g. on a headless server), we silently continue — the server is
+// still reachable from the printed URL.
+func openBrowser(u string) {
+	exe, err := lookupBrowserCmd()
+	if err != nil || exe == "" {
+		return
+	}
+	_ = exec.Command(exe, u).Start()
+}
+
+func lookupBrowserCmd() (string, error) {
+	for _, cand := range []string{"open", "xdg-open", "wslview"} {
+		if p, err := exec.LookPath(cand); err == nil {
+			return p, nil
+		}
+	}
+	return "", nil
+}
+
+// equalsFold is a tiny case-insensitive compare that avoids pulling in
+// strings just for one call site.
+func equalsFold(a, b string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := 0; i < len(a); i++ {
+		ca, cb := a[i], b[i]
+		if 'A' <= ca && ca <= 'Z' {
+			ca += 'a' - 'A'
+		}
+		if 'A' <= cb && cb <= 'Z' {
+			cb += 'a' - 'A'
+		}
+		if ca != cb {
+			return false
+		}
+	}
+	return true
+}
+
