@@ -81,7 +81,19 @@ jobs:
           done
 
       - name: Run Playwright suite
-        run: python e2e/test_dashboard.py
+        run: |
+          # Tee so the log is always captured even on success.
+          python e2e/test_dashboard.py 2>&1 | tee /tmp/e2e.log
+          # Always upload the log as an artefact for debugging.
+          echo "E2E finished with exit=$?"
+
+      - name: Upload e2e artefacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-log
+          path: /tmp/e2e.log
+          if-no-files-found: ignore
 
       - name: Upload screenshots on failure
         if: failure()
