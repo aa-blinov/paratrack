@@ -158,7 +158,7 @@ def main() -> int:
         # Reset to known starting state.
         page.evaluate("() => { localStorage.removeItem('paratrack-theme'); location.reload(); }")
         page.wait_for_load_state("load")
-        for expected in ["light", "dark", "auto"]:
+        for expected in ["paratrack-light", "paratrack-dark", "auto"]:
             page.click('[data-theme-toggle]')
             page.wait_for_timeout(150)
             attr = page.evaluate(
@@ -320,13 +320,13 @@ def main() -> int:
         page.wait_for_timeout(150)
         page.click('[data-theme-toggle]')  # auto → light
         page.wait_for_function(
-            "() => document.documentElement.dataset.theme === 'light'",
+            "() => document.documentElement.dataset.theme === 'paratrack-light'",
             timeout=2000,
         )
         page.click('[data-theme-toggle]')  # light → dark
         # Wait for the attribute to actually flip before checking.
         page.wait_for_function(
-            "() => document.documentElement.dataset.theme === 'dark'",
+            "() => document.documentElement.dataset.theme === 'paratrack-dark'",
             timeout=2000,
         )
         page.wait_for_timeout(400)  # let MutationObserver rebuild chart
@@ -334,8 +334,8 @@ def main() -> int:
             "() => document.documentElement.dataset.theme"
         )
         check(
-            "data-theme is 'dark' after two clicks",
-            theme_attr == "dark",
+            "data-theme is 'paratrack-dark' after two clicks",
+            theme_attr == "paratrack-dark",
             f"actual={theme_attr!r}",
         )
         # Chart instance should still exist after the rebuild.

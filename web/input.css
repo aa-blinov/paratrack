@@ -8,9 +8,17 @@
  * paratrack-dark. The page-level data-theme attribute picks one;
  * the Alpine themeToggle component in app.js switches between them
  * and writes the choice to localStorage under "paratrack-theme".
+ *
+ * Tailwind v4 only scans ./ by default, but our templates live
+ * one level up in ../internal/web/templates/. Explicit @source
+ * paths tell it to include every class we use there, otherwise
+ * DaisyUI's component CSS gets tree-shaken to nothing.
  */
 
 @import "tailwindcss";
+
+@source "../internal/web/templates/**/*.html";
+@source "../internal/web/static/js/app.js";
 
 @plugin "daisyui" {
   themes: paratrack-light --default, paratrack-dark --prefersdark;

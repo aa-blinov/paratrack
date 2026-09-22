@@ -187,19 +187,32 @@ document.addEventListener('alpine:init', () => {
 window.applyTheme = function(mode) {
   const html = document.documentElement;
   if (mode === 'light') {
-    html.dataset.theme = 'light';
+    html.dataset.theme = 'paratrack-light';
   } else if (mode === 'dark') {
-    html.dataset.theme = 'dark';
+    html.dataset.theme = 'paratrack-dark';
   } else {
-    delete html.dataset.theme; // fall back to prefers-color-scheme
+    // Auto — drop the attribute and let the system preference pick.
+    // If the OS pref is dark, the pre-paint script above re-applies
+    // paratrack-dark; otherwise the base.html default light theme wins.
+    delete html.dataset.theme;
   }
 };
 
 // Resolve the effective theme on every page load before paint.
+// base.html sets the default data-theme="paratrack-light" — we only
+// need to override when the user has an explicit preference stored.
 (function() {
   const stored = localStorage.getItem('paratrack-theme');
-  if (stored === 'light' || stored === 'dark') {
-    document.documentElement.dataset.theme = stored;
+  if (stored === 'light') {
+    document.documentElement.dataset.theme = 'paratrack-light';
+  } else if (stored === 'dark') {
+    document.documentElement.dataset.theme = 'paratrack-dark';
+  } else if (stored === 'auto' || stored === null) {
+    // Auto — follow the OS preference. If neither stored nor system
+    // pref is set, leave the base.html default (paratrack-light).
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.dataset.theme = 'paratrack-dark';
+    }
   }
 })();
 
