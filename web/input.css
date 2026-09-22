@@ -1,19 +1,5 @@
-/* paratrack UI source — Tailwind v4 + DaisyUI v5.
- *
- * This file is processed by `npm run build` which calls
- * `tailwindcss -i ./input.css -o ../internal/web/static/css/paratrack.css --minify`.
- * The output is vendored into the Go binary via go:embed.
- *
- * Two custom DaisyUI themes: paratrack-light (default) and
- * paratrack-dark. The page-level data-theme attribute picks one;
- * the Alpine themeToggle component in app.js switches between them
- * and writes the choice to localStorage under "paratrack-theme".
- *
- * Tailwind v4 only scans ./ by default, but our templates live
- * one level up in ../internal/web/templates/. Explicit @source
- * paths tell it to include every class we use there, otherwise
- * DaisyUI's component CSS gets tree-shaken to nothing.
- */
+/* paratrack UI source. Build: `npm run build`. Output is vendored
+ * into the Go binary via go:embed. */
 
 @import "tailwindcss";
 
@@ -29,9 +15,7 @@
   logs: false;
 }
 
-/* Light theme — defaults to the previous CSS-variable palette
- * (#f6f7f9 bg, #6366f1 accent, etc.) so we don't lose visual
- * continuity from the old hand-rolled CSS. */
+/* Light theme — same palette as the previous hand-rolled CSS. */
 @plugin "daisyui/theme" {
   name: "paratrack-light";
   default: true;
@@ -72,7 +56,7 @@
   --noise: 0;
 }
 
-/* Dark theme — same palette shifted to dark mode. */
+/* Dark theme. */
 @plugin "daisyui/theme" {
   name: "paratrack-dark";
   default: false;
@@ -113,10 +97,7 @@
   --noise: 0;
 }
 
-/* paratrack-specific component overrides — applied after DaisyUI
- * so we win against any class with the same name. */
 @layer components {
-  /* Activity colour dot used inline next to activity names. */
   .activity-dot {
     display: inline-block;
     width: 8px;
@@ -126,15 +107,12 @@
     vertical-align: middle;
   }
 
-  /* Status pill — used in active-sessions list to show ▶/⏸ glyph
-   * with semantic colour. */
   .status-pill {
     @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
   }
   .status-pill.is-active { @apply bg-success/15 text-success; }
   .status-pill.is-paused { @apply bg-warning/15 text-warning; }
 
-  /* Tag chip — used in stats rows and tag-filter banner. */
   .tag-chip {
     @apply inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5 text-xs;
   }
@@ -142,8 +120,6 @@
     @apply pr-1;
   }
 
-  /* Toast — DaisyUI ships .alert, but we want a centred floating
-   * notification with auto-dismiss. */
   #toast {
     @apply pointer-events-none fixed left-1/2 top-4 z-50 -translate-x-1/2 px-4 transition-all;
   }
@@ -151,7 +127,6 @@
     @apply pointer-events-auto shadow-lg;
   }
 
-  /* Period tabs — DaisyUI has .tabs but ours has a segmented look. */
   .period-tabs {
     @apply inline-flex rounded-box bg-base-200 p-1 text-sm;
   }
@@ -162,7 +137,6 @@
     @apply bg-base-100 text-base-content shadow-sm;
   }
 
-  /* Responsive card-list for tables on phones. */
   @media (max-width: 640px) {
     .responsive-collapse thead { display: none; }
     .responsive-collapse tbody tr {
@@ -177,7 +151,6 @@
     }
   }
 
-  /* Subtle focus ring for keyboard users. */
   *:focus-visible {
     @apply outline-2 outline-offset-2 outline-primary;
   }

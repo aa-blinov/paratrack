@@ -186,40 +186,25 @@ document.addEventListener('alpine:init', () => {
 
 window.applyTheme = function(mode) {
   const html = document.documentElement;
-  if (mode === 'light') {
-    html.dataset.theme = 'paratrack-light';
-  } else if (mode === 'dark') {
-    html.dataset.theme = 'paratrack-dark';
-  } else {
-    // Auto — drop the attribute and let the system preference pick.
-    // If the OS pref is dark, the pre-paint script above re-applies
-    // paratrack-dark; otherwise the base.html default light theme wins.
-    delete html.dataset.theme;
-  }
+  if (mode === 'light') html.dataset.theme = 'paratrack-light';
+  else if (mode === 'dark') html.dataset.theme = 'paratrack-dark';
+  else delete html.dataset.theme;
 };
 
-// Resolve the effective theme on every page load before paint.
-// base.html sets the default data-theme="paratrack-light" — we only
-// need to override when the user has an explicit preference stored.
+// Resolve theme before paint. base.html ships data-theme="paratrack-light";
+// we override when the user has an explicit preference.
 (function() {
   const stored = localStorage.getItem('paratrack-theme');
   if (stored === 'light') {
     document.documentElement.dataset.theme = 'paratrack-light';
   } else if (stored === 'dark') {
     document.documentElement.dataset.theme = 'paratrack-dark';
-  } else if (stored === 'auto' || stored === null) {
-    // Auto — follow the OS preference. If neither stored nor system
-    // pref is set, leave the base.html default (paratrack-light).
-    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.dataset.theme = 'paratrack-dark';
-    }
+  } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    document.documentElement.dataset.theme = 'paratrack-dark';
   }
 })();
 
-// Toast helper used by HTMX handlers in base.html.
-// Renders a DaisyUI alert inside the fixed #toast slot, then fades it
-// out after 2.2s. The element gets a glyph (✓ / ✕ / ⓘ) so the colour
-// doesn't have to carry the meaning on its own.
+// Toast — renders a DaisyUI alert in #toast, auto-dismisses after 2.2s.
 window.paratrackToast = function(message, kind) {
   const el = document.getElementById('toast');
   if (!el) return;
@@ -244,11 +229,9 @@ window.paratrackToast = function(message, kind) {
   }, 2200);
 };
 
-// paratrackResize is called from the inline onchange handler on the
-// duration input. It parses the human value (e.g. "1h 30m"), computes
-// a new end_at from the row's start_at, and fires the same PATCH that
-// the end_at input would. The server handles the update and HTMX swaps
-// the whole row back in.
+// paratrackResize — parses a human duration ("1h 30m") from the
+// inline edit field, recomputes end_at from start_at, and PATCHes
+// the same endpoint the end_at input would.
 window.paratrackResize = async function(input, sessionID) {
   const row = document.getElementById('row-' + sessionID);
   if (!row) return;

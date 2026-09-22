@@ -1,27 +1,13 @@
 #!/usr/bin/env python3
 """slice_screenshots.py — нарезает UI каждой страницы paratrack на секции.
 
-Для каждой комбинации (page, theme, optional state) запускает Playwright,
-открывает соответствующий URL, ждёт пока Alpine/HTMX/ECharts отрендерят,
-и сохраняет отдельные PNG:
+Под капотом: поднимает свой paratrack web с изолированной HOME
+(чтобы не трогать ~/.track/track.db), сидит его демо-данными через
+sqlite3, прогоняет Playwright по всем (page, theme, state) комбинациям
+и сохраняет PNG в screenshots/<combo>/{header,main,footer,card-N}.png.
+Сервер изолирован — реальные данные пользователя не затрагиваются.
 
-    screenshots/<combo>/header.png        # topbar
-    screenshots/<combo>/main.png          # <main>
-    screenshots/<combo>/footer.png        # footer
-    screenshots/<combo>/card-1-…png       # по card-селектору
-
-Чтобы прогон не мусорил в ~/.track/track.db, скрипт по умолчанию
-запускает paratrack с собственной HOME: подкаталог в /tmp, внутри
-которого лежит track.db. Это даёт чистые слайсы, а реальные данные
-пользователя остаются нетронутыми.
-
-Скрипт сам стартует ./paratrack с изолированной HOME, ждёт готовности
-сервера, делает прогон и останавливает процесс в конце. Если ты уже
-поднял свой сервер — укажи SKIP_SERVER=1.
-
-Существующий каталог screenshots/ очищается перед запуском.
-
-Пример:
+Использование:
 
     .venv/bin/python scripts/slice_screenshots.py
 """
@@ -42,11 +28,8 @@ ADDR = os.environ.get("ADDR", "127.0.0.1:8888")
 BASE = f"http://{ADDR}"
 SLICE_BIN = ROOT / "paratrack"
 
-# Каждая комбинация: (slug, url, theme, [actions]). slug — это
-# имя подкаталога в screenshots/. theme — "light" | "dark".
-# actions — список кортежей (label, fn) для перерендеринга состояния
-# (start session, pause, и т.д.) перед скриншотом. label добавляется
-# к slug если не None.
+# (slug, url, theme, actions). actions — ["active"|"paused"] to mutate
+# the server state before the screenshot.
 COMBOS = [
     ("dashboard-light", "/", "light", []),
     ("dashboard-light-active", "/", "light", ["active"]),
@@ -169,12 +152,11 @@ def seed_demo_data():
 
 
 def cleanup_actions(page):
-    """Stop any active sessions we created so the user's DB stays clean.
-    Works against either <a href> links or <button hx-post> forms by
-    scanning the rendered DOM for both attribute styles.
+    """Stop any active sessions we created. Scans both <a href> and
+    [hx-post] / [hx-delete] attributes since we use button-based actions,
+    not links.
     """
     try:
-        # Match both <a href="/api/sessions/X/..."> and <... hx-post="/api/sessions/X/...">.
         ids = page.evaluate(r"""
             () => {
               const out = new Set();
@@ -209,7 +191,6 @@ def set_theme(page, theme):
 
 
 def screenshot_section(page, selector, out_path):
-    """Take a screenshot of one DOM element. Returns False if missing."""
     try:
         el = page.locator(selector).first
         el.wait_for(state="visible", timeout=2000)
@@ -221,9 +202,6 @@ def screenshot_section(page, selector, out_path):
 
 
 def screenshot_card(page, index, out_path, desc):
-    """Take the index-th .card inside <main>. Used to slice per-page sections
-    regardless of whether they're nested in grid wrappers.
-    """
     try:
         el = page.locator("main .card").nth(index)
         el.wait_for(state="visible", timeout=2000)
@@ -234,10 +212,8 @@ def screenshot_card(page, index, out_path, desc):
         return False
 
 
-# Селекторы секций для каждой страницы. Ключ — это slug из COMBOS;
-# значение — список (filename, selector/index, desc).
-# Для card-* используется индекс в main.container .card, не CSS-селектор,
-# чтобы не зависеть от того, обёрнуты ли карточки в grid-*.
+# Sections per URL path. card-N entries use index in main .card, not
+# CSS selector, so they don't break when cards are wrapped in grid-* layouts.
 SECTIONS = {
     "default": [
         ("header.png", "header", "topbar"),
@@ -280,13 +256,11 @@ SECTIONS = {
 
 
 def apply_actions(context, page, actions, slug):
-    """Mutate server state for a combo (start/pause a session, etc.)."""
+    """Mutate server state for a combo (start/pause a session)."""
     if not actions:
         return
     if "active" in actions or "paused" in actions:
-        # Stop any pre-existing session on the same activity first so the
-        # start below can't 409. The /api/active response gives us the id
-        # without having to scrape the rendered DOM.
+        # Stop any pre-existing session so the start below can't 409.
         import urllib.request, re as _re
         body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
         for sid in _re.findall(r'/api/sessions/(\d+)/stop', body):
@@ -298,9 +272,8 @@ def apply_actions(context, page, actions, slug):
         page.request.post(BASE + "/api/start", form={"activity": "reading", "note": "slice-demo"})
         page.wait_for_timeout(400)
         if "paused" in actions:
-            # Find the active session via /api/active and stop it, then start
-            # a fresh one and pause that — guarantees the dashboard renders
-            # a paused row rather than an empty active list.
+            # Stop the active one, start fresh, pause that — guarantees
+            # the dashboard renders a paused row.
             body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
             ids = [int(x) for x in _re.findall(r'/api/sessions/(\d+)/', body) if x.isdigit()]
             if ids:
