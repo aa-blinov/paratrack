@@ -16,6 +16,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -55,6 +56,8 @@ func main() {
 		runStats(os.Args[2:])
 	case "goal", "goals":
 		runGoal(os.Args[2:])
+	case "tag", "tags":
+		runTag(os.Args[2:])
 	case "web":
 		runWeb(os.Args[2:])
 	case "-h", "--help", "help":
@@ -84,7 +87,11 @@ Usage:
 Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
   paratrack goal set --activity <name> --daily 2h   set a target
   paratrack goal list                               show goals + progress
-  paratrack goal unset --activity <name> [--daily]  remove`)
+  paratrack goal unset --activity <name> [--daily]  remove
+  paratrack tag add <name>                          create a tag
+  paratrack tag list                                show all tags + counts
+  paratrack tag attach <session_id> <name>          tag a session
+  paratrack tag detach <session_id> <name>          untag`)
 }
 
 // --- helpers ---------------------------------------------------------
@@ -909,6 +916,107 @@ func fmtDurationMinutes(min int) string {
 		return fmt.Sprintf("%dh", h)
 	}
 	return fmt.Sprintf("%dh %dm", h, m)
+}
+
+// runTag dispatches: add | list | attach | detach.
+func runTag(args []string) {
+	if len(args) == 0 {
+		printTagUsage()
+		return
+	}
+	switch args[0] {
+	case "add":
+		runTagAdd(args[1:])
+	case "list", "ls":
+		runTagList()
+	case "attach":
+		runTagAttach(args[1:])
+	case "detach", "rm":
+		runTagDetach(args[1:])
+	case "-h", "--help", "help":
+		printTagUsage()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown tag subcommand %q\n\n", args[0])
+		printTagUsage()
+		os.Exit(2)
+	}
+}
+
+func printTagUsage() {
+	fmt.Println(`paratrack tag — free-form labels for sessions
+
+Usage:
+  paratrack tag add <name>                            create a tag
+  paratrack tag list                                  list tags + counts
+  paratrack tag attach <session_id> <name>            tag a session
+  paratrack tag detach <session_id> <name>            untag`)
+}
+
+func runTagAdd(args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack tag add <name>")
+		os.Exit(2)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	t, err := d.CreateTag(ctx, args[0])
+	if err != nil {
+		fatal("create tag: %v", err)
+	}
+	fmt.Printf("tag #%s ready (id=%d)\n", t.Name, t.ID)
+}
+
+func runTagList() {
+	d, ctx := openDB()
+	defer d.Close()
+	tags, err := d.ListAllTagsWithCounts(ctx)
+	if err != nil {
+		fatal("list tags: %v", err)
+	}
+	if len(tags) == 0 {
+		fmt.Println("No tags yet. Create one with: paratrack tag add deep-work")
+		return
+	}
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "TAG\tSESSIONS")
+	for _, t := range tags {
+		fmt.Fprintf(tw, "#%s\t%d\n", t.Name, t.SessionCount)
+	}
+	tw.Flush()
+}
+
+func runTagAttach(args []string) {
+	if len(args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack tag attach <session_id> <name>")
+		os.Exit(2)
+	}
+	sid, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		fatal("session id: %v", err)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	if err := d.AttachTag(ctx, sid, args[1]); err != nil {
+		fatal("attach: %v", err)
+	}
+	fmt.Printf("tagged session %d with #%s\n", sid, args[1])
+}
+
+func runTagDetach(args []string) {
+	if len(args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack tag detach <session_id> <name>")
+		os.Exit(2)
+	}
+	sid, err := strconv.ParseInt(args[0], 10, 64)
+	if err != nil {
+		fatal("session id: %v", err)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	if err := d.DetachTag(ctx, sid, args[1]); err != nil {
+		fatal("detach: %v", err)
+	}
+	fmt.Printf("removed #%s from session %d\n", args[1], sid)
 }
 
 func runWeb(args []string) {

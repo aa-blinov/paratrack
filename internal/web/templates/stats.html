@@ -1,15 +1,26 @@
 {{define "stats-content"}}
+<datalist id="known-tags-all">
+  {{range $.AllTagNames}}<option value="{{.}}">{{end}}
+</datalist>
 <h1>Stats</h1>
 
 <div class="period-tabs">
   {{$cur := .Period.Label}}
-  <a href="?period=today"      class="{{if eq $cur "today"}}active{{end}}">Today</a>
-  <a href="?period=yesterday"  class="{{if eq $cur "yesterday"}}active{{end}}">Yesterday</a>
-  <a href="?period=week"       class="{{if eq $cur "week"}}active{{end}}">This week</a>
-  <a href="?period=last_week"  class="{{if eq $cur "last_week"}}active{{end}}">Last week</a>
-  <a href="?period=month"      class="{{if eq $cur "month"}}active{{end}}">This month</a>
-  <a href="?period=last_month" class="{{if eq $cur "last_month"}}active{{end}}">Last month</a>
+  <a href="?period=today{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">Today</a>
+  <a href="?period=yesterday{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">Yesterday</a>
+  <a href="?period=week{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"       class="{{if eq $cur "week"}}active{{end}}">This week</a>
+  <a href="?period=last_week{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"  class="{{if eq $cur "last_week"}}active{{end}}">Last week</a>
+  <a href="?period=month{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"      class="{{if eq $cur "month"}}active{{end}}">This month</a>
+  <a href="?period=last_month{{if .TagFilter}}&tag={{.TagFilter}}{{end}}" class="{{if eq $cur "last_month"}}active{{end}}">Last month</a>
 </div>
+
+{{if .TagFilter}}
+<div class="card" style="border-left: 3px solid var(--accent); padding: 10px 14px;">
+  <span class="text-muted" style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em;">Filtering by tag:</span>
+  <strong style="margin-left: 6px;">#{{.TagFilter}}</strong>
+  <a href="?period={{.Period.Label}}" class="btn btn-sm btn-ghost" style="margin-left: 12px;">Clear filter</a>
+</div>
+{{end}}
 
 <div class="grid-2">
   <!-- Aggregated breakdown -->
@@ -67,7 +78,7 @@
   {{if .Sessions}}
   <table class="responsive-collapse">
     <thead>
-      <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th></th></tr>
+      <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th><th></th></tr>
     </thead>
     <tbody>
       {{range .Sessions}}
@@ -121,6 +132,18 @@
            hx-trigger="change"
            hx-target="#row-{{.ID}}"
            hx-swap="outerHTML">
+  </td>
+  <td data-label="Tags">
+    <div class="tags-cell">
+      {{range .Tags}}<span class="tag-mini tag-removable">#{{.Name}}<button class="tag-x" hx-delete="/api/sessions/{{$.ID}}/tags?name={{.Name}}" hx-target="#row-{{$.ID}}" hx-swap="outerHTML" aria-label="remove tag">×</button></span>{{end}}
+      <input type="text" class="tag-input"
+             placeholder="+ tag"
+             list="known-tags-all"
+             hx-post="/api/sessions/{{.ID}}/tags"
+             hx-trigger="keydown[key=='Enter'] from:input"
+             hx-on::after-request="this.value=''"
+             name="name">
+    </div>
   </td>
   <td data-label="" class="text-right">
     <button class="btn btn-sm btn-ghost btn-delete-row"
