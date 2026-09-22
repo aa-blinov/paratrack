@@ -61,7 +61,7 @@ paratrack goal unset --activity reading --daily</pre>
         <div class="space-y-1">
           <div class="flex items-center justify-between text-sm gap-2">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="activity-dot" style="background: {{.Color}};"></span>
+              <span class="activity-mark" style="--color: {{.Color}};"></span>
               <strong>{{.ActivityName}}</strong>
               <span class="opacity-60">{{.PeriodRangeLabel}} ({{.PeriodStartLabel}} → {{.PeriodEndLabel}})</span>
             </div>
@@ -75,7 +75,7 @@ paratrack goal unset --activity reading --daily</pre>
                       aria-label="Delete goal">✕</button>
             </div>
           </div>
-          <progress class="progress w-full" value="{{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}" max="100" style="color: {{.Color}};"></progress>
+          <progress class="progress w-full" value="{{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}" max="100"></progress>
         </div>
         {{end}}
       </div>
