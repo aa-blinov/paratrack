@@ -1,0 +1,176 @@
+/* paratrack UI source — Tailwind v4 + DaisyUI v5.
+ *
+ * This file is processed by `npm run build` which calls
+ * `tailwindcss -i ./input.css -o ../internal/web/static/css/paratrack.css --minify`.
+ * The output is vendored into the Go binary via go:embed.
+ *
+ * Two custom DaisyUI themes: paratrack-light (default) and
+ * paratrack-dark. The page-level data-theme attribute picks one;
+ * the Alpine themeToggle component in app.js switches between them
+ * and writes the choice to localStorage under "paratrack-theme".
+ */
+
+@import "tailwindcss";
+
+@plugin "daisyui" {
+  themes: paratrack-light --default, paratrack-dark --prefersdark;
+  root: ":root";
+  include: ;
+  exclude: ;
+  prefix: ;
+  logs: false;
+}
+
+/* Light theme — defaults to the previous CSS-variable palette
+ * (#f6f7f9 bg, #6366f1 accent, etc.) so we don't lose visual
+ * continuity from the old hand-rolled CSS. */
+@plugin "daisyui/theme" {
+  name: "paratrack-light";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #ffffff;
+  --color-base-200: #f9fafb;
+  --color-base-300: #e5e7eb;
+  --color-base-content: #1a1d23;
+
+  --color-primary: #6366f1;
+  --color-primary-content: #ffffff;
+  --color-secondary: #8b5cf6;
+  --color-secondary-content: #ffffff;
+  --color-accent: #6366f1;
+  --color-accent-content: #ffffff;
+  --color-neutral: #1f2937;
+  --color-neutral-content: #f9fafb;
+
+  --color-info: #06b6d4;
+  --color-info-content: #ffffff;
+  --color-success: #10b981;
+  --color-success-content: #ffffff;
+  --color-warning: #f59e0b;
+  --color-warning-content: #1a1d23;
+  --color-error: #ef4444;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 6px;
+  --radius-field: 10px;
+  --radius-box: 10px;
+
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* Dark theme — same palette shifted to dark mode. */
+@plugin "daisyui/theme" {
+  name: "paratrack-dark";
+  default: false;
+  prefersdark: true;
+  color-scheme: dark;
+
+  --color-base-100: #1a1d23;
+  --color-base-200: #232730;
+  --color-base-300: #2d3139;
+  --color-base-content: #e5e7eb;
+
+  --color-primary: #818cf8;
+  --color-primary-content: #0f1115;
+  --color-secondary: #a78bfa;
+  --color-secondary-content: #0f1115;
+  --color-accent: #818cf8;
+  --color-accent-content: #0f1115;
+  --color-neutral: #e5e7eb;
+  --color-neutral-content: #0f1115;
+
+  --color-info: #22d3ee;
+  --color-info-content: #0f1115;
+  --color-success: #34d399;
+  --color-success-content: #0f1115;
+  --color-warning: #fbbf24;
+  --color-warning-content: #0f1115;
+  --color-error: #f87171;
+  --color-error-content: #0f1115;
+
+  --radius-selector: 6px;
+  --radius-field: 10px;
+  --radius-box: 10px;
+
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+/* paratrack-specific component overrides — applied after DaisyUI
+ * so we win against any class with the same name. */
+@layer components {
+  /* Activity colour dot used inline next to activity names. */
+  .activity-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 999px;
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+
+  /* Status pill — used in active-sessions list to show ▶/⏸ glyph
+   * with semantic colour. */
+  .status-pill {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
+  }
+  .status-pill.is-active { @apply bg-success/15 text-success; }
+  .status-pill.is-paused { @apply bg-warning/15 text-warning; }
+
+  /* Tag chip — used in stats rows and tag-filter banner. */
+  .tag-chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5 text-xs;
+  }
+  .tag-chip.is-removable {
+    @apply pr-1;
+  }
+
+  /* Toast — DaisyUI ships .alert, but we want a centred floating
+   * notification with auto-dismiss. */
+  #toast {
+    @apply pointer-events-none fixed left-1/2 top-4 z-50 -translate-x-1/2 px-4 transition-all;
+  }
+  #toast > .alert {
+    @apply pointer-events-auto shadow-lg;
+  }
+
+  /* Period tabs — DaisyUI has .tabs but ours has a segmented look. */
+  .period-tabs {
+    @apply inline-flex rounded-box bg-base-200 p-1 text-sm;
+  }
+  .period-tabs a {
+    @apply rounded-field px-3 py-1 text-base-content/70 transition-colors hover:text-base-content;
+  }
+  .period-tabs a.active {
+    @apply bg-base-100 text-base-content shadow-sm;
+  }
+
+  /* Responsive card-list for tables on phones. */
+  @media (max-width: 640px) {
+    .responsive-collapse thead { display: none; }
+    .responsive-collapse tbody tr {
+      @apply block rounded-box border border-base-300 p-3 mb-2;
+    }
+    .responsive-collapse tbody td {
+      @apply block border-0 py-1;
+    }
+    .responsive-collapse tbody td::before {
+      content: attr(data-label);
+      @apply mr-2 font-medium text-base-content/60;
+    }
+  }
+
+  /* Subtle focus ring for keyboard users. */
+  *:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+}

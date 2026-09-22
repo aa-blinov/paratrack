@@ -1,7 +1,7 @@
 {{define "graph-content"}}
-<h1>Graph</h1>
+<h1 class="text-2xl font-semibold mb-4">Graph</h1>
 
-<div class="period-tabs">
+<div class="period-tabs mb-4">
   {{$cur := .Period.Label}}
   <a href="?period=today"      class="{{if eq $cur "today"}}active{{end}}">Today</a>
   <a href="?period=yesterday"  class="{{if eq $cur "yesterday"}}active{{end}}">Yesterday</a>
@@ -19,45 +19,49 @@
   });
 </script>
 
-<div class="card">
-  <div class="card-title">Activity distribution by hour of day</div>
-  <p class="text-muted" style="margin: 0 0 12px; font-size: 13px;">
-    Bars show time spent per hour across all days in the period, stacked by activity.
-    Click a legend item to hide / show an activity.
-  </p>
+<div class="card bg-base-100 shadow-sm">
+  <div class="card-body p-5">
+    <div class="card-title text-base font-medium mb-1">Activity distribution by hour of day</div>
+    <p class="text-sm opacity-60 mb-3">
+      Bars show time spent per hour across all days in the period, stacked by activity.
+      Click a legend item to hide / show an activity.
+    </p>
 
-  <div class="echart-wrap"
-       id="echart-wrap"
-       {{if .Chart.HasData}}data-chart='{{.ChartJSON}}'{{end}}>
-    <div class="echart-canvas" id="echart-canvas" style="height: 380px;"></div>
+    <div class="echart-wrap"
+         id="echart-wrap"
+         {{if .Chart.HasData}}data-chart='{{.ChartJSON}}'{{end}}>
+      <div class="echart-canvas w-full" id="echart-canvas" style="height: 380px;"></div>
 
-    {{if .Chart.HasData}}
-    <div class="chart-meta">
-      <span class="text-muted">Total tracked:</span>
-      <strong>{{.Chart.TotalLabel}}</strong>
+      {{if .Chart.HasData}}
+      <div class="text-sm mt-2">
+        <span class="opacity-60">Total tracked:</span>
+        <strong>{{.Chart.TotalLabel}}</strong>
+      </div>
+      {{end}}
+    </div>
+
+    {{if not .Chart.HasData}}
+    <div class="text-center py-8 opacity-60">
+      <div class="font-medium">No data yet</div>
+      <div class="text-sm">Start tracking some activities and they'll appear here.</div>
     </div>
     {{end}}
   </div>
-
-  {{if not .Chart.HasData}}
-  <div class="empty">
-    <div class="empty-title">No data yet</div>
-    <div class="empty-sub">Start tracking some activities and they'll appear here.</div>
-  </div>
-  {{end}}
 </div>
 
 <!-- Legend chip below the chart for tap-friendly toggling on touch devices -->
 {{if .Chart.HasData}}
-<div class="card">
-  <div class="card-title">Activities — click to toggle</div>
-  <div class="flex" id="legend-chips" style="flex-wrap: wrap; gap: 10px;">
-    {{range $i, $l := .Chart.Legend}}
-    <div class="legend-chip" data-series-index="{{$i}}" role="button" tabindex="0" aria-pressed="false" title="Click to hide / show {{$l.Name}}">
-      <span class="activity-dot" style="background: {{$l.Color}}; color: {{$l.Color}};"></span>
-      <span>{{$l.Name}}</span>
+<div class="card bg-base-100 shadow-sm mt-4">
+  <div class="card-body p-5">
+    <div class="card-title text-base font-medium mb-3">Activities — click to toggle</div>
+    <div class="flex flex-wrap gap-2" id="legend-chips">
+      {{range $i, $l := .Chart.Legend}}
+      <div class="badge badge-outline gap-2 cursor-pointer hover:bg-base-200" data-series-index="{{$i}}" role="button" tabindex="0" aria-pressed="false" title="Click to hide / show {{$l.Name}}">
+        <span class="activity-dot" style="background: {{$l.Color}};"></span>
+        <span>{{$l.Name}}</span>
+      </div>
+      {{end}}
     </div>
-    {{end}}
   </div>
 </div>
 {{end}}

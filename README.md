@@ -1,7 +1,7 @@
 # paratrack
 
 > Minimalist time tracker with parallel activities, advanced analytics, and a
-> single-binary web UI. Pure Go, zero CGO, zero Node.
+> single-binary web UI. Pure Go, zero CGO, zero Node runtime.
 
 ![Dashboard — light](./e2e/screenshots/01-dashboard-light.png)
 ![Stats — inline edit + tag filter](./e2e/screenshots/tags-stats-filter-light.png)
@@ -16,8 +16,9 @@ fully-interactive web UI plus the same commands on the terminal.
 ## Quickstart
 
 ```bash
-# Build
-go build -o paratrack ./cmd/paratrack
+# Build (auto-runs `make ui` — installs npm deps and compiles the
+# Tailwind/DaisyUI CSS bundle into internal/web/static/css/paratrack.css)
+make build
 
 # CLI
 ./paratrack start reading --note "Chapter 3"
@@ -37,6 +38,14 @@ go build -o paratrack ./cmd/paratrack
 
 Data lives at `~/.track/track.db` (SQLite). The schema is shared with the
 original Python implementation, so you can copy a DB across if you ever need to.
+
+## UI stack
+
+The embedded web UI is plain Go `html/template` rendered server-side, plus a
+single vendored CSS bundle (~16 KB minified) generated from Tailwind v4 +
+DaisyUI v5 in `web/`. No JS framework runtime — HTMX + Alpine.js + ECharts are
+vendored as static files and compiled into the binary via `go:embed`. To
+tweak the design, edit `web/input.css` and run `make ui`.
 
 ## Features
 
