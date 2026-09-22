@@ -58,17 +58,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
 
       - name: Build server
         run: go build -o /tmp/paratrack ./cmd/paratrack
 
       - name: Install Playwright + Chromium
         run: |
-          python -m venv .venv
-          . .venv/bin/activate
-          pip install --quiet --upgrade pip
-          pip install --quiet playwright
+          python -m pip install --quiet --upgrade pip
+          python -m pip install --quiet playwright
           python -m playwright install --with-deps chromium
 
       - name: Start server
@@ -80,9 +77,7 @@ jobs:
           done
 
       - name: Run Playwright suite
-        run: |
-          . .venv/bin/activate
-          python e2e/test_dashboard.py
+        run: python e2e/test_dashboard.py
 
       - name: Upload screenshots on failure
         if: failure()
