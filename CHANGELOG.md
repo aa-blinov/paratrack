@@ -1,109 +1,45 @@
 # Changelog
 
-All notable changes to paratrack. Versions are tagged at meaningful
-milestones — see https://github.com/aa-blinov/paratrack/releases.
-
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and the project adheres to [Semantic Versioning](https://semver.org/).
+All notable changes to paratrack. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
 ### Added
-- **DaisyUI v5 + Tailwind v4 CSS pipeline**: a new `web/` directory
-  holds the source (`input.css`) and `package.json` for the npm toolchain.
-  `make ui` (or `make build`, which depends on it) installs npm deps and
-  produces the vendored `internal/web/static/css/paratrack.css` that gets
-  embedded into the Go binary. Two custom themes (`paratrack-light` and
-  `paratrack-dark`) carry the previous palette. The bundled CSS is
-  ~16 KB minified — Tailwind only ships the classes we actually use.
-- **Per-activity goals**: `paratrack goal set/list/unset`, full CRUD
-  via `/api/goals`. Dashboard widget shows progress bars per goal
-  with live updates from active sessions. Period-aware windows
-  (daily / ISO-week / monthly) computed in UTC.
-- **Free-form tags**: `paratrack tag add/list/attach/detach`. Stats
-  page has an inline "+ tag" input on every session row and a
-  `/stats?tag=…` filter that narrows the breakdown, distribution
-  and session list. New tags auto-create on first attach.
-- **/goals and /tags management pages** with chip-based UIs, delete
-  buttons and CLI hints.
-- **ECharts graph** (5.5.1, vendored ~1 MB) replaces the hand-rolled
-  SVG. Stacked hour-of-day bars, interactive legend chips that toggle
-  series visibility, MutationObserver rebuilds the chart on theme
-  change.
-- **GitHub Actions workflow** (`.github/workflows/ci.yml`) runs
-  `go vet`, `go test -race`, and the Playwright suite on every
-  push and PR. Three jobs: `ui` (npm install + CSS build),
-  `unit` (Go tests), `e2e` (Playwright). Uploads screenshots as
-  artefacts on e2e failure.
-- **Makefile** + `scripts/setup_e2e.sh` for one-line build, run and
-  e2e setup. `make ui` builds the CSS bundle; `make build` depends on it.
-- **22 Go unit tests** for the db package (`internal/db/goals_test.go`,
-  `internal/db/tags_test.go`) covering period-range math, goal CRUD
-  validation, tag auto-create, batched tag hydration, FK cascade.
-- **45 Playwright E2E checks** across dashboard, stats, graph,
-  theme, keyboard, ECharts canvas + tooltip, theme-rebuild, CSV
-  download, goals CRUD and tags CRUD + filter.
+- **DaisyUI v5 + Tailwind v4 CSS pipeline** in `web/`. `make ui` (or `make build`) installs npm deps and produces `internal/web/static/css/paratrack.css` (~16 KB minified, embedded via `go:embed`). Two custom themes: `paratrack-light` (default) and `paratrack-dark`.
+- **Per-activity goals**: `paratrack goal set/list/unset` + `/api/goals`. Dashboard widget with live progress; period windows (daily / ISO-week / monthly) computed in UTC.
+- **Free-form tags**: `paratrack tag add/list/attach/detach`. Inline "+ tag" input on stats rows; `/stats?tag=…` filter. Auto-create on first attach.
+- **/goals and /tags management pages** with chip UIs and CLI hints.
+- **ECharts graph** (vendored) — stacked hour-of-day bars, clickable legend, MutationObserver rebuilds on theme change.
+- **GitHub Actions** (`.github/workflows/ci.yml`) — three jobs: `ui` (npm), `unit` (Go), `e2e` (Playwright). Uploads screenshots on failure.
+- **48 Go unit tests** + **45 Playwright E2E checks** covering dashboard, stats, graph, theme, keyboard, ECharts, CSV, goals, tags.
 
 ### Changed
-- **Whole UI ported to DaisyUI v5 components.** Every page now uses
-  `card`, `btn`, `input`, `table`, `badge`, `alert`, `progress`, `tabs`,
-  `stat` and the rest of the DaisyUI component vocabulary — replacing
-  the previous hand-rolled CSS that lived in `app.css` (deleted).
-  Light/dark parity is now driven entirely by DaisyUI's
-  `data-theme` attribute, the same hook our Alpine theme toggle was
-  already writing — so theme switching can't drift between pages.
-- **Case-insensitive activity and tag names.** The `activities.name`
-  and `tags.name` columns now use `COLLATE NOCASE`, and every Go-side
-  insert / lookup lowercases its input. Same activity in `Work`,
-  `work` and `WORK` is now a single row.
-- Stats page tables collapse to a card-list layout on phones via a
-  pure-CSS `.responsive-collapse` rule keyed off `data-label`
-  attributes on every `<td>`.
-- Topbar + nav wrap on narrow screens; the theme button hides its
-  AUTO/DARK/LIGHT text label on phones.
-- Status badges gain tiny CSS-only play/pause glyphs.
-- Activity palette drops pure red (`#ef4444`) so no activity colour
-  collides with the destructive-action red of Stop / Delete.
-- Light/dark parity: every visible element themed via CSS variables;
-  `--accent` updated, focus-visible ring added,
-  `prefers-reduced-motion` short-circuit.
-- Toast notification is a fully-filled coloured chip with a ✓/✕
-  glyph; replaces the earlier 3px border + tinted background.
+- **Whole UI on DaisyUI v5.** Every page uses `card`, `btn`, `input`, `table`, `badge`, `alert`, `progress`, `stat`, `kbd` — replacing the hand-rolled `app.css` (deleted). Light/dark parity is now driven entirely by `data-theme`.
+- **Case-insensitive activity and tag names.** `COLLATE NOCASE` on the `name` columns; inserts/lookups lowercase on the Go side. `Work`, `work`, `WORK` resolve to one row.
+- Stats tables collapse to a card-list on phones via `.responsive-collapse`.
+- Topbar + nav wrap on narrow screens; theme button hides its AUTO/DARK/LIGHT label on phones.
+- Status badges get play/pause glyphs.
+- Activity palette drops pure red (`#ef4444`) so it doesn't collide with Stop / Delete red.
+- Light/dark via CSS variables; focus-visible ring; `prefers-reduced-motion` short-circuit.
+- Toast is a solid colored alert with a glyph (✓/✕).
 
 ### Fixed
-- Inline-edit duration input recomputes `end_at` from `start_at`
-  server-side, not in the browser.
-- ECharts hover events no longer eaten by Alpine's reactive proxy
-  (init runs imperatively from `alpine:initialized`).
-- Tooltip on graph hour with no data correctly shows zeros, not
-  the previous hour's values.
+- Inline-edit duration recomputes `end_at` server-side.
+- ECharts hover events no longer eaten by Alpine's reactive proxy.
+- Tooltip on empty graph hour shows zeros, not the previous hour's values.
 
 ### Removed
-- Legacy Python implementation (`track/`, `tests/`, `pyproject.toml`,
-  `uv.lock`, `.ruff.toml`) deleted from the repo. The Go binary is
-  the only supported runtime.
+- Legacy Python implementation deleted. Go binary is the only runtime.
 
 ## Migration notes
 
-The SQLite schema at `~/.track/track.db` is shared with the
-original Python implementation. Existing databases get the
-`UNIQUE(activity_id, period)` index on `goals` and any missing
-columns via `applyMigrations` on first start — no manual step
-required.
+Existing databases get the `UNIQUE(activity_id, period)` goals index and any missing columns via `applyMigrations` on first start. No manual step.
 
-Case-insensitive rollout: any pre-existing activity or tag rows that
-collide under `COLLATE NOCASE` (e.g. `Work` + `work`) are merged on
-first launch — the lowest-id row wins, every other row's sessions
-(or session_tags) are re-pointed at the winner, then the losers are
-deleted. Mixed-case names without collisions are simply lowercased.
-The migration is idempotent; running it again is a no-op.
+Case-insensitive rollout: any pre-existing activity or tag rows colliding under `COLLATE NOCASE` (e.g. `Work` + `work`) are merged — the lowest-id row wins, sessions / session_tags are re-pointed at the winner, losers are deleted. Idempotent.
 
 ## Past highlights
 
 * **Phase 3 (polish)** — duration-edit, theme toggle, SVG timeline.
-* **Phase 2 (web)** — HTMX + Alpine.js embedded UI, all 11 API
-  endpoints.
-* **Phase 1 (CLI)** — natural-language time parser, `add`/`log`/
-  `stats` commands.
-* **Phase 0 (bootstrap)** — `go.mod`, modernc.org/sqlite, schema,
-  `status` command.
+* **Phase 2 (web)** — HTMX + Alpine.js embedded UI, 11 API endpoints.
+* **Phase 1 (CLI)** — natural-language time parser, `add`/`log`/`stats`.
+* **Phase 0 (bootstrap)** — `go.mod`, modernc.org/sqlite, schema, `status` command.
