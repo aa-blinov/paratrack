@@ -132,6 +132,12 @@ func ParseDuration(s string) (int, error) {
 	if s == "" {
 		return 0, fmt.Errorf("empty duration")
 	}
+	// Refuse negative durations up front. The regex below would
+	// otherwise strip the leading '-' and quietly parse "1h" out of
+	// "-1h", returning a positive value.
+	if strings.HasPrefix(s, "-") {
+		return 0, fmt.Errorf("duration must be positive: %q", s)
+	}
 	// Bare number → minutes
 	if n, err := strconv.Atoi(s); err == nil {
 		return n * 60, nil
