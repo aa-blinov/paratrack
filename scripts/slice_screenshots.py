@@ -6,25 +6,31 @@
 и сохраняет отдельные PNG:
 
     screenshots/<combo>/header.png        # topbar
-    screenshots/<combo>/footer.png        # footer (если есть)
-    screenshots/<combo>/main.png          # <main class="container">
+    screenshots/<combo>/main.png          # <main>
+    screenshots/<combo>/footer.png        # footer
     screenshots/<combo>/card-1-…png       # по card-селектору
 
-Сервер paratrack web должен быть запущен на $ADDR (по умолчанию
-127.0.0.1:8888). Если недоступен — скрипт падает.
+Чтобы прогон не мусорил в ~/.track/track.db, скрипт по умолчанию
+запускает paratrack с собственной HOME: подкаталог в /tmp, внутри
+которого лежит track.db. Это даёт чистые слайсы, а реальные данные
+пользователя остаются нетронутыми.
 
-Существующий каталог screenshots/ очищается перед запуском, чтобы
-не плодить старые артефакты.
+Скрипт сам стартует ./paratrack с изолированной HOME, ждёт готовности
+сервера, делает прогон и останавливает процесс в конце. Если ты уже
+поднял свой сервер — укажи SKIP_SERVER=1.
+
+Существующий каталог screenshots/ очищается перед запуском.
 
 Пример:
 
-    make web &
     .venv/bin/python scripts/slice_screenshots.py
 """
 
 import os
 import sys
 import shutil
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -34,6 +40,7 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "screenshots"
 ADDR = os.environ.get("ADDR", "127.0.0.1:8888")
 BASE = f"http://{ADDR}"
+SLICE_BIN = ROOT / "paratrack"
 
 # Каждая комбинация: (slug, url, theme, [actions]). slug — это
 # имя подкаталога в screenshots/. theme — "light" | "dark".
@@ -61,16 +68,138 @@ COMBOS = [
 
 
 def wait_server():
+    if server_up():
+        return
+    sys.exit(f"server at {BASE} is not up; start it with 'make web' first")
+
+
+def server_up():
     import urllib.request
-    import urllib.error
+    try:
+        urllib.request.urlopen(BASE, timeout=1).read()
+        return True
+    except Exception:
+        return False
+
+
+def start_own_server():
+    """Run our own `paratrack web` against a fresh TRACK_HOME so we never
+    touch the user's real ~/.track/track.db. Returns (process, tmpdir)."""
+    if not SLICE_BIN.exists():
+        sys.exit(f"{SLICE_BIN} not built; run `make build` first")
+    tmp_home = Path(tempfile.mkdtemp(prefix="paratrack-slice-"))
+    log = open("/tmp/paratrack-slice.log", "w")
+    proc = subprocess.Popen(
+        [str(SLICE_BIN), "web", "--addr", ADDR],
+        env={**os.environ, "HOME": str(tmp_home)},
+        stdout=log, stderr=log,
+    )
+    import urllib.request
     deadline = time.time() + 10
     while time.time() < deadline:
         try:
             urllib.request.urlopen(BASE, timeout=1).read()
-            return
-        except (urllib.error.URLError, ConnectionResetError, OSError):
+            print(f"  (started own paratrack in {tmp_home}, log: /tmp/paratrack-slice.log)")
+            return proc, tmp_home
+        except Exception:
             time.sleep(0.3)
-    sys.exit(f"server at {BASE} is not up; start it with 'make web' first")
+    proc.terminate()
+    sys.exit(f"paratrack failed to start on {BASE} — see /tmp/paratrack-slice.log")
+
+
+def seed_demo_data():
+    """Plant a handful of activities / sessions / tags / goals in the DB
+    directly via sqlite3 so the pages have something to render."""
+    import datetime, subprocess
+    db = Path(os.environ["HOME"]) / ".track" / "track.db"
+    print(f"  seeding {db}", flush=True)
+    if not db.exists():
+        print(f"  ! db missing, skipping seed", flush=True)
+        return
+    # Use timezone-aware UTC instead of deprecated utcnow() so we
+    # don't accidentally emit naive datetimes that the template
+    # formatter then reads back in a different timezone.
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    # RFC 3339 with microseconds: 2026-09-22T13:10:43.072300Z.
+    # strftime("%f") returns 6 digits without a leading dot, so we
+    # splice it back in ourselves.
+    iso = lambda t: t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond:06d}Z"
+    print(f"  now={now.isoformat()}", flush=True)
+
+    def at(seconds_ago):
+        return iso(now - datetime.timedelta(seconds=seconds_ago))
+
+    rows = []
+    for name in ["reading", "work", "writing", "exercise"]:
+        rows.append(
+            f"INSERT INTO activities (name, created_at, updated_at) "
+            f"VALUES ('{name}', '{at(86400)}', '{at(86400)}');"
+        )
+    sessions = [
+        (1, 5 * 3600, 30 * 60, "Designing the new look"),
+        (2, 6 * 3600, 150 * 60, ""),
+        (3, 7 * 3600, 45 * 60, "morning"),
+        (4, 4 * 3600, 60 * 60, "afternoon"),
+        (1, 3 * 3600, 25 * 60, ""),
+        (2, 2 * 3600, 90 * 60, ""),
+        (3, 1 * 3600, 15 * 60, "test"),
+    ]
+    for aid, ago, secs, note in sessions:
+        start = at(ago)
+        end = at(ago - secs)
+        rows.append(
+            f"INSERT INTO sessions (activity_id, start_at, end_at, note, paused, "
+            f"accumulated_seconds, created_at, updated_at) "
+            f"VALUES ({aid}, '{start}', '{end}', '{note}', 0, 0, "
+            f"'{start}', '{end}');"
+        )
+    rows.append(f"INSERT INTO goals (activity_id, period, target_minutes, created_at, updated_at) VALUES (1, 'daily', 120, '{at(86400)}', '{at(86400)}');")
+    rows.append(f"INSERT INTO goals (activity_id, period, target_minutes, created_at, updated_at) VALUES (2, 'daily', 90, '{at(86400)}', '{at(86400)}');")
+    rows.append(f"INSERT INTO goals (activity_id, period, target_minutes, created_at, updated_at) VALUES (3, 'weekly', 480, '{at(86400)}', '{at(86400)}');")
+    for name in ["deep-work", "morning", "weekend", "study"]:
+        rows.append(f"INSERT INTO tags (name, created_at) VALUES ('{name}', '{at(86400)}');")
+
+    sql = "\n".join(rows)
+    subprocess.run(
+        ["sqlite3", str(db), sql],
+        check=False,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+
+def cleanup_actions(page):
+    """Stop any active sessions we created so the user's DB stays clean.
+    Works against either <a href> links or <button hx-post> forms by
+    scanning the rendered DOM for both attribute styles.
+    """
+    try:
+        # Match both <a href="/api/sessions/X/..."> and <... hx-post="/api/sessions/X/...">.
+        ids = page.evaluate(r"""
+            () => {
+              const out = new Set();
+              for (const a of document.querySelectorAll('a[href*="/api/sessions/"]')) {
+                const m = a.href.match(/sessions\/(\d+)/);
+                if (m) out.add(m[1]);
+              }
+              for (const el of document.querySelectorAll('[hx-post*="/api/sessions/"]')) {
+                const m = (el.getAttribute('hx-post') || '').match(/sessions\/(\d+)/);
+                if (m) out.add(m[1]);
+              }
+              for (const el of document.querySelectorAll('[hx-delete*="/api/sessions/"]')) {
+                const m = (el.getAttribute('hx-delete') || '').match(/sessions\/(\d+)/);
+                if (m) out.add(m[1]);
+              }
+              return Array.from(out);
+            }
+        """)
+        for sid in sorted({int(x) for x in ids if x and x.isdigit()}, reverse=True):
+            try:
+                page.request.post(BASE + f"/api/sessions/{sid}/stop")
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 def set_theme(page, theme):
@@ -190,40 +319,6 @@ def apply_actions(context, page, actions, slug):
                     page.wait_for_timeout(300)
 
 
-def cleanup_actions(page):
-    """Stop any active sessions we created so the user's DB stays clean.
-    Works against either <a href> links or <button hx-post> forms by
-    scanning the rendered DOM for both attribute styles.
-    """
-    try:
-        # Match both <a href="/api/sessions/X/..."> and <... hx-post="/api/sessions/X/...">.
-        ids = page.evaluate(r"""
-            () => {
-              const out = new Set();
-              for (const a of document.querySelectorAll('a[href*="/api/sessions/"]')) {
-                const m = a.href.match(/sessions\/(\d+)/);
-                if (m) out.add(m[1]);
-              }
-              for (const el of document.querySelectorAll('[hx-post*="/api/sessions/"]')) {
-                const m = (el.getAttribute('hx-post') || '').match(/sessions\/(\d+)/);
-                if (m) out.add(m[1]);
-              }
-              for (const el of document.querySelectorAll('[hx-delete*="/api/sessions/"]')) {
-                const m = (el.getAttribute('hx-delete') || '').match(/sessions\/(\d+)/);
-                if (m) out.add(m[1]);
-              }
-              return Array.from(out);
-            }
-        """)
-        for sid in sorted({int(x) for x in ids if x and x.isdigit()}, reverse=True):
-            try:
-                page.request.post(BASE + f"/api/sessions/{sid}/stop")
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-
 def slice_combo(browser, slug, url, theme, actions):
     print(f"  [{slug}] starting", flush=True)
     out_dir = OUT / slug
@@ -288,32 +383,80 @@ def main():
         shutil.rmtree(OUT)
     OUT.mkdir(parents=True)
 
-    wait_server()
+    own_proc = None
+    tmp_home = None
+    saved_home = os.environ.get("HOME")
+    # Playwright resolves its chromium cache as $HOME/Library/Caches/ms-playwright
+    # on macOS. We override HOME for the paratrack subprocess so it
+    # uses an isolated DB, but we don't want that override to nuke the
+    # browser cache lookup for our own Playwright run. Pin the
+    # browsers path explicitly so chromium is found regardless.
+    pw_cache = Path.home() / "Library" / "Caches" / "ms-playwright"
+    saved_pw = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(pw_cache)
+    try:
+        if not server_up():
+            own_proc, tmp_home = start_own_server()
+            # Re-point HOME at the temp dir so seed_demo_data writes
+            # into the same DB the server is reading from.
+            os.environ["HOME"] = str(tmp_home)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        for slug, url, theme, actions in COMBOS:
-            print(f"slicing {slug} ({url}, {theme}, {actions or 'idle'})…")
-            try:
-                slice_combo(browser, slug, url, theme, actions)
-            except Exception as e:
-                print(f"  ! {slug}: {e}", file=sys.stderr)
-                # Best-effort cleanup of any session we may have started.
+        # Seed the DB with a handful of activities / sessions / tags
+        # / goals so the screenshots have something to render.
+        seed_demo_data()
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            for slug, url, theme, actions in COMBOS:
+                print(f"slicing {slug} ({url}, {theme}, {actions or 'idle'})…")
                 try:
-                    import urllib.request, re as _re
-                    body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
-                    for sid in _re.findall(r'/api/sessions/(\d+)/stop', body):
-                        urllib.request.urlopen(
-                            urllib.request.Request(
-                                BASE + f"/api/sessions/{sid}/stop", method="POST"),
-                            timeout=2,
-                        ).read()
+                    slice_combo(browser, slug, url, theme, actions)
+                except Exception as e:
+                    print(f"  ! {slug}: {e}", file=sys.stderr)
+            browser.close()
+
+        stop_all_active()
+    finally:
+        # Restore HOME and the Playwright cache lookup before we drop
+        # the temp dir so subsequent calls (and the user's shell)
+        # keep seeing the real ones.
+        if saved_home is not None:
+            os.environ["HOME"] = saved_home
+        if saved_pw is not None:
+            os.environ["PLAYWRIGHT_BROWSERS_PATH"] = saved_pw
+        else:
+            os.environ.pop("PLAYWRIGHT_BROWSERS_PATH", None)
+        if own_proc is not None:
+            try:
+                own_proc.terminate()
+                own_proc.wait(timeout=5)
+            except Exception:
+                try:
+                    own_proc.kill()
                 except Exception:
                     pass
-        browser.close()
+        if tmp_home is not None:
+            shutil.rmtree(tmp_home, ignore_errors=True)
 
     combos_done = sum(1 for _ in OUT.iterdir() if _.is_dir())
     print(f"\ndone — {combos_done} combos in {OUT.relative_to(ROOT)}/")
+
+
+def stop_all_active():
+    import urllib.request, re as _re
+    try:
+        body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
+        for sid in _re.findall(r'/api/sessions/(\d+)/stop', body):
+            try:
+                urllib.request.urlopen(
+                    urllib.request.Request(
+                        BASE + f"/api/sessions/{sid}/stop", method="POST"),
+                    timeout=2,
+                ).read()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":
