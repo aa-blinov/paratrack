@@ -53,6 +53,8 @@ func main() {
 		runLog(os.Args[2:])
 	case "stats":
 		runStats(os.Args[2:])
+	case "goal", "goals":
+		runGoal(os.Args[2:])
 	case "web":
 		runWeb(os.Args[2:])
 	case "-h", "--help", "help":
@@ -79,7 +81,10 @@ Usage:
   paratrack stats                   show aggregated stats
   paratrack web [--addr :8000]      launch embedded web UI
 
-Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log`)
+Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
+  paratrack goal set --activity <name> --daily 2h   set a target
+  paratrack goal list                               show goals + progress
+  paratrack goal unset --activity <name> [--daily]  remove`)
 }
 
 // --- helpers ---------------------------------------------------------
@@ -738,6 +743,172 @@ func deref(p *string) string {
 // containsFold is a tiny helper to keep main.go self-contained.
 func containsFold(s, substr string) bool {
 	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+}
+
+// runGoal dispatches subcommands: set | list | unset.
+func runGoal(args []string) {
+	if len(args) == 0 {
+		printGoalUsage()
+		return
+	}
+	switch args[0] {
+	case "set":
+		runGoalSet(args[1:])
+	case "list", "ls":
+		runGoalList()
+	case "unset", "rm", "delete":
+		runGoalUnset(args[1:])
+	case "-h", "--help", "help":
+		printGoalUsage()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown goal subcommand %q\n\n", args[0])
+		printGoalUsage()
+		os.Exit(2)
+	}
+}
+
+func printGoalUsage() {
+	fmt.Println(`paratrack goal — set and track per-activity targets
+
+Usage:
+  paratrack goal set --activity <name> --daily <duration>     set / replace a goal
+  paratrack goal set --activity <name> --weekly <duration>
+  paratrack goal set --activity <name> --monthly <duration>
+  paratrack goal list                                          show goals + progress
+  paratrack goal unset --activity <name> [--daily|--weekly|--monthly]`)
+}
+
+func runGoalSet(args []string) {
+	fs := flag.NewFlagSet("goal set", flag.ExitOnError)
+	activityFlag := fs.String("activity", "", "activity name (required)")
+	dailyFlag := fs.String("daily", "", "daily target (e.g. 2h, 30m)")
+	weeklyFlag := fs.String("weekly", "", "weekly target")
+	monthlyFlag := fs.String("monthly", "", "monthly target")
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if *activityFlag == "" {
+		fmt.Fprintln(os.Stderr, "usage: paratrack goal set --activity <name> --daily 2h")
+		os.Exit(2)
+	}
+
+	// Collect (period, duration-string) pairs from whichever flags are set.
+	type pair struct{ period, dur string }
+	var pairs []pair
+	if *dailyFlag != "" {
+		pairs = append(pairs, pair{"daily", *dailyFlag})
+	}
+	if *weeklyFlag != "" {
+		pairs = append(pairs, pair{"weekly", *weeklyFlag})
+	}
+	if *monthlyFlag != "" {
+		pairs = append(pairs, pair{"monthly", *monthlyFlag})
+	}
+	if len(pairs) == 0 {
+		fmt.Fprintln(os.Stderr, "specify one of --daily, --weekly, --monthly")
+		os.Exit(2)
+	}
+
+	d, ctx := openDB()
+	defer d.Close()
+
+	act, err := d.GetOrCreateActivity(ctx, *activityFlag)
+	if err != nil {
+		fatal("activity %q: %v", *activityFlag, err)
+	}
+
+	for _, p := range pairs {
+		secs, err := timeparse.ParseDuration(p.dur)
+		if err != nil {
+			fatal("parse %s duration %q: %v", p.period, p.dur, err)
+		}
+		mins := secs / 60
+		g, err := d.UpsertGoal(ctx, act.ID, p.period, mins)
+		if err != nil {
+			fatal("upsert %s goal: %v", p.period, err)
+		}
+		fmt.Printf("set %s goal for %q: %d min/%s\n",
+			p.period, act.Name, g.TargetMinutes, p.period)
+	}
+}
+
+func runGoalList() {
+	d, ctx := openDB()
+	defer d.Close()
+	now := time.Now()
+	progress, err := d.ProgressForGoals(ctx, now)
+	if err != nil {
+		fatal("progress: %v", err)
+	}
+	if len(progress) == 0 {
+		fmt.Println("No goals configured. Set one with: paratrack goal set reading --daily 2h")
+		return
+	}
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "ACTIVITY\tPERIOD\tPROGRESS\tTARGET\t%")
+	for _, p := range progress {
+		achieved := fmtDurationMinutes(p.AchievedMinutes)
+		target := fmtDurationMinutes(p.Goal.TargetMinutes)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%d%%\n",
+			p.ActivityName, p.Goal.Period, achieved, target, p.PercentComplete)
+	}
+	tw.Flush()
+}
+
+func runGoalUnset(args []string) {
+	fs := flag.NewFlagSet("goal unset", flag.ExitOnError)
+	activityFlag := fs.String("activity", "", "activity name (required)")
+	dailyFlag := fs.Bool("daily", false, "remove the daily goal")
+	weeklyFlag := fs.Bool("weekly", false, "remove the weekly goal")
+	monthlyFlag := fs.Bool("monthly", false, "remove the monthly goal")
+	if err := fs.Parse(args); err != nil {
+		os.Exit(2)
+	}
+	if *activityFlag == "" {
+		fmt.Fprintln(os.Stderr, "usage: paratrack goal unset --activity <name> [--daily]")
+		os.Exit(2)
+	}
+
+	periods := []string{}
+	if *dailyFlag {
+		periods = append(periods, "daily")
+	}
+	if *weeklyFlag {
+		periods = append(periods, "weekly")
+	}
+	if *monthlyFlag {
+		periods = append(periods, "monthly")
+	}
+	if len(periods) == 0 {
+		// No flag: remove all periods for this activity.
+		periods = []string{"daily", "weekly", "monthly"}
+	}
+
+	d, ctx := openDB()
+	defer d.Close()
+	act, err := d.GetActivityByName(ctx, *activityFlag)
+	if err != nil {
+		fatal("activity %q: %v", *activityFlag, err)
+	}
+	for _, p := range periods {
+		if err := d.DeleteGoal(ctx, act.ID, p); err != nil && !errors.Is(err, db.ErrGoalNotFound) {
+			fatal("unset %s: %v", p, err)
+		}
+	}
+	fmt.Printf("removed %s goals for %q\n", strings.Join(periods, ","), act.Name)
+}
+
+// fmtDurationMinutes renders N minutes as "Xh YYm" or "Ym".
+func fmtDurationMinutes(min int) string {
+	if min < 60 {
+		return fmt.Sprintf("%dm", min)
+	}
+	h := min / 60
+	m := min % 60
+	if m == 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	return fmt.Sprintf("%dh %dm", h, m)
 }
 
 func runWeb(args []string) {

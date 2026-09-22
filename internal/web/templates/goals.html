@@ -1,0 +1,88 @@
+{{define "goals-content"}}
+<h1>Goals</h1>
+<p class="text-muted" style="margin-top: -8px; margin-bottom: 20px;">
+  Set per-activity targets. Progress is measured against the live clock,
+  so an active session contributes to the daily goal as you track it.
+</p>
+
+<!-- New goal form -->
+<div class="card">
+  <div class="card-title">New goal</div>
+  <form class="goals-form" hx-post="/api/goals" hx-target="#goals-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
+    <div>
+      <label for="g-activity">Activity</label>
+      <input type="text" id="g-activity" name="activity" required placeholder="reading" list="known-activities">
+      <datalist id="known-activities">
+        {{range .Activities}}<option value="{{.Name}}">{{end}}
+      </datalist>
+    </div>
+    <div>
+      <label for="g-period">Period</label>
+      <select id="g-period" name="period" required>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+    <div>
+      <label for="g-minutes">Minutes</label>
+      <input type="number" id="g-minutes" name="minutes" min="1" max="10000" required placeholder="120">
+    </div>
+    <button type="submit" class="btn btn-primary">Set goal</button>
+  </form>
+</div>
+
+<!-- Existing goals with progress; the inner HTML is swapped by HTMX. -->
+<div id="goals-list" hx-get="/api/goals/progress" hx-trigger="load, every 60s" hx-swap="innerHTML">
+  {{template "goals-list" .Goals}}
+</div>
+
+<!-- CLI hint -->
+<div class="card">
+  <div class="card-title">From the terminal</div>
+  <p class="text-muted" style="margin: 4px 0 8px; font-size: 13px;">
+    Same CRUD works over the CLI:
+  </p>
+  <pre class="mono" style="margin: 0; font-size: 12px; background: var(--surface-2); padding: 10px 12px; border-radius: var(--radius-sm); overflow-x: auto;">paratrack goal set --activity reading --daily 2h
+paratrack goal list
+paratrack goal unset --activity reading --daily</pre>
+</div>
+{{end}}
+
+{{define "goals-list"}}
+  {{if .}}
+  <div class="card">
+    <div class="card-title">Current goals</div>
+    <div class="goals-list">
+      {{range .}}
+      <div class="goal-row" data-state="{{.AchievedClass}}">
+        <div class="goal-head">
+          <span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>
+          <strong>{{.ActivityName}}</strong>
+          <span class="text-muted goal-period">{{.PeriodRangeLabel}} ({{.PeriodStartLabel}} → {{.PeriodEndLabel}})</span>
+          <span class="goal-progress-text mono">
+            {{.AchievedLabel}}<span class="text-muted"> / {{.TargetLabel}}</span>
+          </span>
+          <button class="btn btn-sm btn-ghost"
+                  hx-delete="/api/goals?activity={{.ActivityName}}&period={{.Period}}"
+                  hx-target="#goals-list" hx-swap="innerHTML"
+                  hx-confirm="Delete {{.Period}} goal for {{.ActivityName}}?"
+                  title="Delete goal"
+                  aria-label="Delete goal">×</button>
+        </div>
+        <div class="goal-bar">
+          <div class="goal-bar-fill"
+               style="width: {{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}%;
+                      background: {{.Color}};"></div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+  </div>
+  {{else}}
+  <div class="empty">
+    <div class="empty-title">No goals yet</div>
+    <div class="empty-sub">Use the form above to set one, or run <code>paratrack goal set --activity reading --daily 2h</code>.</div>
+  </div>
+  {{end}}
+{{end}}

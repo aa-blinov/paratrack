@@ -49,7 +49,8 @@ CREATE TABLE IF NOT EXISTS goals (
     target_minutes INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
-    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
+    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+    UNIQUE (activity_id, period)
 );
 
 CREATE TABLE IF NOT EXISTS reminders (
@@ -83,6 +84,13 @@ var columnMigrations = []struct {
 	{"sessions", "last_resume_at", "TEXT"},
 }
 
+// uniqueMigrations creates UNIQUE indexes that the original schema
+// didn't include. Each entry is idempotent: IF NOT EXISTS lets us run
+// it on every startup without harm.
+var uniqueMigrations = []string{
+	`CREATE UNIQUE INDEX IF NOT EXISTS uniq_goals_activity_period ON goals(activity_id, period)`,
+}
+
 func (d *DB) applyMigrations() error {
 	for _, m := range columnMigrations {
 		exists, err := d.columnExists(m.table, m.column)
@@ -93,6 +101,11 @@ func (d *DB) applyMigrations() error {
 			continue
 		}
 		if _, err := d.sql.Exec("ALTER TABLE " + m.table + " ADD COLUMN " + m.column + " " + m.decl); err != nil {
+			return err
+		}
+	}
+	for _, stmt := range uniqueMigrations {
+		if _, err := d.sql.Exec(stmt); err != nil {
 			return err
 		}
 	}
