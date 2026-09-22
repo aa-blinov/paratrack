@@ -4,13 +4,13 @@
 > single-binary web UI. Pure Go, zero CGO, zero Node.
 
 ![Dashboard — light](./e2e/screenshots/01-dashboard-light.png)
-![Stats — inline edit + distribution](./e2e/screenshots/04-stats-with-edit.png)
+![Stats — inline edit + tag filter](./e2e/screenshots/tags-stats-filter-light.png)
 ![Graph — ECharts hour-of-day with hover tooltip](./e2e/screenshots/10-echart-tooltip.png)
 
 ## Why
 
 Most time trackers are either web apps with 5 MB of JavaScript, or CLI tools
-with no visual feedback. paratrack is both: one 19 MB Go binary gives you a
+with no visual feedback. paratrack is both: one 20 MB Go binary gives you a
 fully-interactive web UI plus the same commands on the terminal.
 
 ## Quickstart
@@ -22,10 +22,13 @@ go build -o paratrack ./cmd/paratrack
 # CLI
 ./paratrack start reading --note "Chapter 3"
 ./paratrack pause reading
-./paratrack status          # active sessions + duration
+./paratrack status                 # active sessions + duration
 ./paratrack add --start "yesterday 14:00" --mode duration --duration 1h
 ./paratrack log --period week
 ./paratrack stats --period today
+./paratrack goal set --activity reading --daily 2h
+./paratrack tag add deep-work
+./paratrack tag attach 17 deep-work
 
 # Web UI (open http://127.0.0.1:8000)
 ./paratrack web --addr 127.0.0.1:8000
@@ -42,10 +45,15 @@ original Python implementation, so you can copy a DB across if you ever need to.
 - **Focus / switch** — pause others, start or resume the chosen one
 - **Backfill** — `paratrack add --start "yesterday 09:00" --duration 1h 30m`
 - **Inline edit** — change start / end / duration / note right in the stats table
+- **Inline tags** — type a tag name + Enter on any session row to attach it
+- **Tag filter** — `/stats?tag=deep-work` narrows breakdown + sessions
+- **Goals** — per-activity daily / weekly / monthly targets with live progress
+- **ECharts graph** — stacked hour-of-day bars with clickable legend
 - **CSV export** — download button in the topbar
 - **Light / dark / auto theme** — toggle with the button or `t` key
 - **Keyboard shortcuts** — `n` new · `s` stats · `g` graph · `d` dashboard · `t` theme
 - **Live timers** — active rows tick every second without server round-trips
+- **Mobile-friendly** — tables collapse to stacked cards on phones
 - **Hover tooltips** — graph bars show minutes per activity for that hour
 
 ## CLI reference
@@ -61,6 +69,8 @@ original Python implementation, so you can copy a DB across if you ever need to.
 | `paratrack add` | `a` | Backfill a session (interactive) |
 | `paratrack log` | `l` | Log of closed sessions in a period |
 | `paratrack stats` | — | Aggregated breakdown for a period |
+| `paratrack goal` | — | Set / list / unset per-activity targets |
+| `paratrack tag` | — | Add / list / attach / detach session tags |
 | `paratrack web` | — | Launch embedded web UI |
 
 All commands accept `--help`.
@@ -95,16 +105,22 @@ Durations:
 
 ```
 paratrack/
-├── cmd/paratrack/main.go     CLI entry, dispatch table, prompt helpers
+├── cmd/paratrack/main.go     CLI entry, dispatch table (start/stop/goal/tag/web/...)
 ├── internal/
 │   ├── cli/                  stdin prompt helpers (Prompt / Confirm / Choose)
-│   ├── db/                   SQLite layer (pure-Go driver, schema, queries)
+│   ├── db/                   SQLite layer — pure-Go driver + schema + queries
+│   │   ├── db.go             open/close helpers + time scan/format
+│   │   ├── schema.go         full DDL + column / unique migrations
+│   │   ├── activities.go     activity CRUD
+│   │   ├── sessions.go       session CRUD + active / in-range queries
+│   │   ├── goals.go          per-activity target + period progress
+│   │   └── tags.go           tags + session_tags + batched hydration
 │   ├── model/                domain types (Activity, Session, Tag, Goal, Reminder)
-│   ├── timeparse/            NL time + duration parser (~340 LOC, tested)
-│   └── web/                  HTTP server, handlers, chart aggregation, embedded assets
-│       ├── templates/        html/template base + 3 pages
-│       └── static/           CSS, htmx.min.js, alpine.min.js, echarts.min.js, app.js (vendored)
-├── e2e/                      Playwright E2E + screenshots
+│   ├── timeparse/            NL time + duration parser (~340 LOC)
+│   └── web/                  HTTP server + handlers + chart aggregation
+│       ├── templates/        base + dashboard / stats / graph / goals / tags
+│       └── static/           CSS, htmx.min.js, alpine.min.js, echarts.min.js, app.js (all vendored)
+├── e2e/                      Playwright E2E + 25+ screenshots
 └── go.mod / go.sum
 ```
 
@@ -133,9 +149,9 @@ python e2e/test_dashboard.py
 ```
 
 The script takes screenshots into `e2e/screenshots/` and prints a pass/fail
-per check (currently 30/30 across dashboard, stats, graph, theme, keyboard,
-duration edit, ECharts canvas + tooltip, theme-change rebuild, and CSV
-download).
+per check (currently 45/45 across dashboard, stats, graph, theme, keyboard,
+duration edit, ECharts canvas + tooltip, theme-change rebuild, CSV download,
+Goals CRUD, and Tags CRUD with inline attach + filter).
 
 ## Stack
 
