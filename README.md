@@ -1,7 +1,6 @@
 # paratrack
 
-> Minimalist time tracker with parallel activities, advanced analytics, and a
-> single-binary web UI. Pure Go, zero CGO, zero Node runtime.
+Minimalist time tracker with parallel activities, advanced analytics, and a single-binary web UI. Pure Go, zero CGO, zero Node runtime.
 
 ![Dashboard — light](./e2e/screenshots/01-dashboard-light.png)
 ![Stats — inline edit + tag filter](./e2e/screenshots/tags-stats-filter-light.png)
@@ -9,21 +8,17 @@
 
 ## Why
 
-Most time trackers are either web apps with 5 MB of JavaScript, or CLI tools
-with no visual feedback. paratrack is both: one 20 MB Go binary gives you a
-fully-interactive web UI plus the same commands on the terminal.
+Most time trackers are either 5 MB-JS web apps or CLI tools with no visual feedback. paratrack is both: one 20 MB Go binary gives you a fully-interactive web UI plus the same commands on the terminal.
 
 ## Quickstart
 
 ```bash
-# Build (auto-runs `make ui` — installs npm deps and compiles the
-# Tailwind/DaisyUI CSS bundle into internal/web/static/css/paratrack.css)
-make build
+make build    # auto-runs `make ui` (npm install + CSS bundle)
 
 # CLI
 ./paratrack start reading --note "Chapter 3"
 ./paratrack pause reading
-./paratrack status                 # active sessions + duration
+./paratrack status
 ./paratrack add --start "yesterday 14:00" --mode duration --duration 1h
 ./paratrack log --period week
 ./paratrack stats --period today
@@ -31,39 +26,32 @@ make build
 ./paratrack tag add deep-work
 ./paratrack tag attach 17 deep-work
 
-# Web UI (open http://127.0.0.1:8000)
+# Web UI
 ./paratrack web --addr 127.0.0.1:8000
-./paratrack web --open      # also opens the browser
+./paratrack web --open
 ```
 
-Data lives at `~/.track/track.db` (SQLite). The schema is shared with the
-original Python implementation, so you can copy a DB across if you ever need to.
+Data lives at `~/.track/track.db` (SQLite).
 
 ## UI stack
 
-The embedded web UI is plain Go `html/template` rendered server-side, plus a
-single vendored CSS bundle (~16 KB minified) generated from Tailwind v4 +
-DaisyUI v5 in `web/`. No JS framework runtime — HTMX + Alpine.js + ECharts are
-vendored as static files and compiled into the binary via `go:embed`. To
-tweak the design, edit `web/input.css` and run `make ui`.
+Server-rendered `html/template` + a single vendored CSS bundle (~16 KB minified) generated from Tailwind v4 + DaisyUI v5 in `web/`. No JS framework runtime — HTMX + Alpine.js + ECharts are vendored as static files and embedded via `go:embed`. To tweak the design, edit `web/input.css` and run `make ui`.
 
 ## Features
 
-- **Parallel timers** — run multiple activities simultaneously
-- **Pause / resume** — accurate time accounting (no double-counting paused time)
-- **Focus / switch** — pause others, start or resume the chosen one
-- **Backfill** — `paratrack add --start "yesterday 09:00" --duration 1h 30m`
-- **Inline edit** — change start / end / duration / note right in the stats table
-- **Inline tags** — type a tag name + Enter on any session row to attach it
-- **Tag filter** — `/stats?tag=deep-work` narrows breakdown + sessions
-- **Goals** — per-activity daily / weekly / monthly targets with live progress
-- **ECharts graph** — stacked hour-of-day bars with clickable legend
-- **CSV export** — download button in the topbar
-- **Light / dark / auto theme** — toggle with the button or `t` key
-- **Keyboard shortcuts** — `n` new · `s` stats · `g` graph · `d` dashboard · `t` theme
-- **Live timers** — active rows tick every second without server round-trips
-- **Mobile-friendly** — tables collapse to stacked cards on phones
-- **Hover tooltips** — graph bars show minutes per activity for that hour
+- Parallel timers, pause / resume, focus / switch
+- Backfill via natural-language time
+- Inline edit of start / end / duration / note in the stats table
+- Inline tags: type + Enter on any session row
+- Tag filter (`/stats?tag=deep-work`)
+- Per-activity goals (daily / weekly / monthly) with live progress
+- ECharts graph: stacked hour-of-day bars, clickable legend
+- CSV export
+- Light / dark / auto theme; toggle with the button or `t` key
+- Keyboard shortcuts: `n` new · `s` stats · `g` graph · `d` dashboard · `t` theme
+- Live-ticking durations
+- Mobile-friendly tables (collapse to cards on phones)
+- Hover tooltips on graph bars
 
 ## CLI reference
 
@@ -86,8 +74,7 @@ All commands accept `--help`.
 
 ## Time parsing
 
-`paratrack add`, `paratrack log`, and the inline duration input all accept a
-focused subset of natural-language time:
+`paratrack add`, `paratrack log`, and the inline duration input accept:
 
 ```
 now, today, yesterday, tomorrow
@@ -114,62 +101,51 @@ Durations:
 
 ```
 paratrack/
-├── cmd/paratrack/main.go     CLI entry, dispatch table (start/stop/goal/tag/web/...)
+├── cmd/paratrack/main.go     CLI dispatch
 ├── internal/
-│   ├── cli/                  stdin prompt helpers (Prompt / Confirm / Choose)
-│   ├── db/                   SQLite layer — pure-Go driver + schema + queries
-│   │   ├── db.go             open/close helpers + time scan/format
-│   │   ├── schema.go         full DDL + column / unique migrations
-│   │   ├── activities.go     activity CRUD
-│   │   ├── sessions.go       session CRUD + active / in-range queries
-│   │   ├── goals.go          per-activity target + period progress
-│   │   └── tags.go           tags + session_tags + batched hydration
-│   ├── model/                domain types (Activity, Session, Tag, Goal, Reminder)
-│   ├── timeparse/            NL time + duration parser (~340 LOC)
+│   ├── cli/                  stdin prompt helpers
+│   ├── db/                   SQLite layer (modernc.org/sqlite, pure-Go)
+│   ├── model/                domain types
+│   ├── timeparse/            NL time + duration parser
 │   └── web/                  HTTP server + handlers + chart aggregation
-│       ├── templates/        base + dashboard / stats / graph / goals / tags
-│       └── static/           CSS, htmx.min.js, alpine.min.js, echarts.min.js, app.js (all vendored)
-├── e2e/                      Playwright E2E + 25+ screenshots
+│       ├── templates/        base + 5 pages
+│       └── static/           vendored CSS, htmx, alpine, echarts, app.js
+├── web/                      Tailwind + DaisyUI source (`make ui` builds it)
+├── e2e/                      Playwright suite
 └── go.mod / go.sum
 ```
 
-The web UI is server-rendered HTML augmented by HTMX (targeted swaps for
-forms / buttons), Alpine.js (live-ticking durations, theme toggle), and
-ECharts for the graph (stacked hour-of-day bars with per-bar tooltips).
-No Node, no build step, no CDN — everything is `//go:embed`-ed into the
-binary.
+The web UI is server-rendered HTML augmented by HTMX (targeted swaps), Alpine.js (live-ticking durations, theme toggle), and ECharts (graph). No Node, no build step, no CDN — everything is `//go:embed`-ed.
 
 ## Testing
 
 End-to-end (Playwright):
 
 ```bash
-# one-time setup
 python3 -m venv .venv
 source .venv/bin/activate
 pip install playwright
 python -m playwright install chromium
 
-# start the server in another terminal
-./paratrack web --addr 127.0.0.1:8888
-
-# run the suite
-python e2e/test_dashboard.py
+./paratrack web --addr 127.0.0.1:8888 &
+python e2e/test_dashboard.py    # 45/45
 ```
 
-The script takes screenshots into `e2e/screenshots/` and prints a pass/fail
-per check (currently 45/45 across dashboard, stats, graph, theme, keyboard,
-duration edit, ECharts canvas + tooltip, theme-change rebuild, CSV download,
-Goals CRUD, and Tags CRUD with inline attach + filter).
+Go unit tests:
+
+```bash
+go test ./... -race
+```
 
 ## Stack
 
-- **Go 1.24+** (tested with 1.27)
-- **modernc.org/sqlite** — pure-Go SQLite, no CGO
-- **net/http 1.22+ ServeMux** — stdlib method routing, no router lib
+- **Go 1.27** — tested
+- **modernc.org/sqlite** — pure-Go, no CGO
+- **net/http 1.22+** — stdlib method routing
 - **html/template** — server rendering
-- **HTMX 2.0.4** + **Alpine.js 3.14.1** — vendored, embedded
-- **ECharts 5.5.1** — vendored (~1 MB), used for the graph page
+- **HTMX 2.0.4** + **Alpine.js 3.14.1** — vendored
+- **ECharts 5.5.1** — vendored (~1 MB)
+- **Tailwind v4** + **DaisyUI v5** — CSS source in `web/`
 
 ## License
 
@@ -177,5 +153,4 @@ MIT
 
 ## Changelog
 
-See [CHANGELOG.md](./CHANGELOG.md) for a per-release summary of what
-changed.
+See [CHANGELOG.md](./CHANGELOG.md).
