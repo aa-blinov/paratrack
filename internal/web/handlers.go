@@ -128,6 +128,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	for _, as := range recent {
 		recentViews = append(recentViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
 	}
+	hydrateSessionTags(ctx, s.db, activeViews)
+	hydrateSessionTags(ctx, s.db, recentViews)
 	if len(recentViews) > 8 {
 		recentViews = recentViews[:8]
 	}
@@ -206,6 +208,29 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	sortAggsDesc(aggs)
 
+	hydrateSessionTags(ctx, s.db, rows)
+
+	// Tag filter (optional): ?tag=foo. Applied after hydration so the
+	// in-memory filter can read each row's Tags slice. Also filters
+	// the breakdown so the distribution chart reflects the same set.
+	tagFilter := strings.TrimSpace(r.URL.Query().Get("tag"))
+	if tagFilter != "" {
+		rows, agg, total = filterByTag(rows, agg, total, tagFilter)
+		filteredAggs := make([]aggRow, 0, len(aggs))
+		for _, a := range aggs {
+			if agg[a.ActivityName] > 0 {
+				filteredAggs = append(filteredAggs, a)
+			}
+		}
+		aggs = filteredAggs
+	}
+
+	allTags, _ := s.db.ListTags(ctx)
+	allTagNames := make([]string, len(allTags))
+	for i, t := range allTags {
+		allTagNames[i] = t.Name
+	}
+
 	s.render(w, "stats-content", statsData{
 		pageData:    pageData{Title: "Stats", Active: "stats"},
 		Period:      period,
@@ -213,7 +238,37 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		Sessions:    rows,
 		Total:       fmtDuration(total),
 		SessionCount: len(rows),
+		TagFilter:   tagFilter,
+		AllTagNames: allTagNames,
 	})
+}
+
+// filterByTag reduces the rows + aggregate maps to only those carrying
+// the named tag. Since we already loaded everything from the DB the
+// filtering is in-memory — fine for thousands of rows, but if the
+// count grows past tens of thousands a SQL-side join would be the
+// right move.
+func filterByTag(rows []sessionView, agg map[string]int, total int, tagName string) ([]sessionView, map[string]int, int) {
+	filtered := make([]sessionView, 0, len(rows))
+	newAgg := map[string]int{}
+	newTotal := 0
+	for _, r := range rows {
+		has := false
+		for _, t := range r.Tags {
+			if t.Name == tagName {
+				has = true
+				break
+			}
+		}
+		if !has {
+			continue
+		}
+		filtered = append(filtered, r)
+		secs := parseHMSStrict(r.Duration)
+		newAgg[r.ActivityName] += secs
+		newTotal += secs
+	}
+	return filtered, newAgg, newTotal
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
@@ -525,6 +580,144 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	}
 	s.toast(w, "deleted", "success")
 	w.WriteHeader(200)
+}
+
+// ---------- Tags ---------------------------------------------------
+
+// handleTagsList returns every tag as JSON.
+func (s *Server) handleTagsList(w http.ResponseWriter, r *http.Request) {
+	tags, err := s.db.ListTags(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if tags == nil {
+		tags = []model.Tag{}
+	}
+	writeJSON(w, map[string]any{"tags": tags})
+}
+
+// handleTagsCreate adds a tag (or returns the existing one if the
+// name is already taken). JSON body: {"name": "..."}.
+func (s *Server) handleTagsCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", 400)
+		return
+	}
+	t, err := s.db.CreateTag(r.Context(), name)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	s.toast(w, fmt.Sprintf("tag %q ready", t.Name), "success")
+	writeJSON(w, t)
+}
+
+// handleTagsDelete removes a tag by id. Query: ?id=N.
+func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
+	idStr := strings.TrimSpace(r.URL.Query().Get("id"))
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "id query param required (int64)", 400)
+		return
+	}
+	if err := s.db.DeleteTag(r.Context(), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.toast(w, "tag deleted", "success")
+	w.WriteHeader(200)
+}
+
+// handleSessionTagAdd attaches a tag (auto-created if new) to a session.
+// Body: name=...
+func (s *Server) handleSessionTagAdd(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", 400)
+		return
+	}
+	if err := s.db.AttachTag(r.Context(), id, name); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.toast(w, fmt.Sprintf("tagged %s", name), "success")
+	w.WriteHeader(200)
+}
+
+// handleSessionTagRemove detaches a tag from a session. Query: ?name=...
+func (s *Server) handleSessionTagRemove(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	name := strings.TrimSpace(r.URL.Query().Get("name"))
+	if name == "" {
+		http.Error(w, "name query param required", 400)
+		return
+	}
+	if err := s.db.DetachTag(r.Context(), id, name); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.toast(w, fmt.Sprintf("untagged %s", name), "success")
+	w.WriteHeader(200)
+}
+
+// handleTagsPage serves /tags.
+func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
+	tags, err := s.db.ListAllTagsWithCounts(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	views := make([]tagWithCount, 0, len(tags))
+	names := make([]string, 0, len(tags))
+	for _, t := range tags {
+		views = append(views, tagWithCount{
+			tagChip:      tagChip{ID: t.ID, Name: t.Name},
+			SessionCount: t.SessionCount,
+		})
+		names = append(names, t.Name)
+	}
+	s.render(w, "tags-content", tagsData{
+		pageData:    pageData{Title: "Tags", Active: "tags"},
+		Tags:        views,
+		AllTagNames: names,
+	})
+}
+
+// handleTagsFragment returns the inner `tags-list` template so HTMX
+// can swap it without a full page reload.
+func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
+	tags, err := s.db.ListAllTagsWithCounts(r.Context())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	views := make([]tagWithCount, 0, len(tags))
+	for _, t := range tags {
+		views = append(views, tagWithCount{
+			tagChip:      tagChip{ID: t.ID, Name: t.Name},
+			SessionCount: t.SessionCount,
+		})
+	}
+	s.renderFragment(w, "tags-list", views)
 }
 
 // ---------- Goals ---------------------------------------------------

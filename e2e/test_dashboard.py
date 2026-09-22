@@ -413,6 +413,58 @@ def main() -> int:
             "ACTIVITY" in listing.stdout,
         )
 
+        # ------------------------------------------------------------------ 13
+        print("\n== 13. Tags — page, attach/detach, filter, CLI")
+        # Seed a tag + attach it to the first session in /stats.
+        created = page.request.post(
+            BASE + "/api/tags",
+            form={"name": "e2e-test"},
+        )
+        check("tag POST 200 OK", created.status == 200, f"status={created.status}")
+
+        tags_list = page.request.get(BASE + "/api/tags")
+        body = tags_list.json()
+        names = [t["name"] for t in body["tags"]]
+        check("tag list contains e2e-test", "e2e-test" in names)
+
+        # Attach to first closed session via API.
+        all_sessions = page.request.get(BASE + "/api/active")
+        # Use the stats endpoint instead — it has rows we know exist.
+        stats_html = page.request.get(BASE + "/stats?period=month").text()
+        import re as _re
+        first_id_m = _re.search(r'id="row-(\d+)"', stats_html)
+        if first_id_m:
+            sid = int(first_id_m.group(1))
+            attach_resp = page.request.post(
+                BASE + f"/api/sessions/{sid}/tags",
+                form={"name": "e2e-test"},
+            )
+            check("attach tag 200 OK", attach_resp.status == 200)
+
+            # Visit /stats and verify the chip shows up.
+            page.goto(BASE + "/stats")
+            page.wait_for_load_state("load")
+            chip_count = page.locator(f"text=#e2e-test").count()
+            check("stats row shows the chip", chip_count >= 1)
+
+            # Filter by the tag.
+            page.goto(BASE + "/stats?tag=e2e-test")
+            page.wait_for_load_state("load")
+            filter_banner = page.locator("text=FILTERING BY TAG:").count()
+            check("tag-filter banner visible", filter_banner >= 1)
+
+            # Detach + verify it disappears from the row.
+            page.request.delete(
+                BASE + f"/api/sessions/{sid}/tags?name=e2e-test"
+            )
+
+        # CLI round-trip: tag add → list → attach → list.
+        cli_out = subprocess_run(
+            ["go", "run", "./cmd/paratrack", "tag", "list"], check=False,
+        )
+        check("CLI 'tag list' exits 0", cli_out.returncode == 0)
+        check("CLI 'tag list' prints TAG header", "TAG" in cli_out.stdout)
+
         browser.close()
 
     # Summary

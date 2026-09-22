@@ -1,0 +1,69 @@
+{{define "tags-content"}}
+<h1>Tags</h1>
+<p class="text-muted" style="margin-top: -8px; margin-bottom: 20px;">
+  Tags let you group sessions across activities — e.g. <code>@deep-work</code>,
+  <code>@morning</code>, <code>@weekend</code>. Set them inline from the
+  stats page or attach them programmatically.
+</p>
+
+<!-- New tag form -->
+<div class="card">
+  <div class="card-title">New tag</div>
+  <form hx-post="/api/tags" hx-target="#tags-list" hx-swap="innerHTML" hx-on::after-request="this.reset()" style="display: flex; gap: 8px; align-items: end;">
+    <div style="flex: 1;">
+      <label for="t-name">Name</label>
+      <input type="text" id="t-name" name="name" required placeholder="deep-work" list="known-tags">
+      <datalist id="known-tags">
+        {{range .AllTagNames}}<option value="{{.}}">{{end}}
+      </datalist>
+    </div>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</div>
+
+<!-- Existing tags -->
+<div id="tags-list" hx-get="/tags-list-fragment" hx-trigger="load, every 60s" hx-swap="innerHTML">
+  {{template "tags-list" .Tags}}
+</div>
+
+<!-- CLI hint -->
+<div class="card">
+  <div class="card-title">From the terminal</div>
+  <pre class="mono" style="margin: 0; font-size: 12px; background: var(--surface-2); padding: 10px 12px; border-radius: var(--radius-sm); overflow-x: auto;">paratrack tag add deep-work
+paratrack tag list
+paratrack tag attach &lt;session_id&gt; deep-work
+paratrack tag detach &lt;session_id&gt; deep-work</pre>
+</div>
+{{end}}
+
+{{define "tags-list"}}
+  {{if .}}
+  <div class="card">
+    <div class="card-title">All tags ({{len .}})</div>
+    <div class="flex" style="flex-wrap: wrap; gap: 8px;">
+      {{range .}}
+      <div class="legend-chip">
+        <span class="tag-label">#{{.Name}}</span>
+        <span class="text-muted" style="font-size: 11px;">·</span>
+        <span class="mono" style="font-size: 12px; font-weight: 600;">{{.SessionCount}}</span>
+        <button class="btn btn-sm btn-ghost"
+                hx-delete="/api/tags?id={{.ID}}"
+                hx-target="#tags-list" hx-swap="innerHTML"
+                hx-confirm="Delete tag #{{.Name}}? (will detach from {{.SessionCount}} session(s))"
+                title="Delete tag"
+                aria-label="Delete tag"
+                style="padding: 0 4px; margin-left: 4px;">×</button>
+      </div>
+      {{end}}
+    </div>
+    <p class="text-muted" style="margin: 12px 0 0; font-size: 12px;">
+      Click a tag name in any session row on <a href="/stats">Stats</a> to filter.
+    </p>
+  </div>
+  {{else}}
+  <div class="empty">
+    <div class="empty-title">No tags yet</div>
+    <div class="empty-sub">Create one above — then attach it from a session row on the Stats page.</div>
+  </div>
+  {{end}}
+{{end}}

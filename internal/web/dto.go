@@ -1,11 +1,13 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"strings"
 	"time"
 
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -40,6 +42,7 @@ type sessionView struct {
 	AccumulatedSeconds int
 	Paused             bool
 	Note               string
+	Tags               []tagChip // attached tags, populated by hydrateSessionTags
 }
 
 // dashboardData feeds dashboard.html.
@@ -62,6 +65,8 @@ type statsData struct {
 	Sessions     []sessionView
 	Total        string
 	SessionCount int
+	TagFilter    string // current ?tag= value, empty if unfiltered
+	AllTagNames  []string // for the inline-add input autocomplete
 }
 
 type aggRow struct {
@@ -77,6 +82,26 @@ type graphData struct {
 	Period    timeparse.Period
 	Chart     ChartData
 	ChartJSON string // pre-serialised JSON for the data-chart attribute
+}
+
+// tagChip is the lightweight view-model for a tag in the stats row
+// and on the /tags management page. We don't need the timestamps here.
+type tagChip struct {
+	ID   int64
+	Name string
+}
+
+// tagsData feeds tags.html.
+type tagsData struct {
+	pageData
+	Tags         []tagWithCount
+	AllTagNames []string // for autocomplete on the new-tag input
+}
+
+// tagWithCount is a tag plus how many sessions carry it.
+type tagWithCount struct {
+	tagChip
+	SessionCount int
 }
 
 // goalView is the per-row representation of a configured goal plus
@@ -150,6 +175,27 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		v.DurationInput = "0m"
 	}
 	return v
+}
+
+// hydrateSessionTags does a single batched lookup and attaches the
+// resulting tag chips to each row. Safe to call with an empty slice.
+func hydrateSessionTags(ctx context.Context, d *dbpkg.DB, rows []sessionView) {
+	if len(rows) == 0 {
+		return
+	}
+	ids := make([]int64, len(rows))
+	for i, r := range rows {
+		ids[i] = r.ID
+	}
+	tagsByID, err := d.TagsForSessions(ctx, ids)
+	if err != nil {
+		return // non-fatal — just skip rendering tags
+	}
+	for i := range rows {
+		for _, t := range tagsByID[rows[i].ID] {
+			rows[i].Tags = append(rows[i].Tags, tagChip{ID: t.ID, Name: t.Name})
+		}
+	}
 }
 
 // durationToHuman turns 5400 into "1h 30m" — friendlier for the

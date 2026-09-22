@@ -60,7 +60,7 @@
   {{if .Recent}}
   <table class="responsive-collapse" style="margin-top: 12px;">
     <thead>
-      <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th></tr>
+      <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th></tr>
     </thead>
     <tbody>
       {{range .Recent}}
@@ -70,6 +70,11 @@
         <td data-label="End" class="mono">{{.EndLocal}}</td>
         <td data-label="Duration" class="mono">{{.Duration}}</td>
         <td data-label="Note" class="text-muted">{{.Note}}</td>
+        <td data-label="Tags">
+          <div class="tags-row">
+            {{range .Tags}}<a class="tag-mini" href="/stats?tag={{.Name}}">#{{.Name}}</a>{{end}}
+          </div>
+        </td>
       </tr>
       {{end}}
     </tbody>

@@ -685,6 +685,81 @@ table.responsive-collapse {
   .goals-form > button { width: 100%; }
 }
 
+/* ---------- Tags ---------- */
+
+/* A small pill rendered inside table cells. Doubles as a link to the
+   filter view when used on the dashboard. */
+.tag-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 8px;
+  border-radius: 100px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text);
+  text-decoration: none;
+  transition: all var(--transition);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+a.tag-mini:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  text-decoration: none;
+}
+.tag-mini.tag-removable {
+  padding-right: 2px;
+}
+.tag-mini .tag-x {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1;
+  margin-left: 2px;
+  border-radius: 50%;
+}
+.tag-mini .tag-x:hover {
+  background: var(--danger);
+  color: white;
+}
+
+/* Inline tag input that sits next to the chips on the stats row. */
+.tags-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.tag-input {
+  width: 80px !important;
+  padding: 2px 6px !important;
+  font-size: 11px !important;
+  background: transparent !important;
+  border: 1px dashed var(--border) !important;
+  color: var(--muted);
+}
+.tag-input:focus {
+  border-style: solid !important;
+  border-color: var(--accent) !important;
+  color: var(--text);
+}
+
+/* Active filter banner on stats page. */
+.card.filter-active {
+  border-left: 3px solid var(--accent);
+}
+
 /* ---------- Responsive ---------- */
 
 /* Tablet */
