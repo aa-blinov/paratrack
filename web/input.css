@@ -98,13 +98,15 @@
 }
 
 @layer components {
-  .activity-dot {
+  /* Activity marker — a 2px-wide vertical accent bar to the left of the
+   * activity name, in the activity's muted hash colour. */
+  .activity-mark {
     display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 999px;
-    margin-right: 6px;
-    vertical-align: middle;
+    width: 2px;
+    height: 0.9em;
+    margin-right: 8px;
+    vertical-align: -0.05em;
+    background: var(--color);
   }
 
   .status-pill {
