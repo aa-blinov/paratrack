@@ -1,44 +1,39 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
+# Build artefacts
+*.exe
+*.exe~
+*.dll
 *.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
+*.dylib
+*.test
+*.out
+coverage.txt
+*.prof
 
-# Virtual environments
+# Vendored dependencies (we don't use go mod vendor)
+vendor/
+
+# Local development
+.venv/
 venv/
-env/
-ENV/
-.venv
+.env
+.env.local
 
-# IDEs
+# Editor / IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.iml
 
-# Testing
+# Test / coverage artefacts
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.html
 
-# Database
+# SQLite databases — each user gets their own at ~/.track/track.db,
+# but we never want to commit local copies.
 *.db
 *.sqlite
 *.sqlite3
@@ -49,3 +44,8 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/
