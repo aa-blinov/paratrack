@@ -18,7 +18,7 @@ BIN         ?= ./paratrack
 ADDR        ?= 127.0.0.1:8888
 SERVER_LOG  ?= /tmp/paratrack.log
 
-.PHONY: build install run web test vet e2e e2e-up clean tidy
+.PHONY: build install run web test cover vet e2e e2e-up clean tidy
 
 build:
 	$(GO) build -o $(BIN) ./cmd/paratrack
@@ -34,6 +34,14 @@ web: build
 
 test:
 	$(GO) test ./...
+
+cover:
+	$(GO) test -cover ./internal/db ./internal/web ./internal/timeparse
+
+cover-html: cover
+	$(GO) test -coverprofile=coverage.out ./...
+	$(GO) tool cover -html=coverage.out -o coverage.html
+	@echo "wrote coverage.html — open in a browser"
 
 vet:
 	$(GO) vet ./...

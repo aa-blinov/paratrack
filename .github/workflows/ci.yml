@@ -38,6 +38,9 @@ jobs:
       - name: go test
         run: go test -race -count=1 ./...
 
+      - name: Coverage
+        run: go test -cover ./internal/db ./internal/web ./internal/timeparse
+
       - name: Build
         run: go build -o /tmp/paratrack ./cmd/paratrack
 
