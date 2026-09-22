@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 	"time"
 )
@@ -18,6 +19,36 @@ func TestCreateTag_Idempotent(t *testing.T) {
 	}
 	if a.ID != b.ID {
 		t.Errorf("CreateTag on existing name: a.ID=%d, b.ID=%d (should be equal)", a.ID, b.ID)
+	}
+	// Mixed-case input must collapse to the same tag — the COLLATE
+	// NOCASE column guarantees it but CreateTag also normalises on the
+	// way in so the *output* name is the canonical lowercase.
+	c, err := d.CreateTag(ctx, "Deep-Work")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ID != c.ID || c.Name != "deep-work" {
+		t.Errorf("mixed-case 'Deep-Work' should resolve to %d (name=%q), got %d (name=%q)",
+			a.ID, "deep-work", c.ID, c.Name)
+	}
+}
+
+func TestGetTagByName_IsCaseInsensitive(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	a, err := d.CreateTag(ctx, "morning")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, in := range []string{"MORNING", "Morning", "mOrNiNg"} {
+		got, err := d.GetTagByName(ctx, in)
+		if err != nil {
+			t.Errorf("GetTagByName(%q): %v", in, err)
+			continue
+		}
+		if got.ID != a.ID || got.Name != "morning" {
+			t.Errorf("GetTagByName(%q) = %d (%q), want %d (morning)", in, got.ID, got.Name, a.ID)
+		}
 	}
 }
 
@@ -229,4 +260,120 @@ func TestListAllTagsWithCounts_OrderedByPopularity(t *testing.T) {
 	if tags[1].Name != "niche" || tags[1].SessionCount != 1 {
 		t.Errorf("second tag wrong: %+v", tags[1])
 	}
+}
+
+// TestNormalizeTagCase_MergesDuplicates mirrors the activities test
+// for tags: case-variant duplicates must collapse to one row, and
+// session_tags from the loser have to be re-pointed at the winner.
+func TestNormalizeTagCase_MergesDuplicates(t *testing.T) {
+	d := openLegacySchemaDB(t)
+	ctx := t.Context()
+
+	act, err := d.GetOrCreateActivity(ctx, "work")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	winnerID, err := insertRawTag(ctx, d, "Morning")
+	if err != nil {
+		t.Fatal(err)
+	}
+	loserID, err := insertRawTag(ctx, d, "MORNING")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if winnerID == loserID {
+		t.Fatal("raw inserts unexpectedly collided on the same row")
+	}
+	keepID, err := insertRawTag(ctx, d, "evening")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Session 1 has winner only, session 2 has loser only, session 3 has both.
+	s1, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
+	s2, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
+	s3, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
+	if _, err := d.sql.ExecContext(ctx,
+		`INSERT INTO session_tags (session_id, tag_id) VALUES (?, ?), (?, ?), (?, ?)`,
+		s1.ID, winnerID, s2.ID, loserID, s3.ID, loserID,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := d.normalizeTagCase(); err != nil {
+		t.Fatalf("normalizeTagCase: %v", err)
+	}
+
+	// Loser gone, winner lowercased.
+	var loserFound int
+	if err := d.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM tags WHERE id = ?`, loserID).Scan(&loserFound); err != nil {
+		t.Fatal(err)
+	}
+	if loserFound != 0 {
+		t.Errorf("loser tag id=%d should be deleted, still present", loserID)
+	}
+	var winnerName string
+	if err := d.sql.QueryRowContext(ctx, `SELECT name FROM tags WHERE id = ?`, winnerID).Scan(&winnerName); err != nil {
+		t.Fatalf("winner vanished: %v", err)
+	}
+	if winnerName != "morning" {
+		t.Errorf("winner name = %q, want %q", winnerName, "morning")
+	}
+	// Loser-only session 2 should now have the winner tag via merge.
+	tagsOn2, err := d.ListTagsForSession(ctx, s2.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tagsOn2) != 1 || tagsOn2[0].ID != winnerID {
+		t.Errorf("session 2 tags = %+v, want only winner (%d)", tagsOn2, winnerID)
+	}
+	// Session 3 already had the winner — OR IGNORE should keep it as a single row.
+	tagsOn3, err := d.ListTagsForSession(ctx, s3.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tagsOn3) != 1 || tagsOn3[0].ID != winnerID {
+		t.Errorf("session 3 tags = %+v, want exactly winner (%d)", tagsOn3, winnerID)
+	}
+	// Untouched tag and its session still intact.
+	tagsOn1, err := d.ListTagsForSession(ctx, s1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tagsOn1) != 1 || tagsOn1[0].ID != winnerID {
+		t.Errorf("session 1 tags = %+v", tagsOn1)
+	}
+	var keepFound int
+if err := d.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM tags WHERE id = ?`, keepID).Scan(&keepFound); err != nil {
+		t.Fatal(err)
+	}
+if keepFound != 1 {
+		t.Errorf("untouched tag id=%d disappeared", keepID)
+}
+
+	// Idempotent — second run is a no-op.
+	if err := d.normalizeTagCase(); err != nil {
+		t.Fatalf("second normalizeTagCase: %v", err)
+	}
+	all, err := d.ListTags(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 2 {
+		t.Errorf("after merge expected 2 tags, got %d: %+v", len(all), all)
+	}
+}
+
+// insertRawTag plants a tag row with whatever casing the caller
+// specifies. Like insertRawActivity, it only works against the
+// legacy schema produced by openLegacySchemaDB.
+func insertRawTag(ctx context.Context, d *DB, name string) (int64, error) {
+	res, err := d.sql.ExecContext(ctx,
+		`INSERT INTO tags (name) VALUES (?)`, name,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return res.LastInsertId()
 }

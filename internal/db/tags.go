@@ -17,7 +17,7 @@ var ErrTagNotFound = errors.New("tag not found")
 // is already taken. Tags are unique by name (case-insensitive at the
 // storage layer — SQLite's default TEXT comparison is binary).
 func (d *DB) CreateTag(ctx context.Context, name string) (model.Tag, error) {
-	name = strings.TrimSpace(name)
+	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
 		return model.Tag{}, fmt.Errorf("tag name cannot be empty")
 	}
@@ -30,8 +30,11 @@ func (d *DB) CreateTag(ctx context.Context, name string) (model.Tag, error) {
 	return d.GetTagByName(ctx, name)
 }
 
-// GetTagByName returns the tag with the given name.
+// GetTagByName returns the tag with the given name. Inputs are lowercased
+// so callers don't need to normalise; the underlying column is
+// COLLATE NOCASE so mixed-case input still resolves correctly.
 func (d *DB) GetTagByName(ctx context.Context, name string) (model.Tag, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
 	row := d.sql.QueryRowContext(ctx,
 		`SELECT id, name, created_at FROM tags WHERE name = ?`, name)
 	return scanTag(row)

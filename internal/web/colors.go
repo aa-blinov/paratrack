@@ -1,6 +1,9 @@
 package web
 
-import "hash/fnv"
+import (
+	"hash/fnv"
+	"strings"
+)
 
 // palette is a curated 12-color set that stays distinguishable in both
 // light and dark themes. Used as the deterministic backing store for
@@ -23,11 +26,11 @@ var palette = []string{
 	"#e11d48", // rose (still distinct from the danger button red)
 }
 
-// colorFor returns a palette entry derived from the activity name's
-// hash, so the same name always renders the same colour across the
-// dashboard, stats and graph pages.
+// colorFor returns a palette entry derived from the lowercased name's
+// hash, so the same activity — regardless of how the user typed it —
+// always renders the same colour across the dashboard, stats and graph.
 func colorFor(name string) string {
 	h := fnv.New32a()
-	_, _ = h.Write([]byte(name))
+	_, _ = h.Write([]byte(strings.ToLower(name)))
 	return palette[int(h.Sum32())%len(palette)]
 }
