@@ -92,11 +92,11 @@ def screenshot_section(page, selector, out_path):
 
 
 def screenshot_card(page, index, out_path, desc):
-    """Take the index-th .card inside <main class='container'>. Used to slice
-    per-page sections regardless of whether they're nested in grid wrappers.
+    """Take the index-th .card inside <main>. Used to slice per-page sections
+    regardless of whether they're nested in grid wrappers.
     """
     try:
-        el = page.locator("main.container .card").nth(index)
+        el = page.locator("main .card").nth(index)
         el.wait_for(state="visible", timeout=2000)
         el.screenshot(path=str(out_path))
         return True
@@ -111,9 +111,9 @@ def screenshot_card(page, index, out_path, desc):
 # чтобы не зависеть от того, обёрнуты ли карточки в grid-*.
 SECTIONS = {
     "default": [
-        ("header.png", "header.topbar", "topbar"),
-        ("main.png", "main.container", "main content"),
-        ("footer.png", "footer.footer", "footer"),
+        ("header.png", "header", "topbar"),
+        ("main.png", "main", "main content"),
+        ("footer.png", "footer", "footer"),
     ],
     "/": [
         ("card-1-start.png", 0, "start form"),
@@ -155,32 +155,35 @@ def apply_actions(context, page, actions, slug):
     if not actions:
         return
     if "active" in actions or "paused" in actions:
-        # Start a session via the API.
+        # Stop any pre-existing session on the same activity first so the
+        # start below can't 409. The /api/active response gives us the id
+        # without having to scrape the rendered DOM.
+        import urllib.request, re as _re
+        body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
+        for sid in _re.findall(r'/api/sessions/(\d+)/stop', body):
+            urllib.request.urlopen(
+                urllib.request.Request(
+                    BASE + f"/api/sessions/{sid}/stop", method="POST"),
+                timeout=2,
+            ).read()
         page.request.post(BASE + "/api/start", form={"activity": "reading", "note": "slice-demo"})
-        # Wait for the active-list to refresh.
         page.wait_for_timeout(400)
         if "paused" in actions:
-            # Find the active session id and pause it.
-            ids = page.evaluate("""
-                () => Array.from(document.querySelectorAll('[data-session-id]'))
-                          .map(e => e.dataset.sessionId)
-            """)
-            ids += page.evaluate("""
-                () => Array.from(document.querySelectorAll('a[href*="/api/sessions/"]'))
-                          .map(a => (a.href.match(/sessions\/(\\d+)/) || [])[1])
-                          .filter(Boolean)
-            """)
-            ids = [int(x) for x in ids if x and x.isdigit()]
+            # Find the active session via /api/active and stop it, then start
+            # a fresh one and pause that — guarantees the dashboard renders
+            # a paused row rather than an empty active list.
+            body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
+            ids = [int(x) for x in _re.findall(r'/api/sessions/(\d+)/', body) if x.isdigit()]
             if ids:
-                page.request.post(BASE + f"/api/sessions/{ids[0]}/stop")
+                urllib.request.urlopen(
+                    urllib.request.Request(
+                        BASE + f"/api/sessions/{ids[0]}/stop", method="POST"),
+                    timeout=2,
+                ).read()
                 page.request.post(BASE + "/api/start", form={"activity": "writing", "note": "slice-demo"})
                 page.wait_for_timeout(400)
-                ids2 = page.evaluate("""
-                    () => Array.from(document.querySelectorAll('a[href*="/api/sessions/"]'))
-                              .map(a => (a.href.match(/sessions\/(\\d+)/) || [])[1])
-                              .filter(Boolean)
-                """)
-                ids2 = [int(x) for x in ids2 if x and x.isdigit()]
+                body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
+                ids2 = [int(x) for x in _re.findall(r'/api/sessions/(\d+)/', body) if x.isdigit()]
                 new_id = max(set(ids2) - set(ids), default=None)
                 if new_id:
                     page.request.post(BASE + f"/api/sessions/{new_id}/pause")
@@ -188,20 +191,41 @@ def apply_actions(context, page, actions, slug):
 
 
 def cleanup_actions(page):
-    """Stop any active sessions we created so the user's DB stays clean."""
+    """Stop any active sessions we created so the user's DB stays clean.
+    Works against either <a href> links or <button hx-post> forms by
+    scanning the rendered DOM for both attribute styles.
+    """
     try:
-        ids = page.evaluate("""
-            () => Array.from(document.querySelectorAll('a[href*="/api/sessions/"]'))
-                      .map(a => (a.href.match(/sessions\/(\\d+)/) || [])[1])
-                      .filter(Boolean)
+        # Match both <a href="/api/sessions/X/..."> and <... hx-post="/api/sessions/X/...">.
+        ids = page.evaluate(r"""
+            () => {
+              const out = new Set();
+              for (const a of document.querySelectorAll('a[href*="/api/sessions/"]')) {
+                const m = a.href.match(/sessions\/(\d+)/);
+                if (m) out.add(m[1]);
+              }
+              for (const el of document.querySelectorAll('[hx-post*="/api/sessions/"]')) {
+                const m = (el.getAttribute('hx-post') || '').match(/sessions\/(\d+)/);
+                if (m) out.add(m[1]);
+              }
+              for (const el of document.querySelectorAll('[hx-delete*="/api/sessions/"]')) {
+                const m = (el.getAttribute('hx-delete') || '').match(/sessions\/(\d+)/);
+                if (m) out.add(m[1]);
+              }
+              return Array.from(out);
+            }
         """)
-        for sid in sorted(set(int(x) for x in ids if x and x.isdigit()), reverse=True):
-            page.request.post(BASE + f"/api/sessions/{sid}/stop")
+        for sid in sorted({int(x) for x in ids if x and x.isdigit()}, reverse=True):
+            try:
+                page.request.post(BASE + f"/api/sessions/{sid}/stop")
+            except Exception:
+                pass
     except Exception:
         pass
 
 
 def slice_combo(browser, slug, url, theme, actions):
+    print(f"  [{slug}] starting", flush=True)
     out_dir = OUT / slug
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -209,29 +233,54 @@ def slice_combo(browser, slug, url, theme, actions):
     from urllib.parse import urlparse
     path = urlparse(url).path
 
+    # Make sure no stale session is active before we start a new combo —
+    # the previous run might have crashed mid-flow and left a session
+    # open, which would 409 the /api/start we're about to issue.
+    try:
+        import urllib.request, re as _re
+        body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
+        for sid in _re.findall(r'/api/sessions/(\d+)/stop', body):
+            urllib.request.urlopen(
+                urllib.request.Request(
+                    BASE + f"/api/sessions/{sid}/stop", method="POST"),
+                timeout=2,
+            ).read()
+    except Exception:
+        pass
+
+    print(f"  [{slug}] creating context", flush=True)
     context = browser.new_context(viewport={"width": 1280, "height": 900})
     page = context.new_page()
+    # Hard cap on every wait_for, but page.goto keeps "load" — using
+    # networkidle here would race against HTMX polling and ECharts
+    # animations that never let the network go quiet.
+    page.set_default_timeout(15000)
 
+    print(f"  [{slug}] set_theme", flush=True)
     set_theme(page, theme)
+    print(f"  [{slug}] goto url", flush=True)
     page.goto(BASE + url, wait_until="domcontentloaded")
+    print(f"  [{slug}] apply_actions {actions}", flush=True)
     apply_actions(context, page, actions, slug)
-    page.goto(BASE + url, wait_until="networkidle")
+    print(f"  [{slug}] reload", flush=True)
+    page.goto(BASE + url, wait_until="load")
     # Give Alpine/HTMX/ECharts a moment.
     page.wait_for_timeout(600)
 
     # Top-level sections.
     for fname, selector, desc in SECTIONS["default"]:
         screenshot_section(page, selector, out_dir / fname)
-        print(f"  {slug}: {fname} ({desc})")
+        print(f"  {slug}: {fname} ({desc})", flush=True)
 
     # Page-specific cards — match by either the full URL (with query) or path.
     sections = SECTIONS.get(url) or SECTIONS.get(path, [])
     for fname, index, desc in sections:
         screenshot_card(page, index, out_dir / fname, desc)
-        print(f"  {slug}: {fname} ({desc})")
+        print(f"  {slug}: {fname} ({desc})", flush=True)
 
     cleanup_actions(page)
     context.close()
+    print(f"  [{slug}] done", flush=True)
 
 
 def main():
@@ -249,6 +298,18 @@ def main():
                 slice_combo(browser, slug, url, theme, actions)
             except Exception as e:
                 print(f"  ! {slug}: {e}", file=sys.stderr)
+                # Best-effort cleanup of any session we may have started.
+                try:
+                    import urllib.request, re as _re
+                    body = urllib.request.urlopen(BASE + "/api/active", timeout=2).read().decode()
+                    for sid in _re.findall(r'/api/sessions/(\d+)/stop', body):
+                        urllib.request.urlopen(
+                            urllib.request.Request(
+                                BASE + f"/api/sessions/{sid}/stop", method="POST"),
+                            timeout=2,
+                        ).read()
+                except Exception:
+                    pass
         browser.close()
 
     combos_done = sum(1 for _ in OUT.iterdir() if _.is_dir())

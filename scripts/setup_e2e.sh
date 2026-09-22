@@ -16,6 +16,13 @@ pip install --quiet --upgrade pip
 pip install --quiet playwright
 python -m playwright install chromium
 
+# UI source: build the Tailwind/DaisyUI bundle so the embedded
+# paratrack.css is fresh. Re-run `make ui` if you edit web/input.css.
+if [ -d web ] && command -v npm >/dev/null 2>&1; then
+  ( cd web && npm install --no-fund --no-audit )
+  ( cd web && npm run build )
+fi
+
 echo
 echo "E2E env ready. With the server running on :8888:"
 echo "  source .venv/bin/activate && python e2e/test_dashboard.py"
