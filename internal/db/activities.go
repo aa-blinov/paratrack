@@ -1,0 +1,121 @@
+package db
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/model"
+)
+
+// CreateActivity inserts a new activity. Returns ErrDuplicate if the name
+// already exists (the column has a UNIQUE constraint).
+func (d *DB) CreateActivity(ctx context.Context, name string) (model.Activity, error) {
+	now := FormatTime(time.Now().UTC())
+	res, err := d.sql.ExecContext(ctx,
+		`INSERT INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT(name) DO NOTHING`,
+		name, now, now,
+	)
+	if err != nil {
+		return model.Activity{}, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil || id == 0 {
+		// Race: someone else inserted it; fetch existing.
+		act, err := d.GetActivityByName(ctx, name)
+		if err != nil {
+			return model.Activity{}, err
+		}
+		return act, nil
+	}
+	return d.GetActivity(ctx, id)
+}
+
+// GetActivity fetches one activity by id. Returns ErrNotFound when missing.
+func (d *DB) GetActivity(ctx context.Context, id int64) (model.Activity, error) {
+	row := d.sql.QueryRowContext(ctx, `SELECT id, name, archived, created_at, updated_at FROM activities WHERE id = ?`, id)
+	return scanActivity(row)
+}
+
+// GetActivityByName is the case-sensitive name lookup used everywhere.
+func (d *DB) GetActivityByName(ctx context.Context, name string) (model.Activity, error) {
+	row := d.sql.QueryRowContext(ctx, `SELECT id, name, archived, created_at, updated_at FROM activities WHERE name = ?`, name)
+	return scanActivity(row)
+}
+
+// FindActivityByName does a case-insensitive lookup. Returns ErrNotFound.
+func (d *DB) FindActivityByName(ctx context.Context, name string) (model.Activity, error) {
+	row := d.sql.QueryRowContext(ctx, `SELECT id, name, archived, created_at, updated_at FROM activities WHERE LOWER(name) = LOWER(?) LIMIT 1`, name)
+	return scanActivity(row)
+}
+
+// GetOrCreateActivity returns the existing activity or inserts a new one.
+// Both CLI quick-start and the web form rely on this.
+func (d *DB) GetOrCreateActivity(ctx context.Context, name string) (model.Activity, error) {
+	if a, err := d.FindActivityByName(ctx, name); err == nil {
+		return a, nil
+	} else if !errors.Is(err, ErrNotFound) {
+		return model.Activity{}, err
+	}
+	return d.CreateActivity(ctx, name)
+}
+
+// ListActivities returns non-archived activities sorted by name.
+func (d *DB) ListActivities(ctx context.Context, includeArchived bool) ([]model.Activity, error) {
+	q := `SELECT id, name, archived, created_at, updated_at FROM activities`
+	if !includeArchived {
+		q += ` WHERE archived = 0`
+	}
+	q += ` ORDER BY name COLLATE NOCASE`
+	rows, err := d.sql.QueryContext(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.Activity
+	for rows.Next() {
+		a, err := scanActivity(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// row abstracts *sql.Row and *sql.Rows for shared scanning.
+type row interface {
+	Scan(dest ...any) error
+}
+
+func scanActivity(r row) (model.Activity, error) {
+	var (
+		a        model.Activity
+		archived int
+		created  string
+		updated  string
+	)
+	if err := r.Scan(&a.ID, &a.Name, &archived, &created, &updated); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.Activity{}, ErrNotFound
+		}
+		return model.Activity{}, err
+	}
+	a.Archived = archived != 0
+	if t, err := ScanTime(created); err == nil {
+		a.CreatedAt = t
+	}
+	if t, err := ScanTime(updated); err == nil {
+		a.UpdatedAt = t
+	}
+	return a, nil
+}
+
+// ErrNotFound is returned when a single-row lookup misses.
+var ErrNotFound = errors.New("not found")
+
+// ErrDuplicate signals a uniqueness conflict on insert.
+var ErrDuplicate = fmt.Errorf("duplicate")

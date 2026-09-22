@@ -1,0 +1,73 @@
+{{define "base"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} — paratrack</title>
+  <link rel="stylesheet" href="/static/css/app.css">
+  <script src="/static/js/htmx.min.js"></script>
+  <script src="/static/js/echarts.min.js"></script>
+  <script defer src="/static/js/app.js"></script>
+  <script defer src="/static/js/alpine.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        paratrack
+      </div>
+      <nav class="nav">
+        <a href="/" class="{{if eq .Active "dashboard"}}active{{end}}">Dashboard</a>
+        <a href="/stats" class="{{if eq .Active "stats"}}active{{end}}">Stats</a>
+        <a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">Graph</a>
+        <a href="/api/reports.csv" download>CSV</a>
+        <button class="btn btn-ghost btn-sm theme-btn"
+                data-theme-toggle
+                title="Toggle theme (T)"
+                x-data="themeToggle"
+                @click="cycle()">
+          <span x-text="current === 'auto' ? '◐' : current === 'dark' ? '●' : '○'"></span>
+          <span class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;" x-text="current"></span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    {{.ContentHTML}}
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <footer class="footer">
+    <div class="container">
+      <span class="text-muted">paratrack v0.1 · keyboard: <kbd>n</kbd> new, <kbd>s</kbd> stats, <kbd>g</kbd> graph, <kbd>t</kbd> theme</span>
+    </div>
+  </footer>
+
+  <script>
+    document.body.addEventListener('htmx:afterRequest', (e) => {
+      const msg = e.detail.xhr.getResponseHeader('X-Toast');
+      const kind = e.detail.xhr.getResponseHeader('X-Toast-Kind') || 'success';
+      if (msg) window.paratrackToast(msg, kind);
+    });
+    document.body.addEventListener('htmx:beforeRequest', (e) => {
+      const hdr = e.detail.xhr.getResponseHeader('X-Redirect');
+      if (hdr) {
+        e.preventDefault();
+        window.location.href = hdr;
+      }
+      // Visual feedback: dim the originating button while in flight.
+      const el = e.detail.elt;
+      if (el && (el.tagName === 'BUTTON' || el.classList.contains('btn'))) {
+        el.classList.add('is-loading');
+      }
+    });
+    document.body.addEventListener('htmx:afterRequest', (e) => {
+      const el = e.detail.elt;
+      if (el) el.classList.remove('is-loading');
+    });
+  </script>
+</body>
+</html>{{end}}
