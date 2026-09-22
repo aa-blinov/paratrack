@@ -26,7 +26,7 @@
   <!-- Quick stats -->
   <div class="card">
     <div class="card-title">Today</div>
-    <div class="flex" style="gap: 32px;">
+    <div class="flex stat-tiles" style="gap: 32px;">
       <div>
         <div class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;">Active</div>
         <div style="font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums;">{{.ActiveCount}}</div>
@@ -58,18 +58,18 @@
     <a href="/stats" class="btn btn-sm">View all</a>
   </div>
   {{if .Recent}}
-  <table style="margin-top: 12px;">
+  <table class="responsive-collapse" style="margin-top: 12px;">
     <thead>
       <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th></tr>
     </thead>
     <tbody>
       {{range .Recent}}
       <tr>
-        <td><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-        <td class="mono">{{.StartLocal}}</td>
-        <td class="mono">{{.EndLocal}}</td>
-        <td class="mono">{{.Duration}}</td>
-        <td class="text-muted">{{.Note}}</td>
+        <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
+        <td data-label="Start" class="mono">{{.StartLocal}}</td>
+        <td data-label="End" class="mono">{{.EndLocal}}</td>
+        <td data-label="Duration" class="mono">{{.Duration}}</td>
+        <td data-label="Note" class="text-muted">{{.Note}}</td>
       </tr>
       {{end}}
     </tbody>
@@ -84,27 +84,27 @@
 
 {{define "active-list"}}
   {{if .}}
-  <table>
+  <table class="responsive-collapse">
     <thead>
       <tr><th>Activity</th><th>Status</th><th>Started</th><th>Duration</th><th></th></tr>
     </thead>
     <tbody>
       {{range .}}
       <tr>
-        <td><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-        <td>
+        <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
+        <td data-label="Status">
           {{if .Paused}}
-          <span class="badge badge-paused"><span class="badge-dot"></span>Paused</span>
+          <span class="badge badge-paused">Paused</span>
           {{else}}
-          <span class="badge badge-active"><span class="badge-dot"></span>Active</span>
+          <span class="badge badge-active">Active</span>
           {{end}}
         </td>
-        <td class="mono">{{.StartLocal}}</td>
-        <td class="duration-live"
+        <td data-label="Started" class="mono">{{.StartLocal}}</td>
+        <td data-label="Duration" class="duration-live"
             x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
             x-text="formatted">--:--:--</td>
-        <td class="text-right">
-          <div class="flex" style="justify-content: flex-end; gap: 4px;">
+        <td data-label="" class="text-right">
+          <div class="flex active-actions" style="justify-content: flex-end; gap: 4px;">
             {{if .Paused}}
             <button class="btn btn-sm"
                     hx-post="/api/sessions/{{.ID}}/resume"

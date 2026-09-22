@@ -50,12 +50,12 @@
 <!-- Legend chip below the chart for tap-friendly toggling on touch devices -->
 {{if .Chart.HasData}}
 <div class="card">
-  <div class="card-title">Activities</div>
-  <div class="flex" style="flex-wrap: wrap; gap: 10px;">
-    {{range .Chart.Legend}}
-    <div class="legend-chip">
-      <span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>
-      <span>{{.Name}}</span>
+  <div class="card-title">Activities — click to toggle</div>
+  <div class="flex" id="legend-chips" style="flex-wrap: wrap; gap: 10px;">
+    {{range $i, $l := .Chart.Legend}}
+    <div class="legend-chip" data-series-index="{{$i}}" role="button" tabindex="0" aria-pressed="false" title="Click to hide / show {{$l.Name}}">
+      <span class="activity-dot" style="background: {{$l.Color}}; color: {{$l.Color}};"></span>
+      <span>{{$l.Name}}</span>
     </div>
     {{end}}
   </div>

@@ -151,6 +151,36 @@ document.addEventListener('alpine:init', () => {
       const i = echarts.getInstanceByDom(canvas);
       if (i) i.resize();
     }).observe(canvas);
+
+    // Wire up legend chips — clicking one toggles the corresponding series
+    // visibility in the chart and flips aria-pressed on the chip.
+    const chipsHost = document.getElementById('legend-chips');
+    if (chipsHost) {
+      chipsHost.addEventListener('click', (e) => {
+        const chip = e.target.closest('.legend-chip');
+        if (!chip) return;
+        const idx = parseInt(chip.dataset.seriesIndex, 10);
+        const i = echarts.getInstanceByDom(canvas);
+        if (!i) return;
+        const opt = i.getOption();
+        const isHidden = (opt.series[idx] && opt.series[idx].itemStyle && opt.series[idx].itemStyle.opacity === 0);
+        i.setOption({
+          series: data.series.map((s, j) => j === idx ? {
+            ...s,
+            itemStyle: { ...(s.itemStyle || {}), color: s.color, opacity: isHidden ? 1 : 0 },
+          } : s),
+        });
+        chip.setAttribute('aria-pressed', isHidden ? 'false' : 'true');
+      });
+      // Keyboard activation (Enter / Space) for accessibility.
+      chipsHost.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const chip = e.target.closest('.legend-chip');
+        if (!chip) return;
+        e.preventDefault();
+        chip.click();
+      });
+    }
   };
 });
 
