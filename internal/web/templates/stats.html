@@ -16,22 +16,22 @@
   <div class="card">
     <div class="card-title">Breakdown</div>
     {{if .Aggregated}}
-    <table>
+    <table class="responsive-collapse">
       <thead>
         <tr><th>Activity</th><th class="text-right">Time</th><th class="text-right">Share</th></tr>
       </thead>
       <tbody>
         {{range .Aggregated}}
         <tr>
-          <td><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-          <td class="text-right mono">{{.Duration}}</td>
-          <td class="text-right mono text-muted">{{printf "%.1f%%" .Share}}</td>
+          <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
+          <td data-label="Time" class="text-right mono">{{.Duration}}</td>
+          <td data-label="Share" class="text-right mono text-muted">{{printf "%.1f%%" .Share}}</td>
         </tr>
         {{end}}
         <tr>
-          <td><strong>Total</strong></td>
-          <td class="text-right mono"><strong>{{.Total}}</strong></td>
-          <td></td>
+          <td data-label=""><strong>Total</strong></td>
+          <td data-label="Time" class="text-right mono"><strong>{{.Total}}</strong></td>
+          <td data-label="Share"></td>
         </tr>
       </tbody>
     </table>
@@ -65,7 +65,7 @@
 <div class="card">
   <div class="card-title">Sessions ({{.SessionCount}})</div>
   {{if .Sessions}}
-  <table>
+  <table class="responsive-collapse">
     <thead>
       <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th></th></tr>
     </thead>
@@ -86,8 +86,8 @@
 
 {{define "session-row"}}
 <tr id="row-{{.ID}}">
-  <td><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
-  <td class="mono">
+  <td data-label="Activity"><span class="activity-dot" style="background: {{.Color}}; color: {{.Color}};"></span>{{.ActivityName}}</td>
+  <td data-label="Start" class="mono">
     <input type="datetime-local" name="start_at"
            value="{{.StartInput}}"
            hx-patch="/api/sessions/{{.ID}}"
@@ -96,7 +96,7 @@
            hx-target="#row-{{.ID}}"
            hx-swap="outerHTML">
   </td>
-  <td class="mono">
+  <td data-label="End" class="mono">
     <input type="datetime-local" name="end_at"
            value="{{.EndInput}}"
            hx-patch="/api/sessions/{{.ID}}"
@@ -105,24 +105,27 @@
            hx-target="#row-{{.ID}}"
            hx-swap="outerHTML">
   </td>
-  <td class="mono">
+  <td data-label="Duration" class="mono">
     <input type="text" name="duration" value="{{.DurationInput}}"
            placeholder="1h 30m"
            title="Set duration — end will be recomputed from start"
+           class="duration-input"
            style="width: 90px;"
            onchange="paratrackResize(this, {{.ID}})">
   </td>
-  <td>
+  <td data-label="Note">
     <input type="text" name="note" value="{{.Note}}"
+           placeholder="add note…"
            hx-patch="/api/sessions/{{.ID}}"
            hx-include="#row-{{.ID}} [name='start_at'],[name='end_at']"
            hx-trigger="change"
            hx-target="#row-{{.ID}}"
            hx-swap="outerHTML">
   </td>
-  <td class="text-right">
-    <button class="btn btn-sm btn-ghost"
+  <td data-label="" class="text-right">
+    <button class="btn btn-sm btn-ghost btn-delete-row"
             title="Delete session"
+            aria-label="Delete session"
             hx-delete="/api/sessions/{{.ID}}"
             hx-confirm="Delete this session?"
             hx-target="#row-{{.ID}}"
