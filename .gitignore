@@ -56,3 +56,12 @@ Thumbs.db
 test-results/
 playwright-report/
 playwright/.cache/
+
+# Pre-polish exploration screenshots that were used to compare
+# against the canonical v2-* set. Generated ad-hoc while iterating
+# on the UI; safe to regenerate from the e2e suite. Not committed.
+e2e/screenshots/audit-*.png
+e2e/screenshots/echart-*.png
+e2e/screenshots/graph-*.png
+e2e/screenshots/mobile-*.png
+e2e/screenshots/native-*.png
