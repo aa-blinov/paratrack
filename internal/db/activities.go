@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -13,6 +14,10 @@ import (
 // CreateActivity inserts a new activity. Returns ErrDuplicate if the name
 // already exists (the column has a UNIQUE constraint).
 func (d *DB) CreateActivity(ctx context.Context, name string) (model.Activity, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
+	}
 	now := FormatTime(time.Now().UTC())
 	res, err := d.sql.ExecContext(ctx,
 		`INSERT INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)
@@ -40,22 +45,31 @@ func (d *DB) GetActivity(ctx context.Context, id int64) (model.Activity, error) 
 	return scanActivity(row)
 }
 
-// GetActivityByName is the case-sensitive name lookup used everywhere.
+// GetActivityByName looks up by name. Inputs are lowercased so callers
+// don't need to normalise; the underlying column is COLLATE NOCASE
+// so "Work", "work" and "WORK" all resolve to the same row.
 func (d *DB) GetActivityByName(ctx context.Context, name string) (model.Activity, error) {
+	name = strings.ToLower(strings.TrimSpace(name))
 	row := d.sql.QueryRowContext(ctx, `SELECT id, name, archived, created_at, updated_at FROM activities WHERE name = ?`, name)
 	return scanActivity(row)
 }
 
-// FindActivityByName does a case-insensitive lookup. Returns ErrNotFound.
+// FindActivityByName is the case-insensitive lookup kept for callers
+// that don't want to lowercase first (legacy alias of GetActivityByName
+// now that the column itself is COLLATE NOCASE).
 func (d *DB) FindActivityByName(ctx context.Context, name string) (model.Activity, error) {
-	row := d.sql.QueryRowContext(ctx, `SELECT id, name, archived, created_at, updated_at FROM activities WHERE LOWER(name) = LOWER(?) LIMIT 1`, name)
-	return scanActivity(row)
+	return d.GetActivityByName(ctx, name)
 }
 
-// GetOrCreateActivity returns the existing activity or inserts a new one.
-// Both CLI quick-start and the web form rely on this.
+// GetOrCreateActivity returns the existing activity (matched case-insensitive)
+// or inserts a new one. Both CLI quick-start and the web form rely on this.
 func (d *DB) GetOrCreateActivity(ctx context.Context, name string) (model.Activity, error) {
-	if a, err := d.FindActivityByName(ctx, name); err == nil {
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
+	}
+	row := d.sql.QueryRowContext(ctx, `SELECT id, name, archived, created_at, updated_at FROM activities WHERE name = ?`, name)
+	if a, err := scanActivity(row); err == nil {
 		return a, nil
 	} else if !errors.Is(err, ErrNotFound) {
 		return model.Activity{}, err

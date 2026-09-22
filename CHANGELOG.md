@@ -36,6 +36,10 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
   download, goals CRUD and tags CRUD + filter.
 
 ### Changed
+- **Case-insensitive activity and tag names.** The `activities.name`
+  and `tags.name` columns now use `COLLATE NOCASE`, and every Go-side
+  insert / lookup lowercases its input. Same activity in `Work`,
+  `work` and `WORK` is now a single row.
 - Stats page tables collapse to a card-list layout on phones via a
   pure-CSS `.responsive-collapse` rule keyed off `data-label`
   attributes on every `<td>`.
@@ -47,6 +51,8 @@ and the project adheres to [Semantic Versioning](https://semver.org/).
 - Light/dark parity: every visible element themed via CSS variables;
   `--accent` updated, focus-visible ring added,
   `prefers-reduced-motion` short-circuit.
+- Toast notification is a fully-filled coloured chip with a ✓/✕
+  glyph; replaces the earlier 3px border + tinted background.
 
 ### Fixed
 - Inline-edit duration input recomputes `end_at` from `start_at`
@@ -68,6 +74,13 @@ original Python implementation. Existing databases get the
 `UNIQUE(activity_id, period)` index on `goals` and any missing
 columns via `applyMigrations` on first start — no manual step
 required.
+
+Case-insensitive rollout: any pre-existing activity or tag rows that
+collide under `COLLATE NOCASE` (e.g. `Work` + `work`) are merged on
+first launch — the lowest-id row wins, every other row's sessions
+(or session_tags) are re-pointed at the winner, then the losers are
+deleted. Mixed-case names without collisions are simply lowercased.
+The migration is idempotent; running it again is a no-op.
 
 ## Past highlights
 
