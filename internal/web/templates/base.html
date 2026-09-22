@@ -4,47 +4,49 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}} — paratrack</title>
-  <link rel="stylesheet" href="/static/css/app.css">
+  <link rel="stylesheet" href="/static/css/paratrack.css">
   <script src="/static/js/htmx.min.js"></script>
   <script src="/static/js/echarts.min.js"></script>
   <script defer src="/static/js/app.js"></script>
   <script defer src="/static/js/alpine.min.js"></script>
 </head>
-<body>
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <span class="brand-dot"></span>
-        paratrack
+<body class="min-h-screen bg-base-200 text-base-content">
+  <header class="bg-base-100 border-b border-base-300">
+    <div class="navbar mx-auto max-w-6xl px-4">
+      <div class="flex-1">
+        <a href="/" class="btn btn-ghost gap-2 text-lg normal-case">
+          <span class="inline-block h-2 w-2 rounded-full bg-primary"></span>
+          <span class="font-semibold">paratrack</span>
+        </a>
       </div>
-      <nav class="nav">
-        <a href="/" class="{{if eq .Active "dashboard"}}active{{end}}">Dashboard</a>
-        <a href="/stats" class="{{if eq .Active "stats"}}active{{end}}">Stats</a>
-        <a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">Graph</a>
-        <a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">Goals</a>
-        <a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">Tags</a>
-        <a href="/api/reports.csv" download>CSV</a>
+      <nav class="flex items-center gap-1">
+        <a href="/" class="btn btn-ghost btn-sm {{if eq .Active "dashboard"}}btn-active{{end}}">Dashboard</a>
+        <a href="/stats" class="btn btn-ghost btn-sm {{if eq .Active "stats"}}btn-active{{end}}">Stats</a>
+        <a href="/graph" class="btn btn-ghost btn-sm {{if eq .Active "graph"}}btn-active{{end}}">Graph</a>
+        <a href="/goals" class="btn btn-ghost btn-sm {{if eq .Active "goals"}}btn-active{{end}}">Goals</a>
+        <a href="/tags" class="btn btn-ghost btn-sm {{if eq .Active "tags"}}btn-active{{end}}">Tags</a>
+        <a href="/api/reports.csv" download class="btn btn-ghost btn-sm">CSV</a>
         <button class="btn btn-ghost btn-sm theme-btn"
                 data-theme-toggle
                 title="Toggle theme (T)"
                 x-data="themeToggle"
                 @click="cycle()">
           <span x-text="current === 'auto' ? '◐' : current === 'dark' ? '●' : '○'"></span>
-          <span class="text-muted" style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;" x-text="current"></span>
+          <span class="hidden sm:inline text-xs uppercase tracking-wider opacity-60" x-text="current"></span>
         </button>
       </nav>
     </div>
   </header>
 
-  <main class="container">
+  <main class="mx-auto max-w-6xl px-4 py-6">
     {{.ContentHTML}}
   </main>
 
-  <div id="toast" class="toast"></div>
+  <div id="toast"></div>
 
-  <footer class="footer">
-    <div class="container">
-      <span class="text-muted">paratrack v0.1 · keyboard: <kbd>n</kbd> new, <kbd>s</kbd> stats, <kbd>g</kbd> graph, <kbd>t</kbd> theme</span>
+  <footer class="border-t border-base-300 bg-base-100 py-4">
+    <div class="mx-auto max-w-6xl px-4 text-sm opacity-60">
+      paratrack v0.1 · keyboard: <kbd class="kbd kbd-xs">n</kbd> new, <kbd class="kbd kbd-xs">s</kbd> stats, <kbd class="kbd kbd-xs">g</kbd> graph, <kbd class="kbd kbd-xs">t</kbd> theme
     </div>
   </footer>
 
@@ -63,12 +65,16 @@
       // Visual feedback: dim the originating button while in flight.
       const el = e.detail.elt;
       if (el && (el.tagName === 'BUTTON' || el.classList.contains('btn'))) {
-        el.classList.add('is-loading');
+        el.classList.add('btn-disabled');
+        el.setAttribute('aria-busy', 'true');
       }
     });
     document.body.addEventListener('htmx:afterRequest', (e) => {
       const el = e.detail.elt;
-      if (el) el.classList.remove('is-loading');
+      if (el) {
+        el.classList.remove('btn-disabled');
+        el.removeAttribute('aria-busy');
+      }
     });
   </script>
 </body>

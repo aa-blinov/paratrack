@@ -1,6 +1,7 @@
 # paratrack — common dev tasks.
 #
-#   make build        compile a /tmp/paratrack binary
+#   make ui           install npm deps + build paratrack.css via Tailwind/DaisyUI
+#   make build        compile a /tmp/paratrack binary (auto-runs `make ui` first)
 #   make install      go install into $GOBIN
 #   make run          build + run the CLI (pass args via RUN=...)
 #   make web          build + run the embedded web UI on :8888
@@ -14,13 +15,18 @@
 # Override binary path with BIN=/some/path, server address with ADDR=:9000.
 
 GO          ?= go
+NPM         ?= npm
 BIN         ?= ./paratrack
 ADDR        ?= 127.0.0.1:8888
 SERVER_LOG  ?= /tmp/paratrack.log
 
-.PHONY: build install run web test cover vet e2e e2e-up clean tidy
+.PHONY: ui build install run web test cover vet e2e e2e-up clean tidy
 
-build:
+ui:
+	cd web && $(NPM) install
+	cd web && $(NPM) run build
+
+build: ui
 	$(GO) build -o $(BIN) ./cmd/paratrack
 
 install:

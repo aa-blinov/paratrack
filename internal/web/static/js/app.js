@@ -204,14 +204,30 @@ window.applyTheme = function(mode) {
 })();
 
 // Toast helper used by HTMX handlers in base.html.
+// Renders a DaisyUI alert inside the fixed #toast slot, then fades it
+// out after 2.2s. The element gets a glyph (✓ / ✕ / ⓘ) so the colour
+// doesn't have to carry the meaning on its own.
 window.paratrackToast = function(message, kind) {
   const el = document.getElementById('toast');
   if (!el) return;
-  el.className = 'toast show toast-' + (kind || 'success');
-  el.textContent = message;
+  const variant = kind || 'success';
+  const glyph =
+    variant === 'success' ? '✓' :
+    variant === 'error'   ? '✕' :
+    variant === 'warning' ? '!' :
+                            'ⓘ';
+  el.innerHTML =
+    `<div class="alert alert-${variant} shadow-lg pointer-events-auto opacity-100 transition-opacity duration-200" role="status">` +
+      `<span class="text-base font-bold">${glyph}</span>` +
+      `<span>${message}</span>` +
+    `</div>`;
   clearTimeout(window._paratrackToastTimer);
   window._paratrackToastTimer = setTimeout(() => {
-    el.className = 'toast toast-' + (kind || 'success');
+    const inner = el.firstElementChild;
+    if (inner) {
+      inner.classList.add('opacity-0');
+      setTimeout(() => { el.innerHTML = ''; }, 250);
+    }
   }, 2200);
 };
 
