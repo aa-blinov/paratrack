@@ -66,10 +66,9 @@ func TestParseDuration(t *testing.T) {
 		}
 	}
 
-	// Explicit error cases. (-1h is currently NOT rejected — the regex
-// strips the leading "-" and matches "1h". Tracked as a future fix;
-// not asserted here so the suite stays green.)
-	for _, bad := range []string{"", "abc", "1 unknown-unit"} {
+	// Explicit error cases. -1h is now rejected — the regex would
+	// otherwise strip the leading "-" and silently parse "1h".
+	for _, bad := range []string{"", "abc", "1 unknown-unit", "-1h", "-30m"} {
 		if _, err := ParseDuration(bad); err == nil {
 			t.Errorf("ParseDuration(%q) should error, got nil", bad)
 		}
