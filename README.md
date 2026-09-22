@@ -165,3 +165,8 @@ Goals CRUD, and Tags CRUD with inline attach + filter).
 ## License
 
 MIT
+
+## Changelog
+
+See [CHANGELOG.md](./CHANGELOG.md) for a per-release summary of what
+changed.
