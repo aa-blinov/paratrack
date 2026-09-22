@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -156,6 +157,14 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.TopToday = shortSummary(topName)
+
+	// Goal progress for the dashboard widget. Best-effort: if the goals
+	// query fails we just hide the widget by passing an empty slice.
+	if progress, err := s.db.ProgressForGoals(ctx, now); err == nil {
+		d.Goals = toGoalViews(progress)
+	} else {
+		d.Goals = nil
+	}
 	s.render(w, "dashboard-content", d)
 }
 
@@ -516,6 +525,195 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	}
 	s.toast(w, "deleted", "success")
 	w.WriteHeader(200)
+}
+
+// ---------- Goals ---------------------------------------------------
+
+// handleGoals serves the /goals management page.
+func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	now := time.Now()
+
+	acts, err := s.db.ListActivities(ctx, false)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	progress, err := s.db.ProgressForGoals(ctx, now)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	data := struct {
+		pageData
+		Activities []model.Activity
+		Goals      []goalView
+	}{
+		pageData:   pageData{Title: "Goals", Active: "goals"},
+		Activities: acts,
+		Goals:      toGoalViews(progress),
+	}
+	s.render(w, "goals-content", data)
+}
+
+// handleGoalsList returns all configured goals as JSON (no progress).
+func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
+	goals, err := s.db.ListGoals(r.Context(), nil)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if goals == nil {
+		goals = []model.Goal{}
+	}
+	writeJSON(w, map[string]any{"goals": goals})
+}
+
+// handleGoalsProgress returns goal + current-period progress for each
+// configured goal. Powers the dashboard widget.
+//
+// When the request comes from HTMX (HX-Request header), the response is
+// the rendered `goals-list` fragment so it can be swapped into the
+// page directly. Plain GET returns JSON for tooling / scripts.
+func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
+	progress, err := s.db.ProgressForGoals(r.Context(), time.Now())
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	views := toGoalViews(progress)
+	if r.Header.Get("HX-Request") == "true" {
+		s.renderFragment(w, "goals-list", views)
+		return
+	}
+	if progress == nil {
+		progress = []dbpkg.GoalProgress{}
+	}
+	writeJSON(w, map[string]any{"progress": progress})
+}
+
+// handleGoalsUpsert creates or replaces a goal. Body params:
+//   activity   (required)
+//   period     required — daily | weekly | monthly
+//   minutes    required — integer target in minutes
+func (s *Server) handleGoalsUpsert(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	activityName := strings.TrimSpace(r.FormValue("activity"))
+	period := strings.TrimSpace(r.FormValue("period"))
+	minsStr := strings.TrimSpace(r.FormValue("minutes"))
+	if activityName == "" || period == "" || minsStr == "" {
+		http.Error(w, "activity, period and minutes are required", 400)
+		return
+	}
+	mins, err := strconv.Atoi(minsStr)
+	if err != nil || mins <= 0 {
+		http.Error(w, "minutes must be a positive integer", 400)
+		return
+	}
+	act, err := s.db.GetOrCreateActivity(r.Context(), activityName)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	g, err := s.db.UpsertGoal(r.Context(), act.ID, period, mins)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	s.toast(w, fmt.Sprintf("set %s goal: %dm/%s", act.Name, g.TargetMinutes, g.Period), "success")
+	writeJSON(w, g)
+}
+
+// handleGoalsDelete removes a goal. Query params: activity + period.
+func (s *Server) handleGoalsDelete(w http.ResponseWriter, r *http.Request) {
+	activityName := strings.TrimSpace(r.URL.Query().Get("activity"))
+	period := strings.TrimSpace(r.URL.Query().Get("period"))
+	if activityName == "" || period == "" {
+		http.Error(w, "activity and period query params are required", 400)
+		return
+	}
+	act, err := s.db.GetActivityByName(r.Context(), activityName)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if err := s.db.DeleteGoal(r.Context(), act.ID, period); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.toast(w, fmt.Sprintf("removed %s goal for %s", period, activityName), "success")
+	w.WriteHeader(200)
+}
+
+// writeJSON is a tiny helper used by goal endpoints; keeps the handlers
+// short and avoids importing encoding/json at the top of the file.
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(v)
+}
+
+// toGoalViews renders []db.GoalProgress as the view-models used by
+// dashboard and /goals pages.
+func toGoalViews(progress []dbpkg.GoalProgress) []goalView {
+	out := make([]goalView, 0, len(progress))
+	for _, p := range progress {
+		class := ""
+		switch {
+		case p.PercentComplete >= 100:
+			class = "exceeded"
+		case p.PercentComplete >= 80:
+			class = "met"
+		}
+		out = append(out, goalView{
+			ID:               p.Goal.ID,
+			ActivityName:     p.ActivityName,
+			Color:            colorFor(p.ActivityName),
+			Period:           p.Goal.Period,
+			TargetMinutes:    p.Goal.TargetMinutes,
+			TargetLabel:      formatMinutes(p.Goal.TargetMinutes),
+			AchievedMinutes:  p.AchievedMinutes,
+			AchievedLabel:    formatMinutes(p.AchievedMinutes),
+			Percent:          p.PercentComplete,
+			AchievedClass:    class,
+			PeriodStartLabel: p.PeriodStart.Local().Format("Jan 2"),
+			PeriodEndLabel:   p.PeriodEnd.Local().Format("Jan 2"),
+			PeriodRangeLabel: periodRangeLabel(p.Goal.Period),
+		})
+	}
+	return out
+}
+
+// formatMinutes renders an integer minute count as a short label.
+func formatMinutes(min int) string {
+	if min < 60 {
+		return fmt.Sprintf("%dm", min)
+	}
+	h := min / 60
+	m := min % 60
+	if m == 0 {
+		return fmt.Sprintf("%dh", h)
+	}
+	return fmt.Sprintf("%dh %dm", h, m)
+}
+
+// periodRangeLabel returns a short human label for the goal period.
+func periodRangeLabel(period string) string {
+	switch period {
+	case "daily":
+		return "today"
+	case "weekly":
+		return "this week"
+	case "monthly":
+		return "this month"
+	}
+	return period
 }
 
 func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {

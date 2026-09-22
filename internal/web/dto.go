@@ -51,6 +51,7 @@ type dashboardData struct {
 	ActiveCount int
 	TodayTotal string
 	TopToday   string
+	Goals      []goalView
 }
 
 // statsData feeds stats.html.
@@ -76,6 +77,25 @@ type graphData struct {
 	Period    timeparse.Period
 	Chart     ChartData
 	ChartJSON string // pre-serialised JSON for the data-chart attribute
+}
+
+// goalView is the per-row representation of a configured goal plus
+// the progress actually achieved in its current window. Powers both the
+// dashboard widget and the /goals management page.
+type goalView struct {
+	ID                int64
+	ActivityName      string
+	Color             string
+	Period            string
+	TargetMinutes     int
+	TargetLabel       string // "2h", "1h 30m"
+	AchievedMinutes   int
+	AchievedLabel     string // "1h 32m"
+	Percent           int    // 0..100+
+	AchievedClass     string // "" | "met" | "exceeded"
+	PeriodStartLabel  string // "Mon Sep 22"
+	PeriodEndLabel    string // "Sun Sep 28"
+	PeriodRangeLabel  string // short label e.g. "this week"
 }
 
 // -- view-model helpers ----------------------------------------------

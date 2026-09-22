@@ -104,6 +104,7 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /{$}",          s.handleDashboard)
 	mux.HandleFunc("GET /stats",        s.handleStats)
 	mux.HandleFunc("GET /graph",        s.handleGraph)
+	mux.HandleFunc("GET /goals",        s.handleGoals)
 
 	// JSON / fragments
 	mux.HandleFunc("GET /api/active",   s.handleAPIActive)
@@ -117,6 +118,12 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/focus/{name}",               s.handleFocus)
 	mux.HandleFunc("PATCH /api/sessions/{id}",             s.handleUpdateSession)
 	mux.HandleFunc("DELETE /api/sessions/{id}",            s.handleDeleteSession)
+
+	// Goals — read on dashboard, full CRUD via JSON.
+	mux.HandleFunc("GET  /api/goals",          s.handleGoalsList)
+	mux.HandleFunc("GET  /api/goals/progress", s.handleGoalsProgress)
+	mux.HandleFunc("POST /api/goals",          s.handleGoalsUpsert)
+	mux.HandleFunc("DELETE /api/goals",        s.handleGoalsDelete)
 
 	// Static files — served from the embedded FS, mounted at /static/.
 	staticFS, _ := fs.Sub(assets, "static")
