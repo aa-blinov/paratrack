@@ -1,0 +1,93 @@
+# GitHub Actions CI for paratrack.
+#
+# Two jobs:
+#   1. unit  — runs on every push / PR. Fast, no browser.
+#   2. e2e   — builds the binary, starts the server, runs the
+#              Playwright suite against it. Requires the chromium
+#              browser to be installed in the runner image.
+#
+# Both jobs use the same Go version the project targets.
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    name: Go unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test -race -count=1 ./...
+
+      - name: Build
+        run: go build -o /tmp/paratrack ./cmd/paratrack
+
+  e2e:
+    name: Playwright E2E
+    runs-on: ubuntu-latest
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Build server
+        run: go build -o /tmp/paratrack ./cmd/paratrack
+
+      - name: Install Playwright + Chromium
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          pip install --quiet --upgrade pip
+          pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Start server
+        run: |
+          /tmp/paratrack web --addr 127.0.0.1:8888 > /tmp/paratrack.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8888/ >/dev/null && break
+            sleep 0.5
+          done
+
+      - name: Run Playwright suite
+        run: |
+          . .venv/bin/activate
+          python e2e/test_dashboard.py
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-screenshots
+          path: e2e/screenshots/
+          if-no-files-found: ignore
