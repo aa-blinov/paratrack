@@ -128,13 +128,12 @@ CREATE INDEX IF NOT EXISTS idx_session_tags_tag     ON session_tags(tag_id);
 CREATE TABLE IF NOT EXISTS goals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     activity_id INTEGER NOT NULL,
-    team_id INTEGER,
+    team_id INTEGER NOT NULL DEFAULT 0,
     period TEXT NOT NULL CHECK(period IN ('daily', 'weekly', 'monthly')),
     target_minutes INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
-    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     UNIQUE (team_id, activity_id, period)
 );
 CREATE INDEX IF NOT EXISTS idx_goals_team ON goals(team_id);
@@ -167,9 +166,13 @@ var columnMigrations = []struct {
 // uniqueMigrations creates UNIQUE indexes that the original schema
 // didn't include. Each entry is idempotent: IF NOT EXISTS lets us run
 // it on every startup without harm.
-var uniqueMigrations = []string{
-	`CREATE UNIQUE INDEX IF NOT EXISTS uniq_goals_activity_period ON goals(activity_id, period)`,
-}
+//
+// Note: the goal-uniqueness guarantee now lives in the CREATE TABLE
+// clause (`UNIQUE (team_id, activity_id, period)`); the historical
+// (activity_id, period) index is intentionally not recreated here
+// because it would conflict with the ON CONFLICT(team_id, activity_id,
+// period) DO UPDATE used by UpsertGoal.
+var uniqueMigrations = []string{}
 
 func (d *DB) applyMigrations() error {
 	for _, m := range columnMigrations {

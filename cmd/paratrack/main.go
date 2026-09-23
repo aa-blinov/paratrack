@@ -154,7 +154,7 @@ func printActive(rows []model.ActiveSession) {
 func runStatus() {
 	d, ctx := openDB()
 	defer d.Close()
-	rows, err := d.ListActiveSessions(ctx)
+	rows, err := d.ListActiveSessions(ctx, 0)
 	if err != nil {
 		fatal("list active: %v", err)
 	}
@@ -173,12 +173,12 @@ func runStart(args []string) {
 	d, ctx := openDB()
 	defer d.Close()
 
-	act, err := d.GetOrCreateActivity(ctx, name)
+	act, err := d.GetOrCreateActivity(ctx, 0, name)
 	if err != nil {
 		fatal("get-or-create activity: %v", err)
 	}
 	// Reject if there's already an open session for this activity.
-	active, err := d.ListActiveSessions(ctx)
+	active, err := d.ListActiveSessions(ctx, 0)
 	if err != nil {
 		fatal("list active: %v", err)
 	}
@@ -188,7 +188,7 @@ func runStart(args []string) {
 			os.Exit(1)
 		}
 	}
-	s, err := d.CreateSession(ctx, act.ID, time.Now(), *note)
+	s, err := d.CreateSession(ctx, 0, act.ID, time.Now(), *note)
 	if err != nil {
 		fatal("create session: %v", err)
 	}
@@ -201,7 +201,7 @@ func runStart(args []string) {
 func runStop(args []string) {
 	d, ctx := openDB()
 	defer d.Close()
-	active, err := d.ListActiveSessions(ctx)
+	active, err := d.ListActiveSessions(ctx, 0)
 	if err != nil {
 		fatal("list active: %v", err)
 	}
@@ -242,7 +242,7 @@ func runPause(args []string) {
 	}
 	now := time.Now()
 	count := 0
-	active, err := d.ListActiveSessions(ctx)
+	active, err := d.ListActiveSessions(ctx, 0)
 	if err != nil {
 		fatal("list active: %v", err)
 	}
@@ -276,7 +276,7 @@ func runResume(args []string) {
 	}
 	now := time.Now()
 	count := 0
-	active, err := d.ListActiveSessions(ctx)
+	active, err := d.ListActiveSessions(ctx, 0)
 	if err != nil {
 		fatal("list active: %v", err)
 	}
@@ -309,18 +309,18 @@ func runFocus(args []string) {
 	target := fs.Arg(0)
 	d, ctx := openDB()
 	defer d.Close()
-	act, err := d.FindActivityByName(ctx, target)
+	act, err := d.FindActivityByName(ctx, 0, target)
 	if err != nil && !errors.Is(err, db.ErrNotFound) {
 		fatal("find activity: %v", err)
 	}
 	if errors.Is(err, db.ErrNotFound) {
 		// Auto-create on focus (matches Python behaviour).
-		act, err = d.CreateActivity(ctx, target)
+		act, err = d.CreateActivity(ctx, 0, target)
 		if err != nil {
 			fatal("create activity: %v", err)
 		}
 	}
-	active, err := d.ListActiveSessions(ctx)
+	active, err := d.ListActiveSessions(ctx, 0)
 	if err != nil {
 		fatal("list active: %v", err)
 	}
@@ -346,7 +346,7 @@ func runFocus(args []string) {
 		}
 	}
 	if !targetExists {
-		if _, err := d.CreateSession(ctx, act.ID, now, ""); err != nil {
+		if _, err := d.CreateSession(ctx, 0, act.ID, now, ""); err != nil {
 			fatal("start: %v", err)
 		}
 		fmt.Printf("✓ focus started on %q (paused %d other)\n", act.Name, paused)
@@ -372,7 +372,7 @@ func runAdd(args []string) {
 	// 1) Activity
 	var act model.Activity
 	if *activityFlag != "" {
-		a, err := d.GetOrCreateActivity(ctx, *activityFlag)
+		a, err := d.GetOrCreateActivity(ctx, 0, *activityFlag)
 		if err != nil {
 			fatal("get-or-create: %v", err)
 		}
@@ -469,7 +469,7 @@ func runAdd(args []string) {
 	}
 
 	// 6) Create closed session
-	_, err = d.CreateClosedSession(ctx, act.ID, startAt, endAt, note)
+	_, err = d.CreateClosedSession(ctx, 0, act.ID, startAt, endAt, note)
 	if err != nil {
 		fatal("create session: %v", err)
 	}
@@ -481,7 +481,7 @@ func runAdd(args []string) {
 // to pick one. When allowNew is true, the last option is "+ new".
 // Returns (nil, ErrCancelled) if the user types ".".
 func pickActivity(ctx context.Context, d *db.DB, label string, allowNew bool) (*model.Activity, error) {
-	acts, err := d.ListActivities(ctx, false)
+	acts, err := d.ListActivities(ctx, 0, false)
 	if err != nil {
 		return nil, err
 	}
@@ -501,7 +501,7 @@ func pickActivity(ctx context.Context, d *db.DB, label string, allowNew bool) (*
 		if s == "" {
 			return nil, cli.ErrCancelled
 		}
-		a, err := d.CreateActivity(ctx, s)
+		a, err := d.CreateActivity(ctx, 0, s)
 		if err != nil {
 			return nil, err
 		}
@@ -522,7 +522,7 @@ func pickActivity(ctx context.Context, d *db.DB, label string, allowNew bool) (*
 		if s == "" {
 			return nil, cli.ErrCancelled
 		}
-		a, err := d.CreateActivity(ctx, s)
+		a, err := d.CreateActivity(ctx, 0, s)
 		if err != nil {
 			return nil, err
 		}
@@ -563,14 +563,14 @@ func runLog(args []string) {
 
 	var actID *int64
 	if *activityFlag != "" {
-		a, err := d.FindActivityByName(ctx, *activityFlag)
+		a, err := d.FindActivityByName(ctx, 0, *activityFlag)
 		if err != nil {
 			fatal("activity %q: %v", *activityFlag, err)
 		}
 		actID = &a.ID
 	}
 
-	sessions, err := d.ListClosedSessionsInRange(ctx, period.Start, period.End, actID)
+	sessions, err := d.ListClosedSessionsInRange(ctx, 0, period.Start, period.End, actID)
 	if err != nil {
 		fatal("list: %v", err)
 	}
@@ -616,7 +616,7 @@ func runStats(args []string) {
 		fatal("%v", err)
 	}
 
-	sessions, err := d.ListClosedSessionsInRange(ctx, period.Start, period.End, nil)
+	sessions, err := d.ListClosedSessionsInRange(ctx, 0, period.Start, period.End, nil)
 	if err != nil {
 		fatal("list: %v", err)
 	}
@@ -819,7 +819,7 @@ func runGoalSet(args []string) {
 	d, ctx := openDB()
 	defer d.Close()
 
-	act, err := d.GetOrCreateActivity(ctx, *activityFlag)
+	act, err := d.GetOrCreateActivity(ctx, 0, *activityFlag)
 	if err != nil {
 		fatal("activity %q: %v", *activityFlag, err)
 	}
@@ -830,7 +830,7 @@ func runGoalSet(args []string) {
 			fatal("parse %s duration %q: %v", p.period, p.dur, err)
 		}
 		mins := secs / 60
-		g, err := d.UpsertGoal(ctx, act.ID, p.period, mins)
+		g, err := d.UpsertGoal(ctx, 0, act.ID, p.period, mins)
 		if err != nil {
 			fatal("upsert %s goal: %v", p.period, err)
 		}
@@ -843,7 +843,7 @@ func runGoalList() {
 	d, ctx := openDB()
 	defer d.Close()
 	now := time.Now()
-	progress, err := d.ProgressForGoals(ctx, now)
+	progress, err := d.ProgressForGoals(ctx, 0, now)
 	if err != nil {
 		fatal("progress: %v", err)
 	}
@@ -893,12 +893,12 @@ func runGoalUnset(args []string) {
 
 	d, ctx := openDB()
 	defer d.Close()
-	act, err := d.GetActivityByName(ctx, *activityFlag)
+	act, err := d.GetActivityByName(ctx, 0, *activityFlag)
 	if err != nil {
 		fatal("activity %q: %v", *activityFlag, err)
 	}
 	for _, p := range periods {
-		if err := d.DeleteGoal(ctx, act.ID, p); err != nil && !errors.Is(err, db.ErrGoalNotFound) {
+		if err := d.DeleteGoal(ctx, 0, act.ID, p); err != nil && !errors.Is(err, db.ErrGoalNotFound) {
 			fatal("unset %s: %v", p, err)
 		}
 	}
@@ -959,7 +959,7 @@ func runTagAdd(args []string) {
 	}
 	d, ctx := openDB()
 	defer d.Close()
-	t, err := d.CreateTag(ctx, args[0])
+	t, err := d.CreateTag(ctx, 0, args[0])
 	if err != nil {
 		fatal("create tag: %v", err)
 	}
@@ -969,7 +969,7 @@ func runTagAdd(args []string) {
 func runTagList() {
 	d, ctx := openDB()
 	defer d.Close()
-	tags, err := d.ListAllTagsWithCounts(ctx)
+	tags, err := d.ListAllTagsWithCounts(ctx, 0)
 	if err != nil {
 		fatal("list tags: %v", err)
 	}
@@ -996,7 +996,7 @@ func runTagAttach(args []string) {
 	}
 	d, ctx := openDB()
 	defer d.Close()
-	if err := d.AttachTag(ctx, sid, args[1]); err != nil {
+	if err := d.AttachTag(ctx, 0, sid, args[1]); err != nil {
 		fatal("attach: %v", err)
 	}
 	fmt.Printf("tagged session %d with #%s\n", sid, args[1])
@@ -1013,7 +1013,7 @@ func runTagDetach(args []string) {
 	}
 	d, ctx := openDB()
 	defer d.Close()
-	if err := d.DetachTag(ctx, sid, args[1]); err != nil {
+	if err := d.DetachTag(ctx, 0, sid, args[1]); err != nil {
 		fatal("detach: %v", err)
 	}
 	fmt.Printf("removed #%s from session %d\n", args[1], sid)

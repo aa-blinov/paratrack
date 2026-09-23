@@ -11,7 +11,7 @@ func TestGetOrCreateActivity_CaseInsensitive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
 
-	a, err := d.GetOrCreateActivity(ctx, "work")
+	a, err := d.GetOrCreateActivity(ctx, 0, "work")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestGetOrCreateActivity_CaseInsensitive(t *testing.T) {
 
 	// Different case → same id, canonical lowercase name.
 	for _, variant := range []string{"WORK", "Work", "wOrK"} {
-		got, err := d.GetOrCreateActivity(ctx, variant)
+		got, err := d.GetOrCreateActivity(ctx, 0, variant)
 		if err != nil {
 			t.Errorf("GetOrCreateActivity(%q): %v", variant, err)
 			continue
@@ -36,14 +36,14 @@ func TestGetOrCreateActivity_CaseInsensitive(t *testing.T) {
 func TestGetActivityByName_CaseInsensitive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.GetOrCreateActivity(ctx, "Reading")
+	a, err := d.GetOrCreateActivity(ctx, 0, "Reading")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a.Name != "reading" {
 		t.Errorf("expected normalised 'reading', got %q", a.Name)
 	}
-	b, err := d.GetActivityByName(ctx, "READING")
+	b, err := d.GetActivityByName(ctx, 0, "READING")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestGetActivityByName_CaseInsensitive(t *testing.T) {
 func TestCreateActivity_TrimsAndLowercases(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.CreateActivity(ctx, "  Writing  ")
+	a, err := d.CreateActivity(ctx, 0, "  Writing  ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,15 +92,15 @@ func TestNormalizeActivityCase_MergesDuplicates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sWinner, err := d.CreateSession(ctx, winnerID, time.Now(), "")
+	sWinner, err := d.CreateSession(ctx, 0, winnerID, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	sLoser, err := d.CreateSession(ctx, loserID, time.Now(), "")
+	sLoser, err := d.CreateSession(ctx, 0, loserID, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	sKeep, err := d.CreateSession(ctx, keepID, time.Now(), "")
+	sKeep, err := d.CreateSession(ctx, 0, keepID, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestNormalizeActivityCase_MergesDuplicates(t *testing.T) {
 	if err := d.normalizeActivityCase(); err != nil {
 		t.Fatalf("second normalizeActivityCase: %v", err)
 	}
-	acts, err := d.ListActivities(ctx, true)
+	acts, err := d.ListActivities(ctx, 0, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,12 +171,18 @@ func insertRawActivity(ctx context.Context, d *DB, name string) (int64, error) {
 // hand the DB to normalizeActivityCase to verify it cleans them up.
 // The current production schema forbids those duplicates at insert
 // time, so we can't simulate an upgrade with openTestDB.
+//
+// Note: the column set here mirrors the pre-team schema, but
+// team_id has been retro-added so the typed scanners (which now
+// expect team_id) keep working — the migration code is what we test,
+// not the schema itself.
 func openLegacySchemaDB(t *testing.T) *DB {
 	t.Helper()
 	const legacy = `
 CREATE TABLE activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
+    team_id INTEGER,
     archived INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))
@@ -184,6 +190,7 @@ CREATE TABLE activities (
 CREATE TABLE sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     activity_id INTEGER NOT NULL,
+    team_id INTEGER,
     start_at TEXT NOT NULL,
     end_at TEXT,
     note TEXT,
@@ -198,6 +205,7 @@ CREATE TABLE sessions (
 CREATE TABLE tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
+    team_id INTEGER,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))
 );
 CREATE TABLE session_tags (
