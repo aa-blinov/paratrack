@@ -20,8 +20,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/auth"
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/teams"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -31,6 +33,8 @@ var assets embed.FS
 // Server is the HTTP front-end for paratrack.
 type Server struct {
 	db    *db.DB
+	auth  *auth.Service
+	teams *teams.Service
 	addr  string
 	tmpl  *template.Template
 	httpd *http.Server
@@ -42,11 +46,17 @@ func New(database *db.DB, addr string) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
-	s := &Server{db: database, addr: addr, tmpl: tmpl}
+	s := &Server{
+		db:    database,
+		auth:  auth.NewService(database),
+		teams: teams.NewService(database),
+		addr:  addr,
+		tmpl:  tmpl,
+	}
 	s.httpd = &http.Server{
 		Addr:              addr,
 		Handler:           s.routes(),
-		ReadHeaderTimeout: 5 * time.Second,
+		ReadHeaderTimeout:  5 * time.Second,
 	}
 	return s, nil
 }
@@ -97,46 +107,65 @@ var funcMap = template.FuncMap{
 
 // routes wires every HTTP route the server exposes. Go 1.22+ pattern
 // routing means we don't pull in a third-party router.
+//
+// Phase 1 wire-up splits the routes into three buckets:
+//
+//   - Public — anyone can hit (login form, registration form, logout,
+//     static files).
+//   - Auth page — page routes redirect unauthenticated visitors to
+//     /login so the browser can flow through the form normally.
+//   - Auth API — every /api/* call (other than the auth flow itself)
+//     returns a JSON body on auth failure, so HTMX / curl / Playwright
+//     all behave sensibly.
+//
+// The middleware sets User and Team on r.Context() before dispatching
+// to the actual handler.
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
+	pageAuth := s.requireAuth(pageRedirect)
+	apiAuth := s.requireAuth(apiUnauthorized)
 
-	// Pages
-	mux.HandleFunc("GET /{$}",          s.handleDashboard)
-	mux.HandleFunc("GET /stats",        s.handleStats)
-	mux.HandleFunc("GET /graph",        s.handleGraph)
-	mux.HandleFunc("GET /goals",        s.handleGoals)
-	mux.HandleFunc("GET /tags",         s.handleTagsPage)
-	mux.HandleFunc("GET /tags-list-fragment", s.handleTagsFragment)
+	// ----- public -----
+	mux.HandleFunc("GET /login",         s.handleLogin)
+	mux.HandleFunc("GET /register",      s.handleRegister)
+	mux.HandleFunc("POST /api/login",    s.handleAPILogin)
+	mux.HandleFunc("POST /api/register", s.handleAPIRegister)
+	mux.HandleFunc("POST /api/logout",   s.handleAPILogout)
 
-	// JSON / fragments
-	mux.HandleFunc("GET /api/active",   s.handleAPIActive)
-	mux.HandleFunc("GET /api/reports.csv", s.handleCSV)
-
-	// Actions
-	mux.HandleFunc("POST /api/start",                      s.handleStart)
-	mux.HandleFunc("POST /api/sessions/{id}/stop",         s.handleStop)
-	mux.HandleFunc("POST /api/sessions/{id}/pause",        s.handlePause)
-	mux.HandleFunc("POST /api/sessions/{id}/resume",       s.handleResume)
-	mux.HandleFunc("POST /api/focus/{name}",               s.handleFocus)
-	mux.HandleFunc("PATCH /api/sessions/{id}",             s.handleUpdateSession)
-	mux.HandleFunc("DELETE /api/sessions/{id}",            s.handleDeleteSession)
-
-	// Goals — read on dashboard, full CRUD via JSON.
-	mux.HandleFunc("GET  /api/goals",          s.handleGoalsList)
-	mux.HandleFunc("GET  /api/goals/progress", s.handleGoalsProgress)
-	mux.HandleFunc("POST /api/goals",          s.handleGoalsUpsert)
-	mux.HandleFunc("DELETE /api/goals",        s.handleGoalsDelete)
-
-	// Tags — read on stats, attach/detach on session rows.
-	mux.HandleFunc("GET    /api/tags",                  s.handleTagsList)
-	mux.HandleFunc("POST   /api/tags",                  s.handleTagsCreate)
-	mux.HandleFunc("DELETE /api/tags",                  s.handleTagsDelete)
-	mux.HandleFunc("POST   /api/sessions/{id}/tags",    s.handleSessionTagAdd)
-	mux.HandleFunc("DELETE /api/sessions/{id}/tags",    s.handleSessionTagRemove)
-
-	// Static files — served from the embedded FS, mounted at /static/.
 	staticFS, _ := fs.Sub(assets, "static")
 	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
+
+	// ----- protected pages -----
+	pages := http.NewServeMux()
+	pages.HandleFunc("GET /{$}",                    s.handleDashboard)
+	pages.HandleFunc("GET /stats",                  s.handleStats)
+	pages.HandleFunc("GET /graph",                  s.handleGraph)
+	pages.HandleFunc("GET /goals",                  s.handleGoals)
+	pages.HandleFunc("GET /tags",                   s.handleTagsPage)
+	pages.HandleFunc("GET /tags-list-fragment",     s.handleTagsFragment)
+	mux.Handle("/", pageAuth(pages))
+
+	// ----- protected /api/* -----
+	api := http.NewServeMux()
+	api.HandleFunc("GET /active",                   s.handleAPIActive)
+	api.HandleFunc("GET /reports.csv",              s.handleCSV)
+	api.HandleFunc("POST /start",                   s.handleStart)
+	api.HandleFunc("POST /sessions/{id}/stop",      s.handleStop)
+	api.HandleFunc("POST /sessions/{id}/pause",     s.handlePause)
+	api.HandleFunc("POST /sessions/{id}/resume",    s.handleResume)
+	api.HandleFunc("POST /focus/{name}",            s.handleFocus)
+	api.HandleFunc("PATCH /sessions/{id}",          s.handleUpdateSession)
+	api.HandleFunc("DELETE /sessions/{id}",         s.handleDeleteSession)
+	api.HandleFunc("GET /goals",                    s.handleGoalsList)
+	api.HandleFunc("GET /goals/progress",           s.handleGoalsProgress)
+	api.HandleFunc("POST /goals",                   s.handleGoalsUpsert)
+	api.HandleFunc("DELETE /goals",                 s.handleGoalsDelete)
+	api.HandleFunc("GET /tags",                     s.handleTagsList)
+	api.HandleFunc("POST /tags",                    s.handleTagsCreate)
+	api.HandleFunc("DELETE /tags",                  s.handleTagsDelete)
+	api.HandleFunc("POST /sessions/{id}/tags",      s.handleSessionTagAdd)
+	api.HandleFunc("DELETE /sessions/{id}/tags",   s.handleSessionTagRemove)
+	mux.Handle("/api/", apiAuth(api))
 
 	return logRequests(mux)
 }
