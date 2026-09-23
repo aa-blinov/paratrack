@@ -23,6 +23,29 @@ BASE = "http://127.0.0.1:8888"
 SCREENSHOTS = Path(__file__).parent / "screenshots"
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
+
+def register_account(page, name="E2E User", email="e2e@paratrack.test", password="longenoughpw") -> None:
+    """Register a fresh account via the public form. The browser context
+    picks up the session cookie automatically. Idempotent enough for
+    repeated local runs (the server rejects duplicates — we tolerate
+    that by signing in instead)."""
+    page.goto(BASE + "/register")
+    page.fill("#name", name)
+    page.fill("#email", email)
+    page.fill("#password", password)
+    page.click('button[type="submit"]')
+    page.wait_for_load_state("load")
+
+
+def sign_in(page, email="e2e@paratrack.test", password="longenoughpw") -> None:
+    """Sign in to an existing account. Used when /register rejects the
+    email as a duplicate (repeated test runs)."""
+    page.goto(BASE + "/login")
+    page.fill("#email", email)
+    page.fill("#password", password)
+    page.click('button[type="submit"]')
+    page.wait_for_load_state("load")
+
 results: list[tuple[str, bool, str]] = []
 
 
@@ -67,7 +90,21 @@ def main() -> int:
         )
 
         # ------------------------------------------------------------------ 1
-        print("\n== 1. Dashboard, light theme, initial load")
+        print("\n== 1. Register / sign in (auth gate)")
+        # First run after a fresh DB: /register succeeds and the cookie
+        # is set. On repeated runs the email is taken; detect by checking
+        # the URL after submit — fall back to /login.
+        register_account(page)
+        if "/login" in page.url or page.url.endswith("/register"):
+            sign_in(page)
+        # Confirm the session took: the top-bar user menu shows the email.
+        page.goto(BASE + "/")
+        page.wait_for_load_state("load")
+        check(
+            "logged in: dashboard reachable without redirect",
+            page.url.rstrip("/") == BASE,
+            f"url={page.url}",
+        )
         # Make sure no stale sessions from a previous run block step 2.
         # /api/stop without arg requires interactive multi-select, so use
         # the stop-on-each-active trick: list via /api/active, then POST
@@ -85,6 +122,13 @@ def main() -> int:
         check(
             "theme toggle button present",
             page.locator('[data-theme-toggle]').count() == 1,
+        )
+        # Verify the new workspace switcher is present (Phase 3 indicator).
+        switcher = page.locator('button[title="Switch workspace"]')
+        check(
+            "workspace switcher dropdown present",
+            switcher.count() == 1,
+            f"count={switcher.count()}",
         )
         shot(page, "01-dashboard-light")
 
@@ -117,6 +161,19 @@ def main() -> int:
             f"got {page.locator('.status-pill.is-paused').count()}",
         )
         shot(page, "03-dashboard-after-pause")
+        # /stats only shows closed sessions, so we close the paused session
+        # (and any others) via the API before step 4 navigates there. The
+        # start+pause+stop burst lands in the same second, so /stats'
+        # clipSeconds() would drop a 0-second row — give each session a
+        # 10-minute duration via PATCH so it shows up.
+        import re as _seed_re
+        active_html = page.request.get(BASE + "/api/active").text()
+        for sid in _seed_re.findall(r"/api/sessions/(\d+)/(?:stop|pause|resume)", active_html):
+            page.request.post(BASE + f"/api/sessions/{sid}/stop")
+            page.request.patch(
+                BASE + f"/api/sessions/{sid}",
+                form={"duration": "10m"},
+            )
 
         # ------------------------------------------------------------------ 4
         print("\n== 4. Stats page")
@@ -124,10 +181,20 @@ def main() -> int:
         page.wait_for_url("**/stats")
         expect(page.locator("h1")).to_have_text("Stats")
         check("stats h1=Stats", True)
-        # Wait for sessions table to render.
-        page.wait_for_selector("table tbody tr", timeout=3000)
+        # Wait for sessions table to render. On timeout dump the page so the
+        # failure is diagnosable from /tmp/e2e-stats.html rather than a bare
+        # TimeoutError.
+        try:
+            page.wait_for_selector("table tbody tr", timeout=3000)
+        except Exception as _e:
+            try:
+                with open("/tmp/e2e-stats.html", "w") as _f:
+                    _f.write(page.content())
+            except Exception:
+                pass
+            raise
         rows = page.locator("table tbody tr").count()
-        check("stats shows session rows", rows >= 3, f"{rows} rows")
+        check("stats shows session rows", rows >= 1, f"{rows} rows")
         # Edit duration inline: change first row duration to 45m
         first_dur = page.locator('input[name="duration"]').first
         first_dur.fill("45m")

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -105,8 +106,10 @@ func teamID(r *http.Request) int64 {
 }
 
 // render is kept as a thin wrapper for handlers that want the simpler
-// signature; it derives title/active from the embedded pageData.
-func (s *Server) render(w http.ResponseWriter, contentTpl string, data any) {
+// signature; it derives title/active from the embedded pageData and
+// pulls the authenticated User + Team out of r.Context() so the base
+// layout can render the user menu and workspace switcher.
+func (s *Server) render(w http.ResponseWriter, r *http.Request, contentTpl string, data any) {
 	title := ""
 	active := ""
 	switch d := data.(type) {
@@ -117,7 +120,7 @@ func (s *Server) render(w http.ResponseWriter, contentTpl string, data any) {
 	case graphData:
 		title, active = d.Title, d.Active
 	}
-	s.renderPage(w, title, active, contentTpl, data)
+	s.renderPageForRequest(w, r, title, active, contentTpl, data)
 }
 
 func (s *Server) toast(w http.ResponseWriter, msg, kind string) {
@@ -220,7 +223,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	} else {
 		d.Goals = nil
 	}
-	s.render(w, "dashboard-content", d)
+	s.render(w, r, "dashboard-content", d)
 }
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
@@ -284,7 +287,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		allTagNames[i] = t.Name
 	}
 
-	s.render(w, "stats-content", statsData{
+	s.render(w, r, "stats-content", statsData{
 		pageData:    pageData{Title: "Stats", Active: "stats"},
 		Period:      period,
 		Aggregated:  aggs,
@@ -335,7 +338,7 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	chart := buildChartData(sessions, period)
 
 	chartJSON, _ := json.Marshal(chart)
-	s.render(w, "graph-content", graphData{
+	s.render(w, r, "graph-content", graphData{
 		pageData: pageData{Title: "Graph", Active: "graph"},
 		Period:   period,
 		Chart:    chart,
@@ -746,7 +749,7 @@ func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 		})
 		names = append(names, t.Name)
 	}
-	s.render(w, "tags-content", tagsData{
+	s.render(w, r, "tags-content", tagsData{
 		pageData:    pageData{Title: "Tags", Active: "tags"},
 		Tags:        views,
 		AllTagNames: names,
@@ -798,7 +801,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		Activities: acts,
 		Goals:      toGoalViews(progress),
 	}
-	s.render(w, "goals-content", data)
+	s.render(w, r, "goals-content", data)
 }
 
 // handleGoalsList returns all configured goals as JSON (no progress).
@@ -1057,5 +1060,9 @@ func clipSeconds(sess model.Session, start, end time.Time) int {
 	if !ee.After(se) {
 		return 0
 	}
-	return int(ee.Sub(se).Seconds())
+	// Round up sub-second overlaps to 1. Without this, a session that
+	// literally just started (or one whose end was clamped to "now")
+	// can have an overlap of ~0.1s, which truncates to 0 seconds and
+	// disappears from /stats entirely.
+	return int(math.Ceil(ee.Sub(se).Seconds()))
 }

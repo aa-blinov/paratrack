@@ -110,7 +110,8 @@ CREATE TABLE IF NOT EXISTS tags (
     name TEXT NOT NULL COLLATE NOCASE,
     team_id INTEGER,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
-    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    UNIQUE (team_id, name)
 );
 CREATE INDEX IF NOT EXISTS idx_tags_team ON tags(team_id);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name COLLATE NOCASE);
