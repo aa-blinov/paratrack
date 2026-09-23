@@ -120,10 +120,21 @@ document.addEventListener('alpine:init', () => {
           name: 'min',
           nameLocation: 'end',
           nameTextStyle: { color: cssVar('--muted') || '#6b7280', fontSize: 10, padding: [0, 0, 4, 0] },
+          // Whole-minute ticks. Without minInterval ECharts happily emits
+          // 0.2m / 0.4m ticks for tiny data, which clashes with the unified
+          // "Xh YYm / Xm" format used everywhere else.
+          minInterval: 1,
           axisLabel: {
             color: cssVar('--muted') || '#6b7280',
             fontSize: 11,
-            formatter: function (v) { return v >= 60 ? Math.floor(v / 60) + 'h' : v + 'm'; },
+            formatter: function (v) {
+              if (v >= 60) return Math.floor(v / 60) + 'h';
+              // Sub-minute: data is in minutes, so v*60 = seconds. Show
+              // "Xs" so the chart axis matches the column-header units
+              // on /stats (Xh YYm / Xm) for any non-zero value.
+              if (v < 1 && v > 0) return Math.round(v * 60) + 's';
+              return Math.round(v) + 'm';
+            },
           },
           splitLine: { lineStyle: { color: cssVar('--border') || '#e5e7eb', type: 'dashed' } },
         },

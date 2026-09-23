@@ -13,7 +13,7 @@
         <form method="POST" action="/api/invites/{{.Token}}/accept">
           <button type="submit" class="btn btn-neutral w-full">Join {{.Team.Name}}</button>
         </form>
-        <p class="text-xs opacity-50 text-center mt-2">Joined as <span class="font-mono">{{.User.Email}}</span> — switch accounts from <a href="/api/logout" class="link">log out</a>.</p>
+        <p class="text-xs opacity-50 text-center mt-2">Joined as <span class="font-mono">{{.User.Email}}</span>. Switch accounts from <a href="/api/logout" class="link">log out</a>.</p>
       {{else}}
         <p class="text-sm opacity-60 mb-3">Sign in to accept this invite.</p>
         <a href="/login?next=/invites/{{.Token}}" class="btn btn-neutral w-full">Log in</a>
