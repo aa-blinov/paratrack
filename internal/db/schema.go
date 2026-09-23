@@ -8,18 +8,86 @@ import (
 // names and types are used by the original Python implementation, so a DB
 // created by either tool can be opened by the other (timestamps differ —
 // see note in db.go).
+//
+// As of the collaboration release (Phase 1–3), the schema adds a user /
+// auth / team layer. Every row of an existing table (activities,
+// sessions, tags, goals) now carries a `team_id` so a single SQLite file
+// can host multiple teams side by side. A fresh install therefore can't
+// open a pre-auth database — Open() detects that case and archives the
+// file before creating the new schema (hard break, per product call).
 const schema = `
-CREATE TABLE IF NOT EXISTS activities (
+CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-    archived INTEGER NOT NULL DEFAULT 0,
+    email TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))
 );
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_users_email ON users(email COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS auth_sessions (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    expires_at TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
+
+CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    owner_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_teams_slug ON teams(slug COLLATE NOCASE);
+
+CREATE TABLE IF NOT EXISTS memberships (
+    team_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('owner', 'member')),
+    joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    PRIMARY KEY (team_id, user_id),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_memberships_user ON memberships(user_id);
+
+CREATE TABLE IF NOT EXISTS invites (
+    token TEXT PRIMARY KEY,
+    team_id INTEGER NOT NULL,
+    role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('owner', 'member')),
+    created_by INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    expires_at TEXT NOT NULL,
+    accepted_at TEXT,
+    accepted_by INTEGER,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL
+);
+CREATE INDEX IF NOT EXISTS idx_invites_team ON invites(team_id);
+
+CREATE TABLE IF NOT EXISTS activities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL COLLATE NOCASE,
+    team_id INTEGER,
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_activities_team ON activities(team_id);
+CREATE INDEX IF NOT EXISTS idx_activities_name ON activities(name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     activity_id INTEGER NOT NULL,
+    team_id INTEGER,
     start_at TEXT NOT NULL,
     end_at TEXT,
     note TEXT,
@@ -29,14 +97,23 @@ CREATE TABLE IF NOT EXISTS sessions (
     last_resume_at TEXT,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
-    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
+    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_sessions_activity ON sessions(activity_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_team     ON sessions(team_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_start    ON sessions(start_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_end      ON sessions(end_at);
 
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
-    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))
+    name TEXT NOT NULL COLLATE NOCASE,
+    team_id INTEGER,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_tags_team ON tags(team_id);
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name COLLATE NOCASE);
 
 CREATE TABLE IF NOT EXISTS session_tags (
     session_id INTEGER NOT NULL,
@@ -45,17 +122,22 @@ CREATE TABLE IF NOT EXISTS session_tags (
     FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
+CREATE INDEX IF NOT EXISTS idx_session_tags_session ON session_tags(session_id);
+CREATE INDEX IF NOT EXISTS idx_session_tags_tag     ON session_tags(tag_id);
 
 CREATE TABLE IF NOT EXISTS goals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     activity_id INTEGER NOT NULL,
+    team_id INTEGER,
     period TEXT NOT NULL CHECK(period IN ('daily', 'weekly', 'monthly')),
     target_minutes INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
-    UNIQUE (activity_id, period)
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    UNIQUE (team_id, activity_id, period)
 );
+CREATE INDEX IF NOT EXISTS idx_goals_team ON goals(team_id);
 
 CREATE TABLE IF NOT EXISTS reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -67,12 +149,6 @@ CREATE TABLE IF NOT EXISTS reminders (
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_sessions_activity ON sessions(activity_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_start   ON sessions(start_at);
-CREATE INDEX IF NOT EXISTS idx_sessions_end     ON sessions(end_at);
-CREATE INDEX IF NOT EXISTS idx_session_tags_session ON session_tags(session_id);
-CREATE INDEX IF NOT EXISTS idx_session_tags_tag     ON session_tags(tag_id);
 `
 
 // columnMigrations ensures older databases (e.g. created before pause/resume

@@ -20,8 +20,7 @@ func (d *DB) CreateActivity(ctx context.Context, name string) (model.Activity, e
 	}
 	now := FormatTime(time.Now().UTC())
 	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)
-		 ON CONFLICT(name) DO NOTHING`,
+		`INSERT OR IGNORE INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)`,
 		name, now, now,
 	)
 	if err != nil {
