@@ -98,6 +98,19 @@
 }
 
 @layer components {
+  /* Activity marker — a 2px-wide vertical accent bar in the activity's
+   * hashed colour, sitting left of the activity name. Identifies which
+   * activity a row belongs to at a glance; mirrors the ECharts series
+   * colour so the legend chips and stacked bars share the same cue. */
+  .activity-mark {
+    display: inline-block;
+    width: 2px;
+    height: 0.9em;
+    margin-right: 8px;
+    vertical-align: -0.05em;
+    background: var(--color);
+  }
+
   .status-pill {
     @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium;
   }
