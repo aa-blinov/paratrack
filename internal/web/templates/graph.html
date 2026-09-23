@@ -57,6 +57,7 @@
     <div class="flex flex-wrap gap-2" id="legend-chips">
       {{range $i, $l := .Chart.Legend}}
       <div class="badge badge-outline gap-2 cursor-pointer hover:bg-base-200" data-series-index="{{$i}}" role="button" tabindex="0" aria-pressed="false" title="Click to hide / show {{$l.Name}}">
+        <span class="activity-mark" style="--color: {{$l.Color}};"></span>
         <span>{{$l.Name}}</span>
       </div>
       {{end}}
