@@ -195,6 +195,13 @@ func (s *Server) routes() http.Handler {
 	api("POST",   "/api/profile",                  s.handleAPIProfileUpdate)
 	api("POST",   "/api/profile/password",         s.handleAPIProfilePassword)
 
+	// Projects (Phase 2 of the projects rollout).
+	api("GET",    "/api/projects",                 s.handleAPIProjectsList)
+	api("POST",   "/api/projects",                 s.handleAPIProjectCreate)
+	api("PATCH",  "/api/projects/{id}",            s.handleAPIProjectUpdate)
+	api("DELETE", "/api/projects/{id}",            s.handleAPIProjectDelete)
+	api("POST",   "/api/activities/{id}/project",  s.handleAPIAssignActivityProject)
+
 	return logRequests(mux)
 }
 

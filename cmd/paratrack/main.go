@@ -58,6 +58,8 @@ func main() {
 		runGoal(os.Args[2:])
 	case "tag", "tags":
 		runTag(os.Args[2:])
+	case "project", "projects":
+		runProject(os.Args[2:])
 	case "web":
 		runWeb(os.Args[2:])
 	case "-h", "--help", "help":
@@ -91,7 +93,15 @@ Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
   paratrack tag add <name>                          create a tag
   paratrack tag list                                show all tags + counts
   paratrack tag attach <session_id> <name>          tag a session
-  paratrack tag detach <session_id> <name>          untag`)
+  paratrack tag detach <session_id> <name>          untag
+  paratrack project list [--archived] [--team id]   list projects
+  paratrack project create [--slug s] [--color #hex] [--team id] <name>  create
+  paratrack project show <slug|id>                  show one project
+  paratrack project rename <slug|id> <new-name>     rename
+  paratrack project color   <slug|id> <#hex>        set color
+  paratrack project archive <slug|id>               archive
+  paratrack project unarchive <slug|id>             unarchive
+  paratrack project delete <slug|id>                delete`)
 }
 
 // --- helpers ---------------------------------------------------------
@@ -1085,5 +1095,278 @@ func equalsFold(a, b string) bool {
 		}
 	}
 	return true
+}
+
+// --- project CLI -----------------------------------------------------
+//
+// The CLI runs without an auth context, so it doesn't know which team
+// to scope to. We pick the lowest-id team by default — sufficient for
+// single-user installs. If you have multiple teams, pass --team.
+//
+// All subcommands accept either a slug ("eora-rag") or a numeric id.
+
+func runProject(args []string) {
+	if len(args) == 0 {
+		printProjectUsage()
+		return
+	}
+	switch args[0] {
+	case "list", "ls":
+		runProjectList(args[1:])
+	case "create", "new":
+		runProjectCreate(args[1:])
+	case "show":
+		runProjectShow(args[1:])
+	case "rename":
+		runProjectRename(args[1:])
+	case "color":
+		runProjectColor(args[1:])
+	case "archive":
+		runProjectArchive(args[1:], true)
+	case "unarchive":
+		runProjectArchive(args[1:], false)
+	case "delete", "rm":
+		runProjectDelete(args[1:])
+	case "-h", "--help", "help":
+		printProjectUsage()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown project subcommand %q\n\n", args[0])
+		printProjectUsage()
+		os.Exit(2)
+	}
+}
+
+func printProjectUsage() {
+	fmt.Println(`paratrack project — group activities under named projects
+
+Usage:
+  paratrack project list [--team <id>] [--archived]
+  paratrack project create <name> [--slug <slug>] [--color <#hex>] [--team <id>]
+  paratrack project show <slug|id>
+  paratrack project rename <slug|id> <new-name>
+  paratrack project color <slug|id> <#hex>
+  paratrack project archive <slug|id>
+  paratrack project unarchive <slug|id>
+  paratrack project delete <slug|id>
+
+Projects belong to a team. --team defaults to the first team in the DB
+(single-user installs). Slugs are auto-derived from the name unless given.`)
+}
+
+func projectDefaultTeam(d *db.DB) (int64, error) {
+	var id int64
+	err := d.SQL().QueryRow(`SELECT id FROM teams ORDER BY id LIMIT 1`).Scan(&id)
+	return id, err
+}
+
+// parseProjectRef resolves a slug or numeric id to a project id.
+func parseProjectRef(d *db.DB, ref string) (int64, error) {
+	if id, err := strconv.ParseInt(ref, 10, 64); err == nil {
+		return id, nil
+	}
+	var id int64
+	err := d.SQL().QueryRow(`SELECT id FROM projects WHERE slug = ? COLLATE NOCASE`, ref).Scan(&id)
+	return id, err
+}
+
+func runProjectList(args []string) {
+	fs := flag.NewFlagSet("project list", flag.ExitOnError)
+	team := fs.Int64("team", 0, "team id (default: first team)")
+	archived := fs.Bool("archived", false, "include archived projects")
+	fs.Parse(args)
+
+	d, ctx := openDB()
+	defer d.Close()
+	if *team == 0 {
+		t, err := projectDefaultTeam(d)
+		if err != nil {
+			fatal("no team found; pass --team or seed one via the web UI: %v", err)
+		}
+		*team = t
+	}
+	list, err := d.ListProjects(ctx, *team, *archived)
+	if err != nil {
+		fatal("list: %v", err)
+	}
+	if len(list) == 0 {
+		fmt.Println("No projects yet. Create one with: paratrack project create \"EORA RAG\"")
+		return
+	}
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(tw, "SLUG\tNAME\tCOLOR\tACTIVITIES\tSTATE")
+	for _, p := range list {
+		acts, _ := d.ListActivitiesForProject(ctx, p.ID, true)
+		state := "active"
+		if p.Archived {
+			state = "archived"
+		}
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n", p.Slug, p.Name, p.Color, len(acts), state)
+	}
+	tw.Flush()
+}
+
+func runProjectCreate(args []string) {
+	fs := flag.NewFlagSet("project create", flag.ExitOnError)
+	slug := fs.String("slug", "", "URL slug (default: derived from name)")
+	color := fs.String("color", "", "color hex like #7c3aed (default: #7c8499)")
+	team := fs.Int64("team", 0, "team id (default: first team)")
+	fs.Parse(args)
+	rest := fs.Args()
+	if len(rest) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack project create <name> [--slug s] [--color #hex]")
+		os.Exit(2)
+	}
+
+	d, ctx := openDB()
+	defer d.Close()
+	if *team == 0 {
+		t, err := projectDefaultTeam(d)
+		if err != nil {
+			fatal("no team found; pass --team: %v", err)
+		}
+		*team = t
+	}
+	p, err := d.CreateProject(ctx, *team, rest[0], *slug, *color)
+	if err != nil {
+		if errors.Is(err, db.ErrDuplicate) {
+			fatal("a project with that slug or name already exists in this team")
+		}
+		fatal("create: %v", err)
+	}
+	fmt.Printf("project #%d ready (slug=%s, color=%s, team=%d)\n", p.ID, p.Slug, p.Color, p.TeamID)
+}
+
+func runProjectShow(args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack project show <slug|id>")
+		os.Exit(2)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	id, err := parseProjectRef(d, args[0])
+	if err != nil {
+		fatal("project not found: %v", err)
+	}
+	p, err := d.GetProject(ctx, id)
+	if err != nil {
+		fatal("get: %v", err)
+	}
+	fmt.Printf("id       %d\n", p.ID)
+	fmt.Printf("team_id  %d\n", p.TeamID)
+	fmt.Printf("slug     %s\n", p.Slug)
+	fmt.Printf("name     %s\n", p.Name)
+	fmt.Printf("color    %s\n", p.Color)
+	fmt.Printf("state    %s\n", stateStr(p.Archived))
+	acts, _ := d.ListActivitiesForProject(ctx, p.ID, true)
+	if len(acts) > 0 {
+		fmt.Println("activities:")
+		for _, a := range acts {
+			marker := ""
+			if a.Archived {
+				marker = " (archived)"
+			}
+			fmt.Printf("  - %s%s\n", a.Name, marker)
+		}
+	}
+}
+
+func runProjectRename(args []string) {
+	if len(args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack project rename <slug|id> <new-name>")
+		os.Exit(2)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	id, err := parseProjectRef(d, args[0])
+	if err != nil {
+		fatal("project not found: %v", err)
+	}
+	p, err := d.GetProject(ctx, id)
+	if err != nil {
+		fatal("get: %v", err)
+	}
+	upd, err := d.UpdateProject(ctx, p.TeamID, id, args[1], "", nil)
+	if err != nil {
+		fatal("rename: %v", err)
+	}
+	fmt.Printf("renamed #%d → %q\n", upd.ID, upd.Name)
+}
+
+func runProjectColor(args []string) {
+	if len(args) != 2 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack project color <slug|id> <#hex>")
+		os.Exit(2)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	id, err := parseProjectRef(d, args[0])
+	if err != nil {
+		fatal("project not found: %v", err)
+	}
+	p, err := d.GetProject(ctx, id)
+	if err != nil {
+		fatal("get: %v", err)
+	}
+	upd, err := d.UpdateProject(ctx, p.TeamID, id, "", args[1], nil)
+	if err != nil {
+		fatal("color: %v", err)
+	}
+	fmt.Printf("color #%d → %s\n", upd.ID, upd.Color)
+}
+
+func runProjectArchive(args []string, archive bool) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack project archive|unarchive <slug|id>")
+		os.Exit(2)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	id, err := parseProjectRef(d, args[0])
+	if err != nil {
+		fatal("project not found: %v", err)
+	}
+	p, err := d.GetProject(ctx, id)
+	if err != nil {
+		fatal("get: %v", err)
+	}
+	verb := "unarchived"
+	if archive {
+		verb = "archived"
+	}
+	if _, err := d.UpdateProject(ctx, p.TeamID, id, "", "", &archive); err != nil {
+		fatal("set archived: %v", err)
+	}
+	fmt.Printf("%s #%d\n", verb, id)
+}
+
+func runProjectDelete(args []string) {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "usage: paratrack project delete <slug|id>")
+		os.Exit(2)
+	}
+	d, ctx := openDB()
+	defer d.Close()
+	id, err := parseProjectRef(d, args[0])
+	if err != nil {
+		fatal("project not found: %v", err)
+	}
+	p, err := d.GetProject(ctx, id)
+	if err != nil {
+		fatal("get: %v", err)
+	}
+	if err := d.DeleteProject(ctx, p.TeamID, id); err != nil {
+		if errors.Is(err, db.ErrNotFound) {
+			fatal("not found")
+		}
+		fatal("delete: %v", err)
+	}
+	fmt.Printf("deleted #%d (activities in it are now 'Uncategorized')\n", id)
+}
+
+func stateStr(archived bool) string {
+	if archived {
+		return "archived"
+	}
+	return "active"
 }
 
