@@ -46,6 +46,10 @@ type sessionView struct {
 	ActivityID         int64
 	ActivityName       string
 	Color              string
+	ProjectID          int64  // 0 if activity has no project
+	ProjectName        string // empty if no project
+	ProjectColor       string // empty if no project
+	ProjectSlug        string // empty if no project
 	StartISO           string
 	StartLocal         string
 	EndLocal           string
@@ -63,6 +67,7 @@ type sessionView struct {
 type dashboardData struct {
 	pageData
 	Activities []model.Activity
+	Projects   []model.Project // for the project picker on the start form
 	ActiveSessions []sessionView
 	Recent     []sessionView
 	ActiveCount int
@@ -145,6 +150,7 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		ActivityID:         s.ActivityID,
 		ActivityName:       a.Name,
 		Color:              colorFor(a.Name),
+		ProjectID:          a.ProjectID,
 		StartISO:           s.StartAt.UTC().Format(time.RFC3339Nano),
 		StartLocal:         s.StartAt.Local().Format("01-02 15:04"),
 		AccumulatedSeconds: s.AccumulatedSeconds,
@@ -210,6 +216,86 @@ func hydrateSessionTags(ctx context.Context, d *dbpkg.DB, rows []sessionView) {
 			rows[i].Tags = append(rows[i].Tags, tagChip{ID: t.ID, Name: t.Name})
 		}
 	}
+}
+
+// projectChip is the lightweight project view-model used in session
+// rows. Same shape as tagChip; distinct type so templates can tell
+// them apart if they want different rendering.
+type projectChip struct {
+	ID    int64
+	Name  string
+	Slug  string
+	Color string
+}
+
+// hydrateSessionProjects looks up the project for each session's
+// activity (a session inherits its activity's project) and writes
+// the chip onto the row. Sessions whose activity has no project are
+// left blank — they show as "Uncategorized" in the badge if the
+// template chooses to render that.
+func hydrateSessionProjects(ctx context.Context, d *dbpkg.DB, rows []sessionView) {
+	if len(rows) == 0 {
+		return
+	}
+	// One query: every distinct (project_id) across the rows.
+	seen := map[int64]struct{}{}
+	pids := []int64{}
+	for _, r := range rows {
+		if r.ProjectID == 0 {
+			continue
+		}
+		if _, ok := seen[r.ProjectID]; ok {
+			continue
+		}
+		seen[r.ProjectID] = struct{}{}
+		pids = append(pids, r.ProjectID)
+	}
+	if len(pids) == 0 {
+		return
+	}
+	rows2, err := d.SQL().QueryContext(ctx,
+		`SELECT id, slug, name, color FROM projects WHERE id IN (`+placeholders(len(pids))+`)`,
+		toAny(pids)...)
+	if err != nil {
+		return
+	}
+	defer rows2.Close()
+	byID := map[int64]projectChip{}
+	for rows2.Next() {
+		var p projectChip
+		if err := rows2.Scan(&p.ID, &p.Slug, &p.Name, &p.Color); err == nil {
+			byID[p.ID] = p
+		}
+	}
+	for i, r := range rows {
+		if p, ok := byID[r.ProjectID]; ok {
+			rows[i].ProjectName = p.Name
+			rows[i].ProjectColor = p.Color
+			rows[i].ProjectSlug = p.Slug
+		}
+	}
+}
+
+func placeholders(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	out := make([]byte, 0, 2*n)
+	for i := 0; i < n; i++ {
+		if i > 0 {
+			out = append(out, ',')
+		}
+		out = append(out, '?')
+	}
+	return string(out)
+}
+
+func toAny(xs []int64) []any {
+	out := make([]any, len(xs))
+	for i, x := range xs {
+		out[i] = x
+	}
+	return out
 }
 
 // durationToHuman turns 5400 into "1h 30m" — friendlier for the

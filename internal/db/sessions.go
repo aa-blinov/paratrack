@@ -182,50 +182,54 @@ const sessionSelect = `
 SELECT s.id, s.activity_id, s.team_id, s.start_at, s.end_at, s.note,
        s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
        s.created_at, s.updated_at,
-       a.name AS activity_name
+       a.name AS activity_name, a.project_id AS activity_project_id
 FROM sessions s
 JOIN activities a ON a.id = s.activity_id`
 
 func scanActiveSessions(rows *sql.Rows) ([]model.ActiveSession, error) {
 	var out []model.ActiveSession
 	for rows.Next() {
-		s, name, err := scanSessionWithActivity(rows)
+		s, name, projectID, err := scanSessionWithActivity(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, model.ActiveSession{Session: s, Activity: model.Activity{ID: s.ActivityID, Name: name}})
+		out = append(out, model.ActiveSession{
+			Session:  s,
+			Activity: model.Activity{ID: s.ActivityID, Name: name, ProjectID: projectID},
+		})
 	}
 	return out, rows.Err()
 }
 
 func scanSession(r row) (model.Session, error) {
-	s, _, err := scanSessionWithActivity(r)
+	s, _, _, err := scanSessionWithActivity(r)
 	return s, err
 }
 
-func scanSessionWithActivity(r row) (model.Session, string, error) {
+func scanSessionWithActivity(r row) (model.Session, string, int64, error) {
 	var (
-		s            model.Session
-		teamID       sql.NullInt64
-		startAt      string
-		endAt        sql.NullString
-		note         sql.NullString
-		paused       int
-		pausedAt     sql.NullString
-		lastResumeAt sql.NullString
-		createdAt    string
-		updatedAt    string
-		activityName string
+		s              model.Session
+		teamID         sql.NullInt64
+		startAt        string
+		endAt          sql.NullString
+		note           sql.NullString
+		paused         int
+		pausedAt       sql.NullString
+		lastResumeAt   sql.NullString
+		createdAt      string
+		updatedAt      string
+		activityName   string
+		activityPID    sql.NullInt64
 	)
 	if err := r.Scan(
 		&s.ID, &s.ActivityID, &teamID, &startAt, &endAt, &note,
 		&paused, &pausedAt, &s.AccumulatedSeconds, &lastResumeAt,
-		&createdAt, &updatedAt, &activityName,
+		&createdAt, &updatedAt, &activityName, &activityPID,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.Session{}, "", ErrNotFound
+			return model.Session{}, "", 0, ErrNotFound
 		}
-		return model.Session{}, "", err
+		return model.Session{}, "", 0, err
 	}
 	if teamID.Valid {
 		s.TeamID = teamID.Int64
@@ -259,7 +263,11 @@ func scanSessionWithActivity(r row) (model.Session, string, error) {
 	if t, err := ScanTime(updatedAt); err == nil {
 		s.UpdatedAt = t
 	}
-	return s, activityName, nil
+	var pid int64
+	if activityPID.Valid {
+		pid = activityPID.Int64
+	}
+	return s, activityName, pid, nil
 }
 
 func nullableString(s string) any {

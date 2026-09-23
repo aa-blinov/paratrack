@@ -103,6 +103,7 @@ func parseTemplates() (*template.Template, error) {
 
 var funcMap = template.FuncMap{
 	"fmtDuration": fmtDurationHuman,
+	"colorFor":    colorFor,
 }
 
 // routes wires every HTTP route the server exposes. Go 1.22+ pattern
@@ -143,6 +144,14 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("GET /goals",                  s.handleGoals)
 	pages.HandleFunc("GET /tags",                   s.handleTagsPage)
 	pages.HandleFunc("GET /tags-list-fragment",     s.handleTagsFragment)
+
+	// Projects (Phase 3).
+	pages.HandleFunc("GET /projects",                s.handleProjectsList)
+	pages.HandleFunc("GET /projects/new",            s.handleProjectNew)
+	pages.HandleFunc("POST /projects/new",           s.handleProjectCreateForm)
+	pages.HandleFunc("GET /projects/{slug}",         s.handleProjectDetail)
+	pages.HandleFunc("POST /projects/{slug}",        s.handleProjectUpdateForm)
+	pages.HandleFunc("POST /projects/{slug}/delete", s.handleProjectDeleteForm)
 
 	// Settings (Phase 2): team admin, members, invites, profile.
 	pages.HandleFunc("GET /settings/team",          s.handleTeamSettings)

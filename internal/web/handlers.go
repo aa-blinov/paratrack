@@ -185,7 +185,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		recentViews = append(recentViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
 	}
 	hydrateSessionTags(ctx, s.db, activeViews)
+	hydrateSessionProjects(ctx, s.db, activeViews)
 	hydrateSessionTags(ctx, s.db, recentViews)
+	hydrateSessionProjects(ctx, s.db, recentViews)
 	if len(recentViews) > 8 {
 		recentViews = recentViews[:8]
 	}
@@ -196,6 +198,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		ActiveSessions: activeViews,
 		Recent:         recentViews,
 		ActiveCount:    len(activeViews),
+	}
+	if projects, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
+		d.Projects = projects
 	}
 	// Quick today stats: total tracked time, top activity.
 	agg := map[string]int{}
@@ -265,6 +270,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	sortAggsDesc(aggs)
 
 	hydrateSessionTags(ctx, s.db, rows)
+	hydrateSessionProjects(ctx, s.db, rows)
 
 	// Tag filter (optional): ?tag=foo. Applied after hydration so the
 	// in-memory filter can read each row's Tags slice. Also filters
@@ -360,6 +366,8 @@ func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
 	for _, as := range active {
 		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
 	}
+	hydrateSessionTags(r.Context(), s.db, views)
+	hydrateSessionProjects(r.Context(), s.db, views)
 	s.renderFragment(w, "active-list", views)
 }
 
@@ -380,6 +388,20 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
+	}
+	// Optional: bind the activity to a project on first start.
+	if pidStr := r.FormValue("project_id"); pidStr != "" {
+		if pid, err := strconv.ParseInt(pidStr, 10, 64); err == nil && pid > 0 {
+			if err := s.db.AssignActivityProject(r.Context(), teamID(r), act.ID, pid); err != nil {
+				// non-fatal: log via the http error response but keep going
+				// so the user doesn't lose their session start.
+				_ = err
+			}
+			// Refresh the local copy so the rest of the handler sees the new project.
+			if fresh, err := s.db.GetActivity(r.Context(), act.ID); err == nil {
+				act = fresh
+			}
+		}
 	}
 	// Reject duplicate active session for the same activity.
 	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
@@ -1009,6 +1031,8 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	for _, as := range active {
 		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
 	}
+	hydrateSessionTags(r.Context(), s.db, views)
+	hydrateSessionProjects(r.Context(), s.db, views)
 	s.renderFragment(w, "active-list", views)
 }
 

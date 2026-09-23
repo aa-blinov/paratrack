@@ -1,0 +1,7 @@
+{{define "flash"}}
+  {{if .Flash}}
+    <div role="alert" class="alert {{if .FlashOK}}alert-success{{else}}alert-error{{end}} text-sm py-2">
+      <span>{{.Flash}}</span>
+    </div>
+  {{end}}
+{{end}}
