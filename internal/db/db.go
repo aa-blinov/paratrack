@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	// Pure-Go SQLite driver; no CGO required.
@@ -39,7 +40,17 @@ type DB struct {
 
 // Open opens (or creates) the SQLite database at path and applies the
 // schema. The caller must Close when done.
+//
+// If a pre-auth (Phase-0) database is found at path — i.e. the file
+// exists but contains no `users` table — the file is archived with a
+// timestamped `.bak` suffix and a fresh schema is created. This is the
+// hard break the product team chose: collaboration can't be added on
+// top of the single-user schema, so old rows go into the archive.
 func Open(path string) (*DB, error) {
+	if err := archiveIfLegacy(path); err != nil {
+		return nil, fmt.Errorf("archive legacy DB: %w", err)
+	}
+
 	// _pragma options: foreign keys on, WAL for safer concurrent reads,
 	// busy timeout so CLI + web don't deadlock when both touch the file.
 	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", path)
@@ -62,6 +73,67 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("apply migrations: %w", err)
 	}
 	return d, nil
+}
+
+// archiveIfLegacy detects a Phase-0 single-user database and renames
+// it out of the way before the new schema is created. Returns nil for
+// fresh installs and for databases that already carry the new schema.
+//
+// Detection rule: the file must exist, AND opening it in read-only mode
+// must NOT contain a `users` table. The presence of the file is what
+// distinguishes "legacy to be archived" from "fresh install, create new".
+func archiveIfLegacy(path string) error {
+	if _, err := os.Stat(path); err != nil {
+		// No file — nothing to archive.
+		return nil
+	}
+	hasUsers, err := hasTable(path, "users")
+	if err != nil {
+		return err
+	}
+	if hasUsers {
+		// Already on the new schema.
+		return nil
+	}
+
+	stamp := time.Now().UTC().Format("20060102-150405")
+	base := strings.TrimSuffix(path, filepath.Ext(path))
+	backup := base + ".bak." + stamp
+	if err := os.Rename(path, backup); err != nil {
+		return err
+	}
+	// WAL/SHM siblings are not committed to disk on close, but if the
+	// previous process died mid-write they may still be around. Move
+	// them out of the way too so the next Open() doesn't pick them up.
+	for _, ext := range []string{"-wal", "-shm"} {
+		if _, err := os.Stat(path + ext); err == nil {
+			_ = os.Rename(path+ext, backup+ext)
+		}
+	}
+	return nil
+}
+
+// hasTable opens a read-only SQLite connection at path and reports
+// whether the named table exists. The connection is closed before
+// returning so no handles linger on the file.
+func hasTable(path, table string) (bool, error) {
+	dsn := fmt.Sprintf("file:%s?mode=ro", path)
+	db, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return false, err
+	}
+	defer db.Close()
+	var name string
+	row := db.QueryRow(
+		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
+	)
+	if err := row.Scan(&name); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return name == table, nil
 }
 
 // Close releases the underlying database handle.
