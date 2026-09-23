@@ -12,6 +12,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **ECharts graph** (vendored) — stacked hour-of-day bars, clickable legend, MutationObserver rebuilds on theme change.
 - **GitHub Actions** (`.github/workflows/ci.yml`) — three jobs: `ui` (npm), `unit` (Go), `e2e` (Playwright). Uploads screenshots on failure.
 - **48 Go unit tests** + **45 Playwright E2E checks** covering dashboard, stats, graph, theme, keyboard, ECharts, CSV, goals, tags.
+- **3 colour tests** (`TestColorForReturnsNeutralGrey`, `TestColorForDeterministic`, `TestColorForCaseInsensitive`) pinning the monochrome `colorFor` contract.
 
 ### Changed
 - **Whole UI on DaisyUI v5.** Every page uses `card`, `btn`, `input`, `table`, `badge`, `alert`, `progress`, `stat`, `kbd` — replacing the hand-rolled `app.css` (deleted). Light/dark parity is now driven entirely by `data-theme`.
@@ -19,7 +20,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - Stats tables collapse to a card-list on phones via `.responsive-collapse`.
 - Topbar + nav wrap on narrow screens; theme button hides its AUTO/DARK/LIGHT label on phones.
 - Status badges get play/pause glyphs.
-- Activity palette drops pure red (`#ef4444`) so it doesn't collide with Stop / Delete red.
+- **Monochrome UI**: per-activity rainbow palette dropped — `colorFor` now returns a neutral `#6b7280` for every name, the `.activity-mark` decorative left-edge bar is gone, and chart series render as a single grey. Activity identity is carried by the name alone.
 - Light/dark via CSS variables; focus-visible ring; `prefers-reduced-motion` short-circuit.
 - Toast is a solid colored alert with a glyph (✓/✕).
 
