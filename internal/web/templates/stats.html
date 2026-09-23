@@ -36,7 +36,7 @@
           <tbody>
             {{range .Aggregated}}
             <tr>
-              <td data-label="Activity">{{.ActivityName}}</td>
+              <td data-label="Activity"><span class="activity-mark" style="--color: {{.Color}};"></span>{{.ActivityName}}</td>
               <td data-label="Time" class="text-right font-mono">{{.Duration}}</td>
               <td data-label="Share" class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
             </tr>
@@ -107,7 +107,7 @@
 
 {{define "session-row"}}
 <tr id="row-{{.ID}}">
-  <td data-label="Activity">{{.ActivityName}}</td>
+  <td data-label="Activity"><span class="activity-mark" style="--color: {{.Color}};"></span>{{.ActivityName}}</td>
   <td data-label="Start" class="font-mono">
     <input type="datetime-local" name="start_at"
            value="{{.StartInput}}"
