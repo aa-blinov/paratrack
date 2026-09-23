@@ -1,6 +1,6 @@
 # paratrack
 
-Minimalist time tracker with parallel activities, advanced analytics, and a single-binary web UI. Pure Go, zero CGO, zero Node runtime.
+Minimalist time tracker with parallel activities, advanced analytics, multi-user team workspaces, and a single-binary web UI. Pure Go, zero CGO, zero Node runtime.
 
 ![Dashboard — light](./e2e/screenshots/01-dashboard-light.png)
 ![Stats — inline edit + tag filter](./e2e/screenshots/tags-stats-filter-light.png)
@@ -8,30 +8,23 @@ Minimalist time tracker with parallel activities, advanced analytics, and a sing
 
 ## Why
 
-Most time trackers are either 5 MB-JS web apps or CLI tools with no visual feedback. paratrack is both: one 20 MB Go binary gives you a fully-interactive web UI plus the same commands on the terminal.
+Most time trackers are either 5 MB-JS web apps or CLI tools with no visual feedback. paratrack is both: one 20 MB Go binary gives you a fully-interactive web UI plus the same commands on the terminal — and now also team workspaces with shared activity catalogs, invite links, and per-team scoping.
 
 ## Quickstart
 
 ```bash
 make build    # auto-runs `make ui` (npm install + CSS bundle)
 
-# CLI
-./paratrack start reading --note "Chapter 3"
-./paratrack pause reading
-./paratrack status
-./paratrack add --start "yesterday 14:00" --mode duration --duration 1h
-./paratrack log --period week
-./paratrack stats --period today
-./paratrack goal set --activity reading --daily 2h
-./paratrack tag add deep-work
-./paratrack tag attach 17 deep-work
-
-# Web UI
+# First launch: open the web UI and register your account.
 ./paratrack web --addr 127.0.0.1:8000
-./paratrack web --open
+# → http://127.0.0.1:8000/login  (sign up there)
+
+# CLI (uses your account's personal team)
+./paratrack web --open                  # opens browser to /
+./paratrack web --addr 0.0.0.0:8000     # listen on all interfaces
 ```
 
-Data lives at `~/.track/track.db` (SQLite).
+Data lives at `~/.track/track.db` (SQLite). On first launch with auth enabled, a pre-auth single-user DB is archived to `~/.track/track.db.bak.<timestamp>` and a fresh schema is created — collaboration can't coexist with the old anonymous schema.
 
 ## UI stack
 
@@ -39,6 +32,11 @@ Server-rendered `html/template` + a single vendored CSS bundle (~16 KB minified)
 
 ## Features
 
+- **Multi-user + team workspaces.** Email + bcrypt password sign-up; every account gets a personal team on registration; create more teams from `/settings/team`; invite teammates via token link (7-day TTL).
+- **Workspace switcher.** Top-bar dropdown lists every team you belong to with your role; the cookie remembers your last choice.
+- **Per-team scoping.** Activities, sessions, tags, goals, and progress all live inside one team — two teams don't see each other's rows, even though it's all one SQLite file.
+- **Per-activity colour coding.** Each activity name hashes to one slot of a 10-colour muted palette; the same colour is used for the activity name, the legend chips, and the stacked-bar segments on `/graph`, so the eye follows the activity across pages.
+- **Role-based access.** Owners can rename/delete the team, generate and revoke invite links, and remove members; members can leave but not manage.
 - Parallel timers, pause / resume, focus / switch
 - Backfill via natural-language time
 - Inline edit of start / end / duration / note in the stats table
@@ -72,6 +70,8 @@ Server-rendered `html/template` + a single vendored CSS bundle (~16 KB minified)
 
 All commands accept `--help`.
 
+The CLI operates on a **legacy no-team scope** — it talks to rows whose `team_id = 0`. Use it for back-filling personal data; for team collaboration, drive everything through the web UI.
+
 ## Time parsing
 
 `paratrack add`, `paratrack log`, and the inline duration input accept:
@@ -101,14 +101,18 @@ Durations:
 
 ```
 paratrack/
-├── cmd/paratrack/main.go     CLI dispatch
+├── cmd/paratrack/main.go     CLI dispatch (legacy single-user scope)
 ├── internal/
 │   ├── cli/                  stdin prompt helpers
 │   ├── db/                   SQLite layer (modernc.org/sqlite, pure-Go)
-│   ├── model/                domain types
+│   ├── model/                domain types (Activity/Session/Tag/Goal all carry TeamID)
+│   ├── auth/                 users, sessions, bcrypt, cookie helpers
+│   ├── teams/                teams, memberships, invites, role checks
 │   ├── timeparse/            NL time + duration parser
-│   └── web/                  HTTP server + handlers + chart aggregation
-│       ├── templates/        base + 5 pages
+│   └── web/                  HTTP server + handlers + RequireAuth middleware
+│       ├── templates/        base + 7 pages (login, register, dashboard, stats,
+│       │                     graph, goals, tags, team-settings, members,
+│       │                     invites, profile, invite-accept)
 │       └── static/           vendored CSS, htmx, alpine, echarts, app.js
 ├── web/                      Tailwind + DaisyUI source (`make ui` builds it)
 ├── e2e/                      Playwright suite
@@ -116,6 +120,16 @@ paratrack/
 ```
 
 The web UI is server-rendered HTML augmented by HTMX (targeted swaps), Alpine.js (live-ticking durations, theme toggle), and ECharts (graph). No Node, no build step, no CDN — everything is `//go:embed`-ed.
+
+### Auth & teams
+
+The `RequireAuth` middleware sits in front of every page route and every `/api/*` route (other than the auth flow itself). It reads the `paratrack_session` HttpOnly cookie, looks up the session row + user in one round-trip, touches `last_seen_at`, attaches `User` and current `Team` to `r.Context()`, and dispatches. Page failures get a `303 → /login?next=…`; API failures get `401 {"error":"unauthorized"}` JSON.
+
+Every authenticated query is scoped by `team_id`. The middleware resolves the current team from the `paratrack_team` cookie (or falls back to the user's personal team). All db helpers take `teamID int64` as their first arg; pass `0` for the legacy CLI / test path.
+
+### Schema migration: hard break
+
+The collaboration layer can't be layered on top of the anonymous single-user schema. On first launch after this release, `db.Open` detects a pre-auth DB by checking for the presence of the `users` table; if missing, it renames `track.db` to `track.db.bak.<UTC-timestamp>` (along with `-wal` / `-shm` siblings) and creates a fresh schema. The existing CLI commands keep working against the same path — no config change, no manual migration.
 
 ## Testing
 
