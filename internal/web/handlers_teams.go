@@ -36,7 +36,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFrom(r.Context())
 	data := settingsPageData{
 		Title:  "Team settings",
-		Active: "settings",
+		Active: "settings-team",
 		Team:   team,
 		User:   userViewOf(user),
 	}
@@ -56,7 +56,7 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	data := settingsPageData{
 		Title:   "Members",
-		Active:  "settings",
+		Active:  "settings-members",
 		Team:    team,
 		User:    userViewOf(user),
 		Members: members,
@@ -77,7 +77,7 @@ func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
 	}
 	data := settingsPageData{
 		Title:   "Invites",
-		Active:  "settings",
+		Active:  "settings-invites",
 		Team:    team,
 		User:    userViewOf(user),
 		Invites: invites,
@@ -92,7 +92,7 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFrom(r.Context())
 	data := settingsPageData{
 		Title:  "Profile",
-		Active: "settings",
+		Active: "settings-profile",
 		User:   userViewOf(user),
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
