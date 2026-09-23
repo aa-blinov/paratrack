@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -236,20 +237,45 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	period := s.parsePeriod(r)
 
-	sessions, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), period.Start, period.End, nil)
+	// Optional project filter (?project=slug). Applied at the SQL layer
+	// via ListClosedSessionsInRange so we don't pull a hundred rows to
+	// drop ninety of them.
+	projectFilter := strings.TrimSpace(r.URL.Query().Get("project"))
+	var filterProjectID int64
+	if projectFilter != "" {
+		if proj, err := s.db.GetProjectBySlug(ctx, teamID(r), projectFilter); err == nil {
+			filterProjectID = proj.ID
+		} else {
+			projectFilter = ""
+		}
+	}
+
+	// Pull all projects for the chip-row + name/color lookups below.
+	projects, _ := s.db.ListProjects(ctx, teamID(r), false)
+	projByID := map[int64]model.Project{}
+	for _, p := range projects {
+		projByID[p.ID] = p
+	}
+
+	sessions, err := s.db.ListClosedSessionsInRange(ctx, teamID(r), period.Start, period.End, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	agg := map[string]int{}
+	projAgg := map[int64]int{} // project_id → total seconds
 	total := 0
 	rows := make([]sessionView, 0, len(sessions))
 	for _, as := range sessions {
+		if filterProjectID > 0 && as.Activity.ProjectID != filterProjectID {
+			continue
+		}
 		clipped := clipSeconds(as.Session, period.Start, period.End)
 		if clipped <= 0 {
 			continue
 		}
 		agg[as.Activity.Name] += clipped
+		projAgg[as.Activity.ProjectID] += clipped
 		total += clipped
 		rows = append(rows, toSessionView(as.Session, as.Activity, period.Start, period.End, now))
 	}
@@ -268,6 +294,65 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	sortAggsDesc(aggs)
+
+	// Build the project-grouped breakdown: project totals, plus the
+	// activity breakdown nested inside each project. Sorted by total
+	// descending so the biggest project is on top.
+	type pidKey = int64
+	byActivityInProject := map[pidKey]map[string]int{}
+	for _, as := range sessions {
+		if filterProjectID > 0 && as.Activity.ProjectID != filterProjectID {
+			continue
+		}
+		clipped := clipSeconds(as.Session, period.Start, period.End)
+		if clipped <= 0 {
+			continue
+		}
+		m := byActivityInProject[as.Activity.ProjectID]
+		if m == nil {
+			m = map[string]int{}
+			byActivityInProject[as.Activity.ProjectID] = m
+		}
+		m[as.Activity.Name] += clipped
+	}
+	byProject := make([]projectAggRow, 0, len(projAgg))
+	for pid, sec := range projAgg {
+		row := projectAggRow{
+			ProjectID: pid,
+			Duration:  fmtDuration(sec),
+			Share:     0,
+		}
+		if total > 0 {
+			row.Share = float64(sec) / float64(total) * 100
+		}
+		if p, ok := projByID[pid]; ok {
+			row.ProjectName = p.Name
+			row.Slug = p.Slug
+			row.Color = p.Color
+		} else {
+			row.ProjectName = "Uncategorized"
+			row.Color = "#9ca3af"
+		}
+		// activities nested
+		m := byActivityInProject[pid]
+		for name, s := range m {
+			share := 0.0
+			if sec > 0 {
+				share = float64(s) / float64(sec) * 100
+			}
+			row.Activities = append(row.Activities, aggRow{
+				ActivityName: name,
+				Color:        colorFor(name),
+				Duration:     fmtDuration(s),
+				Share:        share,
+			})
+		}
+		sortAggsDesc(row.Activities)
+		byProject = append(byProject, row)
+	}
+	sort.Slice(byProject, func(i, j int) bool {
+		return projAgg[byProject[i].ProjectID] > projAgg[byProject[j].ProjectID]
+	})
 
 	hydrateSessionTags(ctx, s.db, rows)
 	hydrateSessionProjects(ctx, s.db, rows)
@@ -294,14 +379,17 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, r, "stats-content", statsData{
-		pageData:    pageData{Title: "Stats", Active: "stats"},
-		Period:      period,
-		Aggregated:  aggs,
-		Sessions:    rows,
-		Total:       fmtDuration(total),
-		SessionCount: len(rows),
-		TagFilter:   tagFilter,
-		AllTagNames: allTagNames,
+		pageData:      pageData{Title: "Stats", Active: "stats"},
+		Period:        period,
+		Aggregated:    aggs,
+		ByProject:     byProject,
+		Projects:      projects,
+		ProjectFilter: projectFilter,
+		Sessions:      rows,
+		Total:         fmtDuration(total),
+		SessionCount:  len(rows),
+		TagFilter:     tagFilter,
+		AllTagNames:   allTagNames,
 	})
 }
 
@@ -993,7 +1081,38 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	fmt.Fprintln(w, "id,activity,start,end,duration_seconds,note")
+	// Look up project names in one IN-list query so the per-row join
+	// is O(1) instead of one extra round-trip per session.
+	projNameByID := map[int64]string{}
+	if len(sessions) > 0 {
+		seen := map[int64]struct{}{}
+		var pids []int64
+		for _, as := range sessions {
+			if as.Activity.ProjectID == 0 {
+				continue
+			}
+			if _, ok := seen[as.Activity.ProjectID]; ok {
+				continue
+			}
+			seen[as.Activity.ProjectID] = struct{}{}
+			pids = append(pids, as.Activity.ProjectID)
+		}
+		if len(pids) > 0 {
+			rows, _ := s.db.SQL().QueryContext(r.Context(),
+				`SELECT id, slug FROM projects WHERE id IN (`+placeholders(len(pids))+`)`, toAny(pids)...)
+			if rows != nil {
+				for rows.Next() {
+					var id int64
+					var slug string
+					if err := rows.Scan(&id, &slug); err == nil {
+						projNameByID[id] = slug
+					}
+				}
+				rows.Close()
+			}
+		}
+	}
+	fmt.Fprintln(w, "id,activity,project,start,end,duration_seconds,note")
 	for _, as := range sessions {
 		end := time.Time{}
 		if as.Session.EndAt != nil {
@@ -1007,8 +1126,12 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 		if as.Session.Note != nil {
 			note = *as.Session.Note
 		}
-		fmt.Fprintf(w, "%d,%q,%s,%s,%s,%q\n",
-			as.Session.ID, as.Activity.Name,
+		project := "" // "" = Uncategorized in the CSV
+		if slug, ok := projNameByID[as.Activity.ProjectID]; ok {
+			project = slug
+		}
+		fmt.Fprintf(w, "%d,%q,%q,%s,%s,%s,%q\n",
+			as.Session.ID, as.Activity.Name, project,
 			as.Session.StartAt.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339),
 			dur, note)
 	}
