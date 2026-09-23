@@ -1,0 +1,45 @@
+{{define "team-members"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <h2 class="card-title text-base font-medium mb-3">Members ({{len .Members}})</h2>
+      {{if .Members}}
+      <table class="table">
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+        <tbody>
+        {{range .Members}}
+          <tr>
+            <td>{{.Name}}</td>
+            <td class="font-mono text-sm opacity-70">{{.Email}}</td>
+            <td>
+              {{if eq .Role "owner"}}
+                <span class="badge badge-neutral">owner</span>
+              {{else}}
+                <span class="badge badge-outline">member</span>
+              {{end}}
+            </td>
+            <td class="text-right">
+              {{if ne .UserID $.User.ID}}
+                <form method="POST" action="/api/team/members/{{.UserID}}/remove"
+                      onsubmit="return confirm('Remove {{.Name}} from the team?')">
+                  <button type="submit" class="btn btn-sm btn-ghost">Remove</button>
+                </form>
+              {{else}}
+                <span class="text-xs opacity-50">you</span>
+              {{end}}
+            </td>
+          </tr>
+        {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="text-sm opacity-60">No members yet.</p>
+      {{end}}
+    </div>
+  </div>
+
+  {{template "settings-sidebar" .}}
+</div>
+{{end}}
