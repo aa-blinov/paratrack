@@ -1,6 +1,7 @@
 {{define "team-invites"}}
 <div class="max-w-2xl mx-auto space-y-4">
   {{template "flash-banner" .}}
+  {{template "settings-sidebar" .}}
 
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body p-5">
@@ -56,7 +57,5 @@
       {{end}}
     </div>
   </div>
-
-  {{template "settings-sidebar" .}}
 </div>
 {{end}}

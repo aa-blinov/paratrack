@@ -229,11 +229,30 @@ func durationToHuman(sec int) string {
 	return fmt.Sprintf("%dm", m)
 }
 
+// fmtDuration renders a duration in seconds as a short, scannable label.
+// Format ladder:
+//   < 60s   → "1m" (any visible portion reads as at least a minute)
+//   < 60m   → "Xm"
+//   exact h → "Xh"
+//   mixed   → "Xh YYm"
+// Matches formatMinutes() so goals ("1h 30m / 2h") and stats ("30m") line up.
 func fmtDuration(sec int) string {
-	if sec < 0 {
-		sec = 0
+	if sec < 60 {
+		if sec <= 0 {
+			return "0m"
+		}
+		return "1m"
 	}
-	return fmt.Sprintf("%02d:%02d:%02d", sec/3600, (sec/60)%60, sec%60)
+	h := sec / 3600
+	m := (sec / 60) % 60
+	switch {
+	case h > 0 && m > 0:
+		return fmt.Sprintf("%dh %dm", h, m)
+	case h > 0:
+		return fmt.Sprintf("%dh", h)
+	default:
+		return fmt.Sprintf("%dm", m)
+	}
 }
 
 func toLocalInput(t time.Time) string {

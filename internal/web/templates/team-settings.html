@@ -1,17 +1,18 @@
 {{define "team-settings"}}
 <div class="max-w-2xl mx-auto space-y-4">
   {{template "flash-banner" .}}
+  {{template "settings-sidebar" .}}
 
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="card-title text-base font-medium">Current workspace</h2>
-        <span class="badge badge-outline text-xs">id {{.Team.ID}}</span>
-      </div>
+      <div class="card-title text-base font-medium mb-3">Current workspace</div>
       <p class="text-sm opacity-60 mb-1">You can switch between workspaces from the team picker in the top bar.</p>
-      <div class="text-sm"><span class="font-mono opacity-60">slug:</span> <code>{{.Team.Slug}}</code></div>
-      <div class="text-sm"><span class="font-mono opacity-60">name:</span> {{.Team.Name}}</div>
-      <div class="text-sm"><span class="font-mono opacity-60">created:</span> {{.Team.CreatedAt.Format "2006-01-02"}}</div>
+      <dl class="text-sm grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
+        <dt class="font-mono opacity-60">id</dt><dd>{{.Team.ID}}</dd>
+        <dt class="font-mono opacity-60">slug</dt><dd><code>{{.Team.Slug}}</code></dd>
+        <dt class="font-mono opacity-60">name</dt><dd>{{.Team.Name}}</dd>
+        <dt class="font-mono opacity-60">created</dt><dd>{{.Team.CreatedAt.Format "2006-01-02"}}</dd>
+      </dl>
     </div>
   </div>
 
@@ -37,22 +38,15 @@
       </form>
     </div>
   </div>
-
-  {{template "settings-sidebar" .}}
 </div>
 {{end}}
 
 {{define "settings-sidebar"}}
-<div class="card bg-base-100 shadow-sm">
-  <div class="card-body p-5">
-    <h2 class="card-title text-base font-medium mb-2">Manage</h2>
-    <ul class="menu menu-vertical bg-base-100 rounded-box p-0">
-      <li><a href="/settings/team" class="{{if eq .Active "settings"}}active{{end}}">Team settings</a></li>
-      <li><a href="/settings/members">Members</a></li>
-      <li><a href="/settings/invites">Invites</a></li>
-      <li><a href="/settings/profile">Profile &amp; password</a></li>
-    </ul>
-  </div>
+<div role="tablist" class="tabs tabs-border mb-4">
+  <a role="tab" href="/settings/team"      class="tab {{if eq .Active "settings-team"}}tab-active{{end}}">Workspace</a>
+  <a role="tab" href="/settings/members"   class="tab {{if eq .Active "settings-members"}}tab-active{{end}}">Members</a>
+  <a role="tab" href="/settings/invites"   class="tab {{if eq .Active "settings-invites"}}tab-active{{end}}">Invites</a>
+  <a role="tab" href="/settings/profile"   class="tab {{if eq .Active "settings-profile"}}tab-active{{end}}">Profile</a>
 </div>
 {{end}}
 
