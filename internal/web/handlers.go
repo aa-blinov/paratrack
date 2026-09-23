@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/auth"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/teams"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -57,14 +59,26 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 		Title:       title,
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
+		RequestPath: r.URL.Path,
 	}
+	var currentUser auth.User
+	var currentTeam teams.Team
 	if u, ok := UserFrom(r.Context()); ok {
-		u := u
-		wrapper.User = &u
+		currentUser = u
+		wrapper.User = &currentUser
 	}
 	if t, ok := TeamFrom(r.Context()); ok {
-		t := t
-		wrapper.Team = &t
+		currentTeam = t
+		wrapper.Team = &currentTeam
+		// Workspace switcher list. Cheap — one indexed lookup.
+		if list, err := s.teams.ListForUser(r.Context(), currentUser.ID); err == nil {
+			for _, tm := range list {
+				role, _, _ := s.teams.IsMember(r.Context(), tm.ID, currentUser.ID)
+				wrapper.UserTeams = append(wrapper.UserTeams, teamsView{
+					ID: tm.ID, Name: tm.Name, Role: string(role),
+				})
+			}
+		}
 	}
 	if err := s.tmpl.ExecuteTemplate(w, "base", wrapper); err != nil {
 		http.Error(w, "render base: "+err.Error(), http.StatusInternalServerError)

@@ -20,6 +20,30 @@
       </div>
       {{if .User}}
       <nav class="flex items-center gap-1">
+        {{if .Team}}
+        <div class="dropdown dropdown-end">
+          <button tabindex="0" class="btn btn-ghost btn-sm" title="Switch workspace">
+            <span class="font-medium">{{.Team.Name}}</span>
+            <span class="opacity-60 text-xs">▾</span>
+          </button>
+          <div tabindex="0" class="dropdown-content menu bg-base-100 rounded-box shadow-sm border border-base-300 mt-2 w-72 p-2 z-50">
+            <div class="px-2 pb-2 text-xs uppercase tracking-wider opacity-50">Workspaces</div>
+            {{range .UserTeams}}
+              <form method="POST" action="/api/team/switch" class="block">
+                <input type="hidden" name="team_id" value="{{.ID}}">
+                <input type="hidden" name="next" value="{{$.RequestPath}}">
+                <button type="submit" class="w-full text-left px-2 py-1.5 rounded {{if eq .ID $.Team.ID}}bg-base-200 font-medium{{end}}">
+                  {{.Name}}
+                  <span class="text-xs opacity-50 ml-1">{{.Role}}</span>
+                </button>
+              </form>
+            {{end}}
+            <div class="border-t border-base-300 mt-2 pt-2">
+              <a href="/settings/team" class="btn btn-ghost btn-sm w-full justify-start">Manage workspaces</a>
+            </div>
+          </div>
+        </div>
+        {{end}}
         <a href="/" class="btn btn-ghost btn-sm {{if eq .Active "dashboard"}}btn-active{{end}}">Dashboard</a>
         <a href="/stats" class="btn btn-ghost btn-sm {{if eq .Active "stats"}}btn-active{{end}}">Stats</a>
         <a href="/graph" class="btn btn-ghost btn-sm {{if eq .Active "graph"}}btn-active{{end}}">Graph</a>
