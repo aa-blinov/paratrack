@@ -72,14 +72,30 @@ CREATE TABLE IF NOT EXISTS invites (
 );
 CREATE INDEX IF NOT EXISTS idx_invites_team ON invites(team_id);
 
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL,
+    slug TEXT NOT NULL COLLATE NOCASE,
+    name TEXT NOT NULL,
+    color TEXT NOT NULL DEFAULT '#7c8499',
+    archived INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    UNIQUE (team_id, slug)
+);
+CREATE INDEX IF NOT EXISTS idx_projects_team ON projects(team_id);
+
 CREATE TABLE IF NOT EXISTS activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL COLLATE NOCASE,
     team_id INTEGER,
+    project_id INTEGER,
     archived INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
-    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_activities_team ON activities(team_id);
 CREATE INDEX IF NOT EXISTS idx_activities_name ON activities(name COLLATE NOCASE);
@@ -162,18 +178,22 @@ var columnMigrations = []struct {
 	{"sessions", "paused_at", "TEXT"},
 	{"sessions", "accumulated_seconds", "INTEGER NOT NULL DEFAULT 0"},
 	{"sessions", "last_resume_at", "TEXT"},
+	{"activities", "project_id", "INTEGER"},
 }
 
-// uniqueMigrations creates UNIQUE indexes that the original schema
-// didn't include. Each entry is idempotent: IF NOT EXISTS lets us run
-// it on every startup without harm.
+// uniqueMigrations creates UNIQUE / lookup indexes that the original
+// schema didn't include or that depend on a column being added by
+// columnMigrations. Each entry is idempotent: IF NOT EXISTS lets us
+// run it on every startup without harm.
 //
 // Note: the goal-uniqueness guarantee now lives in the CREATE TABLE
 // clause (`UNIQUE (team_id, activity_id, period)`); the historical
 // (activity_id, period) index is intentionally not recreated here
 // because it would conflict with the ON CONFLICT(team_id, activity_id,
 // period) DO UPDATE used by UpsertGoal.
-var uniqueMigrations = []string{}
+var uniqueMigrations = []string{
+	`CREATE INDEX IF NOT EXISTS idx_activities_project ON activities(project_id)`,
+}
 
 func (d *DB) applyMigrations() error {
 	for _, m := range columnMigrations {

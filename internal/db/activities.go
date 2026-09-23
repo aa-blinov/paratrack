@@ -57,7 +57,7 @@ func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (mod
 // to a workspace; pass 0 to skip the check (legacy / tests).
 func (d *DB) GetActivity(ctx context.Context, id int64) (model.Activity, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, name, team_id, archived, created_at, updated_at FROM activities WHERE id = ?`, id)
+		`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ?`, id)
 	return scanActivity(row)
 }
 
@@ -69,7 +69,7 @@ func (d *DB) GetActivity(ctx context.Context, id int64) (model.Activity, error) 
 // all teams (legacy / tests).
 func (d *DB) GetActivityByName(ctx context.Context, teamID int64, name string) (model.Activity, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
-	q := `SELECT id, name, team_id, archived, created_at, updated_at FROM activities WHERE name = ?`
+	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name = ?`
 	args := []any{name}
 	if teamID > 0 {
 		q += ` AND team_id = ?`
@@ -92,7 +92,7 @@ func (d *DB) GetOrCreateActivity(ctx context.Context, teamID int64, name string)
 	if name == "" {
 		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
 	}
-	q := `SELECT id, name, team_id, archived, created_at, updated_at FROM activities WHERE name = ?`
+	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name = ?`
 	args := []any{name}
 	if teamID > 0 {
 		q += ` AND team_id = ?`
@@ -110,7 +110,7 @@ func (d *DB) GetOrCreateActivity(ctx context.Context, teamID int64, name string)
 // ListActivities returns non-archived activities sorted by name,
 // scoped to teamID (0 means "all teams").
 func (d *DB) ListActivities(ctx context.Context, teamID int64, includeArchived bool) ([]model.Activity, error) {
-	q := `SELECT id, name, team_id, archived, created_at, updated_at FROM activities`
+	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities`
 	args := []any{}
 	if teamID > 0 {
 		q += ` WHERE team_id = ?`
@@ -148,13 +148,14 @@ type row interface {
 
 func scanActivity(r row) (model.Activity, error) {
 	var (
-		a        model.Activity
-		teamID   sql.NullInt64
-		archived int
-		created  string
-		updated  string
+		a         model.Activity
+		teamID    sql.NullInt64
+		projectID sql.NullInt64
+		archived  int
+		created   string
+		updated   string
 	)
-	if err := r.Scan(&a.ID, &a.Name, &teamID, &archived, &created, &updated); err != nil {
+	if err := r.Scan(&a.ID, &a.Name, &teamID, &projectID, &archived, &created, &updated); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Activity{}, ErrNotFound
 		}
@@ -162,6 +163,9 @@ func scanActivity(r row) (model.Activity, error) {
 	}
 	if teamID.Valid {
 		a.TeamID = teamID.Int64
+	}
+	if projectID.Valid {
+		a.ProjectID = projectID.Int64
 	}
 	a.Archived = archived != 0
 	if t, err := ScanTime(created); err == nil {

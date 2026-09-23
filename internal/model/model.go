@@ -7,10 +7,28 @@ import "time"
 // TeamID is the workspace this activity belongs to; rows with
 // TeamID == 0 are pre-team legacy data visible only when no
 // scope is requested (the auth middleware always supplies a real id).
+// ProjectID optionally groups an activity under a project; zero means
+// "Uncategorized". Sessions inherit the project of their activity.
 type Activity struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
-	TeamID    int64      `json:"team_id"`
+	TeamID    int64     `json:"team_id"`
+	ProjectID int64     `json:"project_id"`
+	Archived  bool      `json:"archived"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// Project groups activities under a shared initiative, client or
+// initiative ("EORA RAG", "Personal", "Side Project"). A project
+// belongs to exactly one team. Color is a CSS hex string used by the
+// UI to tint badges and chart slices.
+type Project struct {
+	ID        int64     `json:"id"`
+	TeamID    int64     `json:"team_id"`
+	Slug      string    `json:"slug"`
+	Name      string    `json:"name"`
+	Color     string    `json:"color"`
 	Archived  bool      `json:"archived"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
