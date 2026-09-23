@@ -43,7 +43,7 @@
         </div>
         <div class="stat px-3 py-2">
           <div class="stat-title text-xs uppercase tracking-wider">Top activity</div>
-          <div class="stat-value text-base font-medium">{{if .TopToday}}{{.TopToday}}{{else}}—{{end}}</div>
+          <div class="stat-value text-base font-medium">{{if .TopToday}}{{.TopToday}}{{else}}–{{end}}</div>
         </div>
       </div>
     </div>
@@ -148,7 +148,7 @@
           <td data-label="Duration"
               class="font-mono"
               x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
-              x-text="formatted">--:--:--</td>
+              x-text="formatted">{{.Duration}}</td>
           <td data-label="" class="text-right">
             <div class="flex justify-end gap-1">
               {{if .Paused}}
@@ -174,7 +174,7 @@
   {{else}}
   <div class="text-center py-6 opacity-60">
     <div class="font-medium">No active sessions</div>
-    <div class="text-sm">Start one above — it'll tick live in this list.</div>
+    <div class="text-sm">Start one above, it'll tick live in this list.</div>
   </div>
   {{end}}
 {{end}}
