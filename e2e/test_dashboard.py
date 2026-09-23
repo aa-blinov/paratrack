@@ -259,6 +259,74 @@ def main() -> int:
         check("'s' navigates to /stats", "/stats" in page.url)
         page.keyboard.press("Escape")  # no-op, just check we're responsive
 
+        # ------------------------------------------------------------------ 7b
+        print("\n== 7b. Projects: create, detail, assign to activity, dashboard badge")
+        # Unique slug per run so repeated runs don't hit a duplicate.
+        from time import time as _now
+        proj_slug = f"eora-rag-{int(_now())}"
+        page.goto(BASE + "/projects/new")
+        page.fill('input[name="name"]', "EORA RAG")
+        page.fill('input[name="slug"]', proj_slug)
+        # Slug blank → auto. Color picker value is the hex text input.
+        page.fill('input[name="color"][pattern]', "#7c3aed")
+        page.click('button.btn-primary:has-text("Create")')
+        page.wait_for_url(f"**/projects/{proj_slug}")
+        check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
+
+        # Detail page renders the right title.
+        expect(page.locator("h1")).to_contain_text("EORA RAG")
+        check("detail page shows project name", "EORA RAG" in page.content())
+
+        # Start a fresh activity (not "writing", which already has a paused
+        # session from section 2 — re-using it would leave the active-list
+        # with a mix of one unbadged paused session and one badged active).
+        page.goto(BASE + "/")
+        page.fill('#activity', "deep-work")
+        page.select_option('#project_id', label="EORA RAG")
+        with page.expect_response("**/api/start") as start_resp_info:
+            page.click('button[type="submit"]:has-text("Start")')
+        start_resp = start_resp_info.value
+        check("start POST 200", start_resp.status == 200, f"status={start_resp.status}")
+        # Wait for the new session row to land in the active-list fragment.
+        page.wait_for_selector("#active-list:has-text('deep-work')", timeout=3000)
+        check("dashboard shows new active session", True)
+        # Small extra wait so HTMX finishes swapping the active-list
+        # fragment before we look for the badge inside it.
+        page.wait_for_timeout(300)
+        shot(page, "11-projects-active-list")
+
+        # Project badge appears on the session row, linked to the project.
+        # Wait for the badge to be in the DOM (state="attached" — not
+        # state="visible" — because the active-list is inside an HTMX
+        # swap target whose own visibility CSS can be flaky across themes).
+        page.wait_for_selector(
+            f"#active-list a.badge[href$='/projects/{proj_slug}']",
+            state="attached",
+            timeout=3000,
+        )
+        badge = page.locator(f"#active-list a.badge[href$='/projects/{proj_slug}']")
+        href = badge.first.get_attribute("href") if badge.count() else ""
+        check(
+            f"active-list shows project badge linking to /projects/{proj_slug}",
+            badge.count() >= 1 and (href or "").endswith(f"/projects/{proj_slug}"),
+            f"count={badge.count()} href={href}",
+        )
+
+        # Stats page breakdown shows the project with our activity under it.
+        page.goto(BASE + "/stats")
+        page.wait_for_selector("text=EORA RAG", timeout=3000)
+        check("stats breakdown mentions EORA RAG", "EORA RAG" in page.content())
+
+        # Project filter narrows to just the one project.
+        page.goto(BASE + f"/stats?project={proj_slug}")
+        page.wait_for_load_state("load")
+        check(
+            "project filter removes other projects from breakdown",
+            "Personal" not in page.content(),
+        )
+
+        shot(page, "11-projects-detail")
+
         # ------------------------------------------------------------------ 8
         print("\n== 8. Active session edit (PATCH via duration)")
         # Go back to dashboard; start something fresh via API for speed.
