@@ -20,9 +20,18 @@
           </div>
           <button type="submit" class="btn btn-neutral">Start</button>
         </div>
-        <div class="mt-3">
-          <label class="label py-1" for="note"><span class="label-text">Note (optional)</span></label>
-          <input type="text" id="note" name="note" placeholder="chapter 3, deep work session…" class="input input-bordered w-full">
+        <div class="mt-3 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label class="label py-1" for="project_id"><span class="label-text">Project (optional)</span></label>
+            <select id="project_id" name="project_id" class="select select-bordered w-full">
+              <option value="">— Uncategorized —</option>
+              {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+            </select>
+          </div>
+          <div>
+            <label class="label py-1" for="note"><span class="label-text">Note (optional)</span></label>
+            <input type="text" id="note" name="note" placeholder="chapter 3, deep work session…" class="input input-bordered w-full">
+          </div>
         </div>
       </form>
     </div>
@@ -76,7 +85,12 @@
         <tbody>
           {{range .Recent}}
           <tr>
-            <td data-label="Activity"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
+            <td data-label="Activity">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span style="color: {{.Color}};">{{.ActivityName}}</span>
+                {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs" style="background-color: {{.ProjectColor}}; color: #fff;" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+              </div>
+            </td>
             <td data-label="Start" class="font-mono">{{.StartLocal}}</td>
             <td data-label="End" class="font-mono">{{.EndLocal}}</td>
             <td data-label="Duration" class="font-mono">{{.Duration}}</td>
@@ -136,7 +150,12 @@
       <tbody>
         {{range .}}
         <tr>
-          <td data-label="Activity"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
+          <td data-label="Activity">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span style="color: {{.Color}};">{{.ActivityName}}</span>
+              {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs" style="background-color: {{.ProjectColor}}; color: #fff;" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+            </div>
+          </td>
           <td data-label="Status">
             {{if .Paused}}
             <span class="status-pill is-paused">⏸ Paused</span>

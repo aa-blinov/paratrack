@@ -1,0 +1,58 @@
+{{define "projects"}}
+<div class="space-y-6">
+  <header class="flex items-end justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-semibold">Projects</h1>
+      <p class="opacity-70 text-sm mt-1">Group activities under shared initiatives, clients or projects.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      {{if .ShowArchived}}
+        <a href="/projects" class="btn btn-ghost btn-sm">Hide archived</a>
+      {{else}}
+        <a href="/projects?archived=1" class="btn btn-ghost btn-sm">Show archived</a>
+      {{end}}
+      <a href="/projects/new" class="btn btn-primary btn-sm">New project</a>
+    </div>
+  </header>
+
+  {{template "flash" .}}
+
+  {{if .Projects}}
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {{range .Projects}}
+        <a href="/projects/{{.Slug}}"
+           class="card bg-base-100 border border-base-300 shadow-sm hover:shadow-md transition-shadow block">
+          <div class="card-body p-5 gap-3">
+            <div class="flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span>
+              <h2 class="card-title text-base truncate">{{.Name}}</h2>
+              {{if .Archived}}<span class="badge badge-ghost badge-sm">archived</span>{{end}}
+            </div>
+            <dl class="grid grid-cols-3 gap-2 text-xs opacity-70">
+              <div>
+                <dt>Activities</dt>
+                <dd class="text-base font-medium opacity-100">{{.Activities}}</dd>
+              </div>
+              <div>
+                <dt>Today</dt>
+                <dd class="text-base font-medium opacity-100">{{if eq .TodaySecs 0}}—{{else}}{{fmtDuration .TodaySecs}}{{end}}</dd>
+              </div>
+              <div>
+                <dt>30d</dt>
+                <dd class="text-base font-medium opacity-100">{{if eq .MonthSecs 0}}—{{else}}{{fmtDuration .MonthSecs}}{{end}}</dd>
+              </div>
+            </dl>
+          </div>
+        </a>
+      {{end}}
+    </div>
+  {{else}}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body items-center text-center py-12 gap-3">
+        <p class="opacity-70">No projects{{if .ShowArchived}} (including archived){{end}} yet.</p>
+        <a href="/projects/new" class="btn btn-primary btn-sm">Create your first project</a>
+      </div>
+    </div>
+  {{end}}
+</div>
+{{end}}
