@@ -143,29 +143,57 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("GET /goals",                  s.handleGoals)
 	pages.HandleFunc("GET /tags",                   s.handleTagsPage)
 	pages.HandleFunc("GET /tags-list-fragment",     s.handleTagsFragment)
+
+	// Settings (Phase 2): team admin, members, invites, profile.
+	pages.HandleFunc("GET /settings/team",          s.handleTeamSettings)
+	pages.HandleFunc("GET /settings/members",       s.handleTeamMembers)
+	pages.HandleFunc("GET /settings/invites",       s.handleTeamInvites)
+	pages.HandleFunc("GET /settings/profile",       s.handleSettingsProfile)
+
+	// Public invite-accept page (auth required to actually click Join).
+	pages.HandleFunc("GET /invites/{token}",        s.handleInviteAcceptPage)
 	mux.Handle("/", pageAuth(pages))
 
 	// ----- protected /api/* -----
-	api := http.NewServeMux()
-	api.HandleFunc("GET /active",                   s.handleAPIActive)
-	api.HandleFunc("GET /reports.csv",              s.handleCSV)
-	api.HandleFunc("POST /start",                   s.handleStart)
-	api.HandleFunc("POST /sessions/{id}/stop",      s.handleStop)
-	api.HandleFunc("POST /sessions/{id}/pause",     s.handlePause)
-	api.HandleFunc("POST /sessions/{id}/resume",    s.handleResume)
-	api.HandleFunc("POST /focus/{name}",            s.handleFocus)
-	api.HandleFunc("PATCH /sessions/{id}",          s.handleUpdateSession)
-	api.HandleFunc("DELETE /sessions/{id}",         s.handleDeleteSession)
-	api.HandleFunc("GET /goals",                    s.handleGoalsList)
-	api.HandleFunc("GET /goals/progress",           s.handleGoalsProgress)
-	api.HandleFunc("POST /goals",                   s.handleGoalsUpsert)
-	api.HandleFunc("DELETE /goals",                 s.handleGoalsDelete)
-	api.HandleFunc("GET /tags",                     s.handleTagsList)
-	api.HandleFunc("POST /tags",                    s.handleTagsCreate)
-	api.HandleFunc("DELETE /tags",                  s.handleTagsDelete)
-	api.HandleFunc("POST /sessions/{id}/tags",      s.handleSessionTagAdd)
-	api.HandleFunc("DELETE /sessions/{id}/tags",   s.handleSessionTagRemove)
-	mux.Handle("/api/", apiAuth(api))
+	// All /api/* routes are registered directly on the top-level mux
+	// with their full path. The apiAuth middleware wraps each one so
+	// auth failures return JSON 401 (not a 303 to /login). This avoids
+	// the StripPrefix dance that sub-muxing would require under Go 1.22
+	// pattern matching.
+	api := func(method, path string, h http.HandlerFunc) {
+		mux.Handle(method+" "+path, apiAuth(h))
+	}
+
+	api("GET",    "/api/active",                   s.handleAPIActive)
+	api("GET",    "/api/reports.csv",              s.handleCSV)
+	api("POST",   "/api/start",                    s.handleStart)
+	api("POST",   "/api/sessions/{id}/stop",       s.handleStop)
+	api("POST",   "/api/sessions/{id}/pause",      s.handlePause)
+	api("POST",   "/api/sessions/{id}/resume",     s.handleResume)
+	api("POST",   "/api/focus/{name}",             s.handleFocus)
+	api("PATCH",  "/api/sessions/{id}",            s.handleUpdateSession)
+	api("DELETE", "/api/sessions/{id}",            s.handleDeleteSession)
+	api("GET",    "/api/goals",                    s.handleGoalsList)
+	api("GET",    "/api/goals/progress",           s.handleGoalsProgress)
+	api("POST",   "/api/goals",                    s.handleGoalsUpsert)
+	api("DELETE", "/api/goals",                    s.handleGoalsDelete)
+	api("GET",    "/api/tags",                     s.handleTagsList)
+	api("POST",   "/api/tags",                     s.handleTagsCreate)
+	api("DELETE", "/api/tags",                     s.handleTagsDelete)
+	api("POST",   "/api/sessions/{id}/tags",       s.handleSessionTagAdd)
+	api("DELETE", "/api/sessions/{id}/tags",       s.handleSessionTagRemove)
+
+	// Team / profile management (Phase 2).
+	api("POST",   "/api/team/rename",              s.handleAPITeamRename)
+	api("POST",   "/api/team/create",              s.handleAPITeamCreate)
+	api("POST",   "/api/team/switch",              s.handleAPITeamSwitch)
+	api("DELETE", "/api/team",                     s.handleAPITeamDelete)
+	api("POST",   "/api/team/invites",             s.handleAPIInviteCreate)
+	api("DELETE", "/api/team/invites/{token}",     s.handleAPIInviteRevoke)
+	api("POST",   "/api/team/members/{id}/remove", s.handleAPIMemberRemove)
+	api("POST",   "/api/invites/{token}/accept",   s.handleAPIInviteAccept)
+	api("POST",   "/api/profile",                  s.handleAPIProfileUpdate)
+	api("POST",   "/api/profile/password",         s.handleAPIProfilePassword)
 
 	return logRequests(mux)
 }

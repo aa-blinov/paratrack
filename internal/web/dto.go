@@ -22,11 +22,21 @@ import (
 // with a dynamic name, so we render the page-specific block into a
 // buffer first and pass the safe HTML into the layout.
 type pageData struct {
-	Title        string
-	Active       string
-	ContentHTML  template.HTML
-	User         *auth.User // nil for /login, /register
-	Team         *teams.Team // current team (personal or shared)
+	Title       string
+	Active      string
+	ContentHTML template.HTML
+	User        *auth.User   // nil for /login, /register
+	Team        *teams.Team  // current team (personal or shared)
+	UserTeams   []teamsView   // every team the user belongs to (workspace switcher)
+	RequestPath string          // current URL path; used as next= after a switch
+}
+
+// teamsView is the minimal row the workspace switcher dropdown needs:
+// team identity, role, and id (for the form post).
+type teamsView struct {
+	ID   int64
+	Name string
+	Role string
 }
 
 // sessionView is the per-row representation of an active or recent

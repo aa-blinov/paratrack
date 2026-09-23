@@ -1,0 +1,65 @@
+{{define "team-settings"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="card-title text-base font-medium">Current workspace</h2>
+        <span class="badge badge-outline text-xs">id {{.Team.ID}}</span>
+      </div>
+      <p class="text-sm opacity-60 mb-1">You can switch between workspaces from the team picker in the top bar.</p>
+      <div class="text-sm"><span class="font-mono opacity-60">slug:</span> <code>{{.Team.Slug}}</code></div>
+      <div class="text-sm"><span class="font-mono opacity-60">name:</span> {{.Team.Name}}</div>
+      <div class="text-sm"><span class="font-mono opacity-60">created:</span> {{.Team.CreatedAt.Format "2006-01-02"}}</div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <h2 class="card-title text-base font-medium mb-2">Rename team</h2>
+      <form method="POST" action="/api/team/rename" class="flex gap-2">
+        <input type="text" name="name" required minlength="1" value="{{.Team.Name}}"
+               class="input input-bordered flex-1">
+        <button type="submit" class="btn btn-neutral">Rename</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 shadow-sm">
+    <div class="card-body p-5">
+      <h2 class="card-title text-base font-medium mb-2">Create another team</h2>
+      <p class="text-sm opacity-60 mb-3">Useful when you want a separate workspace for a side-project, client, or team.</p>
+      <form method="POST" action="/api/team/create" class="flex gap-2">
+        <input type="text" name="name" required minlength="1" placeholder="Side Project"
+               class="input input-bordered flex-1">
+        <button type="submit" class="btn btn-neutral">Create</button>
+      </form>
+    </div>
+  </div>
+
+  {{template "settings-sidebar" .}}
+</div>
+{{end}}
+
+{{define "settings-sidebar"}}
+<div class="card bg-base-100 shadow-sm">
+  <div class="card-body p-5">
+    <h2 class="card-title text-base font-medium mb-2">Manage</h2>
+    <ul class="menu menu-vertical bg-base-100 rounded-box p-0">
+      <li><a href="/settings/team" class="{{if eq .Active "settings"}}active{{end}}">Team settings</a></li>
+      <li><a href="/settings/members">Members</a></li>
+      <li><a href="/settings/invites">Invites</a></li>
+      <li><a href="/settings/profile">Profile &amp; password</a></li>
+    </ul>
+  </div>
+</div>
+{{end}}
+
+{{define "flash-banner"}}
+{{if .Flash}}
+<div class="alert {{if .FlashOK}}alert-success{{else}}alert-error{{end}} text-sm py-2">
+  <span>{{.Flash}}</span>
+</div>
+{{end}}
+{{end}}
