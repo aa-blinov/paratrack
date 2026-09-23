@@ -21,6 +21,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - Topbar + nav wrap on narrow screens; theme button hides its AUTO/DARK/LIGHT label on phones.
 - Status badges get play/pause glyphs.
 - **Monochrome UI**: per-activity rainbow palette dropped — `colorFor` now returns a neutral `#6b7280` for every name, the `.activity-mark` decorative left-edge bar is gone, and chart series render as a single grey. Activity identity is carried by the name alone.
+- **Primary CTAs toned to neutral** — Start / Set goal / Add are now `btn-neutral` (solid black) instead of indigo `btn-primary`. The Stats Distribution bar fill is `bg-base-content` so it matches the goals progress bars. Destructive actions (Stop / Delete) keep `btn-error`, and status pills keep their success / warning tint — colour now only signals action severity, never decoration.
 - Light/dark via CSS variables; focus-visible ring; `prefers-reduced-motion` short-circuit.
 - Toast is a solid colored alert with a glyph (✓/✕).
 
