@@ -80,7 +80,10 @@ type dashboardData struct {
 type statsData struct {
 	pageData
 	Period       timeparse.Period
-	Aggregated   []aggRow
+	Aggregated   []aggRow        // activity-level breakdown
+	ByProject    []projectAggRow // project-grouped breakdown (with activities nested)
+	Projects     []model.Project // for the project-filter chip row
+	ProjectFilter string         // current ?project=slug value, empty if unfiltered
 	Sessions     []sessionView
 	Total        string
 	SessionCount int
@@ -93,6 +96,20 @@ type aggRow struct {
 	Color        string
 	Duration     string
 	Share        float64
+}
+
+// projectAggRow groups the activity-level breakdown under one
+// project, so /stats can show "EORA RAG (45%)" with the activities
+// nested underneath. Uncategorized activities appear in a single
+// row with ProjectID == 0 and an empty Name.
+type projectAggRow struct {
+	ProjectID   int64
+	ProjectName string // empty for "Uncategorized"
+	Slug        string
+	Color       string
+	Duration    string
+	Share       float64
+	Activities  []aggRow
 }
 
 // graphData feeds graph.html.

@@ -23,25 +23,51 @@
 {{end}}
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <!-- Aggregated breakdown -->
+  <!-- Aggregated breakdown by project -->
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body p-5">
       <div class="card-title text-base font-medium mb-3">Breakdown</div>
-      {{if .Aggregated}}
+      {{if .ByProject}}
+        {{if .Projects}}
+          <div class="flex flex-wrap gap-1 mb-3">
+            <a href="?period={{.Period.Label}}{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"
+               class="btn btn-xs {{if not .ProjectFilter}}btn-primary{{else}}btn-ghost{{end}}">All</a>
+            {{range .Projects}}
+              <a href="?period={{$.Period.Label}}&project={{.Slug}}{{if $.TagFilter}}&tag={{$.TagFilter}}{{end}}"
+                 class="btn btn-xs {{if eq $.ProjectFilter .Slug}}btn-primary{{else}}btn-ghost{{end}}"
+                 style="{{if eq $.ProjectFilter .Slug}}background-color: {{.Color}}; border-color: {{.Color}}; color: #fff;{{end}}">
+                <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{.Color}}"></span>
+                {{.Name}}
+              </a>
+            {{end}}
+          </div>
+        {{end}}
       <div class="overflow-x-auto">
         <table class="table table-zebra responsive-collapse">
           <thead>
-            <tr><th>Activity</th><th class="text-right">Time</th><th class="text-right">Share</th></tr>
+            <tr><th>Project / Activity</th><th class="text-right">Time</th><th class="text-right">Share</th></tr>
           </thead>
           <tbody>
-            {{range .Aggregated}}
-            <tr>
-              <td data-label="Activity"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
-              <td data-label="Time" class="text-right font-mono">{{.Duration}}</td>
-              <td data-label="Share" class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
-            </tr>
+            {{range .ByProject}}
+              <tr class="font-semibold">
+                <td data-label="Project">
+                  <div class="flex items-center gap-2">
+                    <span class="inline-block w-2.5 h-2.5 rounded-full" style="background-color: {{.Color}}"></span>
+                    {{if .Slug}}<a href="/projects/{{.Slug}}" class="link link-hover">{{.ProjectName}}</a>{{else}}{{.ProjectName}}{{end}}
+                  </div>
+                </td>
+                <td data-label="Time" class="text-right font-mono">{{.Duration}}</td>
+                <td data-label="Share" class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
+              </tr>
+              {{range .Activities}}
+              <tr>
+                <td data-label="Activity" class="pl-8"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
+                <td data-label="Time" class="text-right font-mono opacity-70">{{.Duration}}</td>
+                <td data-label="Share" class="text-right font-mono opacity-50">{{printf "%.1f%%" .Share}}</td>
+              </tr>
+              {{end}}
             {{end}}
-            <tr class="font-semibold">
+            <tr class="font-semibold border-t-2 border-base-300">
               <td>Total</td>
               <td class="text-right font-mono">{{.Total}}</td>
               <td></td>
@@ -55,17 +81,20 @@
     </div>
   </div>
 
-  <!-- Bar visualization -->
+  <!-- Bar visualization by project -->
   <div class="card bg-base-100 shadow-sm">
     <div class="card-body p-5">
       <div class="card-title text-base font-medium mb-3">Distribution</div>
-      {{if .Aggregated}}
+      {{if .ByProject}}
       <div class="flex flex-col gap-1.5">
-        {{range .Aggregated}}
+        {{range .ByProject}}
         <div class="flex items-center gap-2">
-          <div class="w-24 truncate text-xs opacity-60">{{.ActivityName}}</div>
+          <div class="w-32 truncate text-xs opacity-70 flex items-center gap-1.5">
+            <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span>
+            {{.ProjectName}}
+          </div>
           <div class="flex-1 h-4 rounded bg-base-200 overflow-hidden">
-            <div class="h-full transition-all duration-300 bg-base-content" style="width: {{printf "%.1f" .Share}}%;"></div>
+            <div class="h-full transition-all duration-300" style="width: {{printf "%.1f" .Share}}%; background-color: {{.Color}};"></div>
           </div>
           <div class="font-mono w-12 text-right text-xs">{{printf "%.0f%%" .Share}}</div>
         </div>
