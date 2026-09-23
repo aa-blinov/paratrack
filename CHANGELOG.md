@@ -30,6 +30,8 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - Inline-edit duration recomputes `end_at` server-side.
 - ECharts hover events no longer eaten by Alpine's reactive proxy.
 - Tooltip on empty graph hour shows zeros, not the previous hour's values.
+- `goals.team_id` is now `NOT NULL DEFAULT 0` so the `UNIQUE(team_id, activity_id, period)` upsert actually detects duplicate goals (NULLs treated are treated as distinct otherwise).
+- All db helpers (`CreateActivity`, `ListActivities`, `GetOrCreateActivity`, `CreateSession`, `CreateClosedSession`, `ListActiveSessions`, `ListClosedSessionsInRange`, `CreateTag`, `GetTagByName`, `ListTags`, `AttachTag`, `DetachTag`, `SetTagsForSession`, `ListSessionsByTag`, `ListAllTagsWithCounts`, `UpsertGoal`, `ListGoals`, `DeleteGoal`, `ProgressForGoals`, `TagsForSessions`) now take a `teamID int64` first arg. Pass 0 to skip the team scope (legacy / tests); the auth middleware always supplies the real id via `teamID(r)`. `goals.team_id` UNIQUE was widened to (team_id, activity_id, period) so per-team goals don't collide.
 
 ### Removed
 - Legacy Python implementation deleted. Go binary is the only runtime.

@@ -94,6 +94,16 @@ func (s *Server) renderFragment(w http.ResponseWriter, name string, data any) {
 	}
 }
 
+// teamID returns the current team's id from r.Context(), or 0 if the
+// request is unauthenticated (e.g. tests, CLI). All db calls scoped to
+// the current workspace pass this as their first argument.
+func teamID(r *http.Request) int64 {
+	if t, ok := TeamFrom(r.Context()); ok {
+		return t.ID
+	}
+	return 0
+}
+
 // render is kept as a thin wrapper for handlers that want the simpler
 // signature; it derives title/active from the embedded pageData.
 func (s *Server) render(w http.ResponseWriter, contentTpl string, data any) {
@@ -146,18 +156,18 @@ func (s *Server) parsePeriod(r *http.Request) timeparse.Period {
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	now := time.Now()
-	acts, err := s.db.ListActivities(ctx, false)
+	acts, err := s.db.ListActivities(r.Context(), teamID(r), false)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	active, err := s.db.ListActiveSessions(ctx)
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	today, _ := timeparse.ResolvePeriod("today", now)
-	recent, err := s.db.ListClosedSessionsInRange(ctx, today.Start, today.End.Add(24*time.Hour), nil)
+	recent, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), today.Start, today.End.Add(24*time.Hour), nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -205,7 +215,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	// Goal progress for the dashboard widget. Best-effort: if the goals
 	// query fails we just hide the widget by passing an empty slice.
-	if progress, err := s.db.ProgressForGoals(ctx, now); err == nil {
+	if progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), now); err == nil {
 		d.Goals = toGoalViews(progress)
 	} else {
 		d.Goals = nil
@@ -218,7 +228,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	period := s.parsePeriod(r)
 
-	sessions, err := s.db.ListClosedSessionsInRange(ctx, period.Start, period.End, nil)
+	sessions, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), period.Start, period.End, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -268,7 +278,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		aggs = filteredAggs
 	}
 
-	allTags, _ := s.db.ListTags(ctx)
+	allTags, _ := s.db.ListTags(r.Context(), teamID(r))
 	allTagNames := make([]string, len(allTags))
 	for i, t := range allTags {
 		allTagNames[i] = t.Name
@@ -315,10 +325,9 @@ func filterByTag(rows []sessionView, agg map[string]int, total int, tagName stri
 }
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	period := s.parsePeriod(r)
 
-	sessions, err := s.db.ListClosedSessionsInRange(ctx, period.Start, period.End, nil)
+	sessions, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), period.Start, period.End, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -339,7 +348,7 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	today, _ := timeparse.ResolvePeriod("today", now)
-	active, err := s.db.ListActiveSessions(r.Context())
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -364,14 +373,13 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	note := strings.TrimSpace(r.FormValue("note"))
-	ctx := r.Context()
-	act, err := s.db.GetOrCreateActivity(ctx, name)
+	act, err := s.db.GetOrCreateActivity(r.Context(), teamID(r), name)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	// Reject duplicate active session for the same activity.
-	active, err := s.db.ListActiveSessions(ctx)
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -382,14 +390,14 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if _, err := s.db.CreateSession(ctx, act.ID, time.Now(), note); err != nil {
+	if _, err := s.db.CreateSession(r.Context(), teamID(r), act.ID, time.Now(), note); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 	s.toast(w, "started "+act.Name, "success")
 	// HTMX target was the active-list fragment — re-render it with the
 	// now-complete active list (including the session we just created).
-	fresh, err := s.db.ListActiveSessions(ctx)
+	fresh, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -486,12 +494,12 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	act, err := s.db.FindActivityByName(ctx, name)
+	act, err := s.db.FindActivityByName(r.Context(), teamID(r), name)
 	if err != nil {
 		http.Error(w, err.Error(), 404)
 		return
 	}
-	active, err := s.db.ListActiveSessions(ctx)
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -511,7 +519,7 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !targetExists {
-		_, _ = s.db.CreateSession(ctx, act.ID, now, "")
+		_, _ = s.db.CreateSession(r.Context(), teamID(r), act.ID, now, "")
 	}
 	s.toast(w, "focused on "+act.Name, "success")
 	s.respondActiveList(w, r)
@@ -629,7 +637,7 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 
 // handleTagsList returns every tag as JSON.
 func (s *Server) handleTagsList(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.db.ListTags(r.Context())
+	tags, err := s.db.ListTags(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -652,7 +660,7 @@ func (s *Server) handleTagsCreate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name is required", 400)
 		return
 	}
-	t, err := s.db.CreateTag(r.Context(), name)
+	t, err := s.db.CreateTag(r.Context(), teamID(r), name)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -694,7 +702,7 @@ func (s *Server) handleSessionTagAdd(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name is required", 400)
 		return
 	}
-	if err := s.db.AttachTag(r.Context(), id, name); err != nil {
+	if err := s.db.AttachTag(r.Context(), teamID(r), id, name); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -714,7 +722,7 @@ func (s *Server) handleSessionTagRemove(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "name query param required", 400)
 		return
 	}
-	if err := s.db.DetachTag(r.Context(), id, name); err != nil {
+	if err := s.db.DetachTag(r.Context(), teamID(r), id, name); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -724,7 +732,7 @@ func (s *Server) handleSessionTagRemove(w http.ResponseWriter, r *http.Request) 
 
 // handleTagsPage serves /tags.
 func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.db.ListAllTagsWithCounts(r.Context())
+	tags, err := s.db.ListAllTagsWithCounts(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -748,7 +756,7 @@ func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 // handleTagsFragment returns the inner `tags-list` template so HTMX
 // can swap it without a full page reload.
 func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.db.ListAllTagsWithCounts(r.Context())
+	tags, err := s.db.ListAllTagsWithCounts(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -767,16 +775,15 @@ func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
 
 // handleGoals serves the /goals management page.
 func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
 	now := time.Now()
 
-	acts, err := s.db.ListActivities(ctx, false)
+	acts, err := s.db.ListActivities(r.Context(), teamID(r), false)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 
-	progress, err := s.db.ProgressForGoals(ctx, now)
+	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), now)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -796,7 +803,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 
 // handleGoalsList returns all configured goals as JSON (no progress).
 func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
-	goals, err := s.db.ListGoals(r.Context(), nil)
+	goals, err := s.db.ListGoals(r.Context(), teamID(r), nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -814,7 +821,7 @@ func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
 // the rendered `goals-list` fragment so it can be swapped into the
 // page directly. Plain GET returns JSON for tooling / scripts.
 func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.db.ProgressForGoals(r.Context(), time.Now())
+	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), time.Now())
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -851,12 +858,12 @@ func (s *Server) handleGoalsUpsert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "minutes must be a positive integer", 400)
 		return
 	}
-	act, err := s.db.GetOrCreateActivity(r.Context(), activityName)
+	act, err := s.db.GetOrCreateActivity(r.Context(), teamID(r), activityName)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	g, err := s.db.UpsertGoal(r.Context(), act.ID, period, mins)
+	g, err := s.db.UpsertGoal(r.Context(), teamID(r), act.ID, period, mins)
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
@@ -873,12 +880,12 @@ func (s *Server) handleGoalsDelete(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "activity and period query params are required", 400)
 		return
 	}
-	act, err := s.db.GetActivityByName(r.Context(), activityName)
+	act, err := s.db.GetActivityByName(r.Context(), teamID(r), activityName)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	if err := s.db.DeleteGoal(r.Context(), act.ID, period); err != nil {
+	if err := s.db.DeleteGoal(r.Context(), teamID(r), act.ID, period); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -955,7 +962,7 @@ func periodRangeLabel(period string) string {
 func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="paratrack.csv"`)
-	sessions, err := s.db.ListClosedSessionsInRange(r.Context(),
+	sessions, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r),
 		time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), time.Now().Add(24*time.Hour), nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -990,7 +997,7 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	today, _ := timeparse.ResolvePeriod("today", now)
-	active, err := s.db.ListActiveSessions(r.Context())
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

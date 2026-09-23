@@ -11,12 +11,14 @@ import (
 
 // CreateSession inserts a new session in active state (paused = 0,
 // last_resume_at = start_at so the live timer starts ticking immediately).
-func (d *DB) CreateSession(ctx context.Context, activityID int64, startAt time.Time, note string) (model.Session, error) {
+// teamID is the workspace this session is filed under; pass 0 to skip
+// the team association (legacy / tests).
+func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startAt time.Time, note string) (model.Session, error) {
 	startStr := FormatTime(startAt)
 	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO sessions (activity_id, start_at, note, paused, accumulated_seconds, last_resume_at)
-		 VALUES (?, ?, ?, 0, 0, ?)`,
-		activityID, startStr, nullableString(note), startStr,
+		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at)
+		 VALUES (?, ?, ?, ?, 0, 0, ?)`,
+		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr,
 	)
 	if err != nil {
 		return model.Session{}, err
@@ -30,13 +32,13 @@ func (d *DB) CreateSession(ctx context.Context, activityID int64, startAt time.T
 
 // CreateClosedSession inserts a finished session in one go. Used by the
 // `add` command for back-filling past intervals.
-func (d *DB) CreateClosedSession(ctx context.Context, activityID int64, startAt, endAt time.Time, note string) (model.Session, error) {
+func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, startAt, endAt time.Time, note string) (model.Session, error) {
 	startStr := FormatTime(startAt)
 	endStr := FormatTime(endAt)
 	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO sessions (activity_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at)
-		 VALUES (?, ?, ?, ?, 0, 0, NULL)`,
-		activityID, startStr, endStr, nullableString(note),
+		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at)
+		 VALUES (?, ?, ?, ?, ?, 0, 0, NULL)`,
+		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note),
 	)
 	if err != nil {
 		return model.Session{}, err
@@ -54,12 +56,17 @@ func (d *DB) GetSession(ctx context.Context, id int64) (model.Session, error) {
 	return scanSession(row)
 }
 
-// ListActiveSessions returns all sessions with end_at IS NULL, newest first,
-// with their activity name attached for display.
-func (d *DB) ListActiveSessions(ctx context.Context) ([]model.ActiveSession, error) {
-	rows, err := d.sql.QueryContext(ctx, sessionSelect+`
-		WHERE s.end_at IS NULL
-		ORDER BY s.start_at DESC`)
+// ListActiveSessions returns all sessions with end_at IS NULL, newest
+// first, scoped to teamID (0 means "all teams" / legacy).
+func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.ActiveSession, error) {
+	q := sessionSelect + ` WHERE s.end_at IS NULL`
+	args := []any{}
+	if teamID > 0 {
+		q += ` AND s.team_id = ?`
+		args = append(args, teamID)
+	}
+	q += ` ORDER BY s.start_at DESC`
+	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,12 +76,16 @@ func (d *DB) ListActiveSessions(ctx context.Context) ([]model.ActiveSession, err
 
 // ListClosedSessionsInRange returns finished sessions whose interval
 // overlaps [start, end]. Activity filter is optional.
-func (d *DB) ListClosedSessionsInRange(ctx context.Context, start, end time.Time, activityID *int64) ([]model.ActiveSession, error) {
+func (d *DB) ListClosedSessionsInRange(ctx context.Context, teamID int64, start, end time.Time, activityID *int64) ([]model.ActiveSession, error) {
 	q := sessionSelect + `
 		WHERE s.end_at IS NOT NULL
 		  AND s.start_at <= ?
 		  AND s.end_at   >= ?`
 	args := []any{FormatTime(end), FormatTime(start)}
+	if teamID > 0 {
+		q += ` AND s.team_id = ?`
+		args = append(args, teamID)
+	}
 	if activityID != nil {
 		q += ` AND s.activity_id = ?`
 		args = append(args, *activityID)
@@ -168,7 +179,7 @@ func (d *DB) DeleteSession(ctx context.Context, id int64) error {
 }
 
 const sessionSelect = `
-SELECT s.id, s.activity_id, s.start_at, s.end_at, s.note,
+SELECT s.id, s.activity_id, s.team_id, s.start_at, s.end_at, s.note,
        s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
        s.created_at, s.updated_at,
        a.name AS activity_name
@@ -195,6 +206,7 @@ func scanSession(r row) (model.Session, error) {
 func scanSessionWithActivity(r row) (model.Session, string, error) {
 	var (
 		s            model.Session
+		teamID       sql.NullInt64
 		startAt      string
 		endAt        sql.NullString
 		note         sql.NullString
@@ -206,7 +218,7 @@ func scanSessionWithActivity(r row) (model.Session, string, error) {
 		activityName string
 	)
 	if err := r.Scan(
-		&s.ID, &s.ActivityID, &startAt, &endAt, &note,
+		&s.ID, &s.ActivityID, &teamID, &startAt, &endAt, &note,
 		&paused, &pausedAt, &s.AccumulatedSeconds, &lastResumeAt,
 		&createdAt, &updatedAt, &activityName,
 	); err != nil {
@@ -214,6 +226,9 @@ func scanSessionWithActivity(r row) (model.Session, string, error) {
 			return model.Session{}, "", ErrNotFound
 		}
 		return model.Session{}, "", err
+	}
+	if teamID.Valid {
+		s.TeamID = teamID.Int64
 	}
 	if t, err := ScanTime(startAt); err == nil {
 		s.StartAt = t
@@ -252,4 +267,13 @@ func nullableString(s string) any {
 		return nil
 	}
 	return s
+}
+
+// nullableInt64 returns nil for 0 so callers can store NULL in the
+// nullable team_id column. Used by CreateSession / CreateClosedSession.
+func nullableInt64(n int64) any {
+	if n == 0 {
+		return nil
+	}
+	return n
 }

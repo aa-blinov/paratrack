@@ -109,17 +109,17 @@ func TestGoalPeriodRange_UnknownFallsBackToDaily(t *testing.T) {
 func TestUpsertGoal_RejectsInvalidPeriod(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, err := d.GetOrCreateActivity(ctx, "test-up")
+	act, err := d.GetOrCreateActivity(ctx, 0, "test-up")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.UpsertGoal(ctx, act.ID, "yearly", 60); err == nil {
+	if _, err := d.UpsertGoal(ctx, 0, act.ID, "yearly", 60); err == nil {
 		t.Error("UpsertGoal with period=yearly should fail, got nil")
 	}
-	if _, err := d.UpsertGoal(ctx, act.ID, "daily", 0); err == nil {
+	if _, err := d.UpsertGoal(ctx, 0, act.ID, "daily", 0); err == nil {
 		t.Error("UpsertGoal with 0 minutes should fail, got nil")
 	}
-	if _, err := d.UpsertGoal(ctx, act.ID, "daily", -10); err == nil {
+	if _, err := d.UpsertGoal(ctx, 0, act.ID, "daily", -10); err == nil {
 		t.Error("UpsertGoal with negative minutes should fail, got nil")
 	}
 }
@@ -127,15 +127,15 @@ func TestUpsertGoal_RejectsInvalidPeriod(t *testing.T) {
 func TestUpsertGoal_ReplacesExistingForSamePeriod(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, err := d.GetOrCreateActivity(ctx, "test-replace")
+	act, err := d.GetOrCreateActivity(ctx, 0, "test-replace")
 	if err != nil {
 		t.Fatal(err)
 	}
-	g1, err := d.UpsertGoal(ctx, act.ID, "daily", 60)
+	g1, err := d.UpsertGoal(ctx, 0, act.ID, "daily", 60)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g2, err := d.UpsertGoal(ctx, act.ID, "daily", 120)
+	g2, err := d.UpsertGoal(ctx, 0, act.ID, "daily", 120)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,11 +150,11 @@ func TestUpsertGoal_ReplacesExistingForSamePeriod(t *testing.T) {
 func TestDeleteGoal_MissingReturnsErrGoalNotFound(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, err := d.GetOrCreateActivity(ctx, "test-del")
+	act, err := d.GetOrCreateActivity(ctx, 0, "test-del")
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = d.DeleteGoal(ctx, act.ID, "daily")
+	err = d.DeleteGoal(ctx, 0, act.ID, "daily")
 	if err != ErrGoalNotFound {
 		t.Errorf("DeleteGoal on missing row: err=%v, want %v", err, ErrGoalNotFound)
 	}
