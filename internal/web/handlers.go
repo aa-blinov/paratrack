@@ -42,6 +42,35 @@ func (s *Server) renderPage(w http.ResponseWriter, title, active, contentTpl str
 	}
 }
 
+// renderPageForRequest is the auth-aware variant. It pulls the
+// authenticated User and current Team out of r.Context() and puts
+// them in the wrapper so base.html can render the user menu and the
+// current-team switcher. Handlers wrapped by RequireAuth call this.
+func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, title, active, contentTpl string, data any) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	var buf bytes.Buffer
+	if err := s.tmpl.ExecuteTemplate(&buf, contentTpl, data); err != nil {
+		http.Error(w, "render content ["+contentTpl+"]: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	wrapper := pageData{
+		Title:       title,
+		Active:      active,
+		ContentHTML: template.HTML(buf.String()),
+	}
+	if u, ok := UserFrom(r.Context()); ok {
+		u := u
+		wrapper.User = &u
+	}
+	if t, ok := TeamFrom(r.Context()); ok {
+		t := t
+		wrapper.Team = &t
+	}
+	if err := s.tmpl.ExecuteTemplate(w, "base", wrapper); err != nil {
+		http.Error(w, "render base: "+err.Error(), http.StatusInternalServerError)
+	}
+}
+
 // renderFragment renders a self-contained template (not wrapped in base).
 // Used for HTMX swap targets like active-list and session-row.
 func (s *Server) renderFragment(w http.ResponseWriter, name string, data any) {

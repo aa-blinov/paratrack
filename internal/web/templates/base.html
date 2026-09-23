@@ -18,6 +18,7 @@
           <span class="font-mono font-black tracking-tight text-lg">paratrack</span>
         </a>
       </div>
+      {{if .User}}
       <nav class="flex items-center gap-1">
         <a href="/" class="btn btn-ghost btn-sm {{if eq .Active "dashboard"}}btn-active{{end}}">Dashboard</a>
         <a href="/stats" class="btn btn-ghost btn-sm {{if eq .Active "stats"}}btn-active{{end}}">Stats</a>
@@ -33,7 +34,37 @@
           <span x-text="current === 'auto' ? '◐' : current === 'dark' ? '●' : '○'"></span>
           <span class="hidden sm:inline text-xs uppercase tracking-wider opacity-60" x-text="current"></span>
         </button>
+        <div class="dropdown dropdown-end">
+          <button tabindex="0" class="btn btn-ghost btn-sm" title="{{.User.Email}}">
+            <span class="hidden sm:inline">{{.User.Name}}</span>
+            <span class="sm:hidden">☰</span>
+          </button>
+          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box shadow-sm border border-base-300 mt-2 w-56 p-2 z-50">
+            <li class="menu-title text-xs opacity-60">Signed in as</li>
+            <li class="px-2 pb-2 text-sm">{{.User.Email}}</li>
+            <li><a href="/settings/team">Team settings</a></li>
+            <li><a href="/settings/profile">Profile &amp; password</a></li>
+            <li>
+              <form method="POST" action="/api/logout">
+                <button type="submit" class="w-full text-left">Log out</button>
+              </form>
+            </li>
+          </ul>
+        </div>
       </nav>
+      {{else}}
+      <nav class="flex items-center gap-1">
+        <a href="/login" class="btn btn-ghost btn-sm">Log in</a>
+        <a href="/register" class="btn btn-neutral btn-sm">Sign up</a>
+        <button class="btn btn-ghost btn-sm theme-btn"
+                data-theme-toggle
+                title="Toggle theme (T)"
+                x-data="themeToggle"
+                @click="cycle()">
+          <span x-text="current === 'auto' ? '◐' : current === 'dark' ? '●' : '○'"></span>
+        </button>
+      </nav>
+      {{end}}
     </div>
   </header>
 
