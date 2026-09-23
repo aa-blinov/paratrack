@@ -95,7 +95,10 @@ def main() -> int:
         # is set. On repeated runs the email is taken; detect by checking
         # the URL after submit — fall back to /login.
         register_account(page)
-        if "/login" in page.url or page.url.endswith("/register"):
+        # Register can land on `/` (success), `/register?error=…` (duplicate),
+        # or `/login` (any prior redirect). Fall through to sign_in unless
+        # we actually reached the dashboard.
+        if "/login" in page.url or "/register" in page.url:
             sign_in(page)
         # Confirm the session took: the top-bar user menu shows the email.
         page.goto(BASE + "/")
