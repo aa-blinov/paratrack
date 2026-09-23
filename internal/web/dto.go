@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/auth"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/teams"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -23,6 +25,8 @@ type pageData struct {
 	Title        string
 	Active       string
 	ContentHTML  template.HTML
+	User         *auth.User // nil for /login, /register
+	Team         *teams.Team // current team (personal or shared)
 }
 
 // sessionView is the per-row representation of an active or recent
