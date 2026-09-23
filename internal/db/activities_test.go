@@ -173,9 +173,9 @@ func insertRawActivity(ctx context.Context, d *DB, name string) (int64, error) {
 // time, so we can't simulate an upgrade with openTestDB.
 //
 // Note: the column set here mirrors the pre-team schema, but
-// team_id has been retro-added so the typed scanners (which now
-// expect team_id) keep working — the migration code is what we test,
-// not the schema itself.
+// team_id and project_id have been retro-added so the typed scanners
+// (which now expect them) keep working — the migration code is what
+// we test, not the schema itself.
 func openLegacySchemaDB(t *testing.T) *DB {
 	t.Helper()
 	const legacy = `
@@ -183,6 +183,7 @@ CREATE TABLE activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     team_id INTEGER,
+    project_id INTEGER,
     archived INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now'))

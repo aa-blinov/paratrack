@@ -1,74 +1,27 @@
-# Build artefacts
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-coverage.txt
-*.prof
-
-# The compiled paratrack binary (Makefile writes ./paratrack).
-# Match by name rather than just `*.exe` so Linux builds are covered too.
+# build artefacts
 /paratrack
-/paratrack.exe
+/paratrack-web
 
-# Vendored dependencies (we don't use go mod vendor)
-vendor/
-
-# Local development
-.venv/
-venv/
-.env
-.env.local
-
-# Editor / IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-*.iml
-
-# Test / coverage artefacts
-.pytest_cache/
-.coverage
-htmlcov/
-coverage.html
-
-# SQLite databases — each user gets their own at ~/.track/track.db,
-# but we never want to commit local copies.
-*.db
-*.sqlite
-*.sqlite3
-
-# Logs
-*.log
-/tmp/paratrack.log
-/tmp/paratrack.pid
-
-# OS
+# macOS noise
 .DS_Store
-Thumbs.db
+**/.DS_Store
 
-# Playwright
-test-results/
-playwright-report/
-playwright/.cache/
+# test cookies / local data
+/.audit-cookies.txt
+/.audit-cookies.*
 
-# Node / Tailwind / DaisyUI build artefacts.
-# web/package-lock.json IS committed (reproducible installs in CI);
-# node_modules/ is rebuilt by `make ui` / `npm ci` in CI.
-web/node_modules/
-.npm/
-.npmrc
+# screenshots / helper scripts aren't part of the app
+/e2e/__pycache__/
+/e2e/audit*_*.mjs
+/e2e/audit*_*.py
 
-# Pre-polish exploration screenshots that were used to compare
-# against the canonical v2-* set. Generated ad-hoc while iterating
-# on the UI; safe to regenerate from the e2e suite. Not committed.
-e2e/screenshots/audit-*.png
-e2e/screenshots/echart-*.png
-e2e/screenshots/graph-*.png
-e2e/screenshots/mobile-*.png
-e2e/screenshots/native-*.png
+# node helper for screenshot tooling
+/node_modules/
+/web/node_modules/
+
+# never commit screenshot artefacts (regen with /e2e/audit*.py)
+/e2e/screenshots/audit-*.png
+/e2e/screenshots/native-*.png
+/e2e/screenshots/mobile-*.png
+/e2e/screenshots/graph-*.png
+/e2e/screenshots/echart-*.png
