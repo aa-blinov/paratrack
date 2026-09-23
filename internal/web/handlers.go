@@ -521,6 +521,8 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	for _, as := range fresh {
 		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
 	}
+	hydrateSessionTags(r.Context(), s.db, views)
+	hydrateSessionProjects(r.Context(), s.db, views)
 	s.renderFragment(w, "active-list", views)
 }
 
