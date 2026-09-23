@@ -76,7 +76,7 @@
         <tbody>
           {{range .Recent}}
           <tr>
-            <td data-label="Activity"><span class="activity-mark" style="--color: {{.Color}};"></span>{{.ActivityName}}</td>
+            <td data-label="Activity"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
             <td data-label="Start" class="font-mono">{{.StartLocal}}</td>
             <td data-label="End" class="font-mono">{{.EndLocal}}</td>
             <td data-label="Duration" class="font-mono">{{.Duration}}</td>
@@ -112,8 +112,7 @@
       <div class="space-y-1">
         <div class="flex items-center justify-between text-sm">
           <div class="flex items-center gap-2">
-            <span class="activity-mark" style="--color: {{.Color}};"></span>
-            <strong>{{.ActivityName}}</strong>
+            <strong style="color: {{.Color}};">{{.ActivityName}}</strong>
             <span class="opacity-60">{{.PeriodRangeLabel}}</span>
           </div>
           <span class="font-mono">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
@@ -137,7 +136,7 @@
       <tbody>
         {{range .}}
         <tr>
-          <td data-label="Activity"><span class="activity-mark" style="--color: {{.Color}};"></span>{{.ActivityName}}</td>
+          <td data-label="Activity"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
           <td data-label="Status">
             {{if .Paused}}
             <span class="status-pill is-paused">⏸ Paused</span>
