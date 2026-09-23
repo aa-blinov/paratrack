@@ -13,37 +13,58 @@ import (
 // ErrTagNotFound is returned when a tag is missing.
 var ErrTagNotFound = errors.New("tag not found")
 
-// CreateTag inserts a new tag or returns the existing one if the name
-// is already taken. Tags are unique by name (case-insensitive at the
-// storage layer — SQLite's default TEXT comparison is binary).
-func (d *DB) CreateTag(ctx context.Context, name string) (model.Tag, error) {
+// CreateTag inserts a new tag in the given team or returns the existing
+// one if the name is already taken in that team. teamID == 0 falls
+// back to the legacy "no team" path.
+func (d *DB) CreateTag(ctx context.Context, teamID int64, name string) (model.Tag, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
 	if name == "" {
 		return model.Tag{}, fmt.Errorf("tag name cannot be empty")
 	}
-	// INSERT OR IGNORE + lookup keeps this idempotent.
+	if teamID > 0 {
+		if _, err := d.sql.ExecContext(ctx,
+			`INSERT INTO tags (name, team_id) VALUES (?, ?)
+			 ON CONFLICT(team_id, name) DO NOTHING`,
+			name, teamID,
+		); err != nil {
+			return model.Tag{}, err
+		}
+		return d.GetTagByName(ctx, teamID, name)
+	}
 	if _, err := d.sql.ExecContext(ctx,
 		`INSERT OR IGNORE INTO tags (name) VALUES (?)`, name,
 	); err != nil {
 		return model.Tag{}, err
 	}
-	return d.GetTagByName(ctx, name)
+	return d.GetTagByName(ctx, 0, name)
 }
 
-// GetTagByName returns the tag with the given name. Inputs are lowercased
-// so callers don't need to normalise; the underlying column is
-// COLLATE NOCASE so mixed-case input still resolves correctly.
-func (d *DB) GetTagByName(ctx context.Context, name string) (model.Tag, error) {
+// GetTagByName returns the tag with the given name in the given team.
+// Inputs are lowercased so callers don't need to normalise; the
+// underlying column is COLLATE NOCASE so mixed-case input still
+// resolves correctly. teamID == 0 skips the team filter.
+func (d *DB) GetTagByName(ctx context.Context, teamID int64, name string) (model.Tag, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, name, created_at FROM tags WHERE name = ?`, name)
+	q := `SELECT id, name, team_id, created_at FROM tags WHERE name = ?`
+	args := []any{name}
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	row := d.sql.QueryRowContext(ctx, q, args...)
 	return scanTag(row)
 }
 
-// ListTags returns every tag sorted alphabetically.
-func (d *DB) ListTags(ctx context.Context) ([]model.Tag, error) {
-	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, name, created_at FROM tags ORDER BY name`)
+// ListTags returns every tag in the given team sorted alphabetically.
+func (d *DB) ListTags(ctx context.Context, teamID int64) ([]model.Tag, error) {
+	q := `SELECT id, name, team_id, created_at FROM tags`
+	args := []any{}
+	if teamID > 0 {
+		q += ` WHERE team_id = ?`
+		args = append(args, teamID)
+	}
+	q += ` ORDER BY name`
+	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -78,15 +99,16 @@ func (d *DB) DeleteTag(ctx context.Context, id int64) error {
 
 // AttachTag links an existing tag to a session. Both id-based and
 // name-based lookups go through here so the callers don't need to
-// preload the tag themselves.
-func (d *DB) AttachTag(ctx context.Context, sessionID int64, tagName string) error {
-	tag, err := d.GetTagByName(ctx, tagName)
+// preload the tag themselves. Pass 0 for teamID if the session is in
+// no workspace (rare; usually Auth middleware supplies one).
+func (d *DB) AttachTag(ctx context.Context, teamID, sessionID int64, tagName string) error {
+	tag, err := d.GetTagByName(ctx, teamID, tagName)
 	if err != nil {
 		// Auto-create on first attach — matches the "just type the tag"
 		// UX of the web UI.
 		if errors.Is(err, ErrTagNotFound) {
 			var cerr error
-			tag, cerr = d.CreateTag(ctx, tagName)
+			tag, cerr = d.CreateTag(ctx, teamID, tagName)
 			if cerr != nil {
 				return fmt.Errorf("create tag: %w", cerr)
 			}
@@ -102,8 +124,8 @@ func (d *DB) AttachTag(ctx context.Context, sessionID int64, tagName string) err
 
 // DetachTag removes the link between a session and a tag. Does not
 // delete the tag itself.
-func (d *DB) DetachTag(ctx context.Context, sessionID int64, tagName string) error {
-	tag, err := d.GetTagByName(ctx, tagName)
+func (d *DB) DetachTag(ctx context.Context, teamID, sessionID int64, tagName string) error {
+	tag, err := d.GetTagByName(ctx, teamID, tagName)
 	if err != nil {
 		return err
 	}
@@ -114,9 +136,9 @@ func (d *DB) DetachTag(ctx context.Context, sessionID int64, tagName string) err
 }
 
 // SetTagsForSession replaces the tag set for a session with the given
-// names. Tags not yet in the catalogue are auto-created. Used by the
-// stats inline-edit form where the user picks chips.
-func (d *DB) SetTagsForSession(ctx context.Context, sessionID int64, tagNames []string) error {
+// names. Tags not yet in the catalogue are auto-created in teamID.
+// Used by the stats inline-edit form where the user picks chips.
+func (d *DB) SetTagsForSession(ctx context.Context, teamID, sessionID int64, tagNames []string) error {
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -133,14 +155,22 @@ func (d *DB) SetTagsForSession(ctx context.Context, sessionID int64, tagNames []
 			continue
 		}
 		var tagID int64
-		if err := tx.QueryRowContext(ctx,
-			`SELECT id FROM tags WHERE name = ?`, name,
-		).Scan(&tagID); err != nil {
+		// Look up by name within this team.
+		q := `SELECT id FROM tags WHERE name = ?`
+		args := []any{name}
+		if teamID > 0 {
+			q += ` AND team_id = ?`
+			args = append(args, teamID)
+		}
+		if err := tx.QueryRowContext(ctx, q, args...).Scan(&tagID); err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				return err
 			}
 			// Create.
-			res, err := tx.ExecContext(ctx, `INSERT INTO tags (name) VALUES (?)`, name)
+			res, err := tx.ExecContext(ctx,
+				`INSERT INTO tags (name, team_id) VALUES (?, ?)`,
+				name, nullableInt64(teamID),
+			)
 			if err != nil {
 				return err
 			}
@@ -163,7 +193,7 @@ func (d *DB) SetTagsForSession(ctx context.Context, sessionID int64, tagNames []
 // ordered alphabetically.
 func (d *DB) ListTagsForSession(ctx context.Context, sessionID int64) ([]model.Tag, error) {
 	rows, err := d.sql.QueryContext(ctx, `
-		SELECT t.id, t.name, t.created_at
+		SELECT t.id, t.name, t.team_id, t.created_at
 		FROM tags t
 		JOIN session_tags st ON st.tag_id = t.id
 		WHERE st.session_id = ?
@@ -198,7 +228,7 @@ func (d *DB) TagsForSessions(ctx context.Context, sessionIDs []int64) (map[int64
 	for i, id := range sessionIDs {
 		args[i] = id
 	}
-	q := `SELECT st.session_id, t.id, t.name, t.created_at
+	q := `SELECT st.session_id, t.id, t.name, t.team_id, t.created_at
 	      FROM session_tags st
 	      JOIN tags t ON t.id = st.tag_id
 	      WHERE st.session_id IN (` + placeholders + `)
@@ -212,10 +242,14 @@ func (d *DB) TagsForSessions(ctx context.Context, sessionIDs []int64) (map[int64
 		var (
 			sid       int64
 			t         model.Tag
+			teamID    sql.NullInt64
 			createdAt string
 		)
-		if err := rows.Scan(&sid, &t.ID, &t.Name, &createdAt); err != nil {
+		if err := rows.Scan(&sid, &t.ID, &t.Name, &teamID, &createdAt); err != nil {
 			return nil, err
+		}
+		if teamID.Valid {
+			t.TeamID = teamID.Int64
 		}
 		if ts, err := ScanTime(createdAt); err == nil {
 			t.CreatedAt = ts
@@ -227,17 +261,22 @@ func (d *DB) TagsForSessions(ctx context.Context, sessionIDs []int64) (map[int64
 
 // ListSessionsByTag returns every closed session that carries the
 // given tag, newest first. Used by the tag-filter on the stats page.
-func (d *DB) ListSessionsByTag(ctx context.Context, tagName string) ([]model.ActiveSession, error) {
-	tag, err := d.GetTagByName(ctx, tagName)
+func (d *DB) ListSessionsByTag(ctx context.Context, teamID int64, tagName string) ([]model.ActiveSession, error) {
+	tag, err := d.GetTagByName(ctx, teamID, tagName)
 	if err != nil {
 		return nil, err
 	}
 	q := sessionSelect + `
 		JOIN session_tags st ON st.session_id = s.id
 		WHERE s.end_at IS NOT NULL
-		  AND st.tag_id = ?
-		ORDER BY s.start_at DESC`
-	rows, err := d.sql.QueryContext(ctx, q, tag.ID)
+		  AND st.tag_id = ?`
+	args := []any{tag.ID}
+	if teamID > 0 {
+		q += ` AND s.team_id = ?`
+		args = append(args, teamID)
+	}
+	q += ` ORDER BY s.start_at DESC`
+	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -252,13 +291,20 @@ type TagWithCount struct {
 	SessionCount int
 }
 
-func (d *DB) ListAllTagsWithCounts(ctx context.Context) ([]TagWithCount, error) {
-	rows, err := d.sql.QueryContext(ctx, `
-		SELECT t.id, t.name, t.created_at, COUNT(st.session_id)
+func (d *DB) ListAllTagsWithCounts(ctx context.Context, teamID int64) ([]TagWithCount, error) {
+	q := `
+		SELECT t.id, t.name, t.team_id, t.created_at, COUNT(st.session_id)
 		FROM tags t
-		LEFT JOIN session_tags st ON st.tag_id = t.id
+		LEFT JOIN session_tags st ON st.tag_id = t.id`
+	args := []any{}
+	if teamID > 0 {
+		q += ` WHERE t.team_id = ?`
+		args = append(args, teamID)
+	}
+	q += `
 		GROUP BY t.id
-		ORDER BY COUNT(st.session_id) DESC, t.name`)
+		ORDER BY COUNT(st.session_id) DESC, t.name`
+	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -267,10 +313,14 @@ func (d *DB) ListAllTagsWithCounts(ctx context.Context) ([]TagWithCount, error) 
 	for rows.Next() {
 		var (
 			tc        TagWithCount
+			teamID    sql.NullInt64
 			createdAt string
 		)
-		if err := rows.Scan(&tc.ID, &tc.Name, &createdAt, &tc.SessionCount); err != nil {
+		if err := rows.Scan(&tc.ID, &tc.Name, &teamID, &createdAt, &tc.SessionCount); err != nil {
 			return nil, err
+		}
+		if teamID.Valid {
+			tc.TeamID = teamID.Int64
 		}
 		if ts, err := ScanTime(createdAt); err == nil {
 			tc.CreatedAt = ts
@@ -281,13 +331,19 @@ func (d *DB) ListAllTagsWithCounts(ctx context.Context) ([]TagWithCount, error) 
 }
 
 func scanTag(r row) (model.Tag, error) {
-	var t model.Tag
-	var createdAt string
-	if err := r.Scan(&t.ID, &t.Name, &createdAt); err != nil {
+	var (
+		t         model.Tag
+		teamID    sql.NullInt64
+		createdAt string
+	)
+	if err := r.Scan(&t.ID, &t.Name, &teamID, &createdAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Tag{}, ErrTagNotFound
 		}
 		return model.Tag{}, err
+	}
+	if teamID.Valid {
+		t.TeamID = teamID.Int64
 	}
 	if ts, err := ScanTime(createdAt); err == nil {
 		t.CreatedAt = ts

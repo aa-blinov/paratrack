@@ -4,9 +4,13 @@ package model
 import "time"
 
 // Activity is a tracked activity (e.g. "reading", "work").
+// TeamID is the workspace this activity belongs to; rows with
+// TeamID == 0 are pre-team legacy data visible only when no
+// scope is requested (the auth middleware always supplies a real id).
 type Activity struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
+	TeamID    int64      `json:"team_id"`
 	Archived  bool      `json:"archived"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -20,6 +24,7 @@ type Activity struct {
 type Session struct {
 	ID                 int64      `json:"id"`
 	ActivityID         int64      `json:"activity_id"`
+	TeamID             int64      `json:"team_id"`
 	StartAt            time.Time  `json:"start_at"`
 	EndAt              *time.Time `json:"end_at,omitempty"`
 	Note               *string    `json:"note,omitempty"`
@@ -53,6 +58,7 @@ func (s Session) Active() bool {
 type Tag struct {
 	ID        int64     `json:"id"`
 	Name      string    `json:"name"`
+	TeamID    int64      `json:"team_id"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
@@ -66,6 +72,7 @@ type SessionTag struct {
 type Goal struct {
 	ID            int64     `json:"id"`
 	ActivityID    int64     `json:"activity_id"`
+	TeamID        int64      `json:"team_id"`
 	Period        string    `json:"period"` // daily | weekly | monthly
 	TargetMinutes int       `json:"target_minutes"`
 	CreatedAt     time.Time `json:"created_at"`

@@ -9,11 +9,11 @@ import (
 func TestCreateTag_Idempotent(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.CreateTag(ctx, "deep-work")
+	a, err := d.CreateTag(ctx, 0, "deep-work")
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := d.CreateTag(ctx, "deep-work")
+	b, err := d.CreateTag(ctx, 0, "deep-work")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -23,7 +23,7 @@ func TestCreateTag_Idempotent(t *testing.T) {
 	// Mixed-case input must collapse to the same tag — the COLLATE
 	// NOCASE column guarantees it but CreateTag also normalises on the
 	// way in so the *output* name is the canonical lowercase.
-	c, err := d.CreateTag(ctx, "Deep-Work")
+	c, err := d.CreateTag(ctx, 0, "Deep-Work")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,12 +36,12 @@ func TestCreateTag_Idempotent(t *testing.T) {
 func TestGetTagByName_IsCaseInsensitive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.CreateTag(ctx, "morning")
+	a, err := d.CreateTag(ctx, 0, "morning")
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, in := range []string{"MORNING", "Morning", "mOrNiNg"} {
-		got, err := d.GetTagByName(ctx, in)
+		got, err := d.GetTagByName(ctx, 0, in)
 		if err != nil {
 			t.Errorf("GetTagByName(%q): %v", in, err)
 			continue
@@ -55,11 +55,11 @@ func TestGetTagByName_IsCaseInsensitive(t *testing.T) {
 func TestCreateTag_TrimsWhitespace(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	t1, err := d.CreateTag(ctx, "  spaced  ")
+	t1, err := d.CreateTag(ctx, 0, "  spaced  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t2, err := d.GetTagByName(ctx, "spaced")
+	t2, err := d.GetTagByName(ctx, 0, "spaced")
 	if err != nil {
 		t.Fatalf("tag should be retrievable by trimmed name: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestCreateTag_TrimsWhitespace(t *testing.T) {
 func TestCreateTag_RejectsEmpty(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	if _, err := d.CreateTag(ctx, "   "); err == nil {
+	if _, err := d.CreateTag(ctx, 0, "   "); err == nil {
 		t.Error("CreateTag on whitespace-only should fail, got nil")
 	}
 }
@@ -79,12 +79,12 @@ func TestCreateTag_RejectsEmpty(t *testing.T) {
 func TestAttachTag_AutoCreates(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "writing")
-	s, err := d.CreateSession(ctx, act.ID, time.Now(), "")
+	act, _ := d.GetOrCreateActivity(ctx, 0, "writing")
+	s, err := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.AttachTag(ctx, s.ID, "deep-work"); err != nil {
+	if err := d.AttachTag(ctx, 0, s.ID, "deep-work"); err != nil {
 		t.Fatalf("AttachTag should auto-create: %v", err)
 	}
 	// Tag should exist now.
@@ -100,10 +100,10 @@ func TestAttachTag_AutoCreates(t *testing.T) {
 func TestAttachTag_Idempotent(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "reading")
-	s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, s.ID, "morning")
-	if err := d.AttachTag(ctx, s.ID, "morning"); err != nil {
+	act, _ := d.GetOrCreateActivity(ctx, 0, "reading")
+	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	_ = d.AttachTag(ctx, 0, s.ID, "morning")
+	if err := d.AttachTag(ctx, 0, s.ID, "morning"); err != nil {
 		t.Errorf("double attach should be no-op, got: %v", err)
 	}
 	tags, _ := d.ListTagsForSession(ctx, s.ID)
@@ -115,13 +115,13 @@ func TestAttachTag_Idempotent(t *testing.T) {
 func TestDetachTag_KeepsTagAlive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "work")
-	s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	_, _ = d.CreateTag(ctx, "office")
-	if err := d.AttachTag(ctx, s.ID, "office"); err != nil {
+	act, _ := d.GetOrCreateActivity(ctx, 0, "work")
+	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	_, _ = d.CreateTag(ctx, 0, "office")
+	if err := d.AttachTag(ctx, 0, s.ID, "office"); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.DetachTag(ctx, s.ID, "office"); err != nil {
+	if err := d.DetachTag(ctx, 0, s.ID, "office"); err != nil {
 		t.Fatal(err)
 	}
 	tags, _ := d.ListTagsForSession(ctx, s.ID)
@@ -129,7 +129,7 @@ func TestDetachTag_KeepsTagAlive(t *testing.T) {
 		t.Errorf("session still has tags after detach: %v", tags)
 	}
 	// Tag itself should still exist.
-	all, _ := d.ListTags(ctx)
+	all, _ := d.ListTags(ctx, 0)
 	found := false
 	for _, tg := range all {
 		if tg.Name == "office" {
@@ -144,12 +144,12 @@ func TestDetachTag_KeepsTagAlive(t *testing.T) {
 func TestSetTagsForSession_ReplacesAll(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "study")
-	s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, s.ID, "old1")
-	_ = d.AttachTag(ctx, s.ID, "old2")
+	act, _ := d.GetOrCreateActivity(ctx, 0, "study")
+	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	_ = d.AttachTag(ctx, 0, s.ID, "old1")
+	_ = d.AttachTag(ctx, 0, s.ID, "old2")
 
-	if err := d.SetTagsForSession(ctx, s.ID, []string{"new1", "new2", "new3"}); err != nil {
+	if err := d.SetTagsForSession(ctx, 0, s.ID, []string{"new1", "new2", "new3"}); err != nil {
 		t.Fatal(err)
 	}
 	tags, _ := d.ListTagsForSession(ctx, s.ID)
@@ -168,10 +168,10 @@ func TestSetTagsForSession_ReplacesAll(t *testing.T) {
 func TestSetTagsForSession_EmptyClears(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "calm")
-	s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, s.ID, "temp")
-	if err := d.SetTagsForSession(ctx, s.ID, nil); err != nil {
+	act, _ := d.GetOrCreateActivity(ctx, 0, "calm")
+	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	_ = d.AttachTag(ctx, 0, s.ID, "temp")
+	if err := d.SetTagsForSession(ctx, 0, s.ID, nil); err != nil {
 		t.Fatal(err)
 	}
 	tags, _ := d.ListTagsForSession(ctx, s.ID)
@@ -183,17 +183,17 @@ func TestSetTagsForSession_EmptyClears(t *testing.T) {
 func TestTagsForSessions_BatchedAcrossMany(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "batch")
+	act, _ := d.GetOrCreateActivity(ctx, 0, "batch")
 	var sids []int64
 	for i := 0; i < 5; i++ {
-		s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
+		s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
 		sids = append(sids, s.ID)
 	}
 	// Tag session 0 with 'a', 1 with 'b', 2 with both.
-	_ = d.AttachTag(ctx, sids[0], "a")
-	_ = d.AttachTag(ctx, sids[1], "b")
-	_ = d.AttachTag(ctx, sids[2], "a")
-	_ = d.AttachTag(ctx, sids[2], "b")
+	_ = d.AttachTag(ctx, 0, sids[0], "a")
+	_ = d.AttachTag(ctx, 0, sids[1], "b")
+	_ = d.AttachTag(ctx, 0, sids[2], "a")
+	_ = d.AttachTag(ctx, 0, sids[2], "b")
 
 	got, err := d.TagsForSessions(ctx, sids)
 	if err != nil {
@@ -220,10 +220,10 @@ func TestTagsForSessions_BatchedAcrossMany(t *testing.T) {
 func TestDeleteTag_CascadesIntoSessionTags(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "doomed")
-	s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	tag, _ := d.CreateTag(ctx, "doomed")
-	if err := d.AttachTag(ctx, s.ID, "doomed"); err != nil {
+	act, _ := d.GetOrCreateActivity(ctx, 0, "doomed")
+	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	tag, _ := d.CreateTag(ctx, 0, "doomed")
+	if err := d.AttachTag(ctx, 0, s.ID, "doomed"); err != nil {
 		t.Fatal(err)
 	}
 	if err := d.DeleteTag(ctx, tag.ID); err != nil {
@@ -238,16 +238,16 @@ func TestDeleteTag_CascadesIntoSessionTags(t *testing.T) {
 func TestListAllTagsWithCounts_OrderedByPopularity(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, "rank")
+	act, _ := d.GetOrCreateActivity(ctx, 0, "rank")
 	// popular has 3 sessions, niche has 1.
 	for i := 0; i < 3; i++ {
-		s, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-		_ = d.AttachTag(ctx, s.ID, "popular")
+		s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+		_ = d.AttachTag(ctx, 0, s.ID, "popular")
 	}
-	one, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, one.ID, "niche")
+	one, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	_ = d.AttachTag(ctx, 0, one.ID, "niche")
 
-	tags, err := d.ListAllTagsWithCounts(ctx)
+	tags, err := d.ListAllTagsWithCounts(ctx, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestNormalizeTagCase_MergesDuplicates(t *testing.T) {
 	d := openLegacySchemaDB(t)
 	ctx := t.Context()
 
-	act, err := d.GetOrCreateActivity(ctx, "work")
+	act, err := d.GetOrCreateActivity(ctx, 0, "work")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,9 +291,9 @@ func TestNormalizeTagCase_MergesDuplicates(t *testing.T) {
 	}
 
 	// Session 1 has winner only, session 2 has loser only, session 3 has both.
-	s1, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	s2, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
-	s3, _ := d.CreateSession(ctx, act.ID, time.Now(), "")
+	s1, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	s2, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	s3, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
 	if _, err := d.sql.ExecContext(ctx,
 		`INSERT INTO session_tags (session_id, tag_id) VALUES (?, ?), (?, ?), (?, ?)`,
 		s1.ID, winnerID, s2.ID, loserID, s3.ID, loserID,
@@ -356,7 +356,7 @@ if keepFound != 1 {
 	if err := d.normalizeTagCase(); err != nil {
 		t.Fatalf("second normalizeTagCase: %v", err)
 	}
-	all, err := d.ListTags(ctx)
+	all, err := d.ListTags(ctx, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

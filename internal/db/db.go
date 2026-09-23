@@ -199,3 +199,22 @@ func NullTime(t time.Time) any {
 	}
 	return FormatTime(t)
 }
+
+// isUniqueViolation returns true when err is an SQLite UNIQUE constraint
+// violation. Used by get-or-create helpers that have to fall through to
+// a SELECT after a race-condition INSERT.
+func isUniqueViolation(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "UNIQUE constraint") ||
+		strings.Contains(msg, "constraint failed: UNIQUE") {
+		return true
+	}
+	type coder interface{ Code() int }
+	if c, ok := err.(coder); ok && c.Code() == 2067 {
+		return true
+	}
+	return false
+}
