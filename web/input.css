@@ -200,6 +200,9 @@
   .card-title { font-size: var(--step-1) !important; font-weight: 600; letter-spacing: -0.01em; }
   h1 { font-size: var(--step-3) !important; }
   h2 { font-size: var(--step-2) !important; }
+  /* A section label that is an h2 for the outline but reads as a column
+     head (the live ledger's «Идут сейчас»). */
+  h2.ledger-label { font-size: var(--step--2) !important; letter-spacing: 0.08em; line-height: 1.2; }
   h3 { font-size: var(--step-1) !important; }
   .stat-title { font-size: var(--step--2); letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
   .stat-value { font-size: var(--step-2); font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
@@ -694,9 +697,8 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     padding-bottom: var(--safe-b);
-    background: color-mix(in srgb, var(--color-base-100) 90%, transparent);
-    -webkit-backdrop-filter: saturate(1.4) blur(14px);
-    backdrop-filter: saturate(1.4) blur(14px);
+    /* Flat like every surface: tone + hairline, no blur (DESIGN.md). */
+    background: var(--color-base-100);
     border-top: 1px solid var(--color-base-300);
   }
   .tabbar > a,
@@ -736,7 +738,6 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
     border-radius: 1rem;
     background: var(--color-base-100);
     border: 1px solid var(--color-base-300);
-    box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
   }
   .minibar-main {
     display: flex;
@@ -848,11 +849,14 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
   #active-list .responsive-collapse tbody td:nth-child(3) { display: none; }
   #active-list .responsive-collapse tbody td:nth-child(4) { font-size: 1.25rem; font-weight: 600; text-align: right; }
   #active-list .responsive-collapse tbody td:last-child { grid-column: 1 / -1; margin-top: 0.5rem; }
+  /* Two light actions side by side, Stop alone on its own full-width row:
+     long labels («Продолжить») fit, and Stop is not a thumb-slip away. */
   #active-list .responsive-collapse tbody td:last-child > .flex {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
   }
+  #active-list .responsive-collapse tbody td:last-child > .flex > :last-child { grid-column: 1 / -1; }
   #active-list .responsive-collapse tbody td:last-child .btn { width: 100%; }
 }
 
@@ -861,4 +865,61 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 @media (max-width: 639px) {
   .responsive-collapse tbody td.is-empty { display: none; }
   .responsive-collapse tbody td::before { font-family: var(--font-sans); }
+}
+
+
+/* ------------------------------------------------------------------ */
+/* Live ledger (dashboard): entry line, running rows, ruled-off total  */
+/* ------------------------------------------------------------------ */
+.ledger-label {
+  font-size: var(--step--2, 0.694rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-base-content) 62%, transparent);
+}
+.ledger-more > summary { list-style: none; }
+.ledger-more > summary::-webkit-details-marker { display: none; }
+.ledger-more-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-height: 32px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  border-radius: var(--radius-field);
+}
+.ledger-more[open] > .ledger-more-summary { display: none; }
+/* The day's sum sits under the running rows behind the 2px total rule. */
+.ledger-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.25rem;
+  padding-top: 0.875rem;
+  border-top: 2px solid var(--color-base-300);
+}
+.ledger-figures {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  min-width: 0;
+  flex: 1;
+}
+.ledger-figures > div { display: flex; align-items: baseline; gap: 0.5rem; }
+.ledger-figures dt { font-size: 0.875rem; color: color-mix(in srgb, var(--color-base-content) 62%, transparent); }
+.ledger-figures dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+/* Name column takes what is left and truncates, so row actions never
+   get pushed off the sheet (Shrink-to-Truncate Rule). Rows are cards
+   below 640px, where this would collapse the cell. */
+@media (min-width: 640px) {
+  .ledger-name { width: 100%; max-width: 0; }
+}
+/* Phone: the label on its own line, the four figures as a 2×2 grid. */
+@media (max-width: 639px) {
+  .ledger-total { display: block; }
+  .ledger-figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0.5rem; }
+  .ledger-figures > div:last-child { grid-column: 1 / -1; }
+  .ledger-figures dt { white-space: nowrap; }
 }

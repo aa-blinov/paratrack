@@ -293,6 +293,8 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		ActiveSessions: activeViews,
 		Recent:         recentViews,
 		ActiveCount:    len(activeViews),
+		RunningCount:   countRunning(activeViews),
+		PausedCount:    len(activeViews) - countRunning(activeViews),
 		ActiveVM:       activeListVM{Lang: lang, Items: activeViews},
 	}
 	if projects, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
@@ -1482,4 +1484,15 @@ func (s *Server) notifyNewlyMetGoals(r *http.Request, activityID int64) {
 			"/goals")
 		break // one push per stop
 	}
+}
+
+// countRunning counts the timers that are ticking (not paused).
+func countRunning(views []sessionView) int {
+	n := 0
+	for _, v := range views {
+		if !v.Paused {
+			n++
+		}
+	}
+	return n
 }
