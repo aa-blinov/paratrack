@@ -101,28 +101,34 @@
           <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "projects.edit"}}</h3>
           <form method="POST" action="/projects/{{.Project.Slug}}" class="space-y-2">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-            <input type="text" name="name" value="{{.Project.Name}}" placeholder="Name"
-                   class="input input-bordered input-sm w-full" required>
+            <label class="form-control">
+              <span class="label-text text-sm">{{.T "projects.name"}}</span>
+              <input type="text" name="name" value="{{.Project.Name}}" placeholder="{{.T "projects.name"}}"
+                     class="input input-bordered input-sm w-full" required>
+            </label>
+            <span class="label-text text-sm">{{.T "projects.color"}}</span>
             <div class="flex items-center gap-2">
               <input type="color" name="color" value="{{.Project.Color}}"
                      class="w-10 h-8 rounded border border-base-300 bg-transparent cursor-pointer">
               <input type="text" name="color" value="{{.Project.Color}}"
                      class="input input-bordered input-xs flex-1 font-mono" pattern="^#[0-9a-fA-F]{6}$">
             </div>
-            <label class="label cursor-pointer justify-start gap-2 py-1 w-full">
+            <label class="label cursor-pointer justify-start items-start gap-2 py-1 w-full whitespace-normal">
               <input type="checkbox" name="archived" value="1" class="checkbox checkbox-xs" {{if .Archived}}checked{{end}}>
-              <span class="label-text text-sm">{{.T "projects.archivedLabel"}}</span>
+              <span class="label-text text-sm">{{.T "projects.archivedLabel"}} <span class="opacity-60">· {{.T "projects.archivedHint"}}</span></span>
             </label>
             <div class="w-full">
-              <span class="label-text text-sm">{{.T "projects.estimate"}} ({{.T "projects.estimateHint"}})</span>
+              <span class="label-text text-sm">{{.T "projects.estimate"}}</span>
+              <span class="block text-xs opacity-60">{{.T "projects.estimateHint"}}</span>
               <input type="number" name="estimate_minutes" min="0" step="30" class="input input-bordered input-sm w-full"
                      value="{{.EstimateInput}}"
                      placeholder="480">
             </div>
             <div class="w-full">
-              <span class="label-text text-sm">{{.T "bill.rate"}} ({{.T "bill.cents"}})</span>
-              <input type="number" name="rate_cents" min="0" step="100" class="input input-bordered input-sm w-full"
-                     value="{{.RateInput}}" placeholder="4500">
+              <span class="label-text text-sm">{{.T "bill.rate"}} {{.T "bill.cents"}}</span>
+              <span class="block text-xs opacity-60">{{.T "bill.rateHint"}}</span>
+              <input type="number" name="rate" min="0" step="0.01" inputmode="decimal" class="input input-bordered input-sm w-full"
+                     value="{{.RateInput}}" placeholder="45.00">
             </div>
             <label class="label cursor-pointer justify-start gap-2 py-1 w-full">
               <input type="checkbox" name="billable" value="1" class="checkbox checkbox-xs" {{if .Project.Billable}}checked{{end}}>

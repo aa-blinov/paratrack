@@ -46,6 +46,16 @@ func ParseDateTime(s string, now time.Time) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("empty time string")
 	}
 
+	// Russian keywords map onto the English grammar below.
+	s = ruKeywords.Replace(s)
+	for _, suffix := range []string{" назад", " ago"} {
+		if rest, ok := strings.CutSuffix(s, suffix); ok {
+			if d, err := ParseDuration(rest); err == nil {
+				return now.Add(-time.Duration(d) * time.Second), nil
+			}
+		}
+	}
+
 	// "now" — short circuit so the table below doesn't have to.
 	if s == "now" {
 		return now, nil
@@ -128,7 +138,7 @@ func ParseDateTime(s string, now time.Time) (time.Time, error) {
 // Bare numbers default to minutes — same quirk as the Python tracker,
 // because typing "90" is so common for "90 minutes".
 func ParseDuration(s string) (int, error) {
-	s = strings.TrimSpace(strings.ToLower(s))
+	s = strings.TrimSpace(strings.ToLower(strings.ReplaceAll(s, "\u00a0", " ")))
 	if s == "" {
 		return 0, fmt.Errorf("empty duration")
 	}
@@ -142,7 +152,7 @@ func ParseDuration(s string) (int, error) {
 	if n, err := strconv.Atoi(s); err == nil {
 		return n * 60, nil
 	}
-	if f, err := strconv.ParseFloat(s, 64); err == nil && !strings.ContainsAny(s, "hm") {
+	if f, err := strconv.ParseFloat(s, 64); err == nil && !strings.ContainsAny(s, "hmчм") {
 		// Float with no unit is still minutes (covers "1.5" → 1.5 min)
 		return int(f * 60), nil
 	}
@@ -164,15 +174,15 @@ func ParseDuration(s string) (int, error) {
 		}
 		unit := tok[2]
 		switch unit {
-		case "h", "hr", "hrs", "hour", "hours":
+		case "h", "hr", "hrs", "hour", "hours", "ч", "час", "часа", "часов":
 			total += val * 3600
-		case "m", "min", "mins", "minute", "minutes":
+		case "m", "min", "mins", "minute", "minutes", "м", "мин", "минута", "минуты", "минут":
 			total += val * 60
-		case "s", "sec", "secs", "second", "seconds":
+		case "s", "sec", "secs", "second", "seconds", "с", "сек":
 			total += val
-		case "d", "day", "days":
+		case "d", "day", "days", "д", "дн", "день", "дня", "дней":
 			total += val * 86400
-		case "w", "week", "weeks":
+		case "w", "week", "weeks", "н", "нед", "неделя", "недели", "недель":
 			total += val * 86400 * 7
 		default:
 			return 0, fmt.Errorf("unknown unit %q in duration", unit)
@@ -257,10 +267,12 @@ var (
 	agoRe     = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+(hour|hours|hr|hrs|minute|minutes|min|mins|day|days|week|weeks)\s+ago$`)
 	// durationTokenRe matches number + unit word; the unit alternative
 	// is bounded (no \b) so that "2h30m" splits at "2h" + "30m".
-	durationTokenRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?|s|secs?|seconds?|d|days?|w|weeks?)`)
+	durationTokenRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?|s|secs?|seconds?|d|days?|w|weeks?|часа|часов|час|ч|минуты|минута|минут|мин|м|сек|с|дней|дня|день|дн|д|недели|неделя|недель|нед|н)`)
 	// weekdayRe matches bare "monday" / "last monday" / "<weekday> HH:MM" / "last <weekday> HH:MM".
 	weekdayRe = regexp.MustCompile(`^(last\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(\s+\d{1,2}:\d{2})?$`)
 )
+
+var ruKeywords = strings.NewReplacer("сейчас", "now", "сегодня", "today", "вчера", "yesterday", "завтра", "tomorrow")
 
 func parseAgo(s string, now time.Time) (time.Time, bool) {
 	m := agoRe.FindStringSubmatch(s)

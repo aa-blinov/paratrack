@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ func TestToSessionViewDurationSecsMatchesLabel(t *testing.T) {
 	end := start.Add(90 * time.Minute)
 	sess := model.Session{ID: 1, ActivityID: 2, StartAt: start, EndAt: &end}
 	act := model.Activity{ID: 2, Name: "reading"}
-	v := toSessionView(sess, act, start.Add(-time.Hour), end.Add(time.Hour), time.Now())
+	v := toSessionView(sess, act, start.Add(-time.Hour), end.Add(time.Hour), time.Now(), i18n.En)
 	if v.DurationSecs != 5400 {
 		t.Errorf("DurationSecs = %d, want 5400", v.DurationSecs)
 	}
@@ -55,7 +56,7 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 		Activity: model.Activity{Name: "work"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart := buildChartData(sessions, period)
+	chart := buildChartData(sessions, period, i18n.En)
 	if !chart.HasData {
 		t.Fatal("expected chart data")
 	}

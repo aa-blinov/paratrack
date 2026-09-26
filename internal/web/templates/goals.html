@@ -9,7 +9,7 @@
     <form class="grid grid-cols-1 sm:grid-cols-[1fr_120px_120px_auto] gap-2 items-end" hx-post="/api/goals" hx-target="#goals-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
       <div>
         <label class="label py-1" for="g-activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
-        <input type="text" id="g-activity" name="activity" required placeholder="reading" list="known-activities" class="input input-bordered w-full">
+        <input type="text" id="g-activity" name="activity" required placeholder="{{.T "ph.activity"}}" list="known-activities" class="input input-bordered w-full">
         <datalist id="known-activities">
           {{range .Activities}}<option value="{{.Name}}">{{end}}
         </datalist>
@@ -56,8 +56,8 @@
                       hx-delete="/api/goals?activity={{urlquery .ActivityName}}&period={{urlquery .Period}}"
                       hx-target="#goals-list" hx-swap="innerHTML"
                       hx-confirm="{{.T "goals.confirmDelete"}}"
-                      title="Delete goal"
-                      aria-label="Delete goal">✕</button>
+                      title="{{.T "goals.delete"}}"
+                      aria-label="{{.T "goals.delete"}}">✕</button>
             </div>
           </div>
           <progress class="progress w-full" value="{{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}" max="100"></progress>

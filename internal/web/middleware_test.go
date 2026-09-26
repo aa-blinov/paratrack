@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -48,8 +49,8 @@ func TestPublicLoginPageAccessibleWithoutAuth(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("GET /login: want 200, got %d", w.Code)
 	}
-	if !strings.Contains(w.Body.String(), "Log in") {
-		t.Errorf("body should contain 'Log in', got first 200 chars: %q",
+	if want := i18n.T(i18n.Default, "title.Log in"); !strings.Contains(w.Body.String(), want) {
+		t.Errorf("body should contain %q, got first 200 chars: %q", want,
 			w.Body.String()[:min(200, len(w.Body.String()))])
 	}
 }

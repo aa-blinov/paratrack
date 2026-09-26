@@ -291,7 +291,9 @@ func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	u, _ := s.db.CreateWebhook(r.Context(), teamID(r),
 		strings.TrimSpace(r.PostForm.Get("url")),
 		strings.TrimSpace(r.PostForm.Get("secret")),
-		strings.TrimSpace(r.PostForm.Get("events")))
+		// Checkboxes post one "events" value each; API clients may still
+		// send a single comma list.
+		strings.TrimSpace(strings.Join(r.PostForm["events"], ",")))
 	if u.ID == 0 {
 		http.Redirect(w, r, "/settings/webhooks?flash="+encodeFlash(false, "bad url"), http.StatusSeeOther)
 		return

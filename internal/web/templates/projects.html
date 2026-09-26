@@ -35,11 +35,11 @@
               </div>
               <div>
                 <dt>{{$.T "dash.today"}}</dt>
-                <dd class="text-base font-medium opacity-100">{{if eq .TodaySecs 0}}—{{else}}{{fmtDuration .TodaySecs}}{{end}}</dd>
+                <dd class="text-base font-medium opacity-100">{{if eq .TodaySecs 0}}—{{else}}{{fmtDurL $.Lang .TodaySecs}}{{end}}</dd>
               </div>
               <div>
                 <dt>30d</dt>
-                <dd class="text-base font-medium opacity-100">{{if eq .MonthSecs 0}}—{{else}}{{fmtDuration .MonthSecs}}{{end}}</dd>
+                <dd class="text-base font-medium opacity-100">{{if eq .MonthSecs 0}}—{{else}}{{fmtDurL $.Lang .MonthSecs}}{{end}}</dd>
               </div>
             </dl>
           </div>

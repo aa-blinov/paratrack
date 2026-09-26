@@ -1,11 +1,12 @@
-// paratrack service worker — app shell cache, network-first for pages.
-const CACHE = "paratrack-v5";
+// paratrack service worker: app shell cache, network-first for pages,
+// offline fallback page. The server rewrites CACHE per deploy.
+const CACHE = "paratrack-v6";
+const OFFLINE = "/static/offline.html";
+const RU = (self.navigator.language || "").toLowerCase().startsWith("ru");
 const SHELL = [
-  "/static/css/paratrack.css",
-  "/static/js/app.js",
-  "/static/js/htmx.min.js",
-  "/static/js/alpine.min.js",
+  OFFLINE,
   "/static/fonts/inter-latin.woff2",
+  "/static/fonts/inter-cyrillic.woff2",
   "/static/fonts/fraunces-latin.woff2",
   "/static/icons.svg",
   "/static/icon192.png",
@@ -51,7 +52,8 @@ self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   // Never cache API or non-GET.
   if (e.request.method !== "GET" || url.pathname.startsWith("/api/")) return;
-  // Static: cache-first (they are embedded + versioned by deploy).
+  // Static: cache-first. Pages link them with ?v=<asset hash>, so a
+  // cached URL never goes stale.
   if (url.pathname.startsWith("/static/")) {
     e.respondWith(
       caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
@@ -72,7 +74,8 @@ self.addEventListener("fetch", (e) => {
         }
         return res;
       })
-      .catch(() => caches.match(e.request))
+      .catch(() => caches.match(e.request).then((hit) =>
+        hit || (e.request.mode === "navigate" ? caches.match(OFFLINE) : undefined)))
   );
 });
 
@@ -93,8 +96,8 @@ self.addEventListener("push", (e) => {
     vibrate: [40, 60, 40],
     data: { url: data.url || "/" },
     actions: [
-      { action: "open", title: "Open" },
-      { action: "dismiss", title: "Dismiss" },
+      { action: "open", title: RU ? "Открыть" : "Open" },
+      { action: "dismiss", title: RU ? "Закрыть" : "Dismiss" },
     ],
   }));
 });

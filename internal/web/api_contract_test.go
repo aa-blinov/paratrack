@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -380,7 +381,7 @@ func TestAPIUpdateSessionRecomputesEndFromDuration(t *testing.T) {
 		t.Fatalf("patch: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	row := readBody(t, resp)
-	if !strings.Contains(row, "2h 30m") {
+	if !strings.Contains(row, fmtDurL(i18n.Default, 9000)) {
 		t.Errorf("row should show 2h 30m: %q", row[:min(200, len(row))])
 	}
 	if !strings.Contains(row, "revised") {

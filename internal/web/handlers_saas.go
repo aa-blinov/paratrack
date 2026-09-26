@@ -131,25 +131,25 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 	endStr := strings.TrimSpace(r.FormValue("end"))
 	note := strings.TrimSpace(r.FormValue("note"))
 	if name == "" || startStr == "" || endStr == "" {
-		s.toast(w, "activity, start and end are required", "error")
+		s.toastL(w, r, "err.backfillRequired", "", "error")
 		s.respondActiveList(w, r) // keep the HTMX target happy
 		return
 	}
 	now := time.Now()
 	start, err := timeparse.ParseDateTime(startStr, now)
 	if err != nil {
-		s.toast(w, "bad start: "+err.Error(), "error")
+		s.toastL(w, r, "err.badStart", startStr, "error")
 		s.respondActiveList(w, r)
 		return
 	}
 	end, err := timeparse.ParseDateTime(endStr, now)
 	if err != nil {
-		s.toast(w, "bad end: "+err.Error(), "error")
+		s.toastL(w, r, "err.badEnd", endStr, "error")
 		s.respondActiveList(w, r)
 		return
 	}
 	if !end.After(start) {
-		s.toast(w, "end must be after start", "error")
+		s.toastL(w, r, "err.endBeforeStart", "", "error")
 		s.respondActiveList(w, r)
 		return
 	}

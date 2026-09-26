@@ -10,7 +10,7 @@
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "pay.generate"}}</h2>
-      <form method="POST" action="/payroll" class="grid gap-3 sm:grid-cols-3">
+      <form method="POST" action="/payroll" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div>
           <label class="label py-1"><span class="label-text">{{.T "inv.from"}}</span></label>
@@ -20,12 +20,12 @@
           <label class="label py-1"><span class="label-text">{{.T "inv.to"}}</span></label>
           <input type="date" name="end" required value="{{.DefEnd}}" class="input input-bordered w-full">
         </div>
-        <div class="flex items-end gap-2">
-          <input type="text" name="notes" class="input input-bordered flex-1" placeholder="{{.T "pay.notesPh"}}">
+        <div class="flex items-end gap-2 sm:col-span-2">
+          <input type="text" name="notes" class="input input-bordered flex-1 min-w-0" placeholder="{{.T "pay.notesPh"}}">
           <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "pay.create"}}</button>
         </div>
       </form>
-      <p class="text-xs opacity-60 mt-2">{{.T "pay.rateHint"}}</p>
+      <p class="text-xs opacity-60 mt-2">{{.T "pay.rateHint"}} <a href="/settings/members" class="link">{{.T "pay.rateLink"}}</a></p>
     </div>
   </div>
 
@@ -33,16 +33,16 @@
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "pay.list"}}</h2>
-      <table class="table table-sm">
+      <table class="table table-sm responsive-collapse">
         <thead><tr><th>{{.T "inv.number"}}</th><th>{{.T "inv.period"}}</th><th>{{.T "inv.hours"}}</th><th>{{.T "inv.amount"}}</th><th>{{.T "team.status"}}</th></tr></thead>
         <tbody>
           {{range .Items}}
           <tr>
-            <td><a href="/payroll/{{.ID}}" class="link link-hover font-mono">{{.Number}}</a></td>
-            <td class="text-xs opacity-70">{{.Period}}</td>
-            <td class="font-mono">{{.Hours}}</td>
-            <td class="font-mono">{{.Total}}</td>
-            <td><span class="badge badge-ghost badge-sm">{{.Status}}</span></td>
+            <td data-label="{{$.T "inv.number"}}"><a href="/payroll/{{.ID}}" class="link link-hover font-mono whitespace-nowrap">{{.Number}}</a></td>
+            <td data-label="{{$.T "inv.period"}}" class="text-xs opacity-70 whitespace-nowrap">{{.Period}}</td>
+            <td data-label="{{$.T "inv.hours"}}" class="font-mono whitespace-nowrap">{{.Hours}}</td>
+            <td data-label="{{$.T "inv.amount"}}" class="font-mono whitespace-nowrap">{{.Total}}</td>
+            <td data-label="{{$.T "team.status"}}"><span class="badge badge-ghost badge-sm">{{$.T (printf "status.%s" .Status)}}</span></td>
           </tr>
           {{end}}
         </tbody>
@@ -71,7 +71,7 @@
       <span class="font-mono">{{.Run.Number}}</span>
     </div>
     <div class="flex items-center gap-2">
-      <span class="badge badge-ghost badge-sm">{{.Run.Status}}</span>
+      <span class="badge badge-ghost badge-sm">{{.T (printf "status.%s" .Run.Status)}}</span>
       {{if ne .Run.Status "paid"}}
       <form method="POST" action="/payroll/{{.Run.ID}}/paid" class="inline">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">

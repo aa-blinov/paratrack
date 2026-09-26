@@ -7,6 +7,17 @@
     <p class="opacity-70 text-sm">{{.T "inv.blurb"}}</p>
   </header>
 
+  {{if not .Billable}}
+  <div role="alert" class="alert alert-warning">
+    {{icon "flag"}}
+    <div>
+      <div class="font-medium">{{.T "inv.noRateTitle"}}</div>
+      <div class="text-sm">{{.T "inv.noRateHint"}}</div>
+    </div>
+    <a href="/projects" class="btn btn-sm">{{.T "inv.noRateCta"}}</a>
+  </div>
+  {{end}}
+
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "inv.generate"}}</h2>
@@ -14,7 +25,7 @@
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div class="sm:col-span-2">
           <label class="label py-1" for="inv-client"><span class="label-text">{{.T "inv.client"}}</span></label>
-          <input id="inv-client" type="text" name="client" required class="input input-bordered w-full" placeholder="Acme Corp">
+          <input id="inv-client" type="text" name="client" required class="input input-bordered w-full" placeholder="{{.T "ph.client"}}">
         </div>
         <div>
           <label class="label py-1" for="inv-start"><span class="label-text">{{.T "inv.from"}}</span></label>
@@ -48,17 +59,17 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "inv.list"}}</h2>
       <div class="overflow-x-auto">
-      <table class="table table-sm w-full">
+      <table class="table table-sm responsive-collapse w-full">
         <thead><tr><th>{{.T "inv.number"}}</th><th>{{.T "inv.client"}}</th><th>{{.T "inv.period"}}</th><th>{{.T "inv.hours"}}</th><th>{{.T "inv.amount"}}</th><th>{{.T "team.status"}}</th></tr></thead>
         <tbody>
           {{range .Items}}
           <tr>
-            <td><a href="/invoices/{{.ID}}" class="link link-hover font-mono">{{.Number}}</a></td>
-            <td>{{.Client}}</td>
-            <td class="text-xs opacity-70">{{.Period}}</td>
-            <td class="font-mono">{{.Hours}}</td>
-            <td class="font-mono">{{.Total}}</td>
-            <td><span class="badge badge-ghost badge-sm">{{.Status}}</span></td>
+            <td data-label="{{$.T "inv.number"}}"><a href="/invoices/{{.ID}}" class="link link-hover font-mono whitespace-nowrap">{{.Number}}</a></td>
+            <td data-label="{{$.T "inv.client"}}">{{.Client}}</td>
+            <td data-label="{{$.T "inv.period"}}" class="text-xs opacity-70 whitespace-nowrap">{{.Period}}</td>
+            <td data-label="{{$.T "inv.hours"}}" class="font-mono whitespace-nowrap">{{.Hours}}</td>
+            <td data-label="{{$.T "inv.amount"}}" class="font-mono whitespace-nowrap">{{.Total}}</td>
+            <td data-label="{{$.T "team.status"}}"><span class="badge badge-ghost badge-sm">{{$.T (printf "status.%s" .Status)}}</span></td>
           </tr>
           {{end}}
         </tbody>
@@ -86,7 +97,7 @@
       <span class="font-mono">{{.Inv.Number}}</span>
     </div>
     <div class="flex items-center gap-2">
-      <span class="badge badge-ghost badge-sm">{{.Inv.Status}}</span>
+      <span class="badge badge-ghost badge-sm">{{.T (printf "status.%s" .Inv.Status)}}</span>
       {{if eq .Inv.Status "draft"}}
       <form method="POST" action="/invoices/{{.Inv.ID}}/status" class="inline">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">

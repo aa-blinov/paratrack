@@ -3,17 +3,13 @@
   {{template "flash-banner" .}}
   {{template "settings-sidebar" .}}
 
-  <h1 class="text-2xl mb-1">{{.T "team.workspaceTab"}}</h1>
-
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "team.current"}}</h2>
       <p class="text-sm opacity-60 mb-1">{{.T "team.switchHint"}}</p>
       <dl class="text-sm grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5">
-        <dt class="font-mono opacity-60">{{.T "team.idCol"}}</dt><dd>{{.Team.ID}}</dd>
-        <dt class="font-mono opacity-60">{{.T "team.slugCol"}}</dt><dd><code>{{.Team.Slug}}</code></dd>
-        <dt class="font-mono opacity-60">{{.T "team.nameCol"}}</dt><dd>{{.Team.Name}}</dd>
-        <dt class="font-mono opacity-60">{{.T "team.createdCol"}}</dt><dd>{{.Team.CreatedAt.Format "2006-01-02"}}</dd>
+        <dt class="opacity-60">{{.T "team.nameCol"}}</dt><dd>{{.Team.Name}}</dd>
+        <dt class="opacity-60">{{.T "team.createdCol"}}</dt><dd>{{.Team.CreatedAt.Format "2006-01-02"}}</dd>
       </dl>
     </div>
   </div>
@@ -38,7 +34,7 @@
       <form method="POST" action="/api/team/create" class="flex gap-2">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="sr-only" for="team-new-name">{{.T "projects.name"}}</label>
-        <input id="team-new-name" type="text" name="name" required minlength="1" placeholder="Side Project"
+        <input id="team-new-name" type="text" name="name" required minlength="1" placeholder="{{.T "ph.team"}}"
                class="input input-bordered flex-1">
         <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "projects.create"}}</button>
       </form>
@@ -51,8 +47,16 @@
       <p class="text-sm opacity-60 mb-3">{{.T "stripe.blurb"}}</p>
       <form method="POST" action="/api/team/stripe" class="space-y-2">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <input type="password" name="stripe_key" class="input input-bordered w-full" placeholder="sk_live_… / sk_test_…" autocomplete="off">
-        <input type="password" name="stripe_webhook_secret" class="input input-bordered w-full" placeholder="{{.T "stripe.whsec"}}" autocomplete="off">
+        <label class="form-control">
+          <span class="label-text">{{.T "stripe.keyLabel"}}</span>
+          <input type="password" name="stripe_key" class="input input-bordered w-full" placeholder="sk_live_… / sk_test_…" autocomplete="off">
+          <span class="text-xs opacity-60">{{.T "stripe.keyHint"}}</span>
+        </label>
+        <label class="form-control">
+          <span class="label-text">{{.T "stripe.whLabel"}}</span>
+          <input type="password" name="stripe_webhook_secret" class="input input-bordered w-full" placeholder="whsec_…" autocomplete="off">
+          <span class="text-xs opacity-60">{{.T "stripe.whHint"}}</span>
+        </label>
         <button type="submit" class="btn btn-neutral gap-1.5">{{icon "check"}}{{.T "stripe.save"}}</button>
       </form>
       <p class="text-xs opacity-60 mt-2">{{.T "stripe.hint"}}</p>
@@ -74,12 +78,20 @@
 {{end}}
 
 {{define "settings-sidebar"}}
-<div role="tablist" class="tabs tabs-border mb-4">
-  <a role="tab" href="/settings/team"      class="tab {{if eq .Active "settings-team"}}tab-active{{end}}">{{.T "team.workspaceTab"}}</a>
-  <a role="tab" href="/settings/members"   class="tab {{if eq .Active "settings-members"}}tab-active{{end}}">{{.T "team.members"}}</a>
-  <a role="tab" href="/settings/invites"   class="tab {{if eq .Active "settings-invites"}}tab-active{{end}}">{{.T "team.outstanding"}}</a>
-  <a role="tab" href="/settings/profile"   class="tab {{if eq .Active "settings-profile"}}tab-active{{end}}">{{.T "profile.title"}}</a>
+{{/* Every settings page: one title, every section as a tab, and a line
+     saying what this section is for. */}}
+<h1 class="mb-2">{{.T "set.title"}}</h1>
+<div role="tablist" class="tabs tabs-border mb-2 flex-wrap max-sm:flex-nowrap max-sm:overflow-x-auto" style="scrollbar-width:none">
+  <a role="tab" href="/settings/profile" class="tab whitespace-nowrap {{if eq .Active "settings-profile"}}tab-active{{end}}" {{if eq .Active "settings-profile"}}aria-current="page"{{end}}>{{.T "profile.title"}}</a>
+  <a role="tab" href="/settings/notifications" class="tab whitespace-nowrap {{if eq .Active "settings-notify"}}tab-active{{end}}" {{if eq .Active "settings-notify"}}aria-current="page"{{end}}>{{.T "sheet.notifications"}}</a>
+  <a role="tab" href="/settings/team" class="tab whitespace-nowrap {{if eq .Active "settings-team"}}tab-active{{end}}" {{if eq .Active "settings-team"}}aria-current="page"{{end}}>{{.T "team.workspaceTab"}}</a>
+  <a role="tab" href="/settings/members" class="tab whitespace-nowrap {{if eq .Active "settings-members"}}tab-active{{end}}" {{if eq .Active "settings-members"}}aria-current="page"{{end}}>{{.T "team.members"}}</a>
+  <a role="tab" href="/settings/invites" class="tab whitespace-nowrap {{if eq .Active "settings-invites"}}tab-active{{end}}" {{if eq .Active "settings-invites"}}aria-current="page"{{end}}>{{.T "set.tabInvites"}}</a>
+  <a role="tab" href="/settings/tokens" class="tab whitespace-nowrap {{if eq .Active "settings-tokens"}}tab-active{{end}}" {{if eq .Active "settings-tokens"}}aria-current="page"{{end}}>{{.T "set.tabTokens"}}</a>
+  <a role="tab" href="/settings/webhooks" class="tab whitespace-nowrap {{if eq .Active "settings-webhooks"}}tab-active{{end}}" {{if eq .Active "settings-webhooks"}}aria-current="page"{{end}}>{{.T "set.tabWebhooks"}}</a>
+  <a role="tab" href="/settings/audit" class="tab whitespace-nowrap {{if eq .Active "settings-audit"}}tab-active{{end}}" {{if eq .Active "settings-audit"}}aria-current="page"{{end}}>{{.T "set.tabAudit"}}</a>
 </div>
+<p class="text-sm opacity-70 mb-4">{{.T (printf "set.desc.%s" .Active)}}</p>
 {{end}}
 
 {{define "flash-banner"}}
