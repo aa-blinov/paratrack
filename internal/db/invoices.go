@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -86,17 +85,17 @@ func (d *DB) CreateInvoice(ctx context.Context, teamID int64, number, clientName
 	defer func() { _ = tx.Rollback() }()
 
 	now := FormatTime(time.Now().UTC())
-	res, err := tx.ExecContext(ctx,
+	var invID int64
+	err = tx.QueryRowContext(ctx,
 		`INSERT INTO invoices (team_id, number, client_name, period_start, period_end, status, notes, created_at)
-		 VALUES (?, ?, ?, ?, ?, 'draft', ?, ?)`,
-		teamID, number, clientName, FormatTime(start), FormatTime(end), notes, now)
+		 VALUES (?, ?, ?, ?, ?, 'draft', ?, ?) RETURNING id`,
+		teamID, number, clientName, FormatTime(start), FormatTime(end), notes, now).Scan(&invID)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			return Invoice{}, ErrDuplicate
 		}
 		return Invoice{}, err
 	}
-	invID, _ := res.LastInsertId()
 	for _, l := range lines {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO invoice_lines (invoice_id, label, detail, seconds, rate_cents, amount_cents)

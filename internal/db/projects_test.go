@@ -298,20 +298,20 @@ func TestSlugsLowercaseOnly(t *testing.T) {
 func seedTeam(t *testing.T, d *DB, name, slug string) int64 {
 	t.Helper()
 	ctx := context.Background()
-	ures, err := d.sql.ExecContext(ctx,
-		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)`,
-		"owner-"+slug+"@test.local", "x", "Owner")
+	var uid int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?) RETURNING id`,
+		"owner-"+slug+"@test.local", "x", "Owner").Scan(&uid)
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
-	uid, _ := ures.LastInsertId()
 
-	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO teams (slug, name, owner_id) VALUES (?, ?, ?)`, slug, name, uid)
+	var id int64
+	err = d.sql.QueryRowContext(ctx,
+		`INSERT INTO teams (slug, name, owner_id) VALUES (?, ?, ?) RETURNING id`, slug, name, uid).Scan(&id)
 	if err != nil {
 		t.Fatalf("seed team: %v", err)
 	}
-	id, err := res.LastInsertId()
 	if err != nil {
 		t.Fatalf("last id: %v", err)
 	}

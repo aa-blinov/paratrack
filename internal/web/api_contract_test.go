@@ -375,7 +375,7 @@ func TestAPIUpdateSessionRecomputesEndFromDuration(t *testing.T) {
 
 	start := time.Now().Add(-2 * time.Hour).Format("2006-01-02T15:04")
 	resp = e.do("PATCH", "/api/sessions/"+id, url.Values{
-		"start_at": {start}, "duration": {"2h 30m"}, "note": {"revised"},
+		"start_at": {start}, "end_at": {start}, "duration": {"2h 30m"}, "note": {"revised"},
 	}, map[string]string{"HX-Request": "true"})
 	if resp.StatusCode != 200 {
 		t.Fatalf("patch: %d %s", resp.StatusCode, readBody(t, resp))

@@ -45,13 +45,13 @@ func newProjectTestEnv(t *testing.T) *projectTestEnv {
 
 	ctx := context.Background()
 
-	ures, err := srv.db.SQL().ExecContext(ctx,
-		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)`,
-		"projects@test.local", "x", "Projects Tester")
+	var uid int64
+	err = srv.db.SQL().QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?) RETURNING id`,
+		"projects@test.local", "x", "Projects Tester").Scan(&uid)
 	if err != nil {
 		t.Fatalf("seed user: %v", err)
 	}
-	uid, _ := ures.LastInsertId()
 
 	const tok = "test-token-projects"
 	if _, err := srv.db.SQL().ExecContext(ctx,
@@ -60,13 +60,13 @@ func newProjectTestEnv(t *testing.T) *projectTestEnv {
 		t.Fatalf("seed auth_session: %v", err)
 	}
 
-	tres, err := srv.db.SQL().ExecContext(ctx,
-		`INSERT INTO teams (slug, name, owner_id) VALUES (?, ?, ?)`,
-		"projects-team", "Projects Team", uid)
+	var tid int64
+	err = srv.db.SQL().QueryRowContext(ctx,
+		`INSERT INTO teams (slug, name, owner_id) VALUES (?, ?, ?) RETURNING id`,
+		"projects-team", "Projects Team", uid).Scan(&tid)
 	if err != nil {
 		t.Fatalf("seed team: %v", err)
 	}
-	tid, _ := tres.LastInsertId()
 
 	if _, err := srv.db.SQL().ExecContext(ctx,
 		`INSERT INTO memberships (team_id, user_id, role) VALUES (?, ?, 'owner')`,

@@ -28,3 +28,7 @@
 
 # local compose data
 /data/
+
+# compose secrets
+/.env
+/docker-compose.override.yml

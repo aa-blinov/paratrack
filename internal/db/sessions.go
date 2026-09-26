@@ -15,15 +15,15 @@ import (
 // the team association (legacy / tests).
 func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startAt time.Time, note string) (model.Session, error) {
 	startStr := FormatTime(startAt)
-	res, err := d.sql.ExecContext(ctx,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at)
-		 VALUES (?, ?, ?, ?, 0, 0, ?)`,
+		 VALUES (?, ?, ?, ?, 0, 0, ?) RETURNING id`,
 		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr,
-	)
+	).Scan(&id)
 	if err != nil {
 		return model.Session{}, err
 	}
-	id, err := res.LastInsertId()
 	if err != nil {
 		return model.Session{}, err
 	}
@@ -35,15 +35,15 @@ func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startA
 func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, startAt, endAt time.Time, note string) (model.Session, error) {
 	startStr := FormatTime(startAt)
 	endStr := FormatTime(endAt)
-	res, err := d.sql.ExecContext(ctx,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at)
-		 VALUES (?, ?, ?, ?, ?, 0, 0, NULL)`,
+		 VALUES (?, ?, ?, ?, ?, 0, 0, NULL) RETURNING id`,
 		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note),
-	)
+	).Scan(&id)
 	if err != nil {
 		return model.Session{}, err
 	}
-	id, err := res.LastInsertId()
 	if err != nil {
 		return model.Session{}, err
 	}

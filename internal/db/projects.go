@@ -43,17 +43,17 @@ func (d *DB) CreateProject(ctx context.Context, teamID int64, name, slug, color 
 		return model.Project{}, fmt.Errorf("project color %q must be a 7-char #rrggbb hex", color)
 	}
 	now := FormatTime(time.Now().UTC())
-	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO projects (team_id, slug, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO projects (team_id, slug, name, color, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
 		teamID, slug, name, color, now, now,
-	)
+	).Scan(&id)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return model.Project{}, ErrDuplicate
 		}
 		return model.Project{}, err
 	}
-	id, err := res.LastInsertId()
 	if err != nil || id == 0 {
 		return d.GetProjectBySlug(ctx, teamID, slug)
 	}
