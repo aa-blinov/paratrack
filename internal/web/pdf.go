@@ -15,17 +15,19 @@ func renderInvoicePDF(inv invoiceVM, teamName string) ([]byte, error) {
 	pdf.SetAutoPageBreak(true, 18)
 	pdf.AddPage()
 	pdf.SetFont("Helvetica", "", 10)
+	// Core fonts are cp1252: translate UTF-8 so "·", "–", "…" print.
+	tr := pdf.UnicodeTranslatorFromDescriptor("")
 
 	// Header
 	pdf.SetFont("Helvetica", "B", 18)
 	pdf.Cell(0, 9, "INVOICE")
 	pdf.Ln(8)
 	pdf.SetFont("Helvetica", "", 11)
-	pdf.Cell(0, 6, inv.Number)
+	pdf.Cell(0, 6, tr(inv.Number))
 	pdf.Ln(6)
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(110, 110, 110)
-	pdf.Cell(0, 5, "From: "+teamName)
+	pdf.Cell(0, 5, tr("From: "+teamName))
 	pdf.Ln(5)
 	pdf.SetTextColor(0, 0, 0)
 
@@ -36,11 +38,11 @@ func renderInvoicePDF(inv invoiceVM, teamName string) ([]byte, error) {
 	pdf.Cell(80, 5, "Billed to")
 	pdf.SetX(120)
 	pdf.SetFont("Helvetica", "B", 12)
-	pdf.Cell(80, 7, inv.ClientName)
+	pdf.Cell(80, 7, tr(inv.ClientName))
 	pdf.SetX(120)
 	pdf.SetFont("Helvetica", "", 9)
 	pdf.SetTextColor(110, 110, 110)
-	pdf.Cell(80, 5, inv.PeriodLabel)
+	pdf.Cell(80, 5, tr(inv.PeriodISO))
 	pdf.SetTextColor(0, 0, 0)
 	pdf.Ln(14)
 
@@ -60,7 +62,7 @@ func renderInvoicePDF(inv invoiceVM, teamName string) ([]byte, error) {
 		if pdf.GetStringWidth(label) > 85 {
 			label = truncateRunes(label, 28) + "…"
 		}
-		pdf.CellFormat(90, 7, label, "1", 0, "L", false, 0, "")
+		pdf.CellFormat(90, 7, tr(label), "1", 0, "L", false, 0, "")
 		pdf.CellFormat(25, 7, l.Hours, "1", 0, "R", false, 0, "")
 		pdf.CellFormat(30, 7, l.Rate, "1", 0, "R", false, 0, "")
 		pdf.CellFormat(35, 7, l.Amount, "1", 0, "R", false, 0, "")
@@ -69,7 +71,7 @@ func renderInvoicePDF(inv invoiceVM, teamName string) ([]byte, error) {
 
 	// Total
 	pdf.SetFont("Helvetica", "B", 10)
-	pdf.CellFormat(115, 9, "Total · "+inv.Hours, "1", 0, "R", false, 0, "")
+	pdf.CellFormat(115, 9, tr("Total · "+inv.Hours), "1", 0, "R", false, 0, "")
 	pdf.CellFormat(30, 9, "", "1", 0, "R", false, 0, "")
 	pdf.CellFormat(35, 9, inv.Total, "1", 0, "R", false, 0, "")
 	pdf.Ln(-1)
