@@ -1,0 +1,9 @@
+.git
+.venv
+**/node_modules
+e2e
+screenshots
+docs
+/paratrack
+/paratrack-web
+*.md
