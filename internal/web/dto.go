@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"net/http"
 	"strings"
 	"time"
 
@@ -211,7 +212,7 @@ func (v goalView) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 // -- view-model helpers ----------------------------------------------
 
-func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd time.Time, now time.Time) sessionView {
+func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd time.Time, now time.Time, lang i18n.Lang) sessionView {
 	v := sessionView{
 		ID:                 s.ID,
 		ActivityID:         s.ActivityID,
@@ -222,6 +223,7 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		StartLocal:         s.StartAt.Local().Format("01-02 15:04"),
 		AccumulatedSeconds: s.AccumulatedSeconds,
 		Paused:             s.Paused,
+		Lang:               string(lang),
 	}
 	if s.EndAt != nil {
 		v.EndLocal = s.EndAt.Local().Format("01-02 15:04")
@@ -235,21 +237,21 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 	// clipped `Duration` (shown in the table cell) is derived after.
 	if s.EndAt != nil {
 		fullSecs := s.DurationSeconds(now)
-		v.DurationInput = fmtDuration(fullSecs)
+		v.DurationInput = fmtDurL(lang, fullSecs)
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
-		v.Duration = fmtDuration(v.DurationSecs)
+		v.Duration = fmtDurL(lang, v.DurationSecs)
 	} else if s.LastResumeAt != nil && !s.Paused {
 		secs := s.DurationSeconds(now)
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
-		v.Duration = fmtDuration(v.DurationSecs)
-		v.DurationInput = durationToHuman(secs)
+		v.Duration = fmtDurL(lang, v.DurationSecs)
+		v.DurationInput = durationToHuman(lang, secs)
 	} else if s.Paused {
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
-		v.Duration = fmtDuration(v.DurationSecs)
-		v.DurationInput = durationToHuman(s.AccumulatedSeconds)
+		v.Duration = fmtDurL(lang, v.DurationSecs)
+		v.DurationInput = durationToHuman(lang, s.AccumulatedSeconds)
 	} else {
-		v.Duration = "0m"
-		v.DurationInput = "0m"
+		v.Duration = fmtDurL(lang, 0)
+		v.DurationInput = v.Duration
 	}
 	return v
 }
@@ -355,27 +357,38 @@ func toAny(xs []int64) []any {
 	return out
 }
 
-// durationToHuman is an alias of fmtDuration so the editable field
+// durationToHuman is an alias of fmtDurL so the editable field
 // matches the read-only cells.
-func durationToHuman(sec int) string { return fmtDuration(sec) }
+func durationToHuman(lang i18n.Lang, sec int) string { return fmtDurL(lang, sec) }
 
-// fmtDuration is the single duration label used everywhere.
-func fmtDuration(sec int) string {
+// fmtDuration is the English duration label (API, CSV, tests).
+func fmtDuration(sec int) string { return fmtDurL(i18n.En, sec) }
+
+// fmtDur is fmtDurL in the request's language.
+func fmtDur(r *http.Request, sec int) string { return fmtDurL(resolveLang(r), sec) }
+
+// fmtDurL is the single duration label used everywhere: "1h 30m" /
+// "1 ч 30 мин". timeparse.ParseDuration reads both back.
+func fmtDurL(lang i18n.Lang, sec int) string {
+	hu, mu := "h", "m"
+	if lang == i18n.Ru {
+		hu, mu = "\u00a0ч", "\u00a0мин"
+	}
 	if sec <= 0 {
-		return "0m"
+		return "0" + mu
 	}
 	if sec < 60 {
-		return "1m"
+		return "1" + mu
 	}
 	h := sec / 3600
 	m := (sec / 60) % 60
 	switch {
 	case h > 0 && m > 0:
-		return fmt.Sprintf("%dh %dm", h, m)
+		return fmt.Sprintf("%d%s %d%s", h, hu, m, mu)
 	case h > 0:
-		return fmt.Sprintf("%dh", h)
+		return fmt.Sprintf("%d%s", h, hu)
 	default:
-		return fmt.Sprintf("%dm", m)
+		return fmt.Sprintf("%d%s", m, mu)
 	}
 }
 
@@ -416,3 +429,32 @@ type activeListVM struct {
 }
 
 func (v activeListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
+
+var (
+	ruWeekdays = [...]string{"Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"}
+	ruMonths   = [...]string{"янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"}
+)
+
+// fmtWeekday is the short weekday: "Mon" / "Пн".
+func fmtWeekday(lang i18n.Lang, t time.Time) string {
+	if lang == i18n.Ru {
+		return ruWeekdays[t.Weekday()]
+	}
+	return t.Format("Mon")
+}
+
+// fmtDay is day + month: "Sep 21" / "21 сен".
+func fmtDay(lang i18n.Lang, t time.Time) string {
+	if lang == i18n.Ru {
+		return fmt.Sprintf("%d %s", t.Day(), ruMonths[t.Month()-1])
+	}
+	return t.Format("Jan 2")
+}
+
+// fmtDate is a full date: "Sep 21, 2026" / "21 сен 2026".
+func fmtDate(lang i18n.Lang, t time.Time) string {
+	if lang == i18n.Ru {
+		return fmt.Sprintf("%s %d", fmtDay(lang, t), t.Year())
+	}
+	return t.Format("Jan 2, 2006")
+}

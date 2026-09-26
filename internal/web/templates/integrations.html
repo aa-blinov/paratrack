@@ -13,11 +13,13 @@
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "int.connect"}}</h2>
-      <form method="POST" action="/integrations" class="grid gap-3 sm:grid-cols-2">
+      {{/* Hints follow the chosen provider instead of listing all eight. */}}
+      <form method="POST" action="/integrations" class="grid gap-3 sm:grid-cols-2"
+            x-data='{p: "github", ph: {github:{s:"ghp_…",t:"owner/repo"},gitlab:{s:"glpat-…",t:"group/project"},jira:{s:"you@company.com:api-token",t:"PROJ"},trello:{s:"key:token",t:"id доски"},asana:{s:"1/…",t:"GID проекта"},clickup:{s:"pk_…",t:"id списка"},todoist:{s:"api-token",t:""},notion:{s:"ntn_…",t:"id базы"}}}'>
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div>
           <label class="label py-1"><span class="label-text">{{.T "int.provider"}}</span></label>
-          <select name="provider" class="select select-bordered w-full">
+          <select name="provider" class="select select-bordered w-full" x-model="p">
             <option value="github">GitHub</option>
             <option value="gitlab">GitLab</option>
             <option value="jira">Jira</option>
@@ -30,19 +32,33 @@
         </div>
         <div>
           <label class="label py-1"><span class="label-text">{{.T "int.name"}}</span></label>
-          <input type="text" name="name" required placeholder="acme/api-server" class="input input-bordered w-full">
+          <input type="text" name="name" required placeholder="{{.T "int.namePh"}}" class="input input-bordered w-full">
+          <p class="text-xs opacity-60 mt-1">{{.T "int.nameHint"}}</p>
         </div>
         <div class="sm:col-span-2">
           <label class="label py-1"><span class="label-text">{{.T "int.secret"}}</span></label>
-          <input type="password" name="secret" required class="input input-bordered w-full"
-                 placeholder="ghp_… | key:token | email:token | ntn_… | glpat-… | pk_…">
-          <p class="text-xs opacity-60 mt-1">{{.T "int.secretHint"}}</p>
+          <input type="password" name="secret" required class="input input-bordered w-full" :placeholder="ph[p].s">
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'github'">{{.T "int.key.github"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'gitlab'" x-cloak>{{.T "int.key.gitlab"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'jira'" x-cloak>{{.T "int.key.jira"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'trello'" x-cloak>{{.T "int.key.trello"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'asana'" x-cloak>{{.T "int.key.asana"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'clickup'" x-cloak>{{.T "int.key.clickup"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'todoist'" x-cloak>{{.T "int.key.todoist"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'notion'" x-cloak>{{.T "int.key.notion"}}</p>
         </div>
         <div class="sm:col-span-2">
           <label class="label py-1"><span class="label-text">{{.T "int.target"}}</span></label>
-          <input type="text" name="extra" class="input input-bordered w-full" placeholder="owner/repo | board-id | PROJ | db-id | project-gid | list-id">
-          <p class="text-xs opacity-60 mt-1">{{.T "int.targetHint"}}</p>
-          <p class="text-xs opacity-50 mt-1">{{.T "int.jiraSite"}}</p>
+          <input type="text" name="extra" class="input input-bordered w-full" :placeholder="ph[p].t">
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'github'">{{.T "int.target.github"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'gitlab'" x-cloak>{{.T "int.target.gitlab"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'jira'" x-cloak>{{.T "int.target.jira"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'trello'" x-cloak>{{.T "int.target.trello"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'asana'" x-cloak>{{.T "int.target.asana"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'clickup'" x-cloak>{{.T "int.target.clickup"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'todoist'" x-cloak>{{.T "int.target.todoist"}}</p>
+          <p class="text-xs opacity-60 mt-1" x-show="p === 'notion'" x-cloak>{{.T "int.target.notion"}}</p>
+          <p class="text-xs opacity-50 mt-1" x-show="p === 'jira'" x-cloak>{{.T "int.jiraSite"}}</p>
         </div>
         <div class="sm:col-span-2">
           <button type="submit" class="btn btn-neutral gap-1.5">{{icon "link"}}{{.T "int.connectBtn"}}</button>

@@ -1,6 +1,7 @@
 {{define "graph-content"}}
-<script src="/static/js/echarts.min.js" defer onload="window.paratrackInitEcharts && window.paratrackInitEcharts()"></script>
-<h1 class="mb-4">{{.T "nav.graph"}}</h1>
+<script src="{{asset "js/echarts.min.js"}}" defer onload="window.paratrackInitEcharts && window.paratrackInitEcharts()"></script>
+<h1 class="mb-1">{{.T "graph.title"}}</h1>
+<p class="text-sm opacity-70 mb-4">{{.T "graph.pageBlurb"}}</p>
 
 <div class="period-tabs mb-4">
   {{$cur := .Period.Label}}

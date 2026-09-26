@@ -113,7 +113,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, _, err := s.auth.CreateUser(r.Context(), email, password, name)
+	userID, teamID, err := s.auth.CreateUser(r.Context(), email, password, name)
 	if err != nil {
 		code := "validation_failed"
 		switch {
@@ -127,6 +127,10 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/register?error="+code, http.StatusSeeOther)
 		return
 	}
+
+	// The personal team is created as "<Name>'s workspace"; name it in
+	// the visitor's language ("Пространство: Аня"). Best effort.
+	_ = s.teams.Rename(r.Context(), teamID, strings.ReplaceAll(i18n.T(resolveLang(r), "team.personalName"), "{name}", name))
 
 	sess, err := s.auth.NewSession(r.Context(), userID)
 	if err != nil {

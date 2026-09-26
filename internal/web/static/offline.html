@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#6366f1">
+<title>Нет сети | paratrack</title>
+<style>
+  @font-face { font-family: 'Inter'; font-weight: 100 900; font-display: swap; src: url('/static/fonts/inter-latin.woff2') format('woff2'); unicode-range: U+0000-00FF; }
+  @font-face { font-family: 'Inter'; font-weight: 100 900; font-display: swap; src: url('/static/fonts/inter-cyrillic.woff2') format('woff2'); unicode-range: U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  :root { --bg: #f9fafb; --card: #fff; --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --btn: #1f2937; --btn-ink: #fff; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --card: #1a1d23; --ink: #e5e7eb; --muted: #9ca3af; --line: #2a2e36; --btn: #e5e7eb; --btn-ink: #0f1115; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px;
+         background: var(--bg); color: var(--ink); font: 16px/1.5 'Inter', system-ui, sans-serif; }
+  .card { max-width: 26rem; width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  h1 { font-size: 1.375rem; margin: 0 0 8px; }
+  p { margin: 0 0 16px; color: var(--muted); }
+  button { font: inherit; font-weight: 600; min-height: 44px; padding: 0 20px; border: 0; border-radius: 8px;
+           background: var(--btn); color: var(--btn-ink); cursor: pointer; }
+  .en { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); font-size: 0.875rem; }
+</style>
+</head>
+<body>
+  <main class="card">
+    <h1>Нет соединения</h1>
+    <p>Эта страница ещё не открывалась без сети. Идущие таймеры не остановились: время считает сервер, и оно не потеряется.</p>
+    <button type="button" onclick="location.reload()">Повторить</button>
+    <p class="en">You are offline. Running timers keep counting on the server, nothing is lost. Reconnect and tap the button.</p>
+  </main>
+  <script>window.addEventListener("online", () => location.reload());</script>
+</body>
+</html>

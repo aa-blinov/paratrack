@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"fmt"
 	"net/http"
 	"sort"
@@ -70,7 +71,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		switch tpl.GroupBy {
 		case "project":
 			if as.Activity.ProjectID == 0 {
-				key = "Uncategorized"
+				key = i18n.T(resolveLang(r), "dash.uncategorized")
 			} else {
 				if p, err := s.db.GetProject(r.Context(), as.Activity.ProjectID); err == nil {
 					key = p.Name
@@ -78,17 +79,17 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 						_ = p
 					}
 				} else {
-					key = "Uncategorized"
+					key = i18n.T(resolveLang(r), "dash.uncategorized")
 				}
 			}
 		case "activity":
 			key = as.Activity.Name
 		case "day":
-			key = as.Session.StartAt.Local().Format("Mon Jan 2")
+			key = fmtWeekday(resolveLang(r), as.Session.StartAt.Local()) + " " + fmtDay(resolveLang(r), as.Session.StartAt.Local())
 		case "user":
 			uid := as.Session.UserID
 			if uid == 0 {
-				key = "Unassigned"
+				key = i18n.T(resolveLang(r), "report.unassigned")
 			} else if n, ok := userName[uid]; ok {
 				key = n
 			} else {
@@ -126,7 +127,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 			share = float64(a.secs) / float64(total) * 100
 		}
 		rows = append(rows, reportRow{
-			Key: k, Secs: a.secs, Hours: fmtDuration(a.secs), Share: share,
+			Key: k, Secs: a.secs, Hours: fmtDur(r, a.secs), Share: share,
 			Rate: formatMoney(a.rate), Amount: formatMoney(a.amount),
 			AmountCents: a.amount, RateCents: a.rate,
 		})
@@ -135,11 +136,11 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 
 	return reportVM{
 		Template:    tpl,
-		PeriodLabel: from.Format("Jan 2, 2006") + " – " + to.Format("Jan 2, 2006"),
+		PeriodLabel: fmtDate(resolveLang(r), from) + " – " + fmtDate(resolveLang(r), to),
 		From:        from.Format("2006-01-02"),
 		To:          to.Add(-time.Second).Format("2006-01-02"),
 		Rows:        rows,
-		Total:       fmtDuration(total),
+		Total:       fmtDur(r, total),
 		TotalSecs:   total,
 		TotalAmount: formatMoney(totalCents),
 		TotalCents:  totalCents,

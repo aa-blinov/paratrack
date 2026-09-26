@@ -33,6 +33,7 @@ def check(name: str, ok: bool, detail: str = ""):
 
 def main() -> int:
     s = requests.Session()
+    s.headers["Accept-Language"] = "en"  # assertions below match English labels
     ts = int(time.time())
     email = f"logic{ts}@x.test"
 

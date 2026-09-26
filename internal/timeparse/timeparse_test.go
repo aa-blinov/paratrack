@@ -16,9 +16,9 @@ func TestParseDuration(t *testing.T) {
 		want int // seconds
 	}{
 		// Empty / garbage
-		{"", 0},          // error path — checked below
-		{"junk", 0},      // error path
-		{"0", 0},         // technically error in production, but input is valid
+		{"", 0},     // error path — checked below
+		{"junk", 0}, // error path
+		{"0", 0},    // technically error in production, but input is valid
 
 		// Bare numbers are minutes.
 		{"90", 90 * 60},
@@ -40,6 +40,12 @@ func TestParseDuration(t *testing.T) {
 		{"2h30m", 9000}, // 2h + 30m = 2.5h
 		{"1h 2m 3s", 3600 + 120 + 3},
 		{"1d 2h", 86400 + 7200},
+
+		// Russian units, as rendered by the RU UI.
+		{"1 ч 30 мин", 5400},
+		{"2ч", 7200},
+		{"45 мин", 45 * 60},
+		{"2 часа", 7200},
 
 		// Case + whitespace tolerance.
 		{"  2H  ", 7200},
@@ -238,5 +244,20 @@ func TestAtStartOfDay_StripsTime(t *testing.T) {
 	want := time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC)
 	if !got.Equal(want) {
 		t.Errorf("atStartOfDay = %v, want %v", got, want)
+	}
+}
+func TestParseDateTimeRussian(t *testing.T) {
+	now := time.Date(2026, 9, 26, 12, 0, 0, 0, time.Local)
+	for in, want := range map[string]time.Time{
+		"вчера 14:00":  time.Date(2026, 9, 25, 14, 0, 0, 0, time.Local),
+		"сегодня":      time.Date(2026, 9, 26, 0, 0, 0, 0, time.Local),
+		"2 ч назад":    now.Add(-2 * time.Hour),
+		"30 мин назад": now.Add(-30 * time.Minute),
+		"2h ago":       now.Add(-2 * time.Hour),
+	} {
+		got, err := ParseDateTime(in, now)
+		if err != nil || !got.Equal(want) {
+			t.Errorf("%q: got %v, %v; want %v", in, got, err, want)
+		}
 	}
 }

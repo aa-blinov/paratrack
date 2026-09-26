@@ -12,24 +12,29 @@
       document.documentElement.dataset.themeMode = m;
       // label text is written here too — Alpine is deferred and would
       // otherwise pop the word in a frame later.
-      document.querySelectorAll('.theme-mode-label').forEach(el => { el.textContent = m; });
+      document.querySelectorAll('.theme-mode-label').forEach(el => { el.textContent = el.dataset[m] || m; });
     } catch (e) {}
   })();
   </script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{.Title}} | paratrack</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <meta name="theme-color" content="#6366f1">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#1a1d23" media="(prefers-color-scheme: dark)">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="paratrack">
   <link rel="apple-touch-icon" href="/static/icon192.png">
-  <link rel="stylesheet" href="/static/css/paratrack.css">
+  <link rel="stylesheet" href="{{asset "css/paratrack.css"}}">
   <link rel="preload" href="/static/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="preload" href="/static/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <script src="/static/js/htmx.min.js"></script>
-  <script defer src="/static/js/app.js"></script>
-  <script defer src="/static/js/alpine.min.js"></script>
+  <script src="{{asset "js/htmx.min.js"}}"></script>
+  <script defer src="{{asset "js/app.js"}}"></script>
+  <script defer src="{{asset "js/alpine.min.js"}}"></script>
 </head>
 <body class="min-h-screen flex flex-col bg-base-200 text-base-content">
-  <header class="bg-base-100 border-b border-base-300">
+  <header class="appbar bg-base-100 border-b border-base-300">
     <div class="navbar min-h-12! mx-auto max-w-6xl px-2 sm:px-4 gap-1 flex-nowrap items-center">
       <div class="shrink-0 flex items-center mr-2">
         <a href="/" class="btn btn-ghost btn-sm px-2 normal-case">
@@ -38,12 +43,12 @@
       </div>
       {{if .User}}
       <nav class="flex items-center gap-2 min-w-0 flex-nowrap flex-1">
-        {{/* --- primary links: shrink + scroll rather than wrap --- */}}
-        <div class="flex items-center gap-0.5 min-w-0 flex-1 overflow-x-auto" style="scrollbar-width:none">
-        <style>.navbar .overflow-x-auto::-webkit-scrollbar{display:none}</style>
+        {{/* Desktop nav (lg+). No overflow wrapper: it clipped the dropdowns.
+             Below lg the burger menu carries every link. */}}
+        <div class="hidden lg:flex items-center gap-0.5 min-w-0 flex-1">
         {{if .Team}}
         <div class="dropdown dropdown-end hidden lg:block">
-          <button tabindex="0" class="btn btn-ghost btn-sm max-w-[14rem]" title="Switch workspace">
+          <button tabindex="0" class="btn btn-ghost btn-sm max-w-[11rem] xl:max-w-[14rem]" title="{{.T "nav.switchWorkspace"}}">
             <span class="font-medium truncate max-w-[7rem] sm:max-w-[11rem]">{{.Team.Name}}</span>
             <span class="opacity-60 text-xs">▾</span>
           </button>
@@ -66,80 +71,32 @@
           </div>
         </div>
         {{end}}
-        {{/* Primary nav: full row on sm+, overflow menu on phones. Icons: Lucide. */}}
-        <div class="hidden sm:flex items-center gap-0.5">
           <a href="/" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "dashboard"}}btn-active{{end}}">{{icon "activity"}}{{.T "nav.dashboard"}}</a>
           <a href="/stats" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "stats"}}btn-active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.stats"}}</a>
           <a href="/timesheet" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "timesheet"}}btn-active{{end}}">{{icon "calendar"}}{{.T "nav.timesheet"}}</a>
-          <a href="/graph" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "graph"}}btn-active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a>
-          <a href="/goals" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "goals"}}btn-active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a>
-          <a href="/tags" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "tags"}}btn-active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a>
           <a href="/projects" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "projects"}}btn-active{{end}}">{{icon "folder"}}{{.T "nav.projects"}}</a>
-          <a href="/api/reports.csv" download class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}{{.T "nav.csv"}}</a>
+          <a href="/graph" class="btn btn-ghost btn-sm gap-1.5 hidden xl:inline-flex {{if eq .Active "graph"}}btn-active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a>
+          <a href="/goals" class="btn btn-ghost btn-sm gap-1.5 hidden xl:inline-flex {{if eq .Active "goals"}}btn-active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a>
+          <a href="/tags" class="btn btn-ghost btn-sm gap-1.5 hidden xl:inline-flex {{if eq .Active "tags"}}btn-active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a>
           <div class="dropdown dropdown-end">
-            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="More">{{icon "menu"}}<span class="hidden lg:inline">{{.T "nav.more"}}</span></button>
-            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-48 p-2 z-50">
-              <li><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
-              <li><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
-              <li><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>
-              <li><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>
-              <li><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
+            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 {{if or (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "schedule")}}btn-active{{end}}" title="{{.T "nav.more"}}">{{icon "menu"}}{{.T "nav.more"}}</button>
+            <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-56 p-2 z-50">
+              <li class="xl:hidden"><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
+              <li class="xl:hidden"><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
+              <li class="xl:hidden"><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
+              <li class=""><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
+              <li class=""><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
+              <li class=""><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
+              <li class=""><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>
+              <li class=""><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>
+              <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
             </ul>
           </div>
         </div>
-        </div>
+        <div class="flex-1 lg:hidden"></div>
         {{/* --- right actions: fixed, never wrap --- */}}
         <div class="flex items-center gap-0.5 shrink min-w-0 sm:shrink-0">
-        <div class="dropdown dropdown-end lg:hidden">
-          <button tabindex="0" class="btn btn-ghost btn-sm" title="Menu" aria-label="Menu">{{icon "menu" "icon icon-lg"}}</button>
-          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-48 p-2 z-50">
-            <li><a href="/" class="{{if eq .Active "dashboard"}}active{{end}}">{{icon "activity"}}{{.T "nav.dashboard"}}</a></li>
-            <li><a href="/stats" class="{{if eq .Active "stats"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.stats"}}</a></li>
-            <li><a href="/timesheet" class="{{if eq .Active "timesheet"}}active{{end}}">{{icon "calendar"}}{{.T "nav.timesheet"}}</a></li>
-            <li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
-            <li><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
-            <li><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
-            <li><a href="/projects" class="{{if eq .Active "projects"}}active{{end}}">{{icon "folder"}}{{.T "nav.projects"}}</a></li>
-            <li><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
-            <li><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
-            <li><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
-            <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
-            {{if .Team}}<li><a href="/settings/team">{{icon "users"}}{{.Team.Name}}</a></li>{{end}}
-            <li><a href="/settings/profile">{{icon "user"}}{{.T "nav.profile"}}</a></li>
-          </ul>
-        </div>
-        <div class="dropdown dropdown-end">
-          <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.T "nav.language"}}" aria-label="{{.T "nav.language"}}">
-            {{icon "languages"}}<span class="hidden sm:inline text-xs uppercase tracking-wider opacity-70">{{.LangName}}</span>
-          </button>
-          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-28 p-2 z-50">
-            <li>
-              {{if eq .Lang "en"}}
-                <span class="flex items-center gap-2 opacity-60">{{icon "check" "icon icon-sm"}}English</span>
-              {{else}}
-                <a href="/lang/en?next={{urlquery .RequestPath}}">English</a>
-              {{end}}
-            </li>
-            <li>
-              {{if eq .Lang "ru"}}
-                <span class="flex items-center gap-2 opacity-60">{{icon "check" "icon icon-sm"}}Русский</span>
-              {{else}}
-                <a href="/lang/ru?next={{urlquery .RequestPath}}">Русский</a>
-              {{end}}
-            </li>
-          </ul>
-        </div>
-        <button class="btn btn-ghost btn-sm theme-btn"
-                data-theme-toggle
-                title="Toggle theme (T)" data-toast-theme-auto="{{.T "toast.themeAuto"}}" data-toast-theme-light="{{.T "toast.themeLight"}}" data-toast-theme-dark="{{.T "toast.themeDark"}}"
-                x-data="themeToggle"
-                @click="cycle()">
-          <span class="theme-icon theme-icon-light">{{icon "sun"}}</span>
-          <span class="theme-icon theme-icon-dark">{{icon "moon"}}</span>
-          <span class="theme-icon theme-icon-auto">{{icon "sun-moon"}}</span>
-          <span class="hidden sm:inline text-xs uppercase tracking-wider opacity-60 theme-mode-label">auto</span>
-        </button>
-        <div class="dropdown dropdown-end">
+        <div class="dropdown dropdown-end hidden lg:block">
           <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.User.Email}}">
             {{icon "user"}}
             <span class="hidden sm:inline max-w-[8rem] truncate">{{.User.Name}}</span>
@@ -152,6 +109,7 @@
             <li><a href="/settings/tokens">{{icon "link"}}{{.T "nav.tokens"}}</a></li>
             <li><a href="/help">{{icon "flag"}}{{.T "nav.help"}}</a></li>
             <li><a href="/integrations">{{icon "zap"}}{{.T "nav.integrations"}}</a></li>
+            <li data-install hidden><a href="#">{{icon "download"}}{{.T "pwa.installTitle"}}</a></li>
             <li>
               <form method="POST" action="/api/logout">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
@@ -166,11 +124,32 @@
       <nav class="flex items-center gap-1 min-w-0 flex-nowrap justify-end flex-1">
         <a href="/login" class="btn btn-ghost btn-sm">{{.T "nav.login"}}</a>
         <a href="/register" class="btn btn-neutral btn-sm">{{.T "nav.signup"}}</a>
-        <div class="dropdown dropdown-end">
-          <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.T "nav.language"}}" aria-label="{{.T "nav.language"}}">
-            {{icon "languages"}}<span class="hidden sm:inline text-xs uppercase tracking-wider opacity-70">{{.LangName}}</span>
+      </nav>
+      {{end}}
+    </div>
+  </header>
+
+  <main class="flex-1 mx-auto max-w-6xl px-4 py-6 w-full">
+    {{.ContentHTML}}
+  </main>
+
+  <div id="toast"></div>
+
+
+  <footer class="{{if .User}}hidden lg:block {{end}}border-t border-base-300 bg-base-100 py-3">
+    <div class="mx-auto max-w-6xl px-4 flex items-center gap-2 flex-wrap">
+      <div class="text-sm opacity-60 flex-1 min-w-0 whitespace-nowrap truncate">
+        {{.T "version"}}<span class="hidden sm:inline">{{if .User}} · {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
+      </div>
+      <div class="flex items-center gap-1 shrink-0">
+        <button type="button" data-install hidden class="btn btn-ghost btn-xs gap-1" title="{{.T "pwa.installTitle"}}">
+          {{icon "download" "icon icon-sm"}}<span class="text-xs">{{.T "pwa.install"}}</span>
+        </button>
+        <div class="dropdown dropdown-top">
+          <button tabindex="0" class="btn btn-ghost btn-xs gap-1" title="{{.T "nav.language"}}" aria-label="{{.T "nav.language"}}">
+            {{icon "languages" "icon icon-sm"}}<span class="text-xs uppercase tracking-wider opacity-70">{{.LangName}}</span>
           </button>
-          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-28 p-2 z-50">
+          <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mb-2 w-28 p-2 z-50">
             <li>
               {{if eq .Lang "en"}}
                 <span class="flex items-center gap-2 opacity-60">{{icon "check" "icon icon-sm"}}English</span>
@@ -187,38 +166,113 @@
             </li>
           </ul>
         </div>
-        <button class="btn btn-ghost btn-sm theme-btn"
+        <button class="btn btn-ghost btn-xs theme-btn gap-1"
                 data-theme-toggle
-                title="Toggle theme (T)" data-toast-theme-auto="{{.T "toast.themeAuto"}}" data-toast-theme-light="{{.T "toast.themeLight"}}" data-toast-theme-dark="{{.T "toast.themeDark"}}"
+                title="{{.T "nav.theme"}} (T)" data-toast-theme-auto="{{.T "toast.themeAuto"}}" data-toast-theme-light="{{.T "toast.themeLight"}}" data-toast-theme-dark="{{.T "toast.themeDark"}}"
                 x-data="themeToggle"
                 @click="cycle()">
-          <span class="theme-icon theme-icon-light">{{icon "sun"}}</span>
-          <span class="theme-icon theme-icon-dark">{{icon "moon"}}</span>
-          <span class="theme-icon theme-icon-auto">{{icon "sun-moon"}}</span>
+          <span class="theme-icon theme-icon-light">{{icon "sun" "icon icon-sm"}}</span>
+          <span class="theme-icon theme-icon-dark">{{icon "moon" "icon icon-sm"}}</span>
+          <span class="theme-icon theme-icon-auto">{{icon "sun-moon" "icon icon-sm"}}</span>
+          <span class="text-xs uppercase tracking-wider opacity-60 theme-mode-label" data-auto="{{.T "theme.auto"}}" data-light="{{.T "theme.light"}}" data-dark="{{.T "theme.dark"}}">{{.T "theme.auto"}}</span>
         </button>
-      </nav>
-      {{end}}
-    </div>
-  </header>
-
-  <main class="flex-1 mx-auto max-w-6xl px-4 py-6 w-full">
-    {{.ContentHTML}}
-  </main>
-
-  <div id="toast"></div>
-
-  <footer class="border-t border-base-300 bg-base-100 py-4">
-    <div class="mx-auto max-w-6xl px-4 text-sm opacity-60">
-      {{.T "version"}}{{if .User}} · {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}
+      </div>
     </div>
   </footer>
 
+  {{if .User}}
+  {{/* Phone / tablet chrome: running-timer bar, bottom tabs, "More" sheet. */}}
+  {{if ne .Active "dashboard"}}
+  <div id="minibar" class="minibar lg:hidden" hx-get="/api/minibar"
+       hx-trigger="load, sessions-changed from:body, every 30s" hx-swap="innerHTML"></div>
+  {{end}}
+  <nav class="tabbar lg:hidden" aria-label="{{.T "nav.menu"}}">
+    <a href="/" class="{{if eq .Active "dashboard"}}active{{end}}" {{if eq .Active "dashboard"}}aria-current="page"{{end}}>{{icon "activity"}}<span>{{.T "nav.dashboard"}}</span></a>
+    <a href="/stats" class="{{if eq .Active "stats"}}active{{end}}" {{if eq .Active "stats"}}aria-current="page"{{end}}>{{icon "bar-chart-3"}}<span>{{.T "nav.stats"}}</span></a>
+    <a href="/timesheet" class="{{if eq .Active "timesheet"}}active{{end}}" {{if eq .Active "timesheet"}}aria-current="page"{{end}}>{{icon "calendar"}}<span>{{.T "nav.timesheet"}}</span></a>
+    <a href="/projects" class="{{if eq .Active "projects"}}active{{end}}" {{if eq .Active "projects"}}aria-current="page"{{end}}>{{icon "folder"}}<span>{{.T "nav.projects"}}</span></a>
+    <button type="button" data-sheet-open="more-sheet" class="{{if not (or (eq .Active "dashboard") (eq .Active "stats") (eq .Active "timesheet") (eq .Active "projects"))}}active{{end}}">{{icon "menu"}}<span>{{.T "nav.more"}}</span></button>
+  </nav>
+
+  <dialog id="more-sheet" class="sheet" aria-label="{{.T "nav.more"}}">
+    <div class="sheet-grab" data-sheet-grab></div>
+    <div class="flex items-center justify-between mb-2">
+      <div class="min-w-0">
+        <div class="font-semibold truncate">{{.User.Name}}</div>
+        <div class="text-sm opacity-60 truncate">{{.User.Email}}</div>
+      </div>
+      <form method="dialog"><button class="btn btn-ghost btn-circle" aria-label="{{.T "sheet.close"}}">{{icon "x"}}</button></form>
+    </div>
+    <ul class="sheet-list">
+      <li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
+      <li><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
+      <li><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
+      <li><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
+      <li><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
+      <li><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
+      <li><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>
+      <li><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>
+      <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
+    </ul>
+    {{if gt (len .UserTeams) 1}}
+    <div class="sheet-heading">{{.T "nav.workspaces"}}</div>
+    <ul class="sheet-list">
+      {{range .UserTeams}}
+      <li>
+        <form method="POST" action="/api/team/switch">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <input type="hidden" name="team_id" value="{{.ID}}">
+          <input type="hidden" name="next" value="{{$.RequestPath}}">
+          <button type="submit" class="sheet-team {{if eq .ID $.Team.ID}}active{{end}}">
+            {{icon "users"}}<span class="truncate flex-1 text-left">{{.Name}}</span>{{if eq .ID $.Team.ID}}{{icon "check"}}{{end}}
+          </button>
+        </form>
+      </li>
+      {{end}}
+    </ul>
+    {{end}}
+    <div class="sheet-heading">{{.T "sheet.account"}}</div>
+    <ul class="sheet-list">
+      {{if .Team}}<li><a href="/settings/team">{{icon "settings"}}<span class="truncate">{{.Team.Name}}</span></a></li>{{end}}
+      <li><a href="/settings/profile">{{icon "user"}}{{.T "nav.profile"}}</a></li>
+      <li><a href="/settings/notifications">{{icon "bell"}}{{.T "sheet.notifications"}}</a></li>
+      <li><a href="/integrations">{{icon "link"}}{{.T "nav.integrations"}}</a></li>
+      <li><a href="/help">{{icon "circle-help"}}{{.T "nav.help"}}</a></li>
+      <li data-install hidden><a href="#">{{icon "download"}}{{.T "pwa.installTitle"}}</a></li>
+    </ul>
+    <div class="flex items-center gap-2 mt-3">
+      <a href="/lang/{{if eq .Lang "ru"}}en{{else}}ru{{end}}?next={{urlquery .RequestPath}}" class="btn btn-ghost btn-sm flex-1 gap-1.5">{{icon "languages" "icon icon-sm"}}{{if eq .Lang "ru"}}English{{else}}Русский{{end}}</a>
+      <button type="button" class="btn btn-ghost btn-sm flex-1 gap-1.5" data-theme-toggle
+              data-toast-theme-auto="{{.T "toast.themeAuto"}}" data-toast-theme-light="{{.T "toast.themeLight"}}" data-toast-theme-dark="{{.T "toast.themeDark"}}"
+              x-data="themeToggle" @click="cycle()">
+        <span class="theme-icon theme-icon-light">{{icon "sun" "icon icon-sm"}}</span>
+        <span class="theme-icon theme-icon-dark">{{icon "moon" "icon icon-sm"}}</span>
+        <span class="theme-icon theme-icon-auto">{{icon "sun-moon" "icon icon-sm"}}</span>
+        <span class="theme-mode-label" data-auto="{{.T "theme.auto"}}" data-light="{{.T "theme.light"}}" data-dark="{{.T "theme.dark"}}">{{.T "theme.auto"}}</span>
+      </button>
+    </div>
+    <form method="POST" action="/api/logout" class="mt-2">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <button type="submit" class="btn btn-ghost btn-sm w-full gap-1.5 text-error">{{icon "log-out" "icon icon-sm"}}{{.T "nav.logout"}}</button>
+    </form>
+  </dialog>
+  {{end}}
+
   <script>
+    window.paratrackT = {
+      sendError: {{.T "pwa.sendError"}},
+      needStartDuration: {{.T "err.needStartDuration"}},
+      iosInstall: {{.T "pwa.iosInstall"}},
+      offline: {{.T "pwa.offline"}},
+      offlinePending: {{.T "pwa.offlinePending"}},
+      syncing: {{.T "pwa.syncing"}},
+      queued: {{.T "pwa.queued"}},
+    };
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {}));
     }
     document.body.addEventListener('htmx:afterRequest', (e) => {
-      const msg = e.detail.xhr.getResponseHeader('X-Toast');
+      const msg = window.paratrackDecode(e.detail.xhr.getResponseHeader('X-Toast'));
       const kind = e.detail.xhr.getResponseHeader('X-Toast-Kind') || 'success';
       if (msg) window.paratrackToast(msg, kind);
     });

@@ -9,25 +9,42 @@
       <p class="text-sm opacity-60 mb-3">{{.T "wh.blurb"}}</p>
       <form method="POST" action="/api/webhooks" class="grid gap-2 sm:grid-cols-2 mb-4">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <input type="url" name="url" required placeholder="https://example.com/hook" class="input input-bordered sm:col-span-2">
-        <input type="text" name="secret" placeholder="{{.T "wh.secret"}}" class="input input-bordered">
-        <input type="text" name="events" value="session.stopped,invoice.created" class="input input-bordered">
+        <label class="form-control sm:col-span-2">
+          <span class="label-text">{{.T "wh.urlLabel"}}</span>
+          <input type="url" name="url" required placeholder="https://example.com/hook" class="input input-bordered w-full">
+        </label>
+        <label class="form-control sm:col-span-2">
+          <span class="label-text">{{.T "wh.secretLabel"}}</span>
+          <input type="text" name="secret" placeholder="{{.T "wh.secret"}}" class="input input-bordered w-full">
+          <span class="text-xs opacity-60">{{.T "wh.secretHint"}}</span>
+        </label>
+        <fieldset class="sm:col-span-2">
+          <legend class="label-text mb-1">{{.T "wh.eventsLabel"}}</legend>
+          <div class="grid gap-1 sm:grid-cols-2">
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="events" value="session.started" class="checkbox checkbox-sm" >{{.T "wh.ev.session.started"}}</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="events" value="session.stopped" class="checkbox checkbox-sm" checked>{{.T "wh.ev.session.stopped"}}</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="events" value="invoice.created" class="checkbox checkbox-sm" checked>{{.T "wh.ev.invoice.created"}}</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="events" value="invoice.paid" class="checkbox checkbox-sm" >{{.T "wh.ev.invoice.paid"}}</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="events" value="invoice.payment_link_created" class="checkbox checkbox-sm" >{{.T "wh.ev.invoice.payment_link_created"}}</label>
+          <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="events" value="import.completed" class="checkbox checkbox-sm" >{{.T "wh.ev.import.completed"}}</label>
+          </div>
+        </fieldset>
         <div class="sm:col-span-2">
           <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "wh.add"}}</button>
         </div>
       </form>
       {{if .Items}}
       <table class="table table-sm">
-        <thead><tr><th>URL</th><th>Events</th><th></th></tr></thead>
+        <thead><tr><th>{{.T "wh.urlLabel"}}</th><th>{{.T "wh.eventsLabel"}}</th><th></th></tr></thead>
         <tbody>
           {{range .Items}}
           <tr>
             <td class="font-mono text-xs break-all">{{.URL}}</td>
-            <td class="text-xs opacity-70">{{.Events}}</td>
+            <td class="text-xs opacity-70">{{range $i, $e := splitComma .Events}}{{if $i}}, {{end}}{{$.T (printf "wh.ev.%s" $e)}}{{end}}</td>
             <td class="text-right">
               <form method="POST" action="/api/webhooks/{{.ID}}/delete" class="inline">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                <button type="submit" class="btn btn-ghost btn-xs">{{icon "trash-2" "icon icon-sm"}}</button>
+                <button type="submit" class="btn btn-ghost btn-xs" title="{{$.T "wh.delete"}}" aria-label="{{$.T "wh.delete"}}">{{icon "trash-2" "icon icon-sm"}}</button>
               </form>
             </td>
           </tr>

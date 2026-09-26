@@ -94,7 +94,7 @@ def main() -> int:
         pg.wait_for_timeout(500)
         check("parallel timers", pg.locator("#active-list tr").count() >= 2)
 
-        pg.locator('button:has-text("Focus")').first.click()
+        pg.locator('#active-list button[hx-post^="/api/focus/"]').first.click()
         pg.wait_for_timeout(500)
         check("focus pauses others", pg.locator(".status-pill.is-paused").count() >= 1)
         shot(pg, "b2-focus")
@@ -109,6 +109,7 @@ def main() -> int:
         shot(pg, "b3-stopped")
 
         # backfill
+        pg.click('#backfill summary')
         pg.fill('#b-activity', "consulting")
         pg.fill('#b-start', "yesterday 09:00")
         pg.fill('#b-end', "yesterday 11:30")
@@ -214,13 +215,13 @@ def main() -> int:
         pg.wait_for_load_state("load")
         check("project created", f"qa-client-{ts}" in pg.url)
         pg.fill('input[name="estimate_minutes"]', "600")
-        pg.fill('input[name="rate_cents"]', "10000")
+        pg.fill('input[name="rate"]', "100")
         pg.locator('input[name="billable"]').first.check()
         pg.click('button.btn-neutral:has-text("Save")')
         pg.wait_for_load_state("load")
         body = pg.inner_text("body")
-        check("estimate card", "estimate vs actual" in body.lower() or "оценка" in body.lower())
-        check("rate saved", "10000" in pg.content() or "10h" in body)
+        check("estimate card", "planned vs actual" in body.lower() or "план и факт" in body.lower())
+        check("rate saved", "100.00" in pg.content() or "10h" in body)
         shot(pg, "g1-project")
 
         # ---------- H. Timesheet ----------
@@ -311,9 +312,9 @@ def main() -> int:
         print("== K. Payroll")
         pg.goto(BASE + "/settings/members")
         pg.wait_for_load_state("load")
-        pg.fill('input[name="hourly_pay_cents"]', "5000")
+        pg.fill('input[name="hourly_pay"]', "50")
         pg.fill('input[name="capacity_minutes"]', "480")
-        pg.locator('form[action="/api/member/pay"] button[type="submit"]').first.click()
+        pg.locator('button[form^="pay-"][type="submit"]').first.click()
         pg.wait_for_timeout(500)
         pg.goto(BASE + "/payroll")
         pg.wait_for_load_state("load")
@@ -391,7 +392,7 @@ def main() -> int:
         pg.goto(BASE + "/settings/audit")
         pg.wait_for_load_state("load")
         ab = pg.inner_text("body")
-        check("audit log has events", any(x in ab for x in ["webhook.create", "auth.", "invoice.", "import."]))
+        check("audit log has events", pg.locator("main table tbody tr").count() > 0 and "Webhook added" in ab)
         shot(pg, "o3-audit")
 
         pg.goto(BASE + "/settings/team")

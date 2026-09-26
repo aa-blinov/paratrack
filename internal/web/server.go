@@ -7,6 +7,9 @@
 package web
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"context"
 	"database/sql"
 	"embed"
@@ -30,6 +33,22 @@ import (
 
 //go:embed templates/*.html static/*
 var assets embed.FS
+
+// assetVersion is a hash of every embedded static file. It busts the
+// browser cache (?v= on asset URLs) and names the service-worker cache,
+// so each deploy that changes CSS/JS reaches clients without manual bumps.
+var assetVersion = func() string {
+	h := sha256.New()
+	_ = fs.WalkDir(assets, "static", func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			b, _ := assets.ReadFile(p)
+			h.Write([]byte(p))
+			h.Write(b)
+		}
+		return nil
+	})
+	return hex.EncodeToString(h.Sum(nil))[:10]
+}()
 
 // Server is the HTTP front-end for paratrack.
 type Server struct {
@@ -108,6 +127,16 @@ var funcMap = template.FuncMap{
 	// fmtDuration is the shared smart formatter from dto.go — keep the
 	// template name in lock-step so cards and tables always agree.
 	"fmtDuration": fmtDuration,
+	"asset":       func(p string) string { return "/static/" + p + "?v=" + assetVersion },
+	// tOr translates key, or returns fallback when the key is missing.
+	"tOr": func(lang, key, fallback string) string {
+		if t := i18n.T(i18n.Lang(lang), key); t != key {
+			return t
+		}
+		return fallback
+	},
+	"splitComma":  func(s string) []string { return strings.Split(s, ",") },
+	"fmtDurL":     func(lang string, sec int) string { return fmtDurL(i18n.Lang(lang), sec) },
 	"colorFor":    colorFor,
 	"inkFor":      inkFor,
 	"icon":        iconHTML,
@@ -167,6 +196,7 @@ func (s *Server) routes() http.Handler {
 	// Service worker must live at the root path: a script under /static/
 	// gets scope /static/ and cannot control the app pages.
 	mux.HandleFunc("GET /sw.js", s.handleServiceWorker)
+	mux.HandleFunc("GET /static/manifest.webmanifest", s.handleManifest)
 
 	// ----- protected pages -----
 	pages := http.NewServeMux()
@@ -260,6 +290,7 @@ func (s *Server) routes() http.Handler {
 	}
 
 	api("GET",    "/api/active",                   s.handleAPIActive)
+	api("GET",    "/api/minibar",                  s.handleMiniBar)
 	api("GET",    "/api/reports.csv",              s.handleCSV)
 	api("POST",   "/api/start",                    s.handleStart)
 	api("POST",   "/api/sessions/{id}/stop",       s.handleStop)

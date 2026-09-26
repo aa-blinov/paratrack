@@ -1,6 +1,8 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
+	"bytes"
 	"context"
 	"crypto/elliptic"
 	"encoding/base64"
@@ -144,5 +146,48 @@ func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Header().Set("Service-Worker-Allowed", "/")
 	w.Header().Set("Cache-Control", "no-cache")
-	w.Write(data)
+	// Per-deploy cache name: a changed asset set installs a new worker,
+	// whose activate step drops the old cache.
+	w.Write(bytes.Replace(data, []byte(`"paratrack-v6"`), []byte(`"paratrack-`+assetVersion+`"`), 1))
+}
+
+// handleManifest serves the PWA manifest in the visitor's language so
+// app shortcuts read naturally. No orientation lock: the same app runs
+// in a desktop window.
+func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
+	lang := resolveLang(r)
+	t := func(k string) string { return i18n.T(lang, k) }
+	icon := func(src, sizes, purpose string) map[string]string {
+		return map[string]string{"src": src, "sizes": sizes, "type": "image/png", "purpose": purpose}
+	}
+	shortcut := func(name, url string) map[string]any {
+		return map[string]any{"name": name, "short_name": name, "url": url,
+			"icons": []map[string]string{icon("/static/icon192.png", "192x192", "any")}}
+	}
+	w.Header().Set("Content-Type", "application/manifest+json")
+	w.Header().Set("Cache-Control", "no-cache")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id":               "/",
+		"name":             "paratrack",
+		"short_name":       "paratrack",
+		"description":      t("pwa.description"),
+		"lang":             string(lang),
+		"start_url":        "/",
+		"scope":            "/",
+		"display":          "standalone",
+		"background_color": "#f9fafb",
+		"theme_color":      "#6366f1",
+		"categories":       []string{"productivity", "business"},
+		"icons": []map[string]string{
+			icon("/static/icon128.png", "128x128", "any"),
+			icon("/static/icon192.png", "192x192", "any"),
+			icon("/static/icon512.png", "512x512", "any"),
+			icon("/static/icon512-maskable.png", "512x512", "maskable"),
+		},
+		"shortcuts": []map[string]any{
+			shortcut(t("pwa.newTimer"), "/?focus=activity"),
+			shortcut(t("nav.stats"), "/stats"),
+			shortcut(t("nav.timesheet"), "/timesheet"),
+		},
+	})
 }

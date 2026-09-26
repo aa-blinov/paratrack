@@ -138,7 +138,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		if as.Activity.ProjectID != p.ID {
 			continue
 		}
-		v := toSessionView(as.Session, as.Activity, from, now, now)
+		v := toSessionView(as.Session, as.Activity, from, now, now, resolveLang(r))
 		monthSec += v.DurationSecs
 		// All-time total: unclipped wall clock for this project.
 		if as.Session.EndAt != nil {
@@ -156,12 +156,12 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	estPct := 0
 	rateInput := ""
 	if p.EstimateMinutes != nil && *p.EstimateMinutes > 0 {
-		estLabel = fmtDuration(*p.EstimateMinutes * 60)
+		estLabel = fmtDur(r, *p.EstimateMinutes * 60)
 		estInput = strconv.Itoa(*p.EstimateMinutes)
 		estPct = totalSec * 100 / (*p.EstimateMinutes * 60)
 	}
 	if p.BillableRateCents != nil {
-		rateInput = strconv.Itoa(*p.BillableRateCents)
+		rateInput = formatMoney(*p.BillableRateCents)
 	}
 	data := projectDetailData{
 		Title:      p.Name,
@@ -169,8 +169,8 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		Project:    p,
 		Activities: acts,
 		Sessions:   views,
-		Total:      fmtDuration(totalSec),
-		MonthTotal: fmtDuration(monthSec),
+		Total:      fmtDur(r, totalSec),
+		MonthTotal: fmtDur(r, monthSec),
 		Archived:   p.Archived,
 		EstimateLabel:   estLabel,
 		EstimateInput:   estInput,
@@ -256,15 +256,14 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	// Billable rate + flag (Wave 3).
-	if v := strings.TrimSpace(r.Form.Get("rate_cents")); v != "" || r.Form.Get("billable") != "" {
+	if n, has, err := formCents(r, "rate"); has || r.Form.Get("billable") != "" {
 		var rate *int
-		if v != "" {
-			n, err := strconv.Atoi(v)
-			if err != nil || n < 0 {
-				http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, "rate must be a number of cents"),
-					http.StatusSeeOther)
-				return
-			}
+		if err != nil {
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")),
+				http.StatusSeeOther)
+			return
+		}
+		if has {
 			rate = &n
 		}
 		b := r.Form.Get("billable") == "1" || r.Form.Get("billable") == "on"

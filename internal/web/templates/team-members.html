@@ -1,5 +1,5 @@
 {{define "team-members"}}
-<div class="max-w-2xl mx-auto space-y-4">
+<div class="max-w-4xl mx-auto space-y-4">
   {{template "flash-banner" .}}
   {{template "settings-sidebar" .}}
 
@@ -8,13 +8,13 @@
       <h2 class="card-title mb-3">{{.T "team.members"}} ({{len .Members}})</h2>
       {{if .Members}}
       <div class="overflow-x-auto">
-      <table class="table responsive-collapse">
+      <table class="table responsive-collapse sm:max-lg:table-sm">
         <thead><tr><th>{{.T "projects.name"}}</th><th>{{.T "auth.email"}}</th><th>{{.T "team.roleCol"}}</th><th>{{.T "pay.payCol"}}</th><th>{{.T "pay.capCol"}}</th><th></th></tr></thead>
         <tbody>
         {{range .Members}}
           <tr>
             <td data-label="{{$.T "projects.name"}}"><span class="block truncate max-w-[12rem]" title="{{.Name}}">{{.Name}}</span></td>
-            <td data-label="{{$.T "auth.email"}}" class="font-mono text-sm opacity-70"><span class="block truncate max-w-[14rem]" title="{{.Email}}">{{.Email}}</span></td>
+            <td data-label="{{$.T "auth.email"}}" class="text-sm opacity-70"><span class="block truncate max-w-[14rem]" title="{{.Email}}">{{.Email}}</span></td>
             <td data-label="{{$.T "team.roleCol"}}">
               {{if eq .Role "owner"}}
                 <span class="badge badge-neutral whitespace-nowrap">{{$.T "team.roleOwner"}}</span>
@@ -22,16 +22,25 @@
                 <span class="badge badge-outline whitespace-nowrap">{{$.T "team.roleMember"}}</span>
               {{end}}
             </td>
+            {{$pay := index $.Pay .UserID}}
             <td data-label="{{$.T "pay.payCol"}}">
-              <form method="POST" action="/api/member/pay" class="flex gap-1 flex-wrap items-center">
+              <form id="pay-{{.UserID}}" method="POST" action="/api/member/pay">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                 <input type="hidden" name="user_id" value="{{.UserID}}">
-                <input type="number" name="hourly_pay_cents" min="0" step="100" class="input input-xs input-bordered w-20" placeholder="0">
-                <input type="number" name="capacity_minutes" min="0" step="30" class="input input-xs input-bordered w-16" placeholder="480">
-                <button type="submit" class="btn btn-ghost btn-xs">{{icon "check" "icon icon-sm"}}</button>
               </form>
+              <input form="pay-{{.UserID}}" type="number" name="hourly_pay" min="0" step="0.01" inputmode="decimal"
+                     value="{{$pay.Rate}}" placeholder="0" aria-label="{{$.T "pay.payCol"}}"
+                     class="input input-sm input-bordered w-24">
             </td>
-            <td data-label="{{$.T "team.remove"}}" class="text-right">
+            <td data-label="{{$.T "pay.capCol"}}">
+              <div class="flex gap-1 items-center">
+                <input form="pay-{{.UserID}}" type="number" name="capacity_minutes" min="0" step="30"
+                       value="{{if $pay.Capacity}}{{$pay.Capacity}}{{end}}" placeholder="480" aria-label="{{$.T "pay.capCol"}}"
+                       class="input input-sm input-bordered w-20">
+                <button form="pay-{{.UserID}}" type="submit" class="btn btn-ghost btn-sm" title="{{$.T "projects.save"}}" aria-label="{{$.T "projects.save"}}">{{icon "check" "icon icon-sm"}}</button>
+              </div>
+            </td>
+            <td data-label="" class="text-right">
               {{if ne .UserID $.User.ID}}
                 <form method="POST" action="/api/team/members/{{.UserID}}/remove"
                       onsubmit="return confirm('{{$.T "team.confirmRemove"}}')">
