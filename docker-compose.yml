@@ -1,7 +1,8 @@
 # paratrack as a compose app: `docker compose up -d --build` builds and
-# runs everything (see Dockerfile). Locally it answers on
-# http://127.0.0.1:8000. A host-local docker-compose.override.yml wires a
-# server into its reverse proxy (see scripts/deploy.sh).
+# runs everything (see Dockerfile). Needs POSTGRES_PASSWORD in .env (see
+# .env.example). Locally it answers on http://127.0.0.1:8000; a server
+# wires it into its reverse proxy with a host-local
+# docker-compose.override.yml (see scripts/deploy.sh).
 
 x-logging: &logging
   driver: json-file
@@ -16,7 +17,30 @@ services:
     container_name: paratrack
     restart: unless-stopped
     logging: *logging
+    environment:
+      PARATRACK_DATABASE_URL: postgres://paratrack:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/paratrack?sslmode=disable
     ports:
       - "127.0.0.1:${PARATRACK_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    container_name: paratrack-db
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_USER: paratrack
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: paratrack
     volumes:
-      - ${PARATRACK_DATA:-./data}:/data
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paratrack -d paratrack"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:

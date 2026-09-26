@@ -369,11 +369,12 @@ if keepFound != 1 {
 // specifies. Like insertRawActivity, it only works against the
 // legacy schema produced by openLegacySchemaDB.
 func insertRawTag(ctx context.Context, d *DB, name string) (int64, error) {
-	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO tags (name) VALUES (?)`, name,
-	)
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO tags (name) VALUES (?) RETURNING id`, name,
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	return id, nil
 }

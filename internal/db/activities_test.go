@@ -156,14 +156,15 @@ func TestNormalizeActivityCase_MergesDuplicates(t *testing.T) {
 // produced by openLegacySchemaDB. Used by migration tests to mimic
 // the data state a real pre-upgrade DB would carry.
 func insertRawActivity(ctx context.Context, d *DB, name string) (int64, error) {
-	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)`,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO activities (name, created_at, updated_at) VALUES (?, ?, ?) RETURNING id`,
 		name, FormatTime(time.Now().UTC()), FormatTime(time.Now().UTC()),
-	)
+	).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 // openLegacySchemaDB creates an in-memory SQLite with the original
@@ -245,5 +246,5 @@ CREATE TABLE reminders (
 		t.Fatalf("apply legacy schema: %v", err)
 	}
 	t.Cleanup(func() { _ = sdb.Close() })
-	return &DB{sql: sdb}
+	return &DB{sql: &Conn{DB: sdb}}
 }

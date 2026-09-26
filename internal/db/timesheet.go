@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -65,21 +66,21 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 	defer rows.Close()
 
 	type acc struct {
-		name    string
-		projID  int64
-		secs    [7]int
-		total   int
+		name   string
+		projID int64
+		secs   [7]int
+		total  int
 	}
 	buckets := map[int64]*acc{}
 
 	for rows.Next() {
 		var (
-			actID                                 int64
-			startAt, endAt, lastResume            sql.NullString
-			accum                                 int
-			paused                                int
-			name                                  string
-			projID                                sql.NullInt64
+			actID                      int64
+			startAt, endAt, lastResume sql.NullString
+			accum                      int
+			paused                     int
+			name                       string
+			projID                     sql.NullInt64
 		)
 		if err := rows.Scan(&actID, &startAt, &endAt, &accum, &paused, &lastResume, &name, &projID); err != nil {
 			return TimesheetWeek{}, err
@@ -146,6 +147,15 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 		out.GrandTotal += b.total
 		out.Rows = append(out.Rows, row)
 	}
+	// buckets is a map: without this the rows came back in a new random
+	// order on every load.
+	sort.Slice(out.Rows, func(i, j int) bool {
+		a, b := strings.ToLower(out.Rows[i].ActivityName), strings.ToLower(out.Rows[j].ActivityName)
+		if a != b {
+			return a < b
+		}
+		return out.Rows[i].ActivityID < out.Rows[j].ActivityID
+	})
 	// Also include every activity that has no time this week so the
 	// user can fill an empty row (stable order by name).
 	if teamID > 0 {
@@ -233,17 +243,17 @@ func (d *DB) CreateSavedReport(ctx context.Context, teamID int64, name, period, 
 		period = "today"
 	}
 	now := FormatTime(time.Now().UTC())
-	res, err := d.sql.ExecContext(ctx,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO saved_reports (team_id, name, period, project_slug, tag, created_by, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		teamID, name, period, projectSlug, tag, nullableInt64(createdBy), now)
+		 VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		teamID, name, period, projectSlug, tag, nullableInt64(createdBy), now).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			return SavedReport{}, ErrDuplicate
 		}
 		return SavedReport{}, err
 	}
-	id, _ := res.LastInsertId()
 	return d.GetSavedReport(ctx, teamID, id)
 }
 

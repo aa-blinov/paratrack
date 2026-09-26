@@ -235,17 +235,17 @@ func (d *DB) CreatePayrollRun(ctx context.Context, teamID int64, number, notes s
 	}
 	defer func() { _ = tx.Rollback() }()
 	now := FormatTime(time.Now().UTC())
-	res, err := tx.ExecContext(ctx,
+	var runID int64
+	err = tx.QueryRowContext(ctx,
 		`INSERT INTO payroll_runs (team_id, number, period_start, period_end, status, notes, created_at)
-		 VALUES (?, ?, ?, ?, 'draft', ?, ?)`,
-		teamID, number, FormatTime(start), FormatTime(end), notes, now)
+		 VALUES (?, ?, ?, ?, 'draft', ?, ?) RETURNING id`,
+		teamID, number, FormatTime(start), FormatTime(end), notes, now).Scan(&runID)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			return PayrollRun{}, ErrDuplicate
 		}
 		return PayrollRun{}, err
 	}
-	runID, _ := res.LastInsertId()
 	for _, l := range lines {
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents)

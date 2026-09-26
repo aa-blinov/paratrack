@@ -1,4 +1,5 @@
-// Package db manages the paratrack SQLite database.
+// Package db manages the paratrack database: SQLite for the CLI and
+// single-node installs, Postgres when PARATRACK_DATABASE_URL is set.
 //
 // Timestamps are stored as RFC3339Nano UTC strings (e.g. "2026-09-22T07:25:30.123456Z").
 // Python's tracker used local-time ISO 8601 without timezone; a future
@@ -15,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx"
 	// Pure-Go SQLite driver; no CGO required.
 	_ "modernc.org/sqlite"
 )
@@ -33,9 +35,38 @@ func DefaultPath() (string, error) {
 	return filepath.Join(dir, "track.db"), nil
 }
 
-// DB wraps a *sql.DB and exposes typed queries.
+// DB wraps the connection and exposes typed queries.
 type DB struct {
-	sql *sql.DB
+	sql *Conn
+}
+
+// OpenDefault opens Postgres when PARATRACK_DATABASE_URL is set,
+// otherwise the SQLite file at DefaultPath.
+func OpenDefault() (*DB, error) {
+	if url := os.Getenv("PARATRACK_DATABASE_URL"); url != "" {
+		return OpenPostgres(url)
+	}
+	path, err := DefaultPath()
+	if err != nil {
+		return nil, err
+	}
+	return Open(path)
+}
+
+// OpenPostgres connects to url and brings the schema up to date.
+func OpenPostgres(url string) (*DB, error) {
+	sdb, err := sql.Open("pgx", url)
+	if err != nil {
+		return nil, err
+	}
+	sdb.SetMaxOpenConns(10)
+	sdb.SetConnMaxIdleTime(5 * time.Minute)
+	d := &DB{sql: &Conn{DB: sdb, pg: true}}
+	if err := d.applyPostgresSchema(); err != nil {
+		_ = sdb.Close()
+		return nil, fmt.Errorf("apply schema: %w", err)
+	}
+	return d, nil
 }
 
 // Open opens (or creates) the SQLite database at path and applies the
@@ -47,6 +78,11 @@ type DB struct {
 // hard break the product team chose: collaboration can't be added on
 // top of the single-user schema, so old rows go into the archive.
 func Open(path string) (*DB, error) {
+	// Test hook: PARATRACK_TEST_PG=<url> runs every test database on a
+	// fresh Postgres schema instead of SQLite. Never set in production.
+	if url := os.Getenv("PARATRACK_TEST_PG"); url != "" {
+		return openTestPostgres(url)
+	}
 	if err := archiveIfLegacy(path); err != nil {
 		return nil, fmt.Errorf("archive legacy DB: %w", err)
 	}
@@ -63,7 +99,7 @@ func Open(path string) (*DB, error) {
 	sdb.SetMaxIdleConns(1)
 	sdb.SetConnMaxLifetime(0)
 
-	d := &DB{sql: sdb}
+	d := &DB{sql: &Conn{DB: sdb}}
 	if _, err := sdb.Exec(schema); err != nil {
 		_ = sdb.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
@@ -139,9 +175,12 @@ func hasTable(path, table string) (bool, error) {
 // Close releases the underlying database handle.
 func (d *DB) Close() error { return d.sql.Close() }
 
-// SQL exposes the raw *sql.DB for advanced callers (migrations, tests).
+// SQL exposes the connection for callers outside this package.
 // Production code should use the typed helpers in activities.go and sessions.go.
-func (d *DB) SQL() *sql.DB { return d.sql }
+func (d *DB) SQL() *Conn { return d.sql }
+
+// IsPostgres reports the backend (dialect-specific SQL, migrations).
+func (d *DB) IsPostgres() bool { return d.sql.pg }
 
 // FormatTime returns the canonical RFC3339Nano UTC string used to store
 // timestamps in SQLite. Centralised so all writers agree.
@@ -200,16 +239,20 @@ func NullTime(t time.Time) any {
 	return FormatTime(t)
 }
 
-// isUniqueViolation returns true when err is an SQLite UNIQUE constraint
-// violation. Used by get-or-create helpers that have to fall through to
-// a SELECT after a race-condition INSERT.
-func isUniqueViolation(err error) bool {
+// isUniqueViolation returns true when err is a UNIQUE constraint
+// violation (SQLite or Postgres). Used by get-or-create helpers that
+// have to fall through to a SELECT after a race-condition INSERT.
+func isUniqueViolation(err error) bool { return IsUniqueViolation(err) }
+
+// IsUniqueViolation is isUniqueViolation for other packages.
+func IsUniqueViolation(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := err.Error()
 	if strings.Contains(msg, "UNIQUE constraint") ||
-		strings.Contains(msg, "constraint failed: UNIQUE") {
+		strings.Contains(msg, "constraint failed: UNIQUE") ||
+		strings.Contains(msg, "SQLSTATE 23505") {
 		return true
 	}
 	type coder interface{ Code() int }

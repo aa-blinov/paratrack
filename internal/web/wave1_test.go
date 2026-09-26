@@ -192,3 +192,33 @@ func TestActionTime(t *testing.T) {
 		}
 	}
 }
+
+// Timesheet rows come out sorted by name, not in map order.
+func TestTimesheetRowsSortedByName(t *testing.T) {
+	d, err := newTestDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	day := time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
+	for _, name := range []string{"writing", "Consulting", "reading", "admin"} {
+		act, err := d.GetOrCreateActivity(ctx, 0, name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := d.UpsertDayTotal(ctx, 0, act.ID, day, 3600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grid, err := d.ListTimesheet(ctx, 0, time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC), time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, r := range grid.Rows {
+		got = append(got, strings.ToLower(r.ActivityName))
+	}
+	if want := "admin,consulting,reading,writing"; strings.Join(got, ",") != want {
+		t.Errorf("row order = %v, want %s", got, want)
+	}
+}

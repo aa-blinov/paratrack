@@ -97,7 +97,8 @@ func (d *DB) EnsureVAPIDKeys(ctx context.Context) (string, string, error) {
 	key.D.FillBytes(privBytes)
 	priv = base64.RawURLEncoding.EncodeToString(privBytes)
 	_, err = d.sql.ExecContext(ctx,
-		`INSERT OR REPLACE INTO push_keys (id, public_key, private_key) VALUES (1, ?, ?)`,
+		`INSERT INTO push_keys (id, public_key, private_key) VALUES (1, ?, ?)
+		 ON CONFLICT (id) DO UPDATE SET public_key = excluded.public_key, private_key = excluded.private_key`,
 		pub, priv)
 	return pub, priv, err
 }

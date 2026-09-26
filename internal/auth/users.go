@@ -94,14 +94,13 @@ func (s *Service) CreateUser(ctx context.Context, email, password, name string) 
 	}()
 
 	now := db.FormatTime(time.Now().UTC())
-	res, err := tx.ExecContext(ctx,
-		`INSERT INTO users (email, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
+	err = tx.QueryRowContext(ctx,
+		`INSERT INTO users (email, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
 		email, string(hash), name, now, now,
-	)
+	).Scan(&userID)
 	if err != nil {
 		return 0, 0, fmt.Errorf("insert user: %w", err)
 	}
-	userID, err = res.LastInsertId()
 	if err != nil {
 		return 0, 0, err
 	}

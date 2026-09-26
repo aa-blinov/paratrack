@@ -91,13 +91,13 @@ func (d *DB) CreateWebhook(ctx context.Context, teamID int64, url, secret, event
 		events = "session.stopped,invoice.created"
 	}
 	now := FormatTime(time.Now().UTC())
-	res, err := d.sql.ExecContext(ctx,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO webhooks (team_id, url, secret, events, active, created_at)
-		 VALUES (?, ?, ?, ?, 1, ?)`, teamID, url, secret, events, now)
+		 VALUES (?, ?, ?, ?, 1, ?) RETURNING id`, teamID, url, secret, events, now).Scan(&id)
 	if err != nil {
 		return Webhook{}, err
 	}
-	id, _ := res.LastInsertId()
 	return d.GetWebhook(ctx, teamID, id)
 }
 

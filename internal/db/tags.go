@@ -184,15 +184,10 @@ func (d *DB) SetTagsForSession(ctx context.Context, teamID, sessionID int64, tag
 				return err
 			}
 			// Create.
-			res, err := tx.ExecContext(ctx,
-				`INSERT INTO tags (name, team_id) VALUES (?, ?)`,
+			if err := tx.QueryRowContext(ctx,
+				`INSERT INTO tags (name, team_id) VALUES (?, ?) RETURNING id`,
 				name, nullableInt64(teamID),
-			)
-			if err != nil {
-				return err
-			}
-			tagID, err = res.LastInsertId()
-			if err != nil {
+			).Scan(&tagID); err != nil {
 				return err
 			}
 		}
