@@ -1,6 +1,7 @@
 package web
 
 import (
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"errors"
 	"math"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -65,6 +66,7 @@ type invoiceVM struct {
 	Number       string
 	ClientName   string
 	PeriodLabel  string
+	PeriodISO    string // PDF: the core font has no Cyrillic month names
 	Status       string
 	Notes        string
 	Lines        []invoiceLineVM
@@ -91,7 +93,7 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 		secs := 0
 		for _, l := range lines {
 			total += l.AmountCents
-			secs += l.Seconds
+			secs += dbpkg.HoursHundredths(l.Seconds)
 		}
 		data.Items = append(data.Items, invoiceSummary{
 			ID:       inv.ID,
@@ -99,7 +101,7 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 			Client:   inv.ClientName,
 			Status:   inv.Status,
 			Total:    formatMoney(total),
-			Hours:    fmtDur(r, secs),
+			Hours:    fmtHours(secs),
 			Period:   fmtDay(resolveLang(r), inv.PeriodStart) + " – " + fmtDay(resolveLang(r), inv.PeriodEnd),
 		})
 	}
@@ -212,10 +214,10 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 	vms := make([]invoiceLineVM, 0, len(lines))
 	for _, l := range lines {
 		total += l.AmountCents
-		secs += l.Seconds
+		secs += dbpkg.HoursHundredths(l.Seconds)
 		vms = append(vms, invoiceLineVM{
 			Label:       l.Label,
-			Hours:       fmtDur(r, l.Seconds),
+			Hours:       fmtHours(dbpkg.HoursHundredths(l.Seconds)),
 			Rate:        formatMoney(l.RateCents),
 			Amount:      formatMoney(l.AmountCents),
 			RateCents:   l.RateCents,
@@ -235,7 +237,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 			Lines:       vms,
 			Total:       formatMoney(total),
 			TotalCents:  total,
-			Hours:       fmtDur(r, secs),
+			Hours:       fmtHours(secs),
 			PaymentURL:  inv.PaymentURL,
 		},
 	}

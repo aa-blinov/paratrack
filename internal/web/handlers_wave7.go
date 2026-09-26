@@ -1,6 +1,7 @@
 package web
 
 import (
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"fmt"
 	"net/http"
@@ -57,6 +58,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		secs   int
 		rate   int
 		amount int
+		byRate map[int]int // billable seconds per hourly rate
 	}
 	buckets := map[string]*acc{}
 	total := 0
@@ -114,20 +116,26 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 				}
 			}
 			a.rate = rate
-			amt := sec * rate / 3600
-			a.amount += amt
-			totalCents += amt
+			if a.byRate == nil {
+				a.byRate = map[int]int{}
+			}
+			a.byRate[rate] += sec
 		}
 	}
 
 	rows := make([]reportRow, 0, len(buckets))
 	for k, a := range buckets {
+		// Price rounded hours per rate so each row matches hours × rate.
+		for rate, sec := range a.byRate {
+			a.amount += dbpkg.PriceCents(sec, rate)
+		}
+		totalCents += a.amount
 		share := 0.0
 		if total > 0 {
 			share = float64(a.secs) / float64(total) * 100
 		}
 		rows = append(rows, reportRow{
-			Key: k, Secs: a.secs, Hours: fmtDur(r, a.secs), Share: share,
+			Key: k, Secs: a.secs, Hours: reportHours(r, tpl.Billable, a.secs), Share: share,
 			Rate: formatMoney(a.rate), Amount: formatMoney(a.amount),
 			AmountCents: a.amount, RateCents: a.rate,
 		})
@@ -140,7 +148,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		From:        from.Format("2006-01-02"),
 		To:          to.Add(-time.Second).Format("2006-01-02"),
 		Rows:        rows,
-		Total:       fmtDur(r, total),
+		Total:       reportHours(r, tpl.Billable, total),
 		TotalSecs:   total,
 		TotalAmount: formatMoney(totalCents),
 		TotalCents:  totalCents,
@@ -267,3 +275,12 @@ type marketPage struct {
 }
 
 func (p *marketPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+
+// reportHours: billable reports show decimal hours (what the money is
+// priced from); the rest keep the "1 h 30 m" label.
+func reportHours(r *http.Request, billable bool, sec int) string {
+	if billable {
+		return fmtHours(dbpkg.HoursHundredths(sec))
+	}
+	return fmtDur(r, sec)
+}

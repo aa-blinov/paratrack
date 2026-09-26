@@ -175,7 +175,7 @@ def main() -> int:
         check("invoice amount 100.00", "100.00" in text,
               text[text.find("Total"):text.find("Total")+80] if "Total" in text else "no Total")
         check("invoice number INV-", "INV-" in text)
-        check("invoice line shows 2h 30m", bool(re.search(r"2h\s*30m", text)))
+        check("invoice line shows 2.50 h", "2.50" in text)
         check("invoice rate 40.00", "40.00" in text)
         # PDF
         r = get(f"/invoices/{iid}/pdf")

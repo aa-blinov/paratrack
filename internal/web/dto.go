@@ -458,3 +458,9 @@ func fmtDate(lang i18n.Lang, t time.Time) string {
 	}
 	return t.Format("Jan 2, 2006")
 }
+
+// fmtHours renders billable hundredths of an hour as "3.50". Unitless so
+// it reads the same in every language and in the PDF core font.
+func fmtHours(hundredths int) string {
+	return fmt.Sprintf("%d.%02d", hundredths/100, hundredths%100)
+}

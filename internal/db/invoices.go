@@ -371,7 +371,10 @@ func (d *DB) BuildInvoiceLines(ctx context.Context, teamID int64, start, end tim
 		if k.proj != "" {
 			label = k.proj + " · " + k.act
 		}
-		amount := a.secs * a.rate / 3600 // cents, rounded down to the cent
+		if HoursHundredths(a.secs) == 0 {
+			continue // under 0.01 h: a 0.00 line is noise on a client document
+		}
+		amount := PriceCents(a.secs, a.rate)
 		lines = append(lines, InvoiceLine{
 			Label:       label,
 			Detail:      a.detail,
@@ -389,4 +392,20 @@ func (d *DB) BuildInvoiceLines(ctx context.Context, teamID int64, start, end tim
 		}
 	}
 	return lines, nil
+}
+
+// HoursHundredths rounds tracked seconds to billable hundredths of an
+// hour (0.01 h = 36 s), half up. Money is priced from this rounded
+// quantity so "hours × rate = amount" holds on every document.
+func HoursHundredths(sec int) int {
+	if sec <= 0 {
+		return 0
+	}
+	return (sec*100 + 1800) / 3600
+}
+
+// PriceCents is the amount for sec of work at rateCents per hour,
+// computed from the rounded hours and rounded half up to the cent.
+func PriceCents(sec, rateCents int) int {
+	return (HoursHundredths(sec)*rateCents + 50) / 100
 }

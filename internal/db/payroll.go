@@ -192,10 +192,10 @@ func (d *DB) BuildPayrollLines(ctx context.Context, teamID int64, start, end tim
 	lines := make([]PayrollLine, 0, len(members))
 	for _, m := range members {
 		sec := secsByUser[m.id]
-		if sec <= 0 {
+		if HoursHundredths(sec) == 0 {
 			continue
 		}
-		amount := sec * m.rate / 3600
+		amount := PriceCents(sec, m.rate)
 		label := m.name
 		if label == "" {
 			label = m.email
