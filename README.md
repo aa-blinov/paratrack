@@ -1,171 +1,137 @@
 # paratrack
 
-Minimalist time tracker with parallel activities, advanced analytics, multi-user team workspaces, and a single-binary web UI. Pure Go, zero CGO, zero Node runtime.
+Минималистичный учёт времени: параллельные активности, командные пространства, инвойсы и оплата. Один Go-бинарник с встроенным веб-интерфейсом. Без CGO, без Node в рантайме.
 
-![Dashboard — light](./e2e/screenshots/01-dashboard-light.png)
-![Stats — inline edit + tag filter](./e2e/screenshots/tags-stats-filter-light.png)
-![Graph — ECharts hour-of-day with hover tooltip](./e2e/screenshots/10-echart-tooltip.png)
+![Вход](./e2e/screenshots/readme/01-login-ru.png)
+![Обзор с онбордингом](./e2e/screenshots/readme/02-onboarding-ru.png)
 
-## Why
+## Зачем
 
-Most time trackers are either 5 MB-JS web apps or CLI tools with no visual feedback. paratrack is both: one 20 MB Go binary gives you a fully-interactive web UI plus the same commands on the terminal — and now also team workspaces with shared activity catalogs, invite links, and per-team scoping.
+Большинство трекеров времени делятся на два лагеря: тяжёлые веб-приложения на несколько мегабайт JavaScript и консольные утилиты без обратной связи. paratrack собирает оба в одном бинарнике на 20 МБ: живой интерфейс с таймером, неделей, отчётами и деньгами, и при этом SQLite-файл, который лежит у вас и нигде больше.
 
-## Quickstart
+Всё, что нужно команде для учёта времени, уже внутри: таймшит на неделю, оценки против факта, инвойсы с PDF и онлайн-оплатой, расчёт зарплаты, планирование людей по проектам, восемь интеграций и маркетплейс.
+
+## Быстрый старт
 
 ```bash
-make build    # auto-runs `make ui` (npm install + CSS bundle)
+make build    # заодно соберёт CSS (npm install + Tailwind)
 
-# First launch: open the web UI and register your account.
 ./paratrack web --addr 127.0.0.1:8000
-# → http://127.0.0.1:8000/login  (sign up there)
-
-# CLI (uses your account's personal team)
-./paratrack web --open                  # opens browser to /
-./paratrack web --addr 0.0.0.0:8000     # listen on all interfaces
+# → http://127.0.0.1:8000/login  (здесь регистрируемся)
 ```
 
-Data lives at `~/.track/track.db` (SQLite). On first launch with auth enabled, a pre-auth single-user DB is archived to `~/.track/track.db.bak.<timestamp>` and a fresh schema is created — collaboration can't coexist with the old anonymous schema.
+После регистрации открывается обзор с формой «Новая активность» и коротким чек-листом из трёх шагов: запустить таймер, посмотреть стату, завести проект.
 
-## UI stack
+Данные лежат в `~/.track/track.db` (SQLite). При первом запуске с включённой авторизацией старая одноимённая база уходит в `~/.track/track.db.bak.<timestamp>` и создаётся свежая схема: совместная работа не уживается со старым анонимным форматом.
 
-Server-rendered `html/template` + a single vendored CSS bundle (~16 KB minified) generated from Tailwind v4 + DaisyUI v5 in `web/`. No JS framework runtime — HTMX + Alpine.js + ECharts are vendored as static files and embedded via `go:embed`. To tweak the design, edit `web/input.css` and run `make ui`.
+## Как выглядит
 
-## Features
+| | |
+|---|---|
+| ![Обзор](./e2e/screenshots/readme/03-dashboard-ru.png) | ![Стата](./e2e/screenshots/readme/04-stats-ru.png) |
+| Обзор: таймер, активные сессии, недавние | Стата: разбивка, фильтры, правка на месте |
+| ![Таймшит](./e2e/screenshots/readme/05-timesheet-ru.png) | ![График](./e2e/screenshots/readme/06-graph-ru.png) |
+| Таймшит: неделя по дням | График: минуты по часам |
+| ![Отчёты](./e2e/screenshots/readme/07-reports-ru.png) | ![Маркетплейс](./e2e/screenshots/readme/08-marketplace-ru.png) |
+| Отчёты: 5 шаблонов, HTML и CSV | Маркетплейс: 11 интеграций |
+| ![Справка](./e2e/screenshots/readme/09-help-ru.png) | ![Мобильный](./e2e/screenshots/readme/11-mobile-ru.png) |
+| Справка: всё в одном месте | Мобильный: от 320px |
 
-- **Multi-user + team workspaces.** Email + bcrypt password sign-up; every account gets a personal team on registration; create more teams from `/settings/team`; invite teammates via token link (7-day TTL).
-- **Workspace switcher.** Top-bar dropdown lists every team you belong to with your role; the cookie remembers your last choice.
-- **Per-team scoping.** Activities, sessions, tags, goals, and progress all live inside one team — two teams don't see each other's rows, even though it's all one SQLite file.
-- **Per-activity colour coding.** Each activity name hashes to one slot of a 10-colour muted palette; the same colour is used for the activity name, the legend chips, and the stacked-bar segments on `/graph`, so the eye follows the activity across pages.
-- **Role-based access.** Owners can rename/delete the team, generate and revoke invite links, and remove members; members can leave but not manage.
-- Parallel timers, pause / resume, focus / switch
-- Backfill via natural-language time
-- Inline edit of start / end / duration / note in the stats table
-- Inline tags: type + Enter on any session row
-- Tag filter (`/stats?tag=deep-work`)
-- Per-activity goals (daily / weekly / monthly) with live progress
-- ECharts graph: stacked hour-of-day bars, clickable legend
-- CSV export
-- Light / dark / auto theme; toggle with the button or `t` key
-- Keyboard shortcuts: `n` new · `s` stats · `g` graph · `d` dashboard · `t` theme
-- Live-ticking durations
-- Mobile-friendly tables (collapse to cards on phones)
-- Hover tooltips on graph bars
+Тёмная тема и переключение auto / светлая / тёмная работают на всех страницах.
 
-## CLI reference
+![Тёмная тема](./e2e/screenshots/readme/10-dashboard-dark-ru.png)
 
-| Command | Aliases | Description |
-|---|---|---|
-| `paratrack` / `status` | `st` | List active sessions |
-| `paratrack start <name>` | — | Quick-start (asks note) |
-| `paratrack stop [name]` | `s` | Stop one (or all) |
-| `paratrack pause [name]` | `p` | Pause one (or all) |
-| `paratrack resume [name]` | `r` | Resume one (or all) |
-| `paratrack focus <name>` | `sw` | Pause others, resume/start chosen |
-| `paratrack add` | `a` | Backfill a session (interactive) |
-| `paratrack log` | `l` | Log of closed sessions in a period |
-| `paratrack stats` | — | Aggregated breakdown for a period |
-| `paratrack goal` | — | Set / list / unset per-activity targets |
-| `paratrack tag` | — | Add / list / attach / detach session tags |
-| `paratrack web` | — | Launch embedded web UI |
+## Что умеет
 
-All commands accept `--help`.
+**Учёт.** Параллельные таймеры, пауза и продолжение, «Фокус» выводит одну сессию вперёд, прошедшие сессии добавляются свободным текстом («вчера 14:00», «2h ago»). Длительность тикает вживую.
 
-The CLI operates on a **legacy no-team scope** — it talks to rows whose `team_id = 0`. Use it for back-filling personal data; for team collaboration, drive everything through the web UI.
+**Неделя.** Таймшит: сетка «активность × дни», ячейка хранит минуты за день. Расписание планирует людей по проектам и показывает загрузку от ёмкости.
 
-## Time parsing
+**Проекты и оценки.** Цветные проекты объединяют активности. Оценка в минутах против факта на карточке проекта, оплачиваемая ставка в центах.
 
-`paratrack add`, `paratrack log`, and the inline duration input accept:
+**Деньги.** Инвойсы `INV-ГГГГ-ННН` из учтённого оплачиваемого времени: PDF, платёжная ссылка, Stripe Checkout, отметка «оплачен». Фонд оплаты `PAY-ГГГГ-ННН` считается от ставок участников.
 
-```
-now, today, yesterday, tomorrow
-2026-09-22 14:00
-2026-09-22T14:00:00Z
-14:30
-yesterday 14:00
-last monday
-last friday 18:00
-2 hours ago, 30 min ago, 1 day ago, 2 weeks ago
-```
+**Отчёты.** Пять готовых шаблонов: по проектам, активностям, дням, оплачиваемые часы, загрузка команды. Вывод в HTML и CSV.
 
-Durations:
+**Команда.** Несколько пространств, участники с ролями и оплатой, приглашения по ссылке.
 
-```
-90              # 90 minutes
-1h, 1.5h        # hours
-30m, 90m, 45 minutes
-1h 30m, 2h30m   # compound
-1.5             # 1.5 minutes
-```
+**Экосистема.** Восемь интеграций: GitHub, GitLab, Jira, Trello, Asana, ClickUp, Todoist, Notion. Импорт задач с однокликовым стартом таймера. Импорт из Toggl, Harvest и Clockify. API-токены, `/api/v1/*`, вебхуки с HMAC-подписью, журнал аудита, вход через SSO (OIDC).
 
-## Architecture
+**Мобильный и офлайн.** Устанавливаемый PWA, офлайн-очередь с доигрыванием, push-уведомления в браузере, расширение для Chrome с таймером в попапе.
+
+**Интерфейс.** Русский по умолчанию, есть английский. Светлая и тёмная темы, скелетоны там, где есть ожидание, пустые состояния с понятным следующим шагом, горячие клавиши `n` `s` `g` `t`.
+
+## Стек интерфейса
+
+Страницы рендерятся на `html/template`, стили собираются из Tailwind v4 + DaisyUI v5 в один бандл (~16 КБ). Никакого фреймворка: HTMX для точечных подмен, Alpine.js для живых значений и темы, ECharts для графика. Всё это лежит в репозитории и подключается через `go:embed`. Нет сборки на Node в рантайме и нет внешних CDN.
+
+Чтобы поменять дизайн, правьте `web/input.css` и запустите `make ui`.
+
+## Архитектура
 
 ```
 paratrack/
-├── cmd/paratrack/main.go     CLI dispatch (legacy single-user scope)
+├── cmd/paratrack/          точка входа
 ├── internal/
-│   ├── cli/                  stdin prompt helpers
-│   ├── db/                   SQLite layer (modernc.org/sqlite, pure-Go)
-│   ├── model/                domain types (Activity/Session/Tag/Goal all carry TeamID)
-│   ├── auth/                 users, sessions, bcrypt, cookie helpers
-│   ├── teams/                teams, memberships, invites, role checks
-│   ├── timeparse/            NL time + duration parser
-│   └── web/                  HTTP server + handlers + RequireAuth middleware
-│       ├── templates/        base + 7 pages (login, register, dashboard, stats,
-│       │                     graph, goals, tags, team-settings, members,
-│       │                     invites, profile, invite-accept)
-│       └── static/           vendored CSS, htmx, alpine, echarts, app.js
-├── web/                      Tailwind + DaisyUI source (`make ui` builds it)
-├── e2e/                      Playwright suite
-└── go.mod / go.sum
+│   ├── catalog/            маркетплейс и шаблоны отчётов
+│   ├── db/                 SQLite (modernc.org/sqlite, без CGO)
+│   ├── model/              доменные типы
+│   ├── auth/               пользователи, сессии, bcrypt
+│   ├── teams/              пространства, участники, приглашения
+│   ├── i18n/               словари EN / RU
+│   ├── mail/               письма: лог или SMTP
+│   ├── timeparse/          разбор времени в свободной форме
+│   └── web/                HTTP-сервер, обработчики, шаблоны, статика
+├── web/                    исходники Tailwind + DaisyUI (собирает `make ui`)
+├── e2e/                    Playwright-проверки
+└── docs/                   PRODUCT, QA, JOURNEY
 ```
 
-The web UI is server-rendered HTML augmented by HTMX (targeted swaps), Alpine.js (live-ticking durations, theme toggle), and ECharts (graph). No Node, no build step, no CDN — everything is `//go:embed`-ed.
+### Авторизация и пространства
 
-### Auth & teams
+`RequireAuth` стоит перед каждой страницой и каждым `/api/*`. Кука `paratrack_session` поднимает сессию и пользователя за один запрос, кладёт их в контекст и редиректит на `/login?next=…` для страниц или отдаёт `401` для API. Все выборки ограничены `team_id`; текущее пространство приходит из куки `paratrack_team` или падает обратно на личное.
 
-The `RequireAuth` middleware sits in front of every page route and every `/api/*` route (other than the auth flow itself). It reads the `paratrack_session` HttpOnly cookie, looks up the session row + user in one round-trip, touches `last_seen_at`, attaches `User` and current `Team` to `r.Context()`, and dispatches. Page failures get a `303 → /login?next=…`; API failures get `401 {"error":"unauthorized"}` JSON.
+### Миграция схемы
 
-Every authenticated query is scoped by `team_id`. The middleware resolves the current team from the `paratrack_team` cookie (or falls back to the user's personal team). All db helpers take `teamID int64` as their first arg; pass `0` for the legacy CLI / test path.
+Совместная работа не накладывается на старую анонимную схему. При первом запуске после обновления `db.Open` проверяет наличие таблицы `users`; если её нет, переименовывает `track.db` в `track.db.bak.<UTC-метка>` и создаёт схему заново.
 
-### Schema migration: hard break
+## Документация
 
-The collaboration layer can't be layered on top of the anonymous single-user schema. On first launch after this release, `db.Open` detects a pre-auth DB by checking for the presence of the `users` table; if missing, it renames `track.db` to `track.db.bak.<UTC-timestamp>` (along with `-wal` / `-shm` siblings) and creates a fresh schema. The existing CLI commands keep working against the same path — no config change, no manual migration.
+- **[docs/PRODUCT.md](docs/PRODUCT.md)**: карта возможностей, бизнес-логика (время, деньги, инвойсы, зарплата), модель безопасности, HTTP-поверхность, схема данных
+- **[docs/QA.md](docs/QA.md)**: матрица проверок, результаты, найденные и починенные баги, договорённости API
+- **[docs/JOURNEY.md](docs/JOURNEY.md)**: карта переходов пользователя, схема навигации, пустые состояния
+- **[DESIGN.md](DESIGN.md)**: дизайн-система: токены, типографика, кнопки, правила
 
-## Documentation
-
-- **[docs/PRODUCT.md](docs/PRODUCT.md)** — feature map, business logic (time, money, invoices, payroll), security model, HTTP surface, data model
-- **[docs/QA.md](docs/QA.md)** — QA matrix, last results, bugs found and fixed, API contract notes for test authors
-
-## Testing
+## Проверка
 
 ```bash
-go test ./...                                   # unit + integration
+go test ./...                                   # юниты и интеграции
 
 python3 -m venv .venv && source .venv/bin/activate
 pip install playwright requests
 python -m playwright install chromium
 
-python e2e/qa_full.py       # UI / visual, Playwright + screenshots
-python e2e/qa_logic.py      # business-logic math over HTTP
-python e2e/wave9_verify.py  # offline mode + web push
+python e2e/qa_full.py       # интерфейс и визуал, Playwright со скринами
+python e2e/qa_logic.py      # математика денег и времени поверх HTTP
+python e2e/wave9_verify.py  # офлайн и push
 ```
 
-Screenshots land in `e2e/screenshots/`.
+Скриншоты складываются в `e2e/screenshots/`.
 
-## Stack
+## Стек
 
-- **Go 1.27** — tested
-- **modernc.org/sqlite** — pure-Go, no CGO
-- **net/http 1.22+** — stdlib method routing
-- **html/template** — server rendering
-- **HTMX 2.0.4** + **Alpine.js 3.14.1** — vendored
-- **ECharts 5.5.1** — vendored (~1 MB)
-- **Tailwind v4** + **DaisyUI v5** — CSS source in `web/`
+- **Go 1.27**
+- **modernc.org/sqlite**: на чистом Go, без CGO
+- **net/http**: маршрутизация из стандартной библиотеки
+- **html/template**: серверный рендер
+- **HTMX 2.0.4** и **Alpine.js 3.14.1**: лежат в репозитории
+- **ECharts 5.5.1**: урезанная сборка под наш график
+- **Tailwind v4** + **DaisyUI v5**: исходники стилей в `web/`
 
-## License
+## Лицензия
 
 MIT
 
-## Changelog
+## Что менялось
 
-See [CHANGELOG.md](./CHANGELOG.md).
+Смотрите [CHANGELOG.md](./CHANGELOG.md).

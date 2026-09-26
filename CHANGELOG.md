@@ -4,13 +4,47 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 
 ## [Unreleased]
 
-### Changed — typography & icons
+### Added — product waves 1 to 9
+- **Timesheet** (`/timesheet`): week grid of activity × days, a cell holds that day's minutes, `0` clears it. Writes collapse the day into one synthetic `note="timesheet"` session so reads and writes agree.
+- **Estimates vs actual**: `projects.estimate_minutes` plus a card on the project page comparing tracked time against it.
+- **Saved reports**: named filter presets on `/stats`, shown as chips.
+- **Eight integrations**: GitHub, GitLab, Jira, Trello, Asana, ClickUp, Todoist, Notion. Issues and cards import into `external_tasks` with a one-click timer start. Marketplace at `/integrations/marketplace` lists 11 cards, three of them reserved as coming soon.
+- **Browser extension**: MV3 popup with a timer and task picker, `extension/`.
+- **Import from Toggl / Harvest / Clockify** at `/import`.
+- **Billable rates and invoices**: `projects.billable_rate_cents` plus `invoices`/`invoice_lines` numbered `INV-YYYY-NNN`, statuses `draft|sent|paid`. Non-billable projects and unassigned time never reach an invoice; rates are snapshotted onto the lines.
+- **PDF invoices** rendered in pure Go (`github.com/go-pdf/fpdf`) at `/invoices/{id}/pdf`.
+- **Online payment**: Stripe Checkout via a form-encoded call to the Stripe API (no SDK), plus a manual payment-link fallback and a Mark-paid action. `POST /api/stripe/webhook` is public and flips `checkout.session.completed` to paid.
+- **Payroll** (`/payroll`): `memberships.hourly_pay_cents` and `capacity_minutes`, runs numbered `PAY-YYYY-NNN`, `draft|paid`. Sessions attribute through `sessions.user_id`.
+- **Resource scheduling** (`/schedule`): people × week grid with load % against capacity.
+- **Report templates** (`/reports`): five presets (by project, by activity, by day, billable, utilization) with HTML and CSV output.
+- **API tokens** (`/settings/tokens`): `pt_`-prefixed bearer credentials, SHA-256 at rest, raw shown once. Bearer auth sits inside `requireAuth` as an alternative to the session cookie.
+- **API v1**: `GET|POST /api/v1/sessions`, `PATCH|DELETE /api/v1/sessions/{id}`, `GET /api/v1/projects`, `GET /api/v1/reports/summary`. The session list returns running sessions too.
+- **Webhooks** with HMAC-SHA256 signatures (`X-Paratrack-Signature`) and a delivery log; **audit log** at `/settings/audit`; **OIDC SSO** at `/sso/login` when `PARATRACK_OIDC_*` is set.
+- **PWA** (manifest + service worker at `/sw.js`, root scope), **offline queue** that buffers mutations and replays them on reconnect, **web push** (VAPID, `/settings/notifications`).
+
+### Added — interface
+- **Russian is the default language**, English is one click away. Dictionaries carry 572 keys per locale and every user-visible string goes through them.
+- **Loading skeletons** only where there is a real wait: the graph canvas and HTMX list swaps. A thin top progress bar tracks every HTMX request. Both are deferred 180 ms so a fast request never flashes.
+- **Empty states with a next action** on every data screen: timesheet, schedule, invoices, payroll, reports, integrations, audit, push and the rest.
+- **First-run onboarding**: a three-step checklist on the dashboard (start a timer, look at stats, add a project). It shows only while the account has no sessions and dismisses permanently.
+- **`/help`** collects the whole feature map in one page, reachable from the user menu. **CSV** moved into the top nav. CLI references dropped from the product surface.
+- **Design system** written down in `DESIGN.md` plus `.impeccable/design.json`: a flat "Honest Ledger" world with tokens, an 8-step tonal ramp per colour, and self-contained HTML/CSS for nine components. Depth comes from tone and hairlines, not shadows.
+- **Button geometry unified** to a 40 / 32 / 24 px ladder with a single class order (`btn → variant → size → shape → gap → layout → state`).
+- **Site copy** reviewed with humanizer-ru: em-dashes and CLI wording removed, HARD BANS clean.
+
+### Changed — typography and icons
 - **Type scale restored**: DaisyUI 5 resets `h1..h6` to `font-size: inherit`, which flattened the whole UI to one size. A minor-third scale (`--step--2` … `--step-4`) is now defined on `:root` and applied to headings, card titles, labels and meta.
 - **UI font is Inter** (variable, latin + latin-ext + cyrillic) replacing Manrope. Body is pinned to 16px with `font-optical-sizing: auto`.
 - **Logo wordmark is Fraunces** (variable "full" cut with SOFT/WONK axes) — used only for `.wordmark` "paratrack", with a Lucide `timer` glyph beside it. JetBrains Mono stays for code, kbd and timestamps.
 - **Lucide icon set** (ISC) vendored as an SVG sprite at `/static/icons.svg` (35 symbols) and exposed as `{{icon "play"}}`. Replaces the hand-drawn ▶/⏸/☰/● glyphs in nav, status pills and session actions (Focus/Pause/Resume/Stop/Start/Add).
 
-### Added — production SaaS hardening
+### Changed
+- **Typography and icons**: minor-third type scale on `:root` (DaisyUI 5 resets headings to `inherit`), Inter as the UI face, Fraunces for the wordmark only, JetBrains Mono for code and figures. Lucide replaces hand-drawn glyphs, vendored as one SVG sprite.
+- **Theme resolves before first paint** and the toggle icons are driven by CSS against `data-theme-mode`, so nothing flashes when the page loads. `:root` no longer transitions its background.
+- **Activity names render as a colour swatch beside neutral text** instead of coloured text, which used to fail contrast on pale hues. `inkFor` computes contrast-safe ink for any user-authored colour used as a background.
+- **`/settings/members`** collapses to cards below 640 px and its table scrolls instead of widening the page.
+
+### Added — production hardening
 - **CSRF double-submit** on every state-changing request. A readable `paratrack_csrf` cookie is echoed via hidden form fields and the `X-CSRF-Token` header (HTMX gets it from `htmx:configRequest`, `fetch` from `paratrackCSRF()`). Missing/incorrect token → 403.
 - **Security headers** on every response: `Content-Security-Policy` (self + the inline/eval relaxations Alpine 3 requires), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when the request arrived over TLS.
 - **Secure cookies** — `Secure` is set on session / team / CSRF cookies when the request is HTTPS (direct TLS or `X-Forwarded-Proto: https`).
@@ -22,6 +56,15 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - Tests: `saas_test.go` (CSRF reject, security headers, full reset flow with spy mailer, rate-limit 429, backfill) and `rl_test.go` (limiter window accounting).
 
 ### Fixed
+- **No more flicker on load**: fonts use `font-display: block`, the theme is set by an inline bootstrap in `<head>`, and loading feedback waits before appearing.
+- **Long words no longer break mid-word** in tables (`Demo` used to render as `Dem/o`); only genuine run-together tokens wrap.
+- **Same-day invoices and pay runs are accepted** (a one-day period used to be rejected as `bad period`).
+- **Unassigned time is never invoiced** (it used to land on the invoice at rate 0).
+- **`/projects` no longer 500s** (`{{.T}}` called inside a `{{range}}` on a row type without a `T()` method).
+- **Offline queue keeps the request body** and only dequeues on 2xx, so a replayed timer start actually creates the session.
+- **Push notifications are legible**: branded icon and monochrome badge instead of a dark square, plus `tag`/`renotify` grouping and Open/Dismiss actions. The settings page no longer dies on a JS syntax error caused by `html/template` double-escaping.
+- **Service worker registers at `/sw.js`** so its scope covers the app, not just `/static/`.
+
 - **Stop folds live elapsed into `accumulated_seconds`**, so a closed session's `DurationSeconds` is no longer 0 for never-paused rows and correctly excludes pause gaps for paused ones.
 - **Tracked time is pause-aware and window-scaled everywhere**: `Session.TrackedSecondsInWindow` attributes a session's non-paused total to a period by its wall-clock overlap fraction. Goals (both active and closed), `/stats` aggregates and project card windows all use it — previously goals counted live sessions as accumulated but closed ones as wall-clock (including pauses).
 - **`DeleteTag` is team-scoped** — a signed-in user could previously delete any workspace's tag by numeric id. Missing goal/tag now map to 404 (was 500).
@@ -49,6 +92,14 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Session mutations are team-scoped**: `GetSession` / `UpdateSessionEnd` / `PauseSession` / `ResumeSession` / `DeleteSession` / `AttachTag` / `DetachTag` take a `teamID` and refuse cross-workspace access. Previously any signed-in user could mutate any session by numeric id.
 - **Primary CTAs on /projects** toned to `btn-neutral` to match the rest of the app.
 - Slug input `pattern` made a valid HTML5 regular expression (the `-` placement broke the `/v` unicode-classes parser in Chromium).
+
+
+
+
+## [0.1.0] — earlier work
+
+Первые релизы до волн 1-9: аутентификация, командные пространства,
+DaisyUI-интерфейс, цели, теги, график, CSV.
 
 ### Added
 - Regression tests for the duration ladder, `DurationSecs`, graph total units, tag filter, `pageMeta` coverage, HTMX/JSON dual shape, and cross-team session isolation.
