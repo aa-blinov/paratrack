@@ -923,3 +923,9 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
   .ledger-figures > div:last-child { grid-column: 1 / -1; }
   .ledger-figures dt { white-space: nowrap; }
 }
+
+/* Phone on its side: too little height for a sticky app bar on top of
+   the tab bar; let the header scroll away. */
+@media (max-width: 1023px) and (max-height: 500px) {
+  .appbar { position: static; }
+}
