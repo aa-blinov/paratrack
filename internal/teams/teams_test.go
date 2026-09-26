@@ -21,13 +21,13 @@ func openTestDB(t *testing.T) *dbpkg.DB {
 func newUser(t *testing.T, d *dbpkg.DB, email string) int64 {
 	t.Helper()
 	// Direct insert — we don't need the auth.Service for these tests.
-	res, err := d.SQL().Exec(
-		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?)`,
-		email, "x", email)
+	var id int64
+	err := d.SQL().QueryRow(
+		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?) RETURNING id`,
+		email, "x", email).Scan(&id)
 	if err != nil {
 		t.Fatalf("insert user: %v", err)
 	}
-	id, _ := res.LastInsertId()
 	return id
 }
 

@@ -789,7 +789,9 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 		sets = append(sets, "start_at = ?")
 		updates = append(updates, t.UTC().Format(time.RFC3339Nano))
 	}
-	if endStr != "" {
+	// A duration wins over end_at (end = start + duration below); setting
+	// both would assign end_at twice, which Postgres rejects.
+	if endStr != "" && durationStr == "" {
 		t, err := time.ParseInLocation("2006-01-02T15:04", endStr, time.Local)
 		if err != nil {
 			http.Error(w, "bad end: "+err.Error(), 400)

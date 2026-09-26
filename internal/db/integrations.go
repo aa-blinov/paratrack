@@ -51,13 +51,13 @@ func (d *DB) CreateAPIToken(ctx context.Context, userID int64, name string) (str
 	raw := "pt_" + hex.EncodeToString(b[:])
 	hash := HashAPIToken(raw)
 	now := time.Now().UTC()
-	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at) VALUES (?, ?, ?, ?, ?)`,
-		userID, name, hash, raw[:11], FormatTime(now))
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
+		`INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
+		userID, name, hash, raw[:11], FormatTime(now)).Scan(&id)
 	if err != nil {
 		return "", APIToken{}, err
 	}
-	id, _ := res.LastInsertId()
 	return raw, APIToken{ID: id, UserID: userID, Name: name, Prefix: raw[:11], CreatedAt: now}, nil
 }
 
@@ -161,17 +161,17 @@ func (d *DB) CreateIntegration(ctx context.Context, teamID int64, provider, name
 		return Integration{}, fmt.Errorf("name is required")
 	}
 	now := FormatTime(time.Now().UTC())
-	res, err := d.sql.ExecContext(ctx,
+	var id int64
+	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO integrations (team_id, provider, name, secret, config, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
-		teamID, provider, name, secret, config, now)
+		 VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+		teamID, provider, name, secret, config, now).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "UNIQUE") {
+		if isUniqueViolation(err) {
 			return Integration{}, ErrDuplicate
 		}
 		return Integration{}, err
 	}
-	id, _ := res.LastInsertId()
 	return d.GetIntegration(ctx, teamID, id)
 }
 

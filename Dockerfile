@@ -26,7 +26,7 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/paratrack ./cmd/paratrack
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=build /out/paratrack /usr/local/bin/paratrack
-# SQLite (CLI / single-node mode) lives under $HOME/.track.
+# SQLite (CLI mode, or no PARATRACK_DATABASE_URL) lives under $HOME/.track.
 ENV HOME=/data
 VOLUME ["/data"]
 EXPOSE 8000

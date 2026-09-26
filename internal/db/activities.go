@@ -21,17 +21,17 @@ func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (mod
 	}
 	now := FormatTime(time.Now().UTC())
 	if teamID > 0 {
-		res, err := d.sql.ExecContext(ctx,
-			`INSERT INTO activities (name, team_id, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+		var id int64
+		err := d.sql.QueryRowContext(ctx,
+			`INSERT INTO activities (name, team_id, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
 			name, teamID, now, now,
-		)
+		).Scan(&id)
 		if err != nil {
 			if isUniqueViolation(err) {
 				return d.GetActivityByName(ctx, teamID, name)
 			}
 			return model.Activity{}, err
 		}
-		id, err := res.LastInsertId()
 		if err != nil || id == 0 {
 			return d.GetActivityByName(ctx, teamID, name)
 		}
@@ -39,18 +39,15 @@ func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (mod
 	}
 	// teamID == 0 → legacy single-user path; no UNIQUE constraint to
 	// collide on, just INSERT OR IGNORE.
-	res, err := d.sql.ExecContext(ctx,
+	// Insert-if-missing then read back works the same on both backends
+	// (a RETURNING row is absent when the insert was ignored).
+	if _, err := d.sql.ExecContext(ctx,
 		`INSERT OR IGNORE INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)`,
 		name, now, now,
-	)
-	if err != nil {
+	); err != nil {
 		return model.Activity{}, err
 	}
-	id, _ := res.LastInsertId()
-	if id == 0 {
-		return d.GetActivityByName(ctx, 0, name)
-	}
-	return d.GetActivity(ctx, id)
+	return d.GetActivityByName(ctx, 0, name)
 }
 
 // GetActivity fetches one activity by id. teamID restricts the lookup

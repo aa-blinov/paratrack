@@ -82,19 +82,19 @@ func PersonalSlug(userID int64, name string) string {
 // CreatePersonalInTx inserts the personal team + owner membership row
 // for a freshly-registered user. Must run inside a transaction so the
 // user and the team land atomically.
-func (s *Service) CreatePersonalInTx(ctx context.Context, tx *sql.Tx, ownerID int64, ownerName string) (int64, error) {
+func (s *Service) CreatePersonalInTx(ctx context.Context, tx *db.Tx, ownerID int64, ownerName string) (int64, error) {
 	slug := PersonalSlug(ownerID, ownerName)
 	name := strings.TrimSpace(ownerName) + "'s workspace"
 	now := db.FormatTime(time.Now().UTC())
 
-	res, err := tx.ExecContext(ctx,
-		`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?)`,
+	var teamID int64
+	err := tx.QueryRowContext(ctx,
+		`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
 		slug, name, ownerID, now,
-	)
+	).Scan(&teamID)
 	if err != nil {
 		return 0, err
 	}
-	teamID, err := res.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
@@ -120,12 +120,12 @@ func (s *Service) Create(ctx context.Context, ownerID int64, name string) (Team,
 	base := Slugify(name)
 	slug := base
 	for i := 2; ; i++ {
-		res, err := s.d.SQL().ExecContext(ctx,
-			`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?)`,
+		var id int64
+			err := s.d.SQL().QueryRowContext(ctx,
+			`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
 			slug, name, ownerID, now,
-		)
+		).Scan(&id)
 		if err == nil {
-			id, _ := res.LastInsertId()
 			if _, err := s.d.SQL().ExecContext(ctx,
 				`INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)`,
 				id, ownerID, string(RoleOwner), now,
@@ -537,21 +537,5 @@ func scanInvite(r interface{ Scan(...any) error }) (Invite, error) {
 	return i, nil
 }
 
-func isUniqueViolation(err error) bool {
-	// SQLite reports uniqueness conflicts as "constraint failed: … (2067 …)"
-	// but modernc.org/sqlite returns a typed *sqlite.Error whose
-	// Code() == 2067 (SQLITE_CONSTRAINT_UNIQUE). Checking both keeps
-	// us portable across driver versions.
-	if err == nil {
-		return false
-	}
-	if strings.Contains(err.Error(), "UNIQUE constraint") ||
-		strings.Contains(err.Error(), "constraint failed: UNIQUE") {
-		return true
-	}
-	type coder interface{ Code() int }
-	if c, ok := err.(coder); ok && c.Code() == 2067 {
-		return true
-	}
-	return false
-}
+// isUniqueViolation covers SQLite and Postgres (see db.IsUniqueViolation).
+func isUniqueViolation(err error) bool { return db.IsUniqueViolation(err) }
