@@ -47,9 +47,12 @@
              Below lg the burger menu carries every link. */}}
         <div class="hidden lg:flex items-center gap-0.5 min-w-0 flex-1">
         {{if .Team}}
-        <div class="dropdown dropdown-end hidden lg:block">
-          <button tabindex="0" class="btn btn-ghost btn-sm max-w-[11rem] xl:max-w-[14rem]" title="{{.T "nav.switchWorkspace"}}">
-            <span class="font-medium truncate max-w-[7rem] sm:max-w-[11rem]">{{.Team.Name}}</span>
+        {{/* The workspace label is the one header item that gives up width
+             (it truncates, full name in the tooltip), so a long name can
+             never push the links into the user menu (One-Row Rule). */}}
+        <div class="dropdown dropdown-end hidden lg:block min-w-0 shrink max-w-[14rem]">
+          <button tabindex="0" class="btn btn-ghost btn-sm max-w-full flex-nowrap" title="{{.Team.Name}} · {{.T "nav.switchWorkspace"}}">
+            <span class="font-medium truncate min-w-0">{{.Team.Name}}</span>
             <span class="opacity-60 text-xs">▾</span>
           </button>
           <div tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-72 p-2 z-50">
@@ -71,19 +74,16 @@
           </div>
         </div>
         {{end}}
-          <a href="/" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "dashboard"}}btn-active{{end}}">{{icon "activity"}}{{.T "nav.dashboard"}}</a>
-          <a href="/stats" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "stats"}}btn-active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.stats"}}</a>
-          <a href="/timesheet" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "timesheet"}}btn-active{{end}}">{{icon "calendar"}}{{.T "nav.timesheet"}}</a>
-          <a href="/projects" class="btn btn-ghost btn-sm gap-1.5 {{if eq .Active "projects"}}btn-active{{end}}">{{icon "folder"}}{{.T "nav.projects"}}</a>
-          <a href="/graph" class="btn btn-ghost btn-sm gap-1.5 hidden xl:inline-flex {{if eq .Active "graph"}}btn-active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a>
-          <a href="/goals" class="btn btn-ghost btn-sm gap-1.5 hidden xl:inline-flex {{if eq .Active "goals"}}btn-active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a>
-          <a href="/tags" class="btn btn-ghost btn-sm gap-1.5 hidden xl:inline-flex {{if eq .Active "tags"}}btn-active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a>
-          <div class="dropdown dropdown-end">
-            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 {{if or (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "schedule")}}btn-active{{end}}" title="{{.T "nav.more"}}">{{icon "menu"}}{{.T "nav.more"}}</button>
+          <a href="/" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "dashboard"}}btn-active{{end}}">{{icon "activity"}}{{.T "nav.dashboard"}}</a>
+          <a href="/stats" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "stats"}}btn-active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.stats"}}</a>
+          <a href="/timesheet" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "timesheet"}}btn-active{{end}}">{{icon "calendar"}}{{.T "nav.timesheet"}}</a>
+          <a href="/projects" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "projects"}}btn-active{{end}}">{{icon "folder"}}{{.T "nav.projects"}}</a>
+          <div class="dropdown dropdown-end shrink-0">
+            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if or (eq .Active "graph") (eq .Active "goals") (eq .Active "tags") (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "schedule")}}btn-active{{end}}" title="{{.T "nav.more"}}">{{icon "menu"}}{{.T "nav.more"}}</button>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-56 p-2 z-50">
-              <li class="xl:hidden"><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
-              <li class="xl:hidden"><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
-              <li class="xl:hidden"><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
+              <li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
+              <li><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
+              <li><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
               <li class=""><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
               <li class=""><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
               <li class=""><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
@@ -96,10 +96,10 @@
         <div class="flex-1 lg:hidden"></div>
         {{/* --- right actions: fixed, never wrap --- */}}
         <div class="flex items-center gap-0.5 shrink min-w-0 sm:shrink-0">
-        <div class="dropdown dropdown-end hidden lg:block">
-          <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.User.Email}}">
+        <div class="dropdown dropdown-end hidden lg:block shrink-0">
+          <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.User.Name}} · {{.User.Email}}">
             {{icon "user"}}
-            <span class="hidden sm:inline max-w-[8rem] truncate">{{.User.Name}}</span>
+            <span class="hidden sm:inline max-w-[6rem] xl:max-w-[8rem] truncate">{{.User.Name}}</span>
           </button>
           <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-56 p-2 z-50">
             <li class="menu-title text-xs opacity-60">{{.T "nav.signedInAs"}}</li>
