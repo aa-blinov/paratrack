@@ -27,7 +27,7 @@ func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startA
 	if err != nil {
 		return model.Session{}, err
 	}
-	return d.GetSession(ctx, id)
+	return d.GetSession(ctx, teamID, id)
 }
 
 // CreateClosedSession inserts a finished session in one go. Used by the
@@ -47,12 +47,19 @@ func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, 
 	if err != nil {
 		return model.Session{}, err
 	}
-	return d.GetSession(ctx, id)
+	return d.GetSession(ctx, teamID, id)
 }
 
-// GetSession fetches a session by id.
-func (d *DB) GetSession(ctx context.Context, id int64) (model.Session, error) {
-	row := d.sql.QueryRowContext(ctx, sessionSelect+` WHERE s.id = ?`, id)
+// GetSession fetches a session by id. Pass teamID > 0 to require the
+// session to belong to that workspace (0 = legacy / CLI / tests).
+func (d *DB) GetSession(ctx context.Context, teamID, id int64) (model.Session, error) {
+	q := sessionSelect + ` WHERE s.id = ?`
+	args := []any{id}
+	if teamID > 0 {
+		q += ` AND s.team_id = ?`
+		args = append(args, teamID)
+	}
+	row := d.sql.QueryRowContext(ctx, q, args...)
 	return scanSession(row)
 }
 
@@ -99,22 +106,48 @@ func (d *DB) ListClosedSessionsInRange(ctx context.Context, teamID int64, start,
 	return scanActiveSessions(rows)
 }
 
-// UpdateSessionEnd stops the session with a wall-clock end_at.
-func (d *DB) UpdateSessionEnd(ctx context.Context, id int64, endAt time.Time) (model.Session, error) {
-	_, err := d.sql.ExecContext(ctx,
-		`UPDATE sessions SET end_at = ?, updated_at = ? WHERE id = ?`,
-		FormatTime(endAt), FormatTime(time.Now().UTC()), id,
-	)
+// UpdateSessionEnd stops the session with a wall-clock end_at. Any
+// time since the last resume is folded into accumulated_seconds first,
+// so DurationSeconds() keeps working after close (pause gaps stay
+// excluded). teamID > 0 restricts the write to that workspace.
+func (d *DB) UpdateSessionEnd(ctx context.Context, teamID, id int64, endAt time.Time) (model.Session, error) {
+	s, err := d.GetSession(ctx, teamID, id)
 	if err != nil {
 		return model.Session{}, err
 	}
-	return d.GetSession(ctx, id)
+	newAcc := s.AccumulatedSeconds
+	if !s.Paused {
+		anchor := s.LastResumeAt
+		if anchor == nil {
+			anchor = &s.StartAt
+		}
+		elapsed := int(endAt.Sub(*anchor).Seconds())
+		if elapsed > 0 {
+			newAcc += elapsed
+		}
+	}
+	q := `UPDATE sessions SET end_at = ?, accumulated_seconds = ?, updated_at = ? WHERE id = ?`
+	args := []any{FormatTime(endAt), newAcc, FormatTime(time.Now().UTC()), id}
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	res, err := d.sql.ExecContext(ctx, q, args...)
+	if err != nil {
+		return model.Session{}, err
+	}
+	if teamID > 0 {
+		if n, _ := res.RowsAffected(); n == 0 {
+			return model.Session{}, ErrNotFound
+		}
+	}
+	return d.GetSession(ctx, teamID, id)
 }
 
 // PauseSession rolls the running time into accumulated_seconds and flips
 // the paused flag. Uses a single UPDATE for atomicity.
-func (d *DB) PauseSession(ctx context.Context, id int64, now time.Time) (model.Session, error) {
-	s, err := d.GetSession(ctx, id)
+func (d *DB) PauseSession(ctx context.Context, teamID, id int64, now time.Time) (model.Session, error) {
+	s, err := d.GetSession(ctx, teamID, id)
 	if err != nil {
 		return model.Session{}, err
 	}
@@ -131,25 +164,28 @@ func (d *DB) PauseSession(ctx context.Context, id int64, now time.Time) (model.S
 	}
 	newAcc := s.AccumulatedSeconds + elapsed
 	nowStr := FormatTime(now)
-	_, err = d.sql.ExecContext(ctx,
-		`UPDATE sessions
+	q := `UPDATE sessions
 		 SET paused = 1,
 		     paused_at = ?,
 		     accumulated_seconds = ?,
 		     last_resume_at = NULL,
 		     updated_at = ?
-		 WHERE id = ?`,
-		nowStr, newAcc, FormatTime(time.Now().UTC()), id,
-	)
+		 WHERE id = ?`
+	args := []any{nowStr, newAcc, FormatTime(time.Now().UTC()), id}
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	_, err = d.sql.ExecContext(ctx, q, args...)
 	if err != nil {
 		return model.Session{}, err
 	}
-	return d.GetSession(ctx, id)
+	return d.GetSession(ctx, teamID, id)
 }
 
 // ResumeSession flips paused → false and sets last_resume_at = now.
-func (d *DB) ResumeSession(ctx context.Context, id int64, now time.Time) (model.Session, error) {
-	s, err := d.GetSession(ctx, id)
+func (d *DB) ResumeSession(ctx context.Context, teamID, id int64, now time.Time) (model.Session, error) {
+	s, err := d.GetSession(ctx, teamID, id)
 	if err != nil {
 		return model.Session{}, err
 	}
@@ -157,29 +193,47 @@ func (d *DB) ResumeSession(ctx context.Context, id int64, now time.Time) (model.
 		return s, nil
 	}
 	nowStr := FormatTime(now)
-	_, err = d.sql.ExecContext(ctx,
-		`UPDATE sessions
+	q := `UPDATE sessions
 		 SET paused = 0,
 		     paused_at = NULL,
 		     last_resume_at = ?,
 		     updated_at = ?
-		 WHERE id = ?`,
-		nowStr, FormatTime(time.Now().UTC()), id,
-	)
+		 WHERE id = ?`
+	args := []any{nowStr, FormatTime(time.Now().UTC()), id}
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	_, err = d.sql.ExecContext(ctx, q, args...)
 	if err != nil {
 		return model.Session{}, err
 	}
-	return d.GetSession(ctx, id)
+	return d.GetSession(ctx, teamID, id)
 }
 
 // DeleteSession removes a session by id (FK cascades handle session_tags).
-func (d *DB) DeleteSession(ctx context.Context, id int64) error {
-	_, err := d.sql.ExecContext(ctx, `DELETE FROM sessions WHERE id = ?`, id)
-	return err
+// teamID > 0 restricts the delete to that workspace.
+func (d *DB) DeleteSession(ctx context.Context, teamID, id int64) error {
+	q := `DELETE FROM sessions WHERE id = ?`
+	args := []any{id}
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	res, err := d.sql.ExecContext(ctx, q, args...)
+	if err != nil {
+		return err
+	}
+	if teamID > 0 {
+		if n, _ := res.RowsAffected(); n == 0 {
+			return ErrNotFound
+		}
+	}
+	return nil
 }
 
 const sessionSelect = `
-SELECT s.id, s.activity_id, s.team_id, s.start_at, s.end_at, s.note,
+SELECT s.id, s.activity_id, s.team_id, s.user_id, s.start_at, s.end_at, s.note,
        s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
        s.created_at, s.updated_at,
        a.name AS activity_name, a.project_id AS activity_project_id
@@ -210,6 +264,7 @@ func scanSessionWithActivity(r row) (model.Session, string, int64, error) {
 	var (
 		s              model.Session
 		teamID         sql.NullInt64
+		userID         sql.NullInt64
 		startAt        string
 		endAt          sql.NullString
 		note           sql.NullString
@@ -222,7 +277,7 @@ func scanSessionWithActivity(r row) (model.Session, string, int64, error) {
 		activityPID    sql.NullInt64
 	)
 	if err := r.Scan(
-		&s.ID, &s.ActivityID, &teamID, &startAt, &endAt, &note,
+		&s.ID, &s.ActivityID, &teamID, &userID, &startAt, &endAt, &note,
 		&paused, &pausedAt, &s.AccumulatedSeconds, &lastResumeAt,
 		&createdAt, &updatedAt, &activityName, &activityPID,
 	); err != nil {
@@ -233,6 +288,9 @@ func scanSessionWithActivity(r row) (model.Session, string, int64, error) {
 	}
 	if teamID.Valid {
 		s.TeamID = teamID.Int64
+	}
+	if userID.Valid {
+		s.UserID = userID.Int64
 	}
 	if t, err := ScanTime(startAt); err == nil {
 		s.StartAt = t

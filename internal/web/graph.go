@@ -113,7 +113,8 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period) Cha
 	for _, b := range buckets {
 		totalAll += b.total
 	}
-	out.TotalLabel = fmtDuration(totalAll)
+	// buckets accumulate MINUTES; fmtDuration takes seconds.
+	out.TotalLabel = fmtDuration(totalAll * 60)
 
 	for _, r := range rows {
 		b := buckets[r.name]

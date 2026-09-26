@@ -1,0 +1,75 @@
+{{define "schedule"}}
+<div class="space-y-4">
+  <header class="flex items-end justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="mb-1">{{.T "sch.title"}}</h1>
+      <p class="opacity-70 text-sm">{{.T "sch.blurb"}}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/schedule?date={{.PrevWeek}}" class="btn btn-ghost btn-sm">←</a>
+      <span class="font-mono text-sm px-2">{{.WeekLabel}}</span>
+      <a href="/schedule?date={{.NextWeek}}" class="btn btn-ghost btn-sm">→</a>
+      <a href="/schedule" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
+    </div>
+  </header>
+
+  <div class="card bg-base-100 border border-base-300 overflow-x-auto">
+    <div class="card-body p-0">
+      <table class="table table-sm w-full min-w-[52rem]">
+        <thead>
+          <tr>
+            <th class="sticky left-0 bg-base-100 z-10">{{.T "nav.account"}}</th>
+            {{range .Days}}
+            <th class="text-center {{if .IsToday}}bg-base-200{{end}}">
+              <div class="text-xs uppercase tracking-wider opacity-60">{{.Label}}</div>
+              <div class="font-mono text-base">{{.Date}}</div>
+            </th>
+            {{end}}
+            <th class="text-right">{{.T "stats.total"}}</th>
+          </tr>
+        </thead>
+        <tbody id="sch-body">
+          {{range .RowVMs}}
+          {{template "schedule-row" .}}
+          {{end}}
+          {{if not .Projects}}
+          <tr><td colspan="9" class="text-center py-8">
+            <div class="font-medium">{{.T "sch.empty"}}</div>
+            <div class="text-sm opacity-60 mt-1">{{.T "sch.emptyHint"}}</div>
+            <a href="/projects/new" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "plus" "icon icon-sm"}}{{.T "sch.emptyCta"}}</a>
+          </td></tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <p class="text-sm opacity-60">{{.T "sch.hint"}}</p>
+</div>
+{{end}}
+
+{{define "schedule-row"}}
+{{/* . is schedRowVM */}}
+<tr id="sch-row-{{.Row.UserID}}">
+  <td class="sticky left-0 bg-base-100 z-10">
+    <div class="font-medium">{{.Row.UserName}}</div>
+    <div class="text-xs opacity-60 font-mono">{{.Row.Total}} · {{.Row.LoadPct}}%</div>
+  </td>
+  {{range .Row.Cells}}
+  <td class="text-center p-1 {{if .IsToday}}bg-base-200{{end}}">
+    <input type="number" min="0" max="1440" step="30"
+           class="input input-xs input-bordered w-16 text-center font-mono"
+           name="minutes"
+           value="{{if .Min}}{{.Min}}{{end}}"
+           placeholder="—"
+           title="{{.ISO}}"
+           hx-post="/api/schedule/cell"
+           hx-trigger="change"
+           hx-vals='{"user_id": {{$.Row.UserID}}, "project_id": {{if $.Projects}}{{(index $.Projects 0).ID}}{{else}}0{{end}}, "date": "{{.ISO}}"}'
+           hx-target="#sch-row-{{$.Row.UserID}}"
+           hx-swap="outerHTML">
+  </td>
+  {{end}}
+  <td class="text-right font-mono">{{.Row.Total}}</td>
+</tr>
+{{end}}

@@ -226,7 +226,7 @@ func TestDeleteTag_CascadesIntoSessionTags(t *testing.T) {
 	if err := d.AttachTag(ctx, 0, s.ID, "doomed"); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.DeleteTag(ctx, tag.ID); err != nil {
+	if err := d.DeleteTag(ctx, 0, tag.ID); err != nil {
 		t.Fatal(err)
 	}
 	tags, _ := d.ListTagsForSession(ctx, s.ID)

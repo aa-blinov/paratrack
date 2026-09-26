@@ -1,9 +1,9 @@
 {{define "login"}}
 <div class="max-w-md mx-auto mt-12">
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-6">
-      <h1 class="text-2xl font-semibold mb-1">Welcome back</h1>
-      <p class="text-sm opacity-60 mb-4">Sign in to continue tracking.</p>
+      <h1 class="mb-1">{{.T "auth.welcomeBack"}}</h1>
+      <p class="text-sm opacity-60 mb-4">{{.T "auth.signInContinue"}}</p>
 
       {{if .ErrorMsg}}
       <div class="alert alert-error mb-4 text-sm py-2">
@@ -12,23 +12,30 @@
       {{end}}
 
       <form method="POST" action="/api/login" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <input type="hidden" name="next" value="{{.Next}}">
         <div>
-          <label class="label py-1" for="email"><span class="label-text">Email</span></label>
+          <label class="label py-1" for="email"><span class="label-text">{{.T "auth.email"}}</span></label>
           <input type="email" id="email" name="email" required autocomplete="email"
                  class="input input-bordered w-full" value="{{.Email}}" autofocus>
         </div>
         <div>
-          <label class="label py-1" for="password"><span class="label-text">Password</span></label>
+          <label class="label py-1" for="password"><span class="label-text">{{.T "auth.password"}}</span></label>
           <input type="password" id="password" name="password" required autocomplete="current-password"
                  class="input input-bordered w-full">
         </div>
-        <button type="submit" class="btn btn-neutral w-full mt-2">Sign in</button>
+        <button type="submit" class="btn btn-neutral gap-1.5 w-full mt-2">{{icon "log-in"}}{{.T "auth.signIn"}}</button>
+      {{if .SSO}}
+      <a href="/sso/login" class="btn btn-ghost gap-1.5 w-full mt-2">{{icon "link"}}{{.T "auth.sso"}}</a>
+      {{end}}
       </form>
 
       <p class="text-sm opacity-60 mt-4 text-center">
-        No account yet?
-        <a href="/register" class="link link-primary">Sign up</a>
+        {{.T "auth.noAccount"}}
+        <a href="/register" class="link link-primary">{{.T "nav.signup"}}</a>
+      </p>
+      <p class="text-sm opacity-60 mt-2 text-center">
+        <a href="/forgot-password" class="link link-hover opacity-80">{{.T "auth.forgot"}}</a>
       </p>
     </div>
   </div>

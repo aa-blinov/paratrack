@@ -3,40 +3,52 @@
   {{template "flash-banner" .}}
   {{template "settings-sidebar" .}}
 
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
-      <h2 class="card-title text-base font-medium mb-3">Members ({{len .Members}})</h2>
+      <h2 class="card-title mb-3">{{.T "team.members"}} ({{len .Members}})</h2>
       {{if .Members}}
-      <table class="table">
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+      <div class="overflow-x-auto">
+      <table class="table responsive-collapse">
+        <thead><tr><th>{{.T "projects.name"}}</th><th>{{.T "auth.email"}}</th><th>{{.T "team.roleCol"}}</th><th>{{.T "pay.payCol"}}</th><th>{{.T "pay.capCol"}}</th><th></th></tr></thead>
         <tbody>
         {{range .Members}}
           <tr>
-            <td>{{.Name}}</td>
-            <td class="font-mono text-sm opacity-70">{{.Email}}</td>
-            <td>
+            <td data-label="{{$.T "projects.name"}}"><span class="block truncate max-w-[12rem]" title="{{.Name}}">{{.Name}}</span></td>
+            <td data-label="{{$.T "auth.email"}}" class="font-mono text-sm opacity-70"><span class="block truncate max-w-[14rem]" title="{{.Email}}">{{.Email}}</span></td>
+            <td data-label="{{$.T "team.roleCol"}}">
               {{if eq .Role "owner"}}
-                <span class="badge badge-neutral">owner</span>
+                <span class="badge badge-neutral whitespace-nowrap">{{$.T "team.roleOwner"}}</span>
               {{else}}
-                <span class="badge badge-outline">member</span>
+                <span class="badge badge-outline whitespace-nowrap">{{$.T "team.roleMember"}}</span>
               {{end}}
             </td>
-            <td class="text-right">
+            <td data-label="{{$.T "pay.payCol"}}">
+              <form method="POST" action="/api/member/pay" class="flex gap-1 flex-wrap items-center">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                <input type="hidden" name="user_id" value="{{.UserID}}">
+                <input type="number" name="hourly_pay_cents" min="0" step="100" class="input input-xs input-bordered w-20" placeholder="0">
+                <input type="number" name="capacity_minutes" min="0" step="30" class="input input-xs input-bordered w-16" placeholder="480">
+                <button type="submit" class="btn btn-ghost btn-xs">{{icon "check" "icon icon-sm"}}</button>
+              </form>
+            </td>
+            <td data-label="{{$.T "team.remove"}}" class="text-right">
               {{if ne .UserID $.User.ID}}
                 <form method="POST" action="/api/team/members/{{.UserID}}/remove"
-                      onsubmit="return confirm('Remove {{.Name}} from the team?')">
-                  <button type="submit" class="btn btn-sm btn-ghost">Remove</button>
+                      onsubmit="return confirm('{{$.T "team.confirmRemove"}}')">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                  <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "x"}}{{$.T "team.remove"}}</button>
                 </form>
               {{else}}
-                <span class="text-xs opacity-50">you</span>
+                <span class="text-xs opacity-50">{{$.T "team.you"}}</span>
               {{end}}
             </td>
           </tr>
         {{end}}
         </tbody>
       </table>
+      </div>
       {{else}}
-      <p class="text-sm opacity-60">No members yet.</p>
+      <p class="text-sm opacity-60">{{.T "team.noMembers"}}</p>
       {{end}}
     </div>
   </div>

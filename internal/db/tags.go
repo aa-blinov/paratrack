@@ -81,9 +81,15 @@ func (d *DB) ListTags(ctx context.Context, teamID int64) ([]model.Tag, error) {
 }
 
 // DeleteTag removes the tag and (via FK cascade) drops all session_tags
-// rows pointing to it.
-func (d *DB) DeleteTag(ctx context.Context, id int64) error {
-	res, err := d.sql.ExecContext(ctx, `DELETE FROM tags WHERE id = ?`, id)
+// rows pointing to it. teamID > 0 restricts the delete to that workspace.
+func (d *DB) DeleteTag(ctx context.Context, teamID, id int64) error {
+	q := `DELETE FROM tags WHERE id = ?`
+	args := []any{id}
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	res, err := d.sql.ExecContext(ctx, q, args...)
 	if err != nil {
 		return err
 	}
@@ -102,6 +108,12 @@ func (d *DB) DeleteTag(ctx context.Context, id int64) error {
 // preload the tag themselves. Pass 0 for teamID if the session is in
 // no workspace (rare; usually Auth middleware supplies one).
 func (d *DB) AttachTag(ctx context.Context, teamID, sessionID int64, tagName string) error {
+	// Refuse to tag a session from another workspace.
+	if teamID > 0 {
+		if _, err := d.GetSession(ctx, teamID, sessionID); err != nil {
+			return err
+		}
+	}
 	tag, err := d.GetTagByName(ctx, teamID, tagName)
 	if err != nil {
 		// Auto-create on first attach — matches the "just type the tag"
@@ -125,6 +137,11 @@ func (d *DB) AttachTag(ctx context.Context, teamID, sessionID int64, tagName str
 // DetachTag removes the link between a session and a tag. Does not
 // delete the tag itself.
 func (d *DB) DetachTag(ctx context.Context, teamID, sessionID int64, tagName string) error {
+	if teamID > 0 {
+		if _, err := d.GetSession(ctx, teamID, sessionID); err != nil {
+			return err
+		}
+	}
 	tag, err := d.GetTagByName(ctx, teamID, tagName)
 	if err != nil {
 		return err

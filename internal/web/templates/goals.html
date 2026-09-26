@@ -1,63 +1,49 @@
 {{define "goals-content"}}
-<h1 class="text-2xl font-semibold mb-1">Goals</h1>
-<p class="opacity-60 mb-5">
-  Set per-activity targets. Progress is measured against the live clock,
-  so an active session contributes to the daily goal as you track it.
-</p>
+<h1 class="mb-1">{{.T "nav.goals"}}</h1>
+<p class="opacity-60 mb-5">{{.T "goals.blurbFull"}}</p>
 
 <!-- New goal form -->
-<div class="card bg-base-100 shadow-sm">
+<div class="card bg-base-100 border border-base-300">
   <div class="card-body p-5">
-    <div class="card-title text-base font-medium mb-3">New goal</div>
+    <div class="card-title mb-3">{{.T "goals.new"}}</div>
     <form class="grid grid-cols-1 sm:grid-cols-[1fr_120px_120px_auto] gap-2 items-end" hx-post="/api/goals" hx-target="#goals-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
       <div>
-        <label class="label py-1" for="g-activity"><span class="label-text">Activity</span></label>
+        <label class="label py-1" for="g-activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
         <input type="text" id="g-activity" name="activity" required placeholder="reading" list="known-activities" class="input input-bordered w-full">
         <datalist id="known-activities">
           {{range .Activities}}<option value="{{.Name}}">{{end}}
         </datalist>
       </div>
       <div>
-        <label class="label py-1" for="g-period"><span class="label-text">Period</span></label>
+        <label class="label py-1" for="g-period"><span class="label-text">{{.T "goals.period"}}</span></label>
         <select id="g-period" name="period" required class="select select-bordered w-full">
-          <option value="daily">Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
+          <option value="daily">{{.T "goals.daily"}}</option>
+          <option value="weekly">{{.T "goals.weekly"}}</option>
+          <option value="monthly">{{.T "goals.monthly"}}</option>
         </select>
       </div>
       <div>
-        <label class="label py-1" for="g-minutes"><span class="label-text">Minutes</span></label>
+        <label class="label py-1" for="g-minutes"><span class="label-text">{{.T "goals.minutes"}}</span></label>
         <input type="number" id="g-minutes" name="minutes" min="1" max="10000" required placeholder="120" class="input input-bordered w-full">
       </div>
-      <button type="submit" class="btn btn-neutral">Set goal</button>
+      <button type="submit" class="btn btn-neutral gap-1.5">{{icon "flag"}}{{.T "goals.set"}}</button>
     </form>
   </div>
 </div>
 
 <!-- Existing goals with progress; the inner HTML is swapped by HTMX. -->
 <div id="goals-list" hx-get="/api/goals/progress" hx-trigger="load, every 60s" hx-swap="innerHTML">
-  {{template "goals-list" .Goals}}
-</div>
-
-<!-- CLI hint -->
-<div class="card bg-base-100 shadow-sm mt-4">
-  <div class="card-body p-5">
-    <div class="card-title text-base font-medium mb-2">From the terminal</div>
-    <p class="text-sm opacity-60 mb-2">Same CRUD works over the CLI:</p>
-    <pre class="font-mono text-xs bg-base-200 p-3 rounded overflow-x-auto">paratrack goal set --activity reading --daily 2h
-paratrack goal list
-paratrack goal unset --activity reading --daily</pre>
-  </div>
+  {{template "goals-list" .}}
 </div>
 {{end}}
 
 {{define "goals-list"}}
-  {{if .}}
-  <div class="card bg-base-100 shadow-sm mt-4">
+  {{if .Goals}}
+  <div class="card bg-base-100 border border-base-300 mt-4">
     <div class="card-body p-5">
-      <div class="card-title text-base font-medium mb-3">Current goals</div>
+      <div class="card-title mb-3">{{.T "goals.current"}}</div>
       <div class="space-y-4">
-        {{range .}}
+        {{range .Goals}}
         <div class="space-y-1">
           <div class="flex items-center justify-between text-sm gap-2">
             <div class="flex items-center gap-2 flex-wrap">
@@ -66,10 +52,10 @@ paratrack goal unset --activity reading --daily</pre>
             </div>
             <div class="flex items-center gap-2">
               <span class="font-mono">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
-              <button class="btn btn-sm btn-ghost btn-circle"
-                      hx-delete="/api/goals?activity={{.ActivityName}}&period={{.Period}}"
+              <button class="btn btn-ghost btn-sm btn-circle"
+                      hx-delete="/api/goals?activity={{urlquery .ActivityName}}&period={{urlquery .Period}}"
                       hx-target="#goals-list" hx-swap="innerHTML"
-                      hx-confirm="Delete {{.Period}} goal for {{.ActivityName}}?"
+                      hx-confirm="{{.T "goals.confirmDelete"}}"
                       title="Delete goal"
                       aria-label="Delete goal">✕</button>
             </div>
@@ -82,8 +68,8 @@ paratrack goal unset --activity reading --daily</pre>
   </div>
   {{else}}
   <div class="text-center py-8 opacity-60 mt-4">
-    <div class="font-medium">No goals yet</div>
-    <div class="text-sm">Use the form above to set one, or run <code>paratrack goal set --activity reading --daily 2h</code>.</div>
+    <div class="font-medium">{{.T "goals.noGoals"}}</div>
+    <div class="text-sm">{{.T "goals.noGoalsHint"}}</div>
   </div>
   {{end}}
 {{end}}

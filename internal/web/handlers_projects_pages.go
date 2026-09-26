@@ -1,12 +1,14 @@
 package web
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -18,7 +20,13 @@ type projectsPageData struct {
 	ShowArchived bool
 	Flash    string
 	FlashOK  bool
+	CSRFToken string
+	Lang      string
 }
+
+func (p *projectsPageData) setCSRF(t string) { p.CSRFToken = t }
+func (p *projectsPageData) setLang(l string) { p.Lang = l }
+func (p projectsPageData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
 type projectListRow struct {
 	ID         int64
@@ -67,9 +75,9 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 		ShowArchived: showArchived,
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
-		data.Flash, data.FlashOK = decodeFlash(flash)
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Projects", "projects", "projects", data)
+	s.renderPageForRequest(w, r, "Projects", "projects", "projects", &data)
 }
 
 // projectDetailData is the envelope for /projects/{slug}.
@@ -82,9 +90,19 @@ type projectDetailData struct {
 	Total    string
 	MonthTotal string
 	Archived bool
+	EstimateLabel   string
+	EstimateInput   string
+	EstimatePercent int
+	RateInput       string
 	Flash    string
 	FlashOK  bool
+	CSRFToken string
+	Lang      string
 }
+
+func (p *projectDetailData) setCSRF(t string) { p.CSRFToken = t }
+func (p *projectDetailData) setLang(l string) { p.Lang = l }
+func (p projectDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
 // handleProjectDetail — GET /projects/{slug}
 func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +123,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Recent sessions in this project (last 50).
+	// Recent sessions in this project (last 30 days, capped at 50).
 	now := time.Now()
 	from := now.Add(-30 * 24 * time.Hour)
 	rawSessions, err := s.db.ListClosedSessionsInRange(r.Context(), tid, from, now, nil)
@@ -114,22 +132,36 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	views := make([]sessionView, 0, len(rawSessions))
+	totalSec := 0
+	monthSec := 0
 	for _, as := range rawSessions {
 		if as.Activity.ProjectID != p.ID {
 			continue
 		}
-		views = append(views, toSessionView(as.Session, as.Activity, from, now, now))
-		if len(views) >= 50 {
-			break
+		v := toSessionView(as.Session, as.Activity, from, now, now)
+		monthSec += v.DurationSecs
+		// All-time total: unclipped wall clock for this project.
+		if as.Session.EndAt != nil {
+			totalSec += int(math.Ceil(as.Session.EndAt.Sub(as.Session.StartAt).Seconds()))
+		}
+		if len(views) < 50 {
+			views = append(views, v)
 		}
 	}
 	hydrateSessionTags(r.Context(), s.db, views)
 	hydrateSessionProjects(r.Context(), s.db, views)
 
-	totalSec := 0
-	monthSec := 0
-	for _, v := range views {
-		monthSec += v.AccumulatedSeconds
+	estLabel := ""
+	estInput := ""
+	estPct := 0
+	rateInput := ""
+	if p.EstimateMinutes != nil && *p.EstimateMinutes > 0 {
+		estLabel = fmtDuration(*p.EstimateMinutes * 60)
+		estInput = strconv.Itoa(*p.EstimateMinutes)
+		estPct = totalSec * 100 / (*p.EstimateMinutes * 60)
+	}
+	if p.BillableRateCents != nil {
+		rateInput = strconv.Itoa(*p.BillableRateCents)
 	}
 	data := projectDetailData{
 		Title:      p.Name,
@@ -140,20 +172,32 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		Total:      fmtDuration(totalSec),
 		MonthTotal: fmtDuration(monthSec),
 		Archived:   p.Archived,
+		EstimateLabel:   estLabel,
+		EstimateInput:   estInput,
+		RateInput:       rateInput,
+		EstimatePercent: estPct,
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
-		data.Flash, data.FlashOK = decodeFlash(flash)
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, p.Name, "projects", "project-detail", data)
+	s.renderPageForRequest(w, r, p.Name, "projects", "project-detail", &data)
 }
+
+// projectNewPage is the create form envelope. T() exposes i18n.
+type projectNewPage struct {
+	Title     string
+	Active    string
+	CSRFToken string
+	Lang      string
+}
+
+func (p projectNewPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
 // handleProjectNew — GET /projects/new (form page).
 func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
-	data := struct {
-		Title  string
-		Active string
-	}{Title: "New project", Active: "projects"}
-	s.renderPageForRequest(w, r, "New project", "projects", "project-new", data)
+	lang := string(resolveLang(r))
+	data := projectNewPage{Title: "New project", Active: "projects", CSRFToken: ensureCSRF(w, r), Lang: lang}
+	s.renderPageForRequest(w, r, "New project", "projects", "project-new", &data)
 }
 
 // handleProjectCreateForm — POST /projects/new (form-encoded from the
@@ -197,13 +241,39 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 		b := v == "1" || v == "true"
 		archived = &b
 	}
-	if _, err := s.db.UpdateProject(r.Context(), tid, p.ID, name, color, archived); err != nil {
-		flash := encodeFlash(false, err.Error())
-		http.Redirect(w, r, "/projects/"+slug+"?flash="+flash, http.StatusSeeOther)
+	var estimate *int
+	if v := strings.TrimSpace(r.Form.Get("estimate_minutes")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			flash := encodeFlash(false, "estimate must be a number of minutes")
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+flash, http.StatusSeeOther)
+			return
+		}
+		estimate = &n
+	}
+	if _, err := s.db.UpdateProject(r.Context(), tid, p.ID, name, color, archived, estimate); err != nil {
+		http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	flash := encodeFlash(true, "updated")
-	http.Redirect(w, r, "/projects/"+slug+"?flash="+flash, http.StatusSeeOther)
+	// Billable rate + flag (Wave 3).
+	if v := strings.TrimSpace(r.Form.Get("rate_cents")); v != "" || r.Form.Get("billable") != "" {
+		var rate *int
+		if v != "" {
+			n, err := strconv.Atoi(v)
+			if err != nil || n < 0 {
+				http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, "rate must be a number of cents"),
+					http.StatusSeeOther)
+				return
+			}
+			rate = &n
+		}
+		b := r.Form.Get("billable") == "1" || r.Form.Get("billable") == "on"
+		if err := s.db.SetProjectRate(r.Context(), tid, p.ID, rate, &b); err != nil {
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
+			return
+		}
+	}
+	http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(true, "updated"), http.StatusSeeOther)
 }
 
 // handleProjectDeleteForm — POST /projects/{slug}/delete.
@@ -245,7 +315,7 @@ func projectSecondsInWindow(r *http.Request, s *Server, projectID int64, from, t
 		    AND end_at IS NOT NULL
 		    AND end_at >= ?
 		    AND start_at <= ?`,
-		append(toAny(ids), from.UTC().Format("2006-01-02T15:04:05.000"), to.UTC().Format("2006-01-02T15:04:05.000"))...)
+		append(toAny(ids), db.FormatTime(from), db.FormatTime(to))...)
 	if err != nil {
 		return 0
 	}
@@ -261,15 +331,13 @@ func projectSecondsInWindow(r *http.Request, s *Server, projectID int64, from, t
 		}
 		st, _ := db.ScanTime(start)
 		en, _ := db.ScanTime(endS)
-		if en.After(to) {
-			en = to
+		sess := model.Session{
+			StartAt:            st,
+			EndAt:              &en,
+			AccumulatedSeconds: accum,
+			Paused:             paused == 1,
 		}
-		if st.Before(from) {
-			st = from
-		}
-		if en.After(st) {
-			total += int(en.Sub(st).Seconds())
-		}
+		total += sess.TrackedSecondsInWindow(from, to, to)
 	}
 	_ = strconv.Itoa // keep import
 	return total

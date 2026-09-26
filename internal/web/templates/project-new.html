@@ -1,32 +1,33 @@
 {{define "project-new"}}
 <div class="max-w-md mx-auto space-y-6">
   <div class="text-sm">
-    <a href="/projects" class="link link-hover opacity-70">Projects</a>
+    <a href="/projects" class="link link-hover opacity-70">{{.T "nav.projects"}}</a>
     <span class="opacity-40"> / </span>
-    <span>New</span>
+    <span>{{.T "project.newCrumb"}}</span>
   </div>
 
   <header>
-    <h1 class="text-2xl font-semibold">New project</h1>
-    <p class="opacity-70 text-sm mt-1">Slug is auto-derived from the name if left empty.</p>
+    <h1>{{.T "projects.new"}}</h1>
+    <p class="opacity-70 text-sm mt-1">{{.T "projects.slugHint"}}</p>
   </header>
 
-  <form method="POST" action="/projects/new" class="card bg-base-100 border border-base-300 shadow-sm">
+  <form method="POST" action="/projects/new" class="card bg-base-100 border border-base-300">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
     <div class="card-body p-5 gap-4">
       <label class="form-control">
-        <span class="label-text">Name</span>
+        <span class="label-text">{{.T "projects.name"}}</span>
         <input type="text" name="name" required minlength="1"
                class="input input-bordered" placeholder="EORA RAG">
       </label>
 
       <label class="form-control">
-        <span class="label-text">Slug (optional)</span>
-        <input type="text" name="slug" pattern="[a-z0-9][a-z0-9_-]*"
+        <span class="label-text">{{.T "projects.slugOpt"}}</span>
+        <input type="text" name="slug" pattern="[a-z0-9][a-z0-9_\-]*"
                class="input input-bordered font-mono" placeholder="eora-rag">
       </label>
 
       <label class="form-control">
-        <span class="label-text">Color</span>
+        <span class="label-text">{{.T "projects.color"}}</span>
         <div class="flex items-center gap-2">
           <input type="color" name="color" value="#7c3aed"
                  class="w-10 h-10 rounded border border-base-300 bg-transparent cursor-pointer">
@@ -36,8 +37,8 @@
       </label>
 
       <div class="flex items-center justify-between gap-2 pt-2">
-        <a href="/projects" class="btn btn-ghost btn-sm">Cancel</a>
-        <button type="submit" class="btn btn-primary btn-sm">Create</button>
+        <a href="/projects" class="btn btn-ghost btn-sm gap-1.5">{{.T "projects.cancel"}}</a>
+        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "plus"}}{{.T "projects.create"}}</button>
       </div>
     </div>
   </form>

@@ -2,39 +2,77 @@
 <datalist id="known-tags-all">
   {{range $.AllTagNames}}<option value="{{.}}">{{end}}
 </datalist>
-<h1 class="text-2xl font-semibold mb-4">Stats</h1>
+<h1 class="mb-4">{{.T "nav.stats"}}</h1>
 
 <div class="period-tabs mb-4">
   {{$cur := .Period.Label}}
-  <a href="?period=today{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">Today</a>
-  <a href="?period=yesterday{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">Yesterday</a>
-  <a href="?period=week{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"       class="{{if eq $cur "week"}}active{{end}}">This week</a>
-  <a href="?period=last_week{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"  class="{{if eq $cur "last_week"}}active{{end}}">Last week</a>
-  <a href="?period=month{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"      class="{{if eq $cur "month"}}active{{end}}">This month</a>
-  <a href="?period=last_month{{if .TagFilter}}&tag={{.TagFilter}}{{end}}" class="{{if eq $cur "last_month"}}active{{end}}">Last month</a>
+  {{$proj := urlquery .ProjectFilter}}
+  {{$tag := urlquery .TagFilter}}
+  <a href="?period=today{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">{{.T "dash.today"}}</a>
+  <a href="?period=yesterday{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">{{.T "stats.yesterday"}}</a>
+  <a href="?period=week{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"       class="{{if eq $cur "week"}}active{{end}}">{{.T "stats.week"}}</a>
+  <a href="?period=last_week{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"  class="{{if eq $cur "last_week"}}active{{end}}">{{.T "stats.lastWeek"}}</a>
+  <a href="?period=month{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"      class="{{if eq $cur "month"}}active{{end}}">{{.T "stats.month"}}</a>
+  <a href="?period=last_month{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}" class="{{if eq $cur "last_month"}}active{{end}}">{{.T "stats.lastMonth"}}</a>
 </div>
 
-{{if .TagFilter}}
-<div class="alert alert-info mb-4 flex items-center gap-3">
-  <span class="text-xs uppercase tracking-wider opacity-70">Filtering by tag:</span>
-  <strong>#{{.TagFilter}}</strong>
-  <a href="?period={{.Period.Label}}" class="btn btn-sm btn-ghost ml-auto">Clear filter</a>
+{{if or .TagFilter .ProjectFilter}}
+<div class="alert alert-info mb-4 flex items-center gap-3 flex-wrap">
+  <span class="text-xs uppercase tracking-wider opacity-70">{{.T "stats.filteredBy"}}</span>
+  {{if .ProjectFilter}}<strong>{{.ProjectFilter}}</strong>{{end}}
+  {{if .TagFilter}}<strong>#{{.TagFilter}}</strong>{{end}}
+  <a href="?period={{.Period.Label}}" class="btn btn-ghost btn-sm ml-auto">{{.T "stats.clearFilters"}}</a>
+</div>
+{{end}}
+
+
+<!-- Saved reports (Wave 1) -->
+{{if or .SavedReports .Period}}
+<div class="card bg-base-100 border border-base-300 mb-4">
+  <div class="card-body p-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-xs uppercase tracking-wider opacity-60">{{.T "reports.title"}}</span>
+      {{range .SavedReports}}
+        <a href="/stats?period={{.Period}}{{if .ProjectSlug}}&project={{.ProjectSlug}}{{end}}{{if .Tag}}&tag={{urlquery .Tag}}{{end}}"
+           class="btn btn-ghost btn-xs border border-base-300">{{.Name}}</a>
+      {{end}}
+      <form method="POST" action="/api/reports/save" class="flex items-center gap-1 ml-auto">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="period" value="{{.Period.Label}}">
+        <input type="hidden" name="project" value="{{.ProjectFilter}}">
+        <input type="hidden" name="tag" value="{{.TagFilter}}">
+        <input type="text" name="name" required maxlength="40" placeholder="{{.T "reports.namePh"}}"
+               class="input input-xs input-bordered w-32">
+        <button type="submit" class="btn btn-neutral btn-xs gap-1">{{icon "plus"}}{{.T "reports.save"}}</button>
+      </form>
+    </div>
+    {{if .SavedReports}}
+    <div class="flex flex-wrap gap-1">
+      {{range .SavedReports}}
+      <form method="POST" action="/api/reports/{{.ID}}/delete" class="inline">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="btn btn-ghost btn-xs gap-1 opacity-60">{{.Name}} ×</button>
+      </form>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
 </div>
 {{end}}
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   <!-- Aggregated breakdown by project -->
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
-      <div class="card-title text-base font-medium mb-3">Breakdown</div>
+      <div class="card-title mb-3">{{.T "stats.breakdown"}}</div>
       {{if .ByProject}}
         {{if .Projects}}
           <div class="flex flex-wrap gap-1 mb-3">
-            <a href="?period={{.Period.Label}}{{if .TagFilter}}&tag={{.TagFilter}}{{end}}"
-               class="btn btn-xs {{if not .ProjectFilter}}btn-primary{{else}}btn-ghost{{end}}">All</a>
+            <a href="?period={{.Period.Label}}{{if .TagFilter}}&tag={{urlquery .TagFilter}}{{end}}"
+               class="btn {{if not .ProjectFilter}}btn-primary{{else}}btn-ghost{{end}} btn-xs">{{.T "stats.all"}}</a>
             {{range .Projects}}
-              <a href="?period={{$.Period.Label}}&project={{.Slug}}{{if $.TagFilter}}&tag={{$.TagFilter}}{{end}}"
-                 class="btn btn-xs {{if eq $.ProjectFilter .Slug}}btn-primary{{else}}btn-ghost{{end}}"
+              <a href="?period={{$.Period.Label}}&project={{.Slug}}{{if $.TagFilter}}&tag={{urlquery $.TagFilter}}{{end}}"
+                 class="btn {{if eq $.ProjectFilter .Slug}}btn-primary{{else}}btn-ghost{{end}} btn-xs"
                  style="{{if eq $.ProjectFilter .Slug}}background-color: {{.Color}}; border-color: {{.Color}}; color: #fff;{{end}}">
                 <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{.Color}}"></span>
                 {{.Name}}
@@ -45,7 +83,7 @@
       <div class="overflow-x-auto">
         <table class="table table-zebra responsive-collapse">
           <thead>
-            <tr><th>Project / Activity</th><th class="text-right">Time</th><th class="text-right">Share</th></tr>
+            <tr><th>{{.T "stats.projectActivity"}}</th><th class="text-right">{{.T "stats.time"}}</th><th class="text-right">{{.T "stats.share"}}</th></tr>
           </thead>
           <tbody>
             {{range .ByProject}}
@@ -68,7 +106,7 @@
               {{end}}
             {{end}}
             <tr class="font-semibold border-t-2 border-base-300">
-              <td>Total</td>
+              <td>{{.T "stats.total"}}</td>
               <td class="text-right font-mono">{{.Total}}</td>
               <td></td>
             </tr>
@@ -76,15 +114,15 @@
         </table>
       </div>
       {{else}}
-      <div class="text-center py-6 opacity-60">No sessions in this period.</div>
+      <div class="text-center py-6 opacity-60">{{.T "stats.noSessionsPeriod"}}</div>
       {{end}}
     </div>
   </div>
 
   <!-- Bar visualization by project -->
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
-      <div class="card-title text-base font-medium mb-3">Distribution</div>
+      <div class="card-title mb-3">{{.T "stats.distribution"}}</div>
       {{if .ByProject}}
       <div class="flex flex-col gap-1.5">
         {{range .ByProject}}
@@ -101,21 +139,21 @@
         {{end}}
       </div>
       {{else}}
-      <div class="text-center py-6 opacity-60">Nothing to chart yet.</div>
+      <div class="text-center py-6 opacity-60">{{.T "stats.nothingChart"}}</div>
       {{end}}
     </div>
   </div>
 </div>
 
 <!-- Session log with inline edit -->
-<div class="card bg-base-100 shadow-sm mt-4">
+<div class="card bg-base-100 border border-base-300 mt-4">
   <div class="card-body p-5">
-    <div class="card-title text-base font-medium mb-3">Sessions ({{.SessionCount}})</div>
+    <div class="card-title mb-3">{{.T "stats.sessions"}} ({{.SessionCount}})</div>
     {{if .Sessions}}
     <div class="overflow-x-auto">
       <table class="table table-zebra responsive-collapse">
         <thead>
-          <tr><th>Activity</th><th>Start</th><th>End</th><th>Duration</th><th>Note</th><th>Tags</th><th></th></tr>
+          <tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.startLabel"}}</th><th>{{.T "stats.end"}}</th><th>{{.T "dash.duration"}}</th><th>{{.T "stats.note"}}</th><th>{{.T "stats.tags"}}</th><th></th></tr>
         </thead>
         <tbody>
           {{range .Sessions}}
@@ -126,8 +164,8 @@
     </div>
     {{else}}
     <div class="text-center py-6 opacity-60">
-      <div class="font-medium">No sessions yet</div>
-      <div class="text-sm">Run <code>paratrack add</code> to backfill, or <code>paratrack start</code> and stop an activity.</div>
+      <div class="font-medium">{{.T "stats.noSessions"}}</div>
+      <div class="text-sm">{{.T "stats.noSessionsHint"}}</div>
     </div>
     {{end}}
   </div>
@@ -160,9 +198,10 @@
   <td data-label="Duration" class="font-mono">
     <input type="text" name="duration" value="{{.DurationInput}}"
            placeholder="1h 30m"
-           title="Set duration, end will be recomputed from start"
+           title="{{.T "stats.durationTitle"}}"
            class="input input-sm input-bordered w-24"
            onchange="paratrackResize(this, {{.ID}})">
+    {{if and .DurationSecs .Duration}}{{end}}
   </td>
   <td data-label="Note">
     <input type="text" name="note" value="{{.Note}}"
@@ -176,23 +215,37 @@
   </td>
   <td data-label="Tags">
     <div class="flex flex-wrap items-center gap-1">
-      {{range .Tags}}<span class="badge badge-outline gap-1">#{{.Name}}<button class="opacity-50 hover:opacity-100" hx-delete="/api/sessions/{{$.ID}}/tags?name={{.Name}}" hx-target="#row-{{$.ID}}" hx-swap="outerHTML" aria-label="remove tag">×</button></span>{{end}}
-      <input type="text"
-             placeholder="+ tag"
-             list="known-tags-all"
-             hx-post="/api/sessions/{{.ID}}/tags"
-             hx-trigger="keydown[key=='Enter'] from:input"
-             hx-on::after-request="this.value=''"
-             name="name"
-             class="input input-xs input-bordered w-20">
+      {{range .Tags}}<span class="badge badge-outline gap-1">#{{.Name}}<button class="btn btn-ghost btn-xs btn-circle opacity-60" hx-delete="/api/sessions/{{$.ID}}/tags?name={{urlquery .Name}}" hx-target="#row-{{$.ID}}" hx-swap="outerHTML" aria-label="{{$.T "stats.removeTag"}}">×</button></span>{{end}}
+      <span class="join">
+        <input type="text"
+               id="tag-input-{{.ID}}"
+               placeholder="{{.T "stats.addTag"}}"
+               list="known-tags-all"
+               name="name"
+               hx-post="/api/sessions/{{.ID}}/tags"
+               hx-trigger="keydown[key=='Enter'] from:input"
+               hx-include="this"
+               hx-target="#row-{{.ID}}"
+               hx-swap="outerHTML"
+               class="input input-xs input-bordered join-item w-20">
+        <button type="button"
+                class="btn btn-neutral btn-xs join-item"
+                title="{{.T "stats.attachTag"}}"
+                aria-label="Attach tag"
+                hx-post="/api/sessions/{{.ID}}/tags"
+                hx-trigger="click"
+                hx-include="#tag-input-{{.ID}}"
+                hx-target="#row-{{.ID}}"
+                hx-swap="outerHTML">+</button>
+      </span>
     </div>
   </td>
   <td data-label="" class="text-right">
-    <button class="btn btn-sm btn-ghost btn-circle"
-            title="Delete session"
+    <button class="btn btn-ghost btn-sm btn-circle"
+            title="{{.T "stats.deleteSession"}}"
             aria-label="Delete session"
             hx-delete="/api/sessions/{{.ID}}"
-            hx-confirm="Delete this session?"
+            hx-confirm="{{.T "stats.confirmDelete"}}"
             hx-target="#row-{{.ID}}"
             hx-swap="delete">✕</button>
   </td>

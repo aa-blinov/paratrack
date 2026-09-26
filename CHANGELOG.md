@@ -4,6 +4,56 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 
 ## [Unreleased]
 
+### Changed — typography & icons
+- **Type scale restored**: DaisyUI 5 resets `h1..h6` to `font-size: inherit`, which flattened the whole UI to one size. A minor-third scale (`--step--2` … `--step-4`) is now defined on `:root` and applied to headings, card titles, labels and meta.
+- **UI font is Inter** (variable, latin + latin-ext + cyrillic) replacing Manrope. Body is pinned to 16px with `font-optical-sizing: auto`.
+- **Logo wordmark is Fraunces** (variable "full" cut with SOFT/WONK axes) — used only for `.wordmark` "paratrack", with a Lucide `timer` glyph beside it. JetBrains Mono stays for code, kbd and timestamps.
+- **Lucide icon set** (ISC) vendored as an SVG sprite at `/static/icons.svg` (35 symbols) and exposed as `{{icon "play"}}`. Replaces the hand-drawn ▶/⏸/☰/● glyphs in nav, status pills and session actions (Focus/Pause/Resume/Stop/Start/Add).
+
+### Added — production SaaS hardening
+- **CSRF double-submit** on every state-changing request. A readable `paratrack_csrf` cookie is echoed via hidden form fields and the `X-CSRF-Token` header (HTMX gets it from `htmx:configRequest`, `fetch` from `paratrackCSRF()`). Missing/incorrect token → 403.
+- **Security headers** on every response: `Content-Security-Policy` (self + the inline/eval relaxations Alpine 3 requires), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when the request arrived over TLS.
+- **Secure cookies** — `Secure` is set on session / team / CSRF cookies when the request is HTTPS (direct TLS or `X-Forwarded-Proto: https`).
+- **Auth rate limiting** — in-memory sliding window per IP: login 10/min, register 5/min, password-forgot 5/min, password-reset 10/min. 429 with `Retry-After`.
+- **Password recovery** — `/forgot-password` + `/reset-password`, single-use 30-minute tokens (`password_reset_tokens`), "if that address exists" responses (no enumeration), successful reset logs out every other session. Mail goes through a pluggable `internal/mail.Sender`: log sink by default, SMTP relay via `PARATRACK_SMTP_HOST` / `PARATRACK_SMTP_USER` / `PARATRACK_SMTP_PASS` / `PARATRACK_MAIL_FROM`.
+- **Web backfill** — "Add a past session" card on the dashboard (`POST /api/sessions/backfill`), natural-language times via the same parser as `paratrack add`.
+- **Focus control in the UI** — per-row Focus button on active sessions (and a "Focus first" shortcut) calling `POST /api/focus/{name}`.
+- Toast sits under the topbar (no longer covers the nav).
+- Tests: `saas_test.go` (CSRF reject, security headers, full reset flow with spy mailer, rate-limit 429, backfill) and `rl_test.go` (limiter window accounting).
+
+### Fixed
+- **Stop folds live elapsed into `accumulated_seconds`**, so a closed session's `DurationSeconds` is no longer 0 for never-paused rows and correctly excludes pause gaps for paused ones.
+- **Tracked time is pause-aware and window-scaled everywhere**: `Session.TrackedSecondsInWindow` attributes a session's non-paused total to a period by its wall-clock overlap fraction. Goals (both active and closed), `/stats` aggregates and project card windows all use it — previously goals counted live sessions as accumulated but closed ones as wall-clock (including pauses).
+- **`DeleteTag` is team-scoped** — a signed-in user could previously delete any workspace's tag by numeric id. Missing goal/tag now map to 404 (was 500).
+- **Names in query strings are `urlquery`-escaped** on goals delete, session tag detach, and `/stats?tag=` links — "deep work" used to produce a broken URL.
+- **CSV `project` column carries the project name** (was slug) and `duration_seconds` is the tracked duration (was wall-clock span).
+- **`POST /api/start` fails cleanly when the chosen project can't be assigned** (was silently starting the session uncategorized).
+- **Inline tag attach actually updates the row**: the `+ tag` input was missing `hx-target` / `hx-swap`, so HTMX dumped the `session-row` response into the `<input>` and the chip never appeared (toast still said "tagged"). Now Enter and the new `+` button both replace the row.
+- **Inline duration edit no longer kills row bindings**: `paratrackResize` injects HTML outside HTMX and must call `htmx.process()`, otherwise tag/pause/delete stops working after an inline edit.
+- **Mobile header no longer overflows the viewport** (was ~723px at 390px width): primary nav collapses into a hamburger menu under `sm`, workspace name truncates, period tabs scroll horizontally instead of stretching the document. `ui_audit.py` asserts `scrollWidth == clientWidth` on dashboard/stats/goals.
+- **Duration format unified** to `Xh Ym` / `Xm` / `Xh` everywhere (stats, goals, projects cards, graph total, live ticker). The template `fmtDuration` no longer uses the zero-padded `%dh %02dm` ladder; the Alpine live ticker no longer emits `HH:MM:SS`.
+- **Dashboard and tag-filter totals** no longer collapse to zero: aggregates read `sessionView.DurationSecs` instead of parsing the human label with a `HH:MM:SS` parser (`parseHMSStrict` removed).
+- **Graph "Total tracked"** was 60× off (minutes fed into a seconds formatter).
+- **Tag filter now scopes the whole /stats page** — breakdown, distribution and totals all describe the same row set (previously the breakdown ignored `?tag=`).
+- **HTMX response contract**: `POST/DELETE /api/tags` and `/api/goals` return the `tags-list` / `goals-list` fragments under `HX-Request`; session tag attach/detach return the re-rendered `session-row` (they used to return an empty body that wiped the row on `outerHTML` swap). Non-HTMX callers keep the JSON/200 shapes.
+- **Inline session edit keeps tags + project badge** (`handleUpdateSession` now hydrates before re-rendering the row).
+- **Goals and Tags pages** ship a real `<title>` and nav highlight (`render()` no longer drops Title/Active for those view-models).
+- **Dashboard "Recent sessions (last 7 days)"** actually queries 7 days; empty state no longer links to a nonexistent "log a past session" action.
+- **/stats period tabs preserve `?project=`**; `/graph` gained the missing "Last month" tab; the filter banner reflects both project and tag.
+- **Project detail totals**: "Last 30 days" uses clipped duration (was `accumulated_seconds`), "All time" is computed and rendered (was always `0m`). Project card windows compare timestamps via `db.FormatTime` (RFC3339Nano) instead of a mismatched local format.
+- **Invite revoke form** works (`POST /api/team/invites/{token}/revoke` added next to `DELETE /api/team/invites/{token}`).
+- **Register preserves `?next=`** so the invite-accept → sign-up → join flow lands on the invite.
+- **Invite-accept "log out"** is a POST form, not a GET link to a POST-only route.
+- **Delete workspace** has a Danger-zone control; deleting one of several workspaces switches to the next instead of logging the user out. `next` on workspace switch is validated as a relative path (open-redirect close).
+- **Password change requires the current password** (was skippable by leaving the field empty).
+- **Session mutations are team-scoped**: `GetSession` / `UpdateSessionEnd` / `PauseSession` / `ResumeSession` / `DeleteSession` / `AttachTag` / `DetachTag` take a `teamID` and refuse cross-workspace access. Previously any signed-in user could mutate any session by numeric id.
+- **Primary CTAs on /projects** toned to `btn-neutral` to match the rest of the app.
+- Slug input `pattern` made a valid HTML5 regular expression (the `-` placement broke the `/v` unicode-classes parser in Chromium).
+
+### Added
+- Regression tests for the duration ladder, `DurationSecs`, graph total units, tag filter, `pageMeta` coverage, HTMX/JSON dual shape, and cross-team session isolation.
+- **API contract suite** (`internal/web/api_contract_test.go`) covering session lifecycle + pause-aware CSV durations, goals HTMX-fragment vs JSON shapes with spaced names, tag team-scope deletes, CSV project-name column, duplicate-start 409, and inline duration edit round-trip.
+
 ### Added
 - **DaisyUI v5 + Tailwind v4 CSS pipeline** in `web/`. `make ui` (or `make build`) installs npm deps and produces `internal/web/static/css/paratrack.css` (~16 KB minified, embedded via `go:embed`). Two custom themes: `paratrack-light` (default) and `paratrack-dark`.
 - **Per-activity goals**: `paratrack goal set/list/unset` + `/api/goals`. Dashboard widget with live progress; period windows (daily / ISO-week / monthly) computed in UTC.

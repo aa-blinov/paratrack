@@ -3,22 +3,23 @@
   {{template "flash-banner" .}}
   {{template "settings-sidebar" .}}
 
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
-      <h2 class="card-title text-base font-medium mb-2">Invite a teammate</h2>
-      <p class="text-sm opacity-60 mb-3">Anyone with the link can join the team. Links expire after 7 days and can be revoked.</p>
+      <h2 class="card-title mb-2">{{.T "team.inviteTitle"}}</h2>
+      <p class="text-sm opacity-60 mb-3">{{.T "team.inviteBlurb"}}</p>
       <form method="POST" action="/api/team/invites">
-        <button type="submit" class="btn btn-neutral">Generate new invite link</button>
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="btn btn-neutral gap-1.5">{{icon "link"}}{{.T "team.generateInvite"}}</button>
       </form>
     </div>
   </div>
 
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
-      <h2 class="card-title text-base font-medium mb-3">Outstanding invites ({{len .Invites}})</h2>
+      <h2 class="card-title mb-3">{{.T "team.outstanding"}} ({{len .Invites}})</h2>
       {{if .Invites}}
       <table class="table">
-        <thead><tr><th>Token</th><th>Status</th><th>Created</th><th>Expires</th><th></th></tr></thead>
+        <thead><tr><th>{{.T "team.token"}}</th><th>{{.T "team.status"}}</th><th>{{.T "team.created"}}</th><th>{{.T "team.expires"}}</th><th></th></tr></thead>
         <tbody>
         {{range .Invites}}
           <tr>
@@ -31,11 +32,11 @@
             </td>
             <td>
               {{if .Used}}
-                <span class="badge badge-neutral">used</span>
+                <span class="badge badge-neutral">{{.T "team.used"}}</span>
               {{else if .Expired}}
-                <span class="badge badge-warning">expired</span>
+                <span class="badge badge-warning">{{.T "team.expired"}}</span>
               {{else}}
-                <span class="badge badge-success">live</span>
+                <span class="badge badge-success">{{.T "team.live"}}</span>
               {{end}}
             </td>
             <td class="font-mono text-xs opacity-70">{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
@@ -43,8 +44,9 @@
             <td class="text-right">
               {{if .Live}}
                 <form method="POST" action="/api/team/invites/{{.Token}}/revoke"
-                      onsubmit="return confirm('Revoke this invite?')">
-                  <button type="submit" class="btn btn-sm btn-ghost">Revoke</button>
+                      onsubmit="return confirm('{{$.T "team.confirmRevoke"}}')">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                  <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "x"}}{{$.T "team.revoke"}}</button>
                 </form>
               {{end}}
             </td>
@@ -53,7 +55,7 @@
         </tbody>
       </table>
       {{else}}
-      <p class="text-sm opacity-60">No invites yet.</p>
+      <p class="text-sm opacity-60">{{.T "team.noInvites"}}</p>
       {{end}}
     </div>
   </div>

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/teams"
@@ -29,7 +30,36 @@ type pageData struct {
 	Team        *teams.Team  // current team (personal or shared)
 	UserTeams   []teamsView   // every team the user belongs to (workspace switcher)
 	RequestPath string          // current URL path; used as next= after a switch
+	CSRFToken   string          // echoed into form hidden fields
+	Lang        string          // "en" | "ru" — resolved from cookie / Accept-Language
 }
+
+// T translates a dictionary key for the page's language. Called from
+// templates as {{.T "nav.dashboard"}}; inside {{range}} use {{$.T …}}.
+func (p pageData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
+
+// LangName is the uppercase switcher label ("EN" / "RU").
+func (p pageData) LangName() string { return strings.ToUpper(p.Lang) }
+
+// csrfCarrier is implemented by every page view-model that embeds
+// pageData. renderPageForRequest stamps the per-request CSRF token on
+// it so `{{.CSRFToken}}` works inside content templates.
+type csrfCarrier interface{ setCSRF(string) }
+
+func (p *pageData) setCSRF(t string) { p.CSRFToken = t }
+
+// langCarrier lets the renderers stamp the resolved language.
+type langCarrier interface{ setLang(string) }
+
+func (p *pageData) setLang(l string) { p.Lang = l }
+
+// pageMeta is implemented by every page view-model so render() can
+// pull Title/Active without a closed type switch.
+type pageMeta interface {
+	pageInfo() (title, active string)
+}
+
+func (p pageData) pageInfo() (string, string) { return p.Title, p.Active }
 
 // teamsView is the minimal row the workspace switcher dropdown needs:
 // team identity, role, and id (for the form post).
@@ -56,12 +86,17 @@ type sessionView struct {
 	StartInput         string // value for datetime-local
 	EndInput           string
 	Duration           string
-	DurationInput      string // user-editable representation ("1h 30m" or "HH:MM:SS")
+	DurationSecs       int    // clipped tracked seconds behind Duration — aggregate from this, never parse the label
+	DurationInput      string // user-editable representation ("1h 30m")
 	AccumulatedSeconds int
 	Paused             bool
 	Note               string
 	Tags               []tagChip // attached tags, populated by hydrateSessionTags
+	Lang               string    // i18n for fragment templates (session-row, active-list)
 }
+
+// T translates a dictionary key. Fragment templates call {{.T "key"}}.
+func (v sessionView) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 // dashboardData feeds dashboard.html.
 type dashboardData struct {
@@ -74,6 +109,14 @@ type dashboardData struct {
 	TodayTotal string
 	TopToday   string
 	Goals      []goalView
+	ActiveVM   activeListVM // wrapper so active-list can call {{.T}}
+	GoalsVM    goalsListVM  // wrapper so goals-list can call {{.T}}
+
+	// First-run onboarding checklist. Shown while the account has no
+	// sessions and the visitor has not dismissed it.
+	ShowOnboard bool
+	HasProject  bool
+	HasSession  bool
 }
 
 // statsData feeds stats.html.
@@ -89,6 +132,7 @@ type statsData struct {
 	SessionCount int
 	TagFilter    string // current ?tag= value, empty if unfiltered
 	AllTagNames  []string // for the inline-add input autocomplete
+	SavedReports []dbpkg.SavedReport
 }
 
 type aggRow struct {
@@ -138,7 +182,10 @@ type tagsData struct {
 type tagWithCount struct {
 	tagChip
 	SessionCount int
+	Lang         string
 }
+
+func (v tagWithCount) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 // goalView is the per-row representation of a configured goal plus
 // the progress actually achieved in its current window. Powers both the
@@ -157,7 +204,10 @@ type goalView struct {
 	PeriodStartLabel  string // "Mon Sep 22"
 	PeriodEndLabel    string // "Sun Sep 28"
 	PeriodRangeLabel  string // short label e.g. "this week"
+	Lang              string
 }
+
+func (v goalView) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 // -- view-model helpers ----------------------------------------------
 
@@ -184,31 +234,21 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 	// Compute the FULL duration first (for the editable input); the
 	// clipped `Duration` (shown in the table cell) is derived after.
 	if s.EndAt != nil {
-		fullSecs := int(s.EndAt.Sub(s.StartAt).Seconds())
-		v.DurationInput = durationToHuman(fullSecs)
-		// Clipped for the display cell.
-		start := s.StartAt
-		end := *s.EndAt
-		if periodStart.After(start) {
-			start = periodStart
-		}
-		if periodEnd.Before(end) {
-			end = periodEnd
-		}
-		if end.After(start) {
-			v.Duration = fmtDuration(int(end.Sub(start).Seconds()))
-		} else {
-			v.Duration = "00:00:00"
-		}
+		fullSecs := s.DurationSeconds(now)
+		v.DurationInput = fmtDuration(fullSecs)
+		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
+		v.Duration = fmtDuration(v.DurationSecs)
 	} else if s.LastResumeAt != nil && !s.Paused {
 		secs := s.DurationSeconds(now)
-		v.Duration = fmtDuration(secs)
+		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
+		v.Duration = fmtDuration(v.DurationSecs)
 		v.DurationInput = durationToHuman(secs)
 	} else if s.Paused {
-		v.Duration = fmtDuration(s.AccumulatedSeconds)
+		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
+		v.Duration = fmtDuration(v.DurationSecs)
 		v.DurationInput = durationToHuman(s.AccumulatedSeconds)
 	} else {
-		v.Duration = "00:00:00"
+		v.Duration = "0m"
 		v.DurationInput = "0m"
 	}
 	return v
@@ -315,35 +355,16 @@ func toAny(xs []int64) []any {
 	return out
 }
 
-// durationToHuman turns 5400 into "1h 30m" — friendlier for the
-// duration input than "01:30:00".
-func durationToHuman(sec int) string {
-	if sec < 0 {
-		sec = 0
-	}
-	h := sec / 3600
-	m := (sec / 60) % 60
-	if h > 0 && m > 0 {
-		return fmt.Sprintf("%dh %dm", h, m)
-	}
-	if h > 0 {
-		return fmt.Sprintf("%dh", h)
-	}
-	return fmt.Sprintf("%dm", m)
-}
+// durationToHuman is an alias of fmtDuration so the editable field
+// matches the read-only cells.
+func durationToHuman(sec int) string { return fmtDuration(sec) }
 
-// fmtDuration renders a duration in seconds as a short, scannable label.
-// Format ladder:
-//   < 60s   → "1m" (any visible portion reads as at least a minute)
-//   < 60m   → "Xm"
-//   exact h → "Xh"
-//   mixed   → "Xh YYm"
-// Matches formatMinutes() so goals ("1h 30m / 2h") and stats ("30m") line up.
+// fmtDuration is the single duration label used everywhere.
 func fmtDuration(sec int) string {
+	if sec <= 0 {
+		return "0m"
+	}
 	if sec < 60 {
-		if sec <= 0 {
-			return "0m"
-		}
 		return "1m"
 	}
 	h := sec / 3600
@@ -370,3 +391,28 @@ func shortSummary(name string) string {
 	}
 	return strings.TrimSpace(name)
 }
+
+
+// Fragment wrappers give {{.T}} a language even when the item list is
+// empty (a bare []tagWithCount has no method to call).
+
+type tagsListVM struct {
+	Lang string
+	Tags []tagWithCount
+}
+
+func (v tagsListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
+
+type goalsListVM struct {
+	Lang  string
+	Goals []goalView
+}
+
+func (v goalsListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
+
+type activeListVM struct {
+	Lang  string
+	Items []sessionView // active-list ranges over Items
+}
+
+func (v activeListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

@@ -1,18 +1,18 @@
 {{define "project-detail"}}
 <div class="space-y-6">
   <div class="text-sm">
-    <a href="/projects" class="link link-hover opacity-70">Projects</a>
+    <a href="/projects" class="link link-hover opacity-70">{{.T "nav.projects"}}</a>
     <span class="opacity-40"> / </span>
-    <span>{{.Project.Name}}</span>
+    <span class="truncate max-w-[14rem] inline-block align-bottom">{{.Project.Name}}</span>
   </div>
 
   <header class="flex items-start justify-between gap-4 flex-wrap">
-    <div class="flex items-center gap-3">
+    <div class="flex items-center gap-3 min-w-0">
       <span class="inline-block w-5 h-5 rounded-full flex-shrink-0" style="background-color: {{.Project.Color}}"></span>
-      <div>
-        <h1 class="text-2xl font-semibold flex items-center gap-2">
-          {{.Project.Name}}
-          {{if .Archived}}<span class="badge badge-ghost badge-sm">archived</span>{{end}}
+      <div class="min-w-0">
+        <h1 class="flex items-center gap-2 min-w-0">
+          <span class="truncate">{{.Project.Name}}</span>
+          {{if .Archived}}<span class="badge badge-ghost badge-sm">{{.T "projects.archivedBadge"}}</span>{{end}}
         </h1>
         <p class="opacity-70 text-sm mt-1 font-mono">{{.Project.Slug}}</p>
       </div>
@@ -22,14 +22,14 @@
   {{template "flash" .}}
 
   <div class="grid gap-6 lg:grid-cols-3">
-    <section class="lg:col-span-2 card bg-base-100 border border-base-300 shadow-sm">
+    <section class="lg:col-span-2 card bg-base-100 border border-base-300">
       <div class="card-body p-5 gap-4">
-        <h2 class="card-title text-base">Recent sessions</h2>
+        <h2 class="card-title">{{.T "projects.recentSessions"}}</h2>
         {{if .Sessions}}
           <div class="overflow-x-auto">
             <table class="table table-sm">
               <thead>
-                <tr><th>Activity</th><th>Started</th><th>Duration</th></tr>
+                <tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.started"}}</th><th>{{.T "dash.duration"}}</th></tr>
               </thead>
               <tbody>
                 {{range .Sessions}}
@@ -46,42 +46,61 @@
             </table>
           </div>
         {{else}}
-          <p class="opacity-70 text-sm">No sessions in this project yet.</p>
+          <p class="opacity-70 text-sm">{{.T "projects.noSessions"}}</p>
         {{end}}
       </div>
     </section>
 
     <aside class="space-y-4">
-      <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card bg-base-100 border border-base-300">
         <div class="card-body p-5 gap-2">
-          <h3 class="card-title text-sm uppercase tracking-wider opacity-60">Last 30 days</h3>
+          <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "projects.last30"}}</h3>
           <p class="text-3xl font-mono">{{.MonthTotal}}</p>
         </div>
       </div>
 
-      <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-5 gap-2">
+          <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "projects.allTime"}}</h3>
+          <p class="text-3xl font-mono">{{.Total}}</p>
+        </div>
+      </div>
+
+      {{if .EstimateLabel}}
+      <div class="card bg-base-100 border border-base-300">
+        <div class="card-body p-5 gap-2">
+          <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "est.vsActual"}}</h3>
+          <p class="font-mono text-lg">{{.EstimateLabel}} <span class="opacity-50">/</span> {{.Total}}</p>
+          <progress class="progress w-full" value="{{if le .EstimatePercent 100}}{{.EstimatePercent}}{{else}}100{{end}}" max="100"></progress>
+          <p class="text-xs opacity-60">{{.EstimatePercent}}%</p>
+        </div>
+      </div>
+      {{end}}
+
+      <div class="card bg-base-100 border border-base-300">
         <div class="card-body p-5 gap-3">
-          <h3 class="card-title text-sm uppercase tracking-wider opacity-60">Activities ({{len .Activities}})</h3>
+          <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "projects.activities"}} ({{len .Activities}})</h3>
           {{if .Activities}}
             <ul class="space-y-1">
               {{range .Activities}}
                 <li class="flex items-center gap-2 text-sm">
                   <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{colorFor .Name}}"></span>
                   <span class="truncate">{{.Name}}</span>
-                  {{if .Archived}}<span class="badge badge-ghost badge-xs">archived</span>{{end}}
+                  {{if .Archived}}<span class="badge badge-ghost badge-xs">{{.T "projects.archivedBadge"}}</span>{{end}}
                 </li>
               {{end}}
             </ul>
           {{else}}
-            <p class="opacity-70 text-sm">No activities in this project yet.</p>
+            <p class="opacity-70 text-sm">{{.T "projects.noActivities"}}</p>
           {{end}}
         </div>
       </div>
 
-      <div class="card bg-base-100 border border-base-300 shadow-sm">
+      <div class="card bg-base-100 border border-base-300">
         <div class="card-body p-5 gap-3">
-          <h3 class="card-title text-sm uppercase tracking-wider opacity-60">Edit</h3>
+          <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "projects.edit"}}</h3>
           <form method="POST" action="/projects/{{.Project.Slug}}" class="space-y-2">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
             <input type="text" name="name" value="{{.Project.Name}}" placeholder="Name"
                    class="input input-bordered input-sm w-full" required>
             <div class="flex items-center gap-2">
@@ -90,15 +109,31 @@
               <input type="text" name="color" value="{{.Project.Color}}"
                      class="input input-bordered input-xs flex-1 font-mono" pattern="^#[0-9a-fA-F]{6}$">
             </div>
-            <label class="label cursor-pointer justify-start gap-2 py-1">
+            <label class="label cursor-pointer justify-start gap-2 py-1 w-full">
               <input type="checkbox" name="archived" value="1" class="checkbox checkbox-xs" {{if .Archived}}checked{{end}}>
-              <span class="label-text text-sm">Archived</span>
+              <span class="label-text text-sm">{{.T "projects.archivedLabel"}}</span>
             </label>
-            <button type="submit" class="btn btn-primary btn-sm w-full">Save</button>
+            <div class="w-full">
+              <span class="label-text text-sm">{{.T "projects.estimate"}} ({{.T "projects.estimateHint"}})</span>
+              <input type="number" name="estimate_minutes" min="0" step="30" class="input input-bordered input-sm w-full"
+                     value="{{.EstimateInput}}"
+                     placeholder="480">
+            </div>
+            <div class="w-full">
+              <span class="label-text text-sm">{{.T "bill.rate"}} ({{.T "bill.cents"}})</span>
+              <input type="number" name="rate_cents" min="0" step="100" class="input input-bordered input-sm w-full"
+                     value="{{.RateInput}}" placeholder="4500">
+            </div>
+            <label class="label cursor-pointer justify-start gap-2 py-1 w-full">
+              <input type="checkbox" name="billable" value="1" class="checkbox checkbox-xs" {{if .Project.Billable}}checked{{end}}>
+              <span class="label-text text-sm">{{.T "bill.billable"}}</span>
+            </label>
+            <button type="submit" class="btn btn-neutral btn-sm gap-1.5 w-full">{{icon "check"}}{{.T "projects.save"}}</button>
           </form>
           <form method="POST" action="/projects/{{.Project.Slug}}/delete"
-                onsubmit="return confirm('Delete project? Activities in it become Uncategorized.');">
-            <button type="submit" class="btn btn-ghost btn-sm text-error w-full">Delete project</button>
+                onsubmit="return confirm('{{.T "projects.confirmDelete"}}');">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+            <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error w-full">{{icon "trash-2"}}{{.T "projects.delete"}}</button>
           </form>
         </div>
       </div>
