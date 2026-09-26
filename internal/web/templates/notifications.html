@@ -1,0 +1,146 @@
+{{define "notifications"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+  {{template "settings-sidebar" .}}
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "push.title"}}</h2>
+      <p class="text-sm opacity-60 mb-3">{{.T "push.blurb"}}</p>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="push-enable" class="btn btn-neutral gap-1.5" type="button"
+                onclick="window.paratrackPush && window.paratrackPush.enable()">{{icon "bell"}}{{.T "push.enable"}}</button>
+        <button id="push-disable" class="btn btn-ghost gap-1.5 hidden" type="button"
+                onclick="window.paratrackPush && window.paratrackPush.disable()">{{icon "x"}}{{.T "push.disable"}}</button>
+      </div>
+      <p class="text-xs opacity-60 mt-2">{{.T "push.devices"}}: <strong>{{.DeviceCount}}</strong></p>
+      {{if eq .DeviceCount 0}}
+      <p class="text-xs opacity-60 mt-1">{{.T "push.emptyHint"}}</p>
+      {{end}}
+      <div id="push-status" class="text-xs opacity-60 mt-1" role="status"
+        data-msg-active="{{.T "push.active"}}"
+        data-msg-off="{{.T "push.off"}}"
+        data-msg-denied="{{.T "push.denied"}}"></div>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "push.events"}}</h2>
+      <ul class="text-sm opacity-70 space-y-1">
+        <li>· {{.T "push.ev1"}}</li>
+        <li>· {{.T "push.ev2"}}</li>
+        <li>· {{.T "push.ev3"}}</li>
+        <li>· {{.T "push.ev4"}}</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const statusEl = document.getElementById("push-status");
+  const MSG = {
+    active: (statusEl && statusEl.dataset.msgActive) || "",
+    off: (statusEl && statusEl.dataset.msgOff) || "",
+    denied: (statusEl && statusEl.dataset.msgDenied) || "",
+    fail: "failed: ",
+  };
+  const csrf = decodeURIComponent((document.cookie.match(/paratrack_csrf=([^;]+)/) || [])[1] || "");
+
+  function set(msg) {
+    if (statusEl) statusEl.textContent = msg;
+  }
+  function show(id, on) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !on);
+  }
+
+  async function subscription() {
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return null;
+    const reg = await navigator.serviceWorker.ready;
+    return reg.pushManager.getSubscription();
+  }
+
+  async function refresh() {
+    try {
+      const sub = await subscription();
+      if (sub) {
+        show("push-enable", false);
+        show("push-disable", true);
+        set(MSG.active);
+      } else {
+        show("push-enable", true);
+        show("push-disable", false);
+      }
+      return sub;
+    } catch (_) {
+      show("push-enable", true);
+      return null;
+    }
+  }
+
+  function toU8(b64) {
+    const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    return Uint8Array.from(raw, (c) => c.charCodeAt(0));
+  }
+
+  async function enable() {
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        set(MSG.denied);
+        return;
+      }
+      const reg = await navigator.serviceWorker.ready;
+      const keyRes = await fetch("/api/push/key", { credentials: "same-origin" });
+      const { publicKey } = await keyRes.json();
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: toU8(publicKey),
+      });
+      const j = sub.toJSON();
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": csrf },
+        body: new URLSearchParams({
+          csrf_token: csrf,
+          endpoint: j.endpoint,
+          p256dh: j.keys.p256dh,
+          auth: j.keys.auth,
+        }),
+      });
+      set(MSG.active);
+      await refresh();
+    } catch (e) {
+      set(MSG.fail + (e && e.message ? e.message : e));
+    }
+  }
+
+  async function disable() {
+    try {
+      const sub = await subscription();
+      if (sub) {
+        const j = sub.toJSON();
+        await fetch("/api/push/unsubscribe", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": csrf },
+          body: new URLSearchParams({ csrf_token: csrf, endpoint: j.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+      await refresh();
+      set(MSG.off);
+    } catch (e) {
+      set(MSG.fail + (e && e.message ? e.message : e));
+    }
+  }
+
+  window.paratrackPush = { enable, disable, refresh };
+  refresh();
+})();
+</script>
+{{end}}

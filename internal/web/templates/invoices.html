@@ -1,0 +1,176 @@
+{{define "invoices"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <header>
+    <h1 class="mb-1">{{.T "inv.title"}}</h1>
+    <p class="opacity-70 text-sm">{{.T "inv.blurb"}}</p>
+  </header>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "inv.generate"}}</h2>
+      <form method="POST" action="/invoices" class="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <div class="sm:col-span-2">
+          <label class="label py-1" for="inv-client"><span class="label-text">{{.T "inv.client"}}</span></label>
+          <input id="inv-client" type="text" name="client" required class="input input-bordered w-full" placeholder="Acme Corp">
+        </div>
+        <div>
+          <label class="label py-1" for="inv-start"><span class="label-text">{{.T "inv.from"}}</span></label>
+          <input id="inv-start" type="date" name="start" required value="{{.DefStart}}" class="input input-bordered w-full">
+        </div>
+        <div>
+          <label class="label py-1" for="inv-end"><span class="label-text">{{.T "inv.to"}}</span></label>
+          <input id="inv-end" type="date" name="end" required value="{{.DefEnd}}" class="input input-bordered w-full">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="label py-1" for="inv-project"><span class="label-text">{{.T "dash.projectLabel"}}</span></label>
+          <select id="inv-project" name="project_id" class="select select-bordered w-full">
+            <option value="">{{.T "stats.all"}}</option>
+            {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+          </select>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="label py-1" for="inv-notes"><span class="label-text">{{.T "stats.note"}}</span></label>
+          <input id="inv-notes" type="text" name="notes" class="input input-bordered w-full" placeholder="{{.T "inv.notesPh"}}">
+        </div>
+        <div class="sm:col-span-2">
+          <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "inv.create"}}</button>
+        </div>
+      </form>
+      <p class="text-xs opacity-60 mt-2">{{.T "inv.rateHint"}}</p>
+    </div>
+  </div>
+
+  {{if .Items}}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "inv.list"}}</h2>
+      <div class="overflow-x-auto">
+      <table class="table table-sm w-full">
+        <thead><tr><th>{{.T "inv.number"}}</th><th>{{.T "inv.client"}}</th><th>{{.T "inv.period"}}</th><th>{{.T "inv.hours"}}</th><th>{{.T "inv.amount"}}</th><th>{{.T "team.status"}}</th></tr></thead>
+        <tbody>
+          {{range .Items}}
+          <tr>
+            <td><a href="/invoices/{{.ID}}" class="link link-hover font-mono">{{.Number}}</a></td>
+            <td>{{.Client}}</td>
+            <td class="text-xs opacity-70">{{.Period}}</td>
+            <td class="font-mono">{{.Hours}}</td>
+            <td class="font-mono">{{.Total}}</td>
+            <td><span class="badge badge-ghost badge-sm">{{.Status}}</span></td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  {{else}}
+    <div class="text-center py-8">
+      <div class="font-medium">{{.T "inv.empty"}}</div>
+      <div class="text-sm opacity-60 mt-1">{{.T "inv.emptyHint"}}</div>
+    </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "invoice-detail"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <div class="flex items-center justify-between gap-3 flex-wrap no-print">
+    <div class="text-sm">
+      <a href="/invoices" class="link link-hover opacity-70">{{.T "inv.title"}}</a>
+      <span class="opacity-40"> / </span>
+      <span class="font-mono">{{.Inv.Number}}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="badge badge-ghost badge-sm">{{.Inv.Status}}</span>
+      {{if eq .Inv.Status "draft"}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/status" class="inline">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="status" value="sent">
+        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markSent"}}</button>
+      </form>
+      {{end}}
+      {{if eq .Inv.Status "sent"}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/status" class="inline">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="status" value="paid">
+        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markPaid"}}</button>
+      </form>
+      {{end}}
+      <a href="/invoices/{{.Inv.ID}}/pdf" class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}PDF</a>
+      <button class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{icon "download"}}{{.T "inv.print"}}</button>
+      {{if .Inv.PaymentURL}}
+      <a href="{{.Inv.PaymentURL}}" target="_blank" rel="noopener" class="btn btn-neutral btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payOnline"}}</a>
+      {{else}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/pay" class="inline-flex gap-1">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="mode" value="stripe">
+        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payLink"}}</button>
+      </form>
+      {{end}}
+      {{if ne .Inv.Status "paid"}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/paid" class="inline">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markPaid"}}</button>
+      </form>
+      {{end}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/delete" class="inline">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error">{{icon "trash-2" "icon icon-sm"}}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300 print:shadow-none print:border-0">
+    <div class="card-body p-6 gap-4">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div class="text-xs uppercase tracking-wider opacity-50">{{.T "inv.invoice"}}</div>
+          <div class="text-2xl font-mono">{{.Inv.Number}}</div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm opacity-60">{{.T "inv.client"}}</div>
+          <div class="text-lg font-medium">{{.Inv.ClientName}}</div>
+          <div class="text-xs opacity-60 font-mono">{{.Inv.PeriodLabel}}</div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+      <table class="table table-sm w-full">
+        <thead><tr><th>{{.T "int.task"}}</th><th class="text-right">{{.T "inv.hours"}}</th><th class="text-right">{{.T "inv.rate"}}</th><th class="text-right">{{.T "inv.amount"}}</th></tr></thead>
+        <tbody>
+          {{range .Inv.Lines}}
+          <tr>
+            <td>{{.Label}}</td>
+            <td class="text-right font-mono">{{.Hours}}</td>
+            <td class="text-right font-mono">{{.Rate}}</td>
+            <td class="text-right font-mono">{{.Amount}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+        <tfoot>
+          <tr class="font-semibold border-t-2 border-base-300">
+            <td>{{.T "stats.total"}} · {{.Inv.Hours}}</td>
+            <td></td>
+            <td></td>
+            <td class="text-right font-mono">{{.Inv.Total}}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      {{if .Inv.PaymentURL}}
+      <p class="text-sm"><span class="opacity-60">{{.T "inv.payOnline"}}:</span>
+        <a href="{{.Inv.PaymentURL}}" class="link link-hover break-all">{{.Inv.PaymentURL}}</a></p>
+      {{end}}
+      {{if .Inv.Notes}}
+      <p class="text-sm opacity-70">{{.Inv.Notes}}</p>
+      {{end}}
+      <p class="text-xs opacity-50">{{.T "inv.footNote"}}</p>
+    </div>
+  </div>
+</div>
+{{end}}

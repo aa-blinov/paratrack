@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>paratrack</title>
+  <style>
+    :root {
+      --bg: #ffffff; --fg: #1a1d23; --muted: #6b7280;
+      --line: #e5e7eb; --accent: #1a1d23; --danger: #e11d48;
+      --ok: #10b981;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #15181d; --fg: #e8eaed; --muted: #9ca3af; --line: #2a2f36; --accent: #e8eaed; }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      width: 320px; padding: 14px; background: var(--bg); color: var(--fg);
+      font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    h1 { font-size: 18px; font-weight: 650; letter-spacing: -0.02em; margin-bottom: 10px; }
+    h1 span { opacity: 0.45; font-weight: 500; font-size: 12px; margin-left: 6px; }
+    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+    input, select {
+      width: 100%; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px;
+      background: transparent; color: inherit; font: inherit; margin-bottom: 10px;
+    }
+    button {
+      width: 100%; padding: 8px 12px; border: 0; border-radius: 8px;
+      background: var(--accent); color: var(--bg); font: inherit; font-weight: 600;
+      cursor: pointer;
+    }
+    button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+    button.danger { background: var(--danger); color: #fff; }
+    .row { display: flex; gap: 6px; }
+    .row button { flex: 1; }
+    .muted { color: var(--muted); font-size: 12px; margin: 6px 0 10px; }
+    .timer {
+      font: 600 22px/1.2 ui-monospace, monospace; letter-spacing: 0.02em;
+      margin: 8px 0 12px;
+    }
+    .pill {
+      display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+      border-radius: 999px; font-size: 11px; font-weight: 600;
+    }
+    .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+    .pill.off { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
+    #status { min-height: 1.2em; margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <h1>paratrack <span id="who"></span></h1>
+
+  <!-- Setup -->
+  <section id="setup">
+    <p class="muted">Paste an API token from Settings → API tokens.</p>
+    <label for="base">Server</label>
+    <input id="base" placeholder="https://paratrack.duckdns.org" />
+    <label for="token">API token</label>
+    <input id="token" type="password" placeholder="pt_…" />
+    <button id="save">Save &amp; connect</button>
+    <div id="status"></div>
+  </section>
+
+  <!-- Timer -->
+  <section id="app" class="hidden">
+    <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span id="state" class="pill off">idle</span>
+      <span id="active-name" class="muted" style="margin:0"></span>
+    </div>
+    <div id="clock" class="timer">0m</div>
+
+    <label for="task">Start from task</label>
+    <select id="task"><option value="">— pick a task —</option></select>
+
+    <label for="activity">…or type activity</label>
+    <input id="activity" placeholder="reading, work…" />
+
+    <div class="row">
+      <button id="start">Start</button>
+      <button id="stop" class="danger">Stop</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <button id="pause" class="ghost">Pause</button>
+      <button id="resume" class="ghost">Resume</button>
+      <button id="refresh" class="ghost">Refresh</button>
+    </div>
+    <div id="status"></div>
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,137 @@
+{{define "integrations"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <header>
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <h1 class="mb-0">{{.T "int.title"}}</h1>
+      <a href="/integrations/marketplace" class="btn btn-ghost btn-sm gap-1.5">{{icon "folder"}}{{.T "mkt.title"}}</a>
+    </div>
+    <p class="opacity-70 text-sm">{{.T "int.blurb"}}</p>
+  </header>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "int.connect"}}</h2>
+      <form method="POST" action="/integrations" class="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <div>
+          <label class="label py-1"><span class="label-text">{{.T "int.provider"}}</span></label>
+          <select name="provider" class="select select-bordered w-full">
+            <option value="github">GitHub</option>
+            <option value="gitlab">GitLab</option>
+            <option value="jira">Jira</option>
+            <option value="trello">Trello</option>
+            <option value="asana">Asana</option>
+            <option value="clickup">ClickUp</option>
+            <option value="todoist">Todoist</option>
+            <option value="notion">Notion</option>
+          </select>
+        </div>
+        <div>
+          <label class="label py-1"><span class="label-text">{{.T "int.name"}}</span></label>
+          <input type="text" name="name" required placeholder="acme/api-server" class="input input-bordered w-full">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="label py-1"><span class="label-text">{{.T "int.secret"}}</span></label>
+          <input type="password" name="secret" required class="input input-bordered w-full"
+                 placeholder="ghp_… | key:token | email:token | ntn_… | glpat-… | pk_…">
+          <p class="text-xs opacity-60 mt-1">{{.T "int.secretHint"}}</p>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="label py-1"><span class="label-text">{{.T "int.target"}}</span></label>
+          <input type="text" name="extra" class="input input-bordered w-full" placeholder="owner/repo | board-id | PROJ | db-id | project-gid | list-id">
+          <p class="text-xs opacity-60 mt-1">{{.T "int.targetHint"}}</p>
+          <p class="text-xs opacity-50 mt-1">{{.T "int.jiraSite"}}</p>
+        </div>
+        <div class="sm:col-span-2">
+          <button type="submit" class="btn btn-neutral gap-1.5">{{icon "link"}}{{.T "int.connectBtn"}}</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {{if .Items}}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "int.connected"}}</h2>
+      <table class="table table-sm">
+        <thead><tr><th>{{.T "int.provider"}}</th><th>{{.T "int.name"}}</th><th>{{.T "int.tasks"}}</th><th></th></tr></thead>
+        <tbody>
+          {{range .Items}}
+          <tr>
+            <td class="uppercase text-xs opacity-70">{{.Provider}}</td>
+            <td><a href="/integrations/{{.ID}}" class="link link-hover">{{.Name}}</a></td>
+            <td class="font-mono">{{.TaskCount}}</td>
+            <td class="text-right">
+              <form method="POST" action="/integrations/{{.ID}}/delete" class="inline">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                <button type="submit" class="btn btn-ghost btn-xs">{{icon "trash-2" "icon icon-sm"}}</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {{else}}
+  <div class="text-center py-8">
+    <div class="font-medium">{{.T "int.empty"}}</div>
+    <div class="text-sm opacity-60 mt-1">{{.T "int.emptyHint"}}</div>
+    <a href="/integrations/marketplace" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "plus" "icon icon-sm"}}{{.T "int.browse"}}</a>
+  </div>
+  {{end}}
+</div>
+{{end}}
+
+{{define "integration-detail"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <div class="text-sm">
+    <a href="/integrations" class="link link-hover opacity-70">{{.T "int.title"}}</a>
+    <span class="opacity-40"> / </span>
+    <span>{{.Integration.Name}}</span>
+  </div>
+
+  <header class="flex items-center justify-between gap-3 flex-wrap">
+    <h1 class="mb-0">{{.Integration.Name}}</h1>
+    <form method="POST" action="/integrations/{{.Integration.ID}}/sync">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "refresh-cw"}}{{.T "int.sync"}}</button>
+    </form>
+  </header>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "int.tasks"}} ({{len .Tasks}})</h2>
+      {{if .Tasks}}
+      <table class="table table-sm">
+        <thead><tr><th>{{.T "int.task"}}</th><th>{{.T "team.status"}}</th><th></th></tr></thead>
+        <tbody>
+          {{range .Tasks}}
+          <tr>
+            <td>
+              {{if .URL}}<a href="{{.URL}}" target="_blank" rel="noopener" class="link link-hover">{{.Title}}</a>
+              {{else}}{{.Title}}{{end}}
+            </td>
+            <td><span class="badge badge-ghost badge-sm">{{.Status}}</span></td>
+            <td class="text-right">
+              <form method="POST" action="/integrations/start" class="inline">
+                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                <input type="hidden" name="task_id" value="{{.ID}}">
+                <button type="submit" class="btn btn-neutral btn-xs gap-1">{{icon "play" "icon icon-sm"}}{{.T "int.start"}}</button>
+              </form>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="text-sm opacity-60">{{.T "int.noTasks"}}</p>
+      {{end}}
+    </div>
+  </div>
+</div>
+{{end}}

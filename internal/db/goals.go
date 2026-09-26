@@ -151,9 +151,10 @@ func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) 
 	return out, nil
 }
 
-// activityMinutesInRange sums session minutes (in teamID) overlapping
-// [start,end], clipped to the window, and includes the live elapsed
-// time of any active session as of `now`.
+// activityMinutesInRange sums tracked (non-paused) session minutes in
+// teamID overlapping [start,end], clipped to the window via
+// TrackedSecondsInWindow, and includes the live elapsed time of any
+// active session as of `now`.
 func (d *DB) activityMinutesInRange(ctx context.Context, teamID, activityID int64, start, end, now time.Time) (int, error) {
 	q := `
 		SELECT start_at, end_at, accumulated_seconds, paused, last_resume_at
@@ -188,43 +189,24 @@ func (d *DB) activityMinutesInRange(ctx context.Context, teamID, activityID int6
 		if err != nil {
 			return 0, err
 		}
-		if st.Before(start) {
-			st = start
+		sess := model.Session{
+			StartAt:            st,
+			AccumulatedSeconds: accumulated,
+			Paused:             paused == 1,
 		}
-		var et time.Time
 		if sEnd.Valid {
 			t, err := ScanTime(sEnd.String)
 			if err != nil {
 				return 0, err
 			}
-			et = t
-		} else {
-			liveNow := now
-			if liveNow.After(end) {
-				liveNow = end
+			sess.EndAt = &t
+		}
+		if lastResume.Valid {
+			if lr, err := ScanTime(lastResume.String); err == nil {
+				sess.LastResumeAt = &lr
 			}
-			base := accumulated
-			if paused == 0 && lastResume.Valid {
-				lr, _ := ScanTime(lastResume.String)
-				if lr.Before(st) {
-					lr = st
-				}
-				if lr.After(liveNow) {
-					// clock skew — ignore the live portion
-				} else {
-					base += int(liveNow.Sub(lr).Seconds())
-				}
-			}
-			totalSec += base
-			continue
 		}
-		if et.After(end) {
-			et = end
-		}
-		if et.Before(st) {
-			continue
-		}
-		totalSec += int(et.Sub(st).Seconds())
+		totalSec += sess.TrackedSecondsInWindow(start, end, now)
 	}
 	if err := rows.Err(); err != nil {
 		return 0, err

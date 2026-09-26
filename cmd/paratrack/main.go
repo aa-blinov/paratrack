@@ -228,7 +228,7 @@ func runStop(args []string) {
 	stopped := 0
 	for _, as := range active {
 		if target == "" || equalsFold(as.Activity.Name, target) {
-			if _, err := d.UpdateSessionEnd(ctx, as.Session.ID, time.Now()); err != nil {
+			if _, err := d.UpdateSessionEnd(ctx, 0, as.Session.ID, time.Now()); err != nil {
 				fatal("stop %d: %v", as.Session.ID, err)
 			}
 			fmt.Printf("✓ stopped %q\n", as.Activity.Name)
@@ -263,7 +263,7 @@ func runPause(args []string) {
 		if target != "" && !equalsFold(as.Activity.Name, target) {
 			continue
 		}
-		if _, err := d.PauseSession(ctx, as.Session.ID, now); err != nil {
+		if _, err := d.PauseSession(ctx, 0, as.Session.ID, now); err != nil {
 			fatal("pause %d: %v", as.Session.ID, err)
 		}
 		count++
@@ -297,7 +297,7 @@ func runResume(args []string) {
 		if target != "" && !equalsFold(as.Activity.Name, target) {
 			continue
 		}
-		if _, err := d.ResumeSession(ctx, as.Session.ID, now); err != nil {
+		if _, err := d.ResumeSession(ctx, 0, as.Session.ID, now); err != nil {
 			fatal("resume %d: %v", as.Session.ID, err)
 		}
 		count++
@@ -341,7 +341,7 @@ func runFocus(args []string) {
 		if as.Activity.ID == act.ID {
 			targetExists = true
 			if as.Session.Paused {
-				if _, err := d.ResumeSession(ctx, as.Session.ID, now); err != nil {
+				if _, err := d.ResumeSession(ctx, 0, as.Session.ID, now); err != nil {
 					fatal("resume: %v", err)
 				}
 				resumed++
@@ -349,7 +349,7 @@ func runFocus(args []string) {
 			continue
 		}
 		if !as.Session.Paused {
-			if _, err := d.PauseSession(ctx, as.Session.ID, now); err != nil {
+			if _, err := d.PauseSession(ctx, 0, as.Session.ID, now); err != nil {
 				fatal("pause: %v", err)
 			}
 			paused++
@@ -1285,7 +1285,7 @@ func runProjectRename(args []string) {
 	if err != nil {
 		fatal("get: %v", err)
 	}
-	upd, err := d.UpdateProject(ctx, p.TeamID, id, args[1], "", nil)
+	upd, err := d.UpdateProject(ctx, p.TeamID, id, args[1], "", nil, nil)
 	if err != nil {
 		fatal("rename: %v", err)
 	}
@@ -1307,7 +1307,7 @@ func runProjectColor(args []string) {
 	if err != nil {
 		fatal("get: %v", err)
 	}
-	upd, err := d.UpdateProject(ctx, p.TeamID, id, "", args[1], nil)
+	upd, err := d.UpdateProject(ctx, p.TeamID, id, "", args[1], nil, nil)
 	if err != nil {
 		fatal("color: %v", err)
 	}
@@ -1333,7 +1333,7 @@ func runProjectArchive(args []string, archive bool) {
 	if archive {
 		verb = "archived"
 	}
-	if _, err := d.UpdateProject(ctx, p.TeamID, id, "", "", &archive); err != nil {
+	if _, err := d.UpdateProject(ctx, p.TeamID, id, "", "", &archive, nil); err != nil {
 		fatal("set archived: %v", err)
 	}
 	fmt.Printf("%s #%d\n", verb, id)

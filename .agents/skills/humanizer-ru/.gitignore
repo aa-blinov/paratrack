@@ -1,0 +1,33 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# eval артефакты (генерируемые)
+eval/out/
+*.local.json
+
+# релизный ассет: собирается перед публикацией релиза, в репозитории не живёт
+humanizer-ru.zip
+dist/
+
+# бандл DeepSeek Harness: package.json в корне, но зависимостей у него нет
+node_modules/
+*.tgz
+
+# секреты детекторов / API
+.env
+
+# macOS / локальный тулинг
+.DS_Store
+.claude/
+
+# Impeccable: продуктовый и дизайн-контекст, локально
+PRODUCT.md
+DESIGN.md
+.impeccable/
+
+# сборка пакета PyPI (uv build / python -m build)
+build/
+*.egg-info/

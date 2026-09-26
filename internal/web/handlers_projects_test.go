@@ -23,6 +23,7 @@ import (
 type projectTestEnv struct {
 	srv    *Server
 	ts     *httptest.Server
+	t      *testing.T
 	cookie string
 	teamID int64
 }
@@ -80,7 +81,7 @@ func newProjectTestEnv(t *testing.T) *projectTestEnv {
 	}
 	_ = srv
 
-	return &projectTestEnv{srv: srv, ts: ts, cookie: tok, teamID: tid}
+	return &projectTestEnv{srv: srv, ts: ts, t: t, cookie: tok, teamID: tid}
 }
 
 func (e *projectTestEnv) do(method, path string, body []byte, ct string) *httptest.ResponseRecorder {
@@ -97,6 +98,10 @@ func (e *projectTestEnv) do(method, path string, body []byte, ct string) *httpte
 	r.AddCookie(&http.Cookie{Name: "paratrack_session", Value: e.cookie})
 	// Team cookie so the middleware picks our seeded team.
 	r.AddCookie(&http.Cookie{Name: "paratrack_team", Value: fmt.Sprintf("%d", e.teamID)})
+	// Double-submit CSRF (cookie + header).
+	csrfTok, csrfCk := seedCSRF(e.t, e.srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	w := httptest.NewRecorder()
 	e.srv.routes().ServeHTTP(w, r)
 	return w

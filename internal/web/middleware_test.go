@@ -84,6 +84,9 @@ func TestProtectedAPIReturns401JSONWhenUnauth(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/start", nil)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusUnauthorized {
 		t.Errorf("POST /api/start without cookie: want 401, got %d", w.Code)
@@ -101,6 +104,9 @@ func TestLoginFlowEndToEnd(t *testing.T) {
 	form := strings.NewReader("email=alice@example.com&password=longenough")
 	r := httptest.NewRequest(http.MethodPost, "/api/login", form)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/login: want 303, got %d", w.Code)
@@ -140,6 +146,9 @@ func TestLogoutClearsCookie(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
 	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Errorf("POST /api/logout: want 303, got %d", w.Code)
@@ -161,6 +170,9 @@ func TestRegisterFlowCreatesUserAndLogsIn(t *testing.T) {
 	form := strings.NewReader("name=Bob&email=bob@example.com&password=longenough")
 	r := httptest.NewRequest(http.MethodPost, "/api/register", form)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/register: want 303, got %d", w.Code)

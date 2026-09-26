@@ -1,9 +1,9 @@
 {{define "register"}}
 <div class="max-w-md mx-auto mt-12">
-  <div class="card bg-base-100 shadow-sm">
+  <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-6">
-      <h1 class="text-2xl font-semibold mb-1">Create your paratrack account</h1>
-      <p class="text-sm opacity-60 mb-4">A personal workspace is created automatically, invite teammates later from <code>Settings → Team</code>.</p>
+      <h1 class="mb-1">{{.T "auth.createAccount"}}</h1>
+      <p class="text-sm opacity-60 mb-4">{{.T "auth.personalWorkspace"}} <code>{{.T "auth.settingsTeam"}}</code>.</p>
 
       {{if .ErrorMsg}}
       <div class="alert alert-error mb-4 text-sm py-2">
@@ -12,28 +12,30 @@
       {{end}}
 
       <form method="POST" action="/api/register" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="next" value="{{.Next}}">
         <div>
-          <label class="label py-1" for="name"><span class="label-text">Display name</span></label>
+          <label class="label py-1" for="name"><span class="label-text">{{.T "auth.displayName"}}</span></label>
           <input type="text" id="name" name="name" required minlength="1" autocomplete="name"
                  class="input input-bordered w-full" value="{{.Name}}" autofocus>
         </div>
         <div>
-          <label class="label py-1" for="email"><span class="label-text">Email</span></label>
+          <label class="label py-1" for="email"><span class="label-text">{{.T "auth.email"}}</span></label>
           <input type="email" id="email" name="email" required autocomplete="email"
                  class="input input-bordered w-full" value="{{.Email}}">
         </div>
         <div>
-          <label class="label py-1" for="password"><span class="label-text">Password</span></label>
+          <label class="label py-1" for="password"><span class="label-text">{{.T "auth.password"}}</span></label>
           <input type="password" id="password" name="password" required minlength="8" maxlength="72"
                  autocomplete="new-password" class="input input-bordered w-full">
-          <p class="text-xs opacity-60 mt-1">8 characters or more.</p>
+          <p class="text-xs opacity-60 mt-1">{{.T "auth.passwordHint"}}</p>
         </div>
-        <button type="submit" class="btn btn-neutral w-full mt-2">Create account</button>
+        <button type="submit" class="btn btn-neutral gap-1.5 w-full mt-2">{{icon "plus"}}{{.T "invite.createAccount"}}</button>
       </form>
 
       <p class="text-sm opacity-60 mt-4 text-center">
-        Already have an account?
-        <a href="/login" class="link link-primary">Log in</a>
+        {{.T "auth.haveAccount"}}
+        <a href="/login" class="link link-primary">{{.T "nav.login"}}</a>
       </p>
     </div>
   </div>

@@ -131,25 +131,26 @@ Every authenticated query is scoped by `team_id`. The middleware resolves the cu
 
 The collaboration layer can't be layered on top of the anonymous single-user schema. On first launch after this release, `db.Open` detects a pre-auth DB by checking for the presence of the `users` table; if missing, it renames `track.db` to `track.db.bak.<UTC-timestamp>` (along with `-wal` / `-shm` siblings) and creates a fresh schema. The existing CLI commands keep working against the same path — no config change, no manual migration.
 
+## Documentation
+
+- **[docs/PRODUCT.md](docs/PRODUCT.md)** — feature map, business logic (time, money, invoices, payroll), security model, HTTP surface, data model
+- **[docs/QA.md](docs/QA.md)** — QA matrix, last results, bugs found and fixed, API contract notes for test authors
+
 ## Testing
 
-End-to-end (Playwright):
-
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install playwright
+go test ./...                                   # unit + integration
+
+python3 -m venv .venv && source .venv/bin/activate
+pip install playwright requests
 python -m playwright install chromium
 
-./paratrack web --addr 127.0.0.1:8888 &
-python e2e/test_dashboard.py    # 45/45
+python e2e/qa_full.py       # UI / visual, Playwright + screenshots
+python e2e/qa_logic.py      # business-logic math over HTTP
+python e2e/wave9_verify.py  # offline mode + web push
 ```
 
-Go unit tests:
-
-```bash
-go test ./... -race
-```
+Screenshots land in `e2e/screenshots/`.
 
 ## Stack
 

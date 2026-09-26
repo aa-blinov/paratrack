@@ -1,0 +1,82 @@
+{{define "timesheet"}}
+<div class="space-y-4">
+  <header class="flex items-end justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="mb-1">{{.T "ts.title"}}</h1>
+      <p class="opacity-70 text-sm">{{.T "ts.blurb"}}</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/timesheet?date={{.PrevWeek}}" class="btn btn-ghost btn-sm">←</a>
+      <span class="font-mono text-sm px-2">{{.WeekLabel}}</span>
+      <a href="/timesheet?date={{.NextWeek}}" class="btn btn-ghost btn-sm">→</a>
+      <a href="/timesheet" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
+    </div>
+  </header>
+
+  <div class="card bg-base-100 border border-base-300 overflow-x-auto">
+    <div class="card-body p-0">
+      <table class="table table-sm w-full min-w-[48rem]">
+        <thead>
+          <tr>
+            <th class="sticky left-0 bg-base-100 z-10">{{.T "dash.activity"}}</th>
+            {{range .Days}}
+            <th class="text-center {{if .IsToday}}bg-base-200{{end}}">
+              <div class="text-xs uppercase tracking-wider opacity-60">{{.Label}}</div>
+              <div class="font-mono text-base">{{.Date}}</div>
+            </th>
+            {{end}}
+            <th class="text-right">{{.T "stats.total"}}</th>
+          </tr>
+        </thead>
+        <tbody id="ts-body">
+          {{range .Rows}}
+          {{template "timesheet-row" .}}
+          {{end}}
+          {{if not .Rows}}
+          <tr><td colspan="8" class="text-center py-6">
+            <div class="font-medium">{{.T "ts.empty"}}</div>
+            <div class="text-sm opacity-60 mt-1">{{.T "ts.emptyHint"}}</div>
+            <a href="/" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "play" "icon icon-sm"}}{{.T "ts.emptyCta"}}</a>
+          </td></tr>
+          {{end}}
+        </tbody>
+        <tfoot>
+          <tr class="font-semibold border-t-2 border-base-300">
+            <td class="sticky left-0 bg-base-100 z-10">{{.T "stats.total"}}</td>
+            {{range $i, $d := .DayTotalLabels}}
+            <td class="text-center font-mono">{{$d}}</td>
+            {{end}}
+            <td class="text-right font-mono">{{.GrandTotalLabel}}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <p class="text-sm opacity-60">{{.T "ts.hint"}}</p>
+</div>
+{{end}}
+
+{{define "timesheet-row"}}
+<tr id="ts-row-{{.ActivityID}}">
+  <td class="sticky left-0 bg-base-100 z-10">
+    <span class="inline-flex items-center gap-1.5 min-w-0"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
+  </td>
+  {{range .Cells}}
+  <td class="text-center p-1 {{if .IsToday}}bg-base-200{{end}}">
+    <input type="number" min="0" max="1440" step="5"
+           class="input input-xs input-bordered w-16 text-center font-mono"
+           name="minutes"
+           value="{{if .Secs}}{{.Min}}{{end}}"
+           placeholder="—"
+           title="{{.ISO}}"
+           hx-post="/api/timesheet/cell"
+           hx-trigger="change"
+           hx-vals='{"activity_id": {{$.ActivityID}}, "date": "{{.ISO}}"}'
+           hx-target="#ts-row-{{$.ActivityID}}"
+           hx-swap="outerHTML">
+  </td>
+  {{end}}
+  <td class="text-right font-mono">{{.RowTotalLabel}}</td>
+</tr>
+{{end}}

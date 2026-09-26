@@ -1,0 +1,126 @@
+{{define "help"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+
+  <header>
+    <h1 class="text-2xl mb-1">{{.T "help.title"}}</h1>
+    <p class="opacity-70 text-sm">{{.T "help.blurb"}}</p>
+  </header>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "timer"}} {{.T "help.trackTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-medium">{{.T "help.track1"}}</dt>
+            <dd class="opacity-70">{{.T "help.track1d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.track2"}}</dt>
+            <dd class="opacity-70">{{.T "help.track2d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.track3"}}</dt>
+            <dd class="opacity-70">{{.T "help.track3d"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "bar-chart-3"}} {{.T "help.reviewTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-medium">{{.T "help.review1"}}</dt>
+            <dd class="opacity-70">{{.T "help.review1d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.review2"}}</dt>
+            <dd class="opacity-70">{{.T "help.review2d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.review3"}}</dt>
+            <dd class="opacity-70">{{.T "help.review3d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.review4"}}</dt>
+            <dd class="opacity-70">{{.T "help.review4d"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "folder"}} {{.T "help.orgTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-medium">{{.T "help.org1"}}</dt>
+            <dd class="opacity-70">{{.T "help.org1d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.org2"}}</dt>
+            <dd class="opacity-70">{{.T "help.org2d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.org3"}}</dt>
+            <dd class="opacity-70">{{.T "help.org3d"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "zap"}} {{.T "help.moneyTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-medium">{{.T "help.money1"}}</dt>
+            <dd class="opacity-70">{{.T "help.money1d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.money2"}}</dt>
+            <dd class="opacity-70">{{.T "help.money2d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.money3"}}</dt>
+            <dd class="opacity-70">{{.T "help.money3d"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "users"}} {{.T "help.teamTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-medium">{{.T "help.team1"}}</dt>
+            <dd class="opacity-70">{{.T "help.team1d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.team2"}}</dt>
+            <dd class="opacity-70">{{.T "help.team2d"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "link"}} {{.T "help.ecoTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-medium">{{.T "help.eco1"}}</dt>
+            <dd class="opacity-70">{{.T "help.eco1d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.eco2"}}</dt>
+            <dd class="opacity-70">{{.T "help.eco2d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.eco3"}}</dt>
+            <dd class="opacity-70">{{.T "help.eco3d"}}</dd></div>
+        <div><dt class="font-medium">{{.T "help.eco4"}}</dt>
+            <dd class="opacity-70">{{.T "help.eco4d"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "activity"}} {{.T "help.keysTitle"}}</h2>
+      <ul class="text-sm space-y-1.5">
+        <li><kbd class="kbd kbd-xs">n</kbd> · {{.T "help.keyN"}}</li>
+        <li><kbd class="kbd kbd-xs">s</kbd> · {{.T "help.keyS"}}</li>
+        <li><kbd class="kbd kbd-xs">g</kbd> · {{.T "help.keyG"}}</li>
+        <li><kbd class="kbd kbd-xs">t</kbd> · {{.T "help.keyT"}}</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-2">{{icon "settings"}} {{.T "help.whereTitle"}}</h2>
+      <dl class="text-sm space-y-2">
+        <div><dt class="font-mono text-xs opacity-70">/settings/tokens</dt>
+            <dd class="opacity-70">{{.T "help.where1"}}</dd></div>
+        <div><dt class="font-mono text-xs opacity-70">/integrations · /integrations/marketplace</dt>
+            <dd class="opacity-70">{{.T "help.where2"}}</dd></div>
+        <div><dt class="font-mono text-xs opacity-70">/settings/webhooks · /settings/audit</dt>
+            <dd class="opacity-70">{{.T "help.where3"}}</dd></div>
+        <div><dt class="font-mono text-xs opacity-70">/settings/notifications</dt>
+            <dd class="opacity-70">{{.T "help.where4"}}</dd></div>
+        <div><dt class="font-mono text-xs opacity-70">/import</dt>
+            <dd class="opacity-70">{{.T "help.where5"}}</dd></div>
+      </dl>
+    </div>
+  </section>
+</div>
+{{end}}
