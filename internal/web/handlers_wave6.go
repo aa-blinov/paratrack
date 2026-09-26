@@ -1,6 +1,7 @@
 package web
 
 import (
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http"
 	"strconv"
@@ -24,11 +25,11 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		total, secs := 0, 0
 		for _, l := range lines {
 			total += l.AmountCents
-			secs += l.Seconds
+			secs += dbpkg.HoursHundredths(l.Seconds)
 		}
 		data.Items = append(data.Items, payrollSummary{
 			ID: run.ID, Number: run.Number, Status: run.Status,
-			Total: formatMoney(total), Hours: fmtDur(r, secs),
+			Total: formatMoney(total), Hours: fmtHours(secs),
 			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd),
 		})
 	}
@@ -115,9 +116,9 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	vms := make([]payrollLineVM, 0, len(lines))
 	for _, l := range lines {
 		total += l.AmountCents
-		secs += l.Seconds
+		secs += dbpkg.HoursHundredths(l.Seconds)
 		vms = append(vms, payrollLineVM{
-			Label: l.Label, Hours: fmtDur(r, l.Seconds),
+			Label: l.Label, Hours: fmtHours(dbpkg.HoursHundredths(l.Seconds)),
 			Rate: formatMoney(l.RateCents), Amount: formatMoney(l.AmountCents),
 		})
 	}
@@ -126,7 +127,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
 			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd),
-			Lines: vms, Total: formatMoney(total), TotalCents: total, Hours: fmtDur(r, secs),
+			Lines: vms, Total: formatMoney(total), TotalCents: total, Hours: fmtHours(secs),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
