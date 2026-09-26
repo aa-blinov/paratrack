@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,8 +28,8 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		}
 		data.Items = append(data.Items, payrollSummary{
 			ID: run.ID, Number: run.Number, Status: run.Status,
-			Total: formatMoney(total), Hours: fmtDuration(secs),
-			Period: run.PeriodStart.Format("Jan 2") + " – " + run.PeriodEnd.Format("Jan 2"),
+			Total: formatMoney(total), Hours: fmtDur(r, secs),
+			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd),
 		})
 	}
 	now := time.Now()
@@ -116,7 +117,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		total += l.AmountCents
 		secs += l.Seconds
 		vms = append(vms, payrollLineVM{
-			Label: l.Label, Hours: fmtDuration(l.Seconds),
+			Label: l.Label, Hours: fmtDur(r, l.Seconds),
 			Rate: formatMoney(l.RateCents), Amount: formatMoney(l.AmountCents),
 		})
 	}
@@ -124,8 +125,8 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		pageData: pageData{Title: run.Number, Active: "payroll", Lang: lang},
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
-			PeriodLabel: run.PeriodStart.Format("Jan 2, 2006") + " – " + run.PeriodEnd.Format("Jan 2, 2006"),
-			Lines: vms, Total: formatMoney(total), TotalCents: total, Hours: fmtDuration(secs),
+			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd),
+			Lines: vms, Total: formatMoney(total), TotalCents: total, Hours: fmtDur(r, secs),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -196,12 +197,10 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var pay, cap *int
-	if v := strings.TrimSpace(r.PostForm.Get("hourly_pay_cents")); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, "pay must be cents"), http.StatusSeeOther)
-			return
-		}
+	if n, has, err := formCents(r, "hourly_pay"); err != nil {
+		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+		return
+	} else if has {
 		pay = &n
 	}
 	if v := strings.TrimSpace(r.PostForm.Get("capacity_minutes")); v != "" {
@@ -280,7 +279,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	for i := 0; i < 7; i++ {
 		d := weekStart.AddDate(0, 0, i)
 		days[i] = schedDay{
-			Index: i, Label: d.Format("Mon"), Date: d.Format("2"),
+			Index: i, Label: fmtWeekday(resolveLang(r), d), Date: d.Format("2"),
 			ISO: d.Format("2006-01-02"), IsToday: sameDay(d, now),
 		}
 	}
@@ -289,7 +288,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	for _, rc := range rows {
 		row := schedRow{
 			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
-			TotalMin: rc.Total, Total: fmtDuration(rc.Total),
+			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60),
 		}
 		capWeek := rc.Capacity * 7
 		if capWeek > 0 {
@@ -298,7 +297,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 		for i := 0; i < 7; i++ {
 			row.Cells[i] = schedDay{
 				Index: i, ISO: days[i].ISO,
-				Min: rc.Minutes[i], Total: fmtDuration(rc.Minutes[i]),
+				Min: rc.Minutes[i], Total: fmtDur(r, rc.Minutes[i]*60),
 				IsToday: days[i].IsToday,
 			}
 		}
@@ -308,14 +307,14 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
 	data := schedulePage{
 		pageData:     pageData{Title: "Schedule", Active: "schedule", Lang: lang},
-		WeekLabel:    weekStart.Format("Jan 2") + " – " + weekStart.AddDate(0, 0, 6).Format("Jan 2"),
+		WeekLabel:    fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekStart.AddDate(0, 0, 6)),
 		PrevWeek:     weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
 		NextWeek:     weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
 		Days:         days,
 		Rows:         srows,
 		Projects:     projects,
 		ProjectNames: pnames,
-		GrandTotal:   fmtDuration(grand),
+		GrandTotal:   fmtDur(r, grand*60),
 		GrandMin:     grand,
 	}
 	// pre-wrap rows for the template (needs Projects per row)
@@ -341,7 +340,7 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 		// fall back to the first project so the grid always has a target
 		projs, _ := s.db.ListProjects(r.Context(), teamID(r), false)
 		if len(projs) == 0 {
-			s.toast(w, "create a project first", "error")
+			s.toastL(w, r, "err.needProject", "", "error")
 			w.WriteHeader(200)
 			return
 		}
@@ -376,7 +375,7 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 		}
 		row := schedRow{
 			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
-			TotalMin: rc.Total, Total: fmtDuration(rc.Total),
+			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60),
 		}
 		capWeek := rc.Capacity * 7
 		if capWeek > 0 {
@@ -386,7 +385,7 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 			d := weekStart.AddDate(0, 0, i)
 			row.Cells[i] = schedDay{
 				Index: i, ISO: d.Format("2006-01-02"),
-				Min: rc.Minutes[i], Total: fmtDuration(rc.Minutes[i]),
+				Min: rc.Minutes[i], Total: fmtDur(r, rc.Minutes[i]*60),
 				IsToday: sameDay(d, time.Now()),
 			}
 		}

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/url"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -63,7 +64,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 		return
 	}
 	wrapper := pageData{
-		Title:       title,
+		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
 		CSRFToken:   token,
@@ -73,6 +74,32 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 	if err := s.tmpl.ExecuteTemplate(w, "base", wrapper); err != nil {
 		http.Error(w, "render base: "+err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// actionTime is when a timer action happened: the client's click time
+// for actions replayed from the offline queue ("client_ts", unix ms),
+// otherwise now. Only the last 24h is trusted.
+func actionTime(r *http.Request) time.Time {
+	now := time.Now()
+	ms, err := strconv.ParseInt(r.FormValue("client_ts"), 10, 64)
+	if err != nil {
+		return now
+	}
+	t := time.UnixMilli(ms)
+	if t.After(now) || now.Sub(t) > 24*time.Hour {
+		return now
+	}
+	return t
+}
+
+// pageTitle translates a handler's English page title ("Dashboard")
+// via "title.<Title>"; dynamic titles (a project name) pass through.
+func pageTitle(lang i18n.Lang, title string) string {
+	key := "title." + title
+	if t := i18n.T(lang, key); t != key {
+		return t
+	}
+	return title
 }
 
 // renderPageForRequest is the auth-aware variant. It pulls the
@@ -96,7 +123,7 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 		return
 	}
 	wrapper := pageData{
-		Title:       title,
+		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
 		RequestPath: r.URL.Path,
@@ -131,6 +158,10 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 // Used for HTMX swap targets like active-list and session-row.
 func (s *Server) renderFragment(w http.ResponseWriter, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if name == "active-list" {
+		// Every timer action lands here; the "Today" card listens and refreshes.
+		w.Header().Set("HX-Trigger", "sessions-changed")
+	}
 	if err := s.tmpl.ExecuteTemplate(w, name, data); err != nil {
 		http.Error(w, "render fragment ["+name+"]: "+err.Error(), http.StatusInternalServerError)
 	}
@@ -170,7 +201,9 @@ func (s *Server) toastL(w http.ResponseWriter, r *http.Request, key, detail, kin
 }
 
 func (s *Server) toast(w http.ResponseWriter, msg, kind string) {
-	w.Header().Set("X-Toast", msg)
+	// Header values are Latin-1 on the wire: percent-encode so Cyrillic
+	// survives, the client decodes with decodeURIComponent.
+	w.Header().Set("X-Toast", url.PathEscape(msg))
 	if kind != "" {
 		w.Header().Set("X-Toast-Kind", kind)
 	}
@@ -233,15 +266,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	activeViews := make([]sessionView, 0, len(active))
 	for _, as := range active {
-		activeViews = append(activeViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
+		activeViews = append(activeViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
 	}
 	todayViews := make([]sessionView, 0, len(todaySessions))
 	for _, as := range todaySessions {
-		todayViews = append(todayViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
+		todayViews = append(todayViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
 	}
 	recentViews := make([]sessionView, 0, len(weekSessions))
 	for _, as := range weekSessions {
-		recentViews = append(recentViews, toSessionView(as.Session, as.Activity, weekFrom, weekTo, now))
+		recentViews = append(recentViews, toSessionView(as.Session, as.Activity, weekFrom, weekTo, now, resolveLang(r)))
 	}
 	hydrateSessionTags(ctx, s.db, activeViews)
 	hydrateSessionProjects(ctx, s.db, activeViews)
@@ -273,11 +306,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// read DurationSecs — never parse the human label.
 	agg := map[string]int{}
 	total := 0
-	for _, sv := range todayViews {
+	// Running timers count too, so "tracked today" moves while you work.
+	for _, sv := range append(todayViews, activeViews...) {
 		agg[sv.ActivityName] += sv.DurationSecs
 		total += sv.DurationSecs
 	}
-	d.TodayTotal = fmtDuration(total)
+	d.TodayTotal = fmtDur(r, total)
 	var topName string
 	topSec := 0
 	for n, sec := range agg {
@@ -291,7 +325,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	// Goal progress for the dashboard widget. Best-effort: if the goals
 	// query fails we just hide the widget by passing an empty slice.
 	if progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), now); err == nil {
-		d.Goals = toGoalViews(progress)
+		d.Goals = toGoalViews(progress, resolveLang(r))
 		for i := range d.Goals {
 			d.Goals[i].Lang = lang
 			d.Goals[i].PeriodRangeLabel = periodRangeLabel(d.Goals[i].Period, i18n.Lang(lang))
@@ -342,7 +376,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		if clipped <= 0 {
 			continue
 		}
-		rows = append(rows, toSessionView(as.Session, as.Activity, period.Start, period.End, now))
+		rows = append(rows, toSessionView(as.Session, as.Activity, period.Start, period.End, now, resolveLang(r)))
 	}
 	hydrateSessionTags(ctx, s.db, rows)
 	hydrateSessionProjects(ctx, s.db, rows)
@@ -373,7 +407,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		aggs = append(aggs, aggRow{
 			ActivityName: name,
 			Color:        colorFor(name),
-			Duration:     fmtDuration(sec),
+			Duration:     fmtDur(r, sec),
 			Share:        share,
 		})
 	}
@@ -395,7 +429,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	for pid, sec := range projAgg {
 		row := projectAggRow{
 			ProjectID: pid,
-			Duration:  fmtDuration(sec),
+			Duration:  fmtDur(r, sec),
 			Share:     0,
 		}
 		if total > 0 {
@@ -406,20 +440,21 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 			row.Slug = p.Slug
 			row.Color = p.Color
 		} else {
-			row.ProjectName = "Uncategorized"
+			row.ProjectName = i18n.T(resolveLang(r), "dash.uncategorized")
 			row.Color = "#9ca3af"
 		}
 		// activities nested
 		m := byActivityInProject[pid]
 		for name, actSec := range m {
+			// Same base as the project row, so the "Share" column adds up.
 			share := 0.0
-			if sec > 0 {
-				share = float64(actSec) / float64(sec) * 100
+			if total > 0 {
+				share = float64(actSec) / float64(total) * 100
 			}
 			row.Activities = append(row.Activities, aggRow{
 				ActivityName: name,
 				Color:        colorFor(name),
-				Duration:     fmtDuration(actSec),
+				Duration:     fmtDur(r, actSec),
 				Share:        share,
 			})
 		}
@@ -444,7 +479,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		Projects:      projects,
 		ProjectFilter: projectFilter,
 		Sessions:      rows,
-		Total:         fmtDuration(total),
+		Total:         fmtDur(r, total),
 		SessionCount:  len(rows),
 		TagFilter:     tagFilter,
 		AllTagNames:   allTagNames,
@@ -477,7 +512,7 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	chart := buildChartData(sessions, period)
+	chart := buildChartData(sessions, period, resolveLang(r))
 
 	chartJSON, _ := json.Marshal(chart)
 	s.render(w, r, "graph-content", &graphData{
@@ -500,7 +535,7 @@ func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]sessionView, 0, len(active))
 	for _, as := range active {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
+		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
 	}
 	hydrateSessionTags(r.Context(), s.db, views)
 	hydrateSessionProjects(r.Context(), s.db, views)
@@ -555,7 +590,7 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	sess, err := s.db.CreateSession(r.Context(), teamID(r), act.ID, time.Now(), note)
+	sess, err := s.db.CreateSession(r.Context(), teamID(r), act.ID, actionTime(r), note)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -579,7 +614,7 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	today, _ := timeparse.ResolvePeriod("today", now)
 	views := make([]sessionView, 0, len(fresh))
 	for _, as := range fresh {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
+		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
 	}
 	hydrateSessionTags(r.Context(), s.db, views)
 	hydrateSessionProjects(r.Context(), s.db, views)
@@ -606,7 +641,7 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "already stopped", 400)
 		return
 	}
-	stopped, err := s.db.UpdateSessionEnd(ctx, teamID(r), id, time.Now())
+	stopped, err := s.db.UpdateSessionEnd(ctx, teamID(r), id, actionTime(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -616,11 +651,17 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		"session_id": id, "activity_id": stopped.ActivityID,
 		"start": stopped.StartAt.UTC().Format(time.RFC3339),
 	})
-	s.toastL(w, r, "toast.stopped", "", "success")
 	pushName := "a session"
 	if a, err := s.db.GetActivity(ctx, stopped.ActivityID); err == nil {
 		pushName = a.Name
 	}
+	// Say what stopped, how long it ran, and where it went.
+	dur := fmtDur(r, stopped.DurationSeconds(time.Now()))
+	if stopped.DurationSeconds(time.Now()) < 60 {
+		dur = i18n.T(resolveLang(r), "dur.underMinute")
+	}
+	s.toast(w, strings.NewReplacer("{name}", pushName, "{dur}", dur).
+		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
 	s.sendPush(teamID(r), "Session stopped", pushName+" finished", "/stats")
 	s.notifyNewlyMetGoals(r, stopped.ActivityID)
 	s.respondActiveList(w, r)
@@ -646,7 +687,7 @@ func (s *Server) handlePause(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "session already stopped", 400)
 		return
 	}
-	if _, err := s.db.PauseSession(ctx, teamID(r), id, time.Now()); err != nil {
+	if _, err := s.db.PauseSession(ctx, teamID(r), id, actionTime(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -670,7 +711,7 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not paused", 400)
 		return
 	}
-	if _, err := s.db.ResumeSession(ctx, teamID(r), id, time.Now()); err != nil {
+	if _, err := s.db.ResumeSession(ctx, teamID(r), id, actionTime(r)); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
@@ -695,7 +736,7 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	now := time.Now()
+	now := actionTime(r)
 	targetExists := false
 	for _, as := range active {
 		if as.Activity.ID == act.ID {
@@ -998,7 +1039,7 @@ func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id in
 	}
 	now := time.Now()
 	period := s.parsePeriod(r)
-	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now)}
+	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now, resolveLang(r))}
 	hydrateSessionTags(ctx, s.db, views)
 	hydrateSessionProjects(ctx, s.db, views)
 	views[0].Lang = string(resolveLang(r))
@@ -1069,7 +1110,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gv := toGoalViews(progress)
+	gv := toGoalViews(progress, resolveLang(r))
 	lang := string(resolveLang(r))
 	for i := range gv {
 		gv[i].Lang = lang
@@ -1114,7 +1155,7 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	views := toGoalViews(progress)
+	views := toGoalViews(progress, resolveLang(r))
 	glang := string(resolveLang(r))
 	for i := range views {
 		views[i].Lang = glang
@@ -1212,7 +1253,7 @@ func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	gv := toGoalViews(progress)
+	gv := toGoalViews(progress, resolveLang(r))
 	lang := string(resolveLang(r))
 	for i := range gv {
 		gv[i].Lang = lang
@@ -1232,7 +1273,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 // toGoalViews renders []db.GoalProgress as the view-models used by
 // dashboard and /goals pages.
-func toGoalViews(progress []dbpkg.GoalProgress) []goalView {
+func toGoalViews(progress []dbpkg.GoalProgress, lang i18n.Lang) []goalView {
 	out := make([]goalView, 0, len(progress))
 	for _, p := range progress {
 		// Lang is stamped by the caller after this returns.
@@ -1249,13 +1290,13 @@ func toGoalViews(progress []dbpkg.GoalProgress) []goalView {
 			Color:            colorFor(p.ActivityName),
 			Period:           p.Goal.Period,
 			TargetMinutes:    p.Goal.TargetMinutes,
-			TargetLabel:      formatMinutes(p.Goal.TargetMinutes),
+			TargetLabel:      fmtDurL(lang, p.Goal.TargetMinutes*60),
 			AchievedMinutes:  p.AchievedMinutes,
-			AchievedLabel:    formatMinutes(p.AchievedMinutes),
+			AchievedLabel:    fmtDurL(lang, p.AchievedMinutes*60),
 			Percent:          p.PercentComplete,
 			AchievedClass:    class,
-			PeriodStartLabel: p.PeriodStart.Local().Format("Jan 2"),
-			PeriodEndLabel:   p.PeriodEnd.Local().Format("Jan 2"),
+			PeriodStartLabel: fmtDay(lang, p.PeriodStart.Local()),
+			PeriodEndLabel:   fmtDay(lang, p.PeriodEnd.Local()),
 			PeriodRangeLabel: periodRangeLabel(p.Goal.Period, i18n.En), // caller re-stamps with page lang
 		})
 	}
@@ -1263,18 +1304,6 @@ func toGoalViews(progress []dbpkg.GoalProgress) []goalView {
 }
 
 // formatMinutes renders an integer minute count as a short label.
-func formatMinutes(min int) string {
-	if min < 60 {
-		return fmt.Sprintf("%dm", min)
-	}
-	h := min / 60
-	m := min % 60
-	if m == 0 {
-		return fmt.Sprintf("%dh", h)
-	}
-	return fmt.Sprintf("%dh %dm", h, m)
-}
-
 // periodRangeLabel returns a short human label for the goal period.
 func periodRangeLabel(period string, lang i18n.Lang) string {
 	switch period {
@@ -1368,7 +1397,7 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]sessionView, 0, len(active))
 	for _, as := range active {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now))
+		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
 	}
 	hydrateSessionTags(r.Context(), s.db, views)
 	hydrateSessionProjects(r.Context(), s.db, views)
@@ -1377,6 +1406,26 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 		views[i].Lang = lang
 	}
 	s.renderFragment(w, "active-list", activeListVM{Lang: string(resolveLang(r)), Items: views})
+}
+
+// handleMiniBar renders the phone "now tracking" bar shown above the tab
+// bar on every page but the dashboard. Empty body when nothing runs.
+func (s *Server) handleMiniBar(w http.ResponseWriter, r *http.Request) {
+	now := time.Now()
+	today, _ := timeparse.ResolvePeriod("today", now)
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	lang := resolveLang(r)
+	views := make([]sessionView, 0, len(active))
+	for _, as := range active {
+		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, lang))
+	}
+	// Running first: the bar shows the timer that is actually ticking.
+	sort.SliceStable(views, func(i, j int) bool { return !views[i].Paused && views[j].Paused })
+	s.renderFragment(w, "minibar", activeListVM{Lang: string(lang), Items: views})
 }
 
 func parseID(s string) (int64, error) {

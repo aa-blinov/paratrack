@@ -15,7 +15,7 @@
 
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
     <div class="card-body p-0">
-      <table class="table table-sm w-full min-w-[52rem]">
+      <table class="table table-sm w-full min-w-[44rem]">
         <thead>
           <tr>
             <th class="sticky left-0 bg-base-100 z-10">{{.T "nav.account"}}</th>
@@ -52,7 +52,7 @@
 {{/* . is schedRowVM */}}
 <tr id="sch-row-{{.Row.UserID}}">
   <td class="sticky left-0 bg-base-100 z-10">
-    <div class="font-medium">{{.Row.UserName}}</div>
+    <div class="font-medium grid-name truncate" title="{{.Row.UserName}}">{{.Row.UserName}}</div>
     <div class="text-xs opacity-60 font-mono">{{.Row.Total}} · {{.Row.LoadPct}}%</div>
   </td>
   {{range .Row.Cells}}

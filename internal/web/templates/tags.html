@@ -11,7 +11,7 @@
     <form hx-post="/api/tags" hx-target="#tags-list" hx-swap="innerHTML" hx-on::after-request="this.reset()" class="flex gap-2 items-end">
       <div class="flex-1">
         <label class="label py-1" for="t-name"><span class="label-text">{{.T "projects.name"}}</span></label>
-        <input type="text" id="t-name" name="name" required placeholder="deep-work" list="known-tags" class="input input-bordered w-full">
+        <input type="text" id="t-name" name="name" required placeholder="{{.T "ph.tag"}}" list="known-tags" class="input input-bordered w-full">
         <datalist id="known-tags">
           {{range .AllTagNames}}<option value="{{.}}">{{end}}
         </datalist>
@@ -37,13 +37,13 @@
         <div class="badge badge-lg badge-outline gap-2 py-3">
           <span>#{{.Name}}</span>
           <span class="opacity-50">·</span>
-          <span class="font-mono font-semibold">{{.SessionCount}}</span>
+          <span class="font-mono font-semibold" title="{{.T "tags.countTitle"}}">{{.SessionCount}}</span>
           <button class="btn btn-ghost btn-xs btn-circle ml-1"
                   hx-delete="/api/tags?id={{.ID}}"
                   hx-target="#tags-list" hx-swap="innerHTML"
                   hx-confirm="{{.T "tags.confirmDelete"}}"
-                  title="Delete tag"
-                  aria-label="Delete tag">✕</button>
+                  title="{{.T "tags.delete"}}"
+                  aria-label="{{.T "tags.delete"}}">✕</button>
         </div>
         {{end}}
       </div>

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"sort"
 	"time"
 
@@ -38,7 +39,7 @@ type chartLegendEntry struct {
 // across activities. Sessions spanning multiple hours are split so a
 // 10:30→13:45 session contributes 30 min to the 10:00 bucket, 60 to
 // 11:00, 60 to 12:00 and 45 to 13:00.
-func buildChartData(sessions []model.ActiveSession, period timeparse.Period) ChartData {
+func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lang i18n.Lang) ChartData {
 	out := ChartData{
 		Hours:  make([]string, 24),
 		Series: []chartSeries{},
@@ -114,7 +115,7 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period) Cha
 		totalAll += b.total
 	}
 	// buckets accumulate MINUTES; fmtDuration takes seconds.
-	out.TotalLabel = fmtDuration(totalAll * 60)
+	out.TotalLabel = fmtDurL(lang, totalAll * 60)
 
 	for _, r := range rows {
 		b := buckets[r.name]

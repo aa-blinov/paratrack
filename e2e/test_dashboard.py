@@ -91,6 +91,7 @@ def main() -> int:
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
             color_scheme="light",
+            locale="en-US",
             device_scale_factor=2,
         )
         page = context.new_page()
@@ -246,11 +247,12 @@ def main() -> int:
             page.click('[data-theme-toggle]')
             page.wait_for_timeout(150)
             attr = page.evaluate(
-                "() => document.documentElement.dataset.theme || 'unset'"
+                "() => document.documentElement.dataset.themeMode === 'auto'"
+                " ? 'auto' : (document.documentElement.dataset.theme || 'unset')"
             )
             check(
                 f"theme click sets html data-theme={expected!r}",
-                attr == expected or (expected == "auto" and attr == "unset"),
+                attr == expected,
                 f"actual={attr}",
             )
         # Stop on dark for the dramatic screenshot.

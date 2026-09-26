@@ -1,6 +1,9 @@
 package web
 
 import (
+	"errors"
+	"math"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,13 +27,11 @@ func (s *Server) handleProjectRate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var rate *int
-	if v := strings.TrimSpace(r.PostForm.Get("rate_cents")); v != "" {
-		n, err := strconv.Atoi(v)
-		if err != nil || n < 0 {
-			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, "rate must be a number of cents"),
-				http.StatusSeeOther)
-			return
-		}
+	if n, has, err := formCents(r, "rate"); err != nil {
+		http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")),
+			http.StatusSeeOther)
+		return
+	} else if has {
 		rate = &n
 	}
 	var billable *bool
@@ -98,8 +99,8 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 			Client:   inv.ClientName,
 			Status:   inv.Status,
 			Total:    formatMoney(total),
-			Hours:    fmtDuration(secs),
-			Period:   inv.PeriodStart.Format("Jan 2") + " – " + inv.PeriodEnd.Format("Jan 2"),
+			Hours:    fmtDur(r, secs),
+			Period:   fmtDay(resolveLang(r), inv.PeriodStart) + " – " + fmtDay(resolveLang(r), inv.PeriodEnd),
 		})
 	}
 	// default window: this month
@@ -108,6 +109,11 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 	data.DefEnd = now.Format("2006-01-02")
 	if projects, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
 		data.Projects = projects
+		for _, p := range projects {
+			if p.Billable && p.BillableRateCents != nil && *p.BillableRateCents > 0 {
+				data.Billable = true
+			}
+		}
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -130,6 +136,7 @@ type invoicesPage struct {
 	pageData
 	Items    []invoiceSummary
 	Projects []model.Project
+	Billable bool // any project with a rate; otherwise invoices come out empty
 	DefStart string
 	DefEnd   string
 	Flash    string
@@ -208,7 +215,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 		secs += l.Seconds
 		vms = append(vms, invoiceLineVM{
 			Label:       l.Label,
-			Hours:       fmtDuration(l.Seconds),
+			Hours:       fmtDur(r, l.Seconds),
 			Rate:        formatMoney(l.RateCents),
 			Amount:      formatMoney(l.AmountCents),
 			RateCents:   l.RateCents,
@@ -222,13 +229,13 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 			ID:          inv.ID,
 			Number:      inv.Number,
 			ClientName:  inv.ClientName,
-			PeriodLabel: inv.PeriodStart.Format("Jan 2, 2006") + " – " + inv.PeriodEnd.Format("Jan 2, 2006"),
+			PeriodLabel: fmtDate(resolveLang(r), inv.PeriodStart) + " – " + fmtDate(resolveLang(r), inv.PeriodEnd),
 			Status:      inv.Status,
 			Notes:       inv.Notes,
 			Lines:       vms,
 			Total:       formatMoney(total),
 			TotalCents:  total,
-			Hours:       fmtDuration(secs),
+			Hours:       fmtDur(r, secs),
 			PaymentURL:  inv.PaymentURL,
 		},
 	}
@@ -278,6 +285,27 @@ func (s *Server) handleInvoiceDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // formatMoney renders cents as "12.34".
+// formCents reads a money amount: "<name>" in currency units ("45.50",
+// "45,5") from the UI, or "<name>_cents" as an integer from API clients.
+func formCents(r *http.Request, name string) (cents int, has bool, err error) {
+	bad := errors.New("bad amount")
+	if v := strings.TrimSpace(r.Form.Get(name)); v != "" {
+		f, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", "."), 64)
+		if err != nil || f < 0 {
+			return 0, true, bad
+		}
+		return int(math.Round(f * 100)), true, nil
+	}
+	if v := strings.TrimSpace(r.Form.Get(name + "_cents")); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			return 0, true, bad
+		}
+		return n, true, nil
+	}
+	return 0, false, nil
+}
+
 func formatMoney(cents int) string {
 	sign := ""
 	if cents < 0 {

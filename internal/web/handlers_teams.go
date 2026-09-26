@@ -20,6 +20,7 @@ type settingsPageData struct {
 	// Members + invites populated by their respective handlers.
 	Members []teams.Member
 	Invites []teams.Invite
+	Pay     map[int64]memberPayView // members page: current pay + capacity
 	Flash   string // success / error banner shown above the form
 	FlashOK bool
 	CSRFToken string
@@ -31,6 +32,11 @@ func (p *settingsPageData) setLang(l string) { p.Lang = l }
 
 // T translates a dictionary key for this page's language.
 func (p settingsPageData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
+
+type memberPayView struct {
+	Rate     string // currency units, "" when unset
+	Capacity int
+}
 
 // teamUserView is the subset of User we render in templates. Kept
 // separate so we don't drag json tags into HTML rendering.
@@ -69,6 +75,16 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Team:    team,
 		User:    userViewOf(user),
 		Members: members,
+		Pay:     map[int64]memberPayView{},
+	}
+	for _, m := range members {
+		if cents, capMin, err := s.db.MemberPay(r.Context(), team.ID, m.UserID); err == nil {
+			v := memberPayView{Capacity: capMin}
+			if cents > 0 {
+				v.Rate = formatMoney(cents)
+			}
+			data.Pay[m.UserID] = v
+		}
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -223,7 +239,11 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(true, "Invite created: "+inv.Token), http.StatusSeeOther)
+	link := "https://" + r.Host + "/invites/" + inv.Token
+	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") {
+		link = "http://" + r.Host + "/invites/" + inv.Token
+	}
+	http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(true, i18n.T(resolveLang(r), "flash.inviteCreated")+" "+link), http.StatusSeeOther)
 }
 
 func (s *Server) handleAPIInviteRevoke(w http.ResponseWriter, r *http.Request) {
@@ -348,10 +368,13 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 	case "bad_team":
 		return i18n.T(lang, "flash.badTeam"), false
 	default:
-		if strings.HasPrefix(code, "e:") {
-			return strings.TrimPrefix(code, "e:"), false
+		msg, ok := strings.CutPrefix(code, "e:")
+		// Plain-text flashes ("bad period", "marked paid") translate via
+		// flash.msg.<text>; anything else (a db error) shows as is.
+		if t := i18n.T(lang, "flash.msg."+msg); t != "flash.msg."+msg {
+			msg = t
 		}
-		return code, true
+		return msg, !ok
 	}
 }
 

@@ -1,6 +1,8 @@
 package web
 
 import (
+	"strconv"
+	"net/http/httptest"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/url"
 	"strings"
@@ -150,7 +152,43 @@ func TestEstimateUI(t *testing.T) {
 	if !strings.Contains(body, string(i18n.T(i18n.Default, "est.vsActual"))) {
 		t.Fatalf("missing estimate card, body snippet: %s", body[len(body)/3:len(body)/3+400])
 	}
-	if !strings.Contains(body, "8h") {
+	if !strings.Contains(body, fmtDurL(i18n.Default, 8*3600)) {
 		t.Error("missing 8h label")
+	}
+}
+
+// A filled timesheet cell must show its minutes, not 0 ("0 clears the
+// day", so a stray 0 there is one keystroke from data loss).
+func TestTimesheetCellShowsMinutes(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("tscell@x.test")
+	resp := e.do("POST", "/api/sessions/backfill", url.Values{
+		"activity": {"reading"}, "start": {"2026-09-22 09:00"}, "end": {"2026-09-22 10:30"},
+	}, nil)
+	resp.Body.Close()
+	body := readBody(t, e.do("GET", "/timesheet?date=2026-09-22", nil, nil))
+	if !strings.Contains(body, `value="90"`) {
+		t.Errorf("timesheet cell should hold 90 minutes")
+	}
+}
+
+// Offline-queued timer actions carry the click time; only the last 24h
+// is trusted, anything else falls back to now.
+func TestActionTime(t *testing.T) {
+	at := func(v string) time.Time {
+		r := httptest.NewRequest("POST", "/", strings.NewReader(url.Values{"client_ts": {v}}.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		return actionTime(r)
+	}
+	past := time.Now().Add(-30 * time.Minute).Truncate(time.Millisecond)
+	if got := at(strconv.FormatInt(past.UnixMilli(), 10)); !got.Equal(past) {
+		t.Errorf("recent client_ts: got %v, want %v", got, past)
+	}
+	for _, bad := range []string{"", "junk",
+		strconv.FormatInt(time.Now().Add(48*time.Hour*-1).UnixMilli(), 10),
+		strconv.FormatInt(time.Now().Add(time.Hour).UnixMilli(), 10)} {
+		if got := at(bad); time.Since(got) > time.Second {
+			t.Errorf("client_ts %q should fall back to now, got %v", bad, got)
+		}
 	}
 }

@@ -15,7 +15,7 @@
 
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
     <div class="card-body p-0">
-      <table class="table table-sm w-full min-w-[48rem]">
+      <table class="table table-sm w-full min-w-[42rem]">
         <thead>
           <tr>
             <th class="sticky left-0 bg-base-100 z-10">{{.T "dash.activity"}}</th>
@@ -44,9 +44,9 @@
           <tr class="font-semibold border-t-2 border-base-300">
             <td class="sticky left-0 bg-base-100 z-10">{{.T "stats.total"}}</td>
             {{range $i, $d := .DayTotalLabels}}
-            <td class="text-center font-mono">{{$d}}</td>
+            <td class="text-center font-mono whitespace-normal leading-tight">{{$d}}</td>
             {{end}}
-            <td class="text-right font-mono">{{.GrandTotalLabel}}</td>
+            <td class="text-right font-mono whitespace-normal leading-tight">{{.GrandTotalLabel}}</td>
           </tr>
         </tfoot>
       </table>
@@ -60,7 +60,7 @@
 {{define "timesheet-row"}}
 <tr id="ts-row-{{.ActivityID}}">
   <td class="sticky left-0 bg-base-100 z-10">
-    <span class="inline-flex items-center gap-1.5 min-w-0"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
+    <span class="grid-name flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
   </td>
   {{range .Cells}}
   <td class="text-center p-1 {{if .IsToday}}bg-base-200{{end}}">
@@ -77,6 +77,6 @@
            hx-swap="outerHTML">
   </td>
   {{end}}
-  <td class="text-right font-mono">{{.RowTotalLabel}}</td>
+  <td class="text-right font-mono whitespace-normal leading-tight">{{.RowTotalLabel}}</td>
 </tr>
 {{end}}

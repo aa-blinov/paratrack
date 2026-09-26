@@ -14,7 +14,7 @@
           {{range .Items}}
           <tr>
             <td class="font-mono text-xs opacity-70">{{.Time}}</td>
-            <td><span class="badge badge-ghost badge-sm">{{.Action}}</span></td>
+            <td><span class="badge badge-ghost badge-sm" title="{{.Action}}">{{tOr $.Lang (printf "audit.act.%s" .Action) .Action}}</span></td>
             <td class="text-xs break-all">{{.Target}}</td>
             <td class="font-mono text-xs opacity-60">{{.IP}}</td>
           </tr>

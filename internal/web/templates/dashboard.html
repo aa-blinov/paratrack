@@ -8,7 +8,7 @@
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <h2 class="card-title mb-1">{{.T "onb.title"}}</h2>
-        <p class="text-sm opacity-70">{{.T "onb.blurb"}}</p>
+        <p class="hidden sm:block text-sm opacity-70">{{.T "onb.blurb"}}</p>
       </div>
       <button type="button" class="btn btn-ghost btn-xs gap-1 opacity-60"
               onclick="paratrackOnboard.dismiss()">{{icon "x" "icon icon-sm"}}{{.T "onb.dismiss"}}</button>
@@ -22,8 +22,8 @@
                      color:var(--color-primary);">1</span>
         <div class="min-w-0">
           <div class="font-medium text-sm">{{.T "onb.s1"}}</div>
-          <div class="text-xs opacity-60">{{.T "onb.s1d"}}</div>
-          <button type="button" class="btn btn-neutral btn-sm gap-1.5 mt-2"
+          <div class="hidden sm:block text-xs opacity-60">{{.T "onb.s1d"}}</div>
+          <button type="button" class="btn btn-neutral btn-sm gap-1.5 mt-2 hidden sm:inline-flex"
                   onclick="document.getElementById('activity').focus()">{{icon "play" "icon icon-sm"}}{{.T "onb.s1cta"}}</button>
         </div>
       </li>
@@ -34,7 +34,7 @@
                      color:var(--color-primary);">2</span>
         <div class="min-w-0">
           <div class="font-medium text-sm">{{.T "onb.s2"}}</div>
-          <div class="text-xs opacity-60">{{.T "onb.s2d"}}</div>
+          <div class="hidden sm:block text-xs opacity-60">{{.T "onb.s2d"}}</div>
           <a href="/stats" class="btn btn-neutral btn-sm gap-1.5 mt-2"
              onclick="paratrackOnboard.done(2)">{{icon "bar-chart-3" "icon icon-sm"}}{{.T "onb.s2cta"}}</a>
         </div>
@@ -46,14 +46,14 @@
                      color:var(--color-primary);">3</span>
         <div class="min-w-0">
           <div class="font-medium text-sm">{{.T "onb.s3"}}</div>
-          <div class="text-xs opacity-60">{{.T "onb.s3d"}}</div>
+          <div class="hidden sm:block text-xs opacity-60">{{.T "onb.s3d"}}</div>
           <a href="/projects/new" class="btn btn-neutral btn-sm gap-1.5 mt-2"
              onclick="paratrackOnboard.done(3)">{{icon "plus" "icon icon-sm"}}{{.T "onb.s3cta"}}</a>
         </div>
       </li>
     </ol>
 
-    <p class="text-xs opacity-50 mt-3">{{.T "onb.footer"}} <a href="/help" class="link link-hover">{{.T "nav.help"}}</a></p>
+    <p class="hidden sm:block text-xs opacity-50 mt-3">{{.T "onb.footer"}} <a href="/help" class="link link-hover">{{.T "nav.help"}}</a></p>
   </div>
 </div>
 
@@ -73,8 +73,16 @@ window.paratrackOnboard = (function () {
         el.style.background = "var(--color-primary)";
         el.style.color = "var(--color-primary-content)";
         el.style.borderColor = "var(--color-primary)";
+        // A finished step no longer needs its button.
+        var cta = el.parentElement.querySelector(".btn");
+        if (cta) cta.hidden = true;
       }
     });
+    // All three done: the checklist has served its purpose.
+    if (s.step1 && s.step2 && s.step3) {
+      var box = document.getElementById("onboard");
+      if (box) box.remove();
+    }
   }
   function done(n) {
     var s = state();
@@ -122,7 +130,7 @@ window.paratrackOnboard = (function () {
         <div class="flex gap-2 items-end">
           <div class="flex-1">
             <label class="label py-1" for="activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
-            <input type="text" id="activity" name="activity" required
+            <input type="text" id="activity" name="activity" required enterkeyhint="go" autocomplete="off" autocapitalize="off"
                    placeholder="{{.T "dash.activityHint"}}"
                    autocomplete="off" list="known-activities"
                    class="input input-bordered w-full">
@@ -149,61 +157,26 @@ window.paratrackOnboard = (function () {
     </div>
   </div>
 
-  <!-- Quick stats -->
-  <div class="card bg-base-100 border border-base-300">
+  <!-- Quick stats: re-read from this page (with #recent) whenever a timer changes. -->
+  <div id="today-stats" class="card bg-base-100 border border-base-300"
+       hx-get="/" hx-select="#today-stats" hx-select-oob="#recent" hx-swap="outerHTML ignoreTitle:true" hx-trigger="sessions-changed from:body">
     <div class="card-body p-5">
       <div class="card-title mb-3">{{.T "dash.today"}}</div>
-      <div class="stats stats-vertical sm:stats-horizontal shadow-none bg-transparent w-full">
+      <div class="stats stats-horizontal shadow-none bg-transparent w-full my-auto today-stats">
         <div class="stat px-3 py-2">
-          <div class="stat-title text-xs uppercase tracking-wider">{{.T "dash.statusActive"}}</div>
-          <div class="stat-value text-2xl font-semibold tabular-nums">{{.ActiveCount}}</div>
+          <div class="stat-title text-xs uppercase tracking-wider whitespace-normal">{{.T "dash.active"}}</div>
+          <div class="stat-value text-xl sm:text-2xl font-semibold tabular-nums">{{.ActiveCount}}</div>
         </div>
         <div class="stat px-3 py-2">
-          <div class="stat-title text-xs uppercase tracking-wider">{{.T "dash.trackedToday"}}</div>
-          <div class="stat-value text-2xl font-semibold tabular-nums">{{.TodayTotal}}</div>
+          <div class="stat-title text-xs uppercase tracking-wider whitespace-normal">{{.T "dash.trackedToday"}}</div>
+          <div class="stat-value text-xl sm:text-2xl font-semibold tabular-nums">{{.TodayTotal}}</div>
         </div>
         <div class="stat px-3 py-2">
-          <div class="stat-title text-xs uppercase tracking-wider">{{.T "dash.topActivity"}}</div>
-          <div class="stat-value text-base font-medium">{{if .TopToday}}{{.TopToday}}{{else}}–{{end}}</div>
+          <div class="stat-title text-xs uppercase tracking-wider whitespace-normal">{{.T "dash.topActivity"}}</div>
+          <div class="stat-value text-base font-medium truncate">{{if .TopToday}}{{.TopToday}}{{else}}–{{end}}</div>
         </div>
       </div>
     </div>
-  </div>
-</div>
-
-<!-- Backfill a past session. -->
-<div class="card bg-base-100 border border-base-300 mt-4">
-  <div class="card-body p-5">
-    <div class="card-title mb-3">{{.T "dash.backfillTitle"}}</div>
-    <p class="text-sm opacity-60 mb-3">{{.T "dash.backfillBlurb"}} <code>yesterday 14:00</code>, <code>2h ago</code>, <code>2026-09-22 09:00</code>.</p>
-    <form hx-post="/api/sessions/backfill" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="this.reset()"
-          class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
-      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-      <div>
-        <label class="label py-1" for="b-activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
-        <input type="text" id="b-activity" name="activity" required list="known-activities"
-               placeholder="reading" class="input input-bordered w-full">
-      </div>
-      <div>
-        <label class="label py-1" for="b-start"><span class="label-text">{{.T "dash.startLabel"}}</span></label>
-        <input type="text" id="b-start" name="start" required placeholder="yesterday 14:00" class="input input-bordered w-full">
-      </div>
-      <div>
-        <label class="label py-1" for="b-end"><span class="label-text">{{.T "stats.end"}}</span></label>
-        <input type="text" id="b-end" name="end" required placeholder="yesterday 16:00" class="input input-bordered w-full">
-      </div>
-      <div>
-        <label class="label py-1" for="b-project"><span class="label-text">{{.T "dash.projectLabel"}}</span></label>
-        <select id="b-project" name="project_id" class="select select-bordered w-full">
-          <option value="">{{.T "dash.uncategorized"}}</option>
-          {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-        </select>
-      </div>
-      <div class="flex gap-2">
-        <input type="text" name="note" placeholder="{{.T "dash.noteShort"}}" class="input input-bordered flex-1">
-        <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}} {{.T "tags.add"}}</button>
-      </div>
-    </form>
   </div>
 </div>
 
@@ -218,7 +191,7 @@ window.paratrackOnboard = (function () {
             class="inline">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <button type="submit" class="btn btn-ghost btn-sm"
-                title="Pause every other session and keep only this one running">{{icon "target"}} {{.T "dash.focusFirst"}}</button>
+                title="{{.T "dash.focusTitle"}}">{{icon "target"}} {{.T "dash.focusFirst"}}</button>
       </form>
       {{end}}
     </div>
@@ -228,8 +201,8 @@ window.paratrackOnboard = (function () {
   </div>
 </div>
 
-<!-- Recent closed sessions -->
-<div class="card bg-base-100 border border-base-300 mt-4">
+<!-- Recent closed sessions: swapped in by #today-stats (backfill lands here). -->
+<div id="recent" class="card bg-base-100 border border-base-300 mt-4">
   <div class="card-body p-5">
     <div class="flex items-center justify-between mb-3">
       <div class="card-title">{{.T "dash.recent"}}</div>
@@ -244,19 +217,19 @@ window.paratrackOnboard = (function () {
         <tbody>
           {{range .Recent}}
           <tr>
-            <td data-label="Activity">
+            <td data-label="{{.T "dash.activity"}}">
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="inline-flex items-center gap-1.5 min-w-0"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
                 {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
               </div>
             </td>
-            <td data-label="Start" class="font-mono">{{.StartLocal}}</td>
-            <td data-label="End" class="font-mono">{{.EndLocal}}</td>
-            <td data-label="Duration" class="font-mono">{{.Duration}}</td>
-            <td data-label="Note" class="opacity-60">{{.Note}}</td>
-            <td data-label="Tags">
+            <td data-label="{{.T "dash.startLabel"}}" class="font-mono whitespace-nowrap">{{.StartLocal}}</td>
+            <td data-label="{{.T "stats.end"}}" class="font-mono whitespace-nowrap">{{.EndLocal}}</td>
+            <td data-label="{{.T "dash.duration"}}" class="font-mono whitespace-nowrap">{{.Duration}}</td>
+            <td data-label="{{.T "stats.note"}}" class="opacity-60{{if not .Note}} is-empty{{end}}">{{.Note}}</td>
+            <td data-label="{{.T "stats.tags"}}"{{if not .Tags}} class="is-empty"{{end}}>
               <div class="flex flex-wrap gap-1">
-                {{range .Tags}}<a class="badge badge-outline badge-sm" href="/stats?tag={{urlquery .Name}}">#{{.Name}}</a>{{end}}
+                {{range .Tags}}<a class="badge badge-outline badge-sm whitespace-nowrap" href="/stats?tag={{urlquery .Name}}">#{{.Name}}</a>{{end}}
               </div>
             </td>
           </tr>
@@ -297,33 +270,73 @@ window.paratrackOnboard = (function () {
   </div>
 </div>
 {{end}}
+
+<!-- Backfill a past session. -->
+<details id="backfill" class="card bg-base-100 border border-base-300 mt-4 group">
+  <summary class="card-body p-5 cursor-pointer list-none flex-row items-center justify-between">
+    <span class="card-title">{{icon "plus"}} {{.T "dash.backfillTitle"}}</span>
+    <span class="hidden sm:inline text-sm opacity-60 group-open:hidden">{{.T "dash.backfillHint"}}</span>
+  </summary>
+  <div class="card-body p-5 pt-0">
+    <p class="text-sm opacity-60 mb-3">{{.T "dash.backfillBlurb"}} <code>{{.T "ph.start"}}</code>, <code>{{.T "ph.ago"}}</code>, <code>2026-09-22 09:00</code>.</p>
+    <form hx-post="/api/sessions/backfill" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="this.reset()"
+          class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <div>
+        <label class="label py-1" for="b-activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
+        <input type="text" id="b-activity" name="activity" required list="known-activities"
+               placeholder="{{.T "ph.activity"}}" class="input input-bordered w-full">
+      </div>
+      <div>
+        <label class="label py-1" for="b-start"><span class="label-text">{{.T "dash.startLabel"}}</span></label>
+        <input type="text" id="b-start" name="start" required placeholder="{{.T "ph.start"}}" class="input input-bordered w-full">
+      </div>
+      <div>
+        <label class="label py-1" for="b-end"><span class="label-text">{{.T "stats.end"}}</span></label>
+        <input type="text" id="b-end" name="end" required placeholder="{{.T "ph.end"}}" class="input input-bordered w-full">
+      </div>
+      <div>
+        <label class="label py-1" for="b-project"><span class="label-text">{{.T "dash.projectLabel"}}</span></label>
+        <select id="b-project" name="project_id" class="select select-bordered w-full">
+          <option value="">{{.T "dash.uncategorized"}}</option>
+          {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+        </select>
+      </div>
+      <div class="flex gap-2 sm:col-span-2">
+        <input type="text" name="note" placeholder="{{.T "dash.noteShort"}}" class="input input-bordered flex-1">
+        <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}} {{.T "tags.add"}}</button>
+      </div>
+    </form>
+  </div>
+</details>
+
 {{end}}
 
 {{define "active-list"}}
   {{if .Items}}
   <div class="overflow-x-auto">
-    <table class="table table-zebra responsive-collapse">
+    <table class="table table-zebra responsive-collapse sm:max-xl:table-sm">
       <thead>
         {{with index .Items 0}}<tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.status"}}</th><th>{{.T "dash.started"}}</th><th>{{.T "dash.duration"}}</th><th></th></tr>{{end}}
       </thead>
       <tbody>
         {{range .Items}}
         <tr>
-          <td data-label="Activity">
+          <td data-label="{{.T "dash.activity"}}">
             <div class="flex items-center gap-2 flex-wrap">
-              <span class="inline-flex items-center gap-1.5 min-w-0"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
+              <span class="inline-flex items-center gap-1.5 min-w-0 max-w-[12rem] xl:max-w-sm" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
               {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
             </div>
           </td>
-          <td data-label="Status">
+          <td data-label="{{.T "dash.status"}}">
             {{if .Paused}}
             <span class="status-pill is-paused">{{icon "pause"}} {{.T "dash.statusPaused"}}</span>
             {{else}}
             <span class="status-pill is-active">{{icon "play"}} {{.T "dash.statusActive"}}</span>
             {{end}}
           </td>
-          <td data-label="Started" class="font-mono">{{.StartLocal}}</td>
-          <td data-label="Duration"
+          <td data-label="{{.T "dash.started"}}" class="font-mono whitespace-nowrap">{{.StartLocal}}</td>
+          <td data-label="{{.T "dash.duration"}}"
               class="font-mono"
               x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
               x-text="formatted">{{.Duration}}</td>
@@ -332,20 +345,20 @@ window.paratrackOnboard = (function () {
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/focus/{{urlquery .ActivityName}}"
                       hx-target="#active-list" hx-swap="innerHTML"
-                      title="{{.T "dash.focusTitle"}}">{{icon "target"}} {{.T "dash.focus"}}</button>
+                      title="{{.T "dash.focusTitle"}}" aria-label="{{.T "dash.focus"}}">{{icon "target"}}<span class="sm:max-xl:sr-only">{{.T "dash.focus"}}</span></button>
               {{if .Paused}}
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/resume"
-                      hx-target="#active-list" hx-swap="innerHTML">{{icon "play"}} {{.T "dash.resume"}}</button>
+                      hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.resume"}}" aria-label="{{.T "dash.resume"}}">{{icon "play"}}<span class="sm:max-xl:sr-only">{{.T "dash.resume"}}</span></button>
               {{else}}
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/pause"
-                      hx-target="#active-list" hx-swap="innerHTML">{{icon "pause"}} {{.T "dash.pause"}}</button>
+                      hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.pause"}}" aria-label="{{.T "dash.pause"}}">{{icon "pause"}}<span class="sm:max-xl:sr-only">{{.T "dash.pause"}}</span></button>
               {{end}}
               <button class="btn btn-error btn-sm gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/stop"
                       hx-target="#active-list" hx-swap="innerHTML"
-                      hx-confirm="{{.T "dash.confirmStop"}}">{{icon "square"}} {{.T "dash.stop"}}</button>
+                      hx-confirm="{{.T "dash.confirmStop"}}" title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="sm:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
             </div>
           </td>
         </tr>
@@ -360,3 +373,28 @@ window.paratrackOnboard = (function () {
   </div>
   {{end}}
 {{end}}
+
+{{define "minibar"}}{{with .Items}}{{$s := index . 0}}
+<div class="minibar-card">
+  <a href="/" class="minibar-main" aria-label="{{$.T "nav.dashboard"}}">
+    <span class="minibar-dot{{if not $s.Paused}} is-live{{end}}" style="background-color: {{$s.Color}}"></span>
+    <span class="min-w-0 flex-1">
+      <span class="block truncate font-medium">{{$s.ActivityName}}</span>
+      <span class="block text-sm opacity-70 font-mono"
+            x-data="liveDuration('{{$s.StartISO}}', {{$s.AccumulatedSeconds}}, {{$s.Paused}})"
+            x-text="formatted">{{$s.Duration}}</span>
+    </span>
+    {{if gt (len .) 1}}<span class="badge badge-neutral badge-sm" title="{{$.T "dash.activeSessions"}}">{{len .}}</span>{{end}}
+  </a>
+  {{if $s.Paused}}
+  <button class="btn btn-ghost btn-circle" hx-post="/api/sessions/{{$s.ID}}/resume" hx-swap="none"
+          title="{{$.T "dash.resume"}}" aria-label="{{$.T "dash.resume"}}">{{icon "play"}}</button>
+  {{else}}
+  <button class="btn btn-ghost btn-circle" hx-post="/api/sessions/{{$s.ID}}/pause" hx-swap="none"
+          title="{{$.T "dash.pause"}}" aria-label="{{$.T "dash.pause"}}">{{icon "pause"}}</button>
+  {{end}}
+  <button class="btn btn-error btn-circle" hx-post="/api/sessions/{{$s.ID}}/stop" hx-swap="none"
+          hx-confirm="{{$.T "dash.confirmStop"}}"
+          title="{{$.T "dash.stop"}}" aria-label="{{$.T "dash.stop"}}">{{icon "square"}}</button>
+</div>
+{{- end}}{{end}}

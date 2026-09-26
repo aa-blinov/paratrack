@@ -76,12 +76,12 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		d := weekStart.AddDate(0, 0, i)
 		days[i] = timesheetDay{
 			Index:   i,
-			Label:   d.Format("Mon"),
+			Label:   fmtWeekday(resolveLang(r), d),
 			Date:    d.Format("2"),
 			ISO:     d.Format("2006-01-02"),
 			Secs:    grid.DayTotals[i],
 			Min:     grid.DayTotals[i] / 60,
-			Total:   fmtDuration(grid.DayTotals[i]),
+			Total:   fmtDur(r, grid.DayTotals[i]),
 			IsToday: sameDay(d, now),
 		}
 	}
@@ -94,21 +94,23 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 			Color:         colorFor(rc.ActivityName),
 			Secs:          rc.Secs,
 			RowTotal:      rc.RowTotal,
-			RowTotalLabel: fmtDuration(rc.RowTotal),
+			RowTotalLabel: fmtDur(r, rc.RowTotal),
 		}
 		for i := 0; i < 7; i++ {
 			row.Cells[i] = timesheetDay{
 				Index: i,
-				ISO:   days[i].ISO,
-				Secs:  rc.Secs[i],
-				Total: fmtDuration(rc.Secs[i]),
+				ISO:     days[i].ISO,
+				Secs:    rc.Secs[i],
+				Min:     cellMin(rc.Secs[i]),
+				Total:   fmtDur(r, rc.Secs[i]),
+				IsToday: days[i].IsToday,
 			}
 		}
 		rows = append(rows, row)
 	}
 	var dayTotalLabels [7]string
 	for i := 0; i < 7; i++ {
-		dayTotalLabels[i] = fmtDuration(grid.DayTotals[i])
+		dayTotalLabels[i] = fmtDur(r, grid.DayTotals[i])
 	}
 
 	data := timesheetData{
@@ -117,7 +119,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		},
 		WeekStart:       weekStart,
 		WeekEnd:         weekEnd,
-		WeekLabel:       weekStart.Format("Jan 2") + " – " + weekEnd.Format("Jan 2"),
+		WeekLabel:       fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekEnd),
 		PrevWeek:        weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
 		NextWeek:        weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
 		Days:            days,
@@ -125,7 +127,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		DayTotals:       grid.DayTotals,
 		DayTotalLabels:  dayTotalLabels,
 		GrandTotal:      grid.GrandTotal,
-		GrandTotalLabel: fmtDuration(grid.GrandTotal),
+		GrandTotalLabel: fmtDur(r, grid.GrandTotal),
 	}
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", "timesheet", &data)
 }
@@ -179,13 +181,14 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 		row := timesheetRow{
 			ActivityID: rc.ActivityID, ActivityName: rc.ActivityName,
 			Color: colorFor(rc.ActivityName), Secs: rc.Secs,
-			RowTotal: rc.RowTotal, RowTotalLabel: fmtDuration(rc.RowTotal),
+			RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
 		}
 		for i := 0; i < 7; i++ {
 			d := weekStart.AddDate(0, 0, i)
 			row.Cells[i] = timesheetDay{
 				Index: i, ISO: d.Format("2006-01-02"),
-				Secs: rc.Secs[i], Total: fmtDuration(rc.Secs[i]),
+				Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i]),
+				IsToday: sameDay(d, now),
 			}
 		}
 		_ = lang
@@ -261,4 +264,13 @@ func (s *Server) handleSavedReportsDelete(w http.ResponseWriter, r *http.Request
 func (s *Server) loadSavedReports(r *http.Request) []db.SavedReport {
 	list, _ := s.db.ListSavedReports(r.Context(), teamID(r))
 	return list
+}
+
+// cellMin rounds a cell to whole minutes, never showing 0 for a
+// non-empty cell (0 means "clear the day" on submit).
+func cellMin(secs int) int {
+	if secs <= 0 {
+		return 0
+	}
+	return max(1, secs/60)
 }
