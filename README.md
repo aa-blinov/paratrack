@@ -13,6 +13,16 @@
 
 ## Быстрый старт
 
+Через Docker, на машине нужен только docker compose. CSS, тесты и бинарник собираются внутри образа, рядом поднимается Postgres:
+
+```bash
+cp .env.example .env   # задать POSTGRES_PASSWORD: openssl rand -hex 24
+docker compose up -d --build
+# → http://127.0.0.1:8000/login
+```
+
+Без Docker, на SQLite:
+
 ```bash
 make build    # заодно соберёт CSS (npm install + Tailwind)
 
@@ -22,7 +32,7 @@ make build    # заодно соберёт CSS (npm install + Tailwind)
 
 После регистрации открывается обзор с формой «Новая активность» и коротким чек-листом из трёх шагов: запустить таймер, посмотреть стату, завести проект.
 
-Данные лежат в `~/.track/track.db` (SQLite). При первом запуске с включённой авторизацией старая одноимённая база уходит в `~/.track/track.db.bak.<timestamp>` и создаётся свежая схема: совместная работа не уживается со старым анонимным форматом.
+В Docker данные живут в Postgres (том `pgdata`). Без Docker и в CLI данные лежат в `~/.track/track.db` (SQLite); если задан `PARATRACK_DATABASE_URL`, приложение работает с Postgres. Перенести SQLite в пустой Postgres: `paratrack migrate-to-postgres ~/.track/track.db`. При первом запуске с включённой авторизацией старая одноимённая база уходит в `~/.track/track.db.bak.<timestamp>` и создаётся свежая схема: совместная работа не уживается со старым анонимным форматом.
 
 ## Как выглядит
 
@@ -105,7 +115,8 @@ paratrack/
 ## Проверка
 
 ```bash
-go test ./...                                   # юниты и интеграции
+go test ./...                                   # юниты и интеграции (SQLite)
+PARATRACK_TEST_PG=postgres://user:pass@host/db go test -p 1 ./...  # то же на Postgres
 
 python3 -m venv .venv && source .venv/bin/activate
 pip install playwright requests
@@ -121,7 +132,7 @@ python e2e/wave9_verify.py  # офлайн и push
 ## Стек
 
 - **Go 1.27**
-- **modernc.org/sqlite**: на чистом Go, без CGO
+- **PostgreSQL 17** (веб, через pgx) и **modernc.org/sqlite** (CLI и запуск без Docker): оба на чистом Go, без CGO
 - **net/http**: маршрутизация из стандартной библиотеки
 - **html/template**: серверный рендер
 - **HTMX 2.0.4** и **Alpine.js 3.14.1**: лежат в репозитории
