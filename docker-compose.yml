@@ -1,0 +1,22 @@
+# paratrack as a compose app: `docker compose up -d --build` builds and
+# runs everything (see Dockerfile). Locally it answers on
+# http://127.0.0.1:8000. A host-local docker-compose.override.yml wires a
+# server into its reverse proxy (see scripts/deploy.sh).
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  app:
+    build: .
+    image: paratrack:latest
+    container_name: paratrack
+    restart: unless-stopped
+    logging: *logging
+    ports:
+      - "127.0.0.1:${PARATRACK_PORT:-8000}:8000"
+    volumes:
+      - ${PARATRACK_DATA:-./data}:/data
