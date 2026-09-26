@@ -1,8 +1,83 @@
 {{define "dashboard-content"}}
 <h1 class="mb-4">{{.T "nav.dashboard"}}</h1>
 
+
+<!-- The live ledger: start a timer, watch what runs, read today's sum.
+     On a time tracker these are one object, so they share one sheet:
+     entry line on top, running rows under it, the day's total ruled off
+     at the bottom like the sum under a ledger column. -->
+<section class="card bg-base-100 border border-base-300" aria-labelledby="ledger-running-title">
+  <div class="card-body p-5 gap-0">
+    <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="this.reset(); window.paratrackLedgerProject && window.paratrackLedgerProject()">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      <label class="ledger-label" for="activity">{{.T "ledger.what"}}</label>
+      <div class="flex gap-2 items-center mt-1.5">
+        <input type="text" id="activity" name="activity" required enterkeyhint="go" autocomplete="off" autocapitalize="off"
+               placeholder="{{.T "dash.activityHint"}}" list="known-activities"
+               class="input input-bordered w-full min-w-0 flex-1">
+        <datalist id="known-activities">
+          {{range .Activities}}<option value="{{.Name}}">{{end}}
+        </datalist>
+        <button type="submit" class="btn btn-neutral gap-1.5 shrink-0">{{icon "play"}} {{.T "dash.start"}}</button>
+      </div>
+      {{/* Project and note are optional: folded on a phone so the field and
+           Start come first; open by default on wide screens (app.js). The
+           summary names the chosen project so an unbilled start is visible. */}}
+      <details class="ledger-more mt-3" data-open-wide>
+        <summary class="ledger-more-summary">
+          {{icon "folder" "icon icon-sm"}}<span data-project-label>{{.T "dash.uncategorized"}}</span>
+          <span class="opacity-60">· {{.T "ledger.more"}}</span>
+        </summary>
+        <div class="grid gap-3 sm:grid-cols-2 mt-2">
+          <div>
+            <label class="label py-1" for="project_id"><span class="label-text">{{.T "dash.projectLabel"}}</span></label>
+            <select id="project_id" name="project_id" class="select select-bordered w-full">
+              <option value="">{{.T "dash.uncategorized"}}</option>
+              {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+            </select>
+          </div>
+          <div>
+            <label class="label py-1" for="note"><span class="label-text">{{.T "dash.note"}}</span></label>
+            <input type="text" id="note" name="note" placeholder="{{.T "dash.noteHint"}}" class="input input-bordered w-full">
+          </div>
+        </div>
+      </details>
+    </form>
+
+    <div class="border-t border-base-300 mt-5 pt-4">
+      <div class="flex items-center justify-between gap-2 mb-2">
+        <h2 id="ledger-running-title" class="ledger-label">{{.T "dash.activeSessions"}}</h2>
+        {{if .ActiveSessions}}
+        <form hx-post="/api/focus/{{urlquery (index .ActiveSessions 0).ActivityName}}"
+              hx-target="#active-list" hx-swap="innerHTML" class="inline">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <button type="submit" class="btn btn-ghost btn-sm gap-1.5"
+                  title="{{.T "dash.focusTitle"}}">{{icon "target"}}{{.T "dash.focusFirst"}}</button>
+        </form>
+        {{end}}
+      </div>
+      <div id="active-list" aria-live="polite" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
+        {{template "active-list" .ActiveVM}}
+      </div>
+    </div>
+
+    {{/* Today's sum, ruled off (the 2px total rule). Re-read from this page,
+         together with #recent, whenever a timer changes. */}}
+    <div id="today-stats" class="ledger-total"
+         hx-get="/" hx-select="#today-stats" hx-select-oob="#recent" hx-swap="outerHTML ignoreTitle:true" hx-trigger="sessions-changed from:body">
+      <span class="ledger-label">{{.T "dash.today"}}</span>
+      <dl class="ledger-figures">
+        <div><dt>{{.T "ledger.tracked"}}</dt><dd class="font-mono">{{.TodayTotal}}</dd></div>
+        <div><dt>{{.T "ledger.running"}}</dt><dd class="font-mono">{{.RunningCount}}</dd></div>
+        <div><dt>{{.T "ledger.paused"}}</dt><dd class="font-mono">{{.PausedCount}}</dd></div>
+        <div class="min-w-0"><dt>{{.T "ledger.top"}}</dt><dd class="truncate">{{if .TopToday}}{{.TopToday}}{{else}}<span class="opacity-60">{{.T "ledger.none"}}</span>{{end}}</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
 {{if .ShowOnboard}}
-<div id="onboard" class="card border border-base-300 mb-4"
+<div id="onboard" class="card border border-base-300 mt-4"
      style="background: color-mix(in srgb, var(--color-primary) 6%, var(--color-base-100));">
   <div class="card-body p-5">
     <div class="flex items-start justify-between gap-3">
@@ -120,87 +195,6 @@ window.paratrackOnboard = (function () {
 </script>
 {{end}}
 
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-  <!-- Start form -->
-  <div class="card bg-base-100 border border-base-300">
-    <div class="card-body p-5">
-      <div class="card-title mb-3">{{.T "dash.startTitle"}}</div>
-      <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="this.reset()">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <div class="flex gap-2 items-end">
-          <div class="flex-1">
-            <label class="label py-1" for="activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
-            <input type="text" id="activity" name="activity" required enterkeyhint="go" autocomplete="off" autocapitalize="off"
-                   placeholder="{{.T "dash.activityHint"}}"
-                   autocomplete="off" list="known-activities"
-                   class="input input-bordered w-full">
-            <datalist id="known-activities">
-              {{range .Activities}}<option value="{{.Name}}">{{end}}
-            </datalist>
-          </div>
-          <button type="submit" class="btn btn-neutral gap-1.5">{{icon "play"}} {{.T "dash.start"}}</button>
-        </div>
-        <div class="mt-3 grid gap-3 sm:grid-cols-2">
-          <div>
-            <label class="label py-1" for="project_id"><span class="label-text">{{.T "dash.projectLabel"}}</span></label>
-            <select id="project_id" name="project_id" class="select select-bordered w-full">
-              <option value="">{{.T "dash.uncategorized"}}</option>
-              {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
-            </select>
-          </div>
-          <div>
-            <label class="label py-1" for="note"><span class="label-text">{{.T "dash.note"}}</span></label>
-            <input type="text" id="note" name="note" placeholder="{{.T "dash.noteHint"}}" class="input input-bordered w-full">
-          </div>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Quick stats: re-read from this page (with #recent) whenever a timer changes. -->
-  <div id="today-stats" class="card bg-base-100 border border-base-300"
-       hx-get="/" hx-select="#today-stats" hx-select-oob="#recent" hx-swap="outerHTML ignoreTitle:true" hx-trigger="sessions-changed from:body">
-    <div class="card-body p-5">
-      <div class="card-title mb-3">{{.T "dash.today"}}</div>
-      <div class="stats stats-horizontal shadow-none bg-transparent w-full my-auto today-stats">
-        <div class="stat px-3 py-2">
-          <div class="stat-title text-xs uppercase tracking-wider whitespace-normal">{{.T "dash.active"}}</div>
-          <div class="stat-value text-xl sm:text-2xl font-semibold tabular-nums">{{.ActiveCount}}</div>
-        </div>
-        <div class="stat px-3 py-2">
-          <div class="stat-title text-xs uppercase tracking-wider whitespace-normal">{{.T "dash.trackedToday"}}</div>
-          <div class="stat-value text-xl sm:text-2xl font-semibold tabular-nums">{{.TodayTotal}}</div>
-        </div>
-        <div class="stat px-3 py-2">
-          <div class="stat-title text-xs uppercase tracking-wider whitespace-normal">{{.T "dash.topActivity"}}</div>
-          <div class="stat-value text-base font-medium truncate">{{if .TopToday}}{{.TopToday}}{{else}}–{{end}}</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Active sessions list -->
-<div class="card bg-base-100 border border-base-300 mt-4">
-  <div class="card-body p-5">
-    <div class="flex items-center justify-between mb-3">
-      <div class="card-title">{{.T "dash.activeSessions"}}</div>
-      {{if .ActiveSessions}}
-      <form hx-post="/api/focus/{{urlquery (index .ActiveSessions 0).ActivityName}}"
-            hx-target="#active-list" hx-swap="innerHTML"
-            class="inline">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="btn btn-ghost btn-sm"
-                title="{{.T "dash.focusTitle"}}">{{icon "target"}} {{.T "dash.focusFirst"}}</button>
-      </form>
-      {{end}}
-    </div>
-    <div id="active-list" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
-      {{template "active-list" .ActiveVM}}
-    </div>
-  </div>
-</div>
-
 <!-- Recent closed sessions: swapped in by #today-stats (backfill lands here). -->
 <div id="recent" class="card bg-base-100 border border-base-300 mt-4">
   <div class="card-body p-5">
@@ -217,10 +211,10 @@ window.paratrackOnboard = (function () {
         <tbody>
           {{range .Recent}}
           <tr>
-            <td data-label="{{.T "dash.activity"}}">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="inline-flex items-center gap-1.5 min-w-0"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
-                {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+            <td data-label="{{.T "dash.activity"}}" class="ledger-name">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="inline-flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
+                {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
               </div>
             </td>
             <td data-label="{{.T "dash.startLabel"}}" class="font-mono whitespace-nowrap">{{.StartLocal}}</td>
@@ -322,10 +316,10 @@ window.paratrackOnboard = (function () {
       <tbody>
         {{range .Items}}
         <tr>
-          <td data-label="{{.T "dash.activity"}}">
-            <div class="flex items-center gap-2 flex-wrap">
-              <span class="inline-flex items-center gap-1.5 min-w-0 max-w-[12rem] xl:max-w-sm" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
-              {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+          <td data-label="{{.T "dash.activity"}}" class="ledger-name">
+            <div class="flex items-center gap-2 min-w-0">
+              <span class="inline-flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
+              {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
             </div>
           </td>
           <td data-label="{{.T "dash.status"}}">
@@ -340,7 +334,7 @@ window.paratrackOnboard = (function () {
               class="font-mono"
               x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
               x-text="formatted">{{.Duration}}</td>
-          <td data-label="" class="text-right">
+          <td data-label="" class="text-right whitespace-nowrap">
             <div class="flex justify-end gap-1">
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/focus/{{urlquery .ActivityName}}"

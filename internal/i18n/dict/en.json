@@ -548,7 +548,7 @@
   "onb.blurb": "paratrack counts where your time goes. Do these three things and the rest of the product starts making sense.",
   "onb.dismiss": "Dismiss",
   "onb.s1": "Start a timer",
-  "onb.s1d": "Type any activity name below and press Start. The clock ticks live under Running now.",
+  "onb.s1d": "Type an activity in the field above and press Start. The timer appears right under the field.",
   "onb.s1cta": "Start a timer",
   "onb.s2": "See where the time went",
   "onb.s2d": "Stats breaks the day down by project and activity. You can edit any row in place.",
@@ -746,5 +746,12 @@
   "audit.act.session.stop": "Timer stopped",
   "audit.act.team.stripe_update": "Stripe settings changed",
   "audit.act.webhook.create": "Webhook added",
-  "audit.act.webhook.delete": "Webhook deleted"
+  "audit.act.webhook.delete": "Webhook deleted",
+  "ledger.what": "What are you working on?",
+  "ledger.more": "note",
+  "ledger.tracked": "tracked",
+  "ledger.running": "running",
+  "ledger.paused": "paused",
+  "ledger.top": "most time",
+  "ledger.none": "none yet"
 }

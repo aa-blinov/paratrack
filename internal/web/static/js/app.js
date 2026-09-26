@@ -729,3 +729,19 @@ document.addEventListener('htmx:configRequest', (e) => {
     }
   });
 })();
+
+// ---- Live ledger: optional fields open on wide screens, project named ----
+(function () {
+  const wide = window.matchMedia('(min-width: 1024px)');
+  document.querySelectorAll('details[data-open-wide]').forEach((d) => {
+    if (wide.matches) d.open = true;
+  });
+  const sel = document.getElementById('project_id');
+  const label = document.querySelector('[data-project-label]');
+  const sync = () => {
+    if (sel && label) label.textContent = sel.options[sel.selectedIndex].text;
+  };
+  if (sel) sel.addEventListener('change', sync);
+  // The start form resets after each submit; keep the summary honest.
+  window.paratrackLedgerProject = () => setTimeout(sync, 0);
+})();

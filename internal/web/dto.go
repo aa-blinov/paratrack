@@ -107,6 +107,9 @@ type dashboardData struct {
 	ActiveSessions []sessionView
 	Recent     []sessionView
 	ActiveCount int
+	// Running vs paused: "Активных 3" read wrong when two were paused.
+	RunningCount int
+	PausedCount  int
 	TodayTotal string
 	TopToday   string
 	Goals      []goalView
