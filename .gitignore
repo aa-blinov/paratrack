@@ -25,3 +25,6 @@
 /e2e/screenshots/mobile-*.png
 /e2e/screenshots/graph-*.png
 /e2e/screenshots/echart-*.png
+
+# local compose data
+/data/
