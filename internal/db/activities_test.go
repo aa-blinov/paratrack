@@ -121,7 +121,7 @@ func TestNormalizeActivityCase_MergesDuplicates(t *testing.T) {
 	}
 
 	for _, sid := range []int64{sWinner.ID, sLoser.ID} {
-		s, err := d.GetSession(ctx, sid)
+		s, err := d.GetSession(ctx, 0, sid)
 		if err != nil {
 			t.Fatalf("session %d lookup: %v", sid, err)
 		}
@@ -129,7 +129,7 @@ func TestNormalizeActivityCase_MergesDuplicates(t *testing.T) {
 			t.Errorf("session %d activity_id = %d, want %d", sid, s.ActivityID, winnerID)
 		}
 	}
-	keepSess, err := d.GetSession(ctx, sKeep.ID)
+	keepSess, err := d.GetSession(ctx, 0, sKeep.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +192,7 @@ CREATE TABLE sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     activity_id INTEGER NOT NULL,
     team_id INTEGER,
+    user_id INTEGER,
     start_at TEXT NOT NULL,
     end_at TEXT,
     note TEXT,

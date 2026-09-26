@@ -64,14 +64,14 @@ func (d *DB) CreateProject(ctx context.Context, teamID int64, name, slug, color 
 // the picker dropdown where we already know the project is in scope.
 func (d *DB) GetProject(ctx context.Context, id int64) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, created_at, updated_at FROM projects WHERE id = ?`, id)
+		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE id = ?`, id)
 	return scanProject(row)
 }
 
 // GetProjectBySlug looks up by team + slug (the URL-friendly handle).
 func (d *DB) GetProjectBySlug(ctx context.Context, teamID int64, slug string) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, created_at, updated_at
+		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at
 		   FROM projects WHERE team_id = ? AND slug = ?`, teamID, strings.ToLower(slug))
 	return scanProject(row)
 }
@@ -80,7 +80,7 @@ func (d *DB) GetProjectBySlug(ctx context.Context, teamID int64, slug string) (m
 // are hidden — set includeArchived=true to surface them too (used by
 // the "Show archived" toggle on /projects).
 func (d *DB) ListProjects(ctx context.Context, teamID int64, includeArchived bool) ([]model.Project, error) {
-	q := `SELECT id, team_id, slug, name, color, archived, created_at, updated_at FROM projects WHERE team_id = ?`
+	q := `SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE team_id = ?`
 	if !includeArchived {
 		q += ` AND archived = 0`
 	}
@@ -104,7 +104,7 @@ func (d *DB) ListProjects(ctx context.Context, teamID int64, includeArchived boo
 // UpdateProject applies a partial update to an existing project.
 // Pass empty strings / the zero value to leave a field untouched.
 // Returns ErrNotFound if no row with that id exists in this team.
-func (d *DB) UpdateProject(ctx context.Context, teamID, id int64, name, color string, archived *bool) (model.Project, error) {
+func (d *DB) UpdateProject(ctx context.Context, teamID, id int64, name, color string, archived *bool, estimateMinutes *int) (model.Project, error) {
 	current, err := d.GetProject(ctx, id)
 	if err != nil {
 		return model.Project{}, err
@@ -124,10 +124,21 @@ func (d *DB) UpdateProject(ctx context.Context, teamID, id int64, name, color st
 	if archived != nil {
 		current.Archived = *archived
 	}
+	if estimateMinutes != nil {
+		if *estimateMinutes < 0 {
+			return model.Project{}, fmt.Errorf("estimate must be >= 0")
+		}
+		if *estimateMinutes == 0 {
+			current.EstimateMinutes = nil
+		} else {
+			v := *estimateMinutes
+			current.EstimateMinutes = &v
+		}
+	}
 	now := FormatTime(time.Now().UTC())
 	if _, err := d.sql.ExecContext(ctx,
-		`UPDATE projects SET name = ?, color = ?, archived = ?, updated_at = ? WHERE id = ?`,
-		current.Name, current.Color, boolInt(current.Archived), now, id,
+		`UPDATE projects SET name = ?, color = ?, archived = ?, estimate_minutes = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
+		current.Name, current.Color, boolInt(current.Archived), current.EstimateMinutes, now, id, teamID,
 	); err != nil {
 		return model.Project{}, err
 	}
@@ -226,16 +237,28 @@ func scanProject(r row) (model.Project, error) {
 	var (
 		p        model.Project
 		archived int
+		estimate sql.NullInt64
+		rate     sql.NullInt64
+		billable int
 		created  string
 		updated  string
 	)
-	if err := r.Scan(&p.ID, &p.TeamID, &p.Slug, &p.Name, &p.Color, &archived, &created, &updated); err != nil {
+	if err := r.Scan(&p.ID, &p.TeamID, &p.Slug, &p.Name, &p.Color, &archived, &estimate, &rate, &billable, &created, &updated); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Project{}, ErrNotFound
 		}
 		return model.Project{}, err
 	}
 	p.Archived = archived != 0
+	if estimate.Valid {
+		v := int(estimate.Int64)
+		p.EstimateMinutes = &v
+	}
+	if rate.Valid {
+		v := int(rate.Int64)
+		p.BillableRateCents = &v
+	}
+	p.Billable = billable != 0
 	if t, err := ScanTime(created); err == nil {
 		p.CreatedAt = t
 	}

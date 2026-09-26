@@ -102,7 +102,7 @@ func TestListProjects_HidesArchived(t *testing.T) {
 
 	a, _ := d.CreateProject(ctx, teamID, "Alpha", "", "")
 	b, _ := d.CreateProject(ctx, teamID, "Bravo", "", "")
-	if _, err := d.UpdateProject(ctx, teamID, a.ID, "", "", boolPtr(true)); err != nil {
+	if _, err := d.UpdateProject(ctx, teamID, a.ID, "", "", boolPtr(true), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -138,7 +138,7 @@ func TestUpdateProject_Partial(t *testing.T) {
 	p, _ := d.CreateProject(ctx, teamID, "EORA RAG", "eora", "#aaaaaa")
 
 	// Only color.
-	upd, err := d.UpdateProject(ctx, teamID, p.ID, "", "#bbbbbb", nil)
+	upd, err := d.UpdateProject(ctx, teamID, p.ID, "", "#bbbbbb", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,7 +150,7 @@ func TestUpdateProject_Partial(t *testing.T) {
 	}
 
 	// Only name.
-	upd, err = d.UpdateProject(ctx, teamID, p.ID, "EORA v2", "", nil)
+	upd, err = d.UpdateProject(ctx, teamID, p.ID, "EORA v2", "", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +159,7 @@ func TestUpdateProject_Partial(t *testing.T) {
 	}
 
 	// Only archived.
-	upd, err = d.UpdateProject(ctx, teamID, p.ID, "", "", boolPtr(true))
+	upd, err = d.UpdateProject(ctx, teamID, p.ID, "", "", boolPtr(true), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -179,7 +179,7 @@ func TestUpdateProject_CrossTeamForbidden(t *testing.T) {
 	p, _ := d.CreateProject(ctx, teamA, "Owned by A", "owned-a", "")
 
 	// Team B trying to rename should fail (not see it as theirs).
-	_, err := d.UpdateProject(ctx, teamB, p.ID, "Hacked", "", nil)
+	_, err := d.UpdateProject(ctx, teamB, p.ID, "Hacked", "", nil, nil)
 	if err != ErrNotFound {
 		t.Errorf("expected ErrNotFound on cross-team update, got %v", err)
 	}

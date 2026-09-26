@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/teams"
 )
 
@@ -21,7 +22,15 @@ type settingsPageData struct {
 	Invites []teams.Invite
 	Flash   string // success / error banner shown above the form
 	FlashOK bool
+	CSRFToken string
+	Lang      string
 }
+
+func (p *settingsPageData) setCSRF(t string) { p.CSRFToken = t }
+func (p *settingsPageData) setLang(l string) { p.Lang = l }
+
+// T translates a dictionary key for this page's language.
+func (p settingsPageData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
 // teamUserView is the subset of User we render in templates. Kept
 // separate so we don't drag json tags into HTML rendering.
@@ -41,9 +50,9 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 		User:   userViewOf(user),
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
-		data.Flash, data.FlashOK = decodeFlash(flash)
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Team settings", "settings", "team-settings", data)
+	s.renderPageForRequest(w, r, "Team settings", "settings", "team-settings", &data)
 }
 
 func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
@@ -62,9 +71,9 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Members: members,
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
-		data.Flash, data.FlashOK = decodeFlash(flash)
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Members", "settings", "team-members", data)
+	s.renderPageForRequest(w, r, "Members", "settings", "team-members", &data)
 }
 
 func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
@@ -83,9 +92,9 @@ func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
 		Invites: invites,
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
-		data.Flash, data.FlashOK = decodeFlash(flash)
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Invites", "settings", "team-invites", data)
+	s.renderPageForRequest(w, r, "Invites", "settings", "team-invites", &data)
 }
 
 func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
@@ -96,29 +105,39 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 		User:   userViewOf(user),
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
-		data.Flash, data.FlashOK = decodeFlash(flash)
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Profile", "settings", "profile", data)
+	s.renderPageForRequest(w, r, "Profile", "settings", "profile", &data)
 }
+
+// invitePage is the /invites/{token} envelope. T() exposes i18n.
+type invitePage struct {
+	Title     string
+	Token     string
+	Invite    teams.Invite
+	Team      teams.Team
+	User      teamUserView
+	LoggedIn  bool
+	CSRFToken string
+	Lang      string
+}
+
+func (p invitePage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
 func (s *Server) handleInviteAcceptPage(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimPrefix(r.URL.Path, "/invites/")
 	user, authed := UserFrom(r.Context())
-	data := struct {
-		Title    string
-		Token    string
-		Invite   teams.Invite
-		Team     teams.Team
-		User     teamUserView
-		LoggedIn bool
-	}{Title: "Join team", Token: token, LoggedIn: authed, User: userViewOf(user)}
+	data := invitePage{
+		Title: "Join team", Token: token, LoggedIn: authed, User: userViewOf(user),
+		CSRFToken: ensureCSRF(w, r), Lang: string(resolveLang(r)),
+	}
 	if inv, err := s.teams.FindInvite(r.Context(), token); err == nil {
 		data.Invite = inv
 		if t, err := s.teams.FindByID(r.Context(), inv.TeamID); err == nil {
 			data.Team = t
 		}
 	}
-	s.renderPageForRequest(w, r, "Join team", "", "invite-accept", data)
+	s.renderPageForRequest(w, r, "Join team", "", "invite-accept", &data)
 }
 
 // ----- POST handlers (settings actions) ----------------------------
@@ -144,7 +163,13 @@ func (s *Server) handleAPITeamDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	// User has no teams left → log them out and bounce to /register.
+	// If the user still belongs to another workspace, switch to it and
+	// stay signed in. Only a user with no teams left is logged out.
+	if remaining, err := s.teams.ListForUser(r.Context(), user.ID); err == nil && len(remaining) > 0 {
+		setTeamCookie(w, r, remaining[0].ID)
+		http.Redirect(w, r, "/?flash=team_deleted", http.StatusSeeOther)
+		return
+	}
 	_ = s.auth.DeleteByUser(r.Context(), user.ID)
 	clearSessionCookie(w)
 	http.Redirect(w, r, "/register?flash=team_deleted", http.StatusSeeOther)
@@ -162,7 +187,7 @@ func (s *Server) handleAPITeamCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	setTeamCookie(w, team.ID)
+	setTeamCookie(w, r, team.ID)
 	http.Redirect(w, r, "/settings/team?flash=created", http.StatusSeeOther)
 }
 
@@ -182,8 +207,12 @@ func (s *Server) handleAPITeamSwitch(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/?flash=forbidden", http.StatusSeeOther)
 		return
 	}
-	setTeamCookie(w, id)
-	http.Redirect(w, r, r.PostForm.Get("next"), http.StatusSeeOther)
+	setTeamCookie(w, r, id)
+	next := strings.TrimSpace(r.PostForm.Get("next"))
+	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+		next = "/"
+	}
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
@@ -201,6 +230,7 @@ func (s *Server) handleAPIInviteRevoke(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
 	token := strings.TrimPrefix(r.URL.Path, "/api/team/invites/")
+	token = strings.TrimSuffix(token, "/revoke")
 	if err := s.teams.RevokeInvite(r.Context(), team.ID, user.ID, token); err != nil {
 		http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
@@ -247,7 +277,7 @@ func (s *Server) handleAPIInviteAccept(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/invites/"+token+"?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	setTeamCookie(w, team.ID)
+	setTeamCookie(w, r, team.ID)
 	http.Redirect(w, r, "/?flash=joined", http.StatusSeeOther)
 }
 
@@ -273,13 +303,12 @@ func (s *Server) handleAPIProfilePassword(w http.ResponseWriter, r *http.Request
 	}
 	newPw := r.PostForm.Get("new_password")
 	curPw := r.PostForm.Get("current_password")
-	if curPw != "" {
-		// Verify current password before allowing the change.
-		stored, err := s.auth.FindByID(r.Context(), user.ID)
-		if err != nil || s.auth.VerifyPassword(stored, curPw) != nil {
-			http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "current password is wrong"), http.StatusSeeOther)
-			return
-		}
+	// Current password is mandatory — a live session alone must not be
+	// enough to take over the account.
+	stored, err := s.auth.FindByID(r.Context(), user.ID)
+	if err != nil || s.auth.VerifyPassword(stored, curPw) != nil {
+		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "current password is wrong"), http.StatusSeeOther)
+		return
 	}
 	if err := s.auth.UpdatePassword(r.Context(), user.ID, newPw); err != nil {
 		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
@@ -294,32 +323,31 @@ func userViewOf(u auth.User) teamUserView { return teamUserView{ID: u.ID, Email:
 
 // decodeFlash maps a flash code into (message, ok). Errors pass
 // through verbatim, named codes map to friendly strings.
-func decodeFlash(code string) (string, bool) {
+func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 	switch code {
 	case "renamed":
-		return "Team renamed.", true
+		return i18n.T(lang, "flash.renamed"), true
 	case "created":
-		return "Team created.", true
+		return i18n.T(lang, "flash.created"), true
 	case "revoked":
-		return "Invite revoked.", true
+		return i18n.T(lang, "flash.revoked"), true
 	case "removed":
-		return "Member removed.", true
+		return i18n.T(lang, "flash.removed"), true
 	case "updated":
-		return "Profile saved.", true
+		return i18n.T(lang, "flash.updated"), true
 	case "password_updated":
-		return "Password updated.", true
+		return i18n.T(lang, "flash.passwordUpdated"), true
 	case "joined":
-		return "You joined the team.", true
+		return i18n.T(lang, "flash.joined"), true
 	case "team_deleted":
-		return "Team deleted. Sign up to start fresh.", true
+		return i18n.T(lang, "flash.teamDeleted"), true
 	case "bad_request":
-		return "Invalid form submission.", false
+		return i18n.T(lang, "flash.badRequest"), false
 	case "forbidden":
-		return "You don't have access to that team.", false
+		return i18n.T(lang, "flash.forbidden"), false
 	case "bad_team":
-		return "That team doesn't exist (or you're not in it).", false
+		return i18n.T(lang, "flash.badTeam"), false
 	default:
-		// Encoded error: prefix "e
 		if strings.HasPrefix(code, "e:") {
 			return strings.TrimPrefix(code, "e:"), false
 		}

@@ -1,0 +1,141 @@
+{{define "marketplace"}}
+<div class="max-w-4xl mx-auto space-y-4">
+  <header class="flex items-end justify-between gap-4 flex-wrap">
+    <div>
+      <h1 class="mb-1">{{.T "mkt.title"}}</h1>
+      <p class="opacity-70 text-sm">{{.T "mkt.blurb"}}</p>
+    </div>
+    <a href="/integrations" class="btn btn-ghost btn-sm gap-1.5">{{icon "link"}}{{.T "mkt.manage"}}</a>
+  </header>
+
+  <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {{range .Items}}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-4 gap-2">
+        <div class="flex items-center gap-2">
+          {{icon .Icon "icon icon-lg opacity-80"}}
+          <h3 class="card-title text-base">{{.Name}}</h3>
+          {{if .Connected}}<span class="badge badge-success badge-xs">{{$.T "mkt.connected"}}</span>{{end}}
+          {{if not .Available}}<span class="badge badge-ghost badge-xs">{{$.T "mkt.soon"}}</span>{{end}}
+        </div>
+        <p class="text-sm opacity-70">{{$.T (printf "mkt.%s.blurb" .ID)}}</p>
+        {{if .Available}}
+          <a href="/integrations?provider={{.ID}}" class="btn btn-neutral btn-sm gap-1.5 mt-2 w-full sm:w-auto">{{icon "plus"}}{{$.T "mkt.connect"}}</a>
+          <p class="text-xs opacity-50">{{$.T (printf "mkt.%s.secret" .ID)}} · {{$.T (printf "mkt.%s.target" .ID)}}</p>
+        {{else}}
+          <span class="btn btn-ghost btn-sm mt-2 opacity-50 pointer-events-none">{{$.T "mkt.soon"}}</span>
+        {{end}}
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "reports"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  <header>
+    <h1 class="mb-1">{{.T "rep.title"}}</h1>
+    <p class="opacity-70 text-sm">{{.T "rep.blurb"}}</p>
+  </header>
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    {{range .Templates}}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-4 gap-2">
+        <div class="flex items-center gap-2">
+          {{icon .Icon "icon icon-lg opacity-80"}}
+          <h3 class="card-title text-base">{{$.T (printf "rep.%s.name" .ID)}}</h3>
+        </div>
+        <p class="text-sm opacity-70">{{$.T (printf "rep.%s.blurb" .ID)}}</p>
+        <form method="GET" action="/reports/run" class="flex flex-wrap items-end gap-2 mt-2">
+          <input type="hidden" name="id" value="{{.ID}}">
+          <div class="flex-1">
+            <label class="label py-0"><span class="label-text text-xs">{{$.T "inv.from"}}</span></label>
+            <input type="date" name="from" value="{{$.DefFrom}}" class="input input-xs input-bordered w-full">
+          </div>
+          <div class="flex-1">
+            <label class="label py-0"><span class="label-text text-xs">{{$.T "inv.to"}}</span></label>
+            <input type="date" name="to" value="{{$.DefTo}}" class="input input-xs input-bordered w-full">
+          </div>
+          <button type="submit" class="btn btn-neutral btn-sm gap-1.5 w-full sm:w-auto">{{icon "bar-chart-3"}}{{$.T "rep.run"}}</button>
+        </form>
+      </div>
+    </div>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
+{{define "report-run"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  <div class="flex items-center justify-between gap-3 flex-wrap no-print">
+    <div class="text-sm">
+      <a href="/reports" class="link link-hover opacity-70">{{.T "rep.title"}}</a>
+      <span class="opacity-40"> / </span>
+      <span>{{.T (printf "rep.%s.name" .VM.Template.ID)}}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="/reports/run?id={{.VM.Template.ID}}&from={{.VM.From}}&to={{.VM.To}}&format=csv"
+         class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}CSV</a>
+      <button class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{icon "download"}}{{.T "inv.print"}}</button>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300 print:shadow-none print:border-0">
+    <div class="card-body p-6 gap-4">
+      <div>
+        <div class="text-xs uppercase tracking-wider opacity-50">{{.T "rep.report"}}</div>
+        <div class="text-2xl font-semibold">{{.T (printf "rep.%s.name" .VM.Template.ID)}}</div>
+        <div class="text-xs opacity-60 font-mono">{{.VM.PeriodLabel}}</div>
+      </div>
+
+      <table class="table table-sm">
+        <thead>
+          <tr>
+            <th>{{.T "rep.key"}}</th>
+            <th class="text-right">{{.T "inv.hours"}}</th>
+            {{if .VM.Template.Billable}}
+            <th class="text-right">{{.T "inv.rate"}}</th>
+            <th class="text-right">{{.T "inv.amount"}}</th>
+            {{end}}
+            <th class="text-right">{{.T "stats.share"}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .VM.Rows}}
+          <tr>
+            <td>{{.Key}}</td>
+            <td class="text-right font-mono">{{.Hours}}</td>
+            {{if $.VM.Template.Billable}}
+            <td class="text-right font-mono">{{.Rate}}</td>
+            <td class="text-right font-mono">{{.Amount}}</td>
+            {{end}}
+            <td class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
+          </tr>
+          {{end}}
+          {{if not .VM.Rows}}
+          <tr><td colspan="5" class="text-center py-6">
+            <div class="font-medium">{{.T "rep.empty"}}</div>
+            <div class="text-sm opacity-60 mt-1">{{.T "rep.emptyHint"}}</div>
+            <a href="/reports" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "bar-chart-3" "icon icon-sm"}}{{.T "rep.emptyCta"}}</a>
+          </td></tr>
+          {{end}}
+        </tbody>
+        <tfoot>
+          <tr class="font-semibold border-t-2 border-base-300">
+            <td>{{.T "stats.total"}}</td>
+            <td class="text-right font-mono">{{.VM.Total}}</td>
+            {{if .VM.Template.Billable}}
+            <td></td>
+            <td class="text-right font-mono">{{.VM.TotalAmount}}</td>
+            {{end}}
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+      <p class="text-xs opacity-50">{{.T "rep.footNote"}}</p>
+    </div>
+  </div>
+</div>
+{{end}}

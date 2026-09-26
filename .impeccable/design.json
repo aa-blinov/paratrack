@@ -1,0 +1,412 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-25T11:37:06Z",
+  "title": "Design System: paratrack",
+  "extensions": {
+    "colorMeta": {
+      "ink-indigo": {
+        "role": "primary",
+        "displayName": "Indigo Ink",
+        "canonical": "#6366f1",
+        "tonalRamp": [
+          "#1d1e48",
+          "#34357f",
+          "#4a4db6",
+          "#6164ed",
+          "#8486f4",
+          "#a8a9f7",
+          "#cbccfa",
+          "#efeffd"
+        ]
+      },
+      "ink-violet": {
+        "role": "secondary",
+        "displayName": "Violet Ink",
+        "canonical": "#8b5cf6",
+        "tonalRamp": [
+          "#291b49",
+          "#493082",
+          "#6945ba",
+          "#895af2",
+          "#a37ef7",
+          "#bea4f9",
+          "#d8c9fc",
+          "#f3eefe"
+        ]
+      },
+      "ledger-white": {
+        "role": "neutral",
+        "displayName": "Ledger White",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#4c4c4c",
+          "#868686",
+          "#c1c1c1",
+          "#fbfbfb",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ]
+      },
+      "ledger-paper": {
+        "role": "neutral",
+        "displayName": "Ledger Paper",
+        "canonical": "#f9fafb",
+        "tonalRamp": [
+          "#4a4b4b",
+          "#838484",
+          "#bcbdbe",
+          "#f5f6f7",
+          "#fafbfb",
+          "#fbfcfc",
+          "#fdfdfd",
+          "#fefefe"
+        ]
+      },
+      "ledger-rule": {
+        "role": "neutral",
+        "displayName": "Ledger Rule",
+        "canonical": "#e5e7eb",
+        "tonalRamp": [
+          "#444546",
+          "#797a7c",
+          "#adaeb1",
+          "#e1e3e7",
+          "#eaecef",
+          "#f0f1f3",
+          "#f6f7f8",
+          "#fcfcfd"
+        ]
+      },
+      "ledger-ink": {
+        "role": "neutral",
+        "displayName": "Ledger Ink",
+        "canonical": "#1a1d23",
+        "tonalRamp": [
+          "#07080a",
+          "#0d0f12",
+          "#13151a",
+          "#191c22",
+          "#4b4d52",
+          "#7f8184",
+          "#b3b4b6",
+          "#e8e8e9"
+        ]
+      },
+      "ledger-charcoal": {
+        "role": "neutral",
+        "displayName": "Ledger Charcoal",
+        "canonical": "#1f2937",
+        "tonalRamp": [
+          "#090c10",
+          "#10151d",
+          "#171f29",
+          "#1e2836",
+          "#4f5661",
+          "#82878f",
+          "#b5b8bd",
+          "#e8e9eb"
+        ]
+      },
+      "info-cyan": {
+        "role": "tertiary",
+        "displayName": "Info Cyan",
+        "canonical": "#06b6d4",
+        "tonalRamp": [
+          "#01363f",
+          "#036070",
+          "#0489a0",
+          "#05b3d0",
+          "#3bc5dd",
+          "#74d6e7",
+          "#ade7f0",
+          "#e6f7fa"
+        ]
+      },
+      "verdict-green": {
+        "role": "tertiary",
+        "displayName": "Verdict Green",
+        "canonical": "#10b981",
+        "tonalRamp": [
+          "#043726",
+          "#086144",
+          "#0c8c61",
+          "#0fb67f",
+          "#43c89c",
+          "#79d8b8",
+          "#b0e8d5",
+          "#e7f8f2"
+        ]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "#492f03",
+          "#815305",
+          "#b97708",
+          "#f19b0a",
+          "#f7b23f",
+          "#f9c877",
+          "#fbdfae",
+          "#fef5e6"
+        ]
+      },
+      "verdict-red": {
+        "role": "tertiary",
+        "displayName": "Verdict Red",
+        "canonical": "#dc2626",
+        "tonalRamp": [
+          "#420b0b",
+          "#741414",
+          "#a61c1c",
+          "#d82525",
+          "#e35454",
+          "#eb8686",
+          "#f3b7b7",
+          "#fbe9e9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The paratrack wordmark only. Fraunces, the seal on the ledger cover."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page h1. Exactly one per page."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles and section anchors."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "All running text. 65-75ch measure."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase column heads, stat titles, overlines."
+      },
+      "mono": {
+        "displayName": "Mono",
+        "purpose": "Every measured figure: durations, money, times, IDs. Tabular numerals."
+      }
+    },
+    "shadows": [],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default easing for state transitions."
+      },
+      {
+        "name": "duration-standard",
+        "value": "0.15s",
+        "purpose": "State transition duration (colour, background)."
+      },
+      {
+        "name": "duration-slow",
+        "value": "0.2s",
+        "purpose": "Button and dropdown transitions."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "0.01ms",
+        "purpose": "prefers-reduced-motion: reduce — kill duration and movement, keep state change."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "xs",
+        "value": "400px"
+      },
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      }
+    ],
+    "rules": [
+      {
+        "name": "The Signature Rule",
+        "section": "colors",
+        "body": "The primary accent occupies <=10% of any screen. It marks identity, focus, and the single primary action. If two things are indigo, one of them is wrong."
+      },
+      {
+        "name": "The No-Fake-Ink Rule",
+        "section": "colors",
+        "body": "A user-authored colour is never used as text ink. It appears as a swatch beside neutral text, or with an explicitly computed contrast-safe ink."
+      },
+      {
+        "name": "The Two-Theme Rule",
+        "section": "colors",
+        "body": "Every semantic colour means the same thing in both themes. Only the lightness shifts."
+      },
+      {
+        "name": "The One Headline Rule",
+        "section": "typography",
+        "body": "Exactly one h1 per page, and it names the page."
+      },
+      {
+        "name": "The Wordmark Lock",
+        "section": "typography",
+        "body": "Fraunces is the logo face. A heading, a stat, or a card title set in Fraunces is a bug."
+      },
+      {
+        "name": "The Ruled Column Rule",
+        "section": "typography",
+        "body": "Any figure a user compares vertically renders in JetBrains Mono with tabular-nums."
+      },
+      {
+        "name": "The One-Row Rule",
+        "section": "layout",
+        "body": "The header never wraps onto a second line. If the links do not fit, they scroll."
+      },
+      {
+        "name": "The Shrink-to-Truncate Rule",
+        "section": "layout",
+        "body": "A grid or flex item that carries a name must allow itself to shrink (min-width: 0) so truncate can work."
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "section": "elevation",
+        "body": "Surfaces do not cast shadows. box-shadow is reserved for the focus ring and is never used for elevation."
+      },
+      {
+        "name": "The Hairline Rule",
+        "section": "elevation",
+        "body": "A 1px solid base-300 rule is the separator, used at the same weight everywhere."
+      },
+      {
+        "name": "The Ladder Rule",
+        "section": "components",
+        "body": "A button's height states its rank: 40px = do this now, 32px = act on this row, 24px = tweak this chip."
+      },
+      {
+        "name": "The Fixed Order Rule",
+        "section": "components",
+        "body": "Classes read btn -> variant -> size -> shape -> gap -> layout -> state."
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "CTA Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one primary action per form. 40px lane, charcoal fill.",
+      "html": "<button class=\"ds-btn-cta\">Start</button>",
+      "css": ".ds-btn-cta {\n  display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n  height: 40px; padding: 0 16px;\n  background: #1f2937; color: #f9fafb;\n  border: 1px solid #1f2937; border-radius: 10px;\n  font: 600 14px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .2s cubic-bezier(.4,0,.2,1), border-color .2s;\n}\n.ds-btn-cta:hover { background: #111827; border-color: #111827; }\n.ds-btn-cta:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-cta:disabled { opacity: .4; pointer-events: none; }"
+    },
+    {
+      "name": "Row Button",
+      "kind": "button",
+      "refersTo": "button-row",
+      "description": "Navigation, toolbar and row actions. 32px ghost lane.",
+      "html": "<button class=\"ds-btn-row\">Pause</button>",
+      "css": ".ds-btn-row {\n  display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n  height: 32px; padding: 0 12px;\n  background: transparent; color: #1a1d23;\n  border: 1px solid transparent; border-radius: 10px;\n  font: 600 12px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .15s cubic-bezier(.4,0,.2,1), color .15s;\n}\n.ds-btn-row:hover { background: #f9fafb; }\n.ds-btn-row:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-row.ds-active { background: #e5e7eb; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Stop / Delete. 32px, verdict red with white ink (4.83:1).",
+      "html": "<button class=\"ds-btn-danger\">Stop</button>",
+      "css": ".ds-btn-danger {\n  display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n  height: 32px; padding: 0 12px;\n  background: #dc2626; color: #ffffff;\n  border: 1px solid #dc2626; border-radius: 10px;\n  font: 600 12px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .15s cubic-bezier(.4,0,.2,1);\n}\n.ds-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }\n.ds-btn-danger:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Chip Button",
+      "kind": "button",
+      "refersTo": "button-chip",
+      "description": "Filter chips and inline toggles. 24px micro lane.",
+      "html": "<button class=\"ds-btn-chip\">All</button>",
+      "css": ".ds-btn-chip {\n  display: inline-flex; align-items: center; justify-content: center; gap: 4px;\n  height: 24px; padding: 0 8px;\n  background: transparent; color: #1a1d23;\n  border: 1px solid transparent; border-radius: 10px;\n  font: 600 11px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .15s cubic-bezier(.4,0,.2,1);\n}\n.ds-btn-chip:hover { background: #f9fafb; }\n.ds-btn-chip:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-chip.ds-active { background: #6366f1; color: #fff; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A ledger cell you can type into. 40px, hairline stroke, 10px radius.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"reading, work, exercise…\">",
+      "css": ".ds-input {\n  display: inline-flex; align-items: center;\n  height: 40px; padding: 0 12px; width: 100%; max-width: 20rem;\n  background: #ffffff; color: #1a1d23;\n  border: 1px solid rgba(26,29,35,.2); border-radius: 10px;\n  font: 400 14px/1 'Inter', system-ui, sans-serif;\n  caret-color: #1a1d23;\n}\n.ds-input::placeholder { color: #1a1d23; opacity: .5; }\n.ds-input:focus {\n  outline: 2px solid #6366f1; outline-offset: 2px;\n  border-color: #1a1d23;\n}\n.ds-input:disabled { background: #f9fafb; opacity: .5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A sheet on the desk. Flat, hairline-bordered, 24px padding.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Active sessions</h2><p class=\"ds-card-body\">Two activities running.</p></div>",
+      "css": ".ds-card {\n  background: #ffffff; color: #1a1d23;\n  border: 1px solid #e5e7eb; border-radius: 10px;\n  padding: 24px;\n  /* No shadow. The hairline is the elevation. */\n}\n.ds-card-title {\n  margin: 0 0 12px;\n  font: 600 19.2px/1.3 'Inter', system-ui, sans-serif;\n  letter-spacing: -0.01em;\n}\n.ds-card-body {\n  margin: 0;\n  font: 400 16px/1.55 'Inter', system-ui, sans-serif;\n  color: rgba(26,29,35,.7);\n}"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Project / activity chip. Colour is a swatch, text is always neutral ink.",
+      "html": "<span class=\"ds-badge\"><span class=\"ds-swatch\"></span>Deep work</span>",
+      "css": ".ds-badge {\n  display: inline-flex; align-items: center; gap: 6px;\n  height: 24px; padding: 0 8px;\n  background: #f9fafb; color: #1a1d23;\n  border: 1px solid #e5e7eb; border-radius: 6px;\n  font: 500 12px/1 'Inter', system-ui, sans-serif;\n}\n.ds-swatch {\n  width: 6px; height: 6px; border-radius: 999px; background: #6366f1; flex-shrink: 0;\n}"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "One 48px row. Wordmark · scrollable links · fixed actions. Never wraps.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-wordmark\">paratrack</span><div class=\"ds-nav-links\"><a class=\"ds-nav-link ds-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-link\" href=\"#\">Stats</a><a class=\"ds-nav-link\" href=\"#\">Timesheet</a></div></nav>",
+      "css": ".ds-nav {\n  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;\n  height: 48px; padding: 0 16px;\n  background: #ffffff; border-bottom: 1px solid #e5e7eb;\n}\n.ds-wordmark {\n  font: 620 21.6px/1 'Fraunces', Georgia, serif;\n  letter-spacing: -0.03em; flex-shrink: 0;\n  margin-right: 8px;\n}\n.ds-nav-links {\n  display: flex; align-items: center; gap: 2px;\n  flex: 1 1 0; min-width: 0; overflow-x: auto;\n}\n.ds-nav-link {\n  display: inline-flex; align-items: center; gap: 6px;\n  height: 32px; padding: 0 12px; border-radius: 10px;\n  font: 600 12px/1 'Inter', system-ui, sans-serif;\n  color: #1a1d23; text-decoration: none; white-space: nowrap;\n  transition: background-color .15s;\n}\n.ds-nav-link:hover { background: #f9fafb; }\n.ds-nav-link.ds-active { background: #e5e7eb; }\n.ds-nav-link:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Data Table",
+      "kind": "custom",
+      "refersTo": "table",
+      "description": "The ruled column. Hairlines, tabular numerals, uppercase heads.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Activity</th><th>Duration</th></tr></thead><tbody><tr><td>Deep work</td><td class=\"ds-num\">2h 30m</td></tr><tr><td>Reading</td><td class=\"ds-num\">45m</td></tr></tbody></table>",
+      "css": ".ds-table {\n  width: 100%; border-collapse: separate; border-spacing: 0;\n  border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;\n  font: 400 14px/1.55 'Inter', system-ui, sans-serif; color: #1a1d23;\n}\n.ds-table th {\n  text-align: left; padding: 12px 16px;\n  background: #ffffff;\n  border-bottom: 1px solid #e5e7eb;\n  font: 600 11px/1.2 'Inter', system-ui, sans-serif;\n  letter-spacing: 0.08em; text-transform: uppercase;\n  color: rgba(26,29,35,.6);\n}\n.ds-table td {\n  padding: 12px 16px; border-bottom: 1px solid #e5e7eb;\n}\n.ds-table tbody tr:last-child td { border-bottom: none; }\n.ds-table tbody tr:nth-child(even) { background: #f9fafb; }\n.ds-num {\n  font-family: 'JetBrains Mono', ui-monospace, monospace;\n  font-variant-numeric: tabular-nums;\n  font-size: .92em;\n}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Honest Ledger",
+    "overview": "paratrack is a book of accounts for time. Every surface behaves like a well-kept ledger: the numbers line up, the rules are visible, and nothing is claimed that cannot be checked. The interface is a measuring instrument, not a stage — it reports, it does not persuade.\n\nThe visual world is strict and high-contrast. Type is large enough to read at a glance, boundaries are explicit, and the ink is dark on paper. Density is deliberate: an operator scanning a timesheet at 09:00 wants the figures, not atmosphere. This is an anti-reference to marketing gloss and to the purple gradient AI aesthetic — the accent here is a signature, applied once and meaningly, never as decoration.\n\nDepth is flat. Surfaces are separated by tone and by a hairline rule, the way a ledger separates columns. There are no floating cards, no ambient glows, no drop shadows pretending to be material.",
+    "keyCharacteristics": [
+      "Flat surfaces; depth from tonal layering (base-100 / 200 / 300) and hairline rules only",
+      "High contrast ink-on-paper in both themes",
+      "Tabular numerals everywhere digits must align in a column",
+      "One accent (indigo ink), used sparingly and with weight",
+      "A measured type scale (1.2 ratio) with negative tracking on headings",
+      "A single radius language: 6px for small selectors, 10px for fields and containers",
+      "Every control has a fixed geometric lane — 40 / 32 / 24 px"
+    ],
+    "dos": [
+      "Do keep depth flat: tone and hairlines only. A 1px base-300 rule separates everything.",
+      "Do render every comparable figure in JetBrains Mono with tabular-nums.",
+      "Do put exactly one h1 on a page and one btn-neutral CTA in a form.",
+      "Do use a colour swatch beside neutral text for user-authored colours; compute contrast-safe ink when a colour becomes a background.",
+      "Do keep the primary accent under 10% of a screen. One signature per page.",
+      "Do measure the button lanes: 40 / 32 / 24 px, 10px radius, 6px icon gap.",
+      "Do let names truncate: min-width: 0 on the container, truncate on the name.",
+      "Do theme browser surfaces: ::selection, caret-color, text-underline-offset, scrollbar-color.",
+      "Do hold body measure to 65-75ch and set labels in uppercase with 0.08em tracking."
+    ],
+    "donts": [
+      "Don't use box-shadow for elevation. Shadows are for the focus ring only.",
+      "Don't use Fraunces anywhere but the wordmark.",
+      "Don't paint user-authored colours as text ink.",
+      "Don't wrap the header onto a second row. Scroll, do not stack.",
+      "Don't hard-code #fff ink on a user-coloured background — compute it.",
+      "Don't mix button lanes in one cluster, or scramble the class order.",
+      "Don't rely on hover for anything a touch user must reach.",
+      "Don't add gradient text, glassmorphism, decorative blur, or thick accent borders on cards.",
+      "Don't drop prefers-reduced-motion: kill duration and movement, keep state change and hierarchy."
+    ]
+  }
+}

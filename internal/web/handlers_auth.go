@@ -6,39 +6,53 @@ import (
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
+
+// authPage is the shared envelope for login / register / password
+// recovery pages. T() exposes the i18n dictionary to templates.
+type authPage struct {
+	Title     string
+	ErrorMsg  string
+	InfoMsg   string
+	Email     string
+	Name      string
+	Next      string
+	Token     string
+	CSRFToken string
+	Lang      string
+	SSO       bool
+}
+
+func (p authPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
 // handleLogin renders the login form.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
-	data := struct {
-		Title     string
-		Next      string
-		ErrorMsg  string
-		Email     string
-	}{
+	data := authPage{
 		Title: "Log in",
 		Next:  r.URL.Query().Get("next"),
+		SSO:   ssoConfigured(),
 	}
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
-		data.ErrorMsg = humaniseAuthError(errMsg)
+		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
-	s.renderPage(w, "Log in", "", "login", data)
+	data.CSRFToken = ensureCSRF(w, r)
+	data.Lang = string(resolveLang(r))
+	s.renderPage(w, r, "Log in", "", "login", data)
 }
 
 // handleRegister renders the registration form.
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
-	data := struct {
-		Title    string
-		ErrorMsg string
-		Email    string
-		Name     string
-	}{
+	data := authPage{
 		Title: "Sign up",
+		Next:  r.URL.Query().Get("next"),
 	}
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
-		data.ErrorMsg = humaniseAuthError(errMsg)
+		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
-	s.renderPage(w, "Sign up", "", "register", data)
+	data.CSRFToken = ensureCSRF(w, r)
+	data.Lang = string(resolveLang(r))
+	s.renderPage(w, r, "Sign up", "", "register", data)
 }
 
 // handleAPILogin accepts the login form submission, verifies the
@@ -73,7 +87,8 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
 		return
 	}
-	setSessionCookie(w, sess.Token)
+	setSessionCookie(w, r, sess.Token)
+	s.audit(r, "auth.login", user.Email, "")
 
 	redirect := "/"
 	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
@@ -92,6 +107,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.PostForm.Get("email"))
 	password := r.PostForm.Get("password")
 	name := strings.TrimSpace(r.PostForm.Get("name"))
+	next := strings.TrimSpace(r.PostForm.Get("next"))
 	if email == "" || password == "" || name == "" {
 		http.Redirect(w, r, "/register?error=missing_fields", http.StatusSeeOther)
 		return
@@ -117,8 +133,12 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/register?error=internal", http.StatusSeeOther)
 		return
 	}
-	setSessionCookie(w, sess.Token)
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	setSessionCookie(w, r, sess.Token)
+	redirect := "/"
+	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+		redirect = next
+	}
+	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
 // handleAPILogout kills the current session and bounces to /login.
@@ -127,26 +147,29 @@ func (s *Server) handleAPILogout(w http.ResponseWriter, r *http.Request) {
 		_ = s.auth.DeleteByToken(r.Context(), cookie.Value)
 	}
 	clearSessionCookie(w)
+	s.audit(r, "auth.logout", "", "")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
 // humaniseAuthError maps the ?error=… code on the redirect URL back to
 // a human-friendly sentence shown above the form.
-func humaniseAuthError(code string) string {
+func humaniseAuthError(code string, lang i18n.Lang) string {
 	switch code {
 	case "bad_credentials":
-		return "Wrong email or password."
+		return i18n.T(lang, "err.badCredentials")
 	case "missing_fields":
-		return "Email and password are required."
+		return i18n.T(lang, "err.missingFields")
 	case "bad_email":
-		return "That doesn't look like a valid email address."
+		return i18n.T(lang, "err.badEmail")
 	case "validation_failed":
-		return "Password must be 8-72 characters. Name is required."
+		return i18n.T(lang, "err.validation")
 	case "could_not_register":
-		return "That email is already taken."
+		return i18n.T(lang, "err.emailTaken")
+	case "reset_invalid":
+		return i18n.T(lang, "err.resetInvalid")
 	case "internal":
-		return "Something went wrong on our end. Please try again."
+		return i18n.T(lang, "err.internal")
 	default:
-		return "Something went wrong. Please try again."
+		return i18n.T(lang, "err.generic")
 	}
 }

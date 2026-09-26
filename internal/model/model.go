@@ -30,6 +30,12 @@ type Project struct {
 	Name      string    `json:"name"`
 	Color     string    `json:"color"`
 	Archived  bool      `json:"archived"`
+	// EstimateMinutes is the budgeted effort for this project (nil = unset).
+	EstimateMinutes *int      `json:"estimate_minutes,omitempty"`
+	// BillableRateCents is the hourly rate in cents (nil = unset).
+	BillableRateCents *int `json:"billable_rate_cents,omitempty"`
+	// Billable marks the project as invoiceable (default true).
+	Billable bool `json:"billable"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -43,6 +49,7 @@ type Session struct {
 	ID                 int64      `json:"id"`
 	ActivityID         int64      `json:"activity_id"`
 	TeamID             int64      `json:"team_id"`
+	UserID             int64      `json:"user_id"`
 	StartAt            time.Time  `json:"start_at"`
 	EndAt              *time.Time `json:"end_at,omitempty"`
 	Note               *string    `json:"note,omitempty"`
@@ -54,17 +61,67 @@ type Session struct {
 	UpdatedAt          time.Time  `json:"updated_at"`
 }
 
-// DurationSeconds returns the wall-clock seconds a session has accumulated.
-// For active sessions, live time since last resume is added.
+// DurationSeconds returns the tracked (non-paused) seconds for a
+// session. For active sessions, live time since last resume is added.
+// For closed sessions this is accumulated_seconds — which UpdateSessionEnd
+// now maintains — falling back to the wall-clock span for legacy rows
+// that stopped before that fold existed (accumulated left at 0).
 func (s Session) DurationSeconds(now time.Time) int {
+	if s.EndAt != nil {
+		if s.AccumulatedSeconds > 0 {
+			return s.AccumulatedSeconds
+		}
+		// Legacy closed row: never paused, so span == tracked.
+		span := int(s.EndAt.Sub(s.StartAt).Seconds())
+		if span < 0 {
+			span = 0
+		}
+		return span
+	}
 	total := s.AccumulatedSeconds
-	if !s.Paused && s.EndAt == nil && s.LastResumeAt != nil {
+	if !s.Paused && s.LastResumeAt != nil {
 		total += int(now.Sub(*s.LastResumeAt).Seconds())
 	}
 	if total < 0 {
 		total = 0
 	}
 	return total
+}
+
+// TrackedSecondsInWindow returns the non-paused seconds attributable to
+// [winStart, winEnd]. The session's tracked total is scaled by how much
+// of its wall-clock span overlaps the window, so a session straddling
+// midnight (or a pause) doesn't dump all of its time into one day.
+func (s Session) TrackedSecondsInWindow(winStart, winEnd, now time.Time) int {
+	spanStart := s.StartAt
+	spanEnd := now
+	if s.EndAt != nil {
+		spanEnd = *s.EndAt
+	}
+	if !spanEnd.After(spanStart) {
+		return 0
+	}
+	// Overlap of the wall-clock span with the window.
+	ovStart, ovEnd := spanStart, spanEnd
+	if ovStart.Before(winStart) {
+		ovStart = winStart
+	}
+	if ovEnd.After(winEnd) {
+		ovEnd = winEnd
+	}
+	if !ovEnd.After(ovStart) {
+		return 0
+	}
+	wall := spanEnd.Sub(spanStart).Seconds()
+	overlap := ovEnd.Sub(ovStart).Seconds()
+	tracked := s.DurationSeconds(now)
+	// Scale tracked time by the overlapping fraction of the span.
+	scaled := int(float64(tracked) * overlap / wall)
+	// Round sub-second overlaps up so a just-started session is visible.
+	if scaled <= 0 && overlap > 0 {
+		scaled = 1
+	}
+	return scaled
 }
 
 // Active reports whether the session is in progress (open and not finished).

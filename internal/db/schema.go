@@ -165,6 +165,110 @@ CREATE TABLE IF NOT EXISTS reminders (
     updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    token TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    used_at TEXT,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id);
+
+CREATE TABLE IF NOT EXISTS invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL,
+    number TEXT NOT NULL,
+    client_name TEXT NOT NULL DEFAULT '',
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    notes TEXT NOT NULL DEFAULT '',
+    payment_url TEXT DEFAULT '',
+    stripe_session_id TEXT DEFAULT '',
+    paid_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    UNIQUE (team_id, number)
+);
+CREATE INDEX IF NOT EXISTS idx_invoices_team ON invoices(team_id);
+
+CREATE TABLE IF NOT EXISTS invoice_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    seconds INTEGER NOT NULL DEFAULT 0,
+    rate_cents INTEGER NOT NULL DEFAULT 0,
+    amount_cents INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id);
+
+
+CREATE TABLE IF NOT EXISTS payroll_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL,
+    number TEXT NOT NULL,
+    period_start TEXT NOT NULL,
+    period_end TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    UNIQUE (team_id, number)
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_runs_team ON payroll_runs(team_id);
+
+CREATE TABLE IF NOT EXISTS payroll_lines (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    label TEXT NOT NULL DEFAULT '',
+    seconds INTEGER NOT NULL DEFAULT 0,
+    rate_cents INTEGER NOT NULL DEFAULT 0,
+    amount_cents INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (run_id) REFERENCES payroll_runs(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_payroll_lines_run ON payroll_lines(run_id);
+
+CREATE TABLE IF NOT EXISTS schedule_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    project_id INTEGER NOT NULL,
+    day TEXT NOT NULL,
+    minutes INTEGER NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+    UNIQUE (team_id, user_id, project_id, day)
+);
+CREATE INDEX IF NOT EXISTS idx_schedule_team ON schedule_entries(team_id, day);
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_push_subs_team ON push_subscriptions(team_id);
+
+CREATE TABLE IF NOT EXISTS push_keys (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    public_key TEXT NOT NULL,
+    private_key TEXT NOT NULL
+);
+
 `
 
 // columnMigrations ensures older databases (e.g. created before pause/resume
@@ -179,6 +283,18 @@ var columnMigrations = []struct {
 	{"sessions", "accumulated_seconds", "INTEGER NOT NULL DEFAULT 0"},
 	{"sessions", "last_resume_at", "TEXT"},
 	{"activities", "project_id", "INTEGER"},
+	// Estimates vs actual (Wave 1).
+	{"projects", "estimate_minutes", "INTEGER"},
+	{"projects", "billable_rate_cents", "INTEGER"},
+	{"projects", "billable", "INTEGER NOT NULL DEFAULT 1"},
+	{"teams", "stripe_key", "TEXT"},
+	{"teams", "stripe_webhook_secret", "TEXT"},
+	{"invoices", "payment_url", "TEXT"},
+	{"invoices", "stripe_session_id", "TEXT"},
+	{"invoices", "paid_at", "TEXT"},
+	{"sessions", "user_id", "INTEGER"},
+	{"memberships", "hourly_pay_cents", "INTEGER"},
+	{"memberships", "capacity_minutes", "INTEGER"},
 }
 
 // uniqueMigrations creates UNIQUE / lookup indexes that the original
@@ -193,6 +309,135 @@ var columnMigrations = []struct {
 // period) DO UPDATE used by UpsertGoal.
 var uniqueMigrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_activities_project ON activities(project_id)`,
+	// Older DBs predate the password-reset table; IF NOT EXISTS makes
+	// this safe to re-run on every startup.
+	`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+	    token TEXT PRIMARY KEY,
+	    user_id INTEGER NOT NULL,
+	    created_at TEXT NOT NULL,
+	    expires_at TEXT NOT NULL,
+	    used_at TEXT,
+	    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens(user_id)`,
+	// Saved /stats filter presets (Wave 1).
+	`CREATE TABLE IF NOT EXISTS saved_reports (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    team_id INTEGER NOT NULL,
+	    name TEXT NOT NULL,
+	    period TEXT NOT NULL DEFAULT 'today',
+	    project_slug TEXT NOT NULL DEFAULT '',
+	    tag TEXT NOT NULL DEFAULT '',
+	    created_by INTEGER,
+	    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    UNIQUE (team_id, name)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_saved_reports_team ON saved_reports(team_id)`,
+	// Wave 2: API tokens (extension / CLI bearer auth).
+	`CREATE TABLE IF NOT EXISTS api_tokens (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    user_id INTEGER NOT NULL,
+	    name TEXT NOT NULL,
+	    token_hash TEXT NOT NULL UNIQUE,
+	    prefix TEXT NOT NULL,
+	    created_at TEXT NOT NULL,
+	    last_used_at TEXT,
+	    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id)`,
+	// Wave 2: integrations (github / trello).
+	`CREATE TABLE IF NOT EXISTS integrations (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    team_id INTEGER NOT NULL,
+	    provider TEXT NOT NULL,
+	    name TEXT NOT NULL,
+	    secret TEXT NOT NULL DEFAULT '',
+	    config TEXT NOT NULL DEFAULT '{}',
+	    created_at TEXT NOT NULL,
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    UNIQUE (team_id, provider, name)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_integrations_team ON integrations(team_id)`,
+	// External work items imported from an integration.
+	`CREATE TABLE IF NOT EXISTS external_tasks (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    integration_id INTEGER NOT NULL,
+	    external_id TEXT NOT NULL,
+	    title TEXT NOT NULL,
+	    url TEXT NOT NULL DEFAULT '',
+	    status TEXT NOT NULL DEFAULT 'open',
+	    activity_id INTEGER,
+	    created_at TEXT NOT NULL,
+	    FOREIGN KEY (integration_id) REFERENCES integrations(id) ON DELETE CASCADE,
+	    FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE SET NULL,
+	    UNIQUE (integration_id, external_id)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_external_tasks_integration ON external_tasks(integration_id)`,
+	// Wave 3: invoices.
+	`CREATE TABLE IF NOT EXISTS invoices (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    team_id INTEGER NOT NULL,
+	    number TEXT NOT NULL,
+	    client_name TEXT NOT NULL DEFAULT '',
+	    period_start TEXT NOT NULL,
+	    period_end TEXT NOT NULL,
+	    status TEXT NOT NULL DEFAULT 'draft',
+	    notes TEXT NOT NULL DEFAULT '',
+	    payment_url TEXT DEFAULT '',
+	    stripe_session_id TEXT DEFAULT '',
+	    paid_at TEXT,
+	    created_at TEXT NOT NULL,
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    UNIQUE (team_id, number)
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_invoices_team ON invoices(team_id)`,
+	`CREATE TABLE IF NOT EXISTS invoice_lines (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    invoice_id INTEGER NOT NULL,
+	    label TEXT NOT NULL,
+	    detail TEXT NOT NULL DEFAULT '',
+	    seconds INTEGER NOT NULL DEFAULT 0,
+	    rate_cents INTEGER NOT NULL DEFAULT 0,
+	    amount_cents INTEGER NOT NULL DEFAULT 0,
+	    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_invoice_lines_invoice ON invoice_lines(invoice_id)`,
+	// Wave 4: audit log (enterprise).
+	`CREATE TABLE IF NOT EXISTS audit_log (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    team_id INTEGER NOT NULL DEFAULT 0,
+	    user_id INTEGER NOT NULL DEFAULT 0,
+	    action TEXT NOT NULL,
+	    target TEXT NOT NULL DEFAULT '',
+	    meta TEXT NOT NULL DEFAULT '',
+	    ip TEXT NOT NULL DEFAULT '',
+	    created_at TEXT NOT NULL
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_audit_log_team ON audit_log(team_id, created_at)`,
+	// Wave 4: outbound webhooks.
+	`CREATE TABLE IF NOT EXISTS webhooks (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    team_id INTEGER NOT NULL,
+	    url TEXT NOT NULL,
+	    secret TEXT NOT NULL DEFAULT '',
+	    events TEXT NOT NULL DEFAULT 'session.stopped,invoice.created',
+	    active INTEGER NOT NULL DEFAULT 1,
+	    created_at TEXT NOT NULL,
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_webhooks_team ON webhooks(team_id)`,
+	`CREATE TABLE IF NOT EXISTS webhook_deliveries (
+	    id INTEGER PRIMARY KEY AUTOINCREMENT,
+	    webhook_id INTEGER NOT NULL,
+	    event TEXT NOT NULL,
+	    payload TEXT NOT NULL,
+	    status INTEGER NOT NULL DEFAULT 0,
+	    error TEXT NOT NULL DEFAULT '',
+	    created_at TEXT NOT NULL,
+	    FOREIGN KEY (webhook_id) REFERENCES webhooks(id) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries ON webhook_deliveries(webhook_id)`,
 }
 
 func (d *DB) applyMigrations() error {

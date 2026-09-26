@@ -1,0 +1,17 @@
+{
+  "name": "paratrack",
+  "short_name": "paratrack",
+  "description": "Minimalist time tracker with parallel activities and team workspaces.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f9fafb",
+  "theme_color": "#6366f1",
+  "icons": [
+    { "src": "/static/icon128.png", "sizes": "128x128", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icon192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icon512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icon512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

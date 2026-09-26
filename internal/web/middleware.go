@@ -57,13 +57,39 @@ func WithTeam(ctx context.Context, t teams.Team) context.Context {
 func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Request)) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cookie, err := r.Cookie(auth.CookieName)
-			if err != nil || strings.TrimSpace(cookie.Value) == "" {
+			// Session cookie first; Bearer API token second (extension / CLI).
+			token := ""
+			if cookie, err := r.Cookie(auth.CookieName); err == nil {
+				token = strings.TrimSpace(cookie.Value)
+			}
+			if token == "" {
+				if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+					token = strings.TrimSpace(strings.TrimPrefix(h, "Bearer "))
+				}
+			}
+			if token == "" {
 				onFailure(w, r)
 				return
 			}
 			ctx := r.Context()
-			sess, user, err := s.auth.FindByToken(ctx, cookie.Value)
+			var sess auth.Session
+			var user auth.User
+			var err error
+			if strings.HasPrefix(token, "pt_") {
+				tok, terr := s.db.APITokenByRaw(ctx, token)
+				if terr != nil {
+					onFailure(w, r)
+					return
+				}
+				user, err = s.auth.FindByID(ctx, tok.UserID)
+				if err != nil {
+					onFailure(w, r)
+					return
+				}
+				sess = auth.Session{UserID: user.ID, Token: token}
+			} else {
+				sess, user, err = s.auth.FindByToken(ctx, token)
+			}
 			if err != nil {
 				if errors.Is(err, auth.ErrSessionInvalid) {
 					// Clear the dead cookie so the browser stops sending it.
@@ -136,8 +162,10 @@ func apiUnauthorized(w http.ResponseWriter, r *http.Request) {
 }
 
 // setSessionCookie writes the HttpOnly session token and ensures the
-// browser sends it back on every request to the same origin.
-func setSessionCookie(w http.ResponseWriter, token string) {
+// browser sends it back on every request to the same origin. Secure is
+// set when the request arrived over TLS (directly or via a
+// TLS-terminating proxy that stamps X-Forwarded-Proto).
+func setSessionCookie(w http.ResponseWriter, r *http.Request, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.CookieName,
 		Value:    token,
@@ -145,6 +173,7 @@ func setSessionCookie(w http.ResponseWriter, token string) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(auth.SessionTTL.Seconds()),
+		Secure:   isSecureRequest(r),
 	})
 }
 
@@ -161,7 +190,7 @@ func clearSessionCookie(w http.ResponseWriter) {
 
 // setTeamCookie remembers the user's chosen team across requests.
 // SameSite=Lax so it still flows on top-level navigations.
-func setTeamCookie(w http.ResponseWriter, teamID int64) {
+func setTeamCookie(w http.ResponseWriter, r *http.Request, teamID int64) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     teamCookieName,
 		Value:    intToString(teamID),
@@ -169,6 +198,7 @@ func setTeamCookie(w http.ResponseWriter, teamID int64) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   int(auth.SessionTTL.Seconds()),
+		Secure:   isSecureRequest(r),
 	})
 }
 

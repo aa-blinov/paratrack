@@ -76,6 +76,9 @@ func TestCreateTeamAndSwitch(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/api/team/create", form)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/team/create: want 303, got %d body=%q", w.Code,
@@ -103,6 +106,9 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/team/invites", nil)
 	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: ownerToken})
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/team/invites: want 303, got %d", w.Code)
@@ -132,9 +138,9 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: memberToken})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusOK {
-		t.Fatalf("GET /invites/%s: want 200, got %d", token, w2.Code)
+		t.Fatalf("GET /invites/%s: want 200, got %d body=%s", token, w2.Code, w2.Body.String())
 	}
-	if !strings.Contains(w2.Body.String(),"Join Alice") {
+	if !strings.Contains(w2.Body.String(), "Alice") {
 		t.Errorf("body should mention joining Alice, got first 300 chars: %q",
 			w2.Body.String()[:min(300, len(w2.Body.String()))])
 	}
@@ -143,6 +149,9 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	w3 := httptest.NewRecorder()
 	r3 := httptest.NewRequest(http.MethodPost, "/api/invites/"+token+"/accept", nil)
 	r3.AddCookie(&http.Cookie{Name: auth.CookieName, Value: memberToken})
+	csrfTok, csrfCk = seedCSRF(t, srv.routes())
+	r3.Header.Set(csrfHeaderName, csrfTok)
+	r3.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w3, r3)
 	if w3.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/invites/.../accept: want 303, got %d", w3.Code)
@@ -171,6 +180,9 @@ func TestMemberCannotRemoveOtherMembers(t *testing.T) {
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/team/members/1/remove", nil)
 	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: memberToken})
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Errorf("non-member remove attempt: want 303 with error, got %d", w.Code)
@@ -185,6 +197,9 @@ func TestProfileUpdate(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/api/profile", form)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	csrfTok, csrfCk := seedCSRF(t, srv.routes())
+	r.Header.Set(csrfHeaderName, csrfTok)
+	r.AddCookie(csrfCk)
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/profile: want 303, got %d", w.Code)

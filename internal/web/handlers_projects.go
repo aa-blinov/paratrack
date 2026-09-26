@@ -106,7 +106,7 @@ func (s *Server) handleAPIProjectUpdate(w http.ResponseWriter, r *http.Request) 
 			archived = &b
 		}
 	}
-	p, err := s.db.UpdateProject(r.Context(), tid, id, name, color, archived)
+	p, err := s.db.UpdateProject(r.Context(), tid, id, name, color, archived, nil)
 	if err != nil {
 		if errors.Is(err, db.ErrNotFound) {
 			w.WriteHeader(http.StatusNotFound)

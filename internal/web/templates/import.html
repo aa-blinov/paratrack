@@ -1,0 +1,81 @@
+{{define "import"}}
+<div class="max-w-3xl mx-auto space-y-4">
+  <header>
+    <h1 class="mb-1">{{.T "imp.title"}}</h1>
+    <p class="opacity-70 text-sm">{{.T "imp.blurb"}}</p>
+  </header>
+
+  {{if .Error}}
+  <div class="alert alert-error text-sm py-2"><span>{{.Error}}</span></div>
+  {{end}}
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "imp.pick"}}</h2>
+      <form method="POST" action="/import/preview" class="grid gap-3 sm:grid-cols-2">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <div>
+          <label class="label py-1"><span class="label-text">{{.T "int.provider"}}</span></label>
+          <select name="provider" class="select select-bordered w-full">
+            <option value="toggl">Toggl Track</option>
+            <option value="harvest">Harvest</option>
+            <option value="clockify">Clockify</option>
+          </select>
+        </div>
+        <div>
+          <label class="label py-1"><span class="label-text">{{.T "int.secret"}}</span></label>
+          <input type="password" name="secret" required class="input input-bordered w-full"
+                 placeholder="API token / key" autocomplete="off">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="label py-1"><span class="label-text">{{.T "imp.extra"}}</span></label>
+          <input type="text" name="extra" class="input input-bordered w-full" placeholder="account-id / workspace-id">
+          <p class="text-xs opacity-60 mt-1">{{.T "imp.extraHint"}}</p>
+        </div>
+        <div>
+          <label class="label py-1"><span class="label-text">{{.T "inv.from"}}</span></label>
+          <input type="date" name="from" class="input input-bordered w-full">
+        </div>
+        <div>
+          <label class="label py-1"><span class="label-text">{{.T "inv.to"}}</span></label>
+          <input type="date" name="to" class="input input-bordered w-full">
+        </div>
+        <div class="sm:col-span-2">
+          <button type="submit" class="btn btn-neutral gap-1.5">{{icon "download"}}{{.T "imp.preview"}}</button>
+        </div>
+      </form>
+      <p class="text-xs opacity-60 mt-2">{{.T "imp.hint"}}</p>
+    </div>
+  </div>
+
+  {{if .Entries}}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title mb-3">{{.T "imp.previewTitle"}} ({{len .Entries}})</h2>
+      <form method="POST" action="/import/run">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="provider" value="{{.Provider}}">
+        <input type="hidden" name="secret" value="{{.Secret}}">
+        <input type="hidden" name="extra" value="{{.Extra}}">
+        <input type="hidden" name="from" value="{{.From}}">
+        <input type="hidden" name="to" value="{{.To}}">
+        <table class="table table-sm mb-3">
+          <thead><tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.startLabel"}}</th><th>{{.T "stats.end"}}</th><th>{{.T "stats.note"}}</th></tr></thead>
+          <tbody>
+            {{range .Entries}}
+            <tr>
+              <td>{{.Activity}}</td>
+              <td class="font-mono text-xs">{{.Start.Format "01-02 15:04"}}</td>
+              <td class="font-mono text-xs">{{.End.Format "01-02 15:04"}}</td>
+              <td class="text-xs opacity-60">{{.Note}}</td>
+            </tr>
+            {{end}}
+          </tbody>
+        </table>
+        <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "imp.run"}} ({{len .Entries}})</button>
+      </form>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}
