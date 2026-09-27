@@ -3,7 +3,6 @@ package web
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -145,53 +144,111 @@ func parseImportRange(from, to string) (time.Time, time.Time, error) {
 	return fromT, toT, nil
 }
 
-// fetchTogglEntries pulls time entries via Toggl API v9.
-// secret = API token (Toggl "My Profile" → API token).
+// fetchTogglEntries pulls finished time entries from Toggl Track.
+// secret = API token (Profile → API token), Basic auth token:api_token.
+// Recent ranges use v9 /me/time_entries (no pagination; it only reaches
+// about three months back). Older starts go through Reports API v3,
+// paged by X-Next-Row-Number → first_row_number.
+// https://engineering.toggl.com/docs/track/api/time_entries/ ·
+// https://engineering.toggl.com/docs/track/reports/detailed_reports/
 func fetchTogglEntries(token string, from, to time.Time) ([]importedEntry, error) {
-	u := fmt.Sprintf("https://api.track.toggl.com/api/v9/me/time_entries?start_date=%s&end_date=%s",
-		url.QueryEscape(from.Format("2006-01-02")), url.QueryEscape(to.Format("2006-01-02")))
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.SetBasicAuth(token, "api_token")
-	resp, err := extClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-		return nil, fmt.Errorf("toggl %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-	}
-	var raw []struct {
-		ID          int64   `json:"id"`
-		Description string  `json:"description"`
-		Start       string  `json:"start"`
-		Stop        *string `json:"stop"`
-		ProjectID   *int64  `json:"project_id"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, err
-	}
-	out := make([]importedEntry, 0, len(raw))
-	for _, e := range raw {
-		if e.Stop == nil {
-			continue // skip running entries
+	auth := func(req *http.Request) { req.SetBasicAuth(token, "api_token") }
+	mk := func(method, u, body string) func() (*http.Request, error) {
+		return func() (*http.Request, error) {
+			req, err := newReq(method, u, body, "Content-Type", "application/json")()
+			if err == nil {
+				auth(req)
+			}
+			return req, err
 		}
-		start, err := time.Parse(time.RFC3339, e.Start)
+	}
+	togglErr := func(err error) error {
+		switch {
+		case err == nil:
+			return nil
+		case strings.Contains(err.Error(), "toggl 402"):
+			return fmt.Errorf("toggl: hourly API quota used up (402), try again in an hour")
+		case strings.Contains(err.Error(), "toggl 403"):
+			return fmt.Errorf("toggl: the API token was rejected (403)")
+		}
+		return err
+	}
+	finish := func(id int64, desc, start, stop string) (importedEntry, bool) {
+		st, err1 := time.Parse(time.RFC3339, start)
+		en, err2 := time.Parse(time.RFC3339, stop)
+		if stop == "" || err1 != nil || err2 != nil {
+			return importedEntry{}, false // running or unreadable
+		}
+		if desc == "" {
+			desc = "imported"
+		}
+		return importedEntry{ExtID: fmt.Sprintf("toggl:%d", id), Activity: desc, Start: st, End: en, Note: "toggl"}, true
+	}
+	var out []importedEntry
+	if from.After(time.Now().AddDate(0, -3, 0)) {
+		u := fmt.Sprintf("https://api.track.toggl.com/api/v9/me/time_entries?start_date=%s&end_date=%s",
+			url.QueryEscape(from.Format("2006-01-02")), url.QueryEscape(to.Format("2006-01-02")))
+		var raw []struct {
+			ID          int64   `json:"id"`
+			Description string  `json:"description"`
+			Start       string  `json:"start"`
+			Stop        *string `json:"stop"`
+		}
+		if _, err := getJSON("toggl", mk("GET", u, ""), &raw); err != nil {
+			return nil, togglErr(err)
+		}
+		for _, e := range raw {
+			if e.Stop == nil {
+				continue
+			}
+			if en, ok := finish(e.ID, e.Description, e.Start, *e.Stop); ok {
+				out = append(out, en)
+			}
+		}
+		return out, nil
+	}
+	var me struct {
+		WorkspaceID int64 `json:"default_workspace_id"`
+	}
+	if _, err := getJSON("toggl", mk("GET", "https://api.track.toggl.com/api/v9/me", ""), &me); err != nil {
+		return nil, togglErr(err)
+	}
+	row := 0
+	for page := 0; page < 200; page++ {
+		body := map[string]any{
+			"start_date": from.Format("2006-01-02"),
+			"end_date":   to.AddDate(0, 0, -1).Format("2006-01-02"), // inclusive here
+			"page_size":  50,
+		}
+		if row > 0 {
+			body["first_row_number"] = row
+		}
+		b, _ := json.Marshal(body)
+		var rows []struct {
+			Description string `json:"description"`
+			TimeEntries []struct {
+				ID    int64  `json:"id"`
+				Start string `json:"start"`
+				Stop  string `json:"stop"`
+			} `json:"time_entries"`
+		}
+		h, err := getJSON("toggl", mk("POST",
+			fmt.Sprintf("https://api.track.toggl.com/reports/api/v3/workspace/%d/search/time_entries", me.WorkspaceID), string(b)), &rows)
 		if err != nil {
-			continue
+			return nil, togglErr(err)
 		}
-		end, err := time.Parse(time.RFC3339, *e.Stop)
-		if err != nil {
-			continue
+		for _, r := range rows {
+			for _, te := range r.TimeEntries {
+				if en, ok := finish(te.ID, r.Description, te.Start, te.Stop); ok {
+					out = append(out, en)
+				}
+			}
 		}
-		name := e.Description
-		if name == "" {
-			name = "imported"
+		next, _ := strconv.Atoi(h.Get("X-Next-Row-Number"))
+		if next <= row || next == 0 {
+			break
 		}
-		out = append(out, importedEntry{ExtID: fmt.Sprintf("toggl:%d", e.ID), Activity: name, Start: start, End: end, Note: "toggl"})
+		row = next
 	}
 	return out, nil
 }
@@ -216,31 +273,14 @@ func fetchHarvestEntries(token, accountID string, from, to time.Time) ([]importe
 	next := fmt.Sprintf("https://api.harvestapp.com/v2/time_entries?from=%s&to=%s",
 		from.Format("2006-01-02"), to.AddDate(0, 0, -1).Format("2006-01-02"))
 	for page := 0; next != "" && page < 100; page++ {
-		req, err := http.NewRequest("GET", next, nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("Harvest-Account-Id", accountID)
-		req.Header.Set("User-Agent", "paratrack")
-		resp, err := extClient.Do(req)
-		if err != nil {
-			return nil, err
-		}
 		var raw struct {
 			TimeEntries []entry `json:"time_entries"`
 			Links       struct {
 				Next *string `json:"next"`
 			} `json:"links"`
 		}
-		if resp.StatusCode != 200 {
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-			resp.Body.Close()
-			return nil, fmt.Errorf("harvest %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-		}
-		err = json.NewDecoder(resp.Body).Decode(&raw)
-		resp.Body.Close()
-		if err != nil {
+		if _, err := getJSON("harvest", newReq("GET", next, "",
+			"Authorization", "Bearer "+token, "Harvest-Account-Id", accountID, "User-Agent", "paratrack (https://paratrack.duckdns.org)"), &raw); err != nil {
 			return nil, err
 		}
 		all = append(all, raw.TimeEntries...)
@@ -293,28 +333,14 @@ func harvestClock(day time.Time, s string) (time.Time, bool) {
 // API v1. The list lives under the user (/workspaces/{ws}/user/{id}/…);
 // the workspace defaults to the user's active one.
 func fetchClockifyEntries(apiKey, workspaceID string, from, to time.Time) ([]importedEntry, error) {
-	get := func(u string, into any) error {
-		req, err := http.NewRequest("GET", u, nil)
-		if err != nil {
-			return err
-		}
-		req.Header.Set("X-Api-Key", apiKey)
-		resp, err := extClient.Do(req)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-			return fmt.Errorf("clockify %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-		}
-		return json.NewDecoder(resp.Body).Decode(into)
+	get := func(u string, into any) (http.Header, error) {
+		return getJSON("clockify", newReq("GET", u, "", "X-Api-Key", apiKey), into)
 	}
 	var me struct {
 		ID              string `json:"id"`
 		ActiveWorkspace string `json:"activeWorkspace"`
 	}
-	if err := get("https://api.clockify.me/api/v1/user", &me); err != nil {
+	if _, err := get("https://api.clockify.me/api/v1/user", &me); err != nil {
 		return nil, err
 	}
 	if workspaceID == "" {
@@ -335,11 +361,13 @@ func fetchClockifyEntries(apiKey, workspaceID string, from, to time.Time) ([]imp
 		u := fmt.Sprintf("https://api.clockify.me/api/v1/workspaces/%s/user/%s/time-entries?start=%s&end=%s&page=%d&page-size=%d",
 			url.PathEscape(workspaceID), url.PathEscape(me.ID),
 			url.QueryEscape(from.UTC().Format(time.RFC3339)), url.QueryEscape(to.UTC().Format(time.RFC3339)), page, size)
-		if err := get(u, &batch); err != nil {
+		h, err := get(u, &batch)
+		if err != nil {
 			return nil, err
 		}
 		all = append(all, batch...)
-		if len(batch) < size {
+		// Clockify says when it's done in a Last-Page header.
+		if h.Get("Last-Page") == "true" || len(batch) < size {
 			break
 		}
 	}

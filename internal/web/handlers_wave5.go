@@ -143,7 +143,12 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad signature", 400)
 		return
 	}
-	paid := (payload.Type == "checkout.session.completed" && payload.Data.Object.PaymentStatus == "paid") ||
+	// Stripe's fulfillment rule: anything but "unpaid" (paid, or
+	// no_payment_required for a zero total). Delayed methods complete as
+	// unpaid and settle later with async_payment_succeeded.
+	// https://docs.stripe.com/checkout/fulfillment
+	paid := (payload.Type == "checkout.session.completed" && payload.Data.Object.PaymentStatus != "unpaid" &&
+		payload.Data.Object.PaymentStatus != "") ||
 		payload.Type == "checkout.session.async_payment_succeeded"
 	invID, _ := strconv.ParseInt(payload.Data.Object.Metadata.InvoiceID, 10, 64)
 	if !paid || invID == 0 || teamIDv == 0 {
