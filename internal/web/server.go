@@ -75,9 +75,13 @@ func New(database *db.DB, addr string) (*Server, error) {
 		addr:  addr,
 		tmpl:  tmpl,
 	}
+	handler := s.routes()
+	if initSentry() {
+		handler = withSentry(handler)
+	}
 	s.httpd = &http.Server{
 		Addr:              addr,
-		Handler:           s.routes(),
+		Handler:           handler,
 		ReadHeaderTimeout:  5 * time.Second,
 	}
 	return s, nil
