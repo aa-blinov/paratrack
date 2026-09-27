@@ -169,18 +169,20 @@ func TestInvoiceAndPayrollCurrency(t *testing.T) {
 		d.CreateClosedSession(ctx, 1, a.ID, start, start.Add(time.Hour), "")
 	}
 	mk("Acme US", "USD")
+	mk("Ромашка", "")
 	lines, _ := d.BuildInvoiceLines(ctx, 1, start, start.Add(2*time.Hour), 0)
+	if _, err := d.CreateInvoice(ctx, 1, "INV-T-2", "Mix", start, start.Add(2*time.Hour), "", lines); err != db.ErrMixedCurrency {
+		t.Errorf("mixed currencies: err %v, want ErrMixedCurrency", err)
+	}
+	var usd int64
+	d.SQL().QueryRowContext(ctx, `SELECT id FROM projects WHERE name = 'Acme US'`).Scan(&usd)
+	lines, _ = d.BuildInvoiceLines(ctx, 1, start, start.Add(2*time.Hour), usd)
 	inv, err := d.CreateInvoice(ctx, 1, "INV-T-1", "Acme", start, start.Add(2*time.Hour), "", lines)
 	if err != nil || inv.Currency != "USD" {
 		t.Fatalf("invoice currency %q err %v, want USD", inv.Currency, err)
 	}
 	if got := moneyL(i18n.En, 5000, inv.Currency); got != "$50.00" {
 		t.Errorf("moneyL = %q", got)
-	}
-	mk("Ромашка", "")
-	lines, _ = d.BuildInvoiceLines(ctx, 1, start, start.Add(2*time.Hour), 0)
-	if _, err := d.CreateInvoice(ctx, 1, "INV-T-2", "Mix", start, start.Add(2*time.Hour), "", lines); err != db.ErrMixedCurrency {
-		t.Errorf("mixed currencies: err %v, want ErrMixedCurrency", err)
 	}
 	d.SetTeamCurrency(ctx, 1, "EUR")
 	run, err := d.CreatePayrollRun(ctx, 1, "PAY-T-1", "", start, start.Add(time.Hour), nil)

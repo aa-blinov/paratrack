@@ -301,6 +301,7 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
 		IssuedLabel:   fmtDate(resolveLang(r), inv.CreatedAt.Local()),
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
+		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
 	}
 	return inv, lines, vm, true
 }

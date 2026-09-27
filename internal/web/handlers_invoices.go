@@ -1,18 +1,19 @@
 package web
 
 import (
+	netmail "net/mail"
+
 	"errors"
 	"fmt"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/mail"
 	"math"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // ---------------------------------------------------------------------------
@@ -64,22 +65,23 @@ type invoiceLineVM struct {
 }
 
 type invoiceVM struct {
-	ID          int64
-	Number      string
-	ClientName  string
-	PeriodLabel string
-	PeriodISO   string // PDF: the core font has no Cyrillic month names
-	Status      string
-	Notes       string
-	Lines       []invoiceLineVM
-	Total       string
-	TotalCents  int
-	Hours       string
-	PaymentURL  string
-	Currency    string
-	IssuedLabel string // creation date, shown as the invoice date
+	ID                                    int64
+	Number                                string
+	ClientName                            string
+	PeriodLabel                           string
+	PeriodISO                             string // PDF: the core font has no Cyrillic month names
+	Status                                string
+	Notes                                 string
+	Lines                                 []invoiceLineVM
+	Total                                 string
+	TotalCents                            int
+	Hours                                 string
+	PaymentURL                            string
+	Currency                              string
+	IssuedLabel                           string // creation date, shown as the invoice date
 	SellerDetails, ClientDetails, VATNote string
-	TeamID      int64
+	ClientEmail, Receipt                  string
+	TeamID                                int64
 }
 
 // handleInvoices lists invoices and offers a generator form.
@@ -115,18 +117,71 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
 	data.DefEnd = now.Format("2006-01-02")
+	want, _ := strconv.ParseInt(r.URL.Query().Get("project"), 10, 64)
+	if from := r.URL.Query().Get("from"); from != "" {
+		if _, err := time.Parse("2006-01-02", from); err == nil {
+			data.DefStart = from
+		}
+	}
 	if projects, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
-		data.Projects = projects
 		for _, p := range projects {
 			if p.Billable && p.BillableRateCents != nil && *p.BillableRateCents > 0 {
 				data.Billable = true
 			}
+			opt := invoiceProjectOpt{ID: p.ID, Name: p.Name, Selected: p.ID == want}
+			if c, err := s.db.GetProjectClient(r.Context(), teamID(r), p.ID); err == nil {
+				opt.ClientName, opt.ClientDetails, opt.ClientEmail = c.Name, c.Details, c.Email
+			}
+			if opt.Selected {
+				data.Prefill = opt
+			}
+			data.Projects = append(data.Projects, opt)
 		}
 	}
+	data.Unbilled = s.unbilledViews(r, 0)
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	s.renderPageForRequest(w, r, "Invoices", "invoices", "invoices", &data)
+}
+
+// invoiceProjectOpt is a project in the invoice form, with the client it
+// last billed so picking the project fills the rest.
+type invoiceProjectOpt struct {
+	ID                                     int64
+	Name                                   string
+	ClientName, ClientDetails, ClientEmail string
+	Selected                               bool
+}
+
+// unbilledView is one project's "not invoiced yet" line.
+type unbilledView struct {
+	ProjectID         int64
+	ProjectName, Slug string
+	Hours, Amount     string
+	Since, SinceISO   string
+}
+
+// unbilledViews is billable time not on any invoice, per project
+// (projectID > 0: just that one).
+func (s *Server) unbilledViews(r *http.Request, projectID int64) []unbilledView {
+	list, err := s.db.Unbilled(r.Context(), teamID(r), projectID)
+	if err != nil {
+		return nil
+	}
+	lang := resolveLang(r)
+	out := make([]unbilledView, 0, len(list))
+	for _, u := range list {
+		if u.Hundredths == 0 {
+			continue
+		}
+		out = append(out, unbilledView{
+			ProjectID: u.ProjectID, ProjectName: u.ProjectName, Slug: u.ProjectSlug,
+			Hours: fmtHoursL(lang, u.Hundredths), Amount: moneyL(lang, u.AmountCents, u.Currency),
+			Since: fmtDay(lang, u.Since.Local()), SinceISO: u.Since.Local().Format("2006-01-02"),
+		})
+	}
+	return out
 }
 
 type invoiceSummary struct {
@@ -143,7 +198,9 @@ type invoiceSummary struct {
 type invoicesPage struct {
 	pageData
 	Items    []invoiceSummary
-	Projects []model.Project
+	Projects []invoiceProjectOpt
+	Prefill  invoiceProjectOpt // the project picked via ?project=
+	Unbilled []unbilledView
 	Billable bool // any project with a rate; otherwise invoices come out empty
 	DefStart string
 	DefEnd   string
@@ -199,8 +256,15 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = now
 	seller, vat, _ := s.db.TeamRequisites(r.Context(), teamID(r))
-	_ = s.db.SetInvoiceParties(r.Context(), teamID(r), inv.ID, seller,
-		strings.TrimSpace(r.PostForm.Get("client_details")), vat)
+	clientDetails := strings.TrimSpace(r.PostForm.Get("client_details"))
+	clientEmail := strings.TrimSpace(r.PostForm.Get("client_email"))
+	_ = s.db.SetInvoiceParties(r.Context(), teamID(r), inv.ID, seller, clientDetails, vat)
+	_ = s.db.SetInvoiceProject(r.Context(), teamID(r), inv.ID, projectID, clientEmail)
+	if projectID > 0 {
+		// Next invoice for this project starts with the same client.
+		_ = s.db.SetProjectClient(r.Context(), teamID(r), projectID,
+			dbpkg.ProjectClient{Name: client, Details: clientDetails, Email: clientEmail})
+	}
 	s.audit(r, "invoice.create", inv.Number, inv.ClientName)
 	s.fireWebhook(r, "invoice.created", map[string]any{
 		"invoice_id": inv.ID, "number": inv.Number, "client": inv.ClientName,
@@ -236,6 +300,10 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 	if key, _, err := s.db.TeamStripe(r.Context(), teamID(r)); (err == nil && key != "") || stripeKeyFromEnv() != "" {
 		data.StripeReady = true
 	}
+	data.MailReady = mail.Configured()
+	subj, body := invoiceMailText(resolveLang(r), vm, data.Seller)
+	data.MailtoURL = "mailto:" + url.PathEscape(vm.ClientEmail) + "?subject=" + url.QueryEscape(subj) + "&body=" + url.QueryEscape(body)
+	data.MailtoURL = strings.ReplaceAll(data.MailtoURL, "+", "%20")
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -248,6 +316,8 @@ type invoiceDetailPage struct {
 	Inv         invoiceVM
 	Seller      string // workspace name, shown as the issuer
 	StripeReady bool   // online payment link only when Stripe is set up
+	MailReady   bool   // SMTP configured: "send" mails the PDF itself
+	MailtoURL   string // otherwise a draft in the user's mail app
 	Flash       string
 	FlashOK     bool
 }
@@ -344,4 +414,110 @@ func twoDigits(n int) string {
 		return "0" + strconv.Itoa(n)
 	}
 	return strconv.Itoa(n)
+}
+
+// invoiceMailText is the covering letter for an invoice.
+func invoiceMailText(lang i18n.Lang, vm invoiceVM, seller string) (string, string) {
+	subj := i18n.T(lang, "inv.invoice") + " " + vm.Number + " · " + seller
+	body := fmt.Sprintf(i18n.T(lang, "inv.mailBody"), vm.Number, vm.PeriodLabel, vm.Total, seller)
+	return subj, body
+}
+
+func (s *Server) invoiceBack(w http.ResponseWriter, r *http.Request, ok bool, msg string) {
+	http.Redirect(w, r, "/invoices/"+r.PathValue("id")+"?flash="+url.QueryEscape(encodeFlash(ok, msg)), http.StatusSeeOther)
+}
+
+// handleInvoiceEdit changes who a draft is for and its notes.
+func (s *Server) handleInvoiceEdit(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	inv, err := s.db.GetInvoice(r.Context(), teamID(r), id)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if inv.Status != "draft" {
+		s.invoiceBack(w, r, false, i18n.T(resolveLang(r), "inv.onlyDraft"))
+		return
+	}
+	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
+	if f("client") == "" {
+		s.invoiceBack(w, r, false, i18n.T(resolveLang(r), "inv.clientRequired"))
+		return
+	}
+	if err := s.db.UpdateInvoiceMeta(r.Context(), teamID(r), id, f("client"), f("client_details"), f("client_email"), f("notes")); err != nil {
+		s.invoiceBack(w, r, false, err.Error())
+		return
+	}
+	if inv.ProjectID > 0 {
+		_ = s.db.SetProjectClient(r.Context(), teamID(r), inv.ProjectID,
+			dbpkg.ProjectClient{Name: f("client"), Details: f("client_details"), Email: f("client_email")})
+	}
+	s.audit(r, "invoice.edit", inv.Number, "")
+	s.invoiceBack(w, r, true, "updated")
+}
+
+// handleInvoiceRebuild recomputes a draft's lines from the ledger.
+func (s *Server) handleInvoiceRebuild(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err := s.db.RebuildInvoice(r.Context(), teamID(r), id); err != nil {
+		s.invoiceBack(w, r, false, err.Error())
+		return
+	}
+	s.audit(r, "invoice.rebuild", strconv.FormatInt(id, 10), "")
+	s.invoiceBack(w, r, true, i18n.T(resolveLang(r), "inv.rebuilt"))
+}
+
+// handleInvoiceReceipt stores the "Мой налог" receipt of a payment.
+func (s *Server) handleInvoiceReceipt(w http.ResponseWriter, r *http.Request) {
+	id, _ := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	rc := strings.TrimSpace(r.FormValue("receipt"))
+	if len(rc) > 300 {
+		s.invoiceBack(w, r, false, "bad request")
+		return
+	}
+	if err := s.db.SetInvoiceReceipt(r.Context(), teamID(r), id, rc); err != nil {
+		s.invoiceBack(w, r, false, err.Error())
+		return
+	}
+	s.invoiceBack(w, r, true, "updated")
+}
+
+// handleInvoiceSend mails the PDF to the client and marks a draft sent.
+func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
+	inv, _, vm, ok := s.loadInvoiceVM(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	lang := resolveLang(r)
+	to := strings.TrimSpace(r.FormValue("to"))
+	if _, err := netmail.ParseAddress(to); err != nil {
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.badEmail"))
+		return
+	}
+	sender, can := s.mailer.(mail.AttachSender)
+	if !mail.Configured() || !can {
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.mailOff"))
+		return
+	}
+	seller := "paratrack"
+	if t, ok := TeamFrom(r.Context()); ok {
+		seller = t.Name
+	}
+	pdf, err := renderInvoicePDF(vm, seller, lang)
+	if err != nil {
+		s.invoiceBack(w, r, false, err.Error())
+		return
+	}
+	subj, body := invoiceMailText(lang, vm, seller)
+	if err := sender.SendWith(to, subj, body, mail.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf}); err != nil {
+		s.invoiceBack(w, r, false, fmt.Sprintf(i18n.T(lang, "inv.mailFailed"), err.Error()))
+		return
+	}
+	_ = s.db.SetInvoiceProject(r.Context(), teamID(r), inv.ID, inv.ProjectID, to)
+	if inv.Status == "draft" {
+		_ = s.db.UpdateInvoiceStatus(r.Context(), teamID(r), inv.ID, "sent")
+	}
+	s.audit(r, "invoice.send", inv.Number, to)
+	s.invoiceBack(w, r, true, fmt.Sprintf(i18n.T(lang, "inv.mailed"), to))
 }

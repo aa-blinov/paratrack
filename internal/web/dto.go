@@ -123,6 +123,7 @@ type dashboardData struct {
 
 	HasProject  bool
 	HasSession  bool
+	Unbilled    []unbilledView // "not invoiced yet", when there is any
 }
 
 // statsData feeds stats.html.

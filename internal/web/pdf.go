@@ -112,6 +112,10 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 		pdf.SetFont("Inter", "", 9)
 		pdf.CellFormat(0, 6, inv.VATNote, "", 1, "L", false, 0, "")
 	}
+	if inv.Receipt != "" {
+		pdf.SetFont("Inter", "", 9)
+		pdf.MultiCell(0, 5, T("inv.receipt")+": "+inv.Receipt, "", "L", false)
+	}
 	if act {
 		pdf.Ln(6)
 		pdf.SetFont("Inter", "", 9)

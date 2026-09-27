@@ -51,6 +51,22 @@ document.addEventListener('alpine:init', () => {
     get formatted() { return fmtDurJS(this.seconds); }
   }));
 
+  // Invoice form: picking a project fills the client it billed last time,
+  // unless the user already typed something else.
+  Alpine.data('invoiceForm', () => ({
+    fill(sel) {
+      const o = sel.selectedOptions[0];
+      if (!o) return;
+      const set = (id, v) => {
+        const el = document.getElementById(id);
+        if (el && (el.value === '' || el.dataset.filled === '1') && v) { el.value = v; el.dataset.filled = '1'; }
+      };
+      set('inv-client', o.dataset.client);
+      set('inv-client-details', o.dataset.details);
+      set('inv-email', o.dataset.email);
+    },
+  }));
+
   // «учтено» under the ledger: the render-time total plus one second per
   // running timer, so the sum moves with the rows above it. Re-seeded by
   // the server on every timer change and the 30 s poll.
