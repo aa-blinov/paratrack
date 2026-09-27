@@ -424,3 +424,19 @@ func TestAPIStopUndoReopens(t *testing.T) {
 		t.Errorf("reopen of a running session: %d, want 409", resp.StatusCode)
 	}
 }
+
+// A brand-new workspace teaches the start in the empty running list;
+// once anything was tracked the plain empty state returns.
+func TestActiveListFirstRun(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("first@x.test")
+	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); !strings.Contains(body, "data-quick-start") {
+		t.Fatalf("first run should offer quick-start examples: %q", body[:min(200, len(body))])
+	}
+	body := readBody(t, e.do("POST", "/api/start", url.Values{"activity": {"x"}}, map[string]string{"HX-Request": "true"}))
+	id := strings.SplitN(strings.SplitN(body, "sessions/", 2)[1], "/", 2)[0]
+	readBody(t, e.do("POST", "/api/sessions/"+id+"/stop", nil, nil))
+	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); strings.Contains(body, "data-quick-start") {
+		t.Errorf("after the first session the examples should be gone")
+	}
+}

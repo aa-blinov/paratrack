@@ -63,6 +63,23 @@ func (d *DB) GetSession(ctx context.Context, teamID, id int64) (model.Session, e
 	return scanSession(row)
 }
 
+// HasAnySession reports whether the workspace has ever tracked anything;
+// the dashboard's first-run state hangs off it.
+func (d *DB) HasAnySession(ctx context.Context, teamID int64) (bool, error) {
+	q := `SELECT 1 FROM sessions`
+	var args []any
+	if teamID > 0 {
+		q += ` WHERE team_id = ?`
+		args = append(args, teamID)
+	}
+	var one int
+	err := d.sql.QueryRowContext(ctx, q+` LIMIT 1`, args...).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
 // ListActiveSessions returns all sessions with end_at IS NULL, newest
 // first, scoped to teamID (0 means "all teams" / legacy).
 func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.ActiveSession, error) {

@@ -120,9 +120,6 @@ type dashboardData struct {
 	ActiveVM   activeListVM // wrapper so active-list can call {{.T}}
 	GoalsVM    goalsListVM  // wrapper so goals-list can call {{.T}}
 
-	// First-run onboarding checklist. Shown while the account has no
-	// sessions and the visitor has not dismissed it.
-	ShowOnboard bool
 	HasProject  bool
 	HasSession  bool
 }
@@ -441,8 +438,9 @@ type goalsListVM struct {
 func (v goalsListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 type activeListVM struct {
-	Lang  string
-	Items []sessionView // active-list ranges over Items
+	Lang     string
+	Items    []sessionView // active-list ranges over Items
+	FirstRun bool          // nothing ever tracked: the empty state teaches the start
 }
 
 func (v activeListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

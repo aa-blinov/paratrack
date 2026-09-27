@@ -763,3 +763,23 @@ document.addEventListener('htmx:configRequest', (e) => {
   // The start form resets after each submit; keep the summary honest.
   window.paratrackLedgerProject = () => setTimeout(sync, 0);
 })();
+
+// First-run quick start: an example fills the activity field and starts it.
+// After any successful start the "Next" links appear (hidden on a first run).
+document.addEventListener('click', (e) => {
+  const q = e.target.closest('[data-quick-start]');
+  if (q) {
+    const input = document.getElementById('activity');
+    if (input) { input.value = q.dataset.quickStart; input.form.requestSubmit(); }
+    return;
+  }
+  if (e.target.closest('[data-next-hide]')) {
+    try { localStorage.setItem('paratrack-next-hidden', '1'); } catch (_) {}
+    document.getElementById('next-steps')?.remove();
+  }
+});
+document.body.addEventListener('htmx:afterRequest', (e) => {
+  if (e.detail.successful && /\/api\/start$/.test(e.detail.requestConfig?.path || '')) {
+    document.getElementById('next-steps')?.removeAttribute('hidden');
+  }
+});
