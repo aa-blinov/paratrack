@@ -151,6 +151,13 @@ $("save").addEventListener("click", async () => {
   const base = $("base").value.trim() || "https://paratrack.duckdns.org";
   const token = $("token").value.trim();
   if (!token) { setStatus("token required"); return; }
+  // A self-hosted server needs its own host permission; ask for it here,
+  // inside the click (Chrome only grants on a user gesture).
+  let origin;
+  try { origin = new URL(base).origin + "/*"; } catch (_) { setStatus("bad server address"); return; }
+  const granted = await chrome.permissions.contains({ origins: [origin] }) ||
+    await chrome.permissions.request({ origins: [origin] });
+  if (!granted) { setStatus("access to " + origin + " was not granted"); return; }
   await chrome.storage.local.set({ base, token });
   try {
     await refresh();

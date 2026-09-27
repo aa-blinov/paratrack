@@ -1301,6 +1301,14 @@ func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
 
 // writeJSON is a tiny helper used by goal endpoints; keeps the handlers
 // short and avoids importing encoding/json at the top of the file.
+// writeJSONStatus sends v with a non-200 status (the header must go
+// before the body, or the client sees 200).
+func writeJSONStatus(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	enc := json.NewEncoder(w)

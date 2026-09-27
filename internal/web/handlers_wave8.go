@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -22,6 +23,7 @@ import (
 
 // importedEntry is one external time entry ready to become a session.
 type importedEntry struct {
+	ExtID    string // "toggl:123": the entry's id in the source tracker
 	Activity string
 	Start    time.Time
 	End      time.Time
@@ -32,22 +34,6 @@ type importedEntry struct {
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: lang}}
-	if v := r.URL.Query().Get("preview"); v != "" {
-		// preview mode: run the fetch and render the table
-		provider := r.URL.Query().Get("provider")
-		secret := r.URL.Query().Get("secret")
-		extra := r.URL.Query().Get("extra")
-		from := r.URL.Query().Get("from")
-		to := r.URL.Query().Get("to")
-		entries, err := fetchEntries(provider, secret, extra, from, to)
-		if err != nil {
-			data.Error = err.Error()
-		} else {
-			data.Entries = entries
-			data.Provider = provider
-			data.From, data.To, data.Secret, data.Extra = from, to, secret, extra
-		}
-	}
 	s.renderPageForRequest(w, r, "Import", "import", "import", &data)
 }
 
@@ -63,17 +49,22 @@ type importPage struct {
 
 func (p *importPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
-// handleImportPreview fetches entries and shows them (form POST).
+// handleImportPreview fetches entries and shows them. Rendered straight
+// from the POST: a redirect put the provider token into the URL (history,
+// proxy logs).
 func (s *Server) handleImportPreview(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
-	q := url.Values{}
-	q.Set("preview", "1")
-	q.Set("provider", strings.TrimSpace(r.PostForm.Get("provider")))
-	q.Set("secret", strings.TrimSpace(r.PostForm.Get("secret")))
-	q.Set("extra", strings.TrimSpace(r.PostForm.Get("extra")))
-	q.Set("from", strings.TrimSpace(r.PostForm.Get("from")))
-	q.Set("to", strings.TrimSpace(r.PostForm.Get("to")))
-	http.Redirect(w, r, "/import?"+q.Encode(), http.StatusSeeOther)
+	f := func(k string) string { return strings.TrimSpace(r.PostForm.Get(k)) }
+	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: string(resolveLang(r))}}
+	entries, err := fetchEntries(f("provider"), f("secret"), f("extra"), f("from"), f("to"))
+	if err != nil {
+		data.Error = err.Error()
+	} else {
+		data.Entries = entries
+		data.Provider = f("provider")
+		data.From, data.To, data.Secret, data.Extra = f("from"), f("to"), f("secret"), f("extra")
+	}
+	s.renderPageForRequest(w, r, "Import", "import", "import", &data)
 }
 
 // handleImportRun creates closed sessions from the fetched entries.
@@ -89,19 +80,27 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/import?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	n := 0
+	n, skipped := 0, 0
 	for _, e := range entries {
+		if e.ExtID != "" && s.db.ImportedSessionExists(r.Context(), teamID(r), e.ExtID) {
+			skipped++ // already imported earlier
+			continue
+		}
 		act, err := s.db.GetOrCreateActivity(r.Context(), teamID(r), e.Activity)
 		if err != nil {
 			continue
 		}
-		if _, err := s.db.CreateClosedSession(r.Context(), teamID(r), act.ID, e.Start, e.End, e.Note); err == nil {
+		if sess, err := s.db.CreateClosedSession(r.Context(), teamID(r), act.ID, e.Start, e.End, e.Note); err == nil {
 			n++
+			if e.ExtID != "" {
+				_ = s.db.MarkImported(r.Context(), teamID(r), sess.ID, e.ExtID)
+			}
 		}
 	}
 	s.audit(r, "import.run", provider, fmt.Sprintf("%d", n))
 	s.fireWebhook(r, "import.completed", map[string]any{"provider": provider, "imported": n})
-	http.Redirect(w, r, "/stats?flash="+encodeFlash(true, fmt.Sprintf("imported %d entries", n)), http.StatusSeeOther)
+	msg := fmt.Sprintf(i18n.T(resolveLang(r), "imp.done"), n, skipped)
+	http.Redirect(w, r, "/stats?flash="+url.QueryEscape(encodeFlash(true, msg)), http.StatusSeeOther)
 }
 
 // fetchEntries dispatches to the provider importer.
@@ -192,116 +191,173 @@ func fetchTogglEntries(token string, from, to time.Time) ([]importedEntry, error
 		if name == "" {
 			name = "imported"
 		}
-		out = append(out, importedEntry{Activity: name, Start: start, End: end, Note: "toggl"})
+		out = append(out, importedEntry{ExtID: fmt.Sprintf("toggl:%d", e.ID), Activity: name, Start: start, End: end, Note: "toggl"})
 	}
 	return out, nil
 }
 
-// fetchHarvestEntries pulls time entries via Harvest v2.
-// secret = access token; extra = account id (X-Harvest-Account-Id).
+// fetchHarvestEntries pulls time entries via Harvest v2, every page.
+// secret = access token; extra = account id (Harvest-Account-Id).
+// Harvest's "to" is inclusive; our range end is exclusive.
 func fetchHarvestEntries(token, accountID string, from, to time.Time) ([]importedEntry, error) {
 	if accountID == "" {
 		return nil, fmt.Errorf("harvest account id is required (extra field)")
 	}
-	u := fmt.Sprintf("https://api.harvestapp.com/v2/time_entries?from=%s&to=%s&per_page=100",
-		from.Format("2006-01-02"), to.Format("2006-01-02"))
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, err
+	type entry struct {
+		ID          int64   `json:"id"`
+		Notes       string  `json:"notes"`
+		Hours       float64 `json:"hours"`
+		SpentDate   string  `json:"spent_date"`
+		StartedTime string  `json:"started_time"` // "8:00am" or "08:00", when the account tracks times
+		EndedTime   string  `json:"ended_time"`
+		IsRunning   bool    `json:"is_running"`
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Harvest-Account-Id", accountID)
-	req.Header.Set("User-Agent", "paratrack")
-	resp, err := extClient.Do(req)
-	if err != nil {
-		return nil, err
+	var all []entry
+	next := fmt.Sprintf("https://api.harvestapp.com/v2/time_entries?from=%s&to=%s",
+		from.Format("2006-01-02"), to.AddDate(0, 0, -1).Format("2006-01-02"))
+	for page := 0; next != "" && page < 100; page++ {
+		req, err := http.NewRequest("GET", next, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Harvest-Account-Id", accountID)
+		req.Header.Set("User-Agent", "paratrack")
+		resp, err := extClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		var raw struct {
+			TimeEntries []entry `json:"time_entries"`
+			Links       struct {
+				Next *string `json:"next"`
+			} `json:"links"`
+		}
+		if resp.StatusCode != 200 {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+			resp.Body.Close()
+			return nil, fmt.Errorf("harvest %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		}
+		err = json.NewDecoder(resp.Body).Decode(&raw)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, raw.TimeEntries...)
+		next = ""
+		if raw.Links.Next != nil {
+			next = *raw.Links.Next
+		}
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-		return nil, fmt.Errorf("harvest %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-	}
-	var raw struct {
-		TimeEntries []struct {
-			ID       int64   `json:"id"`
-			Notes    string  `json:"notes"`
-			Hours    float64 `json:"hours"`
-			SpentDate string `json:"spent_date"`
-		} `json:"time_entries"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, err
-	}
-	out := make([]importedEntry, 0, len(raw.TimeEntries))
-	for _, e := range raw.TimeEntries {
-		day, err := time.Parse("2006-01-02", e.SpentDate)
+	out := make([]importedEntry, 0, len(all))
+	cursor := map[string]time.Time{} // entries without clock times stack from 09:00
+	for _, e := range all {
+		if e.IsRunning {
+			continue
+		}
+		day, err := time.ParseInLocation("2006-01-02", e.SpentDate, time.Local)
 		if err != nil {
 			continue
 		}
-		start := time.Date(day.Year(), day.Month(), day.Day(), 9, 0, 0, 0, day.Location())
-		end := start.Add(time.Duration(e.Hours * float64(time.Hour)))
+		dur := time.Duration(e.Hours * float64(time.Hour))
+		start, ok := harvestClock(day, e.StartedTime)
+		if !ok {
+			c, seen := cursor[e.SpentDate]
+			if !seen {
+				c = day.Add(9 * time.Hour)
+			}
+			start = c
+			cursor[e.SpentDate] = c.Add(dur)
+		}
 		name := e.Notes
 		if name == "" {
 			name = "imported"
 		}
-		out = append(out, importedEntry{Activity: name, Start: start, End: end, Note: "harvest"})
+		out = append(out, importedEntry{ExtID: fmt.Sprintf("harvest:%d", e.ID), Activity: name, Start: start, End: start.Add(dur), Note: "harvest"})
 	}
 	return out, nil
 }
 
-// fetchClockifyEntries pulls time entries via Clockify API.
-// secret = API key; extra = workspace id.
+// harvestClock reads Harvest's started_time in either account format.
+func harvestClock(day time.Time, s string) (time.Time, bool) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	for _, layout := range []string{"3:04pm", "15:04"} {
+		if t, err := time.Parse(layout, s); err == nil {
+			return day.Add(time.Duration(t.Hour())*time.Hour + time.Duration(t.Minute())*time.Minute), true
+		}
+	}
+	return time.Time{}, false
+}
+
+// fetchClockifyEntries pulls the key owner's time entries via Clockify
+// API v1. The list lives under the user (/workspaces/{ws}/user/{id}/…);
+// the workspace defaults to the user's active one.
 func fetchClockifyEntries(apiKey, workspaceID string, from, to time.Time) ([]importedEntry, error) {
+	get := func(u string, into any) error {
+		req, err := http.NewRequest("GET", u, nil)
+		if err != nil {
+			return err
+		}
+		req.Header.Set("X-Api-Key", apiKey)
+		resp, err := extClient.Do(req)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+			return fmt.Errorf("clockify %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		}
+		return json.NewDecoder(resp.Body).Decode(into)
+	}
+	var me struct {
+		ID              string `json:"id"`
+		ActiveWorkspace string `json:"activeWorkspace"`
+	}
+	if err := get("https://api.clockify.me/api/v1/user", &me); err != nil {
+		return nil, err
+	}
 	if workspaceID == "" {
-		return nil, fmt.Errorf("clockify workspace id is required (extra field)")
+		workspaceID = me.ActiveWorkspace
 	}
-	u := fmt.Sprintf("https://api.clockify.me/api/v1/workspaces/%s/time-entries?start=%s&end=%s&hydrated=true&page-size=100",
-		url.PathEscape(workspaceID),
-		url.QueryEscape(from.Format(time.RFC3339)),
-		url.QueryEscape(to.Format(time.RFC3339)))
-	req, err := http.NewRequest("GET", u, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("X-Api-Key", apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := extClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
-		return nil, fmt.Errorf("clockify %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-	}
-	var raw []struct {
-		ID       string  `json:"id"`
-		Description string `json:"description"`
+	type entry struct {
+		ID           string `json:"id"`
+		Description  string `json:"description"`
 		TimeInterval struct {
 			Start string `json:"start"`
 			End   string `json:"end"`
 		} `json:"timeInterval"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, err
-	}
-	out := make([]importedEntry, 0, len(raw))
-	for _, e := range raw {
-		start, err := time.Parse(time.RFC3339, e.TimeInterval.Start)
-		if err != nil {
-			continue
+	const size = 200
+	var all []entry
+	for page := 1; page <= 100; page++ {
+		var batch []entry
+		u := fmt.Sprintf("https://api.clockify.me/api/v1/workspaces/%s/user/%s/time-entries?start=%s&end=%s&page=%d&page-size=%d",
+			url.PathEscape(workspaceID), url.PathEscape(me.ID),
+			url.QueryEscape(from.UTC().Format(time.RFC3339)), url.QueryEscape(to.UTC().Format(time.RFC3339)), page, size)
+		if err := get(u, &batch); err != nil {
+			return nil, err
 		}
-		var end time.Time
-		if e.TimeInterval.End != "" {
-			end, _ = time.Parse(time.RFC3339, e.TimeInterval.End)
-		} else {
-			end = start.Add(time.Hour)
+		all = append(all, batch...)
+		if len(batch) < size {
+			break
+		}
+	}
+	out := make([]importedEntry, 0, len(all))
+	for _, e := range all {
+		if e.TimeInterval.End == "" {
+			continue // running: nothing to import yet
+		}
+		start, err1 := time.Parse(time.RFC3339, e.TimeInterval.Start)
+		end, err2 := time.Parse(time.RFC3339, e.TimeInterval.End)
+		if err1 != nil || err2 != nil {
+			continue
 		}
 		name := e.Description
 		if name == "" {
 			name = "imported"
 		}
-		out = append(out, importedEntry{Activity: name, Start: start, End: end, Note: "clockify"})
+		out = append(out, importedEntry{ExtID: "clockify:" + e.ID, Activity: name, Start: start, End: end, Note: "clockify"})
 	}
 	return out, nil
 }
