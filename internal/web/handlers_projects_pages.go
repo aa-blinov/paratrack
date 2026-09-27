@@ -101,6 +101,7 @@ type projectDetailData struct {
 	FlashOK  bool
 	CSRFToken string
 	Lang      string
+	Unbilled  []unbilledView
 }
 
 func (p *projectDetailData) setCSRF(t string) { p.CSRFToken = t }
@@ -182,6 +183,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		Currencies:      currencyOptions(),
 	}
 	data.Currency, _ = s.db.ProjectCurrency(r.Context(), teamID(r), p.ID)
+	data.Unbilled = s.unbilledViews(r, p.ID)
 	data.TeamCurrency, _ = s.db.TeamCurrency(r.Context(), teamID(r))
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))

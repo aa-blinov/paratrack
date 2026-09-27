@@ -309,6 +309,9 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.HasSession = seen
 	}
 	d.ActiveVM.FirstRun = !d.HasSession
+	if d.HasProject {
+		d.Unbilled = s.unbilledViews(r, 0)
+	}
 	// Quick today stats: total tracked time, top activity. Aggregates
 	// read DurationSecs — never parse the human label.
 	agg := map[string]int{}
@@ -735,6 +738,24 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 	s.respondActiveList(w, r)
 }
 
+// refuseLocked answers 409 when the session is billed on a sent or paid
+// invoice: the document and the ledger must keep agreeing. The way out is
+// named in the message (delete the invoice, or edit while it's a draft).
+func (s *Server) refuseLocked(w http.ResponseWriter, r *http.Request, sessionID int64) bool {
+	num := s.db.InvoiceLockFor(r.Context(), teamID(r), sessionID)
+	if num == "" {
+		return false
+	}
+	msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), num)
+	s.toast(w, msg, "error")
+	if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": msg})
+	} else {
+		http.Error(w, msg, http.StatusConflict)
+	}
+	return true
+}
+
 // handlePauseAll pauses every running timer (parallel timers need a way
 // to stop the world, e.g. for a break).
 func (s *Server) handlePauseAll(w http.ResponseWriter, r *http.Request) {
@@ -815,6 +836,9 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
+		return
+	}
+	if s.refuseLocked(w, r, id) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
@@ -931,6 +955,9 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
 		http.Error(w, err.Error(), 400)
+		return
+	}
+	if s.refuseLocked(w, r, id) {
 		return
 	}
 	if err := s.db.DeleteSession(r.Context(), teamID(r), id); err != nil {

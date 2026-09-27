@@ -310,6 +310,17 @@ var columnMigrations = []struct {
 	{"invoices", "seller_details", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "client_details", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "vat_note", "TEXT NOT NULL DEFAULT ''"},
+	// Freelancer flow: a project remembers its client (name, details,
+	// email) for the next invoice; a billed session points at its invoice
+	// so it isn't billed twice and can't change under a sent document;
+	// a paid invoice can carry the "Мой налог" receipt.
+	{"projects", "client_name", "TEXT NOT NULL DEFAULT ''"},
+	{"projects", "client_details", "TEXT NOT NULL DEFAULT ''"},
+	{"projects", "client_email", "TEXT NOT NULL DEFAULT ''"},
+	{"sessions", "invoice_id", "INTEGER"},
+	{"invoices", "project_id", "INTEGER"},
+	{"invoices", "client_email", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "receipt", "TEXT NOT NULL DEFAULT ''"},
 	// API tokens: the workspace they act in, optional expiry, read-only.
 	{"api_tokens", "team_id", "INTEGER"},
 	{"api_tokens", "expires_at", "TEXT"},
