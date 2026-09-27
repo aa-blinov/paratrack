@@ -287,7 +287,9 @@ func (d *DB) ListSessionsByTag(ctx context.Context, teamID int64, tagName string
 		q += ` AND s.team_id = ?`
 		args = append(args, teamID)
 	}
-	q += ` ORDER BY s.start_at DESC`
+	var sc string
+	sc, args = scopeSQL(ctx, "s.user_id", args)
+	q += sc + ` ORDER BY s.start_at DESC`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

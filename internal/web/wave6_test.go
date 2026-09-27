@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/db"
 )
 
 func TestPayrollAndSchedule(t *testing.T) {
@@ -31,7 +33,7 @@ func TestPayrollAndSchedule(t *testing.T) {
 	act, _ := d.CreateActivity(ctx, 1, "work")
 	start := time.Date(2026, 9, 21, 9, 0, 0, 0, time.UTC)
 	end := start.Add(2 * time.Hour)
-	d.CreateClosedSession(ctx, 1, act.ID, start, end, "")
+	d.CreateClosedSession(db.WithActor(ctx, 1), 1, act.ID, start, end, "")
 
 	lines, err := d.BuildPayrollLines(ctx, 1, start.Add(-time.Hour), end.Add(time.Hour))
 	if err != nil {

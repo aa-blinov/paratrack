@@ -9,13 +9,26 @@
   {{$cur := .Period.Label}}
   {{$proj := urlquery .ProjectFilter}}
   {{$tag := urlquery .TagFilter}}
-  <a href="?period=today{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">{{.T "dash.today"}}</a>
-  <a href="?period=yesterday{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">{{.T "stats.yesterday"}}</a>
-  <a href="?period=week{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"       class="{{if eq $cur "week"}}active{{end}}">{{.T "stats.week"}}</a>
-  <a href="?period=last_week{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"  class="{{if eq $cur "last_week"}}active{{end}}">{{.T "stats.lastWeek"}}</a>
-  <a href="?period=month{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}"      class="{{if eq $cur "month"}}active{{end}}">{{.T "stats.month"}}</a>
-  <a href="?period=last_month{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}" class="{{if eq $cur "last_month"}}active{{end}}">{{.T "stats.lastMonth"}}</a>
+  <a href="?period=today{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">{{.T "dash.today"}}</a>
+  <a href="?period=yesterday{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">{{.T "stats.yesterday"}}</a>
+  <a href="?period=week{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"       class="{{if eq $cur "week"}}active{{end}}">{{.T "stats.week"}}</a>
+  <a href="?period=last_week{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"  class="{{if eq $cur "last_week"}}active{{end}}">{{.T "stats.lastWeek"}}</a>
+  <a href="?period=month{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"      class="{{if eq $cur "month"}}active{{end}}">{{.T "stats.month"}}</a>
+  <a href="?period=last_month{{if .ProjectFilter}}&project={{$proj}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}" class="{{if eq $cur "last_month"}}active{{end}}">{{.T "stats.lastMonth"}}</a>
 </div>
+
+{{if .People}}
+<form method="GET" class="flex items-center gap-2 mb-4 text-sm">
+  <input type="hidden" name="period" value="{{.Period.Label}}">
+  {{if .ProjectFilter}}<input type="hidden" name="project" value="{{.ProjectFilter}}">{{end}}
+  {{if .TagFilter}}<input type="hidden" name="tag" value="{{.TagFilter}}">{{end}}
+  <label for="person" class="doc-muted">{{.T "stats.person"}}</label>
+  <select id="person" name="person" class="select select-bordered select-sm" onchange="this.form.submit()">
+    <option value="">{{.T "stats.everyone"}}</option>
+    {{range .People}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
+  </select>
+</form>
+{{end}}
 
 {{if or .TagFilter .ProjectFilter}}
 <div class="alert alert-info mb-4 flex items-center gap-3 flex-wrap">
@@ -170,7 +183,7 @@
 
 {{define "session-row"}}
 <tr id="row-{{.ID}}">
-  <td data-label="{{.T "dash.activity"}}"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
+  <td data-label="{{.T "dash.activity"}}"><span style="color: {{.Color}};">{{.ActivityName}}</span>{{with .PersonName}}<span class="block text-xs doc-muted">{{.}}</span>{{end}}</td>
   <td data-label="{{.T "dash.startLabel"}}" class="font-mono">
     <input type="datetime-local" name="start_at"
            value="{{.StartInput}}"

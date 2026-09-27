@@ -169,6 +169,9 @@ func (d *DB) activityMinutesInRange(ctx context.Context, teamID, activityID int6
 		q += ` AND team_id = ?`
 		args = append(args, teamID)
 	}
+	var sc string
+	sc, args = scopeSQL(ctx, "user_id", args)
+	q += sc
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return 0, err

@@ -67,9 +67,17 @@ func OpenPostgres(url string) (*DB, error) {
 		_ = sdb.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
+	if err := d.fillActivityKeys(); err != nil {
+		_ = sdb.Close()
+		return nil, fmt.Errorf("activity keys: %w", err)
+	}
 	if err := d.sealExistingSecrets(); err != nil {
 		_ = sdb.Close()
 		return nil, fmt.Errorf("seal secrets: %w", err)
+	}
+	if err := d.assignOrphanSessions(context.Background()); err != nil {
+		_ = sdb.Close()
+		return nil, fmt.Errorf("assign orphan sessions: %w", err)
 	}
 	if err := d.stampLegacyInvoices(context.Background()); err != nil {
 		_ = sdb.Close()
@@ -120,6 +128,10 @@ func Open(path string) (*DB, error) {
 	if err := d.sealExistingSecrets(); err != nil {
 		_ = sdb.Close()
 		return nil, fmt.Errorf("seal secrets: %w", err)
+	}
+	if err := d.assignOrphanSessions(context.Background()); err != nil {
+		_ = sdb.Close()
+		return nil, fmt.Errorf("assign orphan sessions: %w", err)
 	}
 	if err := d.stampLegacyInvoices(context.Background()); err != nil {
 		_ = sdb.Close()

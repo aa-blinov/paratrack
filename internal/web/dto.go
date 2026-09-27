@@ -33,7 +33,13 @@ type pageData struct {
 	RequestPath string          // current URL path; used as next= after a switch
 	CSRFToken   string          // echoed into form hidden fields
 	Lang        string          // "en" | "ru" — resolved from cookie / Accept-Language
+	CanManage   bool            // owner/admin: money and settings are shown
 }
+
+func (p *pageData) setManage(v bool) { p.CanManage = v }
+
+// manageCarrier is a page that hides money/settings from members.
+type manageCarrier interface{ setManage(bool) }
 
 // T translates a dictionary key for the page's language. Called from
 // templates as {{.T "nav.dashboard"}}; inside {{range}} use {{$.T …}}.
@@ -75,6 +81,7 @@ type teamsView struct {
 type sessionView struct {
 	ID                 int64
 	ActivityID         int64
+	PersonName         string // whose session (managers' team view)
 	ActivityName       string
 	Color              string
 	ProjectID          int64  // 0 if activity has no project
@@ -127,6 +134,12 @@ type dashboardData struct {
 }
 
 // statsData feeds stats.html.
+type personOpt struct {
+	ID       int64
+	Name     string
+	Selected bool
+}
+
 type statsData struct {
 	pageData
 	Period       timeparse.Period
@@ -134,6 +147,8 @@ type statsData struct {
 	ByProject    []projectAggRow // project-grouped breakdown (with activities nested)
 	Projects     []model.Project // for the project-filter chip row
 	ProjectFilter string         // current ?project=slug value, empty if unfiltered
+	People       []personOpt     // managers of a shared workspace: filter by person
+	PersonFilter int64
 	Sessions     []sessionView
 	Total        string
 	SessionCount int
@@ -227,7 +242,7 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		ProjectID:          a.ProjectID,
 		StartISO:           s.StartAt.UTC().Format(time.RFC3339Nano),
 		ResumeISO:          s.StartAt.UTC().Format(time.RFC3339Nano),
-		StartLocal:         fmtWhen(lang, s.StartAt.Local(), now.Local()),
+		StartLocal:         fmtWhen(lang, s.StartAt.In(now.Location()), now.In(now.Location())),
 		Clock:              fmtClock(s.DurationSeconds(now)),
 		AccumulatedSeconds: s.AccumulatedSeconds,
 		Paused:             s.Paused,
@@ -238,14 +253,14 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 	}
 	if s.EndAt != nil {
 		// Same day as the start: the time alone reads cleaner.
-		if sameDay(s.EndAt.Local(), s.StartAt.Local()) {
-			v.EndLocal = s.EndAt.Local().Format("15:04")
+		if sameDay(s.EndAt.In(now.Location()), s.StartAt.In(now.Location())) {
+			v.EndLocal = s.EndAt.In(now.Location()).Format("15:04")
 		} else {
-			v.EndLocal = fmtWhen(lang, s.EndAt.Local(), now.Local())
+			v.EndLocal = fmtWhen(lang, s.EndAt.In(now.Location()), now.In(now.Location()))
 		}
-		v.EndInput = toLocalInput(*s.EndAt)
+		v.EndInput = toLocalInput(s.EndAt.In(now.Location()))
 	}
-	v.StartInput = toLocalInput(s.StartAt)
+	v.StartInput = toLocalInput(s.StartAt.In(now.Location()))
 	if s.Note != nil {
 		v.Note = *s.Note
 	}
@@ -420,7 +435,7 @@ func fmtDurL(lang i18n.Lang, sec int) string {
 
 func toLocalInput(t time.Time) string {
 	// datetime-local wants "2006-01-02T15:04" with no zone and no seconds.
-	return t.Local().Format("2006-01-02T15:04")
+	return t.Format("2006-01-02T15:04") // callers pass it in the user's zone
 }
 
 // shortSummary joins names with a comma for the dashboard's "Top today" line.

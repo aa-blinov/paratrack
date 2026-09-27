@@ -33,7 +33,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
 		})
 	}
-	now := time.Now()
+	now := userNow(r)
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
 	data.DefEnd = now.Format("2006-01-02")
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -68,8 +68,8 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 	startStr := strings.TrimSpace(r.PostForm.Get("start"))
 	endStr := strings.TrimSpace(r.PostForm.Get("end"))
 	notes := strings.TrimSpace(r.PostForm.Get("notes"))
-	start, err1 := time.ParseInLocation("2006-01-02", startStr, time.Local)
-	end, err2 := time.ParseInLocation("2006-01-02", endStr, time.Local)
+	start, err1 := time.ParseInLocation("2006-01-02", startStr, userLoc(r))
+	end, err2 := time.ParseInLocation("2006-01-02", endStr, userLoc(r))
 	if err1 != nil || err2 != nil || end.Before(start) {
 		http.Redirect(w, r, "/payroll?flash="+encodeFlash(false, "bad period"), http.StatusSeeOther)
 		return
@@ -127,7 +127,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
 			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
-			Lines: vms, Total: moneyL(resolveLang(r), total, run.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
+			Lines:       vms, Total: moneyL(resolveLang(r), total, run.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -235,13 +235,13 @@ type schedDay struct {
 }
 
 type schedRow struct {
-	UserID    int64
-	UserName  string
-	Capacity  int
-	Cells     [7]schedDay
-	Total     string
-	TotalMin  int
-	LoadPct   int // total / (capacity*7)
+	UserID   int64
+	UserName string
+	Capacity int
+	Cells    [7]schedDay
+	Total    string
+	TotalMin int
+	LoadPct  int // total / (capacity*7)
 }
 
 type schedulePage struct {
@@ -249,6 +249,8 @@ type schedulePage struct {
 	WeekLabel    string
 	PrevWeek     string
 	NextWeek     string
+	ThisWeek     string
+	ProjectID    int64 // the project whose plan the cells edit
 	Days         []schedDay
 	Rows         []schedRow
 	RowVMs       []schedRowVM
@@ -262,7 +264,7 @@ func (p *schedulePage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
 // handleSchedule renders the people × week planning grid.
 func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
+	now := userNow(r)
 	day := now
 	if v := r.URL.Query().Get("date"); v != "" {
 		if t, err := time.Parse("2006-01-02", v); err == nil {
@@ -270,12 +272,13 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	weekStart := startOfWeek(day)
-	rows, pnames, err := s.db.ListSchedule(r.Context(), teamID(r), weekStart)
+	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
+	pid := schedProject(r.URL.Query().Get("project"), projects)
+	srows, pnames, err := s.scheduleRows(r, weekStart, pid)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	lang := string(resolveLang(r))
 	days := make([]schedDay, 7)
 	for i := 0; i < 7; i++ {
 		d := weekStart.AddDate(0, 0, i)
@@ -284,45 +287,75 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 			ISO: d.Format("2006-01-02"), IsToday: sameDay(d, now),
 		}
 	}
-	srows := make([]schedRow, 0, len(rows))
 	grand := 0
+	for _, row := range srows {
+		grand += row.TotalMin
+	}
+	data := schedulePage{
+		pageData:     pageData{Title: "Schedule", Active: "schedule", Lang: string(resolveLang(r))},
+		WeekLabel:    fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekStart.AddDate(0, 0, 6)),
+		PrevWeek:     weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
+		NextWeek:     weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
+		ThisWeek:     weekStart.Format("2006-01-02"),
+		Days:         days,
+		Rows:         srows,
+		Projects:     projects,
+		ProjectID:    pid,
+		ProjectNames: pnames,
+		GrandTotal:   fmtDur(r, grand*60),
+		GrandMin:     grand,
+	}
+	for i := range srows {
+		data.RowVMs = append(data.RowVMs, schedRowVM{Row: srows[i], Projects: projects, ProjectID: pid, CanManage: canManage(r), Lang: string(resolveLang(r))})
+	}
+	s.renderPageForRequest(w, r, "Schedule", "schedule", "schedule", &data)
+}
+
+// schedProject is the project being planned: ?project=, else the first.
+func schedProject(v string, projects []model.Project) int64 {
+	if id, err := strconv.ParseInt(v, 10, 64); err == nil {
+		for _, p := range projects {
+			if p.ID == id {
+				return id
+			}
+		}
+	}
+	if len(projects) > 0 {
+		return projects[0].ID
+	}
+	return 0
+}
+
+// scheduleRows is the week per person: cells are the chosen project's
+// minutes, the total and load are across all projects (a person's week is
+// shared by every project), load over the five working days.
+func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, pid int64) ([]schedRow, map[int64]string, error) {
+	rows, pnames, err := s.db.ListSchedule(r.Context(), teamID(r), weekStart)
+	if err != nil {
+		return nil, nil, err
+	}
+	now := userNow(r)
+	out := make([]schedRow, 0, len(rows))
 	for _, rc := range rows {
 		row := schedRow{
 			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
 			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60),
 		}
-		capWeek := rc.Capacity * 7
-		if capWeek > 0 {
+		if capWeek := rc.Capacity * 5; capWeek > 0 {
 			row.LoadPct = rc.Total * 100 / capWeek
 		}
+		proj := rc.ByProject[pid]
 		for i := 0; i < 7; i++ {
+			d := weekStart.AddDate(0, 0, i)
 			row.Cells[i] = schedDay{
-				Index: i, ISO: days[i].ISO,
-				Min: rc.Minutes[i], Total: fmtDur(r, rc.Minutes[i]*60),
-				IsToday: days[i].IsToday,
+				Index: i, ISO: d.Format("2006-01-02"),
+				Min: proj[i], Total: fmtDur(r, rc.Minutes[i]*60),
+				IsToday: sameDay(d, now),
 			}
 		}
-		grand += rc.Total
-		srows = append(srows, row)
+		out = append(out, row)
 	}
-	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
-	data := schedulePage{
-		pageData:     pageData{Title: "Schedule", Active: "schedule", Lang: lang},
-		WeekLabel:    fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekStart.AddDate(0, 0, 6)),
-		PrevWeek:     weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
-		NextWeek:     weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
-		Days:         days,
-		Rows:         srows,
-		Projects:     projects,
-		ProjectNames: pnames,
-		GrandTotal:   fmtDur(r, grand*60),
-		GrandMin:     grand,
-	}
-	// pre-wrap rows for the template (needs Projects per row)
-	for i := range srows {
-		data.RowVMs = append(data.RowVMs, schedRowVM{Row: srows[i], Projects: projects})
-	}
-	s.renderPageForRequest(w, r, "Schedule", "schedule", "schedule", &data)
+	return out, pnames, nil
 }
 
 // handleScheduleCell writes one plan cell.
@@ -363,42 +396,29 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 		http.Error(w, "bad date", 400)
 		return
 	}
-	weekStart := startOfWeek(t)
-	rows, _, err := s.db.ListSchedule(r.Context(), teamID(r), weekStart)
+	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
+	pid := schedProject(r.PostForm.Get("project_id"), projects)
+	rows, _, err := s.scheduleRows(r, startOfWeek(t), pid)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
-	for _, rc := range rows {
-		if rc.UserID != uid {
-			continue
+	for _, row := range rows {
+		if row.UserID == uid {
+			s.renderFragment(w, "schedule-row", schedRowVM{Row: row, Projects: projects, ProjectID: pid, CanManage: canManage(r), Lang: string(resolveLang(r))})
+			return
 		}
-		row := schedRow{
-			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
-			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60),
-		}
-		capWeek := rc.Capacity * 7
-		if capWeek > 0 {
-			row.LoadPct = rc.Total * 100 / capWeek
-		}
-		for i := 0; i < 7; i++ {
-			d := weekStart.AddDate(0, 0, i)
-			row.Cells[i] = schedDay{
-				Index: i, ISO: d.Format("2006-01-02"),
-				Min: rc.Minutes[i], Total: fmtDur(r, rc.Minutes[i]*60),
-				IsToday: sameDay(d, time.Now()),
-			}
-		}
-		// stash projects on the row via the wrapper
-		s.renderFragment(w, "schedule-row", schedRowVM{Row: row, Projects: projects})
-		return
 	}
-	http.Error(w, "row not found", 404)
+	http.NotFound(w, r)
 }
 
 // schedRowVM wraps a row + the project list for the cell editor.
 type schedRowVM struct {
-	Row      schedRow
-	Projects []model.Project
+	Row       schedRow
+	Projects  []model.Project
+	ProjectID int64
+	CanManage bool // members see the plan, managers edit it
+	Lang      string
 }
+
+func (v schedRowVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

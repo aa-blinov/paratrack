@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"github.com/aa-blinov/paratrack/internal/model"
 	"testing"
 	"time"
 )
@@ -269,10 +270,12 @@ func TestNormalizeTagCase_MergesDuplicates(t *testing.T) {
 	d := openLegacySchemaDB(t)
 	ctx := t.Context()
 
-	act, err := d.GetOrCreateActivity(ctx, 0, "work")
-	if err != nil {
+	// Raw insert: the legacy schema predates name_key.
+	var actID int64
+	if err := d.sql.QueryRowContext(ctx, `INSERT INTO activities (name, created_at, updated_at) VALUES ('work', '2026-01-01', '2026-01-01') RETURNING id`).Scan(&actID); err != nil {
 		t.Fatal(err)
 	}
+	act := model.Activity{ID: actID}
 
 	winnerID, err := insertRawTag(ctx, d, "Morning")
 	if err != nil {
@@ -345,12 +348,12 @@ func TestNormalizeTagCase_MergesDuplicates(t *testing.T) {
 		t.Errorf("session 1 tags = %+v", tagsOn1)
 	}
 	var keepFound int
-if err := d.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM tags WHERE id = ?`, keepID).Scan(&keepFound); err != nil {
+	if err := d.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM tags WHERE id = ?`, keepID).Scan(&keepFound); err != nil {
 		t.Fatal(err)
 	}
-if keepFound != 1 {
+	if keepFound != 1 {
 		t.Errorf("untouched tag id=%d disappeared", keepID)
-}
+	}
 
 	// Idempotent — second run is a no-op.
 	if err := d.normalizeTagCase(); err != nil {

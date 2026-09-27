@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 )
@@ -40,8 +41,8 @@ func TestGetActivityByName_CaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.Name != "reading" {
-		t.Errorf("expected normalised 'reading', got %q", a.Name)
+	if a.Name != "Reading" {
+		t.Errorf("the name keeps the case it was typed in, got %q", a.Name)
 	}
 	b, err := d.GetActivityByName(ctx, 0, "READING")
 	if err != nil {
@@ -52,15 +53,21 @@ func TestGetActivityByName_CaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestCreateActivity_TrimsAndLowercases(t *testing.T) {
+func TestCreateActivity_TrimsAndKeepsCase(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
 	a, err := d.CreateActivity(ctx, 0, "  Writing  ")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a.Name != "writing" {
-		t.Errorf("expected trimmed+lowercased 'writing', got %q", a.Name)
+	if a.Name != "Writing" {
+		t.Errorf("expected trimmed 'Writing', got %q", a.Name)
+	}
+	// Cyrillic folds too: "Вёрстка" and "вёрстка" are one activity.
+	x, _ := d.GetOrCreateActivity(ctx, 0, "Вёрстка")
+	y, _ := d.GetOrCreateActivity(ctx, 0, "вёрстка")
+	if x.ID != y.ID || y.Name != "Вёрстка" {
+		t.Errorf("Cyrillic case: %d/%q vs %d/%q", x.ID, x.Name, y.ID, y.Name)
 	}
 }
 
@@ -116,8 +123,8 @@ func TestNormalizeActivityCase_MergesDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("winner vanished: %v", err)
 	}
-	if gotWinner.Name != "work" {
-		t.Errorf("winner name = %q, want %q", gotWinner.Name, "work")
+	if !strings.EqualFold(gotWinner.Name, "work") {
+		t.Errorf("winner name = %q, want a case variant of %q", gotWinner.Name, "work")
 	}
 
 	for _, sid := range []int64{sWinner.ID, sLoser.ID} {

@@ -57,6 +57,9 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 	if l, ok := data.(langCarrier); ok {
 		l.setLang(string(lang))
 	}
+	if m, ok := data.(manageCarrier); ok {
+		m.setManage(canManage(r))
+	}
 	stampLang(data, lang)
 	var buf bytes.Buffer
 	if err := s.tmpl.ExecuteTemplate(&buf, contentTpl, data); err != nil {
@@ -64,6 +67,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 		return
 	}
 	wrapper := pageData{
+		CanManage: canManage(r),
 		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
@@ -80,7 +84,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 // for actions replayed from the offline queue ("client_ts", unix ms),
 // otherwise now. Only the last 24h is trusted.
 func actionTime(r *http.Request) time.Time {
-	now := time.Now()
+	now := userNow(r)
 	ms, err := strconv.ParseInt(r.FormValue("client_ts"), 10, 64)
 	if err != nil {
 		return now
@@ -210,7 +214,7 @@ func (s *Server) toast(w http.ResponseWriter, msg, kind string) {
 }
 
 func (s *Server) parsePeriod(r *http.Request) timeparse.Period {
-	now := time.Now()
+	now := userNow(r)
 	name := r.URL.Query().Get("period")
 	if name == "" {
 		name = "today"
@@ -237,7 +241,7 @@ func (s *Server) parsePeriod(r *http.Request) timeparse.Period {
 
 func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	now := time.Now()
+	now := userNow(r)
 	acts, err := s.db.ListActivities(r.Context(), teamID(r), false)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -309,7 +313,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.HasSession = seen
 	}
 	d.ActiveVM.FirstRun = !d.HasSession
-	if d.HasProject {
+	if d.HasProject && canManage(r) {
 		d.Unbilled = s.unbilledViews(r, 0)
 	}
 	// Quick today stats: total tracked time, top activity. Aggregates
@@ -350,8 +354,31 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	now := time.Now()
+	now := userNow(r)
 	period := s.parsePeriod(r)
+
+	// A manager sees the whole team, optionally one person (?person=id);
+	// each row says whose time it is. A member is already scoped to self.
+	var people []personOpt
+	names := map[int64]string{}
+	personFilter, _ := strconv.ParseInt(r.URL.Query().Get("person"), 10, 64)
+	if canManage(r) {
+		if ms, err := s.teams.Members(ctx, teamID(r)); err == nil && len(ms) > 1 {
+			for _, m := range ms {
+				n := m.Name
+				if n == "" {
+					n = m.Email
+				}
+				names[m.UserID] = n
+				people = append(people, personOpt{ID: m.UserID, Name: n, Selected: m.UserID == personFilter})
+			}
+		}
+		if personFilter > 0 && names[personFilter] != "" {
+			ctx = dbpkg.WithScope(ctx, personFilter)
+		} else {
+			personFilter = 0
+		}
+	}
 
 	// Optional project filter (?project=slug). Applied at the SQL layer
 	// via ListClosedSessionsInRange so we don't pull a hundred rows to
@@ -387,7 +414,11 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		if clipped <= 0 {
 			continue
 		}
-		rows = append(rows, toSessionView(as.Session, as.Activity, period.Start, period.End, now, resolveLang(r)))
+		v := toSessionView(as.Session, as.Activity, period.Start, period.End, now, resolveLang(r))
+		if as.Session.UserID > 0 {
+			v.PersonName = names[as.Session.UserID]
+		}
+		rows = append(rows, v)
 	}
 	hydrateSessionTags(ctx, s.db, rows)
 	hydrateSessionProjects(ctx, s.db, rows)
@@ -483,6 +514,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, r, "stats-content", &statsData{
+		People:        people,
+		PersonFilter:  personFilter,
 		pageData:      pageData{Title: "Stats", Active: "stats"},
 		Period:        period,
 		Aggregated:    aggs,
@@ -632,13 +665,13 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	}
 	// Say what stopped, how long it ran, and where it went.
 	// A session that ran at all reads "<1 min", never "0 min".
-	dur := fmtDur(r, max(1, stopped.DurationSeconds(time.Now())))
+	dur := fmtDur(r, max(1, stopped.DurationSeconds(userNow(r))))
 	s.toast(w, strings.NewReplacer("{name}", pushName, "{dur}", dur).
 		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
 	// Stop is instant; the toast carries the way back (and a discard for
 	// accidental sub-minute sessions).
 	w.Header().Set("X-Toast-Undo", "/api/sessions/"+strconv.FormatInt(id, 10)+"/reopen")
-	if stopped.DurationSeconds(time.Now()) < 60 {
+	if stopped.DurationSeconds(userNow(r)) < 60 {
 		w.Header().Set("X-Toast-Discard", "/api/sessions/"+strconv.FormatInt(id, 10))
 	}
 	s.sendPush(teamID(r), "Session stopped", pushName+" finished", "/stats")
@@ -857,7 +890,7 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 	var startTime time.Time
 	hasStart := false
 	if startStr != "" {
-		t, err := time.ParseInLocation("2006-01-02T15:04", startStr, time.Local)
+		t, err := time.ParseInLocation("2006-01-02T15:04", startStr, userLoc(r))
 		if err != nil {
 			http.Error(w, "bad start: "+err.Error(), 400)
 			return
@@ -870,7 +903,7 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 	// A duration wins over end_at (end = start + duration below); setting
 	// both would assign end_at twice, which Postgres rejects.
 	if endStr != "" && durationStr == "" {
-		t, err := time.ParseInLocation("2006-01-02T15:04", endStr, time.Local)
+		t, err := time.ParseInLocation("2006-01-02T15:04", endStr, userLoc(r))
 		if err != nil {
 			http.Error(w, "bad end: "+err.Error(), 400)
 			return
@@ -914,7 +947,7 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 		}
 		// endStr was already parsed into the sets/updates above; re-parse
 		// the span here so accumulated_seconds matches start→end.
-		endTime, err := time.ParseInLocation("2006-01-02T15:04", endStr, time.Local)
+		endTime, err := time.ParseInLocation("2006-01-02T15:04", endStr, userLoc(r))
 		if err == nil {
 			span := int(endTime.Sub(startTime).Seconds())
 			if span < 0 {
@@ -928,7 +961,7 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 	sets = append(sets, "note = ?")
 	updates = append(updates, nullableStr(note))
 	sets = append(sets, "updated_at = ?")
-	updates = append(updates, time.Now().UTC().Format(time.RFC3339Nano))
+	updates = append(updates, userNow(r).UTC().Format(time.RFC3339Nano))
 	updates = append(updates, id)
 	q := "UPDATE sessions SET " + strings.Join(sets, ", ") + " WHERE id = ?"
 	if teamID(r) > 0 {
@@ -1121,7 +1154,7 @@ func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id in
 		http.Error(w, err.Error(), 404)
 		return
 	}
-	now := time.Now()
+	now := userNow(r)
 	period := s.parsePeriod(r)
 	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now, resolveLang(r))}
 	hydrateSessionTags(ctx, s.db, views)
@@ -1180,7 +1213,7 @@ func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
 
 // handleGoals serves the /goals management page.
 func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
+	now := userNow(r)
 
 	acts, err := s.db.ListActivities(r.Context(), teamID(r), false)
 	if err != nil {
@@ -1234,7 +1267,7 @@ func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
 // the rendered `goals-list` fragment so it can be swapped into the
 // page directly. Plain GET returns JSON for tooling / scripts.
 func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), time.Now())
+	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), userNow(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1332,7 +1365,7 @@ func (s *Server) handleGoalsDelete(w http.ResponseWriter, r *http.Request) {
 
 // respondGoalsList renders the `goals-list` fragment for HTMX swaps.
 func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), time.Now())
+	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), userNow(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1387,8 +1420,8 @@ func toGoalViews(progress []dbpkg.GoalProgress, lang i18n.Lang) []goalView {
 			AchievedLabel:    fmtDurL(lang, p.AchievedMinutes*60),
 			Percent:          p.PercentComplete,
 			AchievedClass:    class,
-			PeriodStartLabel: fmtDay(lang, p.PeriodStart.Local()),
-			PeriodEndLabel:   fmtDay(lang, p.PeriodEnd.Local()),
+			PeriodStartLabel: fmtDay(lang, p.PeriodStart),
+			PeriodEndLabel:   fmtDay(lang, p.PeriodEnd),
 			PeriodRangeLabel: periodRangeLabel(p.Goal.Period, i18n.En), // caller re-stamps with page lang
 		})
 	}
@@ -1413,7 +1446,7 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="paratrack.csv"`)
 	sessions, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r),
-		time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), time.Now().Add(24*time.Hour), nil)
+		time.Date(1970, 1, 1, 0, 0, 0, 0, time.UTC), userNow(r).Add(24*time.Hour), nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -1457,7 +1490,7 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 		}
 		dur := ""
 		if as.Session.EndAt != nil {
-			dur = strconv.Itoa(as.Session.DurationSeconds(time.Now()))
+			dur = strconv.Itoa(as.Session.DurationSeconds(userNow(r)))
 		}
 		note := ""
 		if as.Session.Note != nil {
@@ -1480,7 +1513,7 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 // response sent by stop/pause/resume/focus. Keeps HTMX swap targets
 // consistent across actions.
 func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
+	now := userNow(r)
 	today, _ := timeparse.ResolvePeriod("today", now)
 	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
@@ -1511,7 +1544,7 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 // handleMiniBar renders the phone "now tracking" bar shown above the tab
 // bar on every page but the dashboard. Empty body when nothing runs.
 func (s *Server) handleMiniBar(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
+	now := userNow(r)
 	today, _ := timeparse.ResolvePeriod("today", now)
 	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
 	if err != nil {
@@ -1559,7 +1592,7 @@ func clipSeconds(sess model.Session, start, end time.Time) int {
 // 100% because of the session we just closed. Cheap: one ProgressForGoals
 // query; dedupe is by "goal was under 100 before the stop".
 func (s *Server) notifyNewlyMetGoals(r *http.Request, activityID int64) {
-	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), time.Now())
+	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), userNow(r))
 	if err != nil {
 		return
 	}

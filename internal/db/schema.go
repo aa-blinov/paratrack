@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -49,7 +50,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS uniq_teams_slug ON teams(slug COLLATE NOCASE);
 CREATE TABLE IF NOT EXISTS memberships (
     team_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
-    role TEXT NOT NULL CHECK(role IN ('owner', 'member')),
+    role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member')),
     joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
     PRIMARY KEY (team_id, user_id),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
@@ -321,6 +322,9 @@ var columnMigrations = []struct {
 	{"invoices", "project_id", "INTEGER"},
 	{"invoices", "client_email", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "receipt", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "by_person", "INTEGER NOT NULL DEFAULT 0"}, // lines split per team member
+	// Activity lookup key: lowercase in Go (Unicode), the name keeps case.
+	{"activities", "name_key", "TEXT"},
 	// API tokens: the workspace they act in, optional expiry, read-only.
 	{"api_tokens", "team_id", "INTEGER"},
 	{"api_tokens", "expires_at", "TEXT"},
@@ -338,6 +342,16 @@ var columnMigrations = []struct {
 // because it would conflict with the ON CONFLICT(team_id, activity_id,
 // period) DO UPDATE used by UpsertGoal.
 var uniqueMigrations = []string{
+	`CREATE INDEX IF NOT EXISTS idx_activities_key ON activities(team_id, name_key)`,
+	// Someone who left keeps their pay rate for the time they worked, so
+	// the next pay run still pays it.
+	`CREATE TABLE IF NOT EXISTS former_members (
+	    team_id INTEGER NOT NULL,
+	    user_id INTEGER NOT NULL,
+	    hourly_pay_cents INTEGER,
+	    left_at TEXT NOT NULL,
+	    PRIMARY KEY (team_id, user_id)
+	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_external ON sessions(team_id, external_id) WHERE external_id IS NOT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_activities_project ON activities(project_id)`,
 	// Older DBs predate the password-reset table; IF NOT EXISTS makes
@@ -471,10 +485,54 @@ var uniqueMigrations = []string{
 	`CREATE INDEX IF NOT EXISTS idx_webhook_deliveries ON webhook_deliveries(webhook_id)`,
 }
 
+// widenMembershipRoles lets old SQLite files store the admin role: a
+// CHECK can't be altered in SQLite, so the table is rebuilt once.
+func (d *DB) widenMembershipRoles() error {
+	var ddl string
+	if err := d.sql.QueryRow(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'memberships'`).Scan(&ddl); err != nil {
+		return nil // fresh DB: created with the new CHECK
+	}
+	if strings.Contains(ddl, "'admin'") {
+		return nil
+	}
+	stmts := []string{
+		`PRAGMA foreign_keys = OFF`,
+		`BEGIN`,
+		`CREATE TABLE memberships_new (
+		    team_id INTEGER NOT NULL,
+		    user_id INTEGER NOT NULL,
+		    role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member')),
+		    joined_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now')),
+		    hourly_pay_cents INTEGER,
+		    capacity_minutes INTEGER,
+		    PRIMARY KEY (team_id, user_id),
+		    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+		    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`INSERT INTO memberships_new (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes)
+		 SELECT team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes FROM memberships`,
+		`DROP TABLE memberships`,
+		`ALTER TABLE memberships_new RENAME TO memberships`,
+		`COMMIT`,
+		`PRAGMA foreign_keys = ON`,
+	}
+	for _, st := range stmts {
+		if _, err := d.sql.Exec(st); err != nil {
+			_, _ = d.sql.Exec(`ROLLBACK`)
+			_, _ = d.sql.Exec(`PRAGMA foreign_keys = ON`)
+			return fmt.Errorf("widen membership roles: %w", err)
+		}
+	}
+	return nil
+}
+
 func (d *DB) applyMigrations() error {
 	// Columns go in twice: some tables (api_tokens …) are only created by
 	// uniqueMigrations, so the first pass skips what doesn't exist yet.
 	if err := d.addColumns(); err != nil {
+		return err
+	}
+	if err := d.widenMembershipRoles(); err != nil {
 		return err
 	}
 	for _, stmt := range uniqueMigrations {
@@ -543,30 +601,33 @@ func (d *DB) normalizeActivityCase() error {
 		}
 	}
 
-	// Lowercase everything that's still alive. Already-lowercase rows
-	// hit the equality check below and skip the UPDATE.
-	rows, err := d.sql.Query(`SELECT id, name FROM activities`)
+	// Names keep their case now; only the lookup key is lowercased.
+	return d.fillActivityKeys()
+}
+
+// fillActivityKeys sets name_key for rows made before it existed.
+func (d *DB) fillActivityKeys() error {
+	if !d.sql.pg {
+		if ok, err := d.columnExists("activities", "name_key"); err != nil || !ok {
+			return err // a hand-built legacy DB in tests; the next open adds it
+		}
+	}
+	rows, err := d.sql.Query(`SELECT id, name FROM activities WHERE name_key IS NULL`)
 	if err != nil {
 		return err
 	}
-	defer rows.Close()
-	var survivors []caseRow
+	var todo []caseRow
 	for rows.Next() {
 		var r caseRow
 		if err := rows.Scan(&r.id, &r.name); err != nil {
+			rows.Close()
 			return err
 		}
-		survivors = append(survivors, r)
+		todo = append(todo, r)
 	}
-	if err := rows.Err(); err != nil {
-		return err
-	}
-	for _, r := range survivors {
-		low := strings.ToLower(r.name)
-		if low == r.name {
-			continue
-		}
-		if _, err := d.sql.Exec(`UPDATE activities SET name = ? WHERE id = ?`, low, r.id); err != nil {
+	rows.Close()
+	for _, r := range todo {
+		if _, err := d.sql.Exec(`UPDATE activities SET name_key = ? WHERE id = ?`, strings.ToLower(r.name), r.id); err != nil {
 			return err
 		}
 	}

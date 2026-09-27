@@ -52,7 +52,7 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
+	now := userNow(r)
 	rows := make([]projectListRow, 0, len(projects))
 	for _, p := range projects {
 		acts, _ := s.db.ListActivitiesForProject(r.Context(), p.ID, true)
@@ -128,7 +128,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Recent sessions in this project (last 30 days, capped at 50).
-	now := time.Now()
+	now := userNow(r)
 	from := now.Add(-30 * 24 * time.Hour)
 	rawSessions, err := s.db.ListClosedSessionsInRange(r.Context(), tid, from, now, nil)
 	if err != nil {
@@ -183,7 +183,9 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		Currencies:      currencyOptions(),
 	}
 	data.Currency, _ = s.db.ProjectCurrency(r.Context(), teamID(r), p.ID)
-	data.Unbilled = s.unbilledViews(r, p.ID)
+	if canManage(r) {
+		data.Unbilled = s.unbilledViews(r, p.ID)
+	}
 	data.TeamCurrency, _ = s.db.TeamCurrency(r.Context(), teamID(r))
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))

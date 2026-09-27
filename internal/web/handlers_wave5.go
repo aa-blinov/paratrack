@@ -174,7 +174,7 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 			secret = ws
 		}
 	}
-	if !verifyStripeSignature(r.Header.Get("Stripe-Signature"), body, secret, time.Now()) {
+	if !verifyStripeSignature(r.Header.Get("Stripe-Signature"), body, secret, userNow(r)) {
 		http.Error(w, "bad signature", 400)
 		return
 	}
@@ -299,7 +299,7 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		Status:      inv.Status, Notes: inv.Notes, Lines: vms,
 		Total: moneyL(resolveLang(r), total, inv.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
 		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
-		IssuedLabel:   fmtDate(resolveLang(r), inv.CreatedAt.Local()),
+		IssuedLabel:   fmtDate(resolveLang(r), inv.CreatedAt.In(userLoc(r))),
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
 	}

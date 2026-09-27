@@ -56,7 +56,7 @@ type timesheetData struct {
 // handleTimesheet renders the weekly grid. ?date= any day inside the
 // week selects it; default is today's week.
 func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
+	now := userNow(r)
 	day := now
 	if v := r.URL.Query().Get("date"); v != "" {
 		if t, err := timeparse.ParseDateTime(v, now); err == nil {
@@ -147,7 +147,7 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dateStr := strings.TrimSpace(r.FormValue("date"))
-	day, err := time.ParseInLocation("2006-01-02", dateStr, time.Local)
+	day, err := time.ParseInLocation("2006-01-02", dateStr, userLoc(r))
 	if err != nil {
 		http.Error(w, "bad date", 400)
 		return
@@ -176,7 +176,7 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, actID int64, day time.Time) {
 	weekStart := startOfWeek(day)
-	now := time.Now()
+	now := userNow(r)
 	grid, err := s.db.ListTimesheet(r.Context(), teamID(r), weekStart, now)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

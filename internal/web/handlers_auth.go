@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/url"
 	"errors"
 	"net/http"
 	"strings"
@@ -108,8 +109,13 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	password := r.PostForm.Get("password")
 	name := strings.TrimSpace(r.PostForm.Get("name"))
 	next := strings.TrimSpace(r.PostForm.Get("next"))
+	// An error must not lose where the user was going (an invite link).
+	keep := ""
+	if strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+		keep = "&next=" + url.QueryEscape(next)
+	}
 	if email == "" || password == "" || name == "" {
-		http.Redirect(w, r, "/register?error=missing_fields", http.StatusSeeOther)
+		http.Redirect(w, r, "/register?error=missing_fields"+keep, http.StatusSeeOther)
 		return
 	}
 
@@ -124,7 +130,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		default:
 			code = "could_not_register"
 		}
-		http.Redirect(w, r, "/register?error="+code, http.StatusSeeOther)
+		http.Redirect(w, r, "/register?error="+code+keep, http.StatusSeeOther)
 		return
 	}
 
@@ -134,7 +140,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 
 	sess, err := s.auth.NewSession(r.Context(), userID)
 	if err != nil {
-		http.Redirect(w, r, "/register?error=internal", http.StatusSeeOther)
+		http.Redirect(w, r, "/register?error=internal"+keep, http.StatusSeeOther)
 		return
 	}
 	setSessionCookie(w, r, sess.Token)

@@ -103,7 +103,13 @@ func (d *DB) BuildPayrollLines(ctx context.Context, teamID int64, start, end tim
 		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), u.name, u.email
 		 FROM memberships m
 		 JOIN users u ON u.id = m.user_id
-		 WHERE m.team_id = ? AND COALESCE(m.hourly_pay_cents, 0) > 0`, teamID)
+		 WHERE m.team_id = ? AND COALESCE(m.hourly_pay_cents, 0) > 0
+		 UNION ALL
+		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), u.name, u.email
+		 FROM former_members f
+		 JOIN users u ON u.id = f.user_id
+		 WHERE f.team_id = ? AND COALESCE(f.hourly_pay_cents, 0) > 0
+		   AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.team_id = f.team_id AND m.user_id = f.user_id)`, teamID, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -145,19 +151,14 @@ func (d *DB) BuildPayrollLines(ctx context.Context, teamID int64, start, end tim
 		return nil, err
 	}
 	defer rows.Close()
-	// We attribute sessions to the user via a lookup: sessions have no
-	// user_id (they belong to the team). For payroll we use the team
-	// member who has a pay rate and split evenly is wrong — so we add
-	// user_id to sessions? For Wave 6 we attribute ALL team tracked time
-	// to each paid member only if they are the sole paid member; better:
-	// require sessions.user_id. columnMigrations adds it below and
-	// handleStart stamps it. For rows without a user (legacy / CLI),
-	// they land on the team's first paid member.
+	// Every session carries its author (user_id, stamped on every create
+	// path; older rows were given to the workspace owner at startup), so
+	// each member is paid for their own time only.
 	for rows.Next() {
 		var (
-			owner                               int64
-			startAt, endAt, lastResume          sql.NullString
-			accum, paused                       int
+			owner                      int64
+			startAt, endAt, lastResume sql.NullString
+			accum, paused              int
 		)
 		if err := rows.Scan(&owner, &startAt, &endAt, &accum, &paused, &lastResume); err != nil {
 			return nil, err
@@ -181,13 +182,7 @@ func (d *DB) BuildPayrollLines(ctx context.Context, teamID int64, start, end tim
 		if sec <= 0 {
 			continue
 		}
-		// Legacy rows without user_id land on the first paid member;
-		// handleStart stamps user_id going forward.
-		uid := owner
-		if uid == 0 && len(members) > 0 {
-			uid = members[0].id
-		}
-		secsByUser[uid] += sec
+		secsByUser[owner] += sec
 	}
 
 	lines := make([]PayrollLine, 0, len(members))
@@ -345,7 +340,7 @@ func (d *DB) DeletePayrollRun(ctx context.Context, teamID, id int64) error {
 
 func scanPayrollRun(r interface{ Scan(...any) error }) (PayrollRun, error) {
 	var (
-		run       PayrollRun
+		run            PayrollRun
 		start, end, ct string
 	)
 	if err := r.Scan(&run.ID, &run.TeamID, &run.Number, &start, &end, &run.Status, &run.Notes, &run.Currency, &ct); err != nil {
@@ -388,9 +383,11 @@ type ScheduleRow struct {
 	UserID   int64
 	UserName string
 	Capacity int // planned minutes/day (0 → 480)
-	// Minutes indexed Mon..Sun
+	// Minutes indexed Mon..Sun, all projects
 	Minutes [7]int
 	Total   int
+	// ByProject is the same week split per project (a cell edits one).
+	ByProject map[int64][7]int
 }
 
 // ListSchedule returns the plan for a week plus a project breakdown.
@@ -451,26 +448,46 @@ func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time
 	if err != nil {
 		return nil, nil, err
 	}
-	type key struct{ uid int64; day string }
+	type key struct {
+		uid int64
+		day string
+	}
+	type pkey struct {
+		uid, pid int64
+		day      string
+	}
 	entry := map[key]int{}
+	byProj := map[pkey]int{}
 	for erows.Next() {
-		var uid, pid, mins int64
+		var uid, pid int64
 		var day string
 		var m int
 		if err := erows.Scan(&uid, &pid, &day, &m); err == nil {
 			entry[key{uid, day}] += m
+			byProj[pkey{uid, pid, day}] += m
 		}
-		_ = mins
 	}
 	erows.Close()
 
 	rows := make([]ScheduleRow, 0, len(users))
 	for _, u := range users {
-		row := ScheduleRow{UserID: u.id, UserName: u.name, Capacity: u.cap}
+		row := ScheduleRow{UserID: u.id, UserName: u.name, Capacity: u.cap, ByProject: map[int64][7]int{}}
 		for i := 0; i < 7; i++ {
 			day := dayStr(weekStart.AddDate(0, 0, i))
 			row.Minutes[i] = entry[key{u.id, day}]
 			row.Total += row.Minutes[i]
+		}
+		for k, m := range byProj {
+			if k.uid != u.id {
+				continue
+			}
+			for i := 0; i < 7; i++ {
+				if dayStr(weekStart.AddDate(0, 0, i)) == k.day {
+					w := row.ByProject[k.pid]
+					w[i] += m
+					row.ByProject[k.pid] = w
+				}
+			}
 		}
 		rows = append(rows, row)
 	}
