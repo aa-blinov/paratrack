@@ -245,6 +245,7 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("POST /invoices/{id}/rebuild", s.handleInvoiceRebuild)
 	pages.HandleFunc("POST /invoices/{id}/receipt", s.handleInvoiceReceipt)
 	pages.HandleFunc("POST /invoices/{id}/send",    s.handleInvoiceSend)
+	pages.HandleFunc("GET /settings/email-preview", s.handleEmailPreview)
 	pages.HandleFunc("GET /invoices/{id}/act.pdf", s.handleInvoiceActPDF)
 	pages.HandleFunc("POST /invoices/{id}/pay",    s.handleInvoicePayLink)
 	pages.HandleFunc("POST /invoices/{id}/paid",   s.handleInvoiceMarkPaid)
