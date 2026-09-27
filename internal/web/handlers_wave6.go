@@ -173,7 +173,15 @@ func (s *Server) handlePayrollPaid(w http.ResponseWriter, r *http.Request) {
 	}
 	_ = s.db.MarkPayrollPaid(r.Context(), teamID(r), id)
 	s.audit(r, "payroll.paid", strconv.FormatInt(id, 10), "")
-	s.sendPush(teamID(r), "Payroll paid", "Pay run marked paid", "/payroll/"+strconv.FormatInt(id, 10))
+	// The people on the run hear their pay went out (the run page is for
+	// managers, so the link is their own stats).
+	var paid []int64
+	if lines, err := s.db.ListPayrollLines(r.Context(), id); err == nil {
+		for _, l := range lines {
+			paid = append(paid, l.UserID)
+		}
+	}
+	s.sendPush(teamID(r), paid, "Payroll paid", "Pay run marked paid", "/stats")
 	http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(true, "marked paid"),
 		http.StatusSeeOther)
 }

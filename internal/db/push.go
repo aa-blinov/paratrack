@@ -49,10 +49,14 @@ func formatNowUTC() string {
 }
 
 // ListPushSubscriptions returns every subscription in the team.
-func (d *DB) ListPushSubscriptions(ctx context.Context, teamID int64) ([]PushSubscription, error) {
-	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, user_id, endpoint, p256dh, auth
-		 FROM push_subscriptions WHERE team_id = ?`, teamID)
+func (d *DB) ListPushSubscriptions(ctx context.Context, teamID int64, userIDs ...int64) ([]PushSubscription, error) {
+	q := `SELECT id, team_id, user_id, endpoint, p256dh, auth FROM push_subscriptions WHERE team_id = ?`
+	args := []any{teamID}
+	if len(userIDs) > 0 {
+		q += ` AND user_id = ANY(?)`
+		args = append(args, userIDs)
+	}
+	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}

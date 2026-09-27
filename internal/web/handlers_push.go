@@ -78,12 +78,20 @@ type notifyPage struct {
 
 func (p *notifyPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
-// sendPush delivers a notification to every subscription in the team.
+// sendPush delivers a notification to the given people's devices in the
+// team, in the background so a slow push service never holds a request.
 // Failures (410 Gone etc.) clean up dead endpoints.
-func (s *Server) sendPush(teamID int64, title, body, url string) {
+func (s *Server) sendPush(teamID int64, userIDs []int64, title, body, url string) {
+	if len(userIDs) == 0 {
+		return
+	}
+	go s.deliverPush(teamID, userIDs, title, body, url)
+}
+
+func (s *Server) deliverPush(teamID int64, userIDs []int64, title, body, url string) {
 	ctx := context.Background()
-	subs, err := s.db.ListPushSubscriptions(ctx, teamID)
-	if err != nil {
+	subs, err := s.db.ListPushSubscriptions(ctx, teamID, userIDs...)
+	if err != nil || len(subs) == 0 {
 		return
 	}
 	pub, priv, err := s.db.EnsureVAPIDKeys(ctx)
@@ -110,6 +118,7 @@ func (s *Server) sendPush(teamID int64, title, body, url string) {
 			VAPIDPublicKey:  pub,
 			VAPIDPrivateKey: privKey,
 			TTL:             86400,
+			HTTPClient:      hookClient, // timeout, no private addresses
 		})
 		if err != nil {
 			continue

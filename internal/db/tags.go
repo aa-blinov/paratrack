@@ -234,18 +234,14 @@ func (d *DB) TagsForSessions(ctx context.Context, sessionIDs []int64) (map[int64
 	if len(sessionIDs) == 0 {
 		return out, nil
 	}
-	placeholders := strings.Repeat("?,", len(sessionIDs))
-	placeholders = placeholders[:len(placeholders)-1]
-	args := make([]any, len(sessionIDs))
-	for i, id := range sessionIDs {
-		args[i] = id
-	}
+	// One array parameter: an IN list of ?s hits Postgres' 65535-parameter
+	// cap on a big team's year.
 	q := `SELECT st.session_id, t.id, t.name, t.team_id, t.created_at
 	      FROM session_tags st
 	      JOIN tags t ON t.id = st.tag_id
-	      WHERE st.session_id IN (` + placeholders + `)
+	      WHERE st.session_id = ANY(?)
 	      ORDER BY st.session_id, t.name`
-	rows, err := d.sql.QueryContext(ctx, q, args...)
+	rows, err := d.sql.QueryContext(ctx, q, sessionIDs)
 	if err != nil {
 		return nil, err
 	}

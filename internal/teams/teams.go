@@ -383,6 +383,11 @@ func (s *Service) RemoveMember(ctx context.Context, teamID, targetUserID, caller
 		db.FormatTime(time.Now().UTC()), teamID, targetUserID); err != nil {
 		return err
 	}
+	// Their devices stop hearing about this workspace.
+	if _, err := s.d.SQL().ExecContext(ctx,
+		`DELETE FROM push_subscriptions WHERE team_id = ? AND user_id = ?`, teamID, targetUserID); err != nil {
+		return err
+	}
 	_, err = s.d.SQL().ExecContext(ctx,
 		`DELETE FROM memberships WHERE team_id = ? AND user_id = ?`,
 		teamID, targetUserID,
@@ -399,7 +404,7 @@ func (s *Service) NewInvite(ctx context.Context, teamID, callerID int64) (Invite
 	if err != nil {
 		return Invite{}, err
 	}
-	if !isCaller || role != RoleOwner {
+	if !isCaller || !role.CanManage() {
 		return Invite{}, ErrForbidden
 	}
 	var b [24]byte
@@ -457,7 +462,7 @@ func (s *Service) RevokeInvite(ctx context.Context, teamID, callerID int64, toke
 	if err != nil {
 		return err
 	}
-	if !isCaller || role != RoleOwner {
+	if !isCaller || !role.CanManage() {
 		return ErrForbidden
 	}
 	_, err = s.d.SQL().ExecContext(ctx,
@@ -491,19 +496,24 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, userID int64) 
 		}
 	}()
 	now := db.FormatTime(time.Now().UTC())
+	// Claim the link first: of two people opening it at once, one wins.
+	res, err := tx.ExecContext(ctx,
+		`UPDATE invites SET accepted_at = ?, accepted_by = ? WHERE token = ? AND accepted_at IS NULL`,
+		now, userID, token,
+	)
+	if err != nil {
+		return Team{}, fmt.Errorf("mark invite accepted: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		err = fmt.Errorf("%w: invite already used", ErrValidation)
+		return Team{}, err
+	}
 	_, err = tx.ExecContext(ctx,
 		`INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		inv.TeamID, userID, string(inv.Role), now,
 	)
 	if err != nil {
 		return Team{}, fmt.Errorf("add membership: %w", err)
-	}
-	_, err = tx.ExecContext(ctx,
-		`UPDATE invites SET accepted_at = ?, accepted_by = ? WHERE token = ?`,
-		now, userID, token,
-	)
-	if err != nil {
-		return Team{}, fmt.Errorf("mark invite accepted: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
 		return Team{}, err

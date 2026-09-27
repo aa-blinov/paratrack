@@ -51,6 +51,7 @@ type InvoiceLine struct {
 	AmountCents int     `json:"amount_cents"`
 	Currency    string  `json:"currency,omitempty"` // project currency; not stored per line
 	SessionIDs  []int64 `json:"-"`                  // sessions this line bills (stamped on create)
+	ProjectID   int64   `json:"-"`
 }
 
 // SetProjectRate updates the billable rate for a project. rateCents is
@@ -336,14 +337,25 @@ func insertLines(ctx context.Context, tx *Tx, invID int64, lines []InvoiceLine) 
 			invID, l.Label, l.Detail, l.Seconds, l.RateCents, l.AmountCents); err != nil {
 			return err
 		}
-		for _, sid := range l.SessionIDs {
-			if _, err := tx.ExecContext(ctx, `UPDATE sessions SET invoice_id = ? WHERE id = ?`, invID, sid); err != nil {
-				return err
-			}
+		if len(l.SessionIDs) == 0 {
+			continue
+		}
+		// Only sessions still free take the stamp: if another invoice got
+		// one first (two managers at once), this one fails whole.
+		res, err := tx.ExecContext(ctx,
+			`UPDATE sessions SET invoice_id = ? WHERE id = ANY(?) AND invoice_id IS NULL`, invID, l.SessionIDs)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n != int64(len(l.SessionIDs)) {
+			return ErrAlreadyBilled
 		}
 	}
 	return nil
 }
+
+// ErrAlreadyBilled: some of the time was put on another invoice meanwhile.
+var ErrAlreadyBilled = errors.New("some of this time was just billed on another invoice; reload and try again")
 
 // RebuildInvoice recomputes a draft's lines from its period and project:
 // edited sessions and newly finished ones are picked up, its own billed
@@ -647,7 +659,7 @@ func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end 
 // ids it covers; CreateInvoice stamps them.
 func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time, projectID, reuse int64, byPerson bool) ([]InvoiceLine, error) {
 	q := `
-		SELECT s.id, a.name, COALESCE(p.name, ''), s.start_at, s.end_at, s.accumulated_seconds,
+		SELECT s.id, p.id, a.name, COALESCE(p.name, ''), s.start_at, s.end_at, s.accumulated_seconds,
 		       COALESCE(p.billable_rate_cents, 0), COALESCE(p.billable, 1), COALESCE(p.currency, ''),
 		       COALESCE(NULLIF(u.name, ''), u.email, '')
 		FROM sessions s
@@ -655,7 +667,7 @@ func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time,
 		JOIN projects p ON p.id = a.project_id
 		LEFT JOIN users u ON u.id = s.user_id
 		WHERE s.start_at >= ? AND s.start_at < ? AND s.end_at IS NOT NULL
-		  AND (s.invoice_id IS NULL OR s.invoice_id = ? OR NOT EXISTS (SELECT 1 FROM invoices i WHERE i.id = s.invoice_id))`
+		  AND (s.invoice_id IS NULL OR s.invoice_id = ?)`
 	args := []any{FormatTime(start), FormatTime(end), reuse}
 	if teamID > 0 {
 		q += ` AND s.team_id = ?`
@@ -670,7 +682,10 @@ func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time,
 		return nil, err
 	}
 	defer rows.Close()
-	type key struct{ act, proj, person string }
+	type key struct {
+		projID            int64
+		act, proj, person string
+	}
 	type acc struct {
 		secs     int
 		rate     int
@@ -681,13 +696,13 @@ func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time,
 	buckets := map[key]*acc{}
 	for rows.Next() {
 		var (
-			id                    int64
+			id, projID            int64
 			actName, projName     string
 			startAt, endAt        string
 			accum, rate, billable int
 			currency, person      string
 		)
-		if err := rows.Scan(&id, &actName, &projName, &startAt, &endAt, &accum, &rate, &billable, &currency, &person); err != nil {
+		if err := rows.Scan(&id, &projID, &actName, &projName, &startAt, &endAt, &accum, &rate, &billable, &currency, &person); err != nil {
 			return nil, err
 		}
 		if billable == 0 {
@@ -702,7 +717,7 @@ func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time,
 		if sec <= 0 {
 			continue
 		}
-		k := key{act: actName, proj: projName}
+		k := key{projID: projID, act: actName, proj: projName}
 		if byPerson {
 			k.person = person
 		}
@@ -733,7 +748,7 @@ func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time,
 		lines = append(lines, InvoiceLine{
 			Label: label, Detail: a.detail, Seconds: a.secs,
 			RateCents: a.rate, AmountCents: PriceCents(a.secs, a.rate), Currency: a.currency,
-			SessionIDs: a.ids,
+			SessionIDs: a.ids, ProjectID: k.projID,
 		})
 	}
 	sort.Slice(lines, func(i, j int) bool { return lines[i].Label < lines[j].Label })
@@ -754,46 +769,62 @@ type UnbilledProject struct {
 // Unbilled sums, per project, what an invoice for all unbilled time up to
 // now would say: the same lines rule as BuildInvoiceLinesFor.
 func (d *DB) Unbilled(ctx context.Context, teamID int64, projectID int64) ([]UnbilledProject, error) {
-	q := `SELECT p.id, p.name, p.slug, COALESCE(NULLIF(p.currency, ''), t.currency, 'RUB'), MIN(s.start_at)
-		FROM sessions s JOIN activities a ON a.id = s.activity_id JOIN projects p ON p.id = a.project_id
+	// Summed in SQL per invoice line (project × activity), then rounded
+	// and priced per line in Go exactly like buildLines, so a manager's
+	// dashboard doesn't pull every unbilled session. TestUnbilledMatchesInvoice
+	// keeps the two in step.
+	// Sessions fold per activity first (cheap keys, "C" order for the
+	// ISO strings), then per line.
+	q := `SELECT p.id, p.name, p.slug, COALESCE(NULLIF(p.currency, ''), t.currency, 'RUB'),
+		       COALESCE(p.billable_rate_cents, 0), MIN(x.since), SUM(x.secs)::bigint
+		FROM (SELECT s.activity_id, MIN(s.start_at COLLATE "C") AS since,
+		             SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
+		                      ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END) AS secs
+		      FROM sessions s
+		      WHERE s.team_id = ? AND s.end_at IS NOT NULL AND s.invoice_id IS NULL AND s.start_at < ?
+		      GROUP BY s.activity_id) x
+		JOIN activities a ON a.id = x.activity_id JOIN projects p ON p.id = a.project_id
 		JOIN teams t ON t.id = p.team_id
-		WHERE s.team_id = ? AND s.end_at IS NOT NULL AND COALESCE(p.billable, 1) = 1
-		  AND COALESCE(p.billable_rate_cents, 0) > 0 AND p.archived = 0
-		  AND (s.invoice_id IS NULL OR NOT EXISTS (SELECT 1 FROM invoices i WHERE i.id = s.invoice_id))`
-	args := []any{teamID}
+		WHERE COALESCE(p.billable, 1) = 1 AND COALESCE(p.billable_rate_cents, 0) > 0 AND p.archived = 0`
+	args := []any{teamID, FormatTime(time.Now().Add(time.Hour))}
 	if projectID > 0 {
 		q += ` AND p.id = ?`
 		args = append(args, projectID)
 	}
-	q += ` GROUP BY p.id, p.name, p.slug, p.currency, t.currency ORDER BY p.name`
+	q += ` GROUP BY p.id, p.name, p.slug, p.currency, t.currency, p.billable_rate_cents, a.name ORDER BY p.name`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
+	rules, _ := d.TeamBilling(ctx, teamID)
 	var out []UnbilledProject
+	at := map[int64]int{}
 	for rows.Next() {
 		var u UnbilledProject
+		var rate int
 		var since string
-		if err := rows.Scan(&u.ProjectID, &u.ProjectName, &u.ProjectSlug, &u.Currency, &since); err != nil {
-			rows.Close()
+		var secs int64
+		if err := rows.Scan(&u.ProjectID, &u.ProjectName, &u.ProjectSlug, &u.Currency, &rate, &since, &secs); err != nil {
 			return nil, err
 		}
-		u.Since, _ = ScanTime(since)
-		out = append(out, u)
-	}
-	rows.Close()
-	far := time.Now().Add(time.Hour)
-	for i := range out {
-		lines, err := d.BuildInvoiceLinesFor(ctx, teamID, out[i].Since, far, out[i].ProjectID, 0)
-		if err != nil {
-			return nil, err
+		i, ok := at[u.ProjectID]
+		if !ok {
+			i = len(out)
+			at[u.ProjectID] = i
+			out = append(out, u)
 		}
-		for _, l := range lines {
-			out[i].Hundredths += HoursHundredths(l.Seconds)
-			out[i].AmountCents += l.AmountCents
+		if st, err := ScanTime(since); err == nil && (out[i].Since.IsZero() || st.Before(out[i].Since)) {
+			out[i].Since = st
 		}
+		line := RoundBilled(int(secs), rules)
+		if HoursHundredths(line) == 0 {
+			continue
+		}
+		out[i].Hundredths += HoursHundredths(line)
+		out[i].AmountCents += PriceCents(line, rate)
 	}
-	return out, nil
+	return out, rows.Err()
 }
 
 // InvoiceLockFor names the sent or paid invoice a session is billed on

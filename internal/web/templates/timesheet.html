@@ -53,6 +53,20 @@
     </div>
   </div>
 
+  {{if .Others}}
+  <form method="GET" action="/timesheet" class="flex flex-wrap items-center gap-2">
+    <input type="hidden" name="date" value="{{.DateISO}}">
+    {{range .Added}}<input type="hidden" name="add" value="{{.}}">{{end}}
+    <label class="sr-only" for="ts-add">{{.T "ts.addRow"}}</label>
+    <select id="ts-add" name="add" class="select select-bordered select-sm w-full sm:w-72" required>
+      <option value="" disabled selected>{{.T "ts.addRow"}}…</option>
+      {{range .Others}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+    </select>
+    <button type="submit" class="btn btn-sm gap-1.5">{{icon "plus" "icon icon-sm"}}{{.T "ts.addRowBtn"}}</button>
+    <span class="text-xs doc-muted w-full">{{.T "ts.addRowHint"}}</span>
+  </form>
+  {{end}}
+
   <p class="text-sm opacity-60">{{.T "ts.hint"}}</p>
 </div>
 {{end}}

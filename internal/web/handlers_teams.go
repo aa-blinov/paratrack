@@ -465,6 +465,8 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.forbidden"), false
 	case "bad_team":
 		return i18n.T(lang, "flash.badTeam"), false
+	case "already_billed":
+		return i18n.T(lang, "flash.alreadyBilled"), false
 	case "logo_big":
 		return i18n.T(lang, "flash.logoBig"), false
 	case "logo_type":

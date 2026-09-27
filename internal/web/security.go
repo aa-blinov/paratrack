@@ -254,12 +254,18 @@ func clientIP(r *http.Request) string {
 
 // rateLimit returns middleware that allows `limit` requests per `window`
 // per (ip + bucket). bucket lets login/register share a table without
-// colliding.
-func (s *Server) rateLimit(bucket string, limit int, window time.Duration) func(http.Handler) http.Handler {
+// colliding. With a field ("email"), the key is ip + that form value, so
+// a whole office behind one address can still sign in at nine while
+// guessing one account's password stays slow.
+func (s *Server) rateLimit(bucket string, limit int, window time.Duration, field ...string) func(http.Handler) http.Handler {
 	lim := newRateLimiter(limit, window)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !lim.allow(bucket + "|" + clientIP(r)) {
+			key := bucket + "|" + clientIP(r)
+			for _, f := range field {
+				key += "|" + strings.ToLower(strings.TrimSpace(r.FormValue(f)))
+			}
+			if !lim.allow(key) {
 				w.Header().Set("Retry-After", "60")
 				if strings.HasPrefix(r.URL.Path, "/api/") {
 					w.Header().Set("Content-Type", "application/json")
