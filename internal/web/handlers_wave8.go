@@ -156,7 +156,7 @@ func fetchTogglEntries(token string, from, to time.Time) ([]importedEntry, error
 		return nil, err
 	}
 	req.SetBasicAuth(token, "api_token")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +212,7 @@ func fetchHarvestEntries(token, accountID string, from, to time.Time) ([]importe
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Harvest-Account-Id", accountID)
 	req.Header.Set("User-Agent", "paratrack")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -265,7 +265,7 @@ func fetchClockifyEntries(apiKey, workspaceID string, from, to time.Time) ([]imp
 	}
 	req.Header.Set("X-Api-Key", apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
