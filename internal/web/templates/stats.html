@@ -51,8 +51,8 @@
           <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
           <a href="/stats?period={{.Period}}{{if .ProjectSlug}}&project={{.ProjectSlug}}{{end}}{{if .Tag}}&tag={{urlquery .Tag}}{{end}}"
              class="btn btn-ghost btn-sm join-item border border-base-300">{{.Name}}</a>
-          <button type="submit" class="btn btn-ghost btn-sm join-item border border-base-300 px-2 opacity-60"
-                  title="{{$.T "reports.delete"}}" aria-label="{{$.T "reports.delete"}}">×</button>
+          {{if or $.CanManage (eq .CreatedBy $.MeID)}}<button type="submit" class="btn btn-ghost btn-sm join-item border border-base-300 px-2 opacity-60"
+                  title="{{$.T "reports.delete"}}" aria-label="{{$.T "reports.delete"}}">×</button>{{end}}
         </form>
       {{end}}
       <form method="POST" action="/api/reports/save" class="flex items-center gap-1 ml-auto">

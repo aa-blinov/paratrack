@@ -562,6 +562,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "stats-content", &statsData{
 		SessionsCut:   len(shown) < len(rows),
+		MeID:          func() int64 { u, _ := UserFrom(ctx); return u.ID }(),
 		People:        people,
 		PersonFilter:  personFilter,
 		pageData:      pageData{Title: "Stats", Active: "stats"},
@@ -644,8 +645,13 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	// Optional: bind the activity to a project on first start.
 	if pidStr := r.FormValue("project_id"); pidStr != "" {
 		if pid, err := strconv.ParseInt(pidStr, 10, 64); err == nil && pid > 0 {
-			if err := s.db.AssignActivityProject(r.Context(), teamID(r), act.ID, pid); err != nil {
+			if err := s.bindActivityProject(r, act.ID, pid); err != nil {
 				// Surface it — the user explicitly asked for this project.
+				if errors.Is(err, errRebind) {
+					s.toast(w, i18n.T(resolveLang(r), "act.rebindForbidden"), "error")
+					http.Error(w, i18n.T(resolveLang(r), "act.rebindForbidden"), http.StatusForbidden)
+					return
+				}
 				http.Error(w, "project: "+err.Error(), 400)
 				return
 			}
@@ -1147,7 +1153,7 @@ func (s *Server) respondTagsList(w http.ResponseWriter, r *http.Request) {
 			Lang:         string(resolveLang(r)),
 		})
 	}
-	s.renderFragment(w, "tags-list", tagsListVM{Lang: string(resolveLang(r)), Tags: views})
+	s.renderFragment(w, "tags-list", tagsListVM{Lang: string(resolveLang(r)), Tags: views, CanManage: canManage(r)})
 }
 
 // isHTMX reports whether the request came from an HTMX swap target.
@@ -1266,7 +1272,7 @@ func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
 			Lang:         string(resolveLang(r)),
 		})
 	}
-	s.renderFragment(w, "tags-list", tagsListVM{Lang: string(resolveLang(r)), Tags: views})
+	s.renderFragment(w, "tags-list", tagsListVM{Lang: string(resolveLang(r)), Tags: views, CanManage: canManage(r)})
 }
 
 // ---------- Goals ---------------------------------------------------
@@ -1339,7 +1345,7 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 		views[i].PeriodRangeLabel = periodRangeLabel(views[i].Period, i18n.Lang(glang))
 	}
 	if isHTMX(r) {
-		s.renderFragment(w, "goals-list", goalsListVM{Lang: glang, Goals: views})
+		s.renderFragment(w, "goals-list", goalsListVM{Lang: glang, Goals: views, CanManage: canManage(r)})
 		return
 	}
 	if progress == nil {
@@ -1436,7 +1442,7 @@ func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
 		gv[i].Lang = lang
 		gv[i].PeriodRangeLabel = periodRangeLabel(gv[i].Period, i18n.Lang(lang))
 	}
-	s.renderFragment(w, "goals-list", goalsListVM{Lang: string(resolveLang(r)), Goals: gv})
+	s.renderFragment(w, "goals-list", goalsListVM{Lang: string(resolveLang(r)), Goals: gv, CanManage: canManage(r)})
 }
 
 // writeJSON is a tiny helper used by goal endpoints; keeps the handlers

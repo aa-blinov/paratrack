@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // --- /api/projects JSON CRUD -----------------------------------------
@@ -28,7 +30,18 @@ func (s *Server) handleAPIProjectsList(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, map[string]any{"projects": list})
+	writeJSON(w, map[string]any{"projects": projectsFor(r, list)})
+}
+
+// projectsFor hides client rates from people who don't handle money.
+func projectsFor(r *http.Request, list []model.Project) []model.Project {
+	if canManage(r) {
+		return list
+	}
+	for i := range list {
+		list[i].BillableRateCents = nil
+	}
+	return list
 }
 
 // handleAPIProjectCreate — POST /api/projects
@@ -142,6 +155,29 @@ func (s *Server) handleAPIProjectDelete(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// errRebind: a member tried to move an activity that already has a project.
+var errRebind = errors.New("rebind")
+
+// bindActivityProject puts an activity on a project. Activities are shared
+// and invoices follow them, so moving one that already has a project (or
+// taking it off) is for managers; a member may only give a new activity
+// its first project.
+func (s *Server) bindActivityProject(r *http.Request, activityID, projectID int64) error {
+	if !canManage(r) {
+		a, err := s.db.GetActivity(r.Context(), activityID)
+		if err != nil || a.TeamID != teamID(r) {
+			return db.ErrNotFound
+		}
+		if a.ProjectID == projectID {
+			return nil
+		}
+		if a.ProjectID != 0 || projectID == 0 {
+			return errRebind
+		}
+	}
+	return s.db.AssignActivityProject(r.Context(), teamID(r), activityID, projectID)
+}
+
 // handleAPIAssignActivityProject — POST /api/activities/{id}/project
 // Body: project_id (0 to clear).
 func (s *Server) handleAPIAssignActivityProject(w http.ResponseWriter, r *http.Request) {
@@ -174,7 +210,13 @@ func (s *Server) handleAPIAssignActivityProject(w http.ResponseWriter, r *http.R
 			}
 		}
 	}
-	if err := s.db.AssignActivityProject(r.Context(), tid, id, pid); err != nil {
+	_ = tid
+	if err := s.bindActivityProject(r, id, pid); err != nil {
+		if errors.Is(err, errRebind) {
+			w.WriteHeader(http.StatusForbidden)
+			writeJSON(w, map[string]string{"error": i18n.T(resolveLang(r), "act.rebindForbidden")})
+			return
+		}
 		if errors.Is(err, db.ErrNotFound) {
 			w.WriteHeader(http.StatusNotFound)
 			writeJSON(w, map[string]string{"error": "project or activity not found"})

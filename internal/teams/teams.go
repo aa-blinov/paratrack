@@ -334,6 +334,47 @@ func (s *Service) SetRole(ctx context.Context, teamID, targetUserID, callerID in
 	return nil
 }
 
+// TransferOwnership hands the workspace to another member. Only the owner
+// can, the new owner must already be in the team, and the old owner stays
+// on as an admin. A personal workspace isn't handed over.
+func (s *Service) TransferOwnership(ctx context.Context, teamID, callerID, newOwnerID int64) error {
+	t, err := s.FindByID(ctx, teamID)
+	if err != nil {
+		return err
+	}
+	if t.OwnerID != callerID || callerID == newOwnerID {
+		return ErrForbidden
+	}
+	if strings.HasPrefix(t.Slug, fmt.Sprintf("personal-%d-", callerID)) {
+		return fmt.Errorf("%w: a personal workspace can't be handed over", ErrValidation)
+	}
+	if _, ok, err := s.IsMember(ctx, teamID, newOwnerID); err != nil || !ok {
+		return ErrNotFound
+	}
+	tx, err := s.d.SQL().BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	for _, st := range []struct {
+		q    string
+		args []any
+	}{
+		{`UPDATE memberships SET role = 'admin' WHERE team_id = ? AND user_id = ?`, []any{teamID, callerID}},
+		{`UPDATE memberships SET role = 'owner' WHERE team_id = ? AND user_id = ?`, []any{teamID, newOwnerID}},
+		{`UPDATE teams SET owner_id = ? WHERE id = ? AND owner_id = ?`, []any{newOwnerID, teamID, callerID}},
+	} {
+		res, err := tx.ExecContext(ctx, st.q, st.args...)
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n != 1 {
+			return ErrForbidden // someone changed it meanwhile
+		}
+	}
+	return tx.Commit()
+}
+
 // RemoveMember drops someone from the team. Owners can remove anyone
 // (including another owner? — not yet, kept conservative); members can
 // only remove themselves (leave). Returns ErrForbidden if the rules

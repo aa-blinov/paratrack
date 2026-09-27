@@ -97,6 +97,7 @@
         </div>
       </div>
 
+      {{if .CanManage}}
       <div class="card bg-base-100 border border-base-300">
         <div class="card-body p-5 gap-3">
           <h3 class="card-title uppercase tracking-wider opacity-60">{{.T "projects.edit"}}</h3>
@@ -152,6 +153,7 @@
           </form>
         </div>
       </div>
+      {{end}}
     </aside>
   </div>
 </div>

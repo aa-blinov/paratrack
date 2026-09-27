@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/teams"
 )
 
 // ---------------------------------------------------------------------------
@@ -203,6 +204,11 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	uid, err := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)
 	if err != nil {
 		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, "bad user"), http.StatusSeeOther)
+		return
+	}
+	// The owner's own pay is the owner's to set.
+	if role, _, _ := s.teams.IsMember(r.Context(), teamID(r), uid); role == teams.RoleOwner && RoleFrom(r.Context()) != teams.RoleOwner {
+		http.Redirect(w, r, "/settings/members?flash=forbidden", http.StatusSeeOther)
 		return
 	}
 	var pay, cap *int

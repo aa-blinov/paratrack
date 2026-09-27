@@ -251,6 +251,27 @@ func (s *Server) handleAPIMemberRole(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings/members?flash=updated", http.StatusSeeOther)
 }
 
+// handleAPITeamTransfer hands the workspace to another member (owner only).
+func (s *Server) handleAPITeamTransfer(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	user, _ := UserFrom(r.Context())
+	target, err := strconv.ParseInt(r.FormValue("user_id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/settings/members?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	if err := s.teams.TransferOwnership(r.Context(), team.ID, user.ID, target); err != nil {
+		code := "forbidden"
+		if errors.Is(err, teams.ErrValidation) {
+			code = "transfer_personal"
+		}
+		http.Redirect(w, r, "/settings/members?flash="+code, http.StatusSeeOther)
+		return
+	}
+	s.audit(r, "team.transfer", strconv.FormatInt(target, 10), "")
+	http.Redirect(w, r, "/settings/members?flash=transferred", http.StatusSeeOther)
+}
+
 func (s *Server) handleAPITeamDelete(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFrom(r.Context())
 	team, _ := TeamFrom(r.Context())
@@ -465,6 +486,10 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.forbidden"), false
 	case "bad_team":
 		return i18n.T(lang, "flash.badTeam"), false
+	case "transferred":
+		return i18n.T(lang, "flash.transferred"), true
+	case "transfer_personal":
+		return i18n.T(lang, "flash.transferPersonal"), false
 	case "already_billed":
 		return i18n.T(lang, "flash.alreadyBilled"), false
 	case "logo_big":
