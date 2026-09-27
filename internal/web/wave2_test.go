@@ -1,6 +1,10 @@
 package web
 
 import (
+	"regexp"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -74,23 +78,14 @@ func TestBearerTokenAuth(t *testing.T) {
 	e.register("bearer@x.test")
 	// mint a token via the form endpoint
 	resp := e.do("POST", "/api/tokens", url.Values{"name": {"ext"}}, nil)
-	if resp.StatusCode != 303 {
-		t.Fatalf("create token: %d", resp.StatusCode)
+	// The raw token is in the page itself, never in a redirect URL.
+	if resp.StatusCode != 200 || resp.Header.Get("Location") != "" {
+		t.Fatalf("create token: %d loc %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
-	loc := resp.Header.Get("Location")
-	resp.Body.Close()
-	if !strings.Contains(loc, "token=") {
-		t.Fatalf("no raw token in redirect: %s", loc)
-	}
-	// extract raw
-	i := strings.Index(loc, "token=")
-	raw := loc[i+len("token="):]
-	if j := strings.Index(raw, "&"); j > 0 {
-		raw = raw[:j]
-	}
-	// decode
-	if raw, err := url.QueryUnescape(raw); err == nil {
-		_ = raw
+	page := readBody(t, resp)
+	raw := regexp.MustCompile(`pt_[A-Za-z0-9_-]+`).FindString(page)
+	if raw == "" {
+		t.Fatal("raw token not shown on the page")
 	}
 	// call /api/me with Bearer on a fresh env sharing the server
 	// (use the same e but clear cookies then send Bearer)
@@ -118,19 +113,77 @@ func mustUnescape(t *testing.T, s string) string {
 	return out
 }
 
-func TestJiraProjectKeyToJQL(t *testing.T) {
-	// bare key becomes a JQL filter — verify via the helper's logic by
-	// calling with a fake site and no network (should fail on env).
-	_, err := fetchJiraIssues("a:b", "PROJ")
-	if err == nil {
-		t.Fatal("expected error without PARATRACK_JIRA_SITE")
+// fakeProviders answers every outbound API call from h, whatever the
+// host, so importers run end to end without the network.
+func fakeProviders(t *testing.T, h http.HandlerFunc) {
+	t.Helper()
+	srv := httptest.NewServer(h)
+	t.Cleanup(srv.Close)
+	target, _ := url.Parse(srv.URL)
+	old := extClient.Transport
+	extClient.Transport = roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		r = r.Clone(r.Context())
+		r.Header.Set("X-Orig-Host", r.URL.Host)
+		r.URL.Scheme, r.URL.Host = target.Scheme, target.Host
+		return http.DefaultTransport.RoundTrip(r)
+	})
+	t.Cleanup(func() { extClient.Transport = old })
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestJiraSearchJQL(t *testing.T) {
+	var gotPath, gotJQL, gotHost string
+	fakeProviders(t, func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotJQL, gotHost = r.URL.Path, r.URL.Query().Get("jql"), r.Header.Get("X-Orig-Host")
+		fmt.Fprint(w, `{"issues":[{"key":"PROJ-1","fields":{"summary":"Fix","status":{"name":"To Do"}}}]}`)
+	})
+	if _, err := fetchJiraIssues("a:b", "PROJ"); err == nil {
+		t.Fatal("no site anywhere must be an error")
 	}
-	if !strings.Contains(err.Error(), "PARATRACK_JIRA_SITE") {
-		t.Fatalf("err=%v", err)
+	items, err := fetchJiraIssues("a:b", "https://acme.atlassian.net PROJ")
+	if err != nil || len(items) != 1 || items[0].URL != "https://acme.atlassian.net/browse/PROJ-1" {
+		t.Fatalf("items %+v err %v", items, err)
+	}
+	if gotHost != "acme.atlassian.net" || gotPath != "/rest/api/3/search/jql" || !strings.HasPrefix(gotJQL, "project = PROJ AND") {
+		t.Errorf("host %q path %q jql %q", gotHost, gotPath, gotJQL)
+	}
+	for _, raw := range []string{"project=PROJ", "assignee in (currentUser())"} {
+		fetchJiraIssues("a:b", "https://acme.atlassian.net "+raw)
+		if gotJQL != raw {
+			t.Errorf("raw JQL %q was rewritten to %q", raw, gotJQL)
+		}
+	}
+}
+
+// GitHub's issues API returns pull requests too, and issue numbers repeat
+// across repos.
+func TestGitHubSkipsPRsAndKeysByRepo(t *testing.T) {
+	fakeProviders(t, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `[{"number":1,"title":"a","repository":{"full_name":"o/x"}},
+			{"number":1,"title":"b","repository":{"full_name":"o/y"}},
+			{"number":2,"title":"pr","pull_request":{},"repository":{"full_name":"o/x"}}]`)
+	})
+	items, err := fetchGitHubIssues("t", "")
+	if err != nil || len(items) != 2 || items[0].ID == items[1].ID {
+		t.Fatalf("items %+v err %v", items, err)
+	}
+}
+
+func TestTodoistLinkWithoutURLField(t *testing.T) {
+	fakeProviders(t, func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, `{"results":[{"id":"99","content":"call"}]}`)
+	})
+	items, err := fetchTodoistTasks("t", "")
+	if err != nil || len(items) != 1 || items[0].URL != "https://app.todoist.com/app/task/99" {
+		t.Fatalf("items %+v err %v", items, err)
 	}
 }
 
 func TestNotionDatabaseIDFormat(t *testing.T) {
+	fakeProviders(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(401) })
 	_, err := fetchNotionTasks("secret", "not-a-uuid")
 	if err == nil || !strings.Contains(err.Error(), "32 hex") {
 		t.Fatalf("err=%v", err)
@@ -144,6 +197,7 @@ func TestNotionDatabaseIDFormat(t *testing.T) {
 }
 
 func TestNewProviderGuards(t *testing.T) {
+	fakeProviders(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(401) })
 	cases := []struct {
 		fn   func(string, string) ([]extItem, error)
 		sec  string

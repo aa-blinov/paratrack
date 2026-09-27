@@ -2,15 +2,17 @@ package web
 
 import (
 	"encoding/json"
-	"os"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // ---------------------------------------------------------------------------
@@ -19,6 +21,12 @@ import (
 
 // handleSettingsTokens renders /settings/tokens.
 func (s *Server) handleSettingsTokens(w http.ResponseWriter, r *http.Request) {
+	s.renderTokens(w, r, "")
+}
+
+// renderTokens shows the token list; justCreated is the raw value of a
+// token minted by this very request, shown once and never put in a URL.
+func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreated string) {
 	u, _ := UserFrom(r.Context())
 	list, _ := s.db.ListAPITokens(r.Context(), u.ID)
 	lang := string(resolveLang(r))
@@ -31,8 +39,9 @@ func (s *Server) handleSettingsTokens(w http.ResponseWriter, r *http.Request) {
 			Created: t.CreatedAt.Format("2006-01-02"),
 		})
 	}
-	if raw := r.URL.Query().Get("token"); raw != "" {
-		data.JustCreated = raw
+	if justCreated != "" {
+		data.JustCreated = justCreated
+		w.Header().Set("Cache-Control", "no-store")
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -58,8 +67,8 @@ type tokensPage struct {
 
 func (p *tokensPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
-// handleAPITokenCreate mints a token and redirects back with the raw
-// value in the query (shown once).
+// handleAPITokenCreate mints a token and shows its raw value once, in the
+// response itself (a redirect carried it in the URL: history, logs).
 func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	u, _ := UserFrom(r.Context())
@@ -69,7 +78,7 @@ func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/tokens?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/tokens?token="+url.QueryEscape(raw), http.StatusSeeOther)
+	s.renderTokens(w, r, raw)
 }
 
 func (s *Server) handleAPITokenDelete(w http.ResponseWriter, r *http.Request) {
@@ -191,10 +200,8 @@ func (s *Server) handleIntegrationConnect(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/integrations?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	// Best-effort import right away.
-	n := s.importTasks(r, it)
-	http.Redirect(w, r, fmt.Sprintf("/integrations/%d?flash=%s", it.ID,
-		encodeFlash(true, fmt.Sprintf("imported %d items", n))), http.StatusSeeOther)
+	n, ierr := s.importTasks(r, it)
+	http.Redirect(w, r, fmt.Sprintf("/integrations/%d?flash=%s", it.ID, importFlash(r, n, ierr)), http.StatusSeeOther)
 }
 
 func (s *Server) handleIntegrationDelete(w http.ResponseWriter, r *http.Request) {
@@ -218,9 +225,8 @@ func (s *Server) handleIntegrationSync(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	n := s.importTasks(r, it)
-	http.Redirect(w, r, fmt.Sprintf("/integrations/%d?flash=%s", it.ID,
-		encodeFlash(true, fmt.Sprintf("imported %d items", n))), http.StatusSeeOther)
+	n, ierr := s.importTasks(r, it)
+	http.Redirect(w, r, fmt.Sprintf("/integrations/%d?flash=%s", it.ID, importFlash(r, n, ierr)), http.StatusSeeOther)
 }
 
 // handleIntegrationStart starts a timer on an imported task's activity.
@@ -265,7 +271,7 @@ func (s *Server) handleIntegrationStart(w http.ResponseWriter, r *http.Request) 
 // ---------------------------------------------------------------------------
 
 // importTasks pulls open items from the provider into external_tasks.
-func (s *Server) importTasks(r *http.Request, it db.Integration) int {
+func (s *Server) importTasks(r *http.Request, it db.Integration) (int, error) {
 	var items []extItem
 	var err error
 	target := ""
@@ -292,18 +298,33 @@ func (s *Server) importTasks(r *http.Request, it db.Integration) int {
 	case "todoist":
 		items, err = fetchTodoistTasks(it.Secret, target)
 	default:
-		return 0
+		return 0, fmt.Errorf("unknown provider %q", it.Provider)
 	}
 	if err != nil {
-		return 0
+		return 0, err
 	}
 	n := 0
+	keep := make([]string, 0, len(items))
 	for _, item := range items {
 		if _, err := s.db.UpsertExternalTask(r.Context(), it.ID, item.ID, item.Title, item.URL, item.Status); err == nil {
 			n++
+			keep = append(keep, item.ID)
 		}
 	}
-	return n
+	// The fetch returns open items only: whatever is gone was closed there.
+	if err := s.db.CloseMissingExternalTasks(r.Context(), it.ID, keep); err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+// importFlash is the result banner after connect / sync.
+func importFlash(r *http.Request, n int, err error) string {
+	lang := resolveLang(r)
+	if err != nil {
+		return url.QueryEscape(encodeFlash(false, fmt.Sprintf(i18n.T(lang, "int.importFailed"), err.Error())))
+	}
+	return url.QueryEscape(encodeFlash(true, fmt.Sprintf(i18n.T(lang, "int.imported"), n)))
 }
 
 type extItem struct {
@@ -323,7 +344,8 @@ func fetchGitHubIssues(token, repo string) ([]extItem, error) {
 	if repo != "" {
 		parts := strings.SplitN(repo, "/", 2)
 		if len(parts) == 2 {
-			u = fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?state=open&per_page=50", parts[0], parts[1])
+			u = fmt.Sprintf("https://api.github.com/repos/%s/%s/issues?state=open&per_page=50",
+				url.PathEscape(parts[0]), url.PathEscape(parts[1]))
 		}
 	}
 	req, err := http.NewRequest("GET", u, nil)
@@ -350,18 +372,26 @@ func fetchGitHubIssues(token, repo string) ([]extItem, error) {
 		Repo    struct {
 			FullName string `json:"full_name"`
 		} `json:"repository"`
+		PullRequest *struct{} `json:"pull_request"` // the issues API returns PRs too
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, err
 	}
 	out := make([]extItem, 0, len(raw))
 	for _, i := range raw {
+		if i.PullRequest != nil {
+			continue
+		}
 		name := i.Title
-		if i.Repo.FullName != "" {
-			name = i.Repo.FullName + "#" + strconv.Itoa(i.Number) + " " + i.Title
+		full := i.Repo.FullName
+		if full != "" {
+			name = full + "#" + strconv.Itoa(i.Number) + " " + i.Title
+		} else {
+			full = repo
 		}
 		out = append(out, extItem{
-			ID:     fmt.Sprintf("gh-%d", i.Number),
+			// Numbers repeat across repos: the id carries the repo.
+			ID:     fmt.Sprintf("gh-%s#%d", full, i.Number),
 			Title:  name,
 			URL:    i.HTMLURL,
 			Status: i.State,
@@ -373,9 +403,9 @@ func fetchGitHubIssues(token, repo string) ([]extItem, error) {
 // fetchTrelloCards lists open cards on a board using key+token in the
 // secret field as "key:token".
 func fetchTrelloCards(secret, board string) ([]extItem, error) {
-	key, token := secret, secret
-	if i := strings.Index(secret, ":"); i > 0 {
-		key, token = secret[:i], secret[i+1:]
+	key, token, ok := strings.Cut(secret, ":")
+	if !ok || key == "" || token == "" {
+		return nil, fmt.Errorf("trello: the secret is key:token")
 	}
 	u := fmt.Sprintf("https://api.trello.com/1/boards/%s/cards?filter=open&key=%s&token=%s",
 		url.PathEscape(board), url.QueryEscape(key), url.QueryEscape(token))
@@ -389,10 +419,10 @@ func fetchTrelloCards(secret, board string) ([]extItem, error) {
 		return nil, fmt.Errorf("trello %d: %s", resp.StatusCode, string(b)[:min(200, len(b))])
 	}
 	var raw []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID       string `json:"id"`
+		Name     string `json:"name"`
 		ShortURL string `json:"shortUrl"`
-		Closed bool   `json:"closed"`
+		Closed   bool   `json:"closed"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, err
@@ -408,26 +438,32 @@ func fetchTrelloCards(secret, board string) ([]extItem, error) {
 	return out, nil
 }
 
+var jiraKey = regexp.MustCompile(`^[A-Z][A-Z0-9_]+$`)
 
 // fetchJiraIssues lists unresolved issues via Jira REST v3.
 //
 // secret = "email:apitoken" (Cloud API token) or a bare Bearer PAT.
 // target = project key ("PROJ") or a JQL snippet ("project = PROJ AND ...").
 func fetchJiraIssues(secret, target string) ([]extItem, error) {
-	site := os.Getenv("PARATRACK_JIRA_SITE") // e.g. https://acme.atlassian.net
+	// The site may lead the target ("https://acme.atlassian.net PROJ"), so
+	// each workspace can point at its own Jira; the env var is the default.
+	site := os.Getenv("PARATRACK_JIRA_SITE")
+	if f := strings.Fields(target); len(f) > 0 && strings.HasPrefix(f[0], "https://") {
+		site, target = f[0], strings.TrimSpace(strings.TrimPrefix(target, f[0]))
+	}
 	if site == "" {
-		return nil, fmt.Errorf("PARATRACK_JIRA_SITE is not set")
+		return nil, fmt.Errorf("jira: put the site first in the target, e.g. https://acme.atlassian.net PROJ")
 	}
 	site = strings.TrimRight(site, "/")
 	jql := target
-	if jql == "" {
+	switch {
+	case jql == "":
 		jql = "resolution = Unresolved ORDER BY updated DESC"
-	} else if !strings.Contains(strings.ToLower(jql), "order by") &&
-		!strings.Contains(strings.ToLower(jql), " = ") {
-		// bare project key
+	case jiraKey.MatchString(jql):
 		jql = "project = " + jql + " AND resolution = Unresolved ORDER BY updated DESC"
 	}
-	u := site + "/rest/api/3/search?jql=" + url.QueryEscape(jql) + "&maxResults=50&fields=summary,status,issuetype"
+	// /rest/api/3/search was removed (410); /search/jql is its successor.
+	u := site + "/rest/api/3/search/jql?jql=" + url.QueryEscape(jql) + "&maxResults=50&fields=summary,status,issuetype"
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -487,13 +523,9 @@ func fetchNotionTasks(secret, dbID string) ([]extItem, error) {
 	}
 	// pretty UUID for the API
 	formatted := dbID[0:8] + "-" + dbID[8:12] + "-" + dbID[12:16] + "-" + dbID[16:20] + "-" + dbID[20:32]
-	body, _ := json.Marshal(map[string]any{
-		"page_size": 50,
-		"filter": map[string]any{
-			"property": "Status",
-			"status":   map[string]string{"does_not_equal": "Done"},
-		},
-	})
+	// No filter: a database needn't have a "Status" property (filtering on
+	// one it lacks is a 400).
+	body, _ := json.Marshal(map[string]any{"page_size": 100})
 	req, err := http.NewRequest("POST",
 		"https://api.notion.com/v1/databases/"+formatted+"/query", strings.NewReader(string(body)))
 	if err != nil {
@@ -513,8 +545,8 @@ func fetchNotionTasks(secret, dbID string) ([]extItem, error) {
 	}
 	var raw struct {
 		Results []struct {
-			ID  string `json:"id"`
-			URL string `json:"url"`
+			ID         string `json:"id"`
+			URL        string `json:"url"`
 			Properties map[string]struct {
 				Title []struct {
 					PlainText string `json:"plain_text"`
@@ -553,7 +585,7 @@ func fetchAsanaTasks(token, projectGID string) ([]extItem, error) {
 	if projectGID == "" {
 		return nil, fmt.Errorf("asana project gid is required")
 	}
-	u := fmt.Sprintf("https://app.asana.com/api/1.0/projects/%s/tasks?opt_fields=name,completed,permalink_url&limit=50",
+	u := fmt.Sprintf("https://app.asana.com/api/1.0/projects/%s/tasks?opt_fields=name,completed,permalink_url&completed_since=now&limit=100",
 		url.PathEscape(projectGID))
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
@@ -635,9 +667,9 @@ func fetchGitLabIssues(token, project string) ([]extItem, error) {
 	out := make([]extItem, 0, len(raw))
 	for _, i := range raw {
 		out = append(out, extItem{
-			ID: fmt.Sprintf("gitlab-%d", i.IID),
+			ID:    fmt.Sprintf("gitlab-%d", i.IID),
 			Title: fmt.Sprintf("#%d %s", i.IID, i.Title),
-			URL: i.WebURL, Status: i.State,
+			URL:   i.WebURL, Status: i.State,
 		})
 	}
 	return out, nil
@@ -651,7 +683,7 @@ func fetchClickUpTasks(token, listID string) ([]extItem, error) {
 	if listID == "" {
 		return nil, fmt.Errorf("clickup list id is required")
 	}
-	u := fmt.Sprintf("https://api.clickup.com/api/v2/list/%s/task?include_closed=0&order_by=updated&reverse=true",
+	u := fmt.Sprintf("https://api.clickup.com/api/v2/list/%s/task?include_closed=false&order_by=updated&reverse=true",
 		url.PathEscape(listID))
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
@@ -717,9 +749,9 @@ func fetchTodoistTasks(token, projectID string) ([]extItem, error) {
 	}
 	var raw struct {
 		Results []struct {
-			ID    string `json:"id"`
+			ID      string `json:"id"`
 			Content string `json:"content"`
-			URL   string `json:"url"`
+			URL     string `json:"url"`
 		} `json:"results"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
@@ -727,7 +759,11 @@ func fetchTodoistTasks(token, projectID string) ([]extItem, error) {
 	}
 	out := make([]extItem, 0, len(raw.Results))
 	for _, t := range raw.Results {
-		out = append(out, extItem{ID: "todoist-" + t.ID, Title: t.Content, URL: t.URL, Status: "open"})
+		link := t.URL
+		if link == "" { // API v1 dropped the url field
+			link = "https://app.todoist.com/app/task/" + t.ID
+		}
+		out = append(out, extItem{ID: "todoist-" + t.ID, Title: t.Content, URL: link, Status: "open"})
 	}
 	return out, nil
 }

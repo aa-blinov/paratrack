@@ -301,6 +301,8 @@ var columnMigrations = []struct {
 	{"projects", "currency", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "currency", "TEXT NOT NULL DEFAULT ''"},
 	{"payroll_runs", "currency", "TEXT NOT NULL DEFAULT ''"},
+	// Imported history: "toggl:123" etc., so a re-import adds nothing twice.
+	{"sessions", "external_id", "TEXT"},
 }
 
 // uniqueMigrations creates UNIQUE / lookup indexes that the original
@@ -314,6 +316,7 @@ var columnMigrations = []struct {
 // because it would conflict with the ON CONFLICT(team_id, activity_id,
 // period) DO UPDATE used by UpsertGoal.
 var uniqueMigrations = []string{
+	`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_external ON sessions(team_id, external_id) WHERE external_id IS NOT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_activities_project ON activities(project_id)`,
 	// Older DBs predate the password-reset table; IF NOT EXISTS makes
 	// this safe to re-run on every startup.

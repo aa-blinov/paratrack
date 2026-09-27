@@ -32,6 +32,19 @@ func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startA
 
 // CreateClosedSession inserts a finished session in one go. Used by the
 // `add` command for back-filling past intervals.
+// ImportedSessionExists reports whether an entry from another tracker
+// (externalID "toggl:123") is already in the workspace.
+func (d *DB) ImportedSessionExists(ctx context.Context, teamID int64, externalID string) bool {
+	var one int
+	return d.sql.QueryRowContext(ctx, `SELECT 1 FROM sessions WHERE team_id = ? AND external_id = ?`, teamID, externalID).Scan(&one) == nil
+}
+
+// MarkImported stamps a session with the id it had in the source tracker.
+func (d *DB) MarkImported(ctx context.Context, teamID, sessionID int64, externalID string) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE sessions SET external_id = ? WHERE id = ? AND team_id = ?`, externalID, sessionID, teamID)
+	return err
+}
+
 func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, startAt, endAt time.Time, note string) (model.Session, error) {
 	startStr := FormatTime(startAt)
 	endStr := FormatTime(endAt)
