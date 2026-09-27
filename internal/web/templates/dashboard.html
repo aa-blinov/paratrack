@@ -339,10 +339,10 @@ window.paratrackOnboard = (function () {
                       hx-post="/api/sessions/{{.ID}}/pause"
                       hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.pause"}}" aria-label="{{.T "dash.pause"}}">{{icon "pause"}}<span class="sm:max-xl:sr-only">{{.T "dash.pause"}}</span></button>
               {{end}}
-              <button class="btn btn-error btn-sm gap-1.5"
+              <button class="btn btn-sm btn-stop gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/stop"
                       hx-target="#active-list" hx-swap="innerHTML"
-                      hx-confirm="{{printf (.T "dash.confirmStopNamed") .ActivityName}}" title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="sm:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
+                      title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="sm:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
             </div>
           </td>
         </tr>
@@ -377,8 +377,7 @@ window.paratrackOnboard = (function () {
   <button class="btn btn-ghost btn-circle" hx-post="/api/sessions/{{$s.ID}}/pause" hx-swap="none"
           title="{{$.T "dash.pause"}}" aria-label="{{$.T "dash.pause"}}">{{icon "pause"}}</button>
   {{end}}
-  <button class="btn btn-error btn-circle" hx-post="/api/sessions/{{$s.ID}}/stop" hx-swap="none"
-          hx-confirm="{{printf ($.T "dash.confirmStopNamed") $s.ActivityName}}"
+  <button class="btn btn-stop btn-circle" hx-post="/api/sessions/{{$s.ID}}/stop" hx-swap="none"
           title="{{$.T "dash.stop"}}" aria-label="{{$.T "dash.stop"}}">{{icon "square"}}</button>
 </div>
 {{- end}}{{end}}

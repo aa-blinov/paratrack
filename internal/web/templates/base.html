@@ -261,6 +261,8 @@
   <script>
     window.paratrackT = {
       sendError: {{.T "pwa.sendError"}},
+      undo: {{.T "toast.undo"}},
+      discard: {{.T "toast.discard"}},
       needStartDuration: {{.T "err.needStartDuration"}},
       iosInstall: {{.T "pwa.iosInstall"}},
       offline: {{.T "pwa.offline"}},
@@ -274,7 +276,13 @@
     document.body.addEventListener('htmx:afterRequest', (e) => {
       const msg = window.paratrackDecode(e.detail.xhr.getResponseHeader('X-Toast'));
       const kind = e.detail.xhr.getResponseHeader('X-Toast-Kind') || 'success';
-      if (msg) window.paratrackToast(msg, kind);
+      if (!msg) return;
+      const xhr = e.detail.xhr, actions = [];
+      const undo = xhr.getResponseHeader('X-Toast-Undo');
+      const discard = xhr.getResponseHeader('X-Toast-Discard');
+      if (undo) actions.push({ label: window.paratrackT.undo, method: 'POST', url: undo });
+      if (discard) actions.push({ label: window.paratrackT.discard, method: 'DELETE', url: discard });
+      window.paratrackToast(msg, kind, 0, actions);
     });
     document.body.addEventListener('htmx:beforeRequest', (e) => {
       const hdr = e.detail.xhr.getResponseHeader('X-Redirect');
