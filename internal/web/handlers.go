@@ -664,8 +664,54 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	}
 	s.toast(w, strings.NewReplacer("{name}", pushName, "{dur}", dur).
 		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
+	// Stop is instant; the toast carries the way back (and a discard for
+	// accidental sub-minute sessions).
+	w.Header().Set("X-Toast-Undo", "/api/sessions/"+strconv.FormatInt(id, 10)+"/reopen")
+	if stopped.DurationSeconds(time.Now()) < 60 {
+		w.Header().Set("X-Toast-Discard", "/api/sessions/"+strconv.FormatInt(id, 10))
+	}
 	s.sendPush(teamID(r), "Session stopped", pushName+" finished", "/stats")
 	s.notifyNewlyMetGoals(r, stopped.ActivityID)
+	s.respondActiveList(w, r)
+}
+
+// reopenWindow bounds how late a stop can be undone from its toast.
+const reopenWindow = 10 * time.Minute
+
+// handleReopen is the undo for handleStop.
+func (s *Server) handleReopen(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.PathValue("id"))
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
+	ctx := r.Context()
+	sess, err := s.db.GetSession(ctx, teamID(r), id)
+	if err != nil {
+		http.Error(w, err.Error(), 404)
+		return
+	}
+	if sess.EndAt == nil || time.Since(*sess.EndAt) > reopenWindow {
+		http.Error(w, "session can no longer be reopened", 409)
+		return
+	}
+	active, err := s.db.ListActiveSessions(ctx, teamID(r))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	for _, as := range active {
+		if as.Session.ActivityID == sess.ActivityID {
+			http.Error(w, fmt.Sprintf("%q already has an active session", as.Activity.Name), 409)
+			return
+		}
+	}
+	if _, err := s.db.ReopenSession(ctx, teamID(r), id); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.audit(r, "session.reopen", strconv.FormatInt(id, 10), "")
+	s.toastL(w, r, "toast.reopened", "", "success")
 	s.respondActiveList(w, r)
 }
 
@@ -890,6 +936,7 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.deleted", "", "success")
+	w.Header().Set("HX-Trigger", "sessions-changed")
 	w.WriteHeader(200)
 }
 

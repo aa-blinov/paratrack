@@ -211,6 +211,35 @@ func (d *DB) ResumeSession(ctx context.Context, teamID, id int64, now time.Time)
 	return d.GetSession(ctx, teamID, id)
 }
 
+// ReopenSession undoes a stop: clears end_at and, for a session that was
+// running, resumes it from the stop moment so the undo leaves no gap.
+// accumulated_seconds already holds the time folded in at stop.
+func (d *DB) ReopenSession(ctx context.Context, teamID, id int64) (model.Session, error) {
+	s, err := d.GetSession(ctx, teamID, id)
+	if err != nil {
+		return model.Session{}, err
+	}
+	if s.EndAt == nil {
+		return s, nil
+	}
+	q := `UPDATE sessions SET end_at = NULL, updated_at = ?`
+	args := []any{FormatTime(time.Now().UTC())}
+	if !s.Paused {
+		q += `, last_resume_at = ?`
+		args = append(args, FormatTime(*s.EndAt))
+	}
+	q += ` WHERE id = ?`
+	args = append(args, id)
+	if teamID > 0 {
+		q += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	if _, err := d.sql.ExecContext(ctx, q, args...); err != nil {
+		return model.Session{}, err
+	}
+	return d.GetSession(ctx, teamID, id)
+}
+
 // DeleteSession removes a session by id (FK cascades handle session_tags).
 // teamID > 0 restricts the delete to that workspace.
 func (d *DB) DeleteSession(ctx context.Context, teamID, id int64) error {

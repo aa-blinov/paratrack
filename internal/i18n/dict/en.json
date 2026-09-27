@@ -88,7 +88,6 @@
   "dash.resume": "Resume",
   "dash.stop": "Stop",
   "dash.focusTitle": "Pause every other timer, this one keeps running",
-  "dash.confirmStop": "Stop this session?",
   "dash.manage": "Manage",
   "stats.title": "Stats",
   "stats.today": "Today",
@@ -696,7 +695,7 @@
   "imp.extraHintHarvest": "Shown next to the token on the developers page.",
   "imp.extraHintClockify": "The part of the Clockify URL after /workspaces/.",
   "auth.registerBlurb": "paratrack shows where your time goes: start a timer on a task and it sorts the hours by project, day and client. Sign-up takes a minute and your personal workspace is ready right away.",
-  "toast.stoppedFull": "Stopped: {name}, {dur}. It is in Recent and in Stats.",
+  "toast.stoppedFull": "Stopped: {name}, {dur}",
   "dur.underMinute": "under a minute",
   "flash.msg.updated": "Saved.",
   "flash.msg.bad period": "Pick a valid period: the start must be before the end.",
@@ -750,8 +749,10 @@
   "ledger.paused": "paused",
   "ledger.top": "most time",
   "ledger.none": "none yet",
-  "dash.confirmStopNamed": "Stop \"%s\"? The time is kept in Recent.",
   "dash.addSession": "Add session",
   "when.today": "today",
-  "when.yesterday": "yesterday"
+  "when.yesterday": "yesterday",
+  "toast.reopened": "Stop undone, the timer is back",
+  "toast.undo": "Undo",
+  "toast.discard": "Delete"
 }
