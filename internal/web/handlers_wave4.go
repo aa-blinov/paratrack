@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -131,20 +132,24 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		from, to := rangeFromQuery(r)
-		list, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), from, to, nil)
+		// Pages of ?limit= (default 100, max 500), newest first; pass the
+		// returned next_cursor as ?cursor= for the next page.
+		limit := 100
+		if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
+			limit = min(v, 500)
+		}
+		var after *db.SessionCursor
+		if c := r.URL.Query().Get("cursor"); c != "" {
+			var ok bool
+			if after, ok = decodeSessionCursor(c); !ok {
+				writeJSONStatus(w, 400, map[string]string{"error": "bad cursor"})
+				return
+			}
+		}
+		list, more, err := s.db.ListSessionsPage(r.Context(), teamID(r), from, to, after, limit)
 		if err != nil {
 			writeJSONStatus(w, 500, map[string]string{"error": err.Error()})
 			return
-		}
-		// Active (still running) sessions are not in the closed range query —
-		// a client that POSTs a session must be able to GET it back.
-		if open, err := s.db.ListActiveSessions(r.Context(), teamID(r)); err == nil {
-			for _, as := range open {
-				if as.Session.StartAt.Before(from) || !as.Session.StartAt.Before(to) {
-					continue
-				}
-				list = append(list, as)
-			}
 		}
 		type row struct {
 			ID       int64  `json:"id"`
@@ -171,7 +176,12 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 				Seconds: as.Session.DurationSeconds(now), Note: note,
 			})
 		}
-		writeJSON(w, map[string]any{"sessions": out})
+		resp := map[string]any{"sessions": out}
+		if more {
+			last := list[len(list)-1].Session
+			resp["next_cursor"] = encodeSessionCursor(db.SessionCursor{Start: db.FormatTime(last.StartAt), ID: last.ID})
+		}
+		writeJSON(w, resp)
 	case http.MethodPost:
 		_ = r.ParseForm()
 		name := strings.TrimSpace(r.FormValue("activity"))
@@ -235,7 +245,7 @@ func (s *Server) handleAPIv1Projects(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
-	writeJSON(w, map[string]any{"projects": list})
+	writeJSON(w, map[string]any{"projects": projectsFor(r, list)})
 }
 
 // handleAPIv1Report — GET summary totals for a window.
@@ -561,4 +571,25 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 // ssoConfigured reports whether OIDC env is present (drives the button).
 func ssoConfigured() bool {
 	return os.Getenv("PARATRACK_OIDC_ISSUER") != "" && os.Getenv("PARATRACK_OIDC_CLIENT_ID") != ""
+}
+
+// Cursors are opaque to clients: base64 of "start|id".
+func encodeSessionCursor(c db.SessionCursor) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(c.Start + "|" + strconv.FormatInt(c.ID, 10)))
+}
+
+func decodeSessionCursor(s string) (*db.SessionCursor, bool) {
+	b, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return nil, false
+	}
+	start, idStr, ok := strings.Cut(string(b), "|")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if !ok || err != nil {
+		return nil, false
+	}
+	if _, err := db.ParseTime(start); err != nil {
+		return nil, false
+	}
+	return &db.SessionCursor{Start: start, ID: id}, true
 }

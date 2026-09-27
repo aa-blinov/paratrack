@@ -417,3 +417,42 @@ func nullableInt64(n int64) any {
 	}
 	return n
 }
+// SessionCursor is where a page of sessions stopped: the last row's start
+// and id (the list is newest first, ties broken by id).
+type SessionCursor struct {
+	Start string
+	ID    int64
+}
+
+// ListSessionsPage is one page of the sessions touching [from, to]:
+// closed ones overlapping it and running ones started inside it, newest
+// first, at most limit rows after the cursor. more says whether another
+// page follows.
+func (d *DB) ListSessionsPage(ctx context.Context, teamID int64, from, to time.Time, after *SessionCursor, limit int) (list []model.ActiveSession, more bool, err error) {
+	q := sessionSelect + `
+		WHERE s.team_id = ?
+		  AND ((s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?)
+		    OR (s.end_at IS NULL AND s.start_at >= ? AND s.start_at < ?))`
+	args := []any{teamID, FormatTime(to), FormatTime(from), FormatTime(from), FormatTime(to)}
+	if after != nil {
+		// "C" order: the ISO strings sort byte by byte, as time does.
+		q += ` AND (s.start_at COLLATE "C" < ? OR (s.start_at = ? AND s.id < ?))`
+		args = append(args, after.Start, after.Start, after.ID)
+	}
+	sc, args := scopeSQL(ctx, "s.user_id", args)
+	q += sc + ` ORDER BY s.start_at COLLATE "C" DESC, s.id DESC LIMIT ?`
+	args = append(args, limit+1)
+	rows, err := d.sql.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+	list, err = scanActiveSessions(rows)
+	if err != nil {
+		return nil, false, err
+	}
+	if len(list) > limit {
+		return list[:limit], true, nil
+	}
+	return list, false, nil
+}

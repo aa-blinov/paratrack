@@ -33,6 +33,12 @@
               {{end}}
             </td>
             {{$pay := index $.Pay .UserID}}
+            {{if and (eq .Role "owner") (not $.IsOwner)}}
+            {{/* The owner's pay and place are the owner's own. */}}
+            <td data-label="{{$.T "pay.payCol"}}" class="font-mono text-sm">{{if $pay.Rate}}{{$pay.Rate}}{{else}}–{{end}}</td>
+            <td data-label="{{$.T "pay.capCol"}}" class="font-mono text-sm">{{if $pay.Capacity}}{{$pay.Capacity}}{{else}}–{{end}}</td>
+            <td data-label=""></td>
+            {{else}}
             <td data-label="{{$.T "pay.payCol"}}">
               <form id="pay-{{.UserID}}" method="POST" action="/api/member/pay">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
@@ -61,6 +67,7 @@
                 <span class="text-xs opacity-50">{{$.T "team.you"}}</span>
               {{end}}
             </td>
+            {{end}}
           </tr>
         {{end}}
         </tbody>
@@ -71,5 +78,26 @@
       {{end}}
     </div>
   </div>
+
+  {{if and .IsOwner (gt (len .Members) 1)}}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5 gap-2">
+      <h2 class="card-title">{{.T "team.transferTitle"}}</h2>
+      <p class="text-sm opacity-70">{{.T "team.transferHint"}}</p>
+      <form method="POST" action="/api/team/transfer" class="flex flex-wrap gap-2 items-end"
+            onsubmit="return confirm('{{.T "team.transferConfirm"}}')">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label class="form-control flex-1 min-w-[12rem]">
+          <span class="label-text text-sm">{{.T "team.transferPick"}}</span>
+          <select name="user_id" required class="select select-bordered select-sm w-full">
+            <option value="" disabled selected>…</option>
+            {{range .Members}}{{if ne .UserID $.User.ID}}<option value="{{.UserID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}
+          </select>
+        </label>
+        <button type="submit" class="btn btn-sm btn-outline btn-error">{{.T "team.transferBtn"}}</button>
+      </form>
+    </div>
+  </div>
+  {{end}}
 </div>
 {{end}}

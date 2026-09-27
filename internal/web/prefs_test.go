@@ -1,6 +1,8 @@
 package web
 
 import (
+	"encoding/json"
+	"strconv"
 	"bytes"
 	"image"
 	"image/png"
@@ -163,5 +165,62 @@ func TestProjectTotalsAllTimeAndScoped(t *testing.T) {
 	list := readBody(t, e.do("GET", "/projects", nil, nil))
 	if !strings.Contains(list, "1 ч") {
 		t.Errorf("30-day column should be 1 h")
+	}
+}
+
+// /api/v1/sessions pages through everything once, newest first, running
+// timers included, ties on the same start kept apart by id.
+func TestAPIv1SessionsPagination(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("page@x.test")
+	htmx := map[string]string{"HX-Request": "true"}
+	for i := 0; i < 5; i++ {
+		readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"задача " + strconv.Itoa(i)}, "start": {"вчера 10:00"}, "end": {"вчера 11:00"}}, htmx))
+	}
+	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"ранняя"}, "start": {"вчера 08:00"}, "end": {"вчера 09:00"}}, htmx))
+	readBody(t, e.do("POST", "/api/v1/sessions", url.Values{"activity": {"идёт"}}, nil))
+
+	type page struct {
+		Sessions []struct {
+			ID    int64  `json:"id"`
+			Start string `json:"start"`
+		} `json:"sessions"`
+		Next string `json:"next_cursor"`
+	}
+	seen := map[int64]bool{}
+	var starts []string
+	cursor, pages := "", 0
+	for {
+		q := "/api/v1/sessions?limit=2"
+		if cursor != "" {
+			q += "&cursor=" + url.QueryEscape(cursor)
+		}
+		var p page
+		if err := json.Unmarshal([]byte(readBody(t, e.do("GET", q, nil, nil))), &p); err != nil {
+			t.Fatal(err)
+		}
+		pages++
+		for _, s := range p.Sessions {
+			if seen[s.ID] {
+				t.Fatalf("session %d came twice", s.ID)
+			}
+			seen[s.ID] = true
+			starts = append(starts, s.Start)
+		}
+		if p.Next == "" || pages > 10 {
+			break
+		}
+		cursor = p.Next
+	}
+	if len(seen) != 7 || pages != 4 {
+		t.Fatalf("got %d sessions in %d pages, want 7 in 4", len(seen), pages)
+	}
+	for i := 1; i < len(starts); i++ {
+		if starts[i] > starts[i-1] {
+			t.Fatalf("not newest first: %v", starts)
+		}
+	}
+	if r := e.do("GET", "/api/v1/sessions?cursor=bogus", nil, nil); r.StatusCode != 400 {
+		t.Errorf("bad cursor: %d, want 400", r.StatusCode)
 	}
 }

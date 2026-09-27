@@ -173,6 +173,7 @@ type statsData struct {
 	Total        string
 	SessionCount int
 	SessionsCut  bool // the log shows only the newest statsLogRows
+	MeID         int64
 	TagFilter    string // current ?tag= value, empty if unfiltered
 	AllTagNames  []string // for the inline-add input autocomplete
 	SavedReports []dbpkg.SavedReport
@@ -495,15 +496,17 @@ func shortSummary(name string) string {
 // empty (a bare []tagWithCount has no method to call).
 
 type tagsListVM struct {
-	Lang string
-	Tags []tagWithCount
+	Lang      string
+	Tags      []tagWithCount
+	CanManage bool // shared tags: only managers delete them
 }
 
 func (v tagsListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 type goalsListVM struct {
-	Lang  string
-	Goals []goalView
+	Lang      string
+	Goals     []goalView
+	CanManage bool // goals are the team's: managers set and remove them
 }
 
 func (v goalsListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

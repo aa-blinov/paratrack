@@ -333,9 +333,16 @@ func (d *DB) GetSavedReport(ctx context.Context, teamID, id int64) (SavedReport,
 }
 
 // DeleteSavedReport removes a preset.
-func (d *DB) DeleteSavedReport(ctx context.Context, teamID, id int64) error {
-	res, err := d.sql.ExecContext(ctx,
-		`DELETE FROM saved_reports WHERE id = ? AND team_id = ?`, id, teamID)
+// DeleteSavedReport removes a preset; onlyBy > 0 limits it to the
+// person who saved it (a member can't remove the team's presets).
+func (d *DB) DeleteSavedReport(ctx context.Context, teamID, id int64, onlyBy ...int64) error {
+	q := `DELETE FROM saved_reports WHERE id = ? AND team_id = ?`
+	args := []any{id, teamID}
+	if len(onlyBy) > 0 && onlyBy[0] > 0 {
+		q += ` AND created_by = ?`
+		args = append(args, onlyBy[0])
+	}
+	res, err := d.sql.ExecContext(ctx, q, args...)
 	if err != nil {
 		return err
 	}
