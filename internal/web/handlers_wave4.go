@@ -155,7 +155,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 			Note     string `json:"note"`
 		}
 		out := []row{}
-		now := time.Now()
+		now := userNow(r)
 		for _, as := range list {
 			note := ""
 			if as.Session.Note != nil {
@@ -185,7 +185,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, map[string]string{"error": err.Error()})
 			return
 		}
-		sess, err := s.db.CreateSession(r.Context(), teamID(r), act.ID, time.Now(), r.FormValue("note"))
+		sess, err := s.db.CreateSession(r.Context(), teamID(r), act.ID, userNow(r), r.FormValue("note"))
 		if err != nil {
 			w.WriteHeader(500)
 			writeJSON(w, map[string]string{"error": err.Error()})
@@ -247,7 +247,7 @@ func (s *Server) handleAPIv1Report(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]string{"error": err.Error()})
 		return
 	}
-	now := time.Now()
+	now := userNow(r)
 	total := 0
 	byActivity := map[string]int{}
 	for _, as := range list {
@@ -263,7 +263,7 @@ func (s *Server) handleAPIv1Report(w http.ResponseWriter, r *http.Request) {
 }
 
 func rangeFromQuery(r *http.Request) (time.Time, time.Time) {
-	now := time.Now()
+	now := userNow(r)
 	from := now.AddDate(0, 0, -30)
 	to := now.Add(24 * time.Hour)
 	if v := r.URL.Query().Get("from"); v != "" {
@@ -293,7 +293,7 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 		if ds, err := s.db.ListWebhookDeliveries(r.Context(), h.ID); err == nil {
 			for _, d := range ds[:min(len(ds), 5)] {
 				row.Deliveries = append(row.Deliveries, deliveryRow{
-					When: fmtWhen(resolveLang(r), d.CreatedAt.Local(), time.Now()), Event: d.Event,
+					When: fmtWhen(resolveLang(r), d.CreatedAt.In(userLoc(r)), userNow(r)), Event: d.Event,
 					Status: d.Status, OK: d.Status >= 200 && d.Status < 300, Error: d.Error,
 				})
 			}
@@ -351,7 +351,7 @@ func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/api/webhooks/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "bad id", 400)
 		return

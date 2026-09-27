@@ -37,11 +37,11 @@
             </td>
             <td>
               {{if .Used}}
-                <span class="badge badge-neutral">{{.T "team.used"}}</span>
+                <span class="badge badge-neutral">{{$.T "team.used"}}</span>
               {{else if .Expired}}
-                <span class="badge badge-warning">{{.T "team.expired"}}</span>
+                <span class="badge badge-warning">{{$.T "team.expired"}}</span>
               {{else}}
-                <span class="badge badge-success">{{.T "team.live"}}</span>
+                <span class="badge badge-success">{{$.T "team.live"}}</span>
               {{end}}
             </td>
             <td class="font-mono text-xs opacity-70">{{.CreatedAt.Format "2006-01-02 15:04"}}</td>

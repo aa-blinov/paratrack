@@ -56,6 +56,10 @@
           <label class="label py-1" for="inv-client-details"><span class="label-text">{{.T "inv.clientDetails"}} <span class="opacity-70">({{.T "projects.optional"}})</span></span></label>
           <textarea id="inv-client-details" name="client_details" rows="3" maxlength="2000" class="textarea textarea-bordered w-full text-sm" placeholder="{{.T "inv.clientDetailsPh"}}">{{.Prefill.ClientDetails}}</textarea>
         </div>
+        <label class="sm:col-span-2 flex items-center gap-2 text-sm">
+          <input type="checkbox" name="by_person" value="1" class="checkbox checkbox-sm">{{.T "inv.byPerson"}}
+          <span class="text-xs doc-muted">{{.T "inv.byPersonHint"}}</span>
+        </label>
         <div class="sm:col-span-2">
           <label class="label py-1" for="inv-notes"><span class="label-text">{{.T "stats.note"}}</span></label>
           <input id="inv-notes" type="text" name="notes" class="input input-bordered w-full" placeholder="{{.T "inv.notesPh"}}">

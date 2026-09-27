@@ -124,7 +124,7 @@ func fetchEntries(provider, secret, extra, from, to, tz string) ([]importedEntry
 }
 
 func parseImportRange(from, to, tz string) (time.Time, time.Time, error) {
-	loc := time.Local
+	loc := userLoc(nil) // PARATRACK_TZ, else the server zone
 	if l, err := time.LoadLocation(tz); tz != "" && err == nil {
 		loc = l
 	}

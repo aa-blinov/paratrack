@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/teams"
 )
@@ -32,12 +33,15 @@ type settingsPageData struct {
 	Currencies []currencyOption
 	Requisites string
 	VATNote    string
+	IsOwner    bool // members page: only the owner changes roles
+	CanManage  bool
 	CSRFToken  string
 	Lang       string
 }
 
 func (p *settingsPageData) setCSRF(t string) { p.CSRFToken = t }
 func (p *settingsPageData) setLang(l string) { p.Lang = l }
+func (p *settingsPageData) setManage(v bool) { p.CanManage = v }
 
 // T translates a dictionary key for this page's language.
 func (p settingsPageData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
@@ -87,6 +91,7 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Team:    team,
 		User:    userViewOf(user),
 		Members: members,
+		IsOwner: RoleFrom(r.Context()) == teams.RoleOwner,
 		Pay:     map[int64]memberPayView{},
 	}
 	for _, m := range members {
@@ -218,6 +223,23 @@ func (s *Server) handleAPITeamRequisites(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/settings/team?flash=updated", http.StatusSeeOther)
 }
 
+// handleAPIMemberRole makes a member an admin or back (owner only).
+func (s *Server) handleAPIMemberRole(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	user, _ := UserFrom(r.Context())
+	target, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/settings/members?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	if err := s.teams.SetRole(r.Context(), team.ID, target, user.ID, teams.Role(r.FormValue("role"))); err != nil {
+		http.Redirect(w, r, "/settings/members?flash=forbidden", http.StatusSeeOther)
+		return
+	}
+	s.audit(r, "member.role", strconv.FormatInt(target, 10), r.FormValue("role"))
+	http.Redirect(w, r, "/settings/members?flash=updated", http.StatusSeeOther)
+}
+
 func (s *Server) handleAPITeamDelete(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFrom(r.Context())
 	team, _ := TeamFrom(r.Context())
@@ -328,6 +350,14 @@ func (s *Server) handleAPIMemberRemove(w http.ResponseWriter, r *http.Request) {
 	if err := s.teams.RemoveMember(r.Context(), team.ID, uid, caller.ID); err != nil {
 		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
+	}
+	// Their timers here stop now: nobody else may touch them, and they
+	// can't reach them any more.
+	sctx := dbpkg.WithScope(r.Context(), uid)
+	if open, err := s.db.ListActiveSessions(sctx, team.ID); err == nil {
+		for _, as := range open {
+			_, _ = s.db.UpdateSessionEnd(sctx, team.ID, as.Session.ID, userNow(r))
+		}
 	}
 	http.Redirect(w, r, "/settings/members?flash=removed", http.StatusSeeOther)
 }

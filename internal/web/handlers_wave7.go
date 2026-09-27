@@ -40,17 +40,23 @@ type reportVM struct {
 // buildReport aggregates sessions in [from,to) per the template's
 // groupBy, optionally pricing by the project rate.
 func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, to time.Time) (reportVM, error) {
-	now := time.Now()
+	now := userNow(r)
 	list, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), from, to, nil)
 	if err != nil {
 		return reportVM{}, err
 	}
 
 	// user names for utilization
+	// Everyone in the workspace, so a colleague reads as a name, not "user 42".
 	userName := map[int64]string{}
 	if tpl.GroupBy == "user" {
-		if u, ok := UserFrom(r.Context()); ok {
-			userName[u.ID] = u.Name
+		if ms, err := s.teams.Members(r.Context(), teamID(r)); err == nil {
+			for _, m := range ms {
+				userName[m.UserID] = m.Name
+				if m.Name == "" {
+					userName[m.UserID] = m.Email
+				}
+			}
 		}
 	}
 
@@ -105,15 +111,19 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		case "activity":
 			key = as.Activity.Name
 		case "day":
-			key = fmtWeekday(resolveLang(r), as.Session.StartAt.Local()) + " " + fmtDay(resolveLang(r), as.Session.StartAt.Local())
+			key = fmtWeekday(resolveLang(r), as.Session.StartAt.In(userLoc(r))) + " " + fmtDay(resolveLang(r), as.Session.StartAt.In(userLoc(r)))
 		case "user":
 			uid := as.Session.UserID
 			if uid == 0 {
 				key = i18n.T(resolveLang(r), "report.unassigned")
 			} else if n, ok := userName[uid]; ok {
 				key = n
+			} else if u, err := s.auth.FindByID(r.Context(), uid); err == nil {
+				// Left the workspace: still their hours, still their name.
+				key = u.Name + " (" + i18n.T(resolveLang(r), "report.formerMember") + ")"
+				userName[uid] = key
 			} else {
-				key = fmt.Sprintf("user %d", uid)
+				key = i18n.T(resolveLang(r), "report.formerMember")
 			}
 		default:
 			key = as.Activity.Name
@@ -192,7 +202,7 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 			ID: t.ID, Name: t.Name, Blurb: t.Blurb, Icon: t.Icon,
 		})
 	}
-	now := time.Now()
+	now := userNow(r)
 	data.DefFrom = now.AddDate(0, 0, -30).Format("2006-01-02")
 	data.DefTo = now.Format("2006-01-02")
 	s.renderPageForRequest(w, r, "Reports", "reports", "reports", &data)
@@ -224,7 +234,7 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	now := time.Now()
+	now := userNow(r)
 	from := now.AddDate(0, 0, -30)
 	to := now.Add(24 * time.Hour)
 	if v := r.URL.Query().Get("from"); v != "" {

@@ -114,7 +114,7 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	// default window: this month
-	now := time.Now()
+	now := userNow(r)
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
 	data.DefEnd = now.Format("2006-01-02")
 	want, _ := strconv.ParseInt(r.URL.Query().Get("project"), 10, 64)
@@ -178,7 +178,7 @@ func (s *Server) unbilledViews(r *http.Request, projectID int64) []unbilledView 
 		out = append(out, unbilledView{
 			ProjectID: u.ProjectID, ProjectName: u.ProjectName, Slug: u.ProjectSlug,
 			Hours: fmtHoursL(lang, u.Hundredths), Amount: moneyL(lang, u.AmountCents, u.Currency),
-			Since: fmtDay(lang, u.Since.Local()), SinceISO: u.Since.Local().Format("2006-01-02"),
+			Since: fmtDay(lang, u.Since.In(userLoc(r))), SinceISO: u.Since.In(userLoc(r)).Format("2006-01-02"),
 		})
 	}
 	return out
@@ -218,9 +218,9 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	endStr := strings.TrimSpace(r.PostForm.Get("end"))
 	notes := strings.TrimSpace(r.PostForm.Get("notes"))
 	projectStr := strings.TrimSpace(r.PostForm.Get("project_id"))
-	now := time.Now()
-	start, err1 := time.ParseInLocation("2006-01-02", startStr, time.Local)
-	end, err2 := time.ParseInLocation("2006-01-02", endStr, time.Local)
+	now := userNow(r)
+	start, err1 := time.ParseInLocation("2006-01-02", startStr, userLoc(r))
+	end, err2 := time.ParseInLocation("2006-01-02", endStr, userLoc(r))
 	if err1 != nil || err2 != nil || end.Before(start) {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "bad period"), http.StatusSeeOther)
 		return
@@ -231,7 +231,8 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	if projectStr != "" {
 		projectID, _ = strconv.ParseInt(projectStr, 10, 64)
 	}
-	lines, err := s.db.BuildInvoiceLines(r.Context(), teamID(r), start, end, projectID)
+	byPerson := r.PostForm.Get("by_person") == "1"
+	lines, err := s.db.BuildInvoiceLinesFor(r.Context(), teamID(r), start, end, projectID, 0, byPerson)
 	if err != nil {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
@@ -260,6 +261,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	clientEmail := strings.TrimSpace(r.PostForm.Get("client_email"))
 	_ = s.db.SetInvoiceParties(r.Context(), teamID(r), inv.ID, seller, clientDetails, vat)
 	_ = s.db.SetInvoiceProject(r.Context(), teamID(r), inv.ID, projectID, clientEmail)
+	_ = s.db.SetInvoiceByPerson(r.Context(), teamID(r), inv.ID, byPerson)
 	if projectID > 0 {
 		// Next invoice for this project starts with the same client.
 		_ = s.db.SetProjectClient(r.Context(), teamID(r), projectID,

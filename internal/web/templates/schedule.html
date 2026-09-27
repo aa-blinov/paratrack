@@ -6,12 +6,23 @@
       <p class="opacity-70 text-sm">{{.T "sch.blurb"}}</p>
     </div>
     <div class="flex items-center gap-2">
-      <a href="/schedule?date={{.PrevWeek}}" class="btn btn-ghost btn-sm">←</a>
+      <a href="/schedule?date={{.PrevWeek}}&project={{.ProjectID}}" class="btn btn-ghost btn-sm" aria-label="{{.T "sch.prev"}}">←</a>
       <span class="font-mono text-sm px-2">{{.WeekLabel}}</span>
-      <a href="/schedule?date={{.NextWeek}}" class="btn btn-ghost btn-sm">→</a>
-      <a href="/schedule" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
+      <a href="/schedule?date={{.NextWeek}}&project={{.ProjectID}}" class="btn btn-ghost btn-sm" aria-label="{{.T "sch.next"}}">→</a>
+      <a href="/schedule?project={{.ProjectID}}" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
     </div>
   </header>
+
+  {{if .Projects}}
+  <form method="GET" class="flex flex-wrap items-center gap-2 text-sm">
+    <input type="hidden" name="date" value="{{.ThisWeek}}">
+    <label for="sch-project" class="doc-muted">{{.T "sch.planning"}}</label>
+    <select id="sch-project" name="project" class="select select-bordered select-sm" onchange="this.form.submit()">
+      {{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.ProjectID}} selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+    <span class="text-xs doc-muted">{{.T "sch.planningHint"}}</span>
+  </form>
+  {{end}}
 
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
     <div class="card-body p-0">
@@ -57,17 +68,22 @@
   </td>
   {{range .Row.Cells}}
   <td class="text-center p-1 {{if .IsToday}}bg-base-200{{end}}">
+    {{if $.CanManage}}
     <input type="number" min="0" max="1440" step="30"
            class="input input-xs input-bordered w-16 text-center font-mono"
            name="minutes"
            value="{{if .Min}}{{.Min}}{{end}}"
            placeholder="—"
-           title="{{.ISO}}"
+           title="{{.ISO}} · {{$.T "sch.dayAll"}} {{.Total}}"
+           aria-label="{{$.Row.UserName}} {{.ISO}}"
            hx-post="/api/schedule/cell"
            hx-trigger="change"
-           hx-vals='{"user_id": {{$.Row.UserID}}, "project_id": {{if $.Projects}}{{(index $.Projects 0).ID}}{{else}}0{{end}}, "date": "{{.ISO}}"}'
+           hx-vals='{"user_id": {{$.Row.UserID}}, "project_id": {{$.ProjectID}}, "date": "{{.ISO}}"}'
            hx-target="#sch-row-{{$.Row.UserID}}"
            hx-swap="outerHTML">
+    {{else}}
+    <span class="font-mono text-sm" title="{{$.T "sch.dayAll"}} {{.Total}}">{{if .Min}}{{.Min}}{{else}}—{{end}}</span>
+    {{end}}
   </td>
   {{end}}
   <td class="text-right font-mono">{{.Row.Total}}</td>

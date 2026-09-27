@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -34,11 +33,11 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 	for _, t := range list {
 		row := dbTokenRow{
 			ID: t.ID, Name: t.Name, Prefix: t.Prefix, ReadOnly: t.ReadOnly,
-			Created: fmtDate(resolveLang(r), t.CreatedAt.Local()),
+			Created: fmtDate(resolveLang(r), t.CreatedAt.In(userLoc(r))),
 		}
 		if t.ExpiresAt != nil {
-			row.Expires = fmtDate(resolveLang(r), t.ExpiresAt.Local())
-			row.Expired = !t.ExpiresAt.After(time.Now())
+			row.Expires = fmtDate(resolveLang(r), t.ExpiresAt.In(userLoc(r)))
+			row.Expired = !t.ExpiresAt.After(userNow(r))
 		}
 		if t.TeamID > 0 {
 			if tm, err := s.teams.FindByID(r.Context(), t.TeamID); err == nil {
@@ -87,7 +86,7 @@ func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 	name := strings.TrimSpace(r.PostForm.Get("name"))
 	opts := db.TokenOptions{TeamID: teamID(r), ReadOnly: r.PostForm.Get("read_only") == "1"}
 	if days, _ := strconv.Atoi(r.PostForm.Get("expires_days")); days > 0 {
-		t := time.Now().AddDate(0, 0, days)
+		t := userNow(r).AddDate(0, 0, days)
 		opts.ExpiresAt = &t
 	}
 	raw, _, err := s.db.CreateAPIToken(r.Context(), u.ID, name, opts)
@@ -99,7 +98,7 @@ func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAPITokenDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/api/tokens/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "bad id", 400)
 		return
@@ -152,7 +151,7 @@ func (p *integrationsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
 // handleIntegrationDetail lists imported tasks with a one-click Start.
 func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/integrations/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -222,7 +221,7 @@ func (s *Server) handleIntegrationConnect(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleIntegrationDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/integrations/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "bad id", 400)
 		return
@@ -232,7 +231,7 @@ func (s *Server) handleIntegrationDelete(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleIntegrationSync(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/integrations/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.Error(w, "bad id", 400)
 		return

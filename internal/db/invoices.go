@@ -1,12 +1,12 @@
 package db
 
 import (
-	"log"
-	"sort"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"sort"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -30,26 +30,27 @@ type Invoice struct {
 	Currency    string    `json:"currency"` // ISO 4217, fixed at creation
 	// Snapshot at creation: later edits to the workspace don't rewrite an
 	// issued document.
-	SellerDetails string `json:"seller_details"`
-	ClientDetails string `json:"client_details"`
-	VATNote       string `json:"vat_note"`
-	ProjectID     int64  `json:"project_id,omitempty"`
-	ClientEmail   string `json:"client_email,omitempty"`
-	Receipt       string `json:"receipt,omitempty"` // "Мой налог" receipt number or link
-	CreatedAt   time.Time `json:"created_at"`
+	SellerDetails string    `json:"seller_details"`
+	ClientDetails string    `json:"client_details"`
+	VATNote       string    `json:"vat_note"`
+	ProjectID     int64     `json:"project_id,omitempty"`
+	ClientEmail   string    `json:"client_email,omitempty"`
+	Receipt       string    `json:"receipt,omitempty"` // "Мой налог" receipt number or link
+	ByPerson      bool      `json:"by_person,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // InvoiceLine is one row on an invoice.
 type InvoiceLine struct {
-	ID          int64  `json:"id"`
-	InvoiceID   int64  `json:"invoice_id"`
-	Label       string `json:"label"`
-	Detail      string `json:"detail"`
-	Seconds     int    `json:"seconds"`
-	RateCents   int    `json:"rate_cents"`
-	AmountCents int    `json:"amount_cents"`
-	Currency    string `json:"currency,omitempty"` // project currency; not stored per line
-	SessionIDs  []int64 `json:"-"`                // sessions this line bills (stamped on create)
+	ID          int64   `json:"id"`
+	InvoiceID   int64   `json:"invoice_id"`
+	Label       string  `json:"label"`
+	Detail      string  `json:"detail"`
+	Seconds     int     `json:"seconds"`
+	RateCents   int     `json:"rate_cents"`
+	AmountCents int     `json:"amount_cents"`
+	Currency    string  `json:"currency,omitempty"` // project currency; not stored per line
+	SessionIDs  []int64 `json:"-"`                  // sessions this line bills (stamped on create)
 }
 
 // SetProjectRate updates the billable rate for a project. rateCents is
@@ -140,7 +141,7 @@ func (d *DB) NextInvoiceNumber(ctx context.Context, teamID int64) (string, error
 // ListInvoices returns the team's invoices, newest first.
 func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, created_at
+		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at
 		 FROM invoices WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -160,7 +161,7 @@ func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) 
 // GetInvoice fetches one invoice inside a team.
 func (d *DB) GetInvoice(ctx context.Context, teamID, id int64) (Invoice, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, created_at
+		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at
 		 FROM invoices WHERE id = ? AND team_id = ?`, id, teamID)
 	inv, err := scanInvoice(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -224,7 +225,6 @@ func (d *DB) DeleteInvoice(ctx context.Context, teamID, id int64) error {
 	return nil
 }
 
-
 // SetPaymentURL stores a Stripe Checkout (or manual) payment link.
 func (d *DB) SetPaymentURL(ctx context.Context, teamID, id int64, paymentURL, stripeSession string) error {
 	res, err := d.sql.ExecContext(ctx,
@@ -278,6 +278,23 @@ func (d *DB) SetTeamStripe(ctx context.Context, teamID int64, key, webhookSecret
 // "project · activity" line, and already existing when the invoice was
 // made. Later invoices are stamped at creation, so this never re-runs on them.
 const billedCutoff = "2026-09-27T09:05:00"
+
+// assignOrphanSessions gives sessions recorded before user_id was set on
+// every path (backfill, timesheet, import, API) to the workspace owner,
+// the only person who could have made them in a personal workspace and
+// the least-wrong owner in a shared one. Idempotent.
+func (d *DB) assignOrphanSessions(ctx context.Context) error {
+	res, err := d.sql.ExecContext(ctx,
+		`UPDATE sessions SET user_id = (SELECT owner_id FROM teams WHERE teams.id = sessions.team_id)
+		 WHERE user_id IS NULL AND team_id IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		log.Printf("sessions: %d without an author assigned to their workspace owner", n)
+	}
+	return nil
+}
 
 func (d *DB) stampLegacyInvoices(ctx context.Context) error {
 	res, err := d.sql.ExecContext(ctx, `
@@ -338,7 +355,7 @@ func (d *DB) RebuildInvoice(ctx context.Context, teamID, id int64) error {
 	if inv.Status != "draft" {
 		return fmt.Errorf("only a draft can be rebuilt")
 	}
-	lines, err := d.BuildInvoiceLinesFor(ctx, teamID, inv.PeriodStart, inv.PeriodEnd, inv.ProjectID, id)
+	lines, err := d.BuildInvoiceLinesFor(ctx, teamID, inv.PeriodStart, inv.PeriodEnd, inv.ProjectID, id, inv.ByPerson)
 	if err != nil {
 		return err
 	}
@@ -371,6 +388,16 @@ func (d *DB) UpdateInvoiceMeta(ctx context.Context, teamID, id int64, client, de
 // SetInvoiceReceipt stores the "Мой налог" receipt (number or link).
 func (d *DB) SetInvoiceReceipt(ctx context.Context, teamID, id int64, receipt string) error {
 	_, err := d.sql.ExecContext(ctx, `UPDATE invoices SET receipt = ? WHERE id = ? AND team_id = ?`, receipt, id, teamID)
+	return err
+}
+
+// SetInvoiceByPerson remembers that the lines are split per person.
+func (d *DB) SetInvoiceByPerson(ctx context.Context, teamID, id int64, on bool) error {
+	v := 0
+	if on {
+		v = 1
+	}
+	_, err := d.sql.ExecContext(ctx, `UPDATE invoices SET by_person = ? WHERE id = ? AND team_id = ?`, v, id, teamID)
 	return err
 }
 
@@ -479,7 +506,7 @@ func (d *DB) SetTeamCurrency(ctx context.Context, teamID int64, cur string) erro
 	return err
 }
 
-// SetProjectCurrency sets a project's own currency ('' = the workspace's).
+// SetProjectCurrency sets a project's own currency (” = the workspace's).
 func (d *DB) SetProjectCurrency(ctx context.Context, teamID, projectID int64, cur string) error {
 	_, err := d.sql.ExecContext(ctx, `UPDATE projects SET currency = ? WHERE id = ? AND team_id = ?`, cur, projectID, teamID)
 	return err
@@ -502,7 +529,7 @@ func (d *DB) SetProjectClient(ctx context.Context, teamID, projectID int64, c Pr
 	return err
 }
 
-// ProjectCurrency is the project's own currency, '' when it inherits.
+// ProjectCurrency is the project's own currency, ” when it inherits.
 func (d *DB) ProjectCurrency(ctx context.Context, teamID, projectID int64) (string, error) {
 	var cur string
 	err := d.sql.QueryRowContext(ctx, `SELECT currency FROM projects WHERE id = ? AND team_id = ?`, projectID, teamID).Scan(&cur)
@@ -510,6 +537,7 @@ func (d *DB) ProjectCurrency(ctx context.Context, teamID, projectID int64) (stri
 }
 
 func scanInvoice(r interface{ Scan(...any) error }) (Invoice, error) {
+	var byPerson int
 	var (
 		inv            Invoice
 		start, end, ct string
@@ -517,7 +545,7 @@ func scanInvoice(r interface{ Scan(...any) error }) (Invoice, error) {
 	)
 	if err := r.Scan(&inv.ID, &inv.TeamID, &inv.Number, &inv.ClientName,
 		&start, &end, &inv.Status, &inv.Notes, &paymentURL, &inv.Currency,
-		&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.ProjectID, &inv.ClientEmail, &inv.Receipt, &ct); err != nil {
+		&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.ProjectID, &inv.ClientEmail, &inv.Receipt, &byPerson, &ct); err != nil {
 		return Invoice{}, err
 	}
 	inv.PeriodStart, _ = ScanTime(start)
@@ -526,6 +554,7 @@ func scanInvoice(r interface{ Scan(...any) error }) (Invoice, error) {
 		inv.PaymentURL = paymentURL.String
 	}
 	inv.CreatedAt, _ = ScanTime(ct)
+	inv.ByPerson = byPerson == 1
 	return inv, nil
 }
 
@@ -535,19 +564,27 @@ func (d *DB) BuildInvoiceLines(ctx context.Context, teamID int64, start, end tim
 	return d.BuildInvoiceLinesFor(ctx, teamID, start, end, projectID, 0)
 }
 
+// BuildInvoiceLinesFor with byPerson splits each line per team member
+// ("Project · activity · Name"): a studio shows the client who did what.
+func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end time.Time, projectID, reuse int64, byPerson ...bool) ([]InvoiceLine, error) {
+	return d.buildLines(ctx, teamID, start, end, projectID, reuse, len(byPerson) > 0 && byPerson[0])
+}
+
 // BuildInvoiceLinesFor is the billing rule. A session is billed once and
 // whole: it belongs to the period its start falls in, it must be finished
 // (a running timer isn't billed until it stops), and it must not already
 // be on another invoice (invoice_id). Rebuilding a draft passes its own
 // id as reuse, so its sessions count again. Each line carries the session
 // ids it covers; CreateInvoice stamps them.
-func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end time.Time, projectID, reuse int64) ([]InvoiceLine, error) {
+func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time, projectID, reuse int64, byPerson bool) ([]InvoiceLine, error) {
 	q := `
 		SELECT s.id, a.name, COALESCE(p.name, ''), s.start_at, s.end_at, s.accumulated_seconds,
-		       COALESCE(p.billable_rate_cents, 0), COALESCE(p.billable, 1), COALESCE(p.currency, '')
+		       COALESCE(p.billable_rate_cents, 0), COALESCE(p.billable, 1), COALESCE(p.currency, ''),
+		       COALESCE(NULLIF(u.name, ''), u.email, '')
 		FROM sessions s
 		JOIN activities a ON a.id = s.activity_id
 		JOIN projects p ON p.id = a.project_id
+		LEFT JOIN users u ON u.id = s.user_id
 		WHERE s.start_at >= ? AND s.start_at < ? AND s.end_at IS NOT NULL
 		  AND (s.invoice_id IS NULL OR s.invoice_id = ? OR NOT EXISTS (SELECT 1 FROM invoices i WHERE i.id = s.invoice_id))`
 	args := []any{FormatTime(start), FormatTime(end), reuse}
@@ -564,7 +601,7 @@ func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end 
 		return nil, err
 	}
 	defer rows.Close()
-	type key struct{ act, proj string }
+	type key struct{ act, proj, person string }
 	type acc struct {
 		secs     int
 		rate     int
@@ -575,13 +612,13 @@ func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end 
 	buckets := map[key]*acc{}
 	for rows.Next() {
 		var (
-			id                      int64
-			actName, projName       string
-			startAt, endAt          string
-			accum, rate, billable   int
-			currency                string
+			id                    int64
+			actName, projName     string
+			startAt, endAt        string
+			accum, rate, billable int
+			currency, person      string
 		)
-		if err := rows.Scan(&id, &actName, &projName, &startAt, &endAt, &accum, &rate, &billable, &currency); err != nil {
+		if err := rows.Scan(&id, &actName, &projName, &startAt, &endAt, &accum, &rate, &billable, &currency, &person); err != nil {
 			return nil, err
 		}
 		if billable == 0 {
@@ -597,6 +634,9 @@ func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end 
 			continue
 		}
 		k := key{act: actName, proj: projName}
+		if byPerson {
+			k.person = person
+		}
 		a := buckets[k]
 		if a == nil {
 			a = &acc{rate: rate, detail: projName, currency: currency}
@@ -613,8 +653,12 @@ func (d *DB) BuildInvoiceLinesFor(ctx context.Context, teamID int64, start, end 
 		if HoursHundredths(a.secs) == 0 {
 			continue // under 0.01 h: a 0.00 line is noise on a client document
 		}
+		label := k.proj + " · " + k.act
+		if k.person != "" {
+			label += " · " + k.person
+		}
 		lines = append(lines, InvoiceLine{
-			Label: k.proj + " · " + k.act, Detail: a.detail, Seconds: a.secs,
+			Label: label, Detail: a.detail, Seconds: a.secs,
 			RateCents: a.rate, AmountCents: PriceCents(a.secs, a.rate), Currency: a.currency,
 			SessionIDs: a.ids,
 		})
@@ -695,8 +739,8 @@ func (d *DB) DayLockFor(ctx context.Context, teamID, activityID int64, dayStart,
 	_ = d.sql.QueryRowContext(ctx,
 		`SELECT i.number FROM sessions s JOIN invoices i ON i.id = s.invoice_id
 		 WHERE s.team_id = ? AND s.activity_id = ? AND s.start_at >= ? AND s.start_at < ?
-		   AND i.status IN ('sent', 'paid') LIMIT 1`,
-		teamID, activityID, FormatTime(dayStart), FormatTime(dayEnd)).Scan(&num)
+		   AND i.status IN ('sent', 'paid') AND (? = 0 OR s.user_id = ?) LIMIT 1`,
+		teamID, activityID, FormatTime(dayStart), FormatTime(dayEnd), actorID(ctx), actorID(ctx)).Scan(&num)
 	return num
 }
 
