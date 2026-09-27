@@ -416,11 +416,10 @@ func twoDigits(n int) string {
 	return strconv.Itoa(n)
 }
 
-// invoiceMailText is the covering letter for an invoice.
+// invoiceMailText is the letter as plain text (the mailto draft uses it).
 func invoiceMailText(lang i18n.Lang, vm invoiceVM, seller string) (string, string) {
-	subj := i18n.T(lang, "inv.invoice") + " " + vm.Number + " · " + seller
-	body := fmt.Sprintf(i18n.T(lang, "inv.mailBody"), vm.Number, vm.PeriodLabel, vm.Total, seller)
-	return subj, body
+	subj, ev := invoiceEmail(lang, vm, seller)
+	return subj, emailText(ev)
 }
 
 func (s *Server) invoiceBack(w http.ResponseWriter, r *http.Request, ok bool, msg string) {
@@ -495,8 +494,7 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, false, i18n.T(lang, "inv.badEmail"))
 		return
 	}
-	sender, can := s.mailer.(mail.AttachSender)
-	if !mail.Configured() || !can {
+	if !mail.Configured() {
 		s.invoiceBack(w, r, false, i18n.T(lang, "inv.mailOff"))
 		return
 	}
@@ -509,8 +507,12 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, false, err.Error())
 		return
 	}
-	subj, body := invoiceMailText(lang, vm, seller)
-	if err := sender.SendWith(to, subj, body, mail.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf}); err != nil {
+	subj, ev := invoiceEmail(lang, vm, seller)
+	msg, err := s.buildEmail(to, subj, ev, mail.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
+	if err == nil {
+		err = s.deliver(msg)
+	}
+	if err != nil {
 		s.invoiceBack(w, r, false, fmt.Sprintf(i18n.T(lang, "inv.mailFailed"), err.Error()))
 		return
 	}

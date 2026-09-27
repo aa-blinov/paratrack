@@ -62,13 +62,10 @@ func (s *Server) handleAPIPasswordForgot(w http.ResponseWriter, r *http.Request)
 		if token, err := s.auth.CreatePasswordReset(r.Context(), user.ID); err == nil {
 			base := publicBaseURL(r)
 			link := base + "/reset-password?token=" + url.QueryEscape(token)
-			body := "Hi " + user.Name + ",\n\n" +
-				"Someone (hopefully you) asked to reset the password for " + user.Email + ".\n\n" +
-				"Open this link within " + auth.ResetTTL.String() + " to choose a new password:\n\n" +
-				link + "\n\n" +
-				"If you didn't ask for this, you can ignore this message — the link is single-use and expires quickly.\n\n" +
-				"— paratrack\n"
-			_ = s.mailer.Send(user.Email, "Reset your paratrack password", body)
+			subj, ev := resetEmail(resolveLang(r), user.Name, user.Email, link, humanTTL(resolveLang(r), auth.ResetTTL))
+			if msg, err := s.buildEmail(user.Email, subj, ev); err == nil {
+				_ = s.deliver(msg)
+			}
 		}
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
@@ -179,7 +176,6 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 	s.respondActiveList(w, r)
 }
 
-
 // handleSetLang switches the UI language and returns to the previous page.
 func (s *Server) handleSetLang(w http.ResponseWriter, r *http.Request) {
 	code := i18n.Normalize(r.PathValue("code"))
@@ -198,4 +194,9 @@ func (s *Server) handleSetLang(w http.ResponseWriter, r *http.Request) {
 	}
 	setLangCookie(w, r, code)
 	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// humanTTL is "1 час" / "30 минут" for a letter.
+func humanTTL(lang i18n.Lang, d time.Duration) string {
+	return fmtDurL(lang, int(d.Seconds()))
 }

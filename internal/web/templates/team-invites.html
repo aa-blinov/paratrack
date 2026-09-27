@@ -7,9 +7,14 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.inviteTitle"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "team.inviteBlurb"}}</p>
-      <form method="POST" action="/api/team/invites">
+      <form method="POST" action="/api/team/invites" class="grid gap-2 sm:grid-cols-[1fr_auto] items-end">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label class="form-control">
+          <span class="label-text text-sm">{{.T "invite.email"}}</span>
+          <input type="email" name="email" autocomplete="off" placeholder="colleague@studio.ru" class="input input-bordered w-full">
+        </label>
         <button type="submit" class="btn btn-neutral gap-1.5">{{icon "link"}}{{.T "team.generateInvite"}}</button>
+        <span class="text-xs opacity-70 sm:col-span-2">{{.T "invite.emailHint"}}</span>
       </form>
     </div>
   </div>

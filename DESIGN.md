@@ -398,3 +398,21 @@ top rule. Below 640px rows become labelled cards (`.responsive-collapse`).
 - **Don't** rely on hover for anything a touch user must reach; give compact controls a 44px hit area.
 - **Don't** add gradient text, glassmorphism, decorative blur, or thick accent borders on cards. The ledger does not shimmer.
 - **Don't** drop `prefers-reduced-motion`: kill duration and movement, keep state change and hierarchy.
+
+## Email
+
+Letters (invoice to a client, password reset, team invite) share one
+layout, `templates/email.html`, previewed at `/settings/email-preview`
+(`?kind=invoice|reset|invite`, `&text=1` for the plain part).
+
+- **Built for mail clients, not browsers:** tables and inline styles only,
+  560 px sheet on `#f3f4f6`, white card with a 1 px `#e5e7eb` hairline,
+  12 px radius. `color-scheme: light` so dark-mode clients don't invert it.
+- **Type:** web fonts don't load reliably in mail, so body text uses the
+  system stack `-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+  Inter, Arial, sans-serif` (Inter where installed); figures use the
+  system mono stack; the wordmark is Georgia, the closest safe serif to
+  the app's display face.
+- **One dark button** (`#1a1d23`, white 15 px/600) with the raw link under
+  it; the amount on an invoice sits under the 2 px total rule, like the
+  ledger. Every letter also ships an identical plain-text part.
