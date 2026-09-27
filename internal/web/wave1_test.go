@@ -222,3 +222,25 @@ func TestTimesheetRowsSortedByName(t *testing.T) {
 		t.Errorf("row order = %v, want %s", got, want)
 	}
 }
+
+func TestFmtWhenAndClock(t *testing.T) {
+	now := time.Date(2026, 9, 26, 15, 0, 0, 0, time.Local)
+	for _, c := range []struct {
+		t    time.Time
+		lang i18n.Lang
+		want string
+	}{
+		{time.Date(2026, 9, 26, 5, 11, 0, 0, time.Local), i18n.Ru, "сегодня 05:11"},
+		{time.Date(2026, 9, 25, 9, 0, 0, 0, time.Local), i18n.Ru, "вчера 09:00"},
+		{time.Date(2026, 9, 21, 9, 0, 0, 0, time.Local), i18n.Ru, "Пн 21 сен, 09:00"},
+		{time.Date(2025, 12, 31, 9, 0, 0, 0, time.Local), i18n.Ru, "Ср 31 дек 2025, 09:00"},
+		{time.Date(2026, 9, 21, 9, 0, 0, 0, time.Local), i18n.En, "Mon, Sep 21, 09:00"},
+	} {
+		if got := fmtWhen(c.lang, c.t, now); got != c.want {
+			t.Errorf("fmtWhen(%v) = %q, want %q", c.t, got, c.want)
+		}
+	}
+	if got := fmtClock(3725); got != "1:02:05" {
+		t.Errorf("fmtClock = %q", got)
+	}
+}

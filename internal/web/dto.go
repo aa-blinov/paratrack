@@ -82,6 +82,10 @@ type sessionView struct {
 	ProjectColor       string // empty if no project
 	ProjectSlug        string // empty if no project
 	StartISO           string
+	// ResumeISO anchors the live clock: the last resume, not the start.
+	// Counting from the start double-counted every pause after a resume.
+	ResumeISO          string
+	Clock              string // H:MM:SS of the full tracked total (running list)
 	StartLocal         string
 	EndLocal           string
 	StartInput         string // value for datetime-local
@@ -223,13 +227,23 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		Color:              colorFor(a.Name),
 		ProjectID:          a.ProjectID,
 		StartISO:           s.StartAt.UTC().Format(time.RFC3339Nano),
-		StartLocal:         s.StartAt.Local().Format("01-02 15:04"),
+		ResumeISO:          s.StartAt.UTC().Format(time.RFC3339Nano),
+		StartLocal:         fmtWhen(lang, s.StartAt.Local(), now.Local()),
+		Clock:              fmtClock(s.DurationSeconds(now)),
 		AccumulatedSeconds: s.AccumulatedSeconds,
 		Paused:             s.Paused,
 		Lang:               string(lang),
 	}
+	if s.LastResumeAt != nil {
+		v.ResumeISO = s.LastResumeAt.UTC().Format(time.RFC3339Nano)
+	}
 	if s.EndAt != nil {
-		v.EndLocal = s.EndAt.Local().Format("01-02 15:04")
+		// Same day as the start: the time alone reads cleaner.
+		if sameDay(s.EndAt.Local(), s.StartAt.Local()) {
+			v.EndLocal = s.EndAt.Local().Format("15:04")
+		} else {
+			v.EndLocal = fmtWhen(lang, s.EndAt.Local(), now.Local())
+		}
 		v.EndInput = toLocalInput(*s.EndAt)
 	}
 	v.StartInput = toLocalInput(s.StartAt)
@@ -466,4 +480,32 @@ func fmtDate(lang i18n.Lang, t time.Time) string {
 // it reads the same in every language and in the PDF core font.
 func fmtHours(hundredths int) string {
 	return fmt.Sprintf("%d.%02d", hundredths/100, hundredths%100)
+}
+
+// fmtClock is a stopwatch reading, "1:02:05", for timers that tick.
+func fmtClock(sec int) string {
+	if sec < 0 {
+		sec = 0
+	}
+	return fmt.Sprintf("%d:%02d:%02d", sec/3600, sec/60%60, sec%60)
+}
+
+// fmtWhen is a human timestamp relative to now: "сегодня 05:11",
+// "вчера 09:00", "пт 25 сен, 09:00"; the year appears only when it differs.
+func fmtWhen(lang i18n.Lang, t, now time.Time) string {
+	hm := t.Format("15:04")
+	switch {
+	case sameDay(t, now):
+		return i18n.T(lang, "when.today") + " " + hm
+	case sameDay(t, now.AddDate(0, 0, -1)):
+		return i18n.T(lang, "when.yesterday") + " " + hm
+	}
+	day := fmtWeekday(lang, t) + " " + fmtDay(lang, t)
+	if lang != i18n.Ru {
+		day = fmtWeekday(lang, t) + ", " + fmtDay(lang, t)
+	}
+	if t.Year() != now.Year() {
+		day += " " + t.Format("2006")
+	}
+	return day + ", " + hm
 }
