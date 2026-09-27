@@ -34,9 +34,18 @@ type pageData struct {
 	CSRFToken   string          // echoed into form hidden fields
 	Lang        string          // "en" | "ru" — resolved from cookie / Accept-Language
 	CanManage   bool            // owner/admin: money and settings are shown
+	Mods        map[string]bool // sections this workspace uses (modules.go)
 }
 
 func (p *pageData) setManage(v bool) { p.CanManage = v }
+
+func (p *pageData) setModules(m map[string]bool) { p.Mods = m }
+
+// On reports whether a section is switched on ({{if .On "invoices"}}).
+// No set yet (logged-out pages) means on.
+func (p pageData) On(key string) bool { return p.Mods == nil || p.Mods[key] }
+
+type modulesCarrier interface{ setModules(map[string]bool) }
 
 // manageCarrier is a page that hides money/settings from members.
 type manageCarrier interface{ setManage(bool) }

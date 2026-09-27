@@ -1,0 +1,61 @@
+{{/* Sections: the onboarding question (/welcome) and its settings page
+     (/settings/sections) share one form. A preset is one tap; the list
+     below it is the same choice made by hand. */}}
+{{define "sections"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+  {{if .Welcome}}
+  <header>
+    <h1 class="mb-1">{{.T "welcome.title"}}</h1>
+    <p class="text-sm opacity-80">{{.T "welcome.blurb"}}</p>
+  </header>
+  {{else}}
+  {{template "settings-sidebar" .}}
+  {{end}}
+
+  <section aria-labelledby="presets-title" class="space-y-2">
+    <h2 id="presets-title" class="ledger-label">{{.T "sections.presets"}}</h2>
+    <div class="grid gap-2 sm:grid-cols-3">
+      {{range .Presets}}
+      <form method="POST" action="/api/team/modules">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="preset" value="{{.Key}}">
+        {{if $.Welcome}}<input type="hidden" name="from" value="welcome">{{end}}
+        <button type="submit" class="preset-card{{if .Active}} is-active{{end}}"{{if .Active}} aria-current="true"{{end}}>
+          <span class="flex items-center gap-2 font-semibold">{{icon .Icon}}{{$.T .Title}}{{if .Active}}<span class="ms-auto">{{icon "check" "icon icon-sm"}}</span>{{end}}</span>
+          <span class="text-sm opacity-80 text-left">{{$.T .Blurb}}</span>
+          <span class="text-xs doc-muted text-left">{{range $i, $n := .Names}}{{if $i}} · {{end}}{{$n}}{{end}}</span>
+        </button>
+      </form>
+      {{end}}
+    </div>
+  </section>
+
+  <details class="card bg-base-100 border border-base-300"{{if not .Welcome}} open{{end}}>
+    <summary class="card-body p-5 cursor-pointer font-medium">{{.T "sections.custom"}}</summary>
+    <form method="POST" action="/api/team/modules" class="px-5 pb-5 space-y-3">
+      <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+      {{if .Welcome}}<input type="hidden" name="from" value="welcome">{{end}}
+      <p class="text-sm doc-muted">{{.T "sections.core"}}</p>
+      <ul class="divide-y divide-base-300 border-y border-base-300">
+        {{range .Modules}}
+        <li>
+          <label class="flex items-start gap-3 py-3 cursor-pointer">
+            <input type="checkbox" name="modules" value="{{.Key}}" class="checkbox checkbox-sm mt-0.5"{{if .On}} checked{{end}}>
+            <span class="min-w-0">
+              <span class="flex items-center gap-1.5 font-medium">{{icon .Icon "icon icon-sm"}}{{$.T .Label}}</span>
+              <span class="block text-sm doc-muted">{{$.T .Hint}}{{if .Manage}} {{$.T "sections.managersNote"}}{{end}}</span>
+            </span>
+          </label>
+        </li>
+        {{end}}
+      </ul>
+      <button type="submit" class="btn btn-neutral">{{.T "profile.save"}}</button>
+    </form>
+  </details>
+
+  {{if .Welcome}}
+  <p class="text-sm"><a href="/" class="link link-hover">{{.T "welcome.skip"}}</a> <span class="doc-muted">{{.T "welcome.later"}}</span></p>
+  {{end}}
+</div>
+{{end}}

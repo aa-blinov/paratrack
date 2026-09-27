@@ -71,6 +71,9 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	if page := readBody(t, dev.do("GET", "/", nil, nil)); strings.Contains(page, `href="/invoices"`) {
 		t.Error("developer's menu shows invoices")
 	}
+	if page := readBody(t, owner.do("GET", "/", nil, nil)); !strings.Contains(page, `href="/invoices"`) || !strings.Contains(page, `href="/settings/team"`) {
+		t.Error("the owner's menu lost invoices or team settings")
+	}
 
 	// Timesheet: the developer's cell doesn't wipe the owner's day.
 	readBody(t, owner.do("POST", "/api/active/stop-all", nil, htmx))
