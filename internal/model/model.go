@@ -92,12 +92,33 @@ func (s Session) DurationSeconds(now time.Time) int {
 // [winStart, winEnd]. The session's tracked total is scaled by how much
 // of its wall-clock span overlaps the window, so a session straddling
 // midnight (or a pause) doesn't dump all of its time into one day.
+//
+// An open session splits in two: the live stretch since the last resume
+// is tracked second for second, so it lands exactly in its window; only
+// the accumulated part is scaled, over the span that produced it (start
+// to last resume, or to the pause). Scaling the whole open span instead
+// grew "today" by a fraction of a second per second for a timer started
+// yesterday, and grew it for a paused timer that was not running at all.
 func (s Session) TrackedSecondsInWindow(winStart, winEnd, now time.Time) int {
-	spanStart := s.StartAt
-	spanEnd := now
-	if s.EndAt != nil {
-		spanEnd = *s.EndAt
+	if s.EndAt == nil {
+		live := 0
+		accEnd := now
+		if s.Paused {
+			if s.PausedAt != nil {
+				accEnd = *s.PausedAt
+			}
+		} else if s.LastResumeAt != nil {
+			accEnd = *s.LastResumeAt
+			live = overlapSeconds(*s.LastResumeAt, now, winStart, winEnd)
+		}
+		acc := Session{StartAt: s.StartAt, EndAt: &accEnd, AccumulatedSeconds: s.AccumulatedSeconds}
+		if s.AccumulatedSeconds == 0 {
+			return live
+		}
+		return acc.TrackedSecondsInWindow(winStart, winEnd, now) + live
 	}
+	spanStart := s.StartAt
+	spanEnd := *s.EndAt
 	if !spanEnd.After(spanStart) {
 		return 0
 	}
@@ -122,6 +143,20 @@ func (s Session) TrackedSecondsInWindow(winStart, winEnd, now time.Time) int {
 		scaled = 1
 	}
 	return scaled
+}
+
+// overlapSeconds is the length of [a, b] ∩ [winStart, winEnd] in seconds.
+func overlapSeconds(a, b, winStart, winEnd time.Time) int {
+	if a.Before(winStart) {
+		a = winStart
+	}
+	if b.After(winEnd) {
+		b = winEnd
+	}
+	if !b.After(a) {
+		return 0
+	}
+	return int(b.Sub(a).Seconds())
 }
 
 // Active reports whether the session is in progress (open and not finished).

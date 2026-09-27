@@ -318,6 +318,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		total += sv.DurationSecs
 	}
 	d.TodayTotal = fmtDur(r, total)
+	d.TodaySecs = total
 	var topName string
 	topSec := 0
 	for n, sec := range agg {
@@ -646,9 +647,6 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	}
 	// Say what stopped, how long it ran, and where it went.
 	dur := fmtDur(r, stopped.DurationSeconds(time.Now()))
-	if stopped.DurationSeconds(time.Now()) < 60 {
-		dur = i18n.T(resolveLang(r), "dur.underMinute")
-	}
 	s.toast(w, strings.NewReplacer("{name}", pushName, "{dur}", dur).
 		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
 	// Stop is instant; the toast carries the way back (and a discard for

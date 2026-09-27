@@ -11,6 +11,19 @@ window.paratrackDecode = (v) => {
 const U = () => document.documentElement.lang === 'ru'
   ? ['\u00a0ч', '\u00a0мин', '\u00a0с'] : ['h', 'm', 's'];
 
+// Same ladder as Go fmtDurL: "0m" / "<1m" / "Xm" / "Xh" / "Xh Ym".
+function fmtDurJS(seconds) {
+  const [hu, mu] = U();
+  const sec = Math.max(0, seconds);
+  if (sec <= 0) return '0' + mu;
+  if (sec < 60) return '<1' + mu;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0 && m > 0) return h + hu + ' ' + m + mu;
+  if (h > 0) return h + hu;
+  return m + mu;
+}
+
 document.addEventListener('alpine:init', () => {
   // Live-ticking session row. Updates once per second without any
   // server round-trip. The anchor is the LAST RESUME (not the session
@@ -35,17 +48,18 @@ document.addEventListener('alpine:init', () => {
       const p2 = (n) => String(n).padStart(2, '0');
       return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60);
     },
+    get formatted() { return fmtDurJS(this.seconds); }
+  }));
+
+  // «учтено» under the ledger: the render-time total plus one second per
+  // running timer, so the sum moves with the rows above it. Re-seeded by
+  // the server on every timer change and the 30 s poll.
+  Alpine.data('liveTotal', (base, running) => ({
+    t0: Date.now(),
+    now: Date.now(),
+    init() { if (Number(running) > 0) setInterval(() => { this.now = Date.now(); }, 1000); },
     get formatted() {
-      // Same ladder as Go fmtDuration: "0m" / "1m" / "Xm" / "Xh" / "Xh Ym".
-      const [hu, mu] = U();
-      const sec = Math.max(0, this.seconds);
-      if (sec <= 0) return '0' + mu;
-      if (sec < 60) return '1' + mu;
-      const h = Math.floor(sec / 3600);
-      const m = Math.floor((sec % 3600) / 60);
-      if (h > 0 && m > 0) return h + hu + ' ' + m + mu;
-      if (h > 0) return h + hu;
-      return m + mu;
+      return fmtDurJS((Number(base) || 0) + Number(running) * Math.floor((this.now - this.t0) / 1000));
     }
   }));
 
@@ -756,12 +770,27 @@ document.addEventListener('htmx:configRequest', (e) => {
   });
   const sel = document.getElementById('project_id');
   const label = document.querySelector('[data-project-label]');
+  // The last chosen project sticks: a freelancer starting one client task
+  // after another should not fall back to unbilled «Без проекта».
+  const KEY = 'paratrack-last-project';
+  const restore = () => {
+    let v = '';
+    try { v = localStorage.getItem(KEY) || ''; } catch (_) {}
+    if (sel && [...sel.options].some((o) => o.value === v)) sel.value = v;
+  };
   const sync = () => {
     if (sel && label) label.textContent = sel.options[sel.selectedIndex].text;
   };
-  if (sel) sel.addEventListener('change', sync);
-  // The start form resets after each submit; keep the summary honest.
-  window.paratrackLedgerProject = () => setTimeout(sync, 0);
+  if (sel) {
+    sel.addEventListener('change', () => {
+      try { localStorage.setItem(KEY, sel.value); } catch (_) {}
+      sync();
+    });
+    restore();
+    sync();
+  }
+  // The start form resets after each submit; put the project back.
+  window.paratrackLedgerProject = () => setTimeout(() => { restore(); sync(); }, 0);
 })();
 
 // First-run quick start: an example fills the activity field and starts it.
