@@ -100,7 +100,7 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 			Number:   inv.Number,
 			Client:   inv.ClientName,
 			Status:   inv.Status,
-			Total:    formatMoney(total),
+			Total:    formatMoneyL(resolveLang(r), total),
 			Hours:    fmtHours(secs),
 			Period:   fmtDay(resolveLang(r), inv.PeriodStart) + " – " + fmtDay(resolveLang(r), inv.PeriodEnd),
 		})
@@ -218,8 +218,8 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 		vms = append(vms, invoiceLineVM{
 			Label:       l.Label,
 			Hours:       fmtHours(dbpkg.HoursHundredths(l.Seconds)),
-			Rate:        formatMoney(l.RateCents),
-			Amount:      formatMoney(l.AmountCents),
+			Rate:        formatMoneyL(resolveLang(r), l.RateCents),
+			Amount:      formatMoneyL(resolveLang(r), l.AmountCents),
 			RateCents:   l.RateCents,
 			AmountCents: l.AmountCents,
 			Seconds:     l.Seconds,
@@ -235,7 +235,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 			Status:      inv.Status,
 			Notes:       inv.Notes,
 			Lines:       vms,
-			Total:       formatMoney(total),
+			Total:       formatMoneyL(resolveLang(r), total),
 			TotalCents:  total,
 			Hours:       fmtHours(secs),
 			PaymentURL:  inv.PaymentURL,
@@ -315,6 +315,29 @@ func formatMoney(cents int) string {
 		cents = -cents
 	}
 	return sign + strconv.Itoa(cents/100) + "." + twoDigits(cents%100)
+}
+
+// formatMoneyL is the display form: "1 234,56" in Russian, "1,234.56" in
+// English. formatMoney stays the plain parseable form for inputs and CSV.
+func formatMoneyL(lang i18n.Lang, cents int) string {
+	plain := formatMoney(cents)
+	sign := ""
+	if plain[0] == '-' {
+		sign, plain = "-", plain[1:]
+	}
+	whole, frac := plain[:len(plain)-3], plain[len(plain)-2:]
+	sep, dec := ",", "."
+	if lang == i18n.Ru {
+		sep, dec = "\u00a0", ","
+	}
+	var b strings.Builder
+	for i, c := range whole {
+		if i > 0 && (len(whole)-i)%3 == 0 {
+			b.WriteString(sep)
+		}
+		b.WriteRune(c)
+	}
+	return sign + b.String() + dec + frac
 }
 
 func twoDigits(n int) string {

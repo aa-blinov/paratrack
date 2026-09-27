@@ -196,7 +196,7 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		secs += db.HoursHundredths(l.Seconds)
 		vms = append(vms, invoiceLineVM{
 			Label: l.Label, Hours: fmtHours(db.HoursHundredths(l.Seconds)),
-			Rate: formatMoney(l.RateCents), Amount: formatMoney(l.AmountCents),
+			Rate: formatMoneyL(resolveLang(r), l.RateCents), Amount: formatMoneyL(resolveLang(r), l.AmountCents),
 			RateCents: l.RateCents, AmountCents: l.AmountCents, Seconds: l.Seconds,
 		})
 	}
@@ -205,7 +205,7 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		PeriodLabel: fmtDate(resolveLang(r), inv.PeriodStart) + " – " + fmtDate(resolveLang(r), inv.PeriodEnd),
 		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.Format("2006-01-02"),
 		Status: inv.Status, Notes: inv.Notes, Lines: vms,
-		Total: formatMoney(total), TotalCents: total, Hours: fmtHours(secs),
+		Total: formatMoneyL(resolveLang(r), total), TotalCents: total, Hours: fmtHours(secs),
 		PaymentURL: inv.PaymentURL,
 	}
 	return inv, lines, vm, true
