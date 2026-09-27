@@ -133,10 +133,13 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 	}
 	var mods map[string]bool
 	if _, ok := TeamFrom(r.Context()); ok {
-		mods = s.teamModules(r)
+		mods = s.userModules(r)
 		if m, ok := data.(modulesCarrier); ok {
 			m.setModules(mods)
 		}
+	}
+	if wc, ok := data.(widgetsCarrier); ok {
+		wc.setWidgets(prefsOf(r).HiddenWidgets)
 	}
 	stampLang(data, lang)
 	var buf bytes.Buffer
@@ -147,6 +150,8 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 	wrapper := pageData{
 		CanManage:   canManage(r),
 		Mods:        mods,
+		DurFmt:      durFmtOf(r),
+		Tabs:        s.tabsFor(r, mods),
 		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
@@ -254,6 +259,15 @@ func (s *Server) parsePeriod(r *http.Request) timeparse.Period {
 	if err != nil {
 		p, _ = timeparse.ResolvePeriod("today", now)
 	}
+	if weekStartsSunday(r) && (name == "week" || name == "last_week") {
+		// ResolvePeriod counts from Monday; move to the Sunday-based week.
+		ws := startOfWeek(r, now)
+		if name == "week" {
+			p.Start = ws
+		} else {
+			p.Start, p.End = ws.AddDate(0, 0, -7), ws.Add(-time.Second)
+		}
+	}
 	return p
 }
 
@@ -290,15 +304,15 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 
 	activeViews := make([]sessionView, 0, len(active))
 	for _, as := range active {
-		activeViews = append(activeViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
+		activeViews = append(activeViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r), durFmtOf(r)))
 	}
 	todayViews := make([]sessionView, 0, len(todaySessions))
 	for _, as := range todaySessions {
-		todayViews = append(todayViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
+		todayViews = append(todayViews, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r), durFmtOf(r)))
 	}
 	recentViews := make([]sessionView, 0, len(weekSessions))
 	for _, as := range weekSessions {
-		recentViews = append(recentViews, toSessionView(as.Session, as.Activity, weekFrom, weekTo, now, resolveLang(r)))
+		recentViews = append(recentViews, toSessionView(as.Session, as.Activity, weekFrom, weekTo, now, resolveLang(r), durFmtOf(r)))
 	}
 	hydrateSessionTags(ctx, s.db, activeViews)
 	hydrateSessionProjects(ctx, s.db, activeViews)
@@ -324,6 +338,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	if projects, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
 		d.Projects = projects
 		d.HasProject = len(projects) > 0
+		if dp := prefsOf(r).defaultProject(teamID(r)); dp > 0 {
+			for _, p := range projects {
+				if p.ID == dp {
+					d.DefaultProject = dp
+				}
+			}
+		}
 		d.ActiveVM.Projects = projects
 	}
 	// First run: the account is new until it has any session at all.
@@ -333,7 +354,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.HasSession = seen
 	}
 	d.ActiveVM.FirstRun = !d.HasSession
-	if d.HasProject && canManage(r) && s.teamModules(r)["invoices"] {
+	if d.HasProject && canManage(r) && s.userModules(r)["invoices"] {
 		d.Unbilled = s.unbilledViews(r, 0)
 	}
 	// Quick today stats: total tracked time, top activity. Aggregates
@@ -434,7 +455,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		if clipped <= 0 {
 			continue
 		}
-		v := toSessionView(as.Session, as.Activity, period.Start, period.End, now, resolveLang(r))
+		v := toSessionView(as.Session, as.Activity, period.Start, period.End, now, resolveLang(r), durFmtOf(r))
 		if as.Session.UserID > 0 {
 			v.PersonName = names[as.Session.UserID]
 		}
@@ -1176,7 +1197,7 @@ func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id in
 	}
 	now := userNow(r)
 	period := s.parsePeriod(r)
-	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now, resolveLang(r))}
+	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now, resolveLang(r), durFmtOf(r))}
 	hydrateSessionTags(ctx, s.db, views)
 	hydrateSessionProjects(ctx, s.db, views)
 	views[0].Lang = string(resolveLang(r))
@@ -1542,7 +1563,7 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	}
 	views := make([]sessionView, 0, len(active))
 	for _, as := range active {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
+		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r), durFmtOf(r)))
 	}
 	hydrateSessionTags(r.Context(), s.db, views)
 	hydrateSessionProjects(r.Context(), s.db, views)
@@ -1574,7 +1595,7 @@ func (s *Server) handleMiniBar(w http.ResponseWriter, r *http.Request) {
 	lang := resolveLang(r)
 	views := make([]sessionView, 0, len(active))
 	for _, as := range active {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, lang))
+		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, lang, durFmtOf(r)))
 	}
 	// Running first: the bar shows the timer that is actually ticking.
 	sort.SliceStable(views, func(i, j int) bool { return !views[i].Paused && views[j].Paused })

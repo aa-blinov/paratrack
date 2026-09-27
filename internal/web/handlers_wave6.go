@@ -271,7 +271,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 			day = t
 		}
 	}
-	weekStart := startOfWeek(day)
+	weekStart := startOfWeek(r, day)
 	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
 	pid := schedProject(r.URL.Query().Get("project"), projects)
 	srows, pnames, err := s.scheduleRows(r, weekStart, pid)
@@ -398,7 +398,7 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 	}
 	projects, _ := s.db.ListProjects(r.Context(), teamID(r), false)
 	pid := schedProject(r.PostForm.Get("project_id"), projects)
-	rows, _, err := s.scheduleRows(r, startOfWeek(t), pid)
+	rows, _, err := s.scheduleRows(r, startOfWeek(r, t), pid)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

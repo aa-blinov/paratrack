@@ -296,6 +296,7 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("GET /settings/invites",       s.manage(s.handleTeamInvites))
 	pages.HandleFunc("GET /settings/profile",       s.handleSettingsProfile)
 	pages.HandleFunc("GET /settings/sections",      s.manage(s.handleSectionsPage))
+	pages.HandleFunc("GET /settings/preferences",   s.handlePreferencesPage)
 	pages.HandleFunc("GET /welcome",                s.handleWelcome)
 
 	// Public invite-accept page (auth required to actually click Join).
@@ -340,6 +341,9 @@ func (s *Server) routes() http.Handler {
 	api("POST",   "/api/team/currency",            s.manage(s.handleAPITeamCurrency))
 	api("POST",   "/api/team/requisites",          s.manage(s.handleAPITeamRequisites))
 	api("POST",   "/api/team/modules",             s.manage(s.handleAPITeamModules))
+	api("POST",   "/api/team/billing",             s.manage(s.handleAPITeamBilling))
+	api("POST",   "/api/team/logo",                s.manage(s.handleAPITeamLogo))
+	api("POST",   "/api/me/preferences",           s.handleAPIPreferences)
 	api("POST",   "/api/team/create",              s.handleAPITeamCreate)
 	api("POST",   "/api/team/switch",              s.handleAPITeamSwitch)
 	api("POST",   "/api/team/delete",              s.handleAPITeamDelete)

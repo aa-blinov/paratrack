@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	_ "embed"
+	"encoding/base64"
 	"fmt"
 	"strings"
 
@@ -39,6 +41,16 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 	grey := func() { pdf.SetTextColor(105, 105, 110) }
 	ink := func() { pdf.SetTextColor(20, 20, 24) }
 	ink()
+	if img, typ := logoBytes(string(inv.Logo)); img != nil {
+		opt := fpdf.ImageOptions{ImageType: typ, ReadDpi: false}
+		pdf.RegisterImageOptionsReader("logo", opt, bytes.NewReader(img))
+		if pdf.Ok() {
+			pdf.ImageOptions("logo", 15, 15, 0, 12, false, opt, 0, "")
+			pdf.SetY(15 + 12 + 4)
+		} else {
+			pdf.ClearError() // a broken logo mustn't cost the invoice
+		}
+	}
 
 	// Title + number, date on the right.
 	pdf.SetFont("Inter", "B", 18)
@@ -168,4 +180,18 @@ func truncateRunes(s string, n int) string {
 // invoicePDFName is the download filename.
 func invoicePDFName(inv invoiceVM) string {
 	return fmt.Sprintf("%s.pdf", strings.ReplaceAll(inv.Number, " ", "-"))
+}
+
+// logoBytes decodes the stored data: URL into image bytes and fpdf's type.
+func logoBytes(v string) ([]byte, string) {
+	for prefix, typ := range map[string]string{"data:image/png;base64,": "PNG", "data:image/jpeg;base64,": "JPG"} {
+		if rest, ok := strings.CutPrefix(v, prefix); ok {
+			b, err := base64.StdEncoding.DecodeString(rest)
+			if err != nil {
+				return nil, ""
+			}
+			return b, typ
+		}
+	}
+	return nil, ""
 }

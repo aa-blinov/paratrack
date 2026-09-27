@@ -12,9 +12,17 @@ const U = () => document.documentElement.lang === 'ru'
   ? ['\u00a0ч', '\u00a0мин', '\u00a0с'] : ['h', 'm', 's'];
 
 // Same ladder as Go fmtDurL: "0m" / "<1m" / "Xm" / "Xh" / "Xh Ym".
+// The user's duration format (settings), mirrored from Go fmtDurF.
 function fmtDurJS(seconds) {
   const [hu, mu] = U();
   const sec = Math.max(0, seconds);
+  const f = document.documentElement.dataset.durfmt;
+  if (f === 'decimal') {
+    const h = Math.floor((sec * 100 + 1800) / 3600); // hundredths, half up
+    const ru = document.documentElement.lang === 'ru';
+    return Math.floor(h / 100) + (ru ? ',' : '.') + String(h % 100).padStart(2, '0') + (ru ? '\u00a0ч' : ' h');
+  }
+  if (f === 'clock') return Math.floor(sec / 3600) + ':' + String(Math.floor(sec / 60) % 60).padStart(2, '0');
   if (sec <= 0) return '0' + mu;
   if (sec < 60) return '<1' + mu;
   const h = Math.floor(sec / 3600);
@@ -810,8 +818,9 @@ document.addEventListener('htmx:configRequest', (e) => {
   // after another should not fall back to unbilled «Без проекта».
   const KEY = 'paratrack-last-project';
   const restore = () => {
-    let v = '';
-    try { v = localStorage.getItem(KEY) || ''; } catch (_) {}
+    // A default project from settings wins over "the last one used".
+    let v = sel && sel.dataset.default ? sel.dataset.default : '';
+    if (!v) try { v = localStorage.getItem(KEY) || ''; } catch (_) {}
     if (sel && [...sel.options].some((o) => o.value === v)) sel.value = v;
   };
   const sync = () => {

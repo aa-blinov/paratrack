@@ -133,6 +133,9 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			// Every session this request creates is the user's; a member
 			// only ever sees their own time.
 			ctx = db.WithActor(ctx, user.ID)
+			if raw, err := s.db.UserPrefs(ctx, user.ID); err == nil {
+				ctx = withPrefs(ctx, parsePrefs(raw))
+			}
 			if !role.CanManage() {
 				ctx = db.WithScope(ctx, user.ID)
 			}

@@ -37,6 +37,8 @@ type projectListRow struct {
 	Activities int
 	TodaySecs  int
 	MonthSecs  int
+	TodayLabel string // in the user's duration format
+	MonthLabel string
 	TotalSecs  int
 	LastUsed   string // formatted "3 days ago" or empty
 }
@@ -60,9 +62,11 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
 			Activities: len(acts),
 		}
-		row.TodaySecs = projectSecondsInWindow(r, s, p.ID, now.Add(-24*time.Hour), now)
+		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		row.TodaySecs = projectSecondsInWindow(r, s, p.ID, dayStart, now) // "Сегодня" is today, not the last 24 h
 		row.MonthSecs = projectSecondsInWindow(r, s, p.ID, now.Add(-30*24*time.Hour), now)
 		row.TotalSecs = projectSecondsInWindow(r, s, p.ID, time.Unix(0, 0), now)
+		row.TodayLabel, row.MonthLabel = fmtDur(r, row.TodaySecs), fmtDur(r, row.MonthSecs)
 		row.LastUsed = lastUsedLabel(projects, p, rows)
 		_ = lastUsedLabel // keep linter quiet until we wire a real last-used query
 		rows = append(rows, row)
@@ -142,7 +146,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		if as.Activity.ProjectID != p.ID {
 			continue
 		}
-		v := toSessionView(as.Session, as.Activity, from, now, now, resolveLang(r))
+		v := toSessionView(as.Session, as.Activity, from, now, now, resolveLang(r), durFmtOf(r))
 		monthSec += v.DurationSecs
 		// All-time total: unclipped wall clock for this project.
 		if as.Session.EndAt != nil {

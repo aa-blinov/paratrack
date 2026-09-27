@@ -63,7 +63,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 			day = t
 		}
 	}
-	weekStart := startOfWeek(day)
+	weekStart := startOfWeek(r, day)
 	weekEnd := weekStart.AddDate(0, 0, 6)
 	lang := string(resolveLang(r))
 
@@ -175,7 +175,7 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, actID int64, day time.Time) {
-	weekStart := startOfWeek(day)
+	weekStart := startOfWeek(r, day)
 	now := userNow(r)
 	grid, err := s.db.ListTimesheet(r.Context(), teamID(r), weekStart, now)
 	if err != nil {
@@ -208,9 +208,13 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 	http.Error(w, "row not found", 404)
 }
 
-// startOfWeek returns Monday 00:00 of t's week (local).
-func startOfWeek(t time.Time) time.Time {
+// startOfWeek returns 00:00 of the first day of t's week: Monday, or
+// Sunday when the user picked that in their preferences.
+func startOfWeek(r *http.Request, t time.Time) time.Time {
 	wd := (int(t.Weekday()) + 6) % 7 // Mon=0 … Sun=6
+	if weekStartsSunday(r) {
+		wd = int(t.Weekday())
+	}
 	d := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
 	return d.AddDate(0, 0, -wd)
 }

@@ -81,6 +81,16 @@ func encodeModules(on map[string]bool) string {
 	return strings.Join(keys, ",")
 }
 
+// userModules is what this person's menu shows: the workspace's sections
+// minus the ones they hid for themselves.
+func (s *Server) userModules(r *http.Request) map[string]bool {
+	on := s.teamModules(r)
+	for _, k := range prefsOf(r).HiddenSections {
+		delete(on, k)
+	}
+	return on
+}
+
 func (s *Server) teamModules(r *http.Request) map[string]bool {
 	stored, _ := s.db.TeamModules(r.Context(), teamID(r))
 	return moduleSet(stored)

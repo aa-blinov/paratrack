@@ -1,0 +1,102 @@
+{{/* Personal preferences: how one person sees the app, on top of what
+     the workspace switched on. One form, one save. */}}
+{{define "preferences"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  {{template "flash-banner" .}}
+  {{template "settings-sidebar" .}}
+
+  <form method="POST" action="/api/me/preferences" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5 gap-3">
+        <h2 class="card-title">{{.T "prefs.formats"}}</h2>
+        <label class="form-control">
+          <span class="label-text">{{.T "prefs.duration"}}</span>
+          <select name="duration" class="select select-bordered w-full">
+            <option value=""{{if eq .P.Duration ""}} selected{{end}}>{{.T "prefs.dur.hm"}}</option>
+            <option value="decimal"{{if eq .P.Duration "decimal"}} selected{{end}}>{{.T "prefs.dur.decimal"}}</option>
+            <option value="clock"{{if eq .P.Duration "clock"}} selected{{end}}>{{.T "prefs.dur.clock"}}</option>
+          </select>
+        </label>
+        <label class="form-control">
+          <span class="label-text">{{.T "prefs.weekStart"}}</span>
+          <select name="week_start" class="select select-bordered w-full">
+            <option value="mon"{{if ne .P.WeekStart "sun"}} selected{{end}}>{{.T "prefs.mon"}}</option>
+            <option value="sun"{{if eq .P.WeekStart "sun"}} selected{{end}}>{{.T "prefs.sun"}}</option>
+          </select>
+        </label>
+        <label class="form-control">
+          <span class="label-text">{{.T "prefs.tz"}}</span>
+          <select name="tz" class="select select-bordered w-full">
+            <option value=""{{if eq .P.TZ ""}} selected{{end}}>{{.T "prefs.tzAuto"}}</option>
+            {{range .Zones}}<option value="{{.}}"{{if eq . $.P.TZ}} selected{{end}}>{{.}}</option>{{end}}
+          </select>
+          <span class="text-xs doc-muted">{{.T "prefs.tzHint"}}</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5 gap-3">
+        <h2 class="card-title">{{.T "prefs.dashboard"}}</h2>
+        {{if .Projects}}
+        <label class="form-control">
+          <span class="label-text">{{.T "prefs.defProject"}}</span>
+          <select name="default_project" class="select select-bordered w-full">
+            <option value="0">{{.T "prefs.defProjectLast"}}</option>
+            {{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.DefProj}} selected{{end}}>{{.Name}}</option>{{end}}
+          </select>
+        </label>
+        {{end}}
+        <fieldset>
+          <legend class="label-text mb-1">{{.T "prefs.blocks"}}</legend>
+          {{range .Widgets}}
+          <label class="flex items-center gap-3 py-1.5 cursor-pointer">
+            <input type="checkbox" name="widgets" value="{{.Key}}" class="checkbox checkbox-sm"{{if .On}} checked{{end}}>
+            <span>{{$.T .Label}}</span>
+          </label>
+          {{end}}
+        </fieldset>
+      </div>
+    </div>
+
+    {{if .Sections}}
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5 gap-2">
+        <h2 class="card-title">{{.T "prefs.sections"}}</h2>
+        <p class="text-sm doc-muted">{{.T "prefs.sectionsHint"}}</p>
+        <div>
+        {{range .Sections}}
+        <input type="hidden" name="sections_all" value="{{.Key}}">
+        <label class="flex items-center gap-3 py-1.5 cursor-pointer">
+          <input type="checkbox" name="sections" value="{{.Key}}" class="checkbox checkbox-sm"{{if .On}} checked{{end}}>
+          <span class="flex items-center gap-1.5">{{icon .Icon "icon icon-sm"}}{{$.T .Label}}</span>
+        </label>
+        {{end}}
+        </div>
+      </div>
+    </div>
+    {{end}}
+
+    <div class="card bg-base-100 border border-base-300">
+      <div class="card-body p-5 gap-2">
+        <h2 class="card-title">{{.T "prefs.tabs"}}</h2>
+        <p class="text-sm doc-muted">{{.T "prefs.tabsHint"}}</p>
+        <fieldset x-data="{n: 0}" x-init="n = $el.querySelectorAll('input:checked').length"
+                  @change="n = $el.querySelectorAll('input:checked').length" class="grid sm:grid-cols-2 gap-x-4">
+          {{range .TabOpts}}
+          <label class="flex items-center gap-3 py-1.5 cursor-pointer has-[:disabled]:opacity-45 has-[:disabled]:cursor-not-allowed">
+            <input type="checkbox" name="tabs" value="{{.Key}}" class="checkbox checkbox-sm"{{if .On}} checked{{end}}
+                   :disabled="n >= 4 && !$el.checked">
+            <span class="flex items-center gap-1.5">{{icon .Icon "icon icon-sm"}}{{$.T .Label}}</span>
+          </label>
+          {{end}}
+        </fieldset>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-neutral">{{.T "profile.save"}}</button>
+  </form>
+</div>
+{{end}}

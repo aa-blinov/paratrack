@@ -35,15 +35,25 @@ type pageData struct {
 	Lang        string          // "en" | "ru" — resolved from cookie / Accept-Language
 	CanManage   bool            // owner/admin: money and settings are shown
 	Mods        map[string]bool // sections this workspace uses (modules.go)
+	DurFmt      string          // user's duration format, for the JS clocks
+	Tabs        []navItem       // phone tab bar (prefs)
+	hiddenWidgets []string
 }
 
 func (p *pageData) setManage(v bool) { p.CanManage = v }
 
 func (p *pageData) setModules(m map[string]bool) { p.Mods = m }
 
+func (p *pageData) setWidgets(hidden []string) { p.hiddenWidgets = hidden }
+
+type widgetsCarrier interface{ setWidgets([]string) }
+
 // On reports whether a section is switched on ({{if .On "invoices"}}).
 // No set yet (logged-out pages) means on.
 func (p pageData) On(key string) bool { return p.Mods == nil || p.Mods[key] }
+
+// Widget reports whether a dashboard block is shown (user prefs).
+func (p pageData) Widget(key string) bool { return !has(p.hiddenWidgets, key) }
 
 type modulesCarrier interface{ setModules(map[string]bool) }
 
@@ -140,6 +150,7 @@ type dashboardData struct {
 	HasProject  bool
 	HasSession  bool
 	Unbilled    []unbilledView // "not invoiced yet", when there is any
+	DefaultProject int64       // user's project for new timers (prefs), 0 = remember the last
 }
 
 // statsData feeds stats.html.
@@ -242,7 +253,11 @@ func (v goalView) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 // -- view-model helpers ----------------------------------------------
 
-func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd time.Time, now time.Time, lang i18n.Lang) sessionView {
+func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd time.Time, now time.Time, lang i18n.Lang, durFmt ...string) sessionView {
+	df := ""
+	if len(durFmt) > 0 {
+		df = durFmt[0]
+	}
 	v := sessionView{
 		ID:                 s.ID,
 		ActivityID:         s.ActivityID,
@@ -279,18 +294,18 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		fullSecs := s.DurationSeconds(now)
 		v.DurationInput = durationToHuman(lang, fullSecs)
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
-		v.Duration = fmtDurL(lang, v.DurationSecs)
+		v.Duration = fmtDurF(lang, df, v.DurationSecs)
 	} else if s.LastResumeAt != nil && !s.Paused {
 		secs := s.DurationSeconds(now)
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
-		v.Duration = fmtDurL(lang, v.DurationSecs)
+		v.Duration = fmtDurF(lang, df, v.DurationSecs)
 		v.DurationInput = durationToHuman(lang, secs)
 	} else if s.Paused {
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
-		v.Duration = fmtDurL(lang, v.DurationSecs)
+		v.Duration = fmtDurF(lang, df, v.DurationSecs)
 		v.DurationInput = durationToHuman(lang, s.AccumulatedSeconds)
 	} else {
-		v.Duration = fmtDurL(lang, 0)
+		v.Duration = fmtDurF(lang, df, 0)
 		v.DurationInput = v.Duration
 	}
 	return v
@@ -412,8 +427,27 @@ func durationToHuman(lang i18n.Lang, sec int) string {
 // fmtDuration is the English duration label (API, CSV, tests).
 func fmtDuration(sec int) string { return fmtDurL(i18n.En, sec) }
 
-// fmtDur is fmtDurL in the request's language.
-func fmtDur(r *http.Request, sec int) string { return fmtDurL(resolveLang(r), sec) }
+// fmtDur is a duration in the request's language and the user's format.
+func fmtDur(r *http.Request, sec int) string { return fmtDurF(resolveLang(r), durFmtOf(r), sec) }
+
+// fmtDurF is fmtDurL in a chosen format: "hm" (default, 2 ч 30 мин),
+// "decimal" (2,50 ч: hundredths, as billed) or "clock" (2:30).
+func fmtDurF(lang i18n.Lang, f string, sec int) string {
+	switch f {
+	case "decimal":
+		unit := " h"
+		if lang == i18n.Ru {
+			unit = "\u00a0ч"
+		}
+		return fmtHoursL(lang, dbpkg.HoursHundredths(max(sec, 0))) + unit
+	case "clock":
+		if sec < 0 {
+			sec = 0
+		}
+		return fmt.Sprintf("%d:%02d", sec/3600, (sec/60)%60)
+	}
+	return fmtDurL(lang, sec)
+}
 
 // fmtDurL is the single duration label used everywhere: "1h 30m" /
 // "1 ч 30 мин". timeparse.ParseDuration reads both back.
