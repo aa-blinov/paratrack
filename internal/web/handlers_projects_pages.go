@@ -183,7 +183,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		Currencies:      currencyOptions(),
 	}
 	data.Currency, _ = s.db.ProjectCurrency(r.Context(), teamID(r), p.ID)
-	if canManage(r) {
+	if canManage(r) && s.teamModules(r)["invoices"] {
 		data.Unbilled = s.unbilledViews(r, p.ID)
 	}
 	data.TeamCurrency, _ = s.db.TeamCurrency(r.Context(), teamID(r))

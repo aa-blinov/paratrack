@@ -60,6 +60,13 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 	if m, ok := data.(manageCarrier); ok {
 		m.setManage(canManage(r))
 	}
+	var mods map[string]bool
+	if _, ok := TeamFrom(r.Context()); ok {
+		mods = s.teamModules(r)
+		if m, ok := data.(modulesCarrier); ok {
+			m.setModules(mods)
+		}
+	}
 	stampLang(data, lang)
 	var buf bytes.Buffer
 	if err := s.tmpl.ExecuteTemplate(&buf, contentTpl, data); err != nil {
@@ -68,6 +75,7 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 	}
 	wrapper := pageData{
 		CanManage: canManage(r),
+		Mods:      mods,
 		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
@@ -120,6 +128,16 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 	if l, ok := data.(langCarrier); ok {
 		l.setLang(string(lang))
 	}
+	if m, ok := data.(manageCarrier); ok {
+		m.setManage(canManage(r))
+	}
+	var mods map[string]bool
+	if _, ok := TeamFrom(r.Context()); ok {
+		mods = s.teamModules(r)
+		if m, ok := data.(modulesCarrier); ok {
+			m.setModules(mods)
+		}
+	}
 	stampLang(data, lang)
 	var buf bytes.Buffer
 	if err := s.tmpl.ExecuteTemplate(&buf, contentTpl, data); err != nil {
@@ -127,6 +145,8 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 		return
 	}
 	wrapper := pageData{
+		CanManage:   canManage(r),
+		Mods:        mods,
 		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
@@ -313,7 +333,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.HasSession = seen
 	}
 	d.ActiveVM.FirstRun = !d.HasSession
-	if d.HasProject && canManage(r) {
+	if d.HasProject && canManage(r) && s.teamModules(r)["invoices"] {
 		d.Unbilled = s.unbilledViews(r, 0)
 	}
 	// Quick today stats: total tracked time, top activity. Aggregates

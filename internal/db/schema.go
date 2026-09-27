@@ -323,6 +323,8 @@ var columnMigrations = []struct {
 	{"invoices", "client_email", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "receipt", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "by_person", "INTEGER NOT NULL DEFAULT 0"}, // lines split per team member
+	// Sections the workspace uses ("" = all, "none" = core only).
+	{"teams", "modules", "TEXT NOT NULL DEFAULT ''"},
 	// Activity lookup key: lowercase in Go (Unicode), the name keeps case.
 	{"activities", "name_key", "TEXT"},
 	// API tokens: the workspace they act in, optional expiry, read-only.

@@ -144,7 +144,8 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
-	redirect := "/"
+	// A fresh account answers one question first: what the app is for.
+	redirect := "/welcome"
 	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
 		redirect = next
 	}

@@ -1,0 +1,67 @@
+package web
+
+import (
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+)
+
+func TestSectionsOnboardingAndSettings(t *testing.T) {
+	e := newAPIEnv(t)
+	resp := e.do("POST", "/api/register", url.Values{"name": {"U"}, "email": {"mods@x.test"}, "password": {"longenoughpw"}}, nil)
+	resp.Body.Close()
+	if loc := resp.Header.Get("Location"); loc != "/welcome" {
+		t.Fatalf("after sign-up: %q, want /welcome", loc)
+	}
+	for _, c := range resp.Cookies() {
+		e.jar[c.Name] = c.Value
+	}
+	// Before any choice everything is on (existing workspaces keep all).
+	if page := readBody(t, e.do("GET", "/", nil, nil)); !strings.Contains(page, `href="/invoices"`) {
+		t.Fatal("the owner's menu has no invoices")
+	}
+	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !strings.Contains(w, `name="preset" value="solo"`) {
+		t.Fatal("welcome has no presets")
+	}
+
+	// "Just me": no invoices, payroll, schedule; graph stays.
+	resp = e.do("POST", "/api/team/modules", url.Values{"preset": {"solo"}, "from": {"welcome"}}, nil)
+	resp.Body.Close()
+	if resp.Header.Get("Location") != "/" {
+		t.Errorf("welcome save goes to %q", resp.Header.Get("Location"))
+	}
+	page := readBody(t, e.do("GET", "/", nil, nil))
+	for _, off := range []string{`href="/invoices"`, `href="/payroll"`, `href="/schedule"`} {
+		if strings.Contains(page, off) {
+			t.Errorf("solo menu still links %s", off)
+		}
+	}
+	if !strings.Contains(page, `href="/graph"`) {
+		t.Error("solo menu lost the by-hour graph")
+	}
+	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	req, _ := http.NewRequest("GET", e.ts.URL+"/invoices", nil)
+	for k, v := range e.jar {
+		req.AddCookie(&http.Cookie{Name: k, Value: v})
+	}
+	r2, _ := noFollow.Do(req)
+	r2.Body.Close()
+	if r2.StatusCode != 303 || !strings.HasPrefix(r2.Header.Get("Location"), "/settings/sections") {
+		t.Errorf("switched-off invoices: %d %q", r2.StatusCode, r2.Header.Get("Location"))
+	}
+
+	// Hand-picked: just invoices.
+	resp = e.do("POST", "/api/team/modules", url.Values{"modules": {"invoices"}}, nil)
+	resp.Body.Close()
+	page = readBody(t, e.do("GET", "/", nil, nil))
+	if !strings.Contains(page, `href="/invoices"`) || strings.Contains(page, `href="/graph"`) {
+		t.Error("custom set not applied")
+	}
+	// Nothing ticked is a real choice (core only), not "everything".
+	resp = e.do("POST", "/api/team/modules", url.Values{}, nil)
+	resp.Body.Close()
+	if page := readBody(t, e.do("GET", "/", nil, nil)); strings.Contains(page, `href="/invoices"`) {
+		t.Error("an all-off choice fell back to everything")
+	}
+}

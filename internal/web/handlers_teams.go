@@ -272,7 +272,8 @@ func (s *Server) handleAPITeamCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setTeamCookie(w, r, team.ID)
-	http.Redirect(w, r, "/settings/team?flash=created", http.StatusSeeOther)
+	// A new workspace picks its sections like a new account does.
+	http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
 
 func (s *Server) handleAPITeamSwitch(w http.ResponseWriter, r *http.Request) {
