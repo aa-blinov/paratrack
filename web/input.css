@@ -330,10 +330,17 @@
     bottom: 1rem;
   }
   .toast-action {
-    @apply ms-1 -me-1 px-2 py-1 rounded-field font-semibold cursor-pointer;
+    @apply ms-1 -me-1 px-2 py-1 rounded-field font-semibold cursor-pointer whitespace-nowrap;
     color: var(--ink-primary);
   }
+  .toast-action.is-quiet { @apply font-medium; color: var(--color-base-content); }
   .toast-action:hover { background: var(--color-base-200); }
+  .skip-link {
+    @apply fixed start-3 top-3 z-[70] rounded-field bg-base-100 px-3 py-2 text-sm font-medium border border-base-300;
+    transform: translateY(-200%);
+  }
+  .skip-link:focus { transform: none; }
+  main:focus { outline: none; }
   .toast-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
   /* First-run empty state inside the ledger, left-aligned with the rows. */
   .first-run { @apply py-4; }

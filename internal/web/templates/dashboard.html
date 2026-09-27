@@ -46,7 +46,9 @@
 
     <div class="border-t border-base-300 mt-5 pt-4">
       <h2 id="ledger-running-title" class="ledger-label mb-2">{{.T "dash.activeSessions"}}</h2>
-      <div id="active-list" aria-live="polite" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
+      {{/* No aria-live here: the clocks tick every second and the list re-renders
+           every 30 s; changes are announced once through the toast. */}}
+      <div id="active-list" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
         {{template "active-list" .ActiveVM}}
       </div>
     </div>
