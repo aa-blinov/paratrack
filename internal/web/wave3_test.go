@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 
@@ -118,6 +119,25 @@ func TestFormatMoney(t *testing.T) {
 	for cents, want := range cases {
 		if got := formatMoney(cents); got != want {
 			t.Errorf("formatMoney(%d)=%q want %q", cents, got, want)
+		}
+	}
+}
+
+func TestFormatMoneyL(t *testing.T) {
+	cases := []struct {
+		lang  i18n.Lang
+		cents int
+		want  string
+	}{
+		{i18n.Ru, 123456, "1 234,56"},
+		{i18n.Ru, 5, "0,05"},
+		{i18n.Ru, -100000000, "-1 000 000,00"},
+		{i18n.En, 123456789, "1,234,567.89"},
+		{i18n.En, 99900, "999.00"},
+	}
+	for _, c := range cases {
+		if got := formatMoneyL(c.lang, c.cents); got != c.want {
+			t.Errorf("formatMoneyL(%s, %d) = %q, want %q", c.lang, c.cents, got, c.want)
 		}
 	}
 }

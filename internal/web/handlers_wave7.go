@@ -136,7 +136,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		}
 		rows = append(rows, reportRow{
 			Key: k, Secs: a.secs, Hours: reportHours(r, tpl.Billable, a.secs), Share: share,
-			Rate: formatMoney(a.rate), Amount: formatMoney(a.amount),
+			Rate: formatMoneyL(resolveLang(r), a.rate), Amount: formatMoneyL(resolveLang(r), a.amount),
 			AmountCents: a.amount, RateCents: a.rate,
 		})
 	}
@@ -150,7 +150,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		Rows:        rows,
 		Total:       reportHours(r, tpl.Billable, total),
 		TotalSecs:   total,
-		TotalAmount: formatMoney(totalCents),
+		TotalAmount: formatMoneyL(resolveLang(r), totalCents),
 		TotalCents:  totalCents,
 	}, nil
 }
