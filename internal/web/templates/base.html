@@ -1,5 +1,5 @@
 {{define "base"}}<!DOCTYPE html>
-<html lang="{{if eq .Lang "ru"}}ru{{else}}en{{end}}" data-theme="paratrack-light">
+<html lang="{{if eq .Lang "ru"}}ru{{else}}en{{end}}" data-theme="paratrack-light"{{with .DurFmt}} data-durfmt="{{.}}"{{end}}>
 <head>
   <meta charset="utf-8">
   <script>
@@ -106,7 +106,8 @@
               {{if and .CanManage (.On "reports")}}<li class=""><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>{{end}}
               {{if .On "import"}}<li class=""><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>{{end}}
               <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
-              {{if .CanManage}}<li class="border-t border-base-300 mt-1 pt-1"><a href="/settings/sections">{{icon "settings"}}{{.T "nav.sections"}}</a></li>{{end}}
+              <li class="border-t border-base-300 mt-1 pt-1"><a href="/settings/preferences">{{icon "settings"}}{{.T "nav.prefs"}}</a></li>
+              {{if .CanManage}}<li><a href="/settings/sections">{{icon "settings"}}{{.T "nav.sections"}}</a></li>{{end}}
             </ul>
           </div>
         </div>
@@ -206,11 +207,13 @@
        hx-trigger="load, sessions-changed from:body, every 30s" hx-swap="innerHTML"></div>
   {{end}}
   <nav class="tabbar lg:hidden" aria-label="{{.T "nav.menu"}}">
-    <a href="/" class="{{if eq .Active "dashboard"}}active{{end}}" {{if eq .Active "dashboard"}}aria-current="page"{{end}}>{{icon "activity"}}<span>{{.T "nav.dashboard"}}</span></a>
-    <a href="/stats" class="{{if eq .Active "stats"}}active{{end}}" {{if eq .Active "stats"}}aria-current="page"{{end}}>{{icon "bar-chart-3"}}<span>{{.T "nav.stats"}}</span></a>
-    <a href="/timesheet" class="{{if eq .Active "timesheet"}}active{{end}}" {{if eq .Active "timesheet"}}aria-current="page"{{end}}>{{icon "calendar"}}<span>{{.T "nav.timesheet"}}</span></a>
-    <a href="/projects" class="{{if eq .Active "projects"}}active{{end}}" {{if eq .Active "projects"}}aria-current="page"{{end}}>{{icon "folder"}}<span>{{.T "nav.projects"}}</span></a>
-    <button type="button" data-sheet-open="more-sheet" class="{{if not (or (eq .Active "dashboard") (eq .Active "stats") (eq .Active "timesheet") (eq .Active "projects"))}}active{{end}}">{{icon "menu"}}<span>{{.T "nav.more"}}</span></button>
+    {{/* The four tabs are the user's pick (settings), core ones by default. */}}
+    {{$act := .Active}}{{$tabbed := false}}
+    {{range .Tabs}}
+    <a href="{{.Href}}" class="{{if eq $act .Key}}active{{end}}" {{if eq $act .Key}}aria-current="page"{{end}}>{{icon .Icon}}<span>{{$.T .Label}}</span></a>
+    {{if eq $act .Key}}{{$tabbed = true}}{{end}}
+    {{end}}
+    <button type="button" data-sheet-open="more-sheet" class="{{if not $tabbed}}active{{end}}">{{icon "menu"}}<span>{{.T "nav.more"}}</span></button>
   </nav>
 
   <dialog id="more-sheet" class="sheet" aria-label="{{.T "nav.more"}}">
@@ -232,6 +235,7 @@
       {{if and .CanManage (.On "reports")}}<li><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>{{end}}
       {{if .On "import"}}<li><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>{{end}}
       <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
+      <li><a href="/settings/preferences">{{icon "settings"}}{{.T "nav.prefs"}}</a></li>
       {{if .CanManage}}<li><a href="/settings/sections">{{icon "settings"}}{{.T "nav.sections"}}</a></li>{{end}}
     </ul>
     {{if gt (len .UserTeams) 1}}

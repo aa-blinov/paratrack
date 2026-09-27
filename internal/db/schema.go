@@ -323,6 +323,14 @@ var columnMigrations = []struct {
 	{"invoices", "client_email", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "receipt", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "by_person", "INTEGER NOT NULL DEFAULT 0"}, // lines split per team member
+	// Personal preferences (JSON, see web/prefs.go).
+	{"users", "prefs", "TEXT NOT NULL DEFAULT ''"},
+	// Billing rules: round each invoice line to N minutes (0 = 0.01 h),
+	// "up" or "nearest"; invoice number prefix; logo for documents.
+	{"teams", "round_minutes", "INTEGER NOT NULL DEFAULT 0"},
+	{"teams", "round_mode", "TEXT NOT NULL DEFAULT 'nearest'"},
+	{"teams", "invoice_prefix", "TEXT NOT NULL DEFAULT 'INV'"},
+	{"teams", "logo", "TEXT NOT NULL DEFAULT ''"},
 	// Sections the workspace uses ("" = all, "none" = core only).
 	{"teams", "modules", "TEXT NOT NULL DEFAULT ''"},
 	// Activity lookup key: lowercase in Go (Unicode), the name keeps case.

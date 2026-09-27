@@ -31,6 +31,9 @@ func loadZone(name string) *time.Location {
 }
 
 func userLoc(r *http.Request) *time.Location {
+	if l := loadZone(prefsOf(r).TZ); l != nil {
+		return l // set by hand in settings: wins over the browser
+	}
 	if r != nil {
 		if c, err := r.Cookie("paratrack_tz"); err == nil {
 			if l := loadZone(c.Value); l != nil {

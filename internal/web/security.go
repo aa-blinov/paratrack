@@ -94,7 +94,14 @@ func csrfProtect(next http.Handler) http.Handler {
 		if sent == "" {
 			// Form-encoded bodies carry it as a field; ParseForm is safe
 			// here — body size is bounded by net/http defaults.
-			_ = r.ParseForm()
+			if strings.HasPrefix(r.Header.Get("Content-Type"), "multipart/form-data") {
+				// File uploads (the invoice logo): bounded so a big body
+				// can't sit in memory or temp files.
+				r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
+				_ = r.ParseMultipartForm(2 << 20)
+			} else {
+				_ = r.ParseForm()
+			}
 			sent = r.PostForm.Get(csrfFieldName)
 		}
 		if !csrfTokensEqual(token, sent) {

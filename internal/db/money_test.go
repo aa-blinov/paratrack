@@ -24,3 +24,20 @@ func TestPriceCents(t *testing.T) {
 		}
 	}
 }
+
+func TestRoundBilled(t *testing.T) {
+	up := BillingRules{RoundMinutes: 15, RoundMode: "up"}
+	near := BillingRules{RoundMinutes: 15, RoundMode: "nearest"}
+	for _, c := range []struct {
+		sec  int
+		r    BillingRules
+		want int
+	}{
+		{61 * 60, up, 75 * 60}, {61 * 60, near, 60 * 60}, {68 * 60, near, 75 * 60},
+		{10, BillingRules{}, 10}, {0, up, 0},
+	} {
+		if got := RoundBilled(c.sec, c.r); got != c.want {
+			t.Errorf("RoundBilled(%d, %+v) = %d, want %d", c.sec, c.r, got, c.want)
+		}
+	}
+}

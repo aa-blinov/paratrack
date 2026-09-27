@@ -1,6 +1,7 @@
 package web
 
 import (
+	"html/template"
 	netmail "net/mail"
 
 	"errors"
@@ -82,6 +83,7 @@ type invoiceVM struct {
 	SellerDetails, ClientDetails, VATNote string
 	ClientEmail, Receipt                  string
 	TeamID                                int64
+	Logo                                  template.URL // the workspace logo, now (not frozen at issue)
 }
 
 // handleInvoices lists invoices and offers a generator form.

@@ -61,6 +61,54 @@
     </div>
   </div>
 
+  <div id="billing" class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5 gap-3">
+      <h2 class="card-title">{{.T "bill.title"}}</h2>
+      <form method="POST" action="/api/team/billing" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <div class="grid sm:grid-cols-2 gap-3">
+          <label class="form-control">
+            <span class="label-text">{{.T "bill.round"}}</span>
+            <select name="round_minutes" class="select select-bordered w-full">
+              {{range $m := .RoundOpts}}<option value="{{$m}}"{{if eq $m $.Billing.RoundMinutes}} selected{{end}}>{{if eq $m 0}}{{$.T "bill.roundOff"}}{{else}}{{printf ($.T "bill.roundTo") $m}}{{end}}</option>{{end}}
+            </select>
+          </label>
+          <label class="form-control">
+            <span class="label-text">{{.T "bill.mode"}}</span>
+            <select name="round_mode" class="select select-bordered w-full">
+              <option value="nearest"{{if ne .Billing.RoundMode "up"}} selected{{end}}>{{.T "bill.nearest"}}</option>
+              <option value="up"{{if eq .Billing.RoundMode "up"}} selected{{end}}>{{.T "bill.up"}}</option>
+            </select>
+          </label>
+        </div>
+        <p class="text-xs doc-muted">{{.T "bill.roundHint"}}</p>
+        <label class="form-control">
+          <span class="label-text">{{.T "bill.prefix"}}</span>
+          <input type="text" name="invoice_prefix" required maxlength="12" pattern="[\p{L}\p{N}\-]+" value="{{.Billing.InvoicePrefix}}" class="input input-bordered w-full font-mono">
+          <span class="text-xs doc-muted">{{printf (.T "bill.prefixHint") .Billing.InvoicePrefix}}</span>
+        </label>
+        <button type="submit" class="btn btn-neutral">{{.T "profile.save"}}</button>
+      </form>
+      <div class="border-t border-base-300 pt-3 space-y-2">
+        <span class="label-text">{{.T "bill.logo"}}</span>
+        {{if .Billing.Logo}}<img src="{{.LogoURL}}" alt="{{.T "bill.logo"}}" class="max-h-14 max-w-48 object-contain border border-base-300 rounded p-1 bg-white">{{end}}
+        <form method="POST" action="/api/team/logo" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <input type="file" name="logo" accept="image/png,image/jpeg" required class="file-input file-input-bordered file-input-sm flex-1 min-w-0">
+          <button type="submit" class="btn btn-sm btn-neutral">{{.T "bill.upload"}}</button>
+        </form>
+        {{if .Billing.Logo}}
+        <form method="POST" action="/api/team/logo">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <input type="hidden" name="remove" value="1">
+          <button type="submit" class="btn btn-sm btn-ghost">{{.T "bill.removeLogo"}}</button>
+        </form>
+        {{end}}
+        <p class="text-xs doc-muted">{{.T "bill.logoHint"}}</p>
+      </div>
+    </div>
+  </div>
+
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.createTitle"}}</h2>
@@ -117,6 +165,7 @@
 <h1 class="mb-2">{{.T "set.title"}}</h1>
 <div role="tablist" class="tabs tabs-border mb-2 flex-wrap max-sm:flex-nowrap max-sm:overflow-x-auto" style="scrollbar-width:none">
   <a role="tab" href="/settings/profile" class="tab whitespace-nowrap {{if eq .Active "settings-profile"}}tab-active{{end}}" {{if eq .Active "settings-profile"}}aria-current="page"{{end}}>{{.T "profile.title"}}</a>
+  <a role="tab" href="/settings/preferences" class="tab whitespace-nowrap {{if eq .Active "settings-prefs"}}tab-active{{end}}" {{if eq .Active "settings-prefs"}}aria-current="page"{{end}}>{{.T "prefs.title"}}</a>
   <a role="tab" href="/settings/notifications" class="tab whitespace-nowrap {{if eq .Active "settings-notify"}}tab-active{{end}}" {{if eq .Active "settings-notify"}}aria-current="page"{{end}}>{{.T "sheet.notifications"}}</a>
   {{if .CanManage}}  <a role="tab" href="/settings/team" class="tab whitespace-nowrap {{if eq .Active "settings-team"}}tab-active{{end}}" {{if eq .Active "settings-team"}}aria-current="page"{{end}}>{{.T "team.workspaceTab"}}</a>{{end}}
   {{if .CanManage}}  <a role="tab" href="/settings/sections" class="tab whitespace-nowrap {{if eq .Active "settings-sections"}}tab-active{{end}}" {{if eq .Active "settings-sections"}}aria-current="page"{{end}}>{{.T "nav.sections"}}</a>{{end}}

@@ -126,7 +126,8 @@ func (d *DB) CreateInvoice(ctx context.Context, teamID int64, number, clientName
 // NextInvoiceNumber returns "INV-YYYY-NNN" for the team.
 func (d *DB) NextInvoiceNumber(ctx context.Context, teamID int64) (string, error) {
 	year := time.Now().Year()
-	prefix := fmt.Sprintf("INV-%d-", year)
+	rules, _ := d.TeamBilling(ctx, teamID)
+	prefix := fmt.Sprintf("%s-%d-", rules.InvoicePrefix, year)
 	var maxNum int
 	err := d.sql.QueryRowContext(ctx,
 		`SELECT COALESCE(MAX(CAST(SUBSTR(number, LENGTH(?) + 1) AS INTEGER)), 0)
@@ -469,6 +470,62 @@ func (d *DB) invoiceCurrency(ctx context.Context, teamID int64, lines []InvoiceL
 	return cur, nil
 }
 
+// UserPrefs is the raw JSON of a user's preferences ("" = defaults).
+func (d *DB) UserPrefs(ctx context.Context, userID int64) (string, error) {
+	var p string
+	err := d.sql.QueryRowContext(ctx, `SELECT prefs FROM users WHERE id = ?`, userID).Scan(&p)
+	return p, err
+}
+
+func (d *DB) SetUserPrefs(ctx context.Context, userID int64, prefs string) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE users SET prefs = ? WHERE id = ?`, prefs, userID)
+	return err
+}
+
+// BillingRules are how a workspace turns tracked time into billed time.
+type BillingRules struct {
+	RoundMinutes  int    // 0 = exact to 0.01 h; else 6, 15, 30, 60
+	RoundMode     string // "up" | "nearest"
+	InvoicePrefix string // "INV" → INV-2026-001
+	Logo          string // data: URL of a small PNG/JPEG, "" = none
+}
+
+func (d *DB) TeamBilling(ctx context.Context, teamID int64) (BillingRules, error) {
+	var b BillingRules
+	err := d.sql.QueryRowContext(ctx, `SELECT round_minutes, round_mode, invoice_prefix, logo FROM teams WHERE id = ?`, teamID).
+		Scan(&b.RoundMinutes, &b.RoundMode, &b.InvoicePrefix, &b.Logo)
+	if errors.Is(err, sql.ErrNoRows) {
+		return BillingRules{InvoicePrefix: "INV", RoundMode: "nearest"}, nil
+	}
+	if b.InvoicePrefix == "" {
+		b.InvoicePrefix = "INV"
+	}
+	return b, err
+}
+
+func (d *DB) SetTeamBilling(ctx context.Context, teamID int64, b BillingRules) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE teams SET round_minutes = ?, round_mode = ?, invoice_prefix = ? WHERE id = ?`,
+		b.RoundMinutes, b.RoundMode, b.InvoicePrefix, teamID)
+	return err
+}
+
+func (d *DB) SetTeamLogo(ctx context.Context, teamID int64, dataURL string) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE teams SET logo = ? WHERE id = ?`, dataURL, teamID)
+	return err
+}
+
+// RoundBilled applies a workspace rounding rule to a line's seconds.
+func RoundBilled(sec int, b BillingRules) int {
+	if b.RoundMinutes <= 0 || sec <= 0 {
+		return sec
+	}
+	step := b.RoundMinutes * 60
+	if b.RoundMode == "up" {
+		return (sec + step - 1) / step * step
+	}
+	return (sec + step/2) / step * step
+}
+
 // TeamModules is the workspace's section list ("" = everything).
 func (d *DB) TeamModules(ctx context.Context, teamID int64) (string, error) {
 	var m string
@@ -660,8 +717,12 @@ func (d *DB) buildLines(ctx context.Context, teamID int64, start, end time.Time,
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	rules, _ := d.TeamBilling(ctx, teamID)
 	lines := make([]InvoiceLine, 0, len(buckets))
 	for k, a := range buckets {
+		// The workspace's rounding (per line, so hours × rate = amount
+		// still holds on the document).
+		a.secs = RoundBilled(a.secs, rules)
 		if HoursHundredths(a.secs) == 0 {
 			continue // under 0.01 h: a 0.00 line is noise on a client document
 		}
