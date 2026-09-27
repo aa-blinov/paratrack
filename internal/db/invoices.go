@@ -248,15 +248,17 @@ func (d *DB) MarkInvoicePaid(ctx context.Context, teamID, id int64) error {
 func (d *DB) TeamStripe(ctx context.Context, teamID int64) (key, webhookSecret string, err error) {
 	row := d.sql.QueryRowContext(ctx,
 		`SELECT COALESCE(stripe_key, ''), COALESCE(stripe_webhook_secret, '') FROM teams WHERE id = ?`, teamID)
-	err = row.Scan(&key, &webhookSecret)
-	return
+	if err = row.Scan(&key, &webhookSecret); err != nil {
+		return
+	}
+	return mustOpen(key), mustOpen(webhookSecret), nil
 }
 
 // SetTeamStripe stores Stripe credentials for the workspace.
 func (d *DB) SetTeamStripe(ctx context.Context, teamID int64, key, webhookSecret string) error {
 	_, err := d.sql.ExecContext(ctx,
 		`UPDATE teams SET stripe_key = ?, stripe_webhook_secret = ? WHERE id = ?`,
-		key, webhookSecret, teamID)
+		sealSecret(key), sealSecret(webhookSecret), teamID)
 	return err
 }
 

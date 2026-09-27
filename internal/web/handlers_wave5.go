@@ -159,6 +159,7 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "invoice.paid", strconv.FormatInt(invID, 10), "stripe")
+	s.fireWebhookTeam(teamIDv, "invoice.paid", map[string]any{"invoice_id": invID, "team_id": teamIDv})
 	w.WriteHeader(200)
 }
 

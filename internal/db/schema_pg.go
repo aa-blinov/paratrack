@@ -43,12 +43,17 @@ func (d *DB) applyPostgresSchema() error {
 		`ALTER TABLE users ALTER COLUMN email TYPE CITEXT`,
 		`ALTER TABLE teams ALTER COLUMN slug TYPE CITEXT`,
 	}
-	for _, m := range columnMigrations {
-		stmts = append(stmts, "ALTER TABLE "+m.table+" ADD COLUMN IF NOT EXISTS "+m.column+" "+pgDDL(m.decl))
+	// Columns before and after the late-created tables (see applyMigrations).
+	cols := func() {
+		for _, m := range columnMigrations {
+			stmts = append(stmts, "ALTER TABLE IF EXISTS "+m.table+" ADD COLUMN IF NOT EXISTS "+m.column+" "+pgDDL(m.decl))
+		}
 	}
+	cols()
 	for _, m := range uniqueMigrations {
 		stmts = append(stmts, pgDDL(m))
 	}
+	cols()
 	for _, s := range stmts {
 		if strings.TrimSpace(s) == "" {
 			continue

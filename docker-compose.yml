@@ -22,6 +22,8 @@ services:
       # Error reporting: empty = off (nothing leaves the server).
       PARATRACK_SENTRY_DSN: ${PARATRACK_SENTRY_DSN:-}
       PARATRACK_SENTRY_TRACES: ${PARATRACK_SENTRY_TRACES:-1.0}
+      # Encrypts integration tokens and Stripe keys in the database.
+      PARATRACK_SECRET_KEY: ${PARATRACK_SECRET_KEY:-}
     ports:
       - "127.0.0.1:${PARATRACK_PORT:-8000}:8000"
     depends_on:

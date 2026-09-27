@@ -14,21 +14,37 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "tokens.title"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "tokens.blurb"}}</p>
-      <form method="POST" action="/api/tokens" class="flex gap-2 mb-4">
+      <form method="POST" action="/api/tokens" class="grid gap-2 sm:grid-cols-[1fr_auto_auto] items-end mb-4">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <input type="text" name="name" required maxlength="40" placeholder="{{.T "tokens.namePh"}}"
-               class="input input-bordered flex-1">
+        <label class="form-control">
+          <span class="label-text text-sm">{{.T "tokens.name"}}</span>
+          <input type="text" name="name" required maxlength="40" placeholder="{{.T "tokens.namePh"}}" class="input input-bordered w-full">
+        </label>
+        <label class="form-control">
+          <span class="label-text text-sm">{{.T "tokens.expires"}}</span>
+          <select name="expires_days" class="select select-bordered">
+            <option value="30">{{.T "tokens.exp30"}}</option>
+            <option value="90" selected>{{.T "tokens.exp90"}}</option>
+            <option value="365">{{.T "tokens.exp365"}}</option>
+            <option value="0">{{.T "tokens.expNever"}}</option>
+          </select>
+        </label>
         <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "tokens.create"}}</button>
+        <label class="flex items-center gap-2 text-sm sm:col-span-3">
+          <input type="checkbox" name="read_only" value="1" class="checkbox checkbox-sm">{{.T "tokens.readOnly"}}
+        </label>
+        <p class="text-xs opacity-70 sm:col-span-3">{{.T "tokens.scopeHint"}}</p>
       </form>
       {{if .Tokens}}
       <table class="table table-sm">
-        <thead><tr><th>{{.T "tokens.name"}}</th><th>{{.T "tokens.prefix"}}</th><th>{{.T "team.createdCol"}}</th><th></th></tr></thead>
+        <thead><tr><th>{{.T "tokens.name"}}</th><th>{{.T "tokens.prefix"}}</th><th>{{.T "tokens.access"}}</th><th>{{.T "tokens.expires"}}</th><th></th></tr></thead>
         <tbody>
           {{range .Tokens}}
           <tr>
             <td>{{.Name}}</td>
             <td class="font-mono text-xs">{{.Prefix}}…</td>
-            <td class="font-mono text-xs opacity-70">{{.Created}}</td>
+            <td class="text-xs">{{if .Team}}{{.Team}} · {{end}}{{if .ReadOnly}}{{$.T "tokens.roShort"}}{{else}}{{$.T "tokens.rwShort"}}{{end}}</td>
+            <td class="text-xs {{if .Expired}}text-error{{else}}opacity-80{{end}}">{{if .Expires}}{{.Expires}}{{else}}{{$.T "tokens.expNever"}}{{end}}</td>
             <td class="text-right">
               <form method="POST" action="/api/tokens/{{.ID}}/delete" class="inline">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">

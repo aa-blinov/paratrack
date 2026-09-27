@@ -75,12 +75,18 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			var sess auth.Session
 			var user auth.User
 			var err error
+			var tokTeam int64
 			if strings.HasPrefix(token, "pt_") {
 				tok, terr := s.db.APITokenByRaw(ctx, token)
 				if terr != nil {
 					onFailure(w, r)
 					return
 				}
+				if tok.ReadOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+					writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": "this API token is read-only"})
+					return
+				}
+				tokTeam = tok.TeamID
 				user, err = s.auth.FindByID(ctx, tok.UserID)
 				if err != nil {
 					onFailure(w, r)
@@ -102,6 +108,16 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			s.auth.Touch(ctx, sess.Token)
 
 			team, err := s.resolveTeam(ctx, user, r)
+			if tokTeam > 0 {
+				// A token acts in the workspace it was made in, while the
+				// owner is still a member there.
+				if _, ok, merr := s.teams.IsMember(ctx, tokTeam, user.ID); merr == nil && ok {
+					team, err = s.teams.FindByID(ctx, tokTeam)
+				} else {
+					onFailure(w, r)
+					return
+				}
+			}
 			if err != nil {
 				// User with no membership at all (shouldn't happen with
 				// the auto-personal-team flow, but defend against it).

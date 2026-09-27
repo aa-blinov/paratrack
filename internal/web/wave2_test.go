@@ -1,13 +1,16 @@
 package web
 
 import (
-	"regexp"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/db"
 )
 
 func TestAPITokensLifecycle(t *testing.T) {
@@ -225,4 +228,42 @@ func TestNewProviderGuards(t *testing.T) {
 		t.Fatalf("todoist should not require target: %v", err)
 	}
 	_ = cases
+}
+
+// Read-only tokens can't write; expired tokens don't authenticate; a
+// token acts in the workspace it was made in.
+func TestAPITokenScopes(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("scopes@x.test")
+	d := e.srv.db
+	ctx := t.Context()
+	var uid int64
+	d.SQL().QueryRowContext(ctx, `SELECT id FROM users WHERE email = 'scopes@x.test'`).Scan(&uid)
+	call := func(method, path, tok string) int {
+		req, _ := http.NewRequest(method, e.ts.URL+path, strings.NewReader("activity=x"))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Authorization", "Bearer "+tok)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		return resp.StatusCode
+	}
+	ro, _, _ := d.CreateAPIToken(ctx, uid, "ro", db.TokenOptions{ReadOnly: true})
+	if c := call("GET", "/api/me", ro); c != 200 {
+		t.Errorf("read-only GET: %d", c)
+	}
+	if c := call("POST", "/api/start", ro); c != 403 {
+		t.Errorf("read-only POST: %d, want 403", c)
+	}
+	past := time.Now().Add(-time.Hour)
+	old, _, _ := d.CreateAPIToken(ctx, uid, "old", db.TokenOptions{ExpiresAt: &past})
+	if c := call("GET", "/api/me", old); c != 401 {
+		t.Errorf("expired token: %d, want 401", c)
+	}
+	rw, _, _ := d.CreateAPIToken(ctx, uid, "rw")
+	if c := call("POST", "/api/start", rw); c != 200 {
+		t.Errorf("read-write POST: %d", c)
+	}
 }
