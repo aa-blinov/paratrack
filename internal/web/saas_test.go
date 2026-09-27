@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/mail"
 )
@@ -121,12 +120,11 @@ func TestRateLimitLogin(t *testing.T) {
 func TestBackfillCreatesClosedSession(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("backfill@x.test")
-	start := time.Now().Add(-3 * time.Hour).Format("15:04")
-	end := time.Now().Add(-1 * time.Hour).Format("15:04")
+	// Fixed times: "now - 3h" crossed midnight after 03:00 and made end < start.
 	resp := e.do("POST", "/api/sessions/backfill", url.Values{
 		"activity": {"reading"},
-		"start":    {"yesterday " + start},
-		"end":      {"yesterday " + end},
+		"start":    {"yesterday 09:00"},
+		"end":      {"yesterday 11:00"},
 		"note":     {"backfilled"},
 	}, map[string]string{"HX-Request": "true"})
 	if resp.StatusCode != 200 {

@@ -13,10 +13,12 @@ const U = () => document.documentElement.lang === 'ru'
 
 document.addEventListener('alpine:init', () => {
   // Live-ticking session row. Updates once per second without any
-  // server round-trip; the parent just passes start ISO, accumulated
-  // seconds and a paused flag from the server-rendered payload.
-  Alpine.data('liveDuration', (startISO, accumulated, paused) => ({
-    start: new Date(startISO),
+  // server round-trip. The anchor is the LAST RESUME (not the session
+  // start): tracked = accumulated + (now - last resume), exactly as
+  // model.Session.DurationSeconds. Anchoring on the start counted every
+  // pause again after a resume.
+  Alpine.data('liveDuration', (anchorISO, accumulated, paused) => ({
+    start: new Date(anchorISO),
     accumulated: Number(accumulated) || 0,
     paused: paused === true || paused === 'true' || paused === 1,
     now: Date.now(),
@@ -26,6 +28,12 @@ document.addEventListener('alpine:init', () => {
     get seconds() {
       if (this.paused) return this.accumulated;
       return this.accumulated + Math.floor((this.now - this.start.getTime()) / 1000);
+    },
+    // Stopwatch reading for the running list: "1:02:05", ticks visibly.
+    get clock() {
+      const s = Math.max(0, this.seconds);
+      const p2 = (n) => String(n).padStart(2, '0');
+      return Math.floor(s / 3600) + ':' + p2(Math.floor(s / 60) % 60) + ':' + p2(s % 60);
     },
     get formatted() {
       // Same ladder as Go fmtDuration: "0m" / "1m" / "Xm" / "Xh" / "Xh Ym".
