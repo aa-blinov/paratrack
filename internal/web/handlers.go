@@ -301,9 +301,13 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		d.Projects = projects
 		d.HasProject = len(projects) > 0
 	}
-	// First-run checklist: the account is new until it has any session at all.
+	// First run: the account is new until it has any session at all.
 	d.HasSession = len(activeViews) > 0 || len(recentViews) > 0
-	d.ShowOnboard = !d.HasSession
+	if !d.HasSession {
+		seen, _ := s.db.HasAnySession(r.Context(), teamID(r))
+		d.HasSession = seen
+	}
+	d.ActiveVM.FirstRun = !d.HasSession
 	// Quick today stats: total tracked time, top activity. Aggregates
 	// read DurationSecs — never parse the human label.
 	agg := map[string]int{}
@@ -528,24 +532,7 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 // ---------- JSON / fragments ---------------------------------------
 
 func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
-	today, _ := timeparse.ResolvePeriod("today", now)
-	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	views := make([]sessionView, 0, len(active))
-	for _, as := range active {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
-	}
-	hydrateSessionTags(r.Context(), s.db, views)
-	hydrateSessionProjects(r.Context(), s.db, views)
-	lang := string(resolveLang(r))
-	for i := range views {
-		views[i].Lang = lang
-	}
-	s.renderFragment(w, "active-list", activeListVM{Lang: string(resolveLang(r)), Items: views})
+	s.respondActiveList(w, r)
 }
 
 // ---------- POST /api/start ---------------------------------------
@@ -1456,7 +1443,12 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	for i := range views {
 		views[i].Lang = lang
 	}
-	s.renderFragment(w, "active-list", activeListVM{Lang: string(resolveLang(r)), Items: views})
+	vm := activeListVM{Lang: string(resolveLang(r)), Items: views}
+	if len(views) == 0 {
+		seen, _ := s.db.HasAnySession(r.Context(), teamID(r))
+		vm.FirstRun = !seen
+	}
+	s.renderFragment(w, "active-list", vm)
 }
 
 // handleMiniBar renders the phone "now tracking" bar shown above the tab

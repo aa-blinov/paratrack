@@ -66,127 +66,23 @@
   </div>
 </section>
 
-{{if .ShowOnboard}}
-<div id="onboard" class="card border border-base-300 mt-4"
-     style="background: color-mix(in srgb, var(--color-primary) 6%, var(--color-base-100));">
-  <div class="card-body p-5">
-    <div class="flex items-start justify-between gap-3">
-      <div class="min-w-0">
-        <h2 class="card-title mb-1">{{.T "onb.title"}}</h2>
-        <p class="hidden sm:block text-sm opacity-70">{{.T "onb.blurb"}}</p>
-      </div>
-      <button type="button" class="btn btn-ghost btn-xs gap-1 opacity-60"
-              onclick="paratrackOnboard.dismiss()">{{icon "x" "icon icon-sm"}}{{.T "onb.dismiss"}}</button>
-    </div>
-
-    <ol class="mt-2 space-y-2">
-      <li class="flex items-start gap-3">
-        <span class="onb-step shrink-0" data-onb-step="1"
-              style="width:24px;height:24px;border-radius:999px;border:2px solid var(--color-primary);
-                     display:inline-flex;align-items:center;justify-content:center;font:600 12px/1 Inter,sans-serif;
-                     color:var(--color-primary);">1</span>
-        <div class="min-w-0">
-          <div class="font-medium text-sm">{{.T "onb.s1"}}</div>
-          <div class="hidden sm:block text-xs opacity-60">{{.T "onb.s1d"}}</div>
-          <button type="button" class="btn btn-neutral btn-sm gap-1.5 mt-2 hidden sm:inline-flex"
-                  onclick="document.getElementById('activity').focus()">{{icon "play" "icon icon-sm"}}{{.T "onb.s1cta"}}</button>
-        </div>
-      </li>
-      <li class="flex items-start gap-3">
-        <span class="onb-step shrink-0" data-onb-step="2"
-              style="width:24px;height:24px;border-radius:999px;border:2px solid var(--color-primary);
-                     display:inline-flex;align-items:center;justify-content:center;font:600 12px/1 Inter,sans-serif;
-                     color:var(--color-primary);">2</span>
-        <div class="min-w-0">
-          <div class="font-medium text-sm">{{.T "onb.s2"}}</div>
-          <div class="hidden sm:block text-xs opacity-60">{{.T "onb.s2d"}}</div>
-          <a href="/stats" class="btn btn-neutral btn-sm gap-1.5 mt-2"
-             onclick="paratrackOnboard.done(2)">{{icon "bar-chart-3" "icon icon-sm"}}{{.T "onb.s2cta"}}</a>
-        </div>
-      </li>
-      <li class="flex items-start gap-3">
-        <span class="onb-step shrink-0" data-onb-step="3"
-              style="width:24px;height:24px;border-radius:999px;border:2px solid var(--color-primary);
-                     display:inline-flex;align-items:center;justify-content:center;font:600 12px/1 Inter,sans-serif;
-                     color:var(--color-primary);">3</span>
-        <div class="min-w-0">
-          <div class="font-medium text-sm">{{.T "onb.s3"}}</div>
-          <div class="hidden sm:block text-xs opacity-60">{{.T "onb.s3d"}}</div>
-          <a href="/projects/new" class="btn btn-neutral btn-sm gap-1.5 mt-2"
-             onclick="paratrackOnboard.done(3)">{{icon "plus" "icon icon-sm"}}{{.T "onb.s3cta"}}</a>
-        </div>
-      </li>
-    </ol>
-
-    <p class="hidden sm:block text-xs opacity-50 mt-3">{{.T "onb.footer"}} <a href="/help" class="link link-hover">{{.T "nav.help"}}</a></p>
-  </div>
-</div>
-
-<script>
-window.paratrackOnboard = (function () {
-  var KEY = "paratrack-onboard";
-  function state() {
-    try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { return {}; }
-  }
-  function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
-  function paint() {
-    var s = state();
-    document.querySelectorAll("[data-onb-step]").forEach(function (el) {
-      var n = +el.getAttribute("data-onb-step");
-      if (s["step" + n]) {
-        el.textContent = "✓";
-        el.style.background = "var(--color-primary)";
-        el.style.color = "var(--color-primary-content)";
-        el.style.borderColor = "var(--color-primary)";
-        // A finished step no longer needs its button.
-        var cta = el.parentElement.querySelector(".btn");
-        if (cta) cta.hidden = true;
-      }
-    });
-    // All three done: the checklist has served its purpose.
-    if (s.step1 && s.step2 && s.step3) {
-      var box = document.getElementById("onboard");
-      if (box) box.remove();
-    }
-  }
-  function done(n) {
-    var s = state();
-    s["step" + n] = true;
-    save(s);
-    paint();
-  }
-  function dismiss() {
-    var s = state();
-    s.dismissed = true;
-    save(s);
-    var el = document.getElementById("onboard");
-    if (el) el.remove();
-  }
-  function reveal() {
-    var s = state();
-    if (s.dismissed) {
-      var el = document.getElementById("onboard");
-      if (el) el.remove();
-      return;
-    }
-    paint();
-  }
-  // step 1 completes when a session actually starts
-  document.body.addEventListener("htmx:afterRequest", function (e) {
-    if (e.detail && e.detail.xhr && e.detail.xhr.status === 200 &&
-        e.detail.requestConfig && /\/api\/start/.test(e.detail.requestConfig.path || "")) {
-      done(1);
-    }
-  });
-  document.addEventListener("DOMContentLoaded", reveal);
-  reveal();
-  return { dismiss: dismiss, done: done };
-})();
-</script>
+{{/* Next steps after the first timer: quiet links, not a checklist card.
+     Rendered hidden on a first run and revealed by the first Start (app.js);
+     gone once a project exists or the visitor hides it. */}}
+{{if not .HasProject}}
+<nav id="next-steps" class="next-steps" aria-label="{{.T "onb.next"}}"{{if not .HasSession}} hidden{{end}}>
+  <span class="ledger-label">{{.T "onb.next"}}</span>
+  <a href="/stats">{{.T "onb.nextStats"}}</a>
+  <a href="/projects/new">{{.T "onb.nextProject"}}</a>
+  <button type="button" class="btn btn-ghost btn-xs gap-1 ms-auto" data-next-hide aria-label="{{.T "onb.hide"}}">{{icon "x" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "onb.hide"}}</span></button>
+</nav>
+<script>try { if (localStorage.getItem('paratrack-next-hidden')) document.getElementById('next-steps').remove(); } catch (e) {}</script>
 {{end}}
 
 <!-- Recent closed sessions: swapped in by #today-stats (backfill lands here). -->
-<div id="recent" class="card bg-base-100 border border-base-300 mt-4">
+{{/* Hidden on a first run: an empty history says nothing yet. The swap
+     after the first Start brings it back. */}}
+<div id="recent" class="card bg-base-100 border border-base-300 mt-4"{{if not .HasSession}} hidden{{end}}>
   <div class="card-body p-5">
     <div class="flex items-center justify-between mb-3">
       <div class="card-title">{{.T "dash.recent"}}</div>
@@ -349,6 +245,17 @@ window.paratrackOnboard = (function () {
         {{end}}
       </tbody>
     </table>
+  </div>
+  {{else if .FirstRun}}
+  {{/* First run: the form above is step one, so the empty row says how to
+       use it and offers one-tap examples that fill it and start. */}}
+  <div class="first-run">
+    <p class="font-medium">{{.T "onb.try"}}</p>
+    <p class="text-sm text-base-content/70 mt-1">{{.T "onb.tryHint"}}</p>
+    <div class="flex flex-wrap items-center gap-2 mt-3">
+      <span class="text-sm text-base-content/70">{{.T "onb.examples"}}</span>
+      {{range splitComma (.T "onb.exampleList")}}<button type="button" class="btn btn-sm btn-quick gap-1" data-quick-start="{{.}}">{{icon "play" "icon icon-sm"}}{{.}}</button>{{end}}
+    </div>
   </div>
   {{else}}
   <div class="text-center py-6 opacity-60">
