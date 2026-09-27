@@ -29,7 +29,7 @@ func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 	if t, ok := TeamFrom(r.Context()); ok {
 		teamName = t.Name
 	}
-	pdf, err := renderInvoicePDF(vm, teamName)
+	pdf, err := renderInvoicePDF(vm, teamName, resolveLang(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -195,18 +195,19 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		total += l.AmountCents
 		secs += db.HoursHundredths(l.Seconds)
 		vms = append(vms, invoiceLineVM{
-			Label: l.Label, Hours: fmtHours(db.HoursHundredths(l.Seconds)),
-			Rate: formatMoneyL(resolveLang(r), l.RateCents), Amount: formatMoneyL(resolveLang(r), l.AmountCents),
+			Label: l.Label, Hours: fmtHoursL(resolveLang(r), db.HoursHundredths(l.Seconds)),
+			Rate: moneyL(resolveLang(r), l.RateCents, inv.Currency), Amount: moneyL(resolveLang(r), l.AmountCents, inv.Currency),
 			RateCents: l.RateCents, AmountCents: l.AmountCents, Seconds: l.Seconds,
 		})
 	}
 	vm := invoiceVM{
 		ID: inv.ID, Number: inv.Number, ClientName: inv.ClientName,
-		PeriodLabel: fmtDate(resolveLang(r), inv.PeriodStart) + " – " + fmtDate(resolveLang(r), inv.PeriodEnd),
-		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.Format("2006-01-02"),
+		PeriodLabel: fmtDate(resolveLang(r), inv.PeriodStart) + " – " + fmtDate(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
+		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.AddDate(0, 0, -1).Format("2006-01-02"),
 		Status: inv.Status, Notes: inv.Notes, Lines: vms,
-		Total: formatMoneyL(resolveLang(r), total), TotalCents: total, Hours: fmtHours(secs),
-		PaymentURL: inv.PaymentURL,
+		Total: moneyL(resolveLang(r), total, inv.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
+		PaymentURL: inv.PaymentURL, Currency: inv.Currency,
+		IssuedLabel: fmtDate(resolveLang(r), inv.CreatedAt.Local()),
 	}
 	return inv, lines, vm, true
 }
@@ -225,7 +226,8 @@ func createStripeCheckout(secret string, vm invoiceVM, successURL string) (strin
 	form.Set("client_reference_id", strconv.FormatInt(vm.ID, 10))
 	form.Set("metadata[invoice_id]", strconv.FormatInt(vm.ID, 10))
 	form.Set("line_items[0][quantity]", "1")
-	form.Set("line_items[0][price_data][currency]", "usd")
+	// The invoice's own currency: unit_amount is in its minor units.
+	form.Set("line_items[0][price_data][currency]", strings.ToLower(vm.Currency))
 	form.Set("line_items[0][price_data][unit_amount]", strconv.Itoa(vm.TotalCents))
 	label := "Invoice " + vm.Number
 	if len(label) > 100 {

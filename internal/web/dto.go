@@ -491,6 +491,15 @@ func fmtHours(hundredths int) string {
 	return fmt.Sprintf("%d.%02d", hundredths/100, hundredths%100)
 }
 
+// fmtHoursL is fmtHours with the language's decimal mark: "3,50" in
+// Russian, matching the money beside it on the same document.
+func fmtHoursL(lang i18n.Lang, hundredths int) string {
+	if lang == i18n.Ru {
+		return fmt.Sprintf("%d,%02d", hundredths/100, hundredths%100)
+	}
+	return fmtHours(hundredths)
+}
+
 // fmtClock is a stopwatch reading, "1:02:05", for timers that tick.
 func fmtClock(sec int) string {
 	if sec < 0 {

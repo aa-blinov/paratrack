@@ -29,8 +29,8 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		}
 		data.Items = append(data.Items, payrollSummary{
 			ID: run.ID, Number: run.Number, Status: run.Status,
-			Total: formatMoneyL(resolveLang(r), total), Hours: fmtHours(secs),
-			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd),
+			Total: moneyL(resolveLang(r), total, run.Currency), Hours: fmtHoursL(resolveLang(r), secs),
+			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
 		})
 	}
 	now := time.Now()
@@ -118,16 +118,16 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		total += l.AmountCents
 		secs += dbpkg.HoursHundredths(l.Seconds)
 		vms = append(vms, payrollLineVM{
-			Label: l.Label, Hours: fmtHours(dbpkg.HoursHundredths(l.Seconds)),
-			Rate: formatMoneyL(resolveLang(r), l.RateCents), Amount: formatMoneyL(resolveLang(r), l.AmountCents),
+			Label: l.Label, Hours: fmtHoursL(resolveLang(r), dbpkg.HoursHundredths(l.Seconds)),
+			Rate: moneyL(resolveLang(r), l.RateCents, run.Currency), Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
 		})
 	}
 	data := payrollDetailPage{
 		pageData: pageData{Title: run.Number, Active: "payroll", Lang: lang},
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
-			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd),
-			Lines: vms, Total: formatMoneyL(resolveLang(r), total), TotalCents: total, Hours: fmtHours(secs),
+			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
+			Lines: vms, Total: moneyL(resolveLang(r), total, run.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -166,7 +166,7 @@ func (p *payrollDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
 // handlePayrollPaid marks a run paid.
 func (s *Server) handlePayrollPaid(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/payroll/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -180,7 +180,7 @@ func (s *Server) handlePayrollPaid(w http.ResponseWriter, r *http.Request) {
 
 // handlePayrollDelete removes a draft run.
 func (s *Server) handlePayrollDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/payroll/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return

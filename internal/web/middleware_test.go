@@ -204,3 +204,27 @@ func min(a, b int) int {
 	}
 	return b
 }
+// Server-to-server and token callers pass without a CSRF token; a plain
+// cookie POST still needs one.
+func TestCSRFExemptions(t *testing.T) {
+	h := csrfProtect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(204) }))
+	for _, c := range []struct {
+		path, auth string
+		want       int
+	}{
+		{"/api/stripe/webhook", "", 204},
+		{"/sentry-tunnel", "", 204},
+		{"/api/start", "Bearer pt_x", 204},
+		{"/api/start", "", 403},
+	} {
+		r := httptest.NewRequest("POST", c.path, nil)
+		if c.auth != "" {
+			r.Header.Set("Authorization", c.auth)
+		}
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, r)
+		if rec.Code != c.want {
+			t.Errorf("POST %s auth=%q: %d, want %d", c.path, c.auth, rec.Code, c.want)
+		}
+	}
+}

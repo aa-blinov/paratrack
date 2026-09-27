@@ -141,3 +141,53 @@ func TestFormatMoneyL(t *testing.T) {
 		}
 	}
 }
+
+// One document, one currency: an invoice takes its project's currency,
+// refuses to mix, and a pay run takes the workspace's.
+func TestInvoiceAndPayrollCurrency(t *testing.T) {
+	d, err := newTestDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	d.SQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
+	d.SQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	if cur, _ := d.TeamCurrency(ctx, 1); cur != "RUB" {
+		t.Fatalf("default team currency %q, want RUB", cur)
+	}
+	start := time.Date(2026, 9, 21, 9, 0, 0, 0, time.UTC)
+	rate := 5000
+	mk := func(name, cur string) {
+		p, err := d.CreateProject(ctx, 1, name, "", "#7c3aed")
+		if err != nil {
+			t.Fatal(err)
+		}
+		d.SetProjectRate(ctx, 1, p.ID, &rate, nil)
+		d.SetProjectCurrency(ctx, 1, p.ID, cur)
+		a, _ := d.CreateActivity(ctx, 1, name+" work")
+		d.AssignActivityProject(ctx, 1, a.ID, p.ID)
+		d.CreateClosedSession(ctx, 1, a.ID, start, start.Add(time.Hour), "")
+	}
+	mk("Acme US", "USD")
+	lines, _ := d.BuildInvoiceLines(ctx, 1, start, start.Add(2*time.Hour), 0)
+	inv, err := d.CreateInvoice(ctx, 1, "INV-T-1", "Acme", start, start.Add(2*time.Hour), "", lines)
+	if err != nil || inv.Currency != "USD" {
+		t.Fatalf("invoice currency %q err %v, want USD", inv.Currency, err)
+	}
+	if got := moneyL(i18n.En, 5000, inv.Currency); got != "$50.00" {
+		t.Errorf("moneyL = %q", got)
+	}
+	mk("Ромашка", "")
+	lines, _ = d.BuildInvoiceLines(ctx, 1, start, start.Add(2*time.Hour), 0)
+	if _, err := d.CreateInvoice(ctx, 1, "INV-T-2", "Mix", start, start.Add(2*time.Hour), "", lines); err != db.ErrMixedCurrency {
+		t.Errorf("mixed currencies: err %v, want ErrMixedCurrency", err)
+	}
+	d.SetTeamCurrency(ctx, 1, "EUR")
+	run, err := d.CreatePayrollRun(ctx, 1, "PAY-T-1", "", start, start.Add(time.Hour), nil)
+	if err != nil || run.Currency != "EUR" {
+		t.Errorf("pay run currency %q err %v, want EUR", run.Currency, err)
+	}
+	if got, _ := d.GetInvoice(ctx, 1, inv.ID); got.Currency != "USD" {
+		t.Errorf("issued invoice must keep USD after team change, got %q", got.Currency)
+	}
+}

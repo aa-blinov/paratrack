@@ -86,6 +86,10 @@ func csrfProtect(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if csrfExempt(r) {
+			next.ServeHTTP(w, r)
+			return
+		}
 		sent := r.Header.Get(csrfHeaderName)
 		if sent == "" {
 			// Form-encoded bodies carry it as a field; ParseForm is safe
@@ -99,6 +103,22 @@ func csrfProtect(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// csrfExempt: requests a browser can't forge from another site, so the
+// cookie token has nothing to protect. A Bearer header can't be set
+// cross-origin without a CORS preflight we never grant (API tokens: the
+// extension, the CLI, scripts). Stripe signs its webhook itself; the
+// Sentry tunnel only relays envelopes for our own DSN.
+func csrfExempt(r *http.Request) bool {
+	if strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+		return true
+	}
+	switch r.URL.Path {
+	case "/api/stripe/webhook", "/sentry-tunnel":
+		return true
+	}
+	return false
 }
 
 func csrfTokensEqual(a, b string) bool {
