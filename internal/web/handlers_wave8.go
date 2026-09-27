@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	_ "time/tzdata" // the browser zone must load in a slim container
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
@@ -42,6 +43,7 @@ type importPage struct {
 	From, To string
 	Secret   string
 	Extra    string
+	TZ       string
 	Entries  []importedEntry
 	Error    string
 }
@@ -55,13 +57,13 @@ func (s *Server) handleImportPreview(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	f := func(k string) string { return strings.TrimSpace(r.PostForm.Get(k)) }
 	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: string(resolveLang(r))}}
-	entries, err := fetchEntries(f("provider"), f("secret"), f("extra"), f("from"), f("to"))
+	entries, err := fetchEntries(f("provider"), f("secret"), f("extra"), f("from"), f("to"), f("tz"))
 	if err != nil {
 		data.Error = err.Error()
 	} else {
 		data.Entries = entries
 		data.Provider = f("provider")
-		data.From, data.To, data.Secret, data.Extra = f("from"), f("to"), f("secret"), f("extra")
+		data.From, data.To, data.Secret, data.Extra, data.TZ = f("from"), f("to"), f("secret"), f("extra"), f("tz")
 	}
 	s.renderPageForRequest(w, r, "Import", "import", "import", &data)
 }
@@ -74,7 +76,7 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 	extra := strings.TrimSpace(r.PostForm.Get("extra"))
 	from := strings.TrimSpace(r.PostForm.Get("from"))
 	to := strings.TrimSpace(r.PostForm.Get("to"))
-	entries, err := fetchEntries(provider, secret, extra, from, to)
+	entries, err := fetchEntries(provider, secret, extra, from, to, strings.TrimSpace(r.PostForm.Get("tz")))
 	if err != nil {
 		http.Redirect(w, r, "/import?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
@@ -103,8 +105,9 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 }
 
 // fetchEntries dispatches to the provider importer.
-func fetchEntries(provider, secret, extra, from, to string) ([]importedEntry, error) {
-	fromT, toT, err := parseImportRange(from, to)
+// tz is the browser's IANA zone: "1 Sep" means the user's day, not UTC's.
+func fetchEntries(provider, secret, extra, from, to, tz string) ([]importedEntry, error) {
+	fromT, toT, err := parseImportRange(from, to, tz)
 	if err != nil {
 		return nil, err
 	}
@@ -120,19 +123,23 @@ func fetchEntries(provider, secret, extra, from, to string) ([]importedEntry, er
 	}
 }
 
-func parseImportRange(from, to string) (time.Time, time.Time, error) {
-	now := time.Now()
+func parseImportRange(from, to, tz string) (time.Time, time.Time, error) {
+	loc := time.Local
+	if l, err := time.LoadLocation(tz); tz != "" && err == nil {
+		loc = l
+	}
+	now := time.Now().In(loc)
 	fromT := now.AddDate(0, 0, -30)
 	toT := now
 	if from != "" {
-		t, err := time.Parse("2006-01-02", from)
+		t, err := time.ParseInLocation("2006-01-02", from, loc)
 		if err != nil {
 			return fromT, toT, fmt.Errorf("bad from date")
 		}
 		fromT = t
 	}
 	if to != "" {
-		t, err := time.Parse("2006-01-02", to)
+		t, err := time.ParseInLocation("2006-01-02", to, loc)
 		if err != nil {
 			return fromT, toT, fmt.Errorf("bad to date")
 		}
@@ -295,7 +302,7 @@ func fetchHarvestEntries(token, accountID string, from, to time.Time) ([]importe
 		if e.IsRunning {
 			continue
 		}
-		day, err := time.ParseInLocation("2006-01-02", e.SpentDate, time.Local)
+		day, err := time.ParseInLocation("2006-01-02", e.SpentDate, from.Location())
 		if err != nil {
 			continue
 		}
