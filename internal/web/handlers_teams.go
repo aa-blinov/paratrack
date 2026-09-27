@@ -23,6 +23,9 @@ type settingsPageData struct {
 	Pay     map[int64]memberPayView // members page: current pay + capacity
 	Flash   string // success / error banner shown above the form
 	FlashOK bool
+	// Team settings: workspace currency and the menu of choices.
+	Currency   string
+	Currencies []currencyOption
 	CSRFToken string
 	Lang      string
 }
@@ -55,6 +58,8 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 		Team:   team,
 		User:   userViewOf(user),
 	}
+	data.Currency, _ = s.db.TeamCurrency(r.Context(), team.ID)
+	data.Currencies = currencyOptions()
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -81,7 +86,7 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		if cents, capMin, err := s.db.MemberPay(r.Context(), team.ID, m.UserID); err == nil {
 			v := memberPayView{Capacity: capMin}
 			if cents > 0 {
-				v.Rate = formatMoney(cents)
+				v.Rate = formatMoneyInput(resolveLang(r), cents)
 			}
 			data.Pay[m.UserID] = v
 		}
@@ -170,6 +175,23 @@ func (s *Server) handleAPITeamRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/settings/team?flash=renamed", http.StatusSeeOther)
+}
+
+// handleAPITeamCurrency sets the workspace currency. Documents already
+// issued keep theirs; new projects without their own currency follow it.
+func (s *Server) handleAPITeamCurrency(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	cur := r.FormValue("currency")
+	if !validCurrency(cur) {
+		http.Redirect(w, r, "/settings/team?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	if err := s.db.SetTeamCurrency(r.Context(), team.ID, cur); err != nil {
+		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
+		return
+	}
+	s.audit(r, "team.currency", cur, "")
+	http.Redirect(w, r, "/settings/team?flash=updated", http.StatusSeeOther)
 }
 
 func (s *Server) handleAPITeamDelete(w http.ResponseWriter, r *http.Request) {

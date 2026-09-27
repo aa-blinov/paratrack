@@ -13,15 +13,15 @@
       <form method="POST" action="/payroll" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 items-end">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div>
-          <label class="label py-1"><span class="label-text">{{.T "inv.from"}}</span></label>
-          <input type="date" name="start" required value="{{.DefStart}}" class="input input-bordered w-full">
+          <label class="label py-1" for="pay-start"><span class="label-text">{{.T "inv.from"}}</span></label>
+          <input id="pay-start" type="date" name="start" required value="{{.DefStart}}" class="input input-bordered w-full">
         </div>
         <div>
-          <label class="label py-1"><span class="label-text">{{.T "inv.to"}}</span></label>
-          <input type="date" name="end" required value="{{.DefEnd}}" class="input input-bordered w-full">
+          <label class="label py-1" for="pay-end"><span class="label-text">{{.T "inv.to"}}</span></label>
+          <input id="pay-end" type="date" name="end" required value="{{.DefEnd}}" class="input input-bordered w-full">
         </div>
         <div class="flex items-end gap-2 sm:col-span-2">
-          <input type="text" name="notes" class="input input-bordered flex-1 min-w-0" placeholder="{{.T "pay.notesPh"}}">
+          <input type="text" name="notes" aria-label="{{.T "stats.note"}}" class="input input-bordered flex-1 min-w-0" placeholder="{{.T "pay.notesPh"}}">
           <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "pay.create"}}</button>
         </div>
       </form>
@@ -42,7 +42,7 @@
             <td data-label="{{$.T "inv.period"}}" class="text-xs opacity-70 whitespace-nowrap">{{.Period}}</td>
             <td data-label="{{$.T "inv.hours"}}" class="font-mono whitespace-nowrap">{{.Hours}}</td>
             <td data-label="{{$.T "inv.amount"}}" class="font-mono whitespace-nowrap">{{.Total}}</td>
-            <td data-label="{{$.T "team.status"}}"><span class="badge badge-ghost badge-sm">{{$.T (printf "status.%s" .Status)}}</span></td>
+            <td data-label="{{$.T "team.status"}}"><span class="doc-status is-{{.Status}}">{{$.T (printf "status.%s" .Status)}}</span></td>
           </tr>
           {{end}}
         </tbody>
@@ -64,62 +64,60 @@
 <div class="max-w-2xl mx-auto space-y-4">
   {{template "flash-banner" .}}
 
-  <div class="flex items-center justify-between gap-3 flex-wrap no-print">
-    <div class="text-sm">
-      <a href="/payroll" class="link link-hover opacity-70">{{.T "pay.title"}}</a>
-      <span class="opacity-40"> / </span>
+  <div class="space-y-2 no-print">
+    <div class="flex items-center gap-2 text-sm">
+      <a href="/payroll" class="link link-hover opacity-80">{{.T "pay.title"}}</a>
+      <span class="opacity-50" aria-hidden="true">/</span>
       <span class="font-mono">{{.Run.Number}}</span>
+      <span class="doc-status is-{{.Run.Status}}">{{.T (printf "status.%s" .Run.Status)}}</span>
     </div>
-    <div class="flex items-center gap-2">
-      <span class="badge badge-ghost badge-sm">{{.T (printf "status.%s" .Run.Status)}}</span>
+    <div class="flex flex-wrap items-center gap-2">
       {{if ne .Run.Status "paid"}}
-      <form method="POST" action="/payroll/{{.Run.ID}}/paid" class="inline">
+      <form method="POST" action="/payroll/{{.Run.ID}}/paid">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "check"}}{{.T "pay.markPaid"}}</button>
       </form>
       {{end}}
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{icon "download"}}{{.T "inv.print"}}</button>
-      <form method="POST" action="/payroll/{{.Run.ID}}/delete" class="inline">
+      <button type="button" class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{.T "inv.print"}}</button>
+      <form method="POST" action="/payroll/{{.Run.ID}}/delete" class="ms-auto"
+            onsubmit="return confirm({{printf (.T "pay.confirmDelete") .Run.Number}})">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error">{{icon "trash-2" "icon icon-sm"}}</button>
+        <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error" aria-label="{{.T "pay.delete"}}">{{icon "trash-2" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "pay.delete"}}</span></button>
       </form>
     </div>
   </div>
 
   <div class="card bg-base-100 border border-base-300 print:shadow-none print:border-0">
     <div class="card-body p-6 gap-4">
-      <div class="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <div class="text-xs uppercase tracking-wider opacity-50">{{.T "pay.run"}}</div>
-          <div class="text-2xl font-mono">{{.Run.Number}}</div>
-        </div>
-        <div class="text-right">
-          <div class="text-xs opacity-60 font-mono">{{.Run.PeriodLabel}}</div>
-        </div>
+      <div>
+        <h1 class="text-2xl font-semibold">{{.T "pay.run"}} <span class="font-mono">{{.Run.Number}}</span></h1>
+        <div class="text-sm doc-muted font-mono">{{.Run.PeriodLabel}}</div>
       </div>
 
-      <table class="table table-sm">
-        <thead><tr><th>{{.T "nav.account"}}</th><th class="text-right">{{.T "inv.hours"}}</th><th class="text-right">{{.T "pay.payRate"}}</th><th class="text-right">{{.T "inv.amount"}}</th></tr></thead>
+      <div class="overflow-x-auto">
+      <table class="table table-sm w-full doc-table">
+        <thead><tr><th>{{.T "pay.member"}}</th><th class="text-right">{{.T "inv.hours"}}</th><th class="text-right">{{.T "pay.payRate"}}</th><th class="text-right">{{.T "inv.amount"}}</th></tr></thead>
         <tbody>
           {{range .Run.Lines}}
           <tr>
             <td>{{.Label}}</td>
-            <td class="text-right font-mono">{{.Hours}}</td>
-            <td class="text-right font-mono">{{.Rate}}</td>
-            <td class="text-right font-mono">{{.Amount}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Hours}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Rate}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Amount}}</td>
           </tr>
           {{end}}
         </tbody>
         <tfoot>
           <tr class="font-semibold border-t-2 border-base-300">
-            <td>{{.T "stats.total"}} · {{.Run.Hours}}</td>
-            <td></td><td></td>
-            <td class="text-right font-mono">{{.Run.Total}}</td>
+            <td>{{.T "pdf.total"}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Run.Hours}}</td><td></td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Run.Total}}</td>
           </tr>
         </tfoot>
       </table>
-      {{if .Run.Notes}}<p class="text-sm opacity-70">{{.Run.Notes}}</p>{{end}}
-      <p class="text-xs opacity-50">{{.T "pay.footNote"}}</p>
+      </div>
+      {{if .Run.Notes}}<p class="text-sm whitespace-pre-line">{{.Run.Notes}}</p>{{end}}
+      <p class="text-xs doc-muted">{{.T "pay.footNote"}}</p>
     </div>
   </div>
 </div>

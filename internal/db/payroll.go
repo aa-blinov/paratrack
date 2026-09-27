@@ -24,6 +24,7 @@ type PayrollRun struct {
 	PeriodEnd   time.Time `json:"period_end"`
 	Status      string    `json:"status"` // draft | paid
 	Notes       string    `json:"notes"`
+	Currency    string    `json:"currency"` // workspace currency at creation
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -229,6 +230,10 @@ func (d *DB) CreatePayrollRun(ctx context.Context, teamID int64, number, notes s
 	if number == "" {
 		return PayrollRun{}, fmt.Errorf("number is required")
 	}
+	currency, err := d.TeamCurrency(ctx, teamID)
+	if err != nil {
+		return PayrollRun{}, err
+	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return PayrollRun{}, err
@@ -237,9 +242,9 @@ func (d *DB) CreatePayrollRun(ctx context.Context, teamID int64, number, notes s
 	now := FormatTime(time.Now().UTC())
 	var runID int64
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO payroll_runs (team_id, number, period_start, period_end, status, notes, created_at)
-		 VALUES (?, ?, ?, ?, 'draft', ?, ?) RETURNING id`,
-		teamID, number, FormatTime(start), FormatTime(end), notes, now).Scan(&runID)
+		`INSERT INTO payroll_runs (team_id, number, period_start, period_end, status, notes, currency, created_at)
+		 VALUES (?, ?, ?, ?, 'draft', ?, ?, ?) RETURNING id`,
+		teamID, number, FormatTime(start), FormatTime(end), notes, currency, now).Scan(&runID)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return PayrollRun{}, ErrDuplicate
@@ -263,7 +268,7 @@ func (d *DB) CreatePayrollRun(ctx context.Context, teamID int64, number, notes s
 // ListPayrollRuns returns the team's pay runs, newest first.
 func (d *DB) ListPayrollRuns(ctx context.Context, teamID int64) ([]PayrollRun, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, number, period_start, period_end, status, notes, created_at
+		`SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
 		 FROM payroll_runs WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -283,7 +288,7 @@ func (d *DB) ListPayrollRuns(ctx context.Context, teamID int64) ([]PayrollRun, e
 // GetPayrollRun fetches one run.
 func (d *DB) GetPayrollRun(ctx context.Context, teamID, id int64) (PayrollRun, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, number, period_start, period_end, status, notes, created_at
+		`SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
 		 FROM payroll_runs WHERE id = ? AND team_id = ?`, id, teamID)
 	r, err := scanPayrollRun(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -343,7 +348,7 @@ func scanPayrollRun(r interface{ Scan(...any) error }) (PayrollRun, error) {
 		run       PayrollRun
 		start, end, ct string
 	)
-	if err := r.Scan(&run.ID, &run.TeamID, &run.Number, &start, &end, &run.Status, &run.Notes, &ct); err != nil {
+	if err := r.Scan(&run.ID, &run.TeamID, &run.Number, &start, &end, &run.Status, &run.Notes, &run.Currency, &ct); err != nil {
 		return PayrollRun{}, err
 	}
 	run.PeriodStart, _ = ScanTime(start)

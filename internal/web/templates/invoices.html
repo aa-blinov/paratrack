@@ -69,7 +69,7 @@
             <td data-label="{{$.T "inv.period"}}" class="text-xs opacity-70 whitespace-nowrap">{{.Period}}</td>
             <td data-label="{{$.T "inv.hours"}}" class="font-mono whitespace-nowrap">{{.Hours}}</td>
             <td data-label="{{$.T "inv.amount"}}" class="font-mono whitespace-nowrap">{{.Total}}</td>
-            <td data-label="{{$.T "team.status"}}"><span class="badge badge-ghost badge-sm">{{$.T (printf "status.%s" .Status)}}</span></td>
+            <td data-label="{{$.T "team.status"}}"><span class="doc-status is-{{.Status}}">{{$.T (printf "status.%s" .Status)}}</span></td>
           </tr>
           {{end}}
         </tbody>
@@ -90,48 +90,43 @@
 <div class="max-w-2xl mx-auto space-y-4">
   {{template "flash-banner" .}}
 
-  <div class="flex items-center justify-between gap-3 flex-wrap no-print">
-    <div class="text-sm">
-      <a href="/invoices" class="link link-hover opacity-70">{{.T "inv.title"}}</a>
-      <span class="opacity-40"> / </span>
+  {{/* One primary action: the next step of the document. */}}
+  <div class="space-y-2 no-print">
+    <div class="flex items-center gap-2 text-sm">
+      <a href="/invoices" class="link link-hover opacity-80">{{.T "inv.title"}}</a>
+      <span class="opacity-50" aria-hidden="true">/</span>
       <span class="font-mono">{{.Inv.Number}}</span>
+      <span class="doc-status is-{{.Inv.Status}}">{{.T (printf "status.%s" .Inv.Status)}}</span>
     </div>
-    <div class="flex items-center gap-2">
-      <span class="badge badge-ghost badge-sm">{{.T (printf "status.%s" .Inv.Status)}}</span>
+    <div class="flex flex-wrap items-center gap-2">
       {{if eq .Inv.Status "draft"}}
-      <form method="POST" action="/invoices/{{.Inv.ID}}/status" class="inline">
+      <form method="POST" action="/invoices/{{.Inv.ID}}/status">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <input type="hidden" name="status" value="sent">
-        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markSent"}}</button>
-      </form>
-      {{end}}
-      {{if eq .Inv.Status "sent"}}
-      <form method="POST" action="/invoices/{{.Inv.ID}}/status" class="inline">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <input type="hidden" name="status" value="paid">
-        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markPaid"}}</button>
-      </form>
-      {{end}}
-      <a href="/invoices/{{.Inv.ID}}/pdf" class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}PDF</a>
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{icon "download"}}{{.T "inv.print"}}</button>
-      {{if .Inv.PaymentURL}}
-      <a href="{{.Inv.PaymentURL}}" target="_blank" rel="noopener" class="btn btn-neutral btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payOnline"}}</a>
-      {{else}}
-      <form method="POST" action="/invoices/{{.Inv.ID}}/pay" class="inline-flex gap-1">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <input type="hidden" name="mode" value="stripe">
-        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payLink"}}</button>
+        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "mail"}}{{.T "inv.markSent"}}</button>
       </form>
       {{end}}
       {{if ne .Inv.Status "paid"}}
-      <form method="POST" action="/invoices/{{.Inv.ID}}/paid" class="inline">
+      <form method="POST" action="/invoices/{{.Inv.ID}}/paid">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markPaid"}}</button>
+        <button type="submit" class="btn {{if eq .Inv.Status "sent"}}btn-neutral{{else}}btn-ghost{{end}} btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markPaid"}}</button>
       </form>
       {{end}}
-      <form method="POST" action="/invoices/{{.Inv.ID}}/delete" class="inline">
+      <a href="/invoices/{{.Inv.ID}}/pdf" class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}PDF</a>
+      <button type="button" class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{.T "inv.print"}}</button>
+      {{if .Inv.PaymentURL}}
+      <a href="{{.Inv.PaymentURL}}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payOnline"}}</a>
+      {{else if .StripeReady}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/pay">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error">{{icon "trash-2" "icon icon-sm"}}</button>
+        <input type="hidden" name="mode" value="stripe">
+        <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payLink"}}</button>
+      </form>
+      {{end}}
+      <form method="POST" action="/invoices/{{.Inv.ID}}/delete" class="ms-auto"
+            onsubmit="return confirm({{printf (.T "inv.confirmDelete") .Inv.Number}})">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error" aria-label="{{.T "inv.delete"}}">{{icon "trash-2" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "inv.delete"}}</span></button>
       </form>
     </div>
   </div>
@@ -140,47 +135,48 @@
     <div class="card-body p-6 gap-4">
       <div class="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div class="text-xs uppercase tracking-wider opacity-50">{{.T "inv.invoice"}}</div>
-          <div class="text-2xl font-mono">{{.Inv.Number}}</div>
-        </div>
-        <div class="text-right">
-          <div class="text-sm opacity-60">{{.T "inv.client"}}</div>
-          <div class="text-lg font-medium">{{.Inv.ClientName}}</div>
-          <div class="text-xs opacity-60 font-mono">{{.Inv.PeriodLabel}}</div>
+          <h1 class="text-2xl font-semibold">{{.T "inv.invoice"}} <span class="font-mono">{{.Inv.Number}}</span></h1>
+          <div class="text-sm doc-muted">{{.T "pdf.issued"}} {{.Inv.IssuedLabel}}</div>
         </div>
       </div>
+      <dl class="grid sm:grid-cols-2 gap-4">
+        <div><dt class="text-xs doc-muted">{{.T "pdf.from"}}</dt><dd class="font-medium">{{.Seller}}</dd></div>
+        <div><dt class="text-xs doc-muted">{{.T "pdf.billedTo"}}</dt><dd class="font-medium">{{.Inv.ClientName}}</dd></div>
+        <div class="sm:col-span-2"><dt class="text-xs doc-muted">{{.T "inv.period"}}</dt><dd class="font-mono text-sm">{{.Inv.PeriodLabel}}</dd></div>
+      </dl>
 
       <div class="overflow-x-auto">
-      <table class="table table-sm w-full">
-        <thead><tr><th>{{.T "int.task"}}</th><th class="text-right">{{.T "inv.hours"}}</th><th class="text-right">{{.T "inv.rate"}}</th><th class="text-right">{{.T "inv.amount"}}</th></tr></thead>
+      <table class="table table-sm w-full doc-table">
+        <thead><tr><th>{{.T "pdf.work"}}</th><th class="text-right">{{.T "inv.hours"}}</th><th class="text-right">{{.T "inv.rate"}}</th><th class="text-right">{{.T "inv.amount"}}</th></tr></thead>
         <tbody>
           {{range .Inv.Lines}}
           <tr>
             <td>{{.Label}}</td>
-            <td class="text-right font-mono">{{.Hours}}</td>
-            <td class="text-right font-mono">{{.Rate}}</td>
-            <td class="text-right font-mono">{{.Amount}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Hours}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Rate}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Amount}}</td>
           </tr>
           {{end}}
         </tbody>
         <tfoot>
           <tr class="font-semibold border-t-2 border-base-300">
-            <td>{{.T "stats.total"}} · {{.Inv.Hours}}</td>
+            <td>{{.T "pdf.total"}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Inv.Hours}}</td>
             <td></td>
-            <td></td>
-            <td class="text-right font-mono">{{.Inv.Total}}</td>
+            <td class="text-right font-mono whitespace-nowrap">{{.Inv.Total}}</td>
           </tr>
         </tfoot>
       </table>
+      </div>
 
       {{if .Inv.PaymentURL}}
       <p class="text-sm"><span class="opacity-60">{{.T "inv.payOnline"}}:</span>
         <a href="{{.Inv.PaymentURL}}" class="link link-hover break-all">{{.Inv.PaymentURL}}</a></p>
       {{end}}
       {{if .Inv.Notes}}
-      <p class="text-sm opacity-70">{{.Inv.Notes}}</p>
+      <p class="text-sm whitespace-pre-line">{{.Inv.Notes}}</p>
       {{end}}
-      <p class="text-xs opacity-50">{{.T "inv.footNote"}}</p>
+      <p class="text-xs doc-muted">{{.T "inv.footNote"}}</p>
     </div>
   </div>
 </div>

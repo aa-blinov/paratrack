@@ -94,6 +94,9 @@ type projectDetailData struct {
 	EstimateInput   string
 	EstimatePercent int
 	RateInput       string
+	Currency        string // project's own ('' = workspace's)
+	TeamCurrency    string
+	Currencies      []currencyOption
 	Flash    string
 	FlashOK  bool
 	CSRFToken string
@@ -161,7 +164,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		estPct = totalSec * 100 / (*p.EstimateMinutes * 60)
 	}
 	if p.BillableRateCents != nil {
-		rateInput = formatMoney(*p.BillableRateCents)
+		rateInput = formatMoneyInput(resolveLang(r), *p.BillableRateCents)
 	}
 	data := projectDetailData{
 		Title:      p.Name,
@@ -176,7 +179,10 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		EstimateInput:   estInput,
 		RateInput:       rateInput,
 		EstimatePercent: estPct,
+		Currencies:      currencyOptions(),
 	}
+	data.Currency, _ = s.db.ProjectCurrency(r.Context(), teamID(r), p.ID)
+	data.TeamCurrency, _ = s.db.TeamCurrency(r.Context(), teamID(r))
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -270,6 +276,12 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 		if err := s.db.SetProjectRate(r.Context(), tid, p.ID, rate, &b); err != nil {
 			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 			return
+		}
+	}
+	// Rate currency: '' follows the workspace.
+	if _, sent := r.Form["currency"]; sent {
+		if cur := r.Form.Get("currency"); cur == "" || validCurrency(cur) {
+			_ = s.db.SetProjectCurrency(r.Context(), tid, p.ID, cur)
 		}
 	}
 	http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(true, "updated"), http.StatusSeeOther)

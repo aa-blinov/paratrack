@@ -29,6 +29,21 @@
 
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
+      <h2 class="card-title mb-1">{{.T "team.currencyTitle"}}</h2>
+      <p class="text-sm opacity-70 mb-3">{{.T "team.currencyHint"}}</p>
+      <form method="POST" action="/api/team/currency" class="flex gap-2">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label class="sr-only" for="team-currency">{{.T "team.currencyTitle"}}</label>
+        <select id="team-currency" name="currency" class="select select-bordered flex-1">
+          {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Currency}} selected{{end}}>{{.Label}}</option>{{end}}
+        </select>
+        <button type="submit" class="btn btn-neutral">{{.T "profile.save"}}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.createTitle"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "team.createBlurb"}}</p>
       <form method="POST" action="/api/team/create" class="flex gap-2">

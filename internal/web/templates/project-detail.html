@@ -124,12 +124,20 @@
                      value="{{.EstimateInput}}"
                      placeholder="480">
             </div>
-            <div class="w-full">
+            <label class="w-full block" for="project-rate">
               <span class="label-text text-sm">{{.T "bill.rate"}} {{.T "bill.cents"}}</span>
               <span class="block text-xs opacity-60">{{.T "bill.rateHint"}}</span>
-              <input type="number" name="rate" min="0" step="0.01" inputmode="decimal" class="input input-bordered input-sm w-full"
-                     value="{{.RateInput}}" placeholder="45.00">
-            </div>
+            </label>
+            {{/* type=text: a number input drops the Russian decimal comma. */}}
+            <input id="project-rate" type="text" name="rate" inputmode="decimal" autocomplete="off" class="input input-bordered input-sm w-full"
+                   value="{{.RateInput}}" placeholder="{{.T "bill.ratePh"}}">
+            <label class="w-full block">
+              <span class="label-text text-sm">{{.T "proj.currency"}}</span>
+              <select name="currency" class="select select-bordered select-sm w-full">
+                <option value="">{{.T "proj.currencyInherit"}} ({{.TeamCurrency}})</option>
+                {{range .Currencies}}<option value="{{.Code}}"{{if eq .Code $.Currency}} selected{{end}}>{{.Label}}</option>{{end}}
+              </select>
+            </label>
             <label class="label cursor-pointer justify-start gap-2 py-1 w-full">
               <input type="checkbox" name="billable" value="1" class="checkbox checkbox-xs" {{if .Project.Billable}}checked{{end}}>
               <span class="label-text text-sm">{{.T "bill.billable"}}</span>

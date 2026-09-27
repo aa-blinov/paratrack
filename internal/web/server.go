@@ -144,6 +144,9 @@ var funcMap = template.FuncMap{
 	"colorFor":    colorFor,
 	"inkFor":      inkFor,
 	"icon":        iconHTML,
+	"sentryDSN":   sentryPublicDSN,
+	"sentryEnv":   func() string { return sentryEnv },
+	"release":     func() string { return "paratrack@" + assetVersion },
 }
 
 // iconHTML renders a Lucide glyph from the vendored sprite:
@@ -240,6 +243,9 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("POST /invoices/{id}/pay",    s.handleInvoicePayLink)
 	pages.HandleFunc("POST /invoices/{id}/paid",   s.handleInvoiceMarkPaid)
 	mux.HandleFunc("POST /api/stripe/webhook",    s.handleStripeWebhook)
+	// Browser error reports, relayed to Sentry (no CSRF: sent by the SDK
+	// from any page, including login; only our own DSN is forwarded).
+	mux.HandleFunc("POST /sentry-tunnel",         s.handleSentryTunnel)
 	pages.HandleFunc("POST /api/team/stripe",      s.handleTeamStripe)
 
 	// Wave 6: payroll + resource scheduling.
@@ -316,6 +322,7 @@ func (s *Server) routes() http.Handler {
 
 	// Team / profile management (Phase 2).
 	api("POST",   "/api/team/rename",              s.handleAPITeamRename)
+	api("POST",   "/api/team/currency",            s.handleAPITeamCurrency)
 	api("POST",   "/api/team/create",              s.handleAPITeamCreate)
 	api("POST",   "/api/team/switch",              s.handleAPITeamSwitch)
 	api("POST",   "/api/team/delete",              s.handleAPITeamDelete)

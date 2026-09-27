@@ -295,6 +295,12 @@ var columnMigrations = []struct {
 	{"sessions", "user_id", "INTEGER"},
 	{"memberships", "hourly_pay_cents", "INTEGER"},
 	{"memberships", "capacity_minutes", "INTEGER"},
+	// Currency: the workspace default, a project override ('' = inherit),
+	// and the currency fixed on each document when it is created.
+	{"teams", "currency", "TEXT NOT NULL DEFAULT 'RUB'"},
+	{"projects", "currency", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "currency", "TEXT NOT NULL DEFAULT ''"},
+	{"payroll_runs", "currency", "TEXT NOT NULL DEFAULT ''"},
 }
 
 // uniqueMigrations creates UNIQUE / lookup indexes that the original
