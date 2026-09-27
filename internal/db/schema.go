@@ -303,6 +303,10 @@ var columnMigrations = []struct {
 	{"payroll_runs", "currency", "TEXT NOT NULL DEFAULT ''"},
 	// Imported history: "toggl:123" etc., so a re-import adds nothing twice.
 	{"sessions", "external_id", "TEXT"},
+	// API tokens: the workspace they act in, optional expiry, read-only.
+	{"api_tokens", "team_id", "INTEGER"},
+	{"api_tokens", "expires_at", "TEXT"},
+	{"api_tokens", "read_only", "INTEGER NOT NULL DEFAULT 0"},
 }
 
 // uniqueMigrations creates UNIQUE / lookup indexes that the original
@@ -450,22 +454,18 @@ var uniqueMigrations = []string{
 }
 
 func (d *DB) applyMigrations() error {
-	for _, m := range columnMigrations {
-		exists, err := d.columnExists(m.table, m.column)
-		if err != nil {
-			return err
-		}
-		if exists {
-			continue
-		}
-		if _, err := d.sql.Exec("ALTER TABLE " + m.table + " ADD COLUMN " + m.column + " " + m.decl); err != nil {
-			return err
-		}
+	// Columns go in twice: some tables (api_tokens …) are only created by
+	// uniqueMigrations, so the first pass skips what doesn't exist yet.
+	if err := d.addColumns(); err != nil {
+		return err
 	}
 	for _, stmt := range uniqueMigrations {
 		if _, err := d.sql.Exec(stmt); err != nil {
 			return err
 		}
+	}
+	if err := d.addColumns(); err != nil {
+		return err
 	}
 	// One-shot data migration: existing rows might have been inserted
 	// under mixed-case names (Work, work, WORK …) before the schema
@@ -658,6 +658,34 @@ func (d *DB) groupCaseCollisions(query string) ([][]caseRow, error) {
 		out = append(out, byKey[k])
 	}
 	return out, nil
+}
+
+func (d *DB) addColumns() error {
+	for _, m := range columnMigrations {
+		if ok, err := d.tableExists(m.table); err != nil || !ok {
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		exists, err := d.columnExists(m.table, m.column)
+		if err != nil {
+			return err
+		}
+		if exists {
+			continue
+		}
+		if _, err := d.sql.Exec("ALTER TABLE " + m.table + " ADD COLUMN " + m.column + " " + m.decl); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *DB) tableExists(table string) (bool, error) {
+	var n int
+	err := d.sql.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&n)
+	return n > 0, err
 }
 
 func (d *DB) columnExists(table, column string) (bool, error) {

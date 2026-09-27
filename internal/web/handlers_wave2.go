@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -34,10 +35,20 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 		pageData: pageData{Title: "API tokens", Active: "settings-tokens", Lang: lang},
 	}
 	for _, t := range list {
-		data.Tokens = append(data.Tokens, dbTokenRow{
-			ID: t.ID, Name: t.Name, Prefix: t.Prefix,
-			Created: t.CreatedAt.Format("2006-01-02"),
-		})
+		row := dbTokenRow{
+			ID: t.ID, Name: t.Name, Prefix: t.Prefix, ReadOnly: t.ReadOnly,
+			Created: fmtDate(resolveLang(r), t.CreatedAt.Local()),
+		}
+		if t.ExpiresAt != nil {
+			row.Expires = fmtDate(resolveLang(r), t.ExpiresAt.Local())
+			row.Expired = !t.ExpiresAt.After(time.Now())
+		}
+		if t.TeamID > 0 {
+			if tm, err := s.teams.FindByID(r.Context(), t.TeamID); err == nil {
+				row.Team = tm.Name
+			}
+		}
+		data.Tokens = append(data.Tokens, row)
 	}
 	if justCreated != "" {
 		data.JustCreated = justCreated
@@ -50,10 +61,14 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 }
 
 type dbTokenRow struct {
-	ID      int64
-	Name    string
-	Prefix  string
-	Created string
+	ID       int64
+	Name     string
+	Prefix   string
+	Created  string
+	Expires  string // "" = never
+	Expired  bool
+	Team     string
+	ReadOnly bool
 }
 
 // tokensPage is the /settings/tokens envelope.
@@ -73,7 +88,12 @@ func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	u, _ := UserFrom(r.Context())
 	name := strings.TrimSpace(r.PostForm.Get("name"))
-	raw, _, err := s.db.CreateAPIToken(r.Context(), u.ID, name)
+	opts := db.TokenOptions{TeamID: teamID(r), ReadOnly: r.PostForm.Get("read_only") == "1"}
+	if days, _ := strconv.Atoi(r.PostForm.Get("expires_days")); days > 0 {
+		t := time.Now().AddDate(0, 0, days)
+		opts.ExpiresAt = &t
+	}
+	raw, _, err := s.db.CreateAPIToken(r.Context(), u.ID, name, opts)
 	if err != nil {
 		http.Redirect(w, r, "/settings/tokens?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return

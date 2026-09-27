@@ -66,6 +66,10 @@ func OpenPostgres(url string) (*DB, error) {
 		_ = sdb.Close()
 		return nil, fmt.Errorf("apply schema: %w", err)
 	}
+	if err := d.sealExistingSecrets(); err != nil {
+		_ = sdb.Close()
+		return nil, fmt.Errorf("seal secrets: %w", err)
+	}
 	return d, nil
 }
 
@@ -107,6 +111,10 @@ func Open(path string) (*DB, error) {
 	if err := d.applyMigrations(); err != nil {
 		_ = sdb.Close()
 		return nil, fmt.Errorf("apply migrations: %w", err)
+	}
+	if err := d.sealExistingSecrets(); err != nil {
+		_ = sdb.Close()
+		return nil, fmt.Errorf("seal secrets: %w", err)
 	}
 	return d, nil
 }

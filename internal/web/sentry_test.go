@@ -1,6 +1,11 @@
 package web
 
 import (
+	"context"
+	"io"
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/db"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -58,4 +63,44 @@ func TestHookClientRefusesPrivateTargets(t *testing.T) {
 		t.Fatalf("opt-in for private targets: %v", err)
 	}
 	resp.Body.Close()
+}
+
+// A failing endpoint is retried; V2 signs timestamp.body.
+func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
+	t.Setenv("PARATRACK_WEBHOOK_ALLOW_PRIVATE", "1")
+	old := webhookBackoff
+	webhookBackoff = []time.Duration{0, 0, 0}
+	defer func() { webhookBackoff = old }()
+	calls := 0
+	var sigOK bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		body, _ := io.ReadAll(r.Body)
+		ts := r.Header.Get("X-Paratrack-Timestamp")
+		sigOK = r.Header.Get("X-Paratrack-Signature-V2") == signPayload("s3cret", append([]byte(ts+"."), body...))
+		if calls < 3 {
+			w.WriteHeader(503)
+			return
+		}
+		w.WriteHeader(200)
+	}))
+	defer srv.Close()
+	d, err := db.Open(":memory:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	d.SQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
+	d.SQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	h, err := d.CreateWebhook(ctx, 1, srv.URL, "s3cret", "*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	(&Server{db: d}).deliverWebhook(h, "session.stopped", []byte(`{"x":1}`))
+	if calls != 3 || !sigOK {
+		t.Fatalf("calls %d sigOK %v, want 3 attempts and a valid V2 signature", calls, sigOK)
+	}
+	if ds, _ := d.ListWebhookDeliveries(ctx, h.ID); len(ds) != 3 || ds[0].Status != 200 {
+		t.Errorf("delivery log %+v", ds)
+	}
 }

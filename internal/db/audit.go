@@ -94,7 +94,7 @@ func (d *DB) CreateWebhook(ctx context.Context, teamID int64, url, secret, event
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO webhooks (team_id, url, secret, events, active, created_at)
-		 VALUES (?, ?, ?, ?, 1, ?) RETURNING id`, teamID, url, secret, events, now).Scan(&id)
+		 VALUES (?, ?, ?, ?, 1, ?) RETURNING id`, teamID, url, sealSecret(secret), events, now).Scan(&id)
 	if err != nil {
 		return Webhook{}, err
 	}
@@ -186,6 +186,7 @@ func scanWebhook(r interface{ Scan(...any) error }) (Webhook, error) {
 		return Webhook{}, err
 	}
 	h.Active = active != 0
+	h.Secret = mustOpen(h.Secret)
 	h.CreatedAt, _ = ScanTime(created)
 	return h, nil
 }
