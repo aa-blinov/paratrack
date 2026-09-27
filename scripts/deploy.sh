@@ -1,6 +1,6 @@
 #!/bin/sh
 # Deploy the working tree to paratrack.duckdns.org (this VPS) with compose.
-# Build (the test suite runs inside the image build), dump Postgres,
+# Build (the test suite runs inside the image build, on its own Postgres), dump Postgres,
 # recreate the app container, health-check.
 # Rollback: the previous image stays tagged paratrack:prev-<stamp>.
 #

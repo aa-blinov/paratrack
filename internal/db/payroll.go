@@ -400,7 +400,7 @@ func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time
 	urows, err := d.sql.QueryContext(ctx,
 		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0)
 		 FROM memberships m JOIN users u ON u.id = m.user_id
-		 WHERE m.team_id = ? ORDER BY u.name COLLATE NOCASE`, teamID)
+		 WHERE m.team_id = ? ORDER BY u.name`, teamID)
 	if err != nil {
 		return nil, nil, err
 	}

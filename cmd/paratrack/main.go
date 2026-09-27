@@ -6,10 +6,8 @@
 //	paratrack start <activity>       # quick start
 //	paratrack stop [activity]        # stop specific or all active
 //	paratrack web [--addr :8000]     # launch embedded web UI
-//	paratrack migrate-to-postgres <track.db>  # copy SQLite into PARATRACK_DATABASE_URL
 //
-// Commands read/write ~/.track/track.db, or Postgres when
-// PARATRACK_DATABASE_URL is set.
+// Commands read/write the Postgres database at PARATRACK_DATABASE_URL.
 package main
 
 import (
@@ -64,8 +62,6 @@ func main() {
 		runProject(os.Args[2:])
 	case "web":
 		runWeb(os.Args[2:])
-	case "migrate-to-postgres":
-		runMigrateToPostgres(os.Args[2:])
 	case "-h", "--help", "help":
 		printUsage()
 	default:
@@ -110,8 +106,8 @@ Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
 
 // --- helpers ---------------------------------------------------------
 
-// openDB opens Postgres when PARATRACK_DATABASE_URL is set, otherwise the
-// SQLite file at the default path; exits with a friendly message on error.
+// openDB opens the database at PARATRACK_DATABASE_URL; exits with a
+// friendly message on error.
 func openDB() (*db.DB, context.Context) {
 	d, err := db.OpenDefault()
 	if err != nil {
@@ -1165,7 +1161,7 @@ func parseProjectRef(d *db.DB, ref string) (int64, error) {
 		return id, nil
 	}
 	var id int64
-	err := d.SQL().QueryRow(`SELECT id FROM projects WHERE slug = ? COLLATE NOCASE`, ref).Scan(&id)
+	err := d.SQL().QueryRow(`SELECT id FROM projects WHERE slug = ?`, ref).Scan(&id)
 	return id, err
 }
 
@@ -1368,42 +1364,4 @@ func stateStr(archived bool) string {
 		return "archived"
 	}
 	return "active"
-}
-
-
-// runMigrateToPostgres copies a SQLite database into the empty Postgres
-// database at PARATRACK_DATABASE_URL (schema is created on open).
-func runMigrateToPostgres(args []string) {
-	if len(args) != 1 {
-		fatal("usage: paratrack migrate-to-postgres <path/to/track.db>")
-	}
-	url := os.Getenv("PARATRACK_DATABASE_URL")
-	if url == "" {
-		fatal("set PARATRACK_DATABASE_URL to the target Postgres")
-	}
-	if _, err := os.Stat(args[0]); err != nil {
-		fatal("source: %v", err)
-	}
-	src, err := db.Open(args[0])
-	if err != nil {
-		fatal("open %s: %v", args[0], err)
-	}
-	defer src.Close()
-	dst, err := db.OpenPostgres(url)
-	if err != nil {
-		fatal("open postgres: %v", err)
-	}
-	defer dst.Close()
-	counts, err := db.CopyToPostgres(context.Background(), src, dst)
-	if err != nil {
-		fatal("copy: %v", err)
-	}
-	total := 0
-	for table, n := range counts {
-		if n > 0 {
-			fmt.Printf("%-24s %d\n", table, n)
-		}
-		total += n
-	}
-	fmt.Printf("copied %d rows from %d tables\n", total, len(counts))
 }

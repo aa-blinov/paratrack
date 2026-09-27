@@ -1,204 +1,60 @@
-// Package db manages the paratrack database: SQLite for the CLI and
-// single-node installs, Postgres when PARATRACK_DATABASE_URL is set.
+// Package db manages the paratrack database (Postgres).
 //
 // Timestamps are stored as RFC3339Nano UTC strings (e.g. "2026-09-22T07:25:30.123456Z").
-// Python's tracker used local-time ISO 8601 without timezone; a future
-// migration command will rewrite those values. Until then, opening a
-// Python-created DB works for read/append but historical timestamps may
-// appear in the local zone.
 package db
 
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx"
-	// Pure-Go SQLite driver; no CGO required.
-	_ "modernc.org/sqlite"
 )
-
-// DefaultPath is ~/.track/track.db — same location as the original Python
-// implementation, so a user can swap tools without losing data.
-func DefaultPath() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	dir := filepath.Join(home, ".track")
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "track.db"), nil
-}
 
 // DB wraps the connection and exposes typed queries.
 type DB struct {
 	sql *Conn
 }
 
-// OpenDefault opens Postgres when PARATRACK_DATABASE_URL is set,
-// otherwise the SQLite file at DefaultPath.
+// OpenDefault opens the database at PARATRACK_DATABASE_URL.
 func OpenDefault() (*DB, error) {
-	if url := os.Getenv("PARATRACK_DATABASE_URL"); url != "" {
-		return OpenPostgres(url)
+	url := os.Getenv("PARATRACK_DATABASE_URL")
+	if url == "" {
+		return nil, errors.New("PARATRACK_DATABASE_URL is not set (postgres://user:pass@host:5432/db)")
 	}
-	path, err := DefaultPath()
-	if err != nil {
-		return nil, err
-	}
-	return Open(path)
+	return Open(url)
 }
 
-// OpenPostgres connects to url and brings the schema up to date.
-func OpenPostgres(url string) (*DB, error) {
+// Open connects to a Postgres url and brings the schema up to date.
+func Open(url string) (*DB, error) {
 	sdb, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, err
 	}
 	sdb.SetMaxOpenConns(10)
 	sdb.SetConnMaxIdleTime(5 * time.Minute)
-	d := &DB{sql: &Conn{DB: sdb, pg: true}}
-	if err := d.applyPostgresSchema(); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("apply schema: %w", err)
-	}
-	if err := d.fillActivityKeys(); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("activity keys: %w", err)
-	}
-	if err := d.sealExistingSecrets(); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("seal secrets: %w", err)
-	}
-	if err := d.assignOrphanSessions(context.Background()); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("assign orphan sessions: %w", err)
-	}
-	if err := d.stampLegacyInvoices(context.Background()); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("stamp legacy invoices: %w", err)
-	}
-	return d, nil
-}
-
-// Open opens (or creates) the SQLite database at path and applies the
-// schema. The caller must Close when done.
-//
-// If a pre-auth (Phase-0) database is found at path — i.e. the file
-// exists but contains no `users` table — the file is archived with a
-// timestamped `.bak` suffix and a fresh schema is created. This is the
-// hard break the product team chose: collaboration can't be added on
-// top of the single-user schema, so old rows go into the archive.
-func Open(path string) (*DB, error) {
-	// Test hook: PARATRACK_TEST_PG=<url> runs every test database on a
-	// fresh Postgres schema instead of SQLite. Never set in production.
-	if url := os.Getenv("PARATRACK_TEST_PG"); url != "" {
-		return openTestPostgres(url)
-	}
-	if err := archiveIfLegacy(path); err != nil {
-		return nil, fmt.Errorf("archive legacy DB: %w", err)
-	}
-
-	// _pragma options: foreign keys on, WAL for safer concurrent reads,
-	// busy timeout so CLI + web don't deadlock when both touch the file.
-	dsn := fmt.Sprintf("file:%s?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)", path)
-	sdb, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return nil, err
-	}
-	// SQLite is happiest with a single writer; many readers. Cap conns.
-	sdb.SetMaxOpenConns(1)
-	sdb.SetMaxIdleConns(1)
-	sdb.SetConnMaxLifetime(0)
-
 	d := &DB{sql: &Conn{DB: sdb}}
-	if _, err := sdb.Exec(schema); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("apply schema: %w", err)
+	steps := []struct {
+		name string
+		fn   func() error
+	}{
+		{"apply schema", d.applySchema},
+		{"activity keys", d.fillActivityKeys},
+		{"seal secrets", d.sealExistingSecrets},
+		{"assign orphan sessions", func() error { return d.assignOrphanSessions(context.Background()) }},
+		{"stamp legacy invoices", func() error { return d.stampLegacyInvoices(context.Background()) }},
 	}
-	if err := d.applyMigrations(); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("apply migrations: %w", err)
-	}
-	if err := d.sealExistingSecrets(); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("seal secrets: %w", err)
-	}
-	if err := d.assignOrphanSessions(context.Background()); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("assign orphan sessions: %w", err)
-	}
-	if err := d.stampLegacyInvoices(context.Background()); err != nil {
-		_ = sdb.Close()
-		return nil, fmt.Errorf("stamp legacy invoices: %w", err)
+	for _, st := range steps {
+		if err := st.fn(); err != nil {
+			_ = sdb.Close()
+			return nil, fmt.Errorf("%s: %w", st.name, err)
+		}
 	}
 	return d, nil
-}
-
-// archiveIfLegacy detects a Phase-0 single-user database and renames
-// it out of the way before the new schema is created. Returns nil for
-// fresh installs and for databases that already carry the new schema.
-//
-// Detection rule: the file must exist, AND opening it in read-only mode
-// must NOT contain a `users` table. The presence of the file is what
-// distinguishes "legacy to be archived" from "fresh install, create new".
-func archiveIfLegacy(path string) error {
-	if _, err := os.Stat(path); err != nil {
-		// No file — nothing to archive.
-		return nil
-	}
-	hasUsers, err := hasTable(path, "users")
-	if err != nil {
-		return err
-	}
-	if hasUsers {
-		// Already on the new schema.
-		return nil
-	}
-
-	stamp := time.Now().UTC().Format("20060102-150405")
-	base := strings.TrimSuffix(path, filepath.Ext(path))
-	backup := base + ".bak." + stamp
-	if err := os.Rename(path, backup); err != nil {
-		return err
-	}
-	// WAL/SHM siblings are not committed to disk on close, but if the
-	// previous process died mid-write they may still be around. Move
-	// them out of the way too so the next Open() doesn't pick them up.
-	for _, ext := range []string{"-wal", "-shm"} {
-		if _, err := os.Stat(path + ext); err == nil {
-			_ = os.Rename(path+ext, backup+ext)
-		}
-	}
-	return nil
-}
-
-// hasTable opens a read-only SQLite connection at path and reports
-// whether the named table exists. The connection is closed before
-// returning so no handles linger on the file.
-func hasTable(path, table string) (bool, error) {
-	dsn := fmt.Sprintf("file:%s?mode=ro", path)
-	db, err := sql.Open("sqlite", dsn)
-	if err != nil {
-		return false, err
-	}
-	defer db.Close()
-	var name string
-	row := db.QueryRow(
-		`SELECT name FROM sqlite_master WHERE type='table' AND name=?`, table,
-	)
-	if err := row.Scan(&name); err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return name == table, nil
 }
 
 // Close releases the underlying database handle.
@@ -208,11 +64,8 @@ func (d *DB) Close() error { return d.sql.Close() }
 // Production code should use the typed helpers in activities.go and sessions.go.
 func (d *DB) SQL() *Conn { return d.sql }
 
-// IsPostgres reports the backend (dialect-specific SQL, migrations).
-func (d *DB) IsPostgres() bool { return d.sql.pg }
-
 // FormatTime returns the canonical RFC3339Nano UTC string used to store
-// timestamps in SQLite. Centralised so all writers agree.
+// timestamps. Centralised so all writers agree.
 func FormatTime(t time.Time) string {
 	return t.UTC().Format(time.RFC3339Nano)
 }
@@ -269,24 +122,12 @@ func NullTime(t time.Time) any {
 }
 
 // isUniqueViolation returns true when err is a UNIQUE constraint
-// violation (SQLite or Postgres). Used by get-or-create helpers that
-// have to fall through to a SELECT after a race-condition INSERT.
+// violation. Used by get-or-create helpers that have to fall through
+// to a SELECT after a race-condition INSERT.
 func isUniqueViolation(err error) bool { return IsUniqueViolation(err) }
 
 // IsUniqueViolation is isUniqueViolation for other packages.
 func IsUniqueViolation(err error) bool {
-	if err == nil {
-		return false
-	}
-	msg := err.Error()
-	if strings.Contains(msg, "UNIQUE constraint") ||
-		strings.Contains(msg, "constraint failed: UNIQUE") ||
-		strings.Contains(msg, "SQLSTATE 23505") {
-		return true
-	}
-	type coder interface{ Code() int }
-	if c, ok := err.(coder); ok && c.Code() == 2067 {
-		return true
-	}
-	return false
+	var pe *pgconn.PgError
+	return errors.As(err, &pe) && pe.Code == "23505"
 }

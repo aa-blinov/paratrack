@@ -15,7 +15,7 @@ import (
 // tests don't share WAL state.
 func openTestDB(t *testing.T) *dbpkg.DB {
 	t.Helper()
-	d, err := dbpkg.Open(t.TempDir() + "/auth.db")
+	d, err := dbpkg.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
@@ -87,7 +87,6 @@ func TestCreateUser_DuplicateEmailRejected(t *testing.T) {
 	if _, _, err := svc.CreateUser(ctx, "dup@example.com", "longenough", "Dup"); err != nil {
 		t.Fatalf("first CreateUser: %v", err)
 	}
-	// SQLite returns a generic error for unique-constraint failures.
 	if _, _, err := svc.CreateUser(ctx, "dup@example.com", "longenough", "Dup"); err == nil {
 		t.Fatalf("second CreateUser should fail")
 	}

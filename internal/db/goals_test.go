@@ -166,7 +166,7 @@ func TestDeleteGoal_MissingReturnsErrGoalNotFound(t *testing.T) {
 // production code uses, so schema and migrations are exercised.
 func openTestDB(t *testing.T) *DB {
 	t.Helper()
-	d, err := Open(":memory:")
+	d, err := OpenTest(t)
 	if err != nil {
 		t.Fatalf("open :memory: db: %v", err)
 	}

@@ -13,7 +13,7 @@ import (
 )
 
 func newTestDB(t *testing.T) (*db.DB, error) {
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		return nil, err
 	}

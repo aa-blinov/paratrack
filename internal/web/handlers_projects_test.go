@@ -30,7 +30,7 @@ type projectTestEnv struct {
 
 func newProjectTestEnv(t *testing.T) *projectTestEnv {
 	t.Helper()
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open :memory: db: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestAPIProjects_RejectsBadColor(t *testing.T) {
 }
 
 func TestAPIProjects_UnauthenticatedRejected(t *testing.T) {
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		t.Fatal(err)
 	}
