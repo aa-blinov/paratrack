@@ -1,6 +1,9 @@
 package web
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"fmt"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/url"
 	"strings"
@@ -151,5 +154,32 @@ func TestManualPaymentLinkEndpoint(t *testing.T) {
 	page := readBody(t, resp)
 	if !strings.Contains(page, "pay.example.com") {
 		t.Fatalf("payment url missing in page")
+	}
+}
+
+// The Stripe webhook trusts only a valid, fresh signature.
+func TestVerifyStripeSignature(t *testing.T) {
+	body := []byte(`{"type":"checkout.session.completed"}`)
+	now := time.Unix(1790000000, 0)
+	sign := func(ts int64, secret string) string {
+		mac := hmac.New(sha256.New, []byte(secret))
+		fmt.Fprintf(mac, "%d.%s", ts, body)
+		return fmt.Sprintf("t=%d,v1=%x", ts, mac.Sum(nil))
+	}
+	if !verifyStripeSignature(sign(now.Unix(), "whsec_a"), body, "whsec_a", now) {
+		t.Error("valid signature rejected")
+	}
+	for name, h := range map[string]string{
+		"wrong secret": sign(now.Unix(), "whsec_b"),
+		"stale":        sign(now.Unix()-600, "whsec_a"),
+		"missing":      "",
+		"garbage":      "t=x,v1=zz",
+	} {
+		if verifyStripeSignature(h, body, "whsec_a", now) {
+			t.Errorf("%s accepted", name)
+		}
+	}
+	if verifyStripeSignature(sign(now.Unix(), ""), body, "", now) {
+		t.Error("no configured secret must reject")
 	}
 }
