@@ -14,10 +14,12 @@ BACKUPS=/home/ubuntu/paratrack-backups
 URL=https://paratrack.duckdns.org/login
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 
-# ponytail: every deploy keeps one prev-<stamp> image and one dump; prune by hand when disk matters.
 if docker image inspect paratrack:latest >/dev/null 2>&1; then
 	docker tag paratrack:latest "paratrack:prev-$STAMP"
 fi
+# Keep the five newest rollback images; older ones only fill the disk
+# (a full disk broke a build on 2026-09-27).
+docker images --format '{{.Repository}}:{{.Tag}}' | grep '^paratrack:prev-' | sort -r | tail -n +6 | xargs -r docker rmi >/dev/null 2>&1 || true
 docker compose build app
 
 docker compose up -d --wait db
