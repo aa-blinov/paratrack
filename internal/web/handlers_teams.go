@@ -1,7 +1,12 @@
 package web
 
 import (
+	"encoding/base64"
+	"fmt"
+	"html/template"
+	"io"
 	netmail "net/mail"
+	"unicode"
 	"net/url"
 
 	"errors"
@@ -33,6 +38,9 @@ type settingsPageData struct {
 	Currencies []currencyOption
 	Requisites string
 	VATNote    string
+	Billing    dbpkg.BillingRules
+	RoundOpts  []int
+	LogoURL    template.URL // data: URL, set only from our own upload check
 	IsOwner    bool // members page: only the owner changes roles
 	CanManage  bool
 	CSRFToken  string
@@ -71,6 +79,9 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	data.Currency, _ = s.db.TeamCurrency(r.Context(), team.ID)
 	data.Currencies = currencyOptions()
 	data.Requisites, data.VATNote, _ = s.db.TeamRequisites(r.Context(), team.ID)
+	data.Billing, _ = s.db.TeamBilling(r.Context(), team.ID)
+	data.RoundOpts = []int{0, 6, 15, 30, 60}
+	data.LogoURL = logoURL(data.Billing.Logo)
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -454,6 +465,10 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.forbidden"), false
 	case "bad_team":
 		return i18n.T(lang, "flash.badTeam"), false
+	case "logo_big":
+		return i18n.T(lang, "flash.logoBig"), false
+	case "logo_type":
+		return i18n.T(lang, "flash.logoType"), false
 	default:
 		msg, ok := strings.CutPrefix(code, "e:")
 		// Plain-text flashes ("bad period", "marked paid") translate via
@@ -472,4 +487,90 @@ func encodeFlash(ok bool, msg string) string {
 		return msg
 	}
 	return "e:" + msg
+}
+
+// invoicePrefixOK: short, letters/digits (any script), dashes inside.
+func invoicePrefixOK(p string) bool {
+	if p == "" || len([]rune(p)) > 12 {
+		return false
+	}
+	for _, c := range p {
+		if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+// handleAPITeamBilling saves rounding and the invoice number prefix.
+func (s *Server) handleAPITeamBilling(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	b, _ := s.db.TeamBilling(r.Context(), team.ID)
+	b.RoundMinutes, _ = strconv.Atoi(r.FormValue("round_minutes"))
+	switch b.RoundMinutes {
+	case 0, 6, 15, 30, 60:
+	default:
+		http.Redirect(w, r, "/settings/team?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	b.RoundMode = "nearest"
+	if r.FormValue("round_mode") == "up" {
+		b.RoundMode = "up"
+	}
+	b.InvoicePrefix = strings.TrimSpace(r.FormValue("invoice_prefix"))
+	if !invoicePrefixOK(b.InvoicePrefix) {
+		http.Redirect(w, r, "/settings/team?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	if err := s.db.SetTeamBilling(r.Context(), team.ID, b); err != nil {
+		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
+		return
+	}
+	s.audit(r, "team.billing", fmt.Sprintf("%d %s %s", b.RoundMinutes, b.RoundMode, b.InvoicePrefix), "")
+	http.Redirect(w, r, "/settings/team?flash=updated#billing", http.StatusSeeOther)
+}
+
+// handleAPITeamLogo stores a small PNG/JPEG as a data URL for invoices
+// and acts; "remove" clears it.
+func (s *Server) handleAPITeamLogo(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	const max = 200 << 10
+	if err := r.ParseMultipartForm(2 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
+		http.Redirect(w, r, "/settings/team?flash=logo_big#billing", http.StatusSeeOther)
+		return
+	}
+	logo := ""
+	if r.FormValue("remove") == "" {
+		f, _, err := r.FormFile("logo")
+		if err != nil {
+			http.Redirect(w, r, "/settings/team?flash=bad_request#billing", http.StatusSeeOther)
+			return
+		}
+		defer f.Close()
+		raw, _ := io.ReadAll(io.LimitReader(f, max+1))
+		if len(raw) > max {
+			http.Redirect(w, r, "/settings/team?flash=logo_big#billing", http.StatusSeeOther)
+			return
+		}
+		ct := http.DetectContentType(raw)
+		if ct != "image/png" && ct != "image/jpeg" {
+			http.Redirect(w, r, "/settings/team?flash=logo_type#billing", http.StatusSeeOther)
+			return
+		}
+		logo = "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(raw)
+	}
+	if err := s.db.SetTeamLogo(r.Context(), team.ID, logo); err != nil {
+		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/settings/team?flash=updated#billing", http.StatusSeeOther)
+}
+
+// logoURL lets a stored logo into an <img src>; only the two data: forms
+// the upload handler writes pass.
+func logoURL(v string) template.URL {
+	if strings.HasPrefix(v, "data:image/png;base64,") || strings.HasPrefix(v, "data:image/jpeg;base64,") {
+		return template.URL(v)
+	}
+	return ""
 }

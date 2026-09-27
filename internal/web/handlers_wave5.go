@@ -303,6 +303,9 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
 	}
+	if b, err := s.db.TeamBilling(r.Context(), inv.TeamID); err == nil {
+		vm.Logo = logoURL(b.Logo)
+	}
 	return inv, lines, vm, true
 }
 

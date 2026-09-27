@@ -31,9 +31,9 @@
         <div class="grid gap-3 sm:grid-cols-2 mt-2">
           <div>
             <label class="label py-1" for="project_id"><span class="label-text">{{.T "dash.projectLabel"}}</span></label>
-            <select id="project_id" name="project_id" class="select select-bordered w-full">
+            <select id="project_id" name="project_id" class="select select-bordered w-full"{{with .DefaultProject}} data-default="{{.}}"{{end}}>
               <option value="">{{.T "dash.uncategorized"}}</option>
-              {{range .Projects}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
+              {{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.DefaultProject}} selected{{end}}>{{.Name}}</option>{{end}}
             </select>
           </div>
           <div>
@@ -68,7 +68,7 @@
   </div>
 </section>
 
-{{if .Unbilled}}<div class="mt-4">{{template "unbilled" .}}</div>{{end}}
+{{if and .Unbilled (.Widget "unbilled")}}<div class="mt-4">{{template "unbilled" .}}</div>{{end}}
 
 {{/* Next steps after the first timer: quiet links, not a checklist card.
      Rendered hidden on a first run and revealed by the first Start (app.js);
@@ -86,7 +86,7 @@
 <!-- Recent closed sessions: swapped in by #today-stats (backfill lands here). -->
 {{/* Hidden on a first run: an empty history says nothing yet. The swap
      after the first Start brings it back. */}}
-<div id="recent" class="card bg-base-100 border border-base-300 mt-4"{{if not .HasSession}} hidden{{end}}>
+<div id="recent" class="card bg-base-100 border border-base-300 mt-4"{{if or (not .HasSession) (not (.Widget "recent"))}} hidden{{end}}>
   <div class="card-body p-5">
     <div class="flex items-center justify-between mb-3">
       <div class="card-title">{{.T "dash.recent"}}</div>
@@ -137,7 +137,7 @@
 </div>
 
 <!-- Daily / weekly / monthly goals — only rendered when there is at least one. -->
-{{if and .Goals (.On "goals")}}
+{{if and .Goals (.On "goals") (.Widget "goals")}}
 <div class="card bg-base-100 border border-base-300 mt-4">
   <div class="card-body p-5">
     <div class="flex items-center justify-between mb-3">
@@ -163,6 +163,7 @@
 {{end}}
 
 <!-- Backfill a past session. -->
+{{if .Widget "backfill"}}
 <details id="backfill" class="card bg-base-100 border border-base-300 mt-4 group">
   <summary class="card-body p-5 cursor-pointer list-none flex-row items-center justify-between">
     <span class="card-title">{{icon "plus"}} {{.T "dash.backfillTitle"}}</span>
@@ -200,6 +201,7 @@
     </form>
   </div>
 </details>
+{{end}}
 
 {{end}}
 
