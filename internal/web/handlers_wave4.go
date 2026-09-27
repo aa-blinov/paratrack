@@ -3,10 +3,14 @@ package web
 import (
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,10 +48,10 @@ func (s *Server) fireWebhook(r *http.Request, event string, payload map[string]a
 		return
 	}
 	body, _ := json.Marshal(map[string]any{
-		"event":     event,
-		"team_id":   team,
-		"sent_at":   time.Now().UTC().Format(time.RFC3339),
-		"data":      payload,
+		"event":   event,
+		"team_id": team,
+		"sent_at": time.Now().UTC().Format(time.RFC3339),
+		"data":    payload,
 	})
 	for _, h := range hooks {
 		if !h.Active || !hookSubscribes(h.Events, event) {
@@ -78,8 +82,7 @@ func (s *Server) deliverWebhook(h db.Webhook, event string, body []byte) {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Paratrack-Event", event)
 	req.Header.Set("X-Paratrack-Signature", signPayload(h.Secret, body))
-	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := hookClient.Do(req)
 	if err != nil {
 		s.db.LogWebhookDelivery(context.Background(), h.ID, event, string(body), 0, err.Error())
 		return
@@ -347,6 +350,39 @@ func (p *auditPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 // OIDC SSO (optional, env-configured)
 // ---------------------------------------------------------------------------
 
+// oidcEndpoints is the provider's discovery document: real paths differ
+// per IdP (Keycloak, Google, Okta), so they are never guessed.
+type oidcEndpoints struct {
+	Authorization string `json:"authorization_endpoint"`
+	Token         string `json:"token_endpoint"`
+	UserInfo      string `json:"userinfo_endpoint"`
+}
+
+func discoverOIDC(iss string) (oidcEndpoints, error) {
+	var ep oidcEndpoints
+	resp, err := extClient.Get(iss + "/.well-known/openid-configuration")
+	if err != nil {
+		return ep, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ep, fmt.Errorf("oidc discovery: %s", resp.Status)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&ep); err != nil {
+		return ep, err
+	}
+	if ep.Authorization == "" || ep.Token == "" || ep.UserInfo == "" {
+		return ep, errors.New("oidc discovery: endpoints missing")
+	}
+	return ep, nil
+}
+
+func randomToken(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
+}
+
 // handleSSOLogin redirects to the OIDC provider (authorization endpoint).
 // Configured via PARATRACK_OIDC_ISSUER / _CLIENT_ID / _CLIENT_SECRET.
 func (s *Server) handleSSOLogin(w http.ResponseWriter, r *http.Request) {
@@ -356,82 +392,110 @@ func (s *Server) handleSSOLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
 		return
 	}
-	state := signPayload("oidc", []byte(time.Now().String()))[:16]
-	http.SetCookie(w, &http.Cookie{Name: "paratrack_oidc_state", Value: state, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, MaxAge: 600})
-	redirect := publicBaseURL(r) + "/sso/callback"
-	authURL := iss + "/authorize?client_id=" + url.QueryEscape(clientID) +
-		"&response_type=code&scope=openid%20email%20profile" +
-		"&redirect_uri=" + url.QueryEscape(redirect) +
-		"&state=" + state
-	http.Redirect(w, r, authURL, http.StatusSeeOther)
+	ep, err := discoverOIDC(iss)
+	if err != nil {
+		log.Printf("sso: %v", err)
+		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+		return
+	}
+	state := randomToken(16)
+	http.SetCookie(w, &http.Cookie{Name: "paratrack_oidc_state", Value: state, Path: "/sso", HttpOnly: true,
+		Secure: r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https", SameSite: http.SameSiteLaxMode, MaxAge: 600})
+	q := url.Values{
+		"client_id":     {clientID},
+		"response_type": {"code"},
+		"scope":         {"openid email profile"},
+		"redirect_uri":  {publicBaseURL(r) + "/sso/callback"},
+		"state":         {state},
+	}
+	http.Redirect(w, r, ep.Authorization+"?"+q.Encode(), http.StatusSeeOther)
 }
 
 // handleSSOCallback exchanges the code, resolves the email, and logs
-// the user in (creating an account on first use).
+// the user in (creating an account on first use). An existing account is
+// joined by email only when the provider vouches for that email
+// (email_verified), or the operator says it always does.
 func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
+	fail := func(code, why string) {
+		if why != "" {
+			log.Printf("sso: %s", why)
+		}
+		http.Redirect(w, r, "/login?error="+code, http.StatusSeeOther)
+	}
 	iss := strings.TrimRight(os.Getenv("PARATRACK_OIDC_ISSUER"), "/")
 	clientID := os.Getenv("PARATRACK_OIDC_CLIENT_ID")
 	clientSecret := os.Getenv("PARATRACK_OIDC_CLIENT_SECRET")
 	q := r.URL.Query()
-	if st, err := r.Cookie("paratrack_oidc_state"); err != nil || st.Value != q.Get("state") {
-		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+	st, err := r.Cookie("paratrack_oidc_state")
+	if err != nil || st.Value == "" || subtle.ConstantTimeCompare([]byte(st.Value), []byte(q.Get("state"))) != 1 {
+		fail("internal", "state mismatch")
 		return
 	}
+	http.SetCookie(w, &http.Cookie{Name: "paratrack_oidc_state", Value: "", Path: "/sso", MaxAge: -1})
 	code := q.Get("code")
 	if code == "" {
-		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+		fail("internal", "no code")
 		return
 	}
-	// token exchange
-	form := url.Values{}
-	form.Set("grant_type", "authorization_code")
-	form.Set("code", code)
-	form.Set("redirect_uri", publicBaseURL(r)+"/sso/callback")
-	form.Set("client_id", clientID)
-	form.Set("client_secret", clientSecret)
-	resp, err := http.PostForm(iss+"/token", form)
+	ep, err := discoverOIDC(iss)
 	if err != nil {
-		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+		fail("internal", err.Error())
+		return
+	}
+	form := url.Values{
+		"grant_type":    {"authorization_code"},
+		"code":          {code},
+		"redirect_uri":  {publicBaseURL(r) + "/sso/callback"},
+		"client_id":     {clientID},
+		"client_secret": {clientSecret},
+	}
+	resp, err := extClient.PostForm(ep.Token, form)
+	if err != nil {
+		fail("internal", err.Error())
 		return
 	}
 	defer resp.Body.Close()
 	var tok struct {
 		AccessToken string `json:"access_token"`
 	}
-	_ = json.NewDecoder(resp.Body).Decode(&tok)
-	if tok.AccessToken == "" {
-		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&tok) != nil || tok.AccessToken == "" {
+		fail("internal", "token exchange: "+resp.Status)
 		return
 	}
-	// userinfo
-	req, _ := http.NewRequest("GET", iss+"/userinfo", nil)
+	req, _ := http.NewRequest("GET", ep.UserInfo, nil)
 	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-	uresp, err := http.DefaultClient.Do(req)
+	uresp, err := extClient.Do(req)
 	if err != nil {
-		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+		fail("internal", err.Error())
 		return
 	}
 	defer uresp.Body.Close()
 	var info struct {
-		Email string `json:"email"`
-		Name  string `json:"name"`
-		Sub   string `json:"sub"`
+		Email         string `json:"email"`
+		EmailVerified any    `json:"email_verified"` // bool, or "true" on some IdPs
+		Name          string `json:"name"`
+		Sub           string `json:"sub"`
 	}
-	_ = json.NewDecoder(uresp.Body).Decode(&info)
-	if info.Email == "" {
-		http.Redirect(w, r, "/login?error=bad_email", http.StatusSeeOther)
+	if uresp.StatusCode != http.StatusOK || json.NewDecoder(uresp.Body).Decode(&info) != nil || info.Email == "" {
+		fail("bad_email", "userinfo: "+uresp.Status)
 		return
 	}
-	// find-or-create
+	verified := info.EmailVerified == true || info.EmailVerified == "true" ||
+		os.Getenv("PARATRACK_OIDC_TRUST_EMAIL") == "1"
+	if !verified {
+		// Without it anyone controlling an IdP account could claim an
+		// existing paratrack account by its email.
+		fail("bad_email", "email not verified by the provider")
+		return
+	}
 	user, err := s.auth.FindByEmail(r.Context(), info.Email)
 	if err != nil {
 		name := info.Name
 		if name == "" {
 			name = strings.SplitN(info.Email, "@", 2)[0]
 		}
-		// random password — SSO users never type it
-		pw := signPayload("sso", []byte(info.Sub+time.Now().String()))
-		uid, _, cerr := s.auth.CreateUser(r.Context(), info.Email, pw[:32], name)
+		// Unguessable password: SSO users never type it.
+		uid, _, cerr := s.auth.CreateUser(r.Context(), info.Email, randomToken(24), name)
 		if cerr != nil {
 			http.Redirect(w, r, "/register?error=could_not_register", http.StatusSeeOther)
 			return
@@ -441,7 +505,7 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 	}
 	sess, err := s.auth.NewSession(r.Context(), user.ID)
 	if err != nil {
-		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+		fail("internal", err.Error())
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
