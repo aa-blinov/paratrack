@@ -362,7 +362,7 @@
   "wh.secret": "any long string",
   "wh.add": "Add webhook",
   "wh.empty": "No webhooks yet. Add a URL above to receive events.",
-  "wh.sig": "Verify: header X-Paratrack-Signature = hex(hmac-sha256(secret, body)).",
+  "wh.sig": "Signature: header X-Paratrack-Signature = hex(hmac-sha256(secret, body)). Replay protection: X-Paratrack-Signature-V2 = hex(hmac-sha256(secret, X-Paratrack-Timestamp + \".\" + body)); reject requests older than 5 minutes. A network error, 5xx or 429 is retried up to 3 times.",
   "audit.title": "Audit log",
   "audit.blurb": "Last 100 security and ops events for this workspace.",
   "audit.time": "Time",
@@ -769,5 +769,17 @@
   "inv.overlap": "The period overlaps invoice %s for the same work. Check the hours aren't billed twice; delete the extra invoice if so.",
   "int.imported": "Imported %d tasks.",
   "int.importFailed": "Couldn't load tasks: %s",
-  "imp.done": "Imported %d entries. %d were already here and skipped."
+  "imp.done": "Imported %d entries. %d were already here and skipped.",
+  "wh.deliveries": "Recent deliveries",
+  "flash.msg.secret is required": "Set a secret: without a signature a webhook can't be told from a forgery.",
+  "tokens.expires": "Valid until",
+  "tokens.exp30": "30 days",
+  "tokens.exp90": "90 days",
+  "tokens.exp365": "1 year",
+  "tokens.expNever": "Never expires",
+  "tokens.readOnly": "Read-only: the token can't change anything",
+  "tokens.scopeHint": "The token acts in the current workspace, as you. Reports and exports only need read-only.",
+  "tokens.access": "Access",
+  "tokens.roShort": "read",
+  "tokens.rwShort": "read & write"
 }

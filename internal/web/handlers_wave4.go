@@ -36,14 +36,18 @@ func (s *Server) audit(r *http.Request, action, target, meta string) {
 }
 
 // fireWebhook delivers an event to every active endpoint subscribed to
-// it. Delivery is synchronous but best-effort — a slow endpoint must
-// not block the response, so we use a goroutine per endpoint.
+// it, in the background: a slow endpoint must not block the response.
 func (s *Server) fireWebhook(r *http.Request, event string, payload map[string]any) {
-	team := teamID(r)
+	s.fireWebhookTeam(teamID(r), event, payload)
+}
+
+// fireWebhookTeam is fireWebhook for callers without a signed-in request
+// (the Stripe webhook).
+func (s *Server) fireWebhookTeam(team int64, event string, payload map[string]any) {
 	if team == 0 {
 		return
 	}
-	hooks, err := s.db.ListWebhooks(r.Context(), team)
+	hooks, err := s.db.ListWebhooks(context.Background(), team)
 	if err != nil {
 		return
 	}
@@ -57,8 +61,6 @@ func (s *Server) fireWebhook(r *http.Request, event string, payload map[string]a
 		if !h.Active || !hookSubscribes(h.Events, event) {
 			continue
 		}
-		h := h
-		body := body
 		go s.deliverWebhook(h, event, body)
 	}
 }
@@ -72,23 +74,44 @@ func hookSubscribes(events, event string) bool {
 	return false
 }
 
-// deliverWebhook POSTs the payload with an HMAC signature header.
+// webhookBackoff is the wait before each retry; tests shorten it.
+var webhookBackoff = []time.Duration{2 * time.Second, 10 * time.Second, 60 * time.Second}
+
+// deliverWebhook POSTs the payload, signed, and retries a network error,
+// 429 or 5xx up to len(webhookBackoff) more times. Every attempt is logged.
+//
+// Signatures: X-Paratrack-Signature = hex(hmac(secret, body)) (v1, kept
+// for existing receivers) and X-Paratrack-Signature-V2 = hex(hmac(secret,
+// timestamp + "." + body)) with X-Paratrack-Timestamp, so a receiver can
+// reject replays of an old delivery.
 func (s *Server) deliverWebhook(h db.Webhook, event string, body []byte) {
-	req, err := http.NewRequest("POST", h.URL, strings.NewReader(string(body)))
-	if err != nil {
-		s.db.LogWebhookDelivery(context.Background(), h.ID, event, string(body), 0, err.Error())
-		return
+	for attempt := 0; ; attempt++ {
+		ts := strconv.FormatInt(time.Now().Unix(), 10)
+		req, err := http.NewRequest("POST", h.URL, strings.NewReader(string(body)))
+		if err != nil {
+			s.db.LogWebhookDelivery(context.Background(), h.ID, event, string(body), 0, err.Error())
+			return
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Paratrack-Event", event)
+		req.Header.Set("X-Paratrack-Timestamp", ts)
+		req.Header.Set("X-Paratrack-Signature", signPayload(h.Secret, body))
+		req.Header.Set("X-Paratrack-Signature-V2", signPayload(h.Secret, append([]byte(ts+"."), body...)))
+		resp, err := hookClient.Do(req)
+		status, msg := 0, ""
+		if err != nil {
+			msg = err.Error()
+		} else {
+			status = resp.StatusCode
+			resp.Body.Close()
+		}
+		s.db.LogWebhookDelivery(context.Background(), h.ID, event, string(body), status, msg)
+		retry := !errors.Is(err, errPrivateTarget) && (err != nil || status == 429 || status >= 500)
+		if !retry || attempt >= len(webhookBackoff) {
+			return
+		}
+		time.Sleep(webhookBackoff[attempt])
 	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Paratrack-Event", event)
-	req.Header.Set("X-Paratrack-Signature", signPayload(h.Secret, body))
-	resp, err := hookClient.Do(req)
-	if err != nil {
-		s.db.LogWebhookDelivery(context.Background(), h.ID, event, string(body), 0, err.Error())
-		return
-	}
-	defer resp.Body.Close()
-	s.db.LogWebhookDelivery(context.Background(), h.ID, event, string(body), resp.StatusCode, "")
 }
 
 // signPayload returns hex(hmac-sha256(secret, body)).
@@ -263,7 +286,16 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := webhooksPage{pageData: pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang}}
 	for _, h := range list {
-		data.Items = append(data.Items, webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active})
+		row := webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active}
+		if ds, err := s.db.ListWebhookDeliveries(r.Context(), h.ID); err == nil {
+			for _, d := range ds[:min(len(ds), 5)] {
+				row.Deliveries = append(row.Deliveries, deliveryRow{
+					When: fmtWhen(resolveLang(r), d.CreatedAt.Local(), time.Now()), Event: d.Event,
+					Status: d.Status, OK: d.Status >= 200 && d.Status < 300, Error: d.Error,
+				})
+			}
+		}
+		data.Items = append(data.Items, row)
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -272,10 +304,17 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 }
 
 type webhookRow struct {
-	ID     int64
-	URL    string
-	Events string
-	Active bool
+	ID         int64
+	URL        string
+	Events     string
+	Active     bool
+	Deliveries []deliveryRow // newest first, last 5
+}
+
+type deliveryRow struct {
+	When, Event, Error string
+	Status             int
+	OK                 bool
 }
 
 type webhooksPage struct {
@@ -289,6 +328,11 @@ func (p *webhooksPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
 func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
+	if strings.TrimSpace(r.PostForm.Get("secret")) == "" {
+		// Unsigned deliveries can't be told apart from forged ones.
+		http.Redirect(w, r, "/settings/webhooks?flash="+encodeFlash(false, "secret is required"), http.StatusSeeOther)
+		return
+	}
 	u, _ := s.db.CreateWebhook(r.Context(), teamID(r),
 		strings.TrimSpace(r.PostForm.Get("url")),
 		strings.TrimSpace(r.PostForm.Get("secret")),

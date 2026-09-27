@@ -25,6 +25,16 @@ type APIToken struct {
 	Prefix     string     `json:"prefix"` // first 8 chars, for the tokens list
 	CreatedAt  time.Time  `json:"created_at"`
 	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
+	TeamID     int64      `json:"team_id,omitempty"`    // 0: the owner's current/personal team
+	ExpiresAt  *time.Time `json:"expires_at,omitempty"` // nil: never
+	ReadOnly   bool       `json:"read_only"`
+}
+
+// TokenOptions narrows a new token.
+type TokenOptions struct {
+	TeamID    int64
+	ExpiresAt *time.Time
+	ReadOnly  bool
 }
 
 // ErrTokenInvalid is returned by APITokenByRaw when the bearer is unknown.
@@ -39,7 +49,11 @@ func HashAPIToken(raw string) string {
 
 // CreateAPIToken mints a token and returns the raw secret (shown once)
 // plus the stored row.
-func (d *DB) CreateAPIToken(ctx context.Context, userID int64, name string) (string, APIToken, error) {
+func (d *DB) CreateAPIToken(ctx context.Context, userID int64, name string, opts ...TokenOptions) (string, APIToken, error) {
+	var o TokenOptions
+	if len(opts) > 0 {
+		o = opts[0]
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
 		name = "api token"
@@ -52,19 +66,29 @@ func (d *DB) CreateAPIToken(ctx context.Context, userID int64, name string) (str
 	hash := HashAPIToken(raw)
 	now := time.Now().UTC()
 	var id int64
+	var exp any
+	if o.ExpiresAt != nil {
+		exp = FormatTime(o.ExpiresAt.UTC())
+	}
+	ro := 0
+	if o.ReadOnly {
+		ro = 1
+	}
 	err := d.sql.QueryRowContext(ctx,
-		`INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		userID, name, hash, raw[:11], FormatTime(now)).Scan(&id)
+		`INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at, team_id, expires_at, read_only)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		userID, name, hash, raw[:11], FormatTime(now), nullableInt64(o.TeamID), exp, ro).Scan(&id)
 	if err != nil {
 		return "", APIToken{}, err
 	}
-	return raw, APIToken{ID: id, UserID: userID, Name: name, Prefix: raw[:11], CreatedAt: now}, nil
+	return raw, APIToken{ID: id, UserID: userID, Name: name, Prefix: raw[:11], CreatedAt: now,
+		TeamID: o.TeamID, ExpiresAt: o.ExpiresAt, ReadOnly: o.ReadOnly}, nil
 }
 
 // ListAPITokens returns the user's tokens (never the raw secrets).
 func (d *DB) ListAPITokens(ctx context.Context, userID int64) ([]APIToken, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, user_id, name, prefix, created_at, last_used_at
+		`SELECT id, user_id, name, prefix, created_at, last_used_at, COALESCE(team_id, 0), expires_at, read_only
 		 FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC`, userID)
 	if err != nil {
 		return nil, err
@@ -73,11 +97,19 @@ func (d *DB) ListAPITokens(ctx context.Context, userID int64) ([]APIToken, error
 	var out []APIToken
 	for rows.Next() {
 		var (
-			t                            APIToken
-			created, lastUsed            sql.NullString
+			t                 APIToken
+			created, lastUsed sql.NullString
+			expires           sql.NullString
+			ro                int
 		)
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.Prefix, &created, &lastUsed); err != nil {
+		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.Prefix, &created, &lastUsed, &t.TeamID, &expires, &ro); err != nil {
 			return nil, err
+		}
+		t.ReadOnly = ro == 1
+		if expires.Valid {
+			if ts, err := ScanTime(expires.String); err == nil {
+				t.ExpiresAt = &ts
+			}
 		}
 		t.CreatedAt, _ = ScanTime(created.String)
 		if lastUsed.Valid {
@@ -110,18 +142,30 @@ func (d *DB) APITokenByRaw(ctx context.Context, raw string) (APIToken, error) {
 	}
 	hash := HashAPIToken(raw)
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, user_id, name, prefix, created_at FROM api_tokens WHERE token_hash = ?`, hash)
+		`SELECT id, user_id, name, prefix, created_at, COALESCE(team_id, 0), expires_at, read_only
+		 FROM api_tokens WHERE token_hash = ?`, hash)
 	var (
 		t       APIToken
 		created string
+		expires sql.NullString
+		ro      int
 	)
-	if err := row.Scan(&t.ID, &t.UserID, &t.Name, &t.Prefix, &created); err != nil {
+	if err := row.Scan(&t.ID, &t.UserID, &t.Name, &t.Prefix, &created, &t.TeamID, &expires, &ro); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return APIToken{}, ErrTokenInvalid
 		}
 		return APIToken{}, err
 	}
 	t.CreatedAt, _ = ScanTime(created)
+	t.ReadOnly = ro == 1
+	if expires.Valid {
+		if ts, err := ScanTime(expires.String); err == nil {
+			if !ts.After(time.Now()) {
+				return APIToken{}, ErrTokenInvalid // expired
+			}
+			t.ExpiresAt = &ts
+		}
+	}
 	_, _ = d.sql.ExecContext(ctx, `UPDATE api_tokens SET last_used_at = ? WHERE id = ?`,
 		FormatTime(time.Now().UTC()), t.ID)
 	return t, nil
@@ -165,7 +209,7 @@ func (d *DB) CreateIntegration(ctx context.Context, teamID int64, provider, name
 	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO integrations (team_id, provider, name, secret, config, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
-		teamID, provider, name, secret, config, now).Scan(&id)
+		teamID, provider, name, sealSecret(secret), config, now).Scan(&id)
 	if err != nil {
 		if isUniqueViolation(err) {
 			return Integration{}, ErrDuplicate
@@ -194,6 +238,7 @@ func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]Integration,
 		if err := rows.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &it.Secret, &it.Config, &created); err != nil {
 			return nil, err
 		}
+		it.Secret = mustOpen(it.Secret)
 		it.CreatedAt, _ = ScanTime(created)
 		out = append(out, it)
 	}
@@ -215,6 +260,7 @@ func (d *DB) GetIntegration(ctx context.Context, teamID, id int64) (Integration,
 		}
 		return Integration{}, err
 	}
+	it.Secret = mustOpen(it.Secret)
 	it.CreatedAt, _ = ScanTime(created)
 	return it, nil
 }

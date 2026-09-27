@@ -15,7 +15,7 @@
         </label>
         <label class="form-control sm:col-span-2">
           <span class="label-text">{{.T "wh.secretLabel"}}</span>
-          <input type="text" name="secret" placeholder="{{.T "wh.secret"}}" class="input input-bordered w-full">
+          <input type="text" name="secret" required autocomplete="off" placeholder="{{.T "wh.secret"}}" class="input input-bordered w-full">
           <span class="text-xs opacity-60">{{.T "wh.secretHint"}}</span>
         </label>
         <fieldset class="sm:col-span-2">
@@ -48,6 +48,16 @@
               </form>
             </td>
           </tr>
+          {{if .Deliveries}}
+          <tr><td colspan="3" class="pt-0">
+            <ul class="text-xs space-y-0.5" aria-label="{{$.T "wh.deliveries"}}">
+              {{range .Deliveries}}
+              <li class="flex gap-2"><span class="font-mono {{if .OK}}text-success{{else}}text-error{{end}}">{{if .Status}}{{.Status}}{{else}}—{{end}}</span>
+                <span class="opacity-80">{{.When}} · {{$.T (printf "wh.ev.%s" .Event)}}</span>{{if .Error}}<span class="opacity-80 truncate">{{.Error}}</span>{{end}}</li>
+              {{end}}
+            </ul>
+          </td></tr>
+          {{end}}
           {{end}}
         </tbody>
       </table>
