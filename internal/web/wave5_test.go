@@ -183,3 +183,35 @@ func TestVerifyStripeSignature(t *testing.T) {
 		t.Error("no configured secret must reject")
 	}
 }
+
+// Issuer details and the VAT line are copied onto the invoice at creation,
+// and the act renders for the same lines.
+func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("act@x.test")
+	readBody(t, e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИНН 770000000000"}, "vat_note": {"НДС не облагается"}}, nil))
+	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Ромашка"}, "rate": {"2 500,50"}}, nil))
+	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:00"}, "project_id": {"1"}}, map[string]string{"HX-Request": "true"}))
+	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	resp := e.do("POST", "/invoices", url.Values{"client": {"ООО «Ромашка»"}, "client_details": {"КПП 770001001"}, "start": {day}, "end": {day}}, nil)
+	loc := resp.Header.Get("Location")
+	resp.Body.Close()
+	if !strings.HasPrefix(loc, "/invoices/") {
+		t.Fatalf("create: %d %s", resp.StatusCode, loc)
+	}
+	readBody(t, e.do("POST", "/api/team/requisites", url.Values{"requisites": {"changed"}}, nil))
+	page := readBody(t, e.do("GET", loc, nil, nil))
+	for _, want := range []string{"ИНН 770000000000", "НДС не облагается", "КПП 770001001", "5\u00a0001,00"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("invoice page lacks %q", want)
+		}
+	}
+	if act := readBody(t, e.do("GET", loc+"/act", nil, nil)); !strings.Contains(act, "Акт выполненных работ") {
+		t.Error("act page missing heading")
+	}
+	pdf := e.do("GET", loc+"/act.pdf", nil, nil)
+	b := readBody(t, pdf)
+	if pdf.StatusCode != 200 || !strings.HasPrefix(b, "%PDF") {
+		t.Errorf("act pdf: %d", pdf.StatusCode)
+	}
+}

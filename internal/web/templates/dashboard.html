@@ -94,7 +94,7 @@
     <div class="overflow-x-auto">
       <table class="table table-zebra responsive-collapse">
         <thead>
-          <tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.startLabel"}}</th><th>{{.T "stats.end"}}</th><th>{{.T "dash.duration"}}</th><th>{{.T "stats.note"}}</th><th>{{.T "stats.tags"}}</th></tr>
+          <tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.startLabel"}}</th><th>{{.T "stats.end"}}</th><th>{{.T "dash.duration"}}</th><th>{{.T "stats.note"}}</th><th>{{.T "stats.tags"}}</th><th><span class="sr-only">{{.T "dash.again"}}</span></th></tr>
         </thead>
         <tbody>
           {{range .Recent}}
@@ -113,6 +113,13 @@
               <div class="flex flex-wrap gap-1">
                 {{range .Tags}}<a class="badge badge-outline badge-sm whitespace-nowrap" href="/stats?tag={{urlquery .Name}}">#{{.Name}}</a>{{end}}
               </div>
+            </td>
+            <td class="text-right">
+              <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML">
+                <input type="hidden" name="activity" value="{{.ActivityName}}">
+                <button type="submit" class="btn btn-ghost btn-xs gap-1"
+                        title="{{printf (.T "dash.againTitle") .ActivityName}}" aria-label="{{printf (.T "dash.againTitle") .ActivityName}}">{{icon "play" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "dash.again"}}</span></button>
+              </form>
             </td>
           </tr>
           {{end}}
@@ -196,6 +203,15 @@
 
 {{define "active-list"}}
   {{if .Items}}
+  {{if gt (len .Items) 1}}
+  {{/* Several timers: one move for all of them. */}}
+  <div class="flex flex-wrap justify-end gap-2 mb-2">
+    {{if .Running}}<button class="btn btn-ghost btn-xs gap-1" hx-post="/api/active/pause-all" hx-target="#active-list" hx-swap="innerHTML"
+            title="{{.T "dash.pauseAllTitle"}}">{{icon "pause" "icon icon-sm"}}{{.T "dash.pauseAll"}}</button>{{end}}
+    <button class="btn btn-xs btn-stop gap-1" hx-post="/api/active/stop-all" hx-target="#active-list" hx-swap="innerHTML"
+            hx-confirm="{{printf (.T "dash.stopAllConfirm") (len .Items)}}">{{icon "square" "icon icon-sm"}}{{.T "dash.stopAll"}}</button>
+  </div>
+  {{end}}
   <div class="overflow-x-auto">
     <table class="table table-zebra responsive-collapse sm:max-xl:table-sm">
       <thead>
@@ -207,7 +223,18 @@
           <td data-label="{{.T "dash.activity"}}" class="ledger-name">
             <div class="flex items-center gap-2 min-w-0">
               <span class="inline-flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
-              {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+              {{if $.Projects}}
+              {{/* The project lives on the activity: changing it here moves
+                   this activity's past sessions too (the title says so). */}}
+              {{$cur := .ProjectSlug}}
+              <select name="project_id" class="select select-ghost select-xs ledger-project max-w-[10rem] shrink-0"
+                      aria-label="{{.T "dash.projectLabel"}}" title="{{.T "dash.projectChangeTitle"}}"
+                      hx-post="/api/activities/{{.ActivityID}}/project" hx-trigger="change" hx-swap="none"
+                      hx-on::after-request="htmx.ajax('GET', '/api/active', {target: '#active-list', swap: 'innerHTML'})">
+                <option value="0">{{.T "dash.uncategorized"}}</option>
+                {{range $.Projects}}<option value="{{.ID}}"{{if eq .Slug $cur}} selected{{end}}>{{.Name}}</option>{{end}}
+              </select>
+              {{else if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
             </div>
           </td>
           <td data-label="{{.T "dash.status"}}">

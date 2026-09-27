@@ -47,6 +47,10 @@
           <input id="inv-notes" type="text" name="notes" class="input input-bordered w-full" placeholder="{{.T "inv.notesPh"}}">
         </div>
         <div class="sm:col-span-2">
+          <label class="label py-1" for="inv-client-details"><span class="label-text">{{.T "inv.clientDetails"}} <span class="opacity-70">({{.T "projects.optional"}})</span></span></label>
+          <textarea id="inv-client-details" name="client_details" rows="3" maxlength="2000" class="textarea textarea-bordered w-full text-sm" placeholder="{{.T "inv.clientDetailsPh"}}"></textarea>
+        </div>
+        <div class="sm:col-span-2">
           <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "inv.create"}}</button>
         </div>
       </form>
@@ -113,6 +117,7 @@
       </form>
       {{end}}
       <a href="/invoices/{{.Inv.ID}}/pdf" class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}PDF</a>
+      <a href="/invoices/{{.Inv.ID}}/act" class="btn btn-ghost btn-sm gap-1.5">{{.T "act.title"}}</a>
       <button type="button" class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{.T "inv.print"}}</button>
       {{if .Inv.PaymentURL}}
       <a href="{{.Inv.PaymentURL}}" target="_blank" rel="noopener" class="btn btn-ghost btn-sm gap-1.5">{{icon "link"}}{{.T "inv.payOnline"}}</a>
@@ -140,8 +145,10 @@
         </div>
       </div>
       <dl class="grid sm:grid-cols-2 gap-4">
-        <div><dt class="text-xs doc-muted">{{.T "pdf.from"}}</dt><dd class="font-medium">{{.Seller}}</dd></div>
-        <div><dt class="text-xs doc-muted">{{.T "pdf.billedTo"}}</dt><dd class="font-medium">{{.Inv.ClientName}}</dd></div>
+        <div><dt class="text-xs doc-muted">{{.T "pdf.from"}}</dt><dd class="font-medium">{{.Seller}}</dd>
+          {{with .Inv.SellerDetails}}<dd class="text-sm whitespace-pre-line mt-1">{{.}}</dd>{{end}}</div>
+        <div><dt class="text-xs doc-muted">{{.T "pdf.billedTo"}}</dt><dd class="font-medium">{{.Inv.ClientName}}</dd>
+          {{with .Inv.ClientDetails}}<dd class="text-sm whitespace-pre-line mt-1">{{.}}</dd>{{end}}</div>
         <div class="sm:col-span-2"><dt class="text-xs doc-muted">{{.T "inv.period"}}</dt><dd class="font-mono text-sm">{{.Inv.PeriodLabel}}</dd></div>
       </dl>
 
@@ -168,6 +175,7 @@
         </tfoot>
       </table>
       </div>
+      {{with .Inv.VATNote}}<p class="text-sm">{{.}}</p>{{end}}
 
       {{if .Inv.PaymentURL}}
       <p class="text-sm"><span class="opacity-60">{{.T "inv.payOnline"}}:</span>
@@ -177,6 +185,41 @@
       <p class="text-sm whitespace-pre-line">{{.Inv.Notes}}</p>
       {{end}}
       <p class="text-xs doc-muted">{{.T "inv.footNote"}}</p>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "invoice-act"}}
+<div class="max-w-2xl mx-auto space-y-4">
+  <div class="flex flex-wrap items-center gap-2 no-print">
+    <a href="/invoices/{{.Inv.ID}}" class="link link-hover text-sm opacity-80">{{.T "inv.invoice"}} {{.Inv.Number}}</a>
+    <a href="/invoices/{{.Inv.ID}}/act.pdf" class="btn btn-ghost btn-sm gap-1.5 ms-auto">{{icon "download"}}PDF</a>
+    <button type="button" class="btn btn-ghost btn-sm" onclick="window.print()">{{.T "inv.print"}}</button>
+  </div>
+  <div class="card bg-base-100 border border-base-300 print:border-0">
+    <div class="card-body p-6 gap-4">
+      <h1 class="text-2xl font-semibold">{{.T "act.heading"}} <span class="font-mono">{{.Inv.Number}}</span></h1>
+      <div class="text-sm doc-muted">{{.T "pdf.issued"}} {{.Inv.IssuedLabel}} · {{.T "inv.period"}}: {{.Inv.PeriodLabel}}</div>
+      <dl class="grid sm:grid-cols-2 gap-4">
+        <div><dt class="text-xs doc-muted">{{.T "pdf.from"}}</dt><dd class="font-medium">{{.Seller}}</dd>
+          {{with .Inv.SellerDetails}}<dd class="text-sm whitespace-pre-line mt-1">{{.}}</dd>{{end}}</div>
+        <div><dt class="text-xs doc-muted">{{.T "pdf.billedTo"}}</dt><dd class="font-medium">{{.Inv.ClientName}}</dd>
+          {{with .Inv.ClientDetails}}<dd class="text-sm whitespace-pre-line mt-1">{{.}}</dd>{{end}}</div>
+      </dl>
+      <div class="overflow-x-auto">
+      <table class="table table-sm w-full doc-table">
+        <thead><tr><th>{{.T "pdf.work"}}</th><th class="text-right">{{.T "inv.hours"}}</th><th class="text-right">{{.T "inv.rate"}}</th><th class="text-right">{{.T "inv.amount"}}</th></tr></thead>
+        <tbody>{{range .Inv.Lines}}<tr><td>{{.Label}}</td><td class="text-right font-mono whitespace-nowrap">{{.Hours}}</td><td class="text-right font-mono whitespace-nowrap">{{.Rate}}</td><td class="text-right font-mono whitespace-nowrap">{{.Amount}}</td></tr>{{end}}</tbody>
+        <tfoot><tr class="font-semibold border-t-2 border-base-300"><td>{{.T "pdf.total"}}</td><td class="text-right font-mono whitespace-nowrap">{{.Inv.Hours}}</td><td></td><td class="text-right font-mono whitespace-nowrap">{{.Inv.Total}}</td></tr></tfoot>
+      </table>
+      </div>
+      {{with .Inv.VATNote}}<p class="text-sm">{{.}}</p>{{end}}
+      <p class="text-sm">{{.T "act.statement"}}</p>
+      <div class="grid grid-cols-2 gap-8 pt-6 text-sm">
+        <div><div class="doc-muted text-xs">{{.T "pdf.from"}}</div><div class="border-b border-base-content/40 h-8"></div></div>
+        <div><div class="doc-muted text-xs">{{.T "pdf.billedTo"}}</div><div class="border-b border-base-content/40 h-8"></div></div>
+      </div>
     </div>
   </div>
 </div>

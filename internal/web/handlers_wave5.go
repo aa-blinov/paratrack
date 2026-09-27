@@ -45,6 +45,41 @@ func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 	w.Write(pdf)
 }
 
+// handleInvoiceAct shows the certificate of completion for an invoice.
+func (s *Server) handleInvoiceAct(w http.ResponseWriter, r *http.Request) {
+	inv, _, vm, ok := s.loadInvoiceVM(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	data := invoiceDetailPage{pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))}, Inv: vm}
+	if t, ok := TeamFrom(r.Context()); ok {
+		data.Seller = t.Name
+	}
+	s.renderPageForRequest(w, r, inv.Number, "invoices", "invoice-act", &data)
+}
+
+func (s *Server) handleInvoiceActPDF(w http.ResponseWriter, r *http.Request) {
+	inv, _, vm, ok := s.loadInvoiceVM(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	teamName := "paratrack"
+	if t, ok := TeamFrom(r.Context()); ok {
+		teamName = t.Name
+	}
+	pdf, err := renderDocPDF(vm, teamName, resolveLang(r), true)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	s.audit(r, "invoice.act_pdf", inv.Number, "")
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="act-`+strings.ReplaceAll(inv.Number, " ", "-")+`.pdf"`)
+	w.Write(pdf)
+}
+
 // handleInvoicePayLink creates a Stripe Checkout session (or accepts a
 // manual payment URL) and stores it on the invoice.
 //
@@ -264,7 +299,8 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		Status:      inv.Status, Notes: inv.Notes, Lines: vms,
 		Total: moneyL(resolveLang(r), total, inv.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
 		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
-		IssuedLabel: fmtDate(resolveLang(r), inv.CreatedAt.Local()),
+		IssuedLabel:   fmtDate(resolveLang(r), inv.CreatedAt.Local()),
+		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 	}
 	return inv, lines, vm, true
 }

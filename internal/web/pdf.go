@@ -23,6 +23,12 @@ var (
 // Layout is plain: title and number, seller and client, dates, the lines
 // table, total, notes. It prints cleanly anywhere.
 func renderInvoicePDF(inv invoiceVM, teamName string, lang i18n.Lang) ([]byte, error) {
+	return renderDocPDF(inv, teamName, lang, false)
+}
+
+// renderDocPDF draws the invoice, or with act=true the certificate of
+// completion for the same lines (statement + signature lines).
+func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]byte, error) {
 	T := func(k string) string { return i18n.T(lang, k) }
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.AddUTF8FontFromBytes("Inter", "", interRegular)
@@ -36,7 +42,11 @@ func renderInvoicePDF(inv invoiceVM, teamName string, lang i18n.Lang) ([]byte, e
 
 	// Title + number, date on the right.
 	pdf.SetFont("Inter", "B", 18)
-	pdf.CellFormat(120, 9, T("inv.invoice")+" "+inv.Number, "", 0, "L", false, 0, "")
+	title := T("inv.invoice") + " " + inv.Number
+	if act {
+		title = T("act.heading") + " " + inv.Number
+	}
+	pdf.CellFormat(130, 9, title, "", 0, "L", false, 0, "")
 	pdf.SetFont("Inter", "", 9)
 	grey()
 	pdf.CellFormat(0, 9, T("pdf.issued")+" "+inv.IssuedLabel, "", 1, "R", false, 0, "")
@@ -44,7 +54,7 @@ func renderInvoicePDF(inv invoiceVM, teamName string, lang i18n.Lang) ([]byte, e
 
 	// Seller | client, then the period.
 	y := pdf.GetY()
-	party := func(x float64, label, name string) {
+	party := func(x float64, label, name, details string) {
 		pdf.SetXY(x, y)
 		pdf.SetFont("Inter", "", 8)
 		grey()
@@ -52,10 +62,15 @@ func renderInvoicePDF(inv invoiceVM, teamName string, lang i18n.Lang) ([]byte, e
 		pdf.SetFont("Inter", "B", 11)
 		ink()
 		pdf.MultiCell(85, 6, name, "", "L", false)
+		if details != "" {
+			pdf.SetX(x)
+			pdf.SetFont("Inter", "", 8.5)
+			pdf.MultiCell(85, 4.2, details, "", "L", false)
+		}
 	}
-	party(15, T("pdf.from"), teamName)
+	party(15, T("pdf.from"), teamName, inv.SellerDetails)
 	yLeft := pdf.GetY()
-	party(110, T("pdf.billedTo"), inv.ClientName)
+	party(110, T("pdf.billedTo"), inv.ClientName, inv.ClientDetails)
 	pdf.SetY(max(yLeft, pdf.GetY()) + 2)
 	pdf.SetFont("Inter", "", 9)
 	grey()
@@ -93,13 +108,34 @@ func renderInvoicePDF(inv invoiceVM, teamName string, lang i18n.Lang) ([]byte, e
 	pdf.CellFormat(cols[1], 9, inv.Hours, "", 0, "R", false, 0, "")
 	pdf.CellFormat(cols[2], 9, "", "", 0, "R", false, 0, "")
 	pdf.CellFormat(cols[3], 9, inv.Total, "", 1, "R", false, 0, "")
+	if inv.VATNote != "" {
+		pdf.SetFont("Inter", "", 9)
+		pdf.CellFormat(0, 6, inv.VATNote, "", 1, "L", false, 0, "")
+	}
+	if act {
+		pdf.Ln(6)
+		pdf.SetFont("Inter", "", 9)
+		pdf.MultiCell(0, 5, T("act.statement"), "", "L", false)
+		pdf.Ln(14)
+		yy := pdf.GetY()
+		for i, who := range []string{T("pdf.from"), T("pdf.billedTo")} {
+			x := 15.0 + float64(i)*95
+			pdf.Line(x, yy, x+80, yy)
+			pdf.SetXY(x, yy+1)
+			pdf.SetFont("Inter", "", 8)
+			grey()
+			pdf.CellFormat(80, 4, who, "", 0, "L", false, 0, "")
+			ink()
+		}
+		pdf.Ln(8)
+	}
 
 	if inv.Notes != "" {
 		pdf.Ln(6)
 		pdf.SetFont("Inter", "", 9)
 		pdf.MultiCell(0, 5, inv.Notes, "", "L", false)
 	}
-	if inv.PaymentURL != "" {
+	if inv.PaymentURL != "" && !act {
 		pdf.Ln(3)
 		pdf.SetFont("Inter", "", 9)
 		pdf.MultiCell(0, 5, T("inv.payOnline")+": "+inv.PaymentURL, "", "L", false)

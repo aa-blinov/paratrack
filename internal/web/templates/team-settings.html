@@ -44,6 +44,25 @@
 
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
+      <h2 class="card-title mb-1">{{.T "team.reqTitle"}}</h2>
+      <p class="text-sm opacity-70 mb-3">{{.T "team.reqHint"}}</p>
+      <form method="POST" action="/api/team/requisites" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <label class="form-control">
+          <span class="label-text">{{.T "team.reqLabel"}}</span>
+          <textarea name="requisites" rows="6" maxlength="2000" class="textarea textarea-bordered w-full font-mono text-sm" placeholder="{{.T "team.reqPh"}}">{{.Requisites}}</textarea>
+        </label>
+        <label class="form-control">
+          <span class="label-text">{{.T "team.vatLabel"}}</span>
+          <input type="text" name="vat_note" maxlength="200" value="{{.VATNote}}" class="input input-bordered w-full" placeholder="{{.T "team.vatPh"}}">
+        </label>
+        <button type="submit" class="btn btn-neutral">{{.T "profile.save"}}</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.createTitle"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "team.createBlurb"}}</p>
       <form method="POST" action="/api/team/create" class="flex gap-2">

@@ -38,7 +38,7 @@ func TestSlugify(t *testing.T) {
 		"foo_bar-baz":   "foo-bar-baz",
 		"!!!@@":         "team",
 		"":              "team",
-		"привет":        "team", // non-ascii stripped
+		"привет": "privet", // Cyrillic is transliterated
 	}
 	for in, want := range cases {
 		if got := Slugify(in); got != want {

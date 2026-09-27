@@ -452,6 +452,8 @@ type activeListVM struct {
 	Lang     string
 	Items    []sessionView // active-list ranges over Items
 	FirstRun bool          // nothing ever tracked: the empty state teaches the start
+	Projects []model.Project // the per-row project picker
+	Running  int             // rows not paused, for "pause all"
 }
 
 func (v activeListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

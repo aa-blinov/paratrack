@@ -295,11 +295,12 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		ActiveCount:    len(activeViews),
 		RunningCount:   countRunning(activeViews),
 		PausedCount:    len(activeViews) - countRunning(activeViews),
-		ActiveVM:       activeListVM{Lang: lang, Items: activeViews},
+		ActiveVM:       activeListVM{Lang: lang, Items: activeViews, Running: countRunning(activeViews)},
 	}
 	if projects, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
 		d.Projects = projects
 		d.HasProject = len(projects) > 0
+		d.ActiveVM.Projects = projects
 	}
 	// First run: the account is new until it has any session at all.
 	d.HasSession = len(activeViews) > 0 || len(recentViews) > 0
@@ -593,26 +594,7 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	s.audit(r, "session.start", strconv.FormatInt(sess.ID, 10), act.Name)
 	s.fireWebhook(r, "session.started", map[string]any{"session_id": sess.ID, "activity": act.Name})
 	s.toastL(w, r, "toast.started", act.Name, "success")
-	// HTMX target was the active-list fragment — re-render it with the
-	// now-complete active list (including the session we just created).
-	fresh, err := s.db.ListActiveSessions(r.Context(), teamID(r))
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-	now := time.Now()
-	today, _ := timeparse.ResolvePeriod("today", now)
-	views := make([]sessionView, 0, len(fresh))
-	for _, as := range fresh {
-		views = append(views, toSessionView(as.Session, as.Activity, today.Start, today.End, now, resolveLang(r)))
-	}
-	hydrateSessionTags(r.Context(), s.db, views)
-	hydrateSessionProjects(r.Context(), s.db, views)
-	lang := string(resolveLang(r))
-	for i := range views {
-		views[i].Lang = lang
-	}
-	s.renderFragment(w, "active-list", activeListVM{Lang: string(resolveLang(r)), Items: views})
+	s.respondActiveList(w, r)
 }
 
 func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
@@ -750,6 +732,44 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.resumed", "", "success")
+	s.respondActiveList(w, r)
+}
+
+// handlePauseAll pauses every running timer (parallel timers need a way
+// to stop the world, e.g. for a break).
+func (s *Server) handlePauseAll(w http.ResponseWriter, r *http.Request) {
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	now, n := actionTime(r), 0
+	for _, as := range active {
+		if !as.Session.Paused {
+			if _, err := s.db.PauseSession(r.Context(), teamID(r), as.Session.ID, now); err == nil {
+				n++
+			}
+		}
+	}
+	s.toast(w, fmt.Sprintf(i18n.T(resolveLang(r), "toast.pausedAll"), n), "success")
+	s.respondActiveList(w, r)
+}
+
+// handleStopAll stops every open timer at the same moment.
+func (s *Server) handleStopAll(w http.ResponseWriter, r *http.Request) {
+	active, err := s.db.ListActiveSessions(r.Context(), teamID(r))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	now, n := actionTime(r), 0
+	for _, as := range active {
+		if _, err := s.db.UpdateSessionEnd(r.Context(), teamID(r), as.Session.ID, now); err == nil {
+			n++
+			s.audit(r, "session.stop", strconv.FormatInt(as.Session.ID, 10), "stop-all")
+		}
+	}
+	s.toast(w, fmt.Sprintf(i18n.T(resolveLang(r), "toast.stoppedAll"), n), "success")
 	s.respondActiveList(w, r)
 }
 
@@ -1450,7 +1470,10 @@ func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	for i := range views {
 		views[i].Lang = lang
 	}
-	vm := activeListVM{Lang: string(resolveLang(r)), Items: views}
+	vm := activeListVM{Lang: string(resolveLang(r)), Items: views, Running: countRunning(views)}
+	if ps, err := s.db.ListProjects(r.Context(), teamID(r), false); err == nil {
+		vm.Projects = ps
+	}
 	if len(views) == 0 {
 		seen, _ := s.db.HasAnySession(r.Context(), teamID(r))
 		vm.FirstRun = !seen
