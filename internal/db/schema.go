@@ -303,6 +303,13 @@ var columnMigrations = []struct {
 	{"payroll_runs", "currency", "TEXT NOT NULL DEFAULT ''"},
 	// Imported history: "toggl:123" etc., so a re-import adds nothing twice.
 	{"sessions", "external_id", "TEXT"},
+	// Document details: the issuer's requisites and VAT line on the
+	// workspace, copied onto each invoice with the client's own details.
+	{"teams", "requisites", "TEXT NOT NULL DEFAULT ''"},
+	{"teams", "vat_note", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "seller_details", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "client_details", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "vat_note", "TEXT NOT NULL DEFAULT ''"},
 	// API tokens: the workspace they act in, optional expiry, read-only.
 	{"api_tokens", "team_id", "INTEGER"},
 	{"api_tokens", "expires_at", "TEXT"},

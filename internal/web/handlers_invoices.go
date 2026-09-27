@@ -78,6 +78,7 @@ type invoiceVM struct {
 	PaymentURL  string
 	Currency    string
 	IssuedLabel string // creation date, shown as the invoice date
+	SellerDetails, ClientDetails, VATNote string
 	TeamID      int64
 }
 
@@ -197,6 +198,9 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = now
+	seller, vat, _ := s.db.TeamRequisites(r.Context(), teamID(r))
+	_ = s.db.SetInvoiceParties(r.Context(), teamID(r), inv.ID, seller,
+		strings.TrimSpace(r.PostForm.Get("client_details")), vat)
 	s.audit(r, "invoice.create", inv.Number, inv.ClientName)
 	s.fireWebhook(r, "invoice.created", map[string]any{
 		"invoice_id": inv.ID, "number": inv.Number, "client": inv.ClientName,

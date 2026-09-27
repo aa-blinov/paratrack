@@ -191,10 +191,12 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 
 // projectNewPage is the create form envelope. T() exposes i18n.
 type projectNewPage struct {
-	Title     string
-	Active    string
-	CSRFToken string
-	Lang      string
+	Title        string
+	Active       string
+	CSRFToken    string
+	Lang         string
+	Currencies   []currencyOption
+	TeamCurrency string
 }
 
 func (p projectNewPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
@@ -202,7 +204,9 @@ func (p projectNewPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), 
 // handleProjectNew — GET /projects/new (form page).
 func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
-	data := projectNewPage{Title: "New project", Active: "projects", CSRFToken: ensureCSRF(w, r), Lang: lang}
+	data := projectNewPage{Title: "New project", Active: "projects", CSRFToken: ensureCSRF(w, r), Lang: lang,
+		Currencies: currencyOptions()}
+	data.TeamCurrency, _ = s.db.TeamCurrency(r.Context(), teamID(r))
 	s.renderPageForRequest(w, r, "New project", "projects", "project-new", &data)
 }
 
@@ -214,12 +218,25 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 		http.Error(w, err.Error(), 400)
 		return
 	}
+	rate, hasRate, rerr := formCents(r, "rate")
+	if rerr != nil {
+		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+		return
+	}
 	p, err := s.db.CreateProject(r.Context(), tid,
 		r.Form.Get("name"), r.Form.Get("slug"), r.Form.Get("color"))
 	if err != nil {
 		flash := encodeFlash(false, err.Error())
 		http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 		return
+	}
+	// Rate and currency right away: an invoice needs them, and the edit
+	// card is where nobody looks.
+	if hasRate {
+		_ = s.db.SetProjectRate(r.Context(), tid, p.ID, &rate, nil)
+	}
+	if cur := r.Form.Get("currency"); validCurrency(cur) {
+		_ = s.db.SetProjectCurrency(r.Context(), tid, p.ID, cur)
 	}
 	http.Redirect(w, r, "/projects/"+p.Slug, http.StatusSeeOther)
 }

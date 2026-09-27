@@ -21,13 +21,15 @@ type settingsPageData struct {
 	Members []teams.Member
 	Invites []teams.Invite
 	Pay     map[int64]memberPayView // members page: current pay + capacity
-	Flash   string // success / error banner shown above the form
+	Flash   string                  // success / error banner shown above the form
 	FlashOK bool
 	// Team settings: workspace currency and the menu of choices.
 	Currency   string
 	Currencies []currencyOption
-	CSRFToken string
-	Lang      string
+	Requisites string
+	VATNote    string
+	CSRFToken  string
+	Lang       string
 }
 
 func (p *settingsPageData) setCSRF(t string) { p.CSRFToken = t }
@@ -60,6 +62,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Currency, _ = s.db.TeamCurrency(r.Context(), team.ID)
 	data.Currencies = currencyOptions()
+	data.Requisites, data.VATNote, _ = s.db.TeamRequisites(r.Context(), team.ID)
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -191,6 +194,23 @@ func (s *Server) handleAPITeamCurrency(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, "team.currency", cur, "")
+	http.Redirect(w, r, "/settings/team?flash=updated", http.StatusSeeOther)
+}
+
+// handleAPITeamRequisites saves the issuer's details and VAT line printed
+// on new invoices and acts.
+func (s *Server) handleAPITeamRequisites(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	req := strings.TrimSpace(r.FormValue("requisites"))
+	vat := strings.TrimSpace(r.FormValue("vat_note"))
+	if len(req) > 2000 || len(vat) > 200 {
+		http.Redirect(w, r, "/settings/team?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	if err := s.db.SetTeamRequisites(r.Context(), team.ID, req, vat); err != nil {
+		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/settings/team?flash=updated", http.StatusSeeOther)
 }
 
@@ -361,7 +381,9 @@ func (s *Server) handleAPIProfilePassword(w http.ResponseWriter, r *http.Request
 
 // ----- helpers -----------------------------------------------------
 
-func userViewOf(u auth.User) teamUserView { return teamUserView{ID: u.ID, Email: u.Email, Name: u.Name} }
+func userViewOf(u auth.User) teamUserView {
+	return teamUserView{ID: u.ID, Email: u.Email, Name: u.Name}
+}
 
 // decodeFlash maps a flash code into (message, ok). Errors pass
 // through verbatim, named codes map to friendly strings.

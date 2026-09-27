@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/translit"
 	"regexp"
 	"strings"
 	"time"
@@ -279,7 +280,7 @@ func boolInt(b bool) int {
 // slugify converts "EORA RAG v2" → "eora-rag-v2". Used only when the
 // caller doesn't supply an explicit slug.
 func slugify(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
+	s = translit.Latin(strings.TrimSpace(s))
 	var b strings.Builder
 	prevDash := false
 	for _, r := range s {

@@ -36,6 +36,21 @@
         </div>
       </label>
 
+      <div class="grid gap-3 sm:grid-cols-2">
+        <label class="form-control">
+          <span class="label-text">{{.T "bill.rate"}} {{.T "bill.cents"}} <span class="opacity-70">({{.T "projects.optional"}})</span></span>
+          <input type="text" name="rate" inputmode="decimal" autocomplete="off" class="input input-bordered" placeholder="{{.T "bill.ratePh"}}">
+          <span class="text-xs opacity-70 mt-1">{{.T "bill.rateHint"}}</span>
+        </label>
+        <label class="form-control">
+          <span class="label-text">{{.T "proj.currency"}}</span>
+          <select name="currency" class="select select-bordered">
+            <option value="">{{.T "proj.currencyInherit"}} ({{.TeamCurrency}})</option>
+            {{range .Currencies}}<option value="{{.Code}}">{{.Label}}</option>{{end}}
+          </select>
+        </label>
+      </div>
+
       <div class="flex items-center justify-between gap-2 pt-2">
         <a href="/projects" class="btn btn-ghost btn-sm gap-1.5">{{.T "projects.cancel"}}</a>
         <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "plus"}}{{.T "projects.create"}}</button>

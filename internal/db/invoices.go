@@ -26,6 +26,11 @@ type Invoice struct {
 	Notes       string    `json:"notes"`
 	PaymentURL  string    `json:"payment_url"`
 	Currency    string    `json:"currency"` // ISO 4217, fixed at creation
+	// Snapshot at creation: later edits to the workspace don't rewrite an
+	// issued document.
+	SellerDetails string `json:"seller_details"`
+	ClientDetails string `json:"client_details"`
+	VATNote       string `json:"vat_note"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -134,7 +139,7 @@ func (d *DB) NextInvoiceNumber(ctx context.Context, teamID int64) (string, error
 // ListInvoices returns the team's invoices, newest first.
 func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), created_at
+		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, created_at
 		 FROM invoices WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -154,7 +159,7 @@ func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) 
 // GetInvoice fetches one invoice inside a team.
 func (d *DB) GetInvoice(ctx context.Context, teamID, id int64) (Invoice, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), created_at
+		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, created_at
 		 FROM invoices WHERE id = ? AND team_id = ?`, id, teamID)
 	inv, err := scanInvoice(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -322,6 +327,26 @@ func (d *DB) invoiceCurrency(ctx context.Context, teamID int64, lines []InvoiceL
 	return cur, nil
 }
 
+// TeamRequisites are the issuer's details and VAT line for documents.
+func (d *DB) TeamRequisites(ctx context.Context, teamID int64) (requisites, vatNote string, err error) {
+	err = d.sql.QueryRowContext(ctx, `SELECT requisites, vat_note FROM teams WHERE id = ?`, teamID).Scan(&requisites, &vatNote)
+	return
+}
+
+func (d *DB) SetTeamRequisites(ctx context.Context, teamID int64, requisites, vatNote string) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE teams SET requisites = ?, vat_note = ? WHERE id = ?`, requisites, vatNote, teamID)
+	return err
+}
+
+// SetInvoiceParties stores the document's seller/client details and VAT
+// line (called once, at creation).
+func (d *DB) SetInvoiceParties(ctx context.Context, teamID, id int64, seller, client, vat string) error {
+	_, err := d.sql.ExecContext(ctx,
+		`UPDATE invoices SET seller_details = ?, client_details = ?, vat_note = ? WHERE id = ? AND team_id = ?`,
+		seller, client, vat, id, teamID)
+	return err
+}
+
 // TeamCurrency is the workspace default (RUB when unset or no team).
 func (d *DB) TeamCurrency(ctx context.Context, teamID int64) (string, error) {
 	var cur string
@@ -359,7 +384,8 @@ func scanInvoice(r interface{ Scan(...any) error }) (Invoice, error) {
 		paymentURL     sql.NullString
 	)
 	if err := r.Scan(&inv.ID, &inv.TeamID, &inv.Number, &inv.ClientName,
-		&start, &end, &inv.Status, &inv.Notes, &paymentURL, &inv.Currency, &ct); err != nil {
+		&start, &end, &inv.Status, &inv.Notes, &paymentURL, &inv.Currency,
+		&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &ct); err != nil {
 		return Invoice{}, err
 	}
 	inv.PeriodStart, _ = ScanTime(start)

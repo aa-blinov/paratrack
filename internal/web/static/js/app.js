@@ -434,6 +434,11 @@ document.addEventListener('htmx:configRequest', (e) => {
     if (key === 'd' && here !== '/')       { window.location.href = '/'; return; }
     if (key === 't') { themeBtnClick(); return; }
     if (key === 'n' && here === '/') { document.querySelector('input[name="activity"]')?.focus(); return; }
+    // p: pause every running timer (a break), same as the "pause all" button.
+    if (key === 'p' && here === '/' && window.htmx) {
+      htmx.ajax('POST', '/api/active/pause-all', { target: '#active-list', swap: 'innerHTML' });
+      return;
+    }
   });
   function themeBtnClick() {
     const btn = document.querySelector('[data-theme-toggle]');
