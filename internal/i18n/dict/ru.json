@@ -177,7 +177,7 @@
   "projects.create": "Создать",
   "projects.recentSessions": "Недавние сессии",
   "projects.noSessions": "В этом проекте пока нет сессий.",
-  "projects.last30": "Последние 30 дней",
+  "projects.last30": "За 30 дней",
   "projects.allTime": "За всё время",
   "projects.edit": "Изменить",
   "projects.save": "Сохранить",
