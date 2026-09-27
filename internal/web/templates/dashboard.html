@@ -77,7 +77,7 @@
 <nav id="next-steps" class="next-steps" aria-label="{{.T "onb.next"}}"{{if not .HasSession}} hidden{{end}}>
   <span class="ledger-label">{{.T "onb.next"}}</span>
   <a href="/stats">{{.T "onb.nextStats"}}</a>
-  <a href="/projects/new">{{.T "onb.nextProject"}}</a>
+  {{if .On "invoices"}}<a href="/projects/new">{{.T "onb.nextProject"}}</a>{{end}}
   <button type="button" class="btn btn-ghost btn-xs gap-1 ms-auto" data-next-hide aria-label="{{.T "onb.hide"}}">{{icon "x" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "onb.hide"}}</span></button>
 </nav>
 <script>try { if (localStorage.getItem('paratrack-next-hidden')) document.getElementById('next-steps').remove(); } catch (e) {}</script>
@@ -137,7 +137,7 @@
 </div>
 
 <!-- Daily / weekly / monthly goals — only rendered when there is at least one. -->
-{{if .Goals}}
+{{if and .Goals (.On "goals")}}
 <div class="card bg-base-100 border border-base-300 mt-4">
   <div class="card-body p-5">
     <div class="flex items-center justify-between mb-3">

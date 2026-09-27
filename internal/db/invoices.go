@@ -469,6 +469,18 @@ func (d *DB) invoiceCurrency(ctx context.Context, teamID int64, lines []InvoiceL
 	return cur, nil
 }
 
+// TeamModules is the workspace's section list ("" = everything).
+func (d *DB) TeamModules(ctx context.Context, teamID int64) (string, error) {
+	var m string
+	err := d.sql.QueryRowContext(ctx, `SELECT modules FROM teams WHERE id = ?`, teamID).Scan(&m)
+	return m, err
+}
+
+func (d *DB) SetTeamModules(ctx context.Context, teamID int64, modules string) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE teams SET modules = ? WHERE id = ?`, modules, teamID)
+	return err
+}
+
 // TeamRequisites are the issuer's details and VAT line for documents.
 func (d *DB) TeamRequisites(ctx context.Context, teamID int64) (requisites, vatNote string, err error) {
 	err = d.sql.QueryRowContext(ctx, `SELECT requisites, vat_note FROM teams WHERE id = ?`, teamID).Scan(&requisites, &vatNote)
