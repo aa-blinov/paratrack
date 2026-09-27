@@ -4,6 +4,7 @@ go 1.27.1
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
+	github.com/getsentry/sentry-go v0.49.0
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/jackc/pgx/v5 v5.11.0
 	golang.org/x/crypto v0.57.0
