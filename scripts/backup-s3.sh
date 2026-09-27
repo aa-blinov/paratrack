@@ -7,7 +7,7 @@
 #   mc cat b2/$S3_BUCKET/daily/<stamp>.sql.gz | gunzip | \
 #     docker compose exec -T db psql -U paratrack -d paratrack
 # Check a dump without touching prod: scripts/backup-s3.sh --verify
-set -euo pipefail
+set -Eeuo pipefail # -E: the ERR trap fires inside functions too
 cd "$(dirname "$0")/.."
 set -a; . ./.env; set +a
 
@@ -38,6 +38,25 @@ if [ "${1:-}" = "--verify" ]; then
 	exit 0
 fi
 
+# Sentry Cron Monitor (monitor "paratrack-backup"): check in at start and
+# end. A failed run reports error; a run that never starts is flagged by
+# Sentry itself from the schedule below. No DSN: silently skipped.
+checkin() { # status [duration]
+	[ -n "${PARATRACK_SENTRY_DSN:-}" ] || return 0
+	local rest="${PARATRACK_SENTRY_DSN#https://}" key host proj
+	key="${rest%%@*}"; rest="${rest#*@}"; host="${rest%%/*}"; proj="${rest##*/}"
+	printf '{}\n{"type":"check_in"}\n{"check_in_id":"%s","monitor_slug":"paratrack-backup","status":"%s"%s,"monitor_config":{"schedule":{"type":"crontab","value":"30 3 * * *"},"checkin_margin":30,"max_runtime":30,"timezone":"UTC"}}\n' \
+		"$CHECKIN_ID" "$1" "${2:+,\"duration\":$2}" |
+		curl -fsS -m 10 -o /dev/null -X POST "https://$host/api/$proj/envelope/" \
+			-H "Content-Type: application/x-sentry-envelope" \
+			-H "X-Sentry-Auth: Sentry sentry_version=7, sentry_key=$key, sentry_client=paratrack-backup/1.0" --data-binary @- || true
+}
+CHECKIN_ID=$(cat /proc/sys/kernel/random/uuid | tr -d -)
+T0=$(date +%s)
+trap 'checkin error $(( $(date +%s) - T0 ))' ERR
+checkin in_progress
+
 docker compose exec -T db pg_dump -U paratrack -d paratrack | gzip | mc pipe --quiet "b2/$S3_BUCKET/$KEY"
 mc rm --recursive --force --older-than "${KEEP_DAYS}d" "b2/$S3_BUCKET/daily/" >/dev/null || true
+checkin ok $(( $(date +%s) - T0 ))
 echo "$(date -u +%FT%TZ) uploaded $KEY"
