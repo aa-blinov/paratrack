@@ -740,7 +740,7 @@
   "when.yesterday": "yesterday",
   "toast.reopened": "Stop undone, the timer is back",
   "toast.undo": "Undo",
-  "toast.discard": "Delete",
+  "toast.discard": "Delete record",
   "onb.try": "Type what you are doing and press Start",
   "onb.tryHint": "The timer shows up here. Several can run at once; pause and stop sit in its row.",
   "onb.examples": "For example:",
@@ -748,5 +748,6 @@
   "onb.next": "Next",
   "onb.nextStats": "See where the time went",
   "onb.nextProject": "Create a project with a rate",
-  "onb.hide": "Hide"
+  "onb.hide": "Hide",
+  "nav.skip": "Skip to content"
 }

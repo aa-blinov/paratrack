@@ -283,7 +283,7 @@ window.applyTheme = function(mode) {
   }
 })();
 
-// Toast — renders a DaisyUI alert in #toast, auto-dismisses after 2.2s.
+// Toast: a flat note in the #toast live region, auto-dismisses unless held.
 // actions: optional [{label, method, url}] run through htmx, so CSRF and
 // the X-Toast of their response work as for any other button.
 window.paratrackToast = function(message, kind, ms, actions) {
@@ -293,7 +293,8 @@ window.paratrackToast = function(message, kind, ms, actions) {
   // Quiet ledger note: hairline card, only the icon carries the kind.
   const box = document.createElement('div');
   box.className = `toast-note toast-${variant} opacity-100 transition-opacity duration-200`;
-  box.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+  // #toast is the live region; an error also interrupts.
+  if (variant === 'error') box.setAttribute('role', 'alert');
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'icon');
   svg.setAttribute('aria-hidden', 'true');
@@ -307,7 +308,7 @@ window.paratrackToast = function(message, kind, ms, actions) {
   for (const a of actions || []) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'toast-action';
+    b.className = 'toast-action' + (a.quiet ? ' is-quiet' : '');
     b.textContent = a.label;
     b.addEventListener('click', () => {
       clearTimeout(window._paratrackToastTimer);
@@ -320,14 +321,28 @@ window.paratrackToast = function(message, kind, ms, actions) {
     box.append(b);
   }
   el.replaceChildren(box);
-  clearTimeout(window._paratrackToastTimer);
-  window._paratrackToastTimer = setTimeout(() => {
-    const inner = el.firstElementChild;
-    if (inner) {
-      inner.classList.add('opacity-0');
-      setTimeout(() => { el.innerHTML = ''; }, 250);
-    }
-  }, ms || (actions && actions.length ? 10000 : Math.max(2200, String(message).length * 55)));
+  // Hover or focus inside holds the toast (WCAG 2.2.1): the undo must not
+  // vanish while someone is reaching for it.
+  const wait = ms || (actions && actions.length ? 10000 : Math.max(2200, String(message).length * 55));
+  const arm = () => {
+    clearTimeout(window._paratrackToastTimer);
+    window._paratrackToastTimer = setTimeout(() => {
+      if (box.matches(':hover, :focus-within')) return;
+      box.classList.add('opacity-0');
+      setTimeout(() => { if (box.isConnected) el.replaceChildren(); }, 250);
+    }, wait);
+  };
+  box.addEventListener('mouseleave', arm);
+  box.addEventListener('focusout', (e) => { if (!box.contains(e.relatedTarget)) arm(); });
+  arm();
+  // Keyboard stop: the row is gone, so focus goes to the way back.
+  // htmx swaps the list after this runs, so look once the swap has landed.
+  if (actions && actions.length && window._paratrackKeyboard) {
+    setTimeout(() => {
+      const a = document.activeElement;
+      if (!a || a === document.body || !a.isConnected) box.querySelector('.toast-action')?.focus();
+    }, 60);
+  }
 };
 
 // paratrackResize — parses a human duration ("1h 30m") from the
@@ -812,3 +827,27 @@ document.body.addEventListener('htmx:afterRequest', (e) => {
     document.getElementById('next-steps')?.removeAttribute('hidden');
   }
 });
+
+// Input modality: toasts move focus only for keyboard users.
+window._paratrackKeyboard = false;
+document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || e.key === 'Enter' || e.key === ' ') window._paratrackKeyboard = true; }, true);
+document.addEventListener('pointerdown', () => { window._paratrackKeyboard = false; }, true);
+
+// The running list re-renders on every action; put keyboard focus back on
+// the same row (its first button with the same verb, else the first one).
+(function () {
+  let want = null;
+  document.body.addEventListener('htmx:beforeRequest', (e) => {
+    const m = (e.detail.elt?.getAttribute?.('hx-post') || '').match(/^\/api\/sessions\/(\d+)\/(pause|resume)$/);
+    // Only a row action sets it; the follow-up «Сегодня» refresh must not clear it.
+    if (m) want = window._paratrackKeyboard ? { id: m[1] } : null;
+  });
+  document.body.addEventListener('htmx:afterSettle', () => {
+    if (!want) return;
+    const row = document.querySelector(`#active-list [hx-post^="/api/sessions/${want.id}/"]`)?.closest('tr');
+    if (!row) return;
+    const btn = row && (row.querySelector('[hx-post$="/pause"], [hx-post$="/resume"]') || row.querySelector('button'));
+    want = null;
+    btn?.focus();
+  });
+})();
