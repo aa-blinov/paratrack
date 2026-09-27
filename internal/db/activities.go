@@ -17,7 +17,7 @@ import (
 func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (model.Activity, error) {
 	// The name keeps the case it was typed in (it shows on invoices);
 	// matching goes through name_key, lowercased in Go so Cyrillic folds
-	// too (SQLite's NOCASE only folds ASCII).
+	// too.
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
@@ -41,11 +41,11 @@ func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (mod
 		return d.GetActivity(ctx, id)
 	}
 	// teamID == 0 → legacy single-user path; no UNIQUE constraint to
-	// collide on, just INSERT OR IGNORE.
-	// Insert-if-missing then read back works the same on both backends
-	// (a RETURNING row is absent when the insert was ignored).
+	// collide on, just ON CONFLICT DO NOTHING.
+	// Insert-if-missing then read back is enough
+	// (nothing is returned when the insert was ignored).
 	if _, err := d.sql.ExecContext(ctx,
-		`INSERT OR IGNORE INTO activities (name, name_key, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+		`INSERT INTO activities (name, name_key, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		name, strings.ToLower(name), now, now,
 	); err != nil {
 		return model.Activity{}, err
@@ -62,7 +62,7 @@ func (d *DB) GetActivity(ctx context.Context, id int64) (model.Activity, error) 
 }
 
 // GetActivityByName looks up by name. Inputs are lowercased so callers
-// don't need to normalise; the underlying column is COLLATE NOCASE
+// don't need to normalise; the underlying column is CITEXT
 // so "Work", "work" and "WORK" all resolve to the same row.
 //
 // teamID restricts the lookup to one workspace; pass 0 to look across
@@ -124,7 +124,7 @@ func (d *DB) ListActivities(ctx context.Context, teamID int64, includeArchived b
 		}
 		q += ` archived = 0`
 	}
-	q += ` ORDER BY name COLLATE NOCASE`
+	q += ` ORDER BY name`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

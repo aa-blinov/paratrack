@@ -32,7 +32,7 @@ func (d *DB) CreateTag(ctx context.Context, teamID int64, name string) (model.Ta
 		return d.GetTagByName(ctx, teamID, name)
 	}
 	if _, err := d.sql.ExecContext(ctx,
-		`INSERT OR IGNORE INTO tags (name) VALUES (?)`, name,
+		`INSERT INTO tags (name) VALUES (?) ON CONFLICT DO NOTHING`, name,
 	); err != nil {
 		return model.Tag{}, err
 	}
@@ -41,7 +41,7 @@ func (d *DB) CreateTag(ctx context.Context, teamID int64, name string) (model.Ta
 
 // GetTagByName returns the tag with the given name in the given team.
 // Inputs are lowercased so callers don't need to normalise; the
-// underlying column is COLLATE NOCASE so mixed-case input still
+// underlying column is CITEXT so mixed-case input still
 // resolves correctly. teamID == 0 skips the team filter.
 func (d *DB) GetTagByName(ctx context.Context, teamID int64, name string) (model.Tag, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
@@ -129,7 +129,7 @@ func (d *DB) AttachTag(ctx context.Context, teamID, sessionID int64, tagName str
 		}
 	}
 	_, err = d.sql.ExecContext(ctx,
-		`INSERT OR IGNORE INTO session_tags (session_id, tag_id) VALUES (?, ?)`,
+		`INSERT INTO session_tags (session_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
 		sessionID, tag.ID)
 	return err
 }
@@ -192,7 +192,7 @@ func (d *DB) SetTagsForSession(ctx context.Context, teamID, sessionID int64, tag
 			}
 		}
 		if _, err := tx.ExecContext(ctx,
-			`INSERT OR IGNORE INTO session_tags (session_id, tag_id) VALUES (?, ?)`,
+			`INSERT INTO session_tags (session_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING`,
 			sessionID, tagID,
 		); err != nil {
 			return err

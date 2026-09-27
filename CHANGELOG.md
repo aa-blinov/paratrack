@@ -4,6 +4,9 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 
 ## [Unreleased]
 
+### Removed
+- **SQLite**. Postgres is the only database: the CLI and a bare binary need `PARATRACK_DATABASE_URL`, `paratrack migrate-to-postgres` is gone, and the tests run on a throwaway Postgres (`scripts/test.sh`, and inside the image build).
+
 ### Added — product waves 1 to 9
 - **Timesheet** (`/timesheet`): week grid of activity × days, a cell holds that day's minutes, `0` clears it. Writes collapse the day into one synthetic `note="timesheet"` session so reads and writes agree.
 - **Estimates vs actual**: `projects.estimate_minutes` plus a card on the project page comparing tracked time against it.

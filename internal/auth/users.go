@@ -121,7 +121,7 @@ func (s *Service) CreateUser(ctx context.Context, email, password, name string) 
 func (s *Service) FindByEmail(ctx context.Context, email string) (User, error) {
 	row := s.d.SQL().QueryRowContext(ctx,
 		`SELECT id, email, password_hash, name, created_at, updated_at
-		 FROM users WHERE email = ? COLLATE NOCASE`, strings.ToLower(strings.TrimSpace(email)),
+		 FROM users WHERE email = ?`, strings.ToLower(strings.TrimSpace(email)),
 	)
 	return scanUser(row)
 }

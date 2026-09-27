@@ -5,7 +5,7 @@ import (
 )
 
 func TestEstimateRoundTrip(t *testing.T) {
-	d, _ := Open(":memory:")
+	d, _ := OpenTest(t)
 	t.Cleanup(func() { _ = d.Close() })
 	ctx := t.Context()
 	d.SQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)

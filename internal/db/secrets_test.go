@@ -10,7 +10,7 @@ import (
 
 func TestSecretsSealedAtRest(t *testing.T) {
 	t.Setenv("PARATRACK_SECRET_KEY", "test-key")
-	d, err := Open(":memory:")
+	d, err := OpenTest(t)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSecretsSealedAtRest(t *testing.T) {
 // Invoices from before invoice_id get their sessions stamped once, by the
 // old billing rule; newer sessions in that period stay billable.
 func TestStampLegacyInvoices(t *testing.T) {
-	d, err := Open(":memory:")
+	d, err := OpenTest(t)
 	if err != nil {
 		t.Fatal(err)
 	}

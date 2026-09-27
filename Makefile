@@ -5,7 +5,7 @@
 #   make install      go install into $GOBIN
 #   make run          build + run the CLI (pass args via RUN=...)
 #   make web          build + run the embedded web UI on :8888
-#   make test         go test ./...
+#   make test         go test ./... on a throwaway Postgres (scripts/test.sh)
 #   make vet          go vet ./...
 #   make e2e          Playwright suite (requires a running server on :8888)
 #   make e2e-up       start the server in the background, then run e2e
@@ -39,13 +39,13 @@ web: build
 	$(BIN) web --addr $(ADDR)
 
 test:
-	$(GO) test ./...
+	scripts/test.sh
 
 cover:
-	$(GO) test -cover ./internal/db ./internal/web ./internal/timeparse
+	scripts/test.sh -cover ./internal/db ./internal/web ./internal/timeparse
 
 cover-html: cover
-	$(GO) test -coverprofile=coverage.out ./...
+	scripts/test.sh -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "wrote coverage.html — open in a browser"
 

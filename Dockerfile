@@ -19,16 +19,17 @@ RUN go mod download
 COPY . .
 COPY --from=css /out/paratrack.css internal/web/static/css/paratrack.css
 ENV CGO_ENABLED=0
-# A red test suite never becomes an image.
-RUN go test ./...
+# A red test suite never becomes an image. Tests need a Postgres: a
+# throwaway one runs inside this step and dies with it.
+RUN apk add --no-cache postgresql17 postgresql17-contrib >/dev/null \
+ && mkdir -p /run/postgresql /tmp/pg && chown postgres /run/postgresql /tmp/pg \
+ && su postgres -c "initdb -D /tmp/pg -U t --auth=trust >/dev/null && pg_ctl -D /tmp/pg -o '-h 127.0.0.1' -w -l /tmp/pg.log start >/dev/null" \
+ && PARATRACK_TEST_PG='postgres://t@127.0.0.1:5432/postgres?sslmode=disable' go test -p 1 ./...
 RUN go build -trimpath -ldflags="-s -w" -o /out/paratrack ./cmd/paratrack
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=build /out/paratrack /usr/local/bin/paratrack
-# SQLite (CLI mode, or no PARATRACK_DATABASE_URL) lives under $HOME/.track.
-ENV HOME=/data
-VOLUME ["/data"]
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget -qO /dev/null http://127.0.0.1:8000/login || exit 1

@@ -891,7 +891,10 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 
 /* Page-to-page crossfade (Chromium); the bars stay still. */
 @view-transition { navigation: auto; }
-.appbar { view-transition-name: appbar; }
+/* view-transition-name makes the bar its own stacking context, so it
+   needs a z-index of its own or the cards below paint over its menus. */
+.appbar { view-transition-name: appbar; z-index: 40; }
+@media (min-width: 1024px) { .appbar { position: relative; } }
 .tabbar { view-transition-name: tabbar; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -97,7 +97,7 @@ func TestPageMetaCoversGoalsAndTags(t *testing.T) {
 }
 
 func TestSessionTagHTMXReturnsRowFragment(t *testing.T) {
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestSessionTagHTMXReturnsRowFragment(t *testing.T) {
 	}
 }
 func TestSessionMutationsScopedByTeam(t *testing.T) {
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}

@@ -647,7 +647,7 @@ document.addEventListener('htmx:configRequest', (e) => {
     return el;
   }
   // Both the progress bar and the region skeletons are deferred: a fast
-  // request (the common case on a local SQLite backend) must NOT flash
+  // request (the common case) must NOT flash
   // a skeleton over content the user is already reading.
   const GRACE = 180; // ms before loading feedback appears
   let barTimer = null;
