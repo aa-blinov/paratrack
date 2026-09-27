@@ -311,9 +311,17 @@
     right: 1rem;
     bottom: 1rem;
   }
-  #toast > .alert {
-    @apply pointer-events-auto shadow-lg text-sm py-2 px-3 gap-2 rounded-box;
+  /* Flat ledger note: surface + hairline, colour only on the icon. */
+  #toast > .toast-note {
+    @apply pointer-events-auto flex items-center gap-2 text-sm py-2 px-3 rounded-box
+           bg-base-100 text-base-content border border-base-300;
   }
+  #toast > .toast-note > .icon { @apply shrink-0; }
+  .toast-success > .icon { color: var(--color-success); }
+  #toast > .toast-error { border-color: color-mix(in oklab, var(--color-error) 45%, var(--color-base-300)); }
+  .toast-error > .icon { color: var(--color-error); }
+  .toast-warning > .icon { color: var(--color-warning); }
+  .toast-info > .icon { color: var(--color-info); }
 }
 
 
