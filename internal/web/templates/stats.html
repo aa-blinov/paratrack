@@ -65,11 +65,10 @@
         {{if .Projects}}
           <div class="flex flex-wrap gap-1 mb-3">
             <a href="?period={{.Period.Label}}{{if .TagFilter}}&tag={{urlquery .TagFilter}}{{end}}"
-               class="btn {{if not .ProjectFilter}}btn-primary{{else}}btn-ghost{{end}} btn-xs">{{.T "stats.all"}}</a>
+               class="btn {{if not .ProjectFilter}}btn-neutral{{else}}btn-ghost{{end}} btn-xs">{{.T "stats.all"}}</a>
             {{range .Projects}}
               <a href="?period={{$.Period.Label}}&project={{.Slug}}{{if $.TagFilter}}&tag={{urlquery $.TagFilter}}{{end}}"
-                 class="btn {{if eq $.ProjectFilter .Slug}}btn-primary{{else}}btn-ghost{{end}} btn-xs"
-                 style="{{if eq $.ProjectFilter .Slug}}background-color: {{.Color}}; border-color: {{.Color}}; color: #fff;{{end}}">
+                 class="btn {{if eq $.ProjectFilter .Slug}}btn-neutral{{else}}btn-ghost{{end}} btn-xs">
                 <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{.Color}}"></span>
                 {{.Name}}
               </a>
@@ -90,20 +89,20 @@
                     {{if .Slug}}<a href="/projects/{{.Slug}}" class="link link-hover">{{.ProjectName}}</a>{{else}}{{.ProjectName}}{{end}}
                   </div>
                 </td>
-                <td data-label="{{$.T "stats.time"}}" class="text-right font-mono">{{.Duration}}</td>
+                <td data-label="{{$.T "stats.time"}}" class="text-right font-mono whitespace-nowrap">{{.Duration}}</td>
                 <td data-label="{{$.T "stats.share"}}" class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
               </tr>
               {{range .Activities}}
               <tr>
                 <td data-label="{{$.T "dash.activity"}}" class="pl-8"><span style="color: {{.Color}};">{{.ActivityName}}</span></td>
-                <td data-label="{{$.T "stats.time"}}" class="text-right font-mono opacity-70">{{.Duration}}</td>
+                <td data-label="{{$.T "stats.time"}}" class="text-right font-mono whitespace-nowrap opacity-70">{{.Duration}}</td>
                 <td data-label="{{$.T "stats.share"}}" class="text-right font-mono opacity-50">{{printf "%.1f%%" .Share}}</td>
               </tr>
               {{end}}
             {{end}}
             <tr class="font-semibold border-t-2 border-base-300">
               <td>{{.T "stats.total"}}</td>
-              <td class="text-right font-mono">{{.Total}}</td>
+              <td class="text-right font-mono whitespace-nowrap">{{.Total}}</td>
               <td></td>
             </tr>
           </tbody>
