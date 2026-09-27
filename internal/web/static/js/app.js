@@ -66,12 +66,6 @@ document.addEventListener('alpine:init', () => {
       this.mode = next;
       localStorage.setItem('paratrack-theme', next);
       applyTheme(next);
-      const labels = {
-        auto: document.querySelector('[data-toast-theme-auto]')?.dataset.toastThemeAuto,
-        light: document.querySelector('[data-toast-theme-light]')?.dataset.toastThemeLight,
-        dark: document.querySelector('[data-toast-theme-dark]')?.dataset.toastThemeDark,
-      };
-      window.paratrackToast(labels[next] || ('theme: ' + next), 'success');
     }
   }));
 
@@ -280,21 +274,20 @@ window.paratrackToast = function(message, kind, ms) {
   const el = document.getElementById('toast');
   if (!el) return;
   const variant = kind || 'success';
-  const glyph =
-    variant === 'success' ? '✓' :
-    variant === 'error'   ? '✕' :
-    variant === 'warning' ? '!' :
-                            'ⓘ';
-  // Build with textContent: messages carry user input (activity names).
+  // Quiet ledger note: hairline card, only the icon carries the kind.
   const box = document.createElement('div');
-  box.className = `alert alert-${variant} shadow-lg pointer-events-auto opacity-100 transition-opacity duration-200`;
-  box.setAttribute('role', 'status');
-  const icon = document.createElement('span');
-  icon.className = 'text-base font-bold';
-  icon.textContent = glyph;
+  box.className = `toast-note toast-${variant} opacity-100 transition-opacity duration-200`;
+  box.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+  use.setAttribute('href', '/static/icons.svg#i-' + (variant === 'success' ? 'check' : variant === 'error' ? 'x' : 'info'));
+  svg.append(use);
+  // textContent: messages carry user input (activity names).
   const text = document.createElement('span');
   text.textContent = message;
-  box.append(icon, text);
+  box.append(svg, text);
   el.replaceChildren(box);
   clearTimeout(window._paratrackToastTimer);
   window._paratrackToastTimer = setTimeout(() => {

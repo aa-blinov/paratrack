@@ -418,10 +418,12 @@ def main() -> int:
         check("EN dashboard", "Dashboard" in pg.inner_text("h1"))
         pg.locator("button.theme-btn").click()
         pg.wait_for_timeout(300)
+        check("theme switch is silent", pg.evaluate("() => document.getElementById('toast').children.length") == 0)
+        pg.evaluate("() => window.paratrackToast('qa', 'success', 5000)")
         toast_box = pg.locator("#toast").bounding_box()
         vh = pg.evaluate("() => window.innerHeight")
         check("toast bottom-right", toast_box and toast_box["y"] > vh * 0.5 and toast_box["x"] > 400, str(toast_box))
-        shot(pg, "p2-theme-toast")
+        shot(pg, "p2-toast")
 
         # ---------- Q. PWA ----------
         print("== Q. PWA")

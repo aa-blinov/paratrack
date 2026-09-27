@@ -168,7 +168,7 @@
         </div>
         <button class="btn btn-ghost btn-xs theme-btn gap-1"
                 data-theme-toggle
-                title="{{.T "nav.theme"}} (T)" data-toast-theme-auto="{{.T "toast.themeAuto"}}" data-toast-theme-light="{{.T "toast.themeLight"}}" data-toast-theme-dark="{{.T "toast.themeDark"}}"
+                title="{{.T "nav.theme"}} (T)"
                 x-data="themeToggle"
                 @click="cycle()">
           <span class="theme-icon theme-icon-light">{{icon "sun" "icon icon-sm"}}</span>
@@ -243,7 +243,7 @@
     <div class="flex items-center gap-2 mt-3">
       <a href="/lang/{{if eq .Lang "ru"}}en{{else}}ru{{end}}?next={{urlquery .RequestPath}}" class="btn btn-ghost btn-sm flex-1 gap-1.5">{{icon "languages" "icon icon-sm"}}{{if eq .Lang "ru"}}English{{else}}Русский{{end}}</a>
       <button type="button" class="btn btn-ghost btn-sm flex-1 gap-1.5" data-theme-toggle
-              data-toast-theme-auto="{{.T "toast.themeAuto"}}" data-toast-theme-light="{{.T "toast.themeLight"}}" data-toast-theme-dark="{{.T "toast.themeDark"}}"
+             
               x-data="themeToggle" @click="cycle()">
         <span class="theme-icon theme-icon-light">{{icon "sun" "icon icon-sm"}}</span>
         <span class="theme-icon theme-icon-dark">{{icon "moon" "icon icon-sm"}}</span>
