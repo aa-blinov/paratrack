@@ -57,7 +57,9 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 		q += ` AND s.team_id = ?`
 		args = append(args, teamID)
 	}
-	q += ` ORDER BY a.name COLLATE NOCASE, s.start_at`
+	var sc string
+	sc, args = scopeSQL(ctx, "s.user_id", args)
+	q += sc + ` ORDER BY a.name COLLATE NOCASE, s.start_at`
 
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -201,6 +203,12 @@ func (d *DB) UpsertDayTotal(ctx context.Context, teamID, activityID int64, day t
 	if teamID > 0 {
 		del += ` AND team_id = ?`
 		delArgs = append(delArgs, teamID)
+	}
+	// Only the actor's own day: a colleague's sessions on the same
+	// activity are theirs, not this cell's.
+	if uid, ok := actorOf(ctx).(int64); ok {
+		del += ` AND user_id = ?`
+		delArgs = append(delArgs, uid)
 	}
 	if _, err := d.sql.ExecContext(ctx, del, delArgs...); err != nil {
 		return err

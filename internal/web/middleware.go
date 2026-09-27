@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
+	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/teams"
 )
 
@@ -126,6 +128,14 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			}
 			ctx = WithUser(ctx, user)
 			ctx = WithTeam(ctx, team)
+			role, _, _ := s.teams.IsMember(ctx, team.ID, user.ID)
+			ctx = context.WithValue(ctx, ctxRoleKey, role)
+			// Every session this request creates is the user's; a member
+			// only ever sees their own time.
+			ctx = db.WithActor(ctx, user.ID)
+			if !role.CanManage() {
+				ctx = db.WithScope(ctx, user.ID)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -219,3 +229,44 @@ func setTeamCookie(w http.ResponseWriter, r *http.Request, teamID int64) {
 }
 
 const teamCookieName = "paratrack_team"
+type roleKey struct{}
+
+var ctxRoleKey = roleKey{}
+
+// RoleFrom is the user's role in the current workspace.
+func RoleFrom(ctx context.Context) teams.Role {
+	r, _ := ctx.Value(ctxRoleKey).(teams.Role)
+	return r
+}
+
+func canManage(r *http.Request) bool { return RoleFrom(r.Context()).CanManage() }
+
+// manage guards money and workspace settings: owner and admin only. A
+// member gets a plain 403 (JSON on /api/), never a half-rendered page.
+func (s *Server) manage(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if canManage(r) {
+			h(w, r)
+			return
+		}
+		msg := i18n.T(resolveLang(r), "err.managersOnly")
+		if strings.HasPrefix(r.URL.Path, "/api/") && r.Header.Get("HX-Request") == "" {
+			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": msg})
+			return
+		}
+		s.toast(w, msg, "error")
+		http.Error(w, msg, http.StatusForbidden)
+	}
+}
+
+// mine scopes a handler to the user's own sessions even for an owner or
+// admin: timers and the timesheet are personal (a manager must not stop
+// a colleague's timer from their own dashboard).
+func (s *Server) mine(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if u, ok := UserFrom(r.Context()); ok {
+			r = r.WithContext(db.WithScope(r.Context(), u.ID))
+		}
+		h(w, r)
+	}
+}

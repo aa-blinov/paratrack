@@ -3,7 +3,7 @@
   {{if .Team.ID}}
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-6">
-      <h1 class="mb-1">{{.T "invite.accept"}} {{.Team.Name}}</h1>
+      <h1 class="mb-1">{{if or .Invite.Expired .Invite.Used}}{{.Team.Name}}{{else}}{{.T "invite.accept"}} {{.Team.Name}}{{end}}</h1>
       <p class="text-sm opacity-60 mb-4">{{.T "invite.blurb"}}</p>
       {{if .Invite.Expired}}
       <div class="alert alert-warning text-sm py-2 mb-4"><span>{{.T "invite.expired"}}</span></div>

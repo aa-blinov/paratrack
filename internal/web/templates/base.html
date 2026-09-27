@@ -32,6 +32,18 @@
   {{with sentryDSN}}<meta name="sentry" content="{{.}}" data-release="{{release}}" data-env="{{sentryEnv}}">
   <script src="{{asset "js/sentry.min.js"}}"></script>
   <script src="{{asset "js/sentry-init.js"}}"></script>{{end}}
+  {{/* The user's time zone for the server (it runs in UTC): days, "today"
+       and every printed time follow it. Refresh once if it changed. */}}
+  <script>(function () {
+    try {
+      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      var had = (document.cookie.match(/(?:^|; )paratrack_tz=([^;]*)/) || [])[1];
+      if (tz && decodeURIComponent(had || '') !== tz) {
+        document.cookie = 'paratrack_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; samesite=lax';
+        if (had) location.reload(); // zone changed (travel): re-render once
+      }
+    } catch (e) {}
+  })();</script>
   <script src="{{asset "js/htmx.min.js"}}"></script>
   <script defer src="{{asset "js/app.js"}}"></script>
   <script defer src="{{asset "js/alpine.min.js"}}"></script>
@@ -68,12 +80,12 @@
                 <input type="hidden" name="next" value="{{$.RequestPath}}">
                 <button type="submit" class="w-full text-left px-2 py-1.5 rounded {{if eq .ID $.Team.ID}}bg-base-200 font-medium{{end}}">
                   {{.Name}}
-                  <span class="text-xs opacity-50 ml-1">{{.Role}}</span>
+                  <span class="text-xs opacity-60 ml-1">{{$.T (printf "team.role.%s" .Role)}}</span>
                 </button>
               </form>
             {{end}}
             <div class="border-t border-base-300 mt-2 pt-2">
-              <a href="/settings/team" class="btn btn-ghost btn-sm w-full justify-start">{{.T "nav.manageWorkspaces"}}</a>
+              {{if .CanManage}}<a href="/settings/team" class="btn btn-ghost btn-sm w-full justify-start">{{.T "nav.manageWorkspaces"}}</a>{{end}}
             </div>
           </div>
         </div>
@@ -88,10 +100,10 @@
               <li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
               <li><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
               <li><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
-              <li class=""><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
-              <li class=""><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
+              {{if .CanManage}}<li class=""><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>{{end}}
+              {{if .CanManage}}<li class=""><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>{{end}}
               <li class=""><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
-              <li class=""><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>
+              {{if .CanManage}}<li class=""><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>{{end}}
               <li class=""><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>
               <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
             </ul>
@@ -108,7 +120,7 @@
           <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-56 p-2 z-50">
             <li class="menu-title text-xs opacity-60">{{.T "nav.signedInAs"}}</li>
             <li class="px-2 pb-2 text-sm">{{.User.Email}}</li>
-            <li><a href="/settings/team">{{icon "settings"}}{{.T "nav.teamSettings"}}</a></li>
+            {{if .CanManage}}<li><a href="/settings/team">{{icon "settings"}}{{.T "nav.teamSettings"}}</a></li>{{end}}
             <li><a href="/settings/profile">{{icon "user"}}{{.T "nav.profile"}}</a></li>
             <li><a href="/settings/tokens">{{icon "link"}}{{.T "nav.tokens"}}</a></li>
             <li><a href="/help">{{icon "flag"}}{{.T "nav.help"}}</a></li>
@@ -213,10 +225,10 @@
       <li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>
       <li><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>
       <li><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>
-      <li><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>
-      <li><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>
+      {{if .CanManage}}<li><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>{{end}}
+      {{if .CanManage}}<li><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>{{end}}
       <li><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>
-      <li><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>
+      {{if .CanManage}}<li><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>{{end}}
       <li><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>
       <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
     </ul>
@@ -239,7 +251,7 @@
     {{end}}
     <div class="sheet-heading">{{.T "sheet.account"}}</div>
     <ul class="sheet-list">
-      {{if .Team}}<li><a href="/settings/team">{{icon "settings"}}<span class="truncate">{{.Team.Name}}</span></a></li>{{end}}
+      {{if and .Team .CanManage}}<li><a href="/settings/team">{{icon "settings"}}<span class="truncate">{{.Team.Name}}</span></a></li>{{end}}
       <li><a href="/settings/profile">{{icon "user"}}{{.T "nav.profile"}}</a></li>
       <li><a href="/settings/notifications">{{icon "bell"}}{{.T "sheet.notifications"}}</a></li>
       <li><a href="/integrations">{{icon "link"}}{{.T "nav.integrations"}}</a></li>

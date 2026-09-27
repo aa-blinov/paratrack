@@ -21,8 +21,12 @@ type Role string
 
 const (
 	RoleOwner  Role = "owner"
+	RoleAdmin  Role = "admin" // runs money and settings like the owner, can't delete the workspace
 	RoleMember Role = "member"
 )
+
+// CanManage: invoices, payroll, rates, members, workspace settings.
+func (r Role) CanManage() bool { return r == RoleOwner || r == RoleAdmin }
 
 // Team is one workspace. Every user gets exactly one personal team
 // on registration; they can create more later. A team with a single
@@ -305,6 +309,31 @@ type Member struct {
 	JoinedAt time.Time `json:"joined_at"`
 }
 
+// SetRole changes a member's role. Only the owner decides who manages
+// money and settings; the owner role itself isn't handed out here.
+func (s *Service) SetRole(ctx context.Context, teamID, targetUserID, callerID int64, role Role) error {
+	callerRole, ok, err := s.IsMember(ctx, teamID, callerID)
+	if err != nil {
+		return err
+	}
+	if !ok || callerRole != RoleOwner || callerID == targetUserID {
+		return ErrForbidden
+	}
+	if role != RoleAdmin && role != RoleMember {
+		return fmt.Errorf("%w: role must be admin or member", ErrValidation)
+	}
+	res, err := s.d.SQL().ExecContext(ctx,
+		`UPDATE memberships SET role = ? WHERE team_id = ? AND user_id = ? AND role <> 'owner'`,
+		string(role), teamID, targetUserID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrForbidden
+	}
+	return nil
+}
+
 // RemoveMember drops someone from the team. Owners can remove anyone
 // (including another owner? — not yet, kept conservative); members can
 // only remove themselves (leave). Returns ErrForbidden if the rules
@@ -319,8 +348,10 @@ func (s *Service) RemoveMember(ctx context.Context, teamID, targetUserID, caller
 	}
 	if callerID == targetUserID {
 		// Self-leave: members can always leave their own teams.
-	} else if callerRole != RoleOwner {
+	} else if !callerRole.CanManage() {
 		return ErrForbidden
+	} else if targetRole, _, _ := s.IsMember(ctx, teamID, targetUserID); targetRole == RoleOwner && callerRole != RoleOwner {
+		return ErrForbidden // an admin can't remove the owner
 	}
 	if callerID == targetUserID {
 		// Last owner can't leave — they have to delete the team.
@@ -340,6 +371,17 @@ func (s *Service) RemoveMember(ctx context.Context, teamID, targetUserID, caller
 				return fmt.Errorf("%w: last owner must delete the team", ErrValidation)
 			}
 		}
+	}
+	// Remember the pay rate for the hours already worked (payroll reads it).
+	if _, err := s.d.SQL().ExecContext(ctx,
+		`DELETE FROM former_members WHERE team_id = ? AND user_id = ?`, teamID, targetUserID); err != nil {
+		return err
+	}
+	if _, err := s.d.SQL().ExecContext(ctx,
+		`INSERT INTO former_members (team_id, user_id, hourly_pay_cents, left_at)
+		 SELECT team_id, user_id, hourly_pay_cents, ? FROM memberships WHERE team_id = ? AND user_id = ?`,
+		db.FormatTime(time.Now().UTC()), teamID, targetUserID); err != nil {
+		return err
 	}
 	_, err = s.d.SQL().ExecContext(ctx,
 		`DELETE FROM memberships WHERE team_id = ? AND user_id = ?`,

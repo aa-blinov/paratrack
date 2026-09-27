@@ -132,7 +132,7 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 		s.respondActiveList(w, r) // keep the HTMX target happy
 		return
 	}
-	now := time.Now()
+	now := userNow(r)
 	start, err := timeparse.ParseDateTime(startStr, now)
 	if err != nil {
 		s.toastL(w, r, "err.badStart", startStr, "error")

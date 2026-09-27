@@ -857,5 +857,21 @@
   "invite.email": "Email (optional)",
   "invite.emailHint": "Add an email and the invitation goes out by mail. Without it you just get a link.",
   "flash.inviteMailed": "Invitation sent to",
-  "mail.inv.vat": "VAT"
+  "mail.inv.vat": "VAT",
+  "team.roleAdmin": "admin",
+  "err.managersOnly": "Only the workspace owner and admins can do this.",
+  "team.rolesHint": "A member tracks and sees only their own time. An admin, like the owner, runs projects, rates, invoices, payroll and settings; only the owner can delete the workspace.",
+  "report.formerMember": "Former member",
+  "stats.person": "Who",
+  "stats.everyone": "Whole team",
+  "sch.planning": "Planning project",
+  "sch.planningHint": "Cells are minutes for this project. A person's total and load count every project; load is over five working days.",
+  "sch.dayAll": "day total:",
+  "sch.prev": "Previous week",
+  "sch.next": "Next week",
+  "inv.byPerson": "Per person",
+  "inv.byPersonHint": "a line for each person who worked: “Project · task · Name”",
+  "team.role.owner": "owner",
+  "team.role.admin": "admin",
+  "team.role.member": "member"
 }

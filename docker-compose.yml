@@ -24,6 +24,8 @@ services:
       PARATRACK_SENTRY_TRACES: ${PARATRACK_SENTRY_TRACES:-1.0}
       # Encrypts integration tokens and Stripe keys in the database.
       PARATRACK_SECRET_KEY: ${PARATRACK_SECRET_KEY:-}
+      # Time zone for a visitor whose browser hasn't reported one yet.
+      PARATRACK_TZ: ${PARATRACK_TZ:-Europe/Moscow}
     ports:
       - "127.0.0.1:${PARATRACK_PORT:-8000}:8000"
     depends_on:

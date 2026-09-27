@@ -15,7 +15,10 @@ import (
 // "no team" — useful in unit tests that pre-date the team layer.
 // Returns ErrDuplicate if the name already exists in the same team.
 func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (model.Activity, error) {
-	name = strings.ToLower(strings.TrimSpace(name))
+	// The name keeps the case it was typed in (it shows on invoices);
+	// matching goes through name_key, lowercased in Go so Cyrillic folds
+	// too (SQLite's NOCASE only folds ASCII).
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
 	}
@@ -23,8 +26,8 @@ func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (mod
 	if teamID > 0 {
 		var id int64
 		err := d.sql.QueryRowContext(ctx,
-			`INSERT INTO activities (name, team_id, created_at, updated_at) VALUES (?, ?, ?, ?) RETURNING id`,
-			name, teamID, now, now,
+			`INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
+			name, strings.ToLower(name), teamID, now, now,
 		).Scan(&id)
 		if err != nil {
 			if isUniqueViolation(err) {
@@ -42,8 +45,8 @@ func (d *DB) CreateActivity(ctx context.Context, teamID int64, name string) (mod
 	// Insert-if-missing then read back works the same on both backends
 	// (a RETURNING row is absent when the insert was ignored).
 	if _, err := d.sql.ExecContext(ctx,
-		`INSERT OR IGNORE INTO activities (name, created_at, updated_at) VALUES (?, ?, ?)`,
-		name, now, now,
+		`INSERT OR IGNORE INTO activities (name, name_key, created_at, updated_at) VALUES (?, ?, ?, ?)`,
+		name, strings.ToLower(name), now, now,
 	); err != nil {
 		return model.Activity{}, err
 	}
@@ -66,7 +69,7 @@ func (d *DB) GetActivity(ctx context.Context, id int64) (model.Activity, error) 
 // all teams (legacy / tests).
 func (d *DB) GetActivityByName(ctx context.Context, teamID int64, name string) (model.Activity, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
-	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name = ?`
+	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name_key = ?`
 	args := []any{name}
 	if teamID > 0 {
 		q += ` AND team_id = ?`
@@ -85,12 +88,12 @@ func (d *DB) FindActivityByName(ctx context.Context, teamID int64, name string) 
 // GetOrCreateActivity returns the existing activity or inserts a new
 // one. Both CLI quick-start and the web form rely on this.
 func (d *DB) GetOrCreateActivity(ctx context.Context, teamID int64, name string) (model.Activity, error) {
-	name = strings.ToLower(strings.TrimSpace(name))
+	name = strings.TrimSpace(name)
 	if name == "" {
 		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
 	}
-	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name = ?`
-	args := []any{name}
+	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name_key = ?`
+	args := []any{strings.ToLower(name)}
 	if teamID > 0 {
 		q += ` AND team_id = ?`
 		args = append(args, teamID)

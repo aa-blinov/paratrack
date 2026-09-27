@@ -7,6 +7,7 @@
 package web
 
 import (
+	"net/url"
 	"crypto/sha256"
 	"encoding/hex"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -140,6 +141,9 @@ var funcMap = template.FuncMap{
 		return fallback
 	},
 	"splitComma":  func(s string) []string { return strings.Split(s, ",") },
+	// pathesc is for a path segment: urlquery turns spaces into "+", which
+	// a path keeps literally ("Только эта" 404'd on names with spaces).
+	"pathesc":     url.PathEscape,
 	"fmtDurL":     func(lang string, sec int) string { return fmtDurL(i18n.Lang(lang), sec) },
 	"colorFor":    colorFor,
 	"inkFor":      inkFor,
@@ -207,7 +211,7 @@ func (s *Server) routes() http.Handler {
 
 	// ----- protected pages -----
 	pages := http.NewServeMux()
-	pages.HandleFunc("GET /{$}",                    s.handleDashboard)
+	pages.HandleFunc("GET /{$}",                    s.mine(s.handleDashboard))
 	pages.HandleFunc("GET /stats",                  s.handleStats)
 	pages.HandleFunc("GET /graph",                  s.handleGraph)
 	pages.HandleFunc("GET /goals",                  s.handleGoals)
@@ -216,8 +220,8 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("GET /tags-list-fragment",     s.handleTagsFragment)
 
 	// Wave 1: timesheet + saved reports.
-	pages.HandleFunc("GET /timesheet",              s.handleTimesheet)
-	pages.HandleFunc("POST /api/timesheet/cell",    s.handleTimesheetCell)
+	pages.HandleFunc("GET /timesheet",              s.mine(s.handleTimesheet))
+	pages.HandleFunc("POST /api/timesheet/cell",    s.mine(s.handleTimesheetCell))
 	pages.HandleFunc("POST /api/reports/save",      s.handleSavedReportsCreate)
 	pages.HandleFunc("POST /api/reports/{id}/delete", s.handleSavedReportsDelete)
 
@@ -226,49 +230,49 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("POST /api/tokens",          s.handleAPITokenCreate)
 	pages.HandleFunc("POST /api/tokens/{id}/delete", s.handleAPITokenDelete)
 	pages.HandleFunc("GET /integrations",         s.handleIntegrations)
-	pages.HandleFunc("POST /integrations",        s.handleIntegrationConnect)
+	pages.HandleFunc("POST /integrations",        s.manage(s.handleIntegrationConnect))
 	pages.HandleFunc("GET /integrations/{id}",    s.handleIntegrationDetail)
-	pages.HandleFunc("POST /integrations/{id}/sync",   s.handleIntegrationSync)
-	pages.HandleFunc("POST /integrations/{id}/delete", s.handleIntegrationDelete)
-	pages.HandleFunc("POST /integrations/start",  s.handleIntegrationStart)
+	pages.HandleFunc("POST /integrations/{id}/sync",   s.manage(s.handleIntegrationSync))
+	pages.HandleFunc("POST /integrations/{id}/delete", s.manage(s.handleIntegrationDelete))
+	pages.HandleFunc("POST /integrations/start",  s.mine(s.handleIntegrationStart))
 
 	// Wave 3: billable rates + invoices.
-	pages.HandleFunc("POST /projects/{slug}/rate", s.handleProjectRate)
-	pages.HandleFunc("GET /invoices",             s.handleInvoices)
-	pages.HandleFunc("POST /invoices",            s.handleInvoiceCreate)
-	pages.HandleFunc("GET /invoices/{id}",        s.handleInvoiceDetail)
-	pages.HandleFunc("POST /invoices/{id}/status", s.handleInvoiceStatus)
-	pages.HandleFunc("POST /invoices/{id}/delete", s.handleInvoiceDelete)
-	pages.HandleFunc("GET /invoices/{id}/pdf",     s.handleInvoicePDF)
-	pages.HandleFunc("GET /invoices/{id}/act",     s.handleInvoiceAct)
-	pages.HandleFunc("POST /invoices/{id}/edit",    s.handleInvoiceEdit)
-	pages.HandleFunc("POST /invoices/{id}/rebuild", s.handleInvoiceRebuild)
-	pages.HandleFunc("POST /invoices/{id}/receipt", s.handleInvoiceReceipt)
-	pages.HandleFunc("POST /invoices/{id}/send",    s.handleInvoiceSend)
-	pages.HandleFunc("GET /settings/email-preview", s.handleEmailPreview)
-	pages.HandleFunc("GET /invoices/{id}/act.pdf", s.handleInvoiceActPDF)
-	pages.HandleFunc("POST /invoices/{id}/pay",    s.handleInvoicePayLink)
-	pages.HandleFunc("POST /invoices/{id}/paid",   s.handleInvoiceMarkPaid)
+	pages.HandleFunc("POST /projects/{slug}/rate", s.manage(s.handleProjectRate))
+	pages.HandleFunc("GET /invoices",             s.manage(s.handleInvoices))
+	pages.HandleFunc("POST /invoices",            s.manage(s.handleInvoiceCreate))
+	pages.HandleFunc("GET /invoices/{id}",        s.manage(s.handleInvoiceDetail))
+	pages.HandleFunc("POST /invoices/{id}/status", s.manage(s.handleInvoiceStatus))
+	pages.HandleFunc("POST /invoices/{id}/delete", s.manage(s.handleInvoiceDelete))
+	pages.HandleFunc("GET /invoices/{id}/pdf",     s.manage(s.handleInvoicePDF))
+	pages.HandleFunc("GET /invoices/{id}/act",     s.manage(s.handleInvoiceAct))
+	pages.HandleFunc("POST /invoices/{id}/edit",    s.manage(s.handleInvoiceEdit))
+	pages.HandleFunc("POST /invoices/{id}/rebuild", s.manage(s.handleInvoiceRebuild))
+	pages.HandleFunc("POST /invoices/{id}/receipt", s.manage(s.handleInvoiceReceipt))
+	pages.HandleFunc("POST /invoices/{id}/send",    s.manage(s.handleInvoiceSend))
+	pages.HandleFunc("GET /settings/email-preview", s.manage(s.handleEmailPreview))
+	pages.HandleFunc("GET /invoices/{id}/act.pdf", s.manage(s.handleInvoiceActPDF))
+	pages.HandleFunc("POST /invoices/{id}/pay",    s.manage(s.handleInvoicePayLink))
+	pages.HandleFunc("POST /invoices/{id}/paid",   s.manage(s.handleInvoiceMarkPaid))
 	mux.HandleFunc("POST /api/stripe/webhook",    s.handleStripeWebhook)
 	// Browser error reports, relayed to Sentry (no CSRF: sent by the SDK
 	// from any page, including login; only our own DSN is forwarded).
 	mux.HandleFunc("POST /sentry-tunnel",         s.handleSentryTunnel)
-	pages.HandleFunc("POST /api/team/stripe",      s.handleTeamStripe)
+	pages.HandleFunc("POST /api/team/stripe",      s.manage(s.handleTeamStripe))
 
 	// Wave 6: payroll + resource scheduling.
-	pages.HandleFunc("GET /payroll",              s.handlePayroll)
-	pages.HandleFunc("POST /payroll",             s.handlePayrollCreate)
-	pages.HandleFunc("GET /payroll/{id}",         s.handlePayrollDetail)
-	pages.HandleFunc("POST /payroll/{id}/paid",   s.handlePayrollPaid)
-	pages.HandleFunc("POST /payroll/{id}/delete", s.handlePayrollDelete)
-	pages.HandleFunc("POST /api/member/pay",      s.handleMemberPay)
+	pages.HandleFunc("GET /payroll",              s.manage(s.handlePayroll))
+	pages.HandleFunc("POST /payroll",             s.manage(s.handlePayrollCreate))
+	pages.HandleFunc("GET /payroll/{id}",         s.manage(s.handlePayrollDetail))
+	pages.HandleFunc("POST /payroll/{id}/paid",   s.manage(s.handlePayrollPaid))
+	pages.HandleFunc("POST /payroll/{id}/delete", s.manage(s.handlePayrollDelete))
+	pages.HandleFunc("POST /api/member/pay",      s.manage(s.handleMemberPay))
 	pages.HandleFunc("GET /schedule",             s.handleSchedule)
-	pages.HandleFunc("POST /api/schedule/cell",   s.handleScheduleCell)
+	pages.HandleFunc("POST /api/schedule/cell",   s.manage(s.handleScheduleCell))
 
 	// Wave 7: marketplace + report templates.
 	pages.HandleFunc("GET /integrations/marketplace", s.handleMarketplace)
-	pages.HandleFunc("GET /reports",                  s.handleReports)
-	pages.HandleFunc("GET /reports/run",              s.handleReportRun)
+	pages.HandleFunc("GET /reports",                  s.manage(s.handleReports))
+	pages.HandleFunc("GET /reports/run",              s.manage(s.handleReportRun))
 
 	// Wave 8: migration from other trackers.
 	pages.HandleFunc("GET /import",               s.handleImport)
@@ -280,16 +284,16 @@ func (s *Server) routes() http.Handler {
 
 	// Projects (Phase 3).
 	pages.HandleFunc("GET /projects",                s.handleProjectsList)
-	pages.HandleFunc("GET /projects/new",            s.handleProjectNew)
-	pages.HandleFunc("POST /projects/new",           s.handleProjectCreateForm)
+	pages.HandleFunc("GET /projects/new",            s.manage(s.handleProjectNew))
+	pages.HandleFunc("POST /projects/new",           s.manage(s.handleProjectCreateForm))
 	pages.HandleFunc("GET /projects/{slug}",         s.handleProjectDetail)
-	pages.HandleFunc("POST /projects/{slug}",        s.handleProjectUpdateForm)
-	pages.HandleFunc("POST /projects/{slug}/delete", s.handleProjectDeleteForm)
+	pages.HandleFunc("POST /projects/{slug}",        s.manage(s.handleProjectUpdateForm))
+	pages.HandleFunc("POST /projects/{slug}/delete", s.manage(s.handleProjectDeleteForm))
 
 	// Settings (Phase 2): team admin, members, invites, profile.
-	pages.HandleFunc("GET /settings/team",          s.handleTeamSettings)
-	pages.HandleFunc("GET /settings/members",       s.handleTeamMembers)
-	pages.HandleFunc("GET /settings/invites",       s.handleTeamInvites)
+	pages.HandleFunc("GET /settings/team",          s.manage(s.handleTeamSettings))
+	pages.HandleFunc("GET /settings/members",       s.manage(s.handleTeamMembers))
+	pages.HandleFunc("GET /settings/invites",       s.manage(s.handleTeamInvites))
 	pages.HandleFunc("GET /settings/profile",       s.handleSettingsProfile)
 
 	// Public invite-accept page (auth required to actually click Join).
@@ -306,17 +310,17 @@ func (s *Server) routes() http.Handler {
 		mux.Handle(method+" "+path, apiAuth(h))
 	}
 
-	api("GET",    "/api/active",                   s.handleAPIActive)
-	api("GET",    "/api/minibar",                  s.handleMiniBar)
+	api("GET",    "/api/active",                   s.mine(s.handleAPIActive))
+	api("GET",    "/api/minibar",                  s.mine(s.handleMiniBar))
 	api("GET",    "/api/reports.csv",              s.handleCSV)
-	api("POST",   "/api/start",                    s.handleStart)
-	api("POST",   "/api/sessions/{id}/stop",       s.handleStop)
-	api("POST",   "/api/sessions/{id}/reopen",     s.handleReopen)
-	api("POST",   "/api/sessions/{id}/pause",      s.handlePause)
-	api("POST",   "/api/sessions/{id}/resume",     s.handleResume)
-	api("POST",   "/api/focus/{name}",             s.handleFocus)
-	api("POST",   "/api/active/pause-all",         s.handlePauseAll)
-	api("POST",   "/api/active/stop-all",          s.handleStopAll)
+	api("POST",   "/api/start",                    s.mine(s.handleStart))
+	api("POST",   "/api/sessions/{id}/stop",       s.mine(s.handleStop))
+	api("POST",   "/api/sessions/{id}/reopen",     s.mine(s.handleReopen))
+	api("POST",   "/api/sessions/{id}/pause",      s.mine(s.handlePause))
+	api("POST",   "/api/sessions/{id}/resume",     s.mine(s.handleResume))
+	api("POST",   "/api/focus/{name}",             s.mine(s.handleFocus))
+	api("POST",   "/api/active/pause-all",         s.mine(s.handlePauseAll))
+	api("POST",   "/api/active/stop-all",          s.mine(s.handleStopAll))
 	api("PATCH",  "/api/sessions/{id}",            s.handleUpdateSession)
 	api("DELETE", "/api/sessions/{id}",            s.handleDeleteSession)
 	api("GET",    "/api/goals",                    s.handleGoalsList)
@@ -330,26 +334,27 @@ func (s *Server) routes() http.Handler {
 	api("DELETE", "/api/sessions/{id}/tags",       s.handleSessionTagRemove)
 
 	// Team / profile management (Phase 2).
-	api("POST",   "/api/team/rename",              s.handleAPITeamRename)
-	api("POST",   "/api/team/currency",            s.handleAPITeamCurrency)
-	api("POST",   "/api/team/requisites",          s.handleAPITeamRequisites)
+	api("POST",   "/api/team/rename",              s.manage(s.handleAPITeamRename))
+	api("POST",   "/api/team/currency",            s.manage(s.handleAPITeamCurrency))
+	api("POST",   "/api/team/requisites",          s.manage(s.handleAPITeamRequisites))
 	api("POST",   "/api/team/create",              s.handleAPITeamCreate)
 	api("POST",   "/api/team/switch",              s.handleAPITeamSwitch)
 	api("POST",   "/api/team/delete",              s.handleAPITeamDelete)
 	api("DELETE", "/api/team",                     s.handleAPITeamDelete)
-	api("POST",   "/api/team/invites",             s.handleAPIInviteCreate)
-	api("POST",   "/api/team/invites/{token}/revoke", s.handleAPIInviteRevoke)
-	api("DELETE", "/api/team/invites/{token}",     s.handleAPIInviteRevoke)
+	api("POST",   "/api/team/invites",             s.manage(s.handleAPIInviteCreate))
+	api("POST",   "/api/team/invites/{token}/revoke", s.manage(s.handleAPIInviteRevoke))
+	api("DELETE", "/api/team/invites/{token}",     s.manage(s.handleAPIInviteRevoke))
 	api("POST",   "/api/team/members/{id}/remove", s.handleAPIMemberRemove)
+	api("POST",   "/api/team/members/{id}/role",   s.manage(s.handleAPIMemberRole))
 	api("POST",   "/api/invites/{token}/accept",   s.handleAPIInviteAccept)
 	api("POST",   "/api/profile",                  s.handleAPIProfileUpdate)
 	api("POST",   "/api/profile/password",         s.handleAPIProfilePassword)
 
 	// Projects (Phase 2 of the projects rollout).
 	api("GET",    "/api/projects",                 s.handleAPIProjectsList)
-	api("POST",   "/api/projects",                 s.handleAPIProjectCreate)
-	api("PATCH",  "/api/projects/{id}",            s.handleAPIProjectUpdate)
-	api("DELETE", "/api/projects/{id}",            s.handleAPIProjectDelete)
+	api("POST",   "/api/projects",                 s.manage(s.handleAPIProjectCreate))
+	api("PATCH",  "/api/projects/{id}",            s.manage(s.handleAPIProjectUpdate))
+	api("DELETE", "/api/projects/{id}",            s.manage(s.handleAPIProjectDelete))
 	api("POST",   "/api/activities/{id}/project",  s.handleAPIAssignActivityProject)
 
 	// Account recovery + backfill (SaaS).
@@ -379,10 +384,10 @@ func (s *Server) routes() http.Handler {
 	api("GET",    "/api/v1/reports/summary",       s.handleAPIv1Report)
 
 	// Wave 4: webhooks + audit pages.
-	pages.HandleFunc("GET /settings/webhooks",    s.handleWebhooksPage)
-	pages.HandleFunc("POST /api/webhooks",        s.handleWebhookCreate)
-	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.handleWebhookDelete)
-	pages.HandleFunc("GET /settings/audit",       s.handleAuditPage)
+	pages.HandleFunc("GET /settings/webhooks",    s.manage(s.handleWebhooksPage))
+	pages.HandleFunc("POST /api/webhooks",        s.manage(s.handleWebhookCreate))
+	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.manage(s.handleWebhookDelete))
+	pages.HandleFunc("GET /settings/audit",       s.manage(s.handleAuditPage))
 
 	// Wave 4: OIDC SSO (public).
 	mux.HandleFunc("GET /sso/login",     s.handleSSOLogin)
@@ -399,7 +404,7 @@ func (s *Server) routes() http.Handler {
 // logRequests is a tiny middleware: prints method, path, status, latency.
 func logRequests(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+		start := userNow(r)
 		ww := &statusRecorder{ResponseWriter: w, status: 200}
 		next.ServeHTTP(ww, r)
 		log.Printf("%s %s %d %s", r.Method, r.URL.Path, ww.status, time.Since(start))

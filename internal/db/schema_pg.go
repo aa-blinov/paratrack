@@ -42,6 +42,9 @@ func (d *DB) applyPostgresSchema() error {
 		// Only an expression index made these case-insensitive in SQLite.
 		`ALTER TABLE users ALTER COLUMN email TYPE CITEXT`,
 		`ALTER TABLE teams ALTER COLUMN slug TYPE CITEXT`,
+		// Roles grew an admin; recreate the CHECK (idempotent).
+		`ALTER TABLE memberships DROP CONSTRAINT IF EXISTS memberships_role_check`,
+		`ALTER TABLE memberships ADD CONSTRAINT memberships_role_check CHECK (role IN ('owner', 'admin', 'member'))`,
 	}
 	// Columns before and after the late-created tables (see applyMigrations).
 	cols := func() {

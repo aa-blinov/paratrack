@@ -254,7 +254,7 @@
           <td data-label="" class="text-right whitespace-nowrap">
             <div class="flex justify-end gap-1">
               <button class="btn btn-ghost btn-sm gap-1.5"
-                      hx-post="/api/focus/{{urlquery .ActivityName}}"
+                      hx-post="/api/focus/{{pathesc .ActivityName}}"
                       hx-target="#active-list" hx-swap="innerHTML"
                       title="{{.T "dash.focusTitle"}}" aria-label="{{.T "dash.focus"}}">{{icon "target"}}<span class="sm:max-xl:sr-only">{{.T "dash.focus"}}</span></button>
               {{if .Paused}}

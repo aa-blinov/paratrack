@@ -17,9 +17,9 @@ func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startA
 	startStr := FormatTime(startAt)
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
-		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at)
-		 VALUES (?, ?, ?, ?, 0, 0, ?) RETURNING id`,
-		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr,
+		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at, user_id)
+		 VALUES (?, ?, ?, ?, 0, 0, ?, ?) RETURNING id`,
+		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr, actorOf(ctx),
 	).Scan(&id)
 	if err != nil {
 		return model.Session{}, err
@@ -50,9 +50,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, 
 	endStr := FormatTime(endAt)
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
-		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at)
-		 VALUES (?, ?, ?, ?, ?, 0, 0, NULL) RETURNING id`,
-		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note),
+		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at, user_id)
+		 VALUES (?, ?, ?, ?, ?, 0, 0, NULL, ?) RETURNING id`,
+		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note), actorOf(ctx),
 	).Scan(&id)
 	if err != nil {
 		return model.Session{}, err
@@ -68,6 +68,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, 
 func (d *DB) GetSession(ctx context.Context, teamID, id int64) (model.Session, error) {
 	q := sessionSelect + ` WHERE s.id = ?`
 	args := []any{id}
+	var sc string
+	sc, args = scopeSQL(ctx, "s.user_id", args)
+	q += sc
 	if teamID > 0 {
 		q += ` AND s.team_id = ?`
 		args = append(args, teamID)
@@ -79,12 +82,15 @@ func (d *DB) GetSession(ctx context.Context, teamID, id int64) (model.Session, e
 // HasAnySession reports whether the workspace has ever tracked anything;
 // the dashboard's first-run state hangs off it.
 func (d *DB) HasAnySession(ctx context.Context, teamID int64) (bool, error) {
-	q := `SELECT 1 FROM sessions`
+	q := `SELECT 1 FROM sessions WHERE 1 = 1`
 	var args []any
 	if teamID > 0 {
-		q += ` WHERE team_id = ?`
+		q += ` AND team_id = ?`
 		args = append(args, teamID)
 	}
+	var sc string
+	sc, args = scopeSQL(ctx, "user_id", args)
+	q += sc
 	var one int
 	err := d.sql.QueryRowContext(ctx, q+` LIMIT 1`, args...).Scan(&one)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -98,6 +104,9 @@ func (d *DB) HasAnySession(ctx context.Context, teamID int64) (bool, error) {
 func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.ActiveSession, error) {
 	q := sessionSelect + ` WHERE s.end_at IS NULL`
 	args := []any{}
+	var sc string
+	sc, args = scopeSQL(ctx, "s.user_id", args)
+	q += sc
 	if teamID > 0 {
 		q += ` AND s.team_id = ?`
 		args = append(args, teamID)
@@ -127,7 +136,9 @@ func (d *DB) ListClosedSessionsInRange(ctx context.Context, teamID int64, start,
 		q += ` AND s.activity_id = ?`
 		args = append(args, *activityID)
 	}
-	q += ` ORDER BY s.start_at DESC`
+	var sc string
+	sc, args = scopeSQL(ctx, "s.user_id", args)
+	q += sc + ` ORDER BY s.start_at DESC`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
@@ -279,6 +290,9 @@ func (d *DB) DeleteSession(ctx context.Context, teamID, id int64) error {
 		q += ` AND team_id = ?`
 		args = append(args, teamID)
 	}
+	var sc string
+	sc, args = scopeSQL(ctx, "user_id", args)
+	q += sc
 	res, err := d.sql.ExecContext(ctx, q, args...)
 	if err != nil {
 		return err

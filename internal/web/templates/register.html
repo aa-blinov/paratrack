@@ -35,7 +35,7 @@
 
       <p class="text-sm opacity-60 mt-4 text-center">
         {{.T "auth.haveAccount"}}
-        <a href="/login" class="link link-primary">{{.T "nav.login"}}</a>
+        <a href="/login{{with .Next}}?next={{urlquery .}}{{end}}" class="link link-primary">{{.T "nav.login"}}</a>
       </p>
     </div>
   </div>
