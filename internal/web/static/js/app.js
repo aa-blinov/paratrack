@@ -270,7 +270,9 @@ window.applyTheme = function(mode) {
 })();
 
 // Toast — renders a DaisyUI alert in #toast, auto-dismisses after 2.2s.
-window.paratrackToast = function(message, kind, ms) {
+// actions: optional [{label, method, url}] run through htmx, so CSRF and
+// the X-Toast of their response work as for any other button.
+window.paratrackToast = function(message, kind, ms, actions) {
   const el = document.getElementById('toast');
   if (!el) return;
   const variant = kind || 'success';
@@ -288,6 +290,21 @@ window.paratrackToast = function(message, kind, ms) {
   const text = document.createElement('span');
   text.textContent = message;
   box.append(svg, text);
+  for (const a of actions || []) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'toast-action';
+    b.textContent = a.label;
+    b.addEventListener('click', () => {
+      clearTimeout(window._paratrackToastTimer);
+      el.replaceChildren();
+      // Undo returns the fresh running list; discard returns nothing and
+      // lets sessions-changed refresh the rest.
+      const list = a.method === 'POST' && document.getElementById('active-list');
+      htmx.ajax(a.method, a.url, list ? { target: list, swap: 'innerHTML' } : { swap: 'none' });
+    });
+    box.append(b);
+  }
   el.replaceChildren(box);
   clearTimeout(window._paratrackToastTimer);
   window._paratrackToastTimer = setTimeout(() => {
@@ -296,7 +313,7 @@ window.paratrackToast = function(message, kind, ms) {
       inner.classList.add('opacity-0');
       setTimeout(() => { el.innerHTML = ''; }, 250);
     }
-  }, ms || Math.max(2200, String(message).length * 55));
+  }, ms || (actions && actions.length ? 10000 : Math.max(2200, String(message).length * 55)));
 };
 
 // paratrackResize — parses a human duration ("1h 30m") from the

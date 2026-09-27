@@ -88,7 +88,6 @@
   "dash.resume": "Продолжить",
   "dash.stop": "Стоп",
   "dash.focusTitle": "Поставить на паузу все остальные таймеры, этот продолжит идти",
-  "dash.confirmStop": "Остановить сессию?",
   "dash.manage": "Управление",
   "stats.title": "Статистика",
   "stats.today": "Сегодня",
@@ -696,7 +695,7 @@
   "imp.extraHintHarvest": "Показывается рядом с токеном на странице developers.",
   "imp.extraHintClockify": "Часть ссылки после /workspaces/ в адресе Clockify.",
   "auth.registerBlurb": "paratrack считает, куда уходит ваше время: запускаете таймер на задаче, а он раскладывает часы по проектам, дням и клиентам. Регистрация займёт минуту, личное пространство создастся сразу.",
-  "toast.stoppedFull": "Остановлено: {name}, {dur}. Запись в «Недавних» и в статистике.",
+  "toast.stoppedFull": "Остановлено: {name}, {dur}",
   "dur.underMinute": "меньше минуты",
   "flash.msg.updated": "Сохранено.",
   "flash.msg.bad period": "Выберите корректный период: начало раньше конца.",
@@ -750,8 +749,10 @@
   "ledger.paused": "на паузе",
   "ledger.top": "больше всего",
   "ledger.none": "пока нет",
-  "dash.confirmStopNamed": "Остановить «%s»? Время сохранится в «Недавних».",
   "dash.addSession": "Добавить сессию",
   "when.today": "сегодня",
-  "when.yesterday": "вчера"
+  "when.yesterday": "вчера",
+  "toast.reopened": "Остановка отменена, таймер снова идёт",
+  "toast.undo": "Отменить",
+  "toast.discard": "Удалить"
 }

@@ -294,6 +294,7 @@ func (s *Server) routes() http.Handler {
 	api("GET",    "/api/reports.csv",              s.handleCSV)
 	api("POST",   "/api/start",                    s.handleStart)
 	api("POST",   "/api/sessions/{id}/stop",       s.handleStop)
+	api("POST",   "/api/sessions/{id}/reopen",     s.handleReopen)
 	api("POST",   "/api/sessions/{id}/pause",      s.handlePause)
 	api("POST",   "/api/sessions/{id}/resume",     s.handleResume)
 	api("POST",   "/api/focus/{name}",             s.handleFocus)

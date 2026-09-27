@@ -388,3 +388,39 @@ func TestAPIUpdateSessionRecomputesEndFromDuration(t *testing.T) {
 		t.Errorf("row should show note: %q", row[:min(200, len(row))])
 	}
 }
+
+// Stop is instant and undoable: the toast carries /reopen, which brings
+// the session back running without losing or double-counting time.
+func TestAPIStopUndoReopens(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("undo@x.test")
+	body := readBody(t, e.do("POST", "/api/start", url.Values{"activity": {"deep"}}, map[string]string{"HX-Request": "true"}))
+	id := ""
+	for _, part := range strings.Split(body, `sessions/`) {
+		if len(part) > 0 && part[0] >= '0' && part[0] <= '9' {
+			id = strings.SplitN(part, "/", 2)[0]
+			break
+		}
+	}
+	resp := e.do("POST", "/api/sessions/"+id+"/stop", nil, nil)
+	resp.Body.Close()
+	if got := resp.Header.Get("X-Toast-Undo"); got != "/api/sessions/"+id+"/reopen" {
+		t.Fatalf("X-Toast-Undo = %q", got)
+	}
+	if resp.Header.Get("X-Toast-Discard") == "" {
+		t.Errorf("sub-minute stop should offer discard")
+	}
+	resp = e.do("POST", "/api/sessions/"+id+"/reopen", nil, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("reopen: %d %s", resp.StatusCode, readBody(t, resp))
+	}
+	if !strings.Contains(readBody(t, resp), "sessions/"+id+"/stop") {
+		t.Errorf("reopened session should be back in the running list")
+	}
+	// A second start of the same activity is refused, so is a second reopen.
+	resp = e.do("POST", "/api/sessions/"+id+"/reopen", nil, nil)
+	resp.Body.Close()
+	if resp.StatusCode != 409 {
+		t.Errorf("reopen of a running session: %d, want 409", resp.StatusCode)
+	}
+}
