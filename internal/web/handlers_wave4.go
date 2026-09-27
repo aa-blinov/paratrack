@@ -110,8 +110,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 		from, to := rangeFromQuery(r)
 		list, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), from, to, nil)
 		if err != nil {
-			writeJSON(w, map[string]string{"error": err.Error()})
-			w.WriteHeader(500)
+			writeJSONStatus(w, 500, map[string]string{"error": err.Error()})
 			return
 		}
 		// Active (still running) sessions are not in the closed range query —
@@ -154,8 +153,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 		_ = r.ParseForm()
 		name := strings.TrimSpace(r.FormValue("activity"))
 		if name == "" {
-			writeJSON(w, map[string]string{"error": "activity is required"})
-			w.WriteHeader(400)
+			writeJSONStatus(w, 400, map[string]string{"error": "activity is required"})
 			return
 		}
 		act, err := s.db.GetOrCreateActivity(r.Context(), teamID(r), name)

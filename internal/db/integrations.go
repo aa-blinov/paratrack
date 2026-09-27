@@ -233,6 +233,21 @@ func (d *DB) DeleteIntegration(ctx context.Context, teamID, id int64) error {
 }
 
 // UpsertExternalTask imports or refreshes one issue / card.
+// CloseMissingExternalTasks marks every open task the provider no longer
+// returned as closed. keep is the ids of this fetch.
+func (d *DB) CloseMissingExternalTasks(ctx context.Context, integrationID int64, keep []string) error {
+	q := `UPDATE external_tasks SET status = 'closed' WHERE integration_id = ? AND status <> 'closed'`
+	args := []any{integrationID}
+	if len(keep) > 0 {
+		q += ` AND external_id NOT IN (?` + strings.Repeat(`, ?`, len(keep)-1) + `)`
+		for _, k := range keep {
+			args = append(args, k)
+		}
+	}
+	_, err := d.sql.ExecContext(ctx, q, args...)
+	return err
+}
+
 func (d *DB) UpsertExternalTask(ctx context.Context, integrationID int64, externalID, title, url, status string) (ExternalTask, error) {
 	now := FormatTime(time.Now().UTC())
 	_, err := d.sql.ExecContext(ctx, `
