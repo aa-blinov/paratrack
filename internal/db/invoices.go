@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"sort"
 	"context"
 	"database/sql"
@@ -269,6 +270,43 @@ func (d *DB) SetTeamStripe(ctx context.Context, teamID int64, key, webhookSecret
 		`UPDATE teams SET stripe_key = ?, stripe_webhook_secret = ? WHERE id = ?`,
 		sealSecret(key), sealSecret(webhookSecret), teamID)
 	return err
+}
+
+// billedCutoff is when sessions started carrying invoice_id. Invoices
+// made before it get their sessions stamped once, by the same rule the
+// old code billed with: same workspace, start inside the period, same
+// "project · activity" line, and already existing when the invoice was
+// made. Later invoices are stamped at creation, so this never re-runs on them.
+const billedCutoff = "2026-09-27T09:05:00"
+
+func (d *DB) stampLegacyInvoices(ctx context.Context) error {
+	res, err := d.sql.ExecContext(ctx, `
+		UPDATE sessions SET invoice_id = (
+			SELECT i.id FROM invoices i
+			JOIN invoice_lines l ON l.invoice_id = i.id
+			JOIN activities a ON a.id = sessions.activity_id
+			JOIN projects p ON p.id = a.project_id
+			WHERE i.team_id = sessions.team_id AND i.created_at < ?
+			  AND sessions.start_at >= i.period_start AND sessions.start_at < i.period_end
+			  AND sessions.created_at <= i.created_at
+			  AND l.label = p.name || ' · ' || a.name
+			ORDER BY i.id LIMIT 1)
+		WHERE invoice_id IS NULL AND end_at IS NOT NULL AND EXISTS (
+			SELECT 1 FROM invoices i
+			JOIN invoice_lines l ON l.invoice_id = i.id
+			JOIN activities a ON a.id = sessions.activity_id
+			JOIN projects p ON p.id = a.project_id
+			WHERE i.team_id = sessions.team_id AND i.created_at < ?
+			  AND sessions.start_at >= i.period_start AND sessions.start_at < i.period_end
+			  AND sessions.created_at <= i.created_at
+			  AND l.label = p.name || ' · ' || a.name)`, billedCutoff, billedCutoff)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n > 0 {
+		log.Printf("invoices: stamped %d sessions billed before invoice_id existed", n)
+	}
+	return nil
 }
 
 // insertLines writes an invoice's lines and stamps the sessions they bill.
