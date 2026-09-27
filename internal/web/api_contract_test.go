@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"encoding/json"
 	"net/http"
@@ -438,5 +439,58 @@ func TestActiveListFirstRun(t *testing.T) {
 	readBody(t, e.do("POST", "/api/sessions/"+id+"/stop", nil, nil))
 	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); strings.Contains(body, "data-quick-start") {
 		t.Errorf("after the first session the examples should be gone")
+	}
+}
+
+// SSO: endpoints come from discovery; an unverified email never logs in
+// (it could claim someone else's account), a verified one does.
+func TestSSOCallbackRequiresVerifiedEmail(t *testing.T) {
+	verified := false
+	var idp *httptest.Server
+	idp = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/.well-known/openid-configuration":
+			fmt.Fprintf(w, `{"authorization_endpoint":"%[1]s/auth","token_endpoint":"%[1]s/tok","userinfo_endpoint":"%[1]s/me"}`, idp.URL)
+		case "/tok":
+			fmt.Fprint(w, `{"access_token":"at"}`)
+		case "/me":
+			fmt.Fprintf(w, `{"email":"sso@x.test","sub":"42","email_verified":%v}`, verified)
+		}
+	}))
+	defer idp.Close()
+	t.Setenv("PARATRACK_OIDC_ISSUER", idp.URL)
+	t.Setenv("PARATRACK_OIDC_CLIENT_ID", "cid")
+	e := newAPIEnv(t)
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	login := func() (string, bool) {
+		resp, err := noRedirect.Get(e.ts.URL + "/sso/login")
+		if err != nil {
+			t.Fatal(err)
+		}
+		loc, _ := url.Parse(resp.Header.Get("Location"))
+		if !strings.HasPrefix(loc.String(), idp.URL+"/auth?") {
+			t.Fatalf("authorize URL not from discovery: %s", loc)
+		}
+		req, _ := http.NewRequest("GET", e.ts.URL+"/sso/callback?code=c&state="+loc.Query().Get("state"), nil)
+		for _, c := range resp.Cookies() {
+			req.AddCookie(c)
+		}
+		cb, err := noRedirect.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, c := range cb.Cookies() {
+			if c.Name == "paratrack_session" && c.Value != "" {
+				return cb.Header.Get("Location"), true
+			}
+		}
+		return cb.Header.Get("Location"), false
+	}
+	if loc, ok := login(); ok || !strings.Contains(loc, "error=") {
+		t.Fatalf("unverified email logged in (loc %s)", loc)
+	}
+	verified = true
+	if loc, ok := login(); !ok {
+		t.Fatalf("verified email refused (loc %s)", loc)
 	}
 }

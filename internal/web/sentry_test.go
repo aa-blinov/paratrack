@@ -44,3 +44,18 @@ func TestSentryTunnelGuards(t *testing.T) {
 		t.Errorf("garbage: %d, want 400", c)
 	}
 }
+
+// Webhooks never reach the server's own network.
+func TestHookClientRefusesPrivateTargets(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) }))
+	defer srv.Close()
+	if _, err := hookClient.Get(srv.URL); err == nil || !strings.Contains(err.Error(), "not a public address") {
+		t.Fatalf("loopback webhook target allowed: %v", err)
+	}
+	t.Setenv("PARATRACK_WEBHOOK_ALLOW_PRIVATE", "1")
+	resp, err := hookClient.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("opt-in for private targets: %v", err)
+	}
+	resp.Body.Close()
+}

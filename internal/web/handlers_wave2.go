@@ -333,7 +333,7 @@ func fetchGitHubIssues(token, repo string) ([]extItem, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", "paratrack")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func fetchTrelloCards(secret, board string) ([]extItem, error) {
 	}
 	u := fmt.Sprintf("https://api.trello.com/1/boards/%s/cards?filter=open&key=%s&token=%s",
 		url.PathEscape(board), url.QueryEscape(key), url.QueryEscape(token))
-	resp, err := http.Get(u)
+	resp, err := extClient.Get(u)
 	if err != nil {
 		return nil, err
 	}
@@ -438,7 +438,7 @@ func fetchJiraIssues(secret, target string) ([]extItem, error) {
 	} else {
 		req.Header.Set("Authorization", "Bearer "+secret)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -502,7 +502,7 @@ func fetchNotionTasks(secret, dbID string) ([]extItem, error) {
 	req.Header.Set("Authorization", "Bearer "+secret)
 	req.Header.Set("Notion-Version", "2022-06-28")
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -561,7 +561,7 @@ func fetchAsanaTasks(token, projectGID string) ([]extItem, error) {
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/json")
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +614,7 @@ func fetchGitLabIssues(token, project string) ([]extItem, error) {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -658,7 +658,7 @@ func fetchClickUpTasks(token, listID string) ([]extItem, error) {
 		return nil, err
 	}
 	req.Header.Set("Authorization", token)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -706,7 +706,7 @@ func fetchTodoistTasks(token, projectID string) ([]extItem, error) {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := extClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
