@@ -316,6 +316,25 @@
   }
   .toast-action:hover { background: var(--color-base-200); }
   .toast-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+  /* First-run empty state inside the ledger, left-aligned with the rows. */
+  .first-run { @apply py-4; }
+  /* One quiet line of next steps under the ledger, hairline-ruled. */
+  .next-steps {
+    @apply flex flex-wrap items-center gap-x-5 gap-y-2 mt-3 px-5 py-2.5 text-sm
+           border border-base-300 rounded-box bg-base-100;
+  }
+  .next-steps[hidden], #recent[hidden] { display: none; }
+  .next-steps .ledger-label { margin: 0; }
+  .next-steps a {
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--color-base-content) 30%, transparent);
+    text-underline-offset: 3px;
+  }
+  .next-steps a:hover { text-decoration-color: currentColor; }
+  /* Phone: label and Hide share the first row, each link gets its own. */
+  @media (width < 40rem) {
+    .next-steps a { order: 2; flex-basis: 100%; }
+  }
   /* Flat ledger note: surface + hairline, colour only on the icon. */
   #toast > .toast-note {
     @apply pointer-events-auto flex items-center gap-2 text-sm py-2 px-3 rounded-box
@@ -947,6 +966,12 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
   /* In utilities: daisyUI's .btn lives in a sublayer there, so this wins.
      Stop is instant and undoable from its toast, so it reads as a line
      item, not an alarm: hairline + error ink, tint only on hover. */
+  .btn-quick {
+    --btn-bg: transparent;
+    --btn-border: var(--color-base-300);
+    --btn-shadow: none;
+    font-weight: 500;
+  }
   .btn-stop {
     --btn-bg: transparent;
     --btn-fg: var(--color-error);
