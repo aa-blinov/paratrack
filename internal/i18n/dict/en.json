@@ -947,5 +947,15 @@
   "stats.logCut": "Showing the latest %d of %d. Every entry is in the export:",
   "ts.addRow": "Another activity",
   "ts.addRowBtn": "Add a row",
-  "ts.addRowHint": "The sheet lists what you tracked in the last 8 weeks; add any other activity from here."
+  "ts.addRowHint": "The sheet lists what you tracked in the last 8 weeks; add any other activity from here.",
+  "act.rebindForbidden": "This activity is already on another project. The owner or an admin can move it.",
+  "goals.noGoalsMember": "The workspace owner or an admin sets them.",
+  "goals.managersSet": "Goals are the workspace's, set by the owner and admins; the progress is your own.",
+  "flash.transferred": "Ownership handed over. You stay in the workspace as an admin.",
+  "flash.transferPersonal": "A personal workspace can't be handed over.",
+  "team.transferTitle": "Hand over ownership",
+  "team.transferHint": "The new owner gets every right, including deleting the workspace and changing roles. You stay on as an admin.",
+  "team.transferPick": "To",
+  "team.transferBtn": "Hand over",
+  "team.transferConfirm": "Hand the workspace over? Only the new owner can give it back."
 }

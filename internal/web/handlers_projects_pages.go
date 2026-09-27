@@ -105,9 +105,11 @@ type projectDetailData struct {
 	CSRFToken string
 	Lang      string
 	Unbilled  []unbilledView
+	CanManage bool // rates, client and settings are for managers only
 }
 
 func (p *projectDetailData) setCSRF(t string) { p.CSRFToken = t }
+func (p *projectDetailData) setManage(v bool) { p.CanManage = v }
 func (p *projectDetailData) setLang(l string) { p.Lang = l }
 func (p projectDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
@@ -161,7 +163,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		estInput = strconv.Itoa(*p.EstimateMinutes)
 		estPct = totalSec * 100 / (*p.EstimateMinutes * 60)
 	}
-	if p.BillableRateCents != nil {
+	if p.BillableRateCents != nil && canManage(r) {
 		rateInput = formatMoneyInput(resolveLang(r), *p.BillableRateCents)
 	}
 	data := projectDetailData{

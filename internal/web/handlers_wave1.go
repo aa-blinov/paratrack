@@ -279,7 +279,12 @@ func (s *Server) handleSavedReportsDelete(w http.ResponseWriter, r *http.Request
 		http.Error(w, "bad id", 400)
 		return
 	}
-	if err := s.db.DeleteSavedReport(r.Context(), teamID(r), id); err != nil {
+	var onlyMine int64
+	if !canManage(r) {
+		me, _ := UserFrom(r.Context())
+		onlyMine = me.ID
+	}
+	if err := s.db.DeleteSavedReport(r.Context(), teamID(r), id, onlyMine); err != nil {
 		http.Redirect(w, r, "/stats?flash="+encodeFlash(false, "not found"), http.StatusSeeOther)
 		return
 	}

@@ -158,7 +158,7 @@ GET        /api/v1/projects
 GET        /api/v1/reports/summary
 ```
 
-`GET /api/v1/sessions` returns **both** closed and still-running sessions.
+`GET /api/v1/sessions` returns **both** closed and still-running sessions. Paged newest first: `?limit=` (default 100, max 500), and `next_cursor` from the response goes back as `?cursor=` for the next page.
 
 ---
 

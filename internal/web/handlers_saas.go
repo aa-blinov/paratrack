@@ -158,8 +158,12 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 	}
 	if pidStr := r.FormValue("project_id"); pidStr != "" {
 		if pid, err := strconv.ParseInt(pidStr, 10, 64); err == nil && pid > 0 {
-			if err := s.db.AssignActivityProject(r.Context(), teamID(r), act.ID, pid); err != nil {
-				s.toast(w, "project: "+err.Error(), "error")
+			if err := s.bindActivityProject(r, act.ID, pid); err != nil {
+				msg := "project: " + err.Error()
+				if errors.Is(err, errRebind) {
+					msg = i18n.T(resolveLang(r), "act.rebindForbidden")
+				}
+				s.toast(w, msg, "error")
 				s.respondActiveList(w, r)
 				return
 			}

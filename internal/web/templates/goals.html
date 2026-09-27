@@ -1,8 +1,9 @@
 {{define "goals-content"}}
 <h1 class="mb-1">{{.T "nav.goals"}}</h1>
-<p class="opacity-60 mb-5">{{.T "goals.blurbFull"}}</p>
+<p class="opacity-60 mb-5">{{.T "goals.blurbFull"}}{{if not .CanManage}} {{.T "goals.managersSet"}}{{end}}</p>
 
-<!-- New goal form -->
+<!-- New goal form: goals are the team's, managers set them -->
+{{if .CanManage}}
 <div class="card bg-base-100 border border-base-300">
   <div class="card-body p-5">
     <div class="card-title mb-3">{{.T "goals.new"}}</div>
@@ -30,6 +31,7 @@
     </form>
   </div>
 </div>
+{{end}}
 
 <!-- Existing goals with progress; the inner HTML is swapped by HTMX. -->
 <div id="goals-list" hx-get="/api/goals/progress" hx-trigger="load, every 60s" hx-swap="innerHTML">
@@ -52,12 +54,12 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="font-mono">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
-              <button class="btn btn-ghost btn-sm btn-circle"
+              {{if $.CanManage}}<button class="btn btn-ghost btn-sm btn-circle"
                       hx-delete="/api/goals?activity={{urlquery .ActivityName}}&period={{urlquery .Period}}"
                       hx-target="#goals-list" hx-swap="innerHTML"
                       hx-confirm="{{.T "goals.confirmDelete"}}"
                       title="{{.T "goals.delete"}}"
-                      aria-label="{{.T "goals.delete"}}">✕</button>
+                      aria-label="{{.T "goals.delete"}}">✕</button>{{end}}
             </div>
           </div>
           <progress class="progress w-full" value="{{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}" max="100"></progress>
@@ -69,7 +71,7 @@
   {{else}}
   <div class="text-center py-8 opacity-60 mt-4">
     <div class="font-medium">{{.T "goals.noGoals"}}</div>
-    <div class="text-sm">{{.T "goals.noGoalsHint"}}</div>
+    <div class="text-sm">{{if .CanManage}}{{.T "goals.noGoalsHint"}}{{else}}{{.T "goals.noGoalsMember"}}{{end}}</div>
   </div>
   {{end}}
 {{end}}
