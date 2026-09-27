@@ -57,7 +57,7 @@
          hx-get="/" hx-select="#today-stats" hx-select-oob="#recent" hx-swap="outerHTML ignoreTitle:true" hx-trigger="sessions-changed from:body">
       <span class="ledger-label">{{.T "dash.today"}}</span>
       <dl class="ledger-figures">
-        <div><dt>{{.T "ledger.tracked"}}</dt><dd class="font-mono">{{.TodayTotal}}</dd></div>
+        <div><dt>{{.T "ledger.tracked"}}</dt><dd class="font-mono" x-data="liveTotal({{.TodaySecs}}, {{.RunningCount}})" x-text="formatted">{{.TodayTotal}}</dd></div>
         <div><dt>{{.T "ledger.running"}}</dt><dd class="font-mono">{{.RunningCount}}</dd></div>
         <div><dt>{{.T "ledger.paused"}}</dt><dd class="font-mono">{{.PausedCount}}</dd></div>
         <div class="min-w-0"><dt>{{.T "ledger.top"}}</dt><dd class="truncate">{{if .TopToday}}{{.TopToday}}{{else}}<span class="opacity-60">{{.T "ledger.none"}}</span>{{end}}</dd></div>

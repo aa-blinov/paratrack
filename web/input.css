@@ -186,6 +186,19 @@
 }
 
 /* Re-apply the type scale DaisyUI's reset erased. */
+/* Text inks for semantic hues. Light theme needs deeper steps than the
+   fill colours to clear 4.5:1; dark theme reads the hues as they are. */
+[data-theme="paratrack-light"] {
+  --ink-success: #047857;
+  --ink-warning: #b45309;
+  --ink-primary: #4f46e5;
+}
+[data-theme="paratrack-dark"] {
+  --ink-success: var(--color-success);
+  --ink-warning: var(--color-warning);
+  --ink-primary: var(--color-primary);
+}
+
 @layer base {
   h1, .h1 { font-size: var(--step-3); line-height: 1.15; font-weight: 650; letter-spacing: -0.02em; }
   h2, .h2 { font-size: var(--step-2); line-height: 1.2;  font-weight: 620; letter-spacing: -0.015em; }
@@ -257,8 +270,10 @@
     font-size: var(--step--1);
     font-weight: 550;
   }
-  .status-pill.is-active { @apply bg-success/15 text-success; }
-  .status-pill.is-paused { @apply bg-warning/15 text-warning; }
+  /* Tint for the fill, a deeper ink for the text: the saturated success
+     and warning hues fail contrast on a light tint (≈2:1). */
+  .status-pill.is-active { @apply bg-success/15; color: var(--ink-success); }
+  .status-pill.is-paused { @apply bg-warning/15; color: var(--ink-warning); }
 
   .tag-chip {
     @apply inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5;
@@ -315,7 +330,8 @@
     bottom: 1rem;
   }
   .toast-action {
-    @apply ms-1 -me-1 px-2 py-1 rounded-field font-medium text-primary cursor-pointer;
+    @apply ms-1 -me-1 px-2 py-1 rounded-field font-semibold cursor-pointer;
+    color: var(--ink-primary);
   }
   .toast-action:hover { background: var(--color-base-200); }
   .toast-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }

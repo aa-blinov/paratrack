@@ -115,6 +115,7 @@ type dashboardData struct {
 	RunningCount int
 	PausedCount  int
 	TodayTotal string
+	TodaySecs  int // seed for the live-ticking «учтено»
 	TopToday   string
 	Goals      []goalView
 	ActiveVM   activeListVM // wrapper so active-list can call {{.T}}
@@ -251,7 +252,7 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 	// clipped `Duration` (shown in the table cell) is derived after.
 	if s.EndAt != nil {
 		fullSecs := s.DurationSeconds(now)
-		v.DurationInput = fmtDurL(lang, fullSecs)
+		v.DurationInput = durationToHuman(lang, fullSecs)
 		v.DurationSecs = s.TrackedSecondsInWindow(periodStart, periodEnd, now)
 		v.Duration = fmtDurL(lang, v.DurationSecs)
 	} else if s.LastResumeAt != nil && !s.Paused {
@@ -373,7 +374,15 @@ func toAny(xs []int64) []any {
 
 // durationToHuman is an alias of fmtDurL so the editable field
 // matches the read-only cells.
-func durationToHuman(lang i18n.Lang, sec int) string { return fmtDurL(lang, sec) }
+func durationToHuman(lang i18n.Lang, sec int) string {
+	if sec > 0 && sec < 60 {
+		if lang == i18n.Ru {
+			return fmt.Sprintf("%d\u00a0с", sec)
+		}
+		return fmt.Sprintf("%ds", sec)
+	}
+	return fmtDurL(lang, sec)
+}
 
 // fmtDuration is the English duration label (API, CSV, tests).
 func fmtDuration(sec int) string { return fmtDurL(i18n.En, sec) }
@@ -392,7 +401,9 @@ func fmtDurL(lang i18n.Lang, sec int) string {
 		return "0" + mu
 	}
 	if sec < 60 {
-		return "1" + mu
+		// Honest: a few seconds are not "1 min". Editable inputs use
+		// durationToHuman, which keeps the real seconds.
+		return "<1" + mu
 	}
 	h := sec / 3600
 	m := (sec / 60) % 60
