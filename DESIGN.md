@@ -309,7 +309,11 @@ icon-to-label gap (`gap-1.5`; `gap-1` on the 24px lane).
 - **Row / nav (32px)** — `btn-ghost`: transparent, ink text, 12px padding, 12px
   semibold. Navigation, toolbars, row actions.
 - **Destructive (32px)** — `btn-error`: `verdict-red` fill, white ink (4.83:1).
-  Stop, Delete. Never decorative.
+  Irreversible Delete. Never decorative.
+- **Stop (32px)** — `.btn-stop`: transparent, hairline `base-300` border,
+  `verdict-red` ink, tint only on hover. Stop is instant and undoable from
+  its toast, so it reads as a line item, not an alarm. On a phone card
+  Pause/Resume is the wide button and Stop its narrower peer.
 - **Quiet-danger (32px)** — `btn-ghost` + `text-error` ink on transparent.
   Row-level removals.
 - **Chip / micro (24px)** — `btn-ghost` `btn-xs`: 8px padding, 11px semibold.
