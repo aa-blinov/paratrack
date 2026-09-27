@@ -646,7 +646,8 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		pushName = a.Name
 	}
 	// Say what stopped, how long it ran, and where it went.
-	dur := fmtDur(r, stopped.DurationSeconds(time.Now()))
+	// A session that ran at all reads "<1 min", never "0 min".
+	dur := fmtDur(r, max(1, stopped.DurationSeconds(time.Now())))
 	s.toast(w, strings.NewReplacer("{name}", pushName, "{dur}", dur).
 		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
 	// Stop is instant; the toast carries the way back (and a discard for
