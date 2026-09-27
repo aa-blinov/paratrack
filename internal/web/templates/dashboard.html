@@ -45,17 +45,7 @@
     </form>
 
     <div class="border-t border-base-300 mt-5 pt-4">
-      <div class="flex items-center justify-between gap-2 mb-2">
-        <h2 id="ledger-running-title" class="ledger-label">{{.T "dash.activeSessions"}}</h2>
-        {{if .ActiveSessions}}
-        <form hx-post="/api/focus/{{urlquery (index .ActiveSessions 0).ActivityName}}"
-              hx-target="#active-list" hx-swap="innerHTML" class="inline">
-          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-          <button type="submit" class="btn btn-ghost btn-sm gap-1.5"
-                  title="{{.T "dash.focusTitle"}}">{{icon "target"}}{{.T "dash.focusFirst"}}</button>
-        </form>
-        {{end}}
-      </div>
+      <h2 id="ledger-running-title" class="ledger-label mb-2">{{.T "dash.activeSessions"}}</h2>
       <div id="active-list" aria-live="polite" hx-get="/api/active" hx-trigger="load, every 30s" hx-swap="innerHTML">
         {{template "active-list" .ActiveVM}}
       </div>
@@ -298,7 +288,7 @@ window.paratrackOnboard = (function () {
       </div>
       <div class="flex gap-2 sm:col-span-2">
         <input type="text" name="note" placeholder="{{.T "dash.noteShort"}}" class="input input-bordered flex-1">
-        <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}} {{.T "tags.add"}}</button>
+        <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}} {{.T "dash.addSession"}}</button>
       </div>
     </form>
   </div>
@@ -332,8 +322,8 @@ window.paratrackOnboard = (function () {
           <td data-label="{{.T "dash.started"}}" class="font-mono whitespace-nowrap">{{.StartLocal}}</td>
           <td data-label="{{.T "dash.duration"}}"
               class="font-mono"
-              x-data="liveDuration('{{.StartISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
-              x-text="formatted">{{.Duration}}</td>
+              x-data="liveDuration('{{.ResumeISO}}', {{.AccumulatedSeconds}}, {{.Paused}})"
+              x-text="clock">{{.Clock}}</td>
           <td data-label="" class="text-right whitespace-nowrap">
             <div class="flex justify-end gap-1">
               <button class="btn btn-ghost btn-sm gap-1.5"
@@ -352,7 +342,7 @@ window.paratrackOnboard = (function () {
               <button class="btn btn-error btn-sm gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/stop"
                       hx-target="#active-list" hx-swap="innerHTML"
-                      hx-confirm="{{.T "dash.confirmStop"}}" title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="sm:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
+                      hx-confirm="{{printf (.T "dash.confirmStopNamed") .ActivityName}}" title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="sm:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
             </div>
           </td>
         </tr>
@@ -375,8 +365,8 @@ window.paratrackOnboard = (function () {
     <span class="min-w-0 flex-1">
       <span class="block truncate font-medium">{{$s.ActivityName}}</span>
       <span class="block text-sm opacity-70 font-mono"
-            x-data="liveDuration('{{$s.StartISO}}', {{$s.AccumulatedSeconds}}, {{$s.Paused}})"
-            x-text="formatted">{{$s.Duration}}</span>
+            x-data="liveDuration('{{$s.ResumeISO}}', {{$s.AccumulatedSeconds}}, {{$s.Paused}})"
+            x-text="clock">{{$s.Clock}}</span>
     </span>
     {{if gt (len .) 1}}<span class="badge badge-neutral badge-sm" title="{{$.T "dash.activeSessions"}}">{{len .}}</span>{{end}}
   </a>
@@ -388,7 +378,7 @@ window.paratrackOnboard = (function () {
           title="{{$.T "dash.pause"}}" aria-label="{{$.T "dash.pause"}}">{{icon "pause"}}</button>
   {{end}}
   <button class="btn btn-error btn-circle" hx-post="/api/sessions/{{$s.ID}}/stop" hx-swap="none"
-          hx-confirm="{{$.T "dash.confirmStop"}}"
+          hx-confirm="{{printf ($.T "dash.confirmStopNamed") $s.ActivityName}}"
           title="{{$.T "dash.stop"}}" aria-label="{{$.T "dash.stop"}}">{{icon "square"}}</button>
 </div>
 {{- end}}{{end}}
