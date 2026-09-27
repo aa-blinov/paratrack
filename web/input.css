@@ -962,8 +962,9 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
   #recent .responsive-collapse tbody td:nth-child(2) { grid-column: 1; }
   #recent .responsive-collapse tbody td:nth-child(3) { grid-column: 2; }
   #recent .responsive-collapse tbody td:nth-child(3)::before { content: "→ "; }
+  #recent .responsive-collapse tbody td:nth-child(7) { grid-column: 4; grid-row: 2; justify-self: end; }
   #recent .responsive-collapse tbody td:nth-child(5) {
-    grid-column: 3 / 5; grid-row: 2; font-size: var(--step--1);
+    grid-column: 3 / 4; grid-row: 2; font-size: var(--step--1);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #recent .responsive-collapse tbody td:nth-child(6) { grid-column: 1 / -1; grid-row: 3; }
@@ -1079,3 +1080,13 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
   .doc-table td:nth-child(3) { text-align: left; opacity: 0.8; }
   .doc-table tfoot tr { border-bottom: 0; border-top: 2px solid var(--color-base-300); }
 }
+
+/* Project picker inside a running row: a quiet label-sized control, not a
+   second title (the phone card makes its cell bold and large). */
+.ledger-project {
+  font-size: var(--step--1) !important;
+  font-weight: 400;
+  color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
+  min-height: 1.75rem;
+}
+@media (pointer: coarse) { .ledger-project { min-height: 2.25rem; } }

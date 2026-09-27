@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/translit"
 	"net/url"
 	"strings"
 	"time"
@@ -58,7 +59,7 @@ var (
 func Slugify(name string) string {
 	var b strings.Builder
 	b.Grow(len(name))
-	for _, r := range strings.ToLower(strings.TrimSpace(name)) {
+	for _, r := range translit.Latin(strings.TrimSpace(name)) {
 		switch {
 		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
 			b.WriteRune(r)
@@ -121,7 +122,7 @@ func (s *Service) Create(ctx context.Context, ownerID int64, name string) (Team,
 	slug := base
 	for i := 2; ; i++ {
 		var id int64
-			err := s.d.SQL().QueryRowContext(ctx,
+		err := s.d.SQL().QueryRowContext(ctx,
 			`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
 			slug, name, ownerID, now,
 		).Scan(&id)
@@ -279,9 +280,9 @@ func (s *Service) Members(ctx context.Context, teamID int64) ([]Member, error) {
 	var out []Member
 	for rows.Next() {
 		var (
-			m       Member
-			role    string
-			joined  string
+			m      Member
+			role   string
+			joined string
 		)
 		if err := rows.Scan(&m.UserID, &m.Email, &m.Name, &role, &joined); err != nil {
 			return nil, err

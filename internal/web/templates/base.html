@@ -145,7 +145,7 @@
   <footer class="{{if .User}}hidden lg:block {{end}}border-t border-base-300 bg-base-100 py-3">
     <div class="mx-auto max-w-6xl px-4 flex items-center gap-2 flex-wrap">
       <div class="text-sm opacity-60 flex-1 min-w-0 whitespace-nowrap truncate">
-        {{.T "version"}}<span class="hidden sm:inline">{{if .User}} · {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
+        {{.T "version"}}<span class="hidden sm:inline">{{if .User}} · {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">p</kbd> {{.T "kbd.pause"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button type="button" data-install hidden class="btn btn-ghost btn-xs gap-1" title="{{.T "pwa.installTitle"}}">

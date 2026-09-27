@@ -494,3 +494,20 @@ func TestSSOCallbackRequiresVerifiedEmail(t *testing.T) {
 		t.Fatalf("verified email refused (loc %s)", loc)
 	}
 }
+
+// Pause all / stop all act on every open timer at once.
+func TestPauseAllStopAll(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("all@x.test")
+	for _, a := range []string{"a", "b", "c"} {
+		readBody(t, e.do("POST", "/api/start", url.Values{"activity": {a}}, map[string]string{"HX-Request": "true"}))
+	}
+	body := readBody(t, e.do("POST", "/api/active/pause-all", nil, map[string]string{"HX-Request": "true"}))
+	if strings.Count(body, "status-pill is-paused") != 3 {
+		t.Fatalf("pause all: %d paused", strings.Count(body, "status-pill is-paused"))
+	}
+	body = readBody(t, e.do("POST", "/api/active/stop-all", nil, map[string]string{"HX-Request": "true"}))
+	if strings.Contains(body, "status-pill") {
+		t.Fatal("stop all left timers running")
+	}
+}
