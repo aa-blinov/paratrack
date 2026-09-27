@@ -51,8 +51,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, 
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at, user_id)
-		 VALUES (?, ?, ?, ?, ?, 0, 0, NULL, ?) RETURNING id`,
-		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note), actorOf(ctx),
+		 VALUES (?, ?, ?, ?, ?, 0, ?, NULL, ?) RETURNING id`,
+		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note),
+		max(0, int(endAt.Sub(startAt).Seconds())), actorOf(ctx), // a closed session carries its tracked total
 	).Scan(&id)
 	if err != nil {
 		return model.Session{}, err

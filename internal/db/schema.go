@@ -342,6 +342,13 @@ var columnMigrations = []struct {
 // because it would conflict with the ON CONFLICT(team_id, activity_id,
 // period) DO UPDATE used by UpsertGoal.
 var uniqueMigrations = []string{
+	// Big teams: every member view filters team + person + time; the
+	// unbilled total wants closed sessions not on an invoice.
+	`CREATE INDEX IF NOT EXISTS idx_sessions_team_start ON sessions(team_id, start_at)`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_team_user_start ON sessions(team_id, user_id, start_at)`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_activity_start ON sessions(activity_id, start_at)`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_invoice ON sessions(invoice_id) WHERE invoice_id IS NOT NULL`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_unbilled ON sessions(team_id, activity_id) INCLUDE (start_at, end_at, accumulated_seconds) WHERE invoice_id IS NULL AND end_at IS NOT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_activities_key ON activities(team_id, name_key)`,
 	// Someone who left keeps their pay rate for the time they worked, so
 	// the next pay run still pays it.
@@ -508,6 +515,22 @@ func (d *DB) applySchema() error {
 	cols()
 	stmts = append(stmts, uniqueMigrations...)
 	cols()
+	// Closed sessions carry their tracked total (older ones left it 0 and
+	// had it recomputed from the text timestamps on every read). Same
+	// number DurationSeconds gives: whole seconds of the span.
+	stmts = append(stmts, `UPDATE sessions SET accumulated_seconds =
+		GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (end_at::timestamp - start_at::timestamp))))::bigint
+		WHERE end_at IS NOT NULL AND accumulated_seconds = 0 AND end_at > start_at`)
+	// A session's invoice is a real reference: deleting the invoice frees
+	// the session, so "not billed" is just invoice_id IS NULL.
+	stmts = append(stmts,
+		`UPDATE sessions SET invoice_id = NULL WHERE invoice_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM invoices i WHERE i.id = sessions.invoice_id)`,
+		`DO $$ BEGIN
+		   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'sessions_invoice_id_fkey') THEN
+		     ALTER TABLE sessions ADD CONSTRAINT sessions_invoice_id_fkey FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL;
+		   END IF;
+		 END $$`,
+	)
 	for _, s := range stmts {
 		// Straight to *sql.DB: DDL has no placeholders to rebind, and the
 		// no-argument path lets pgx run the multi-statement schema at once.

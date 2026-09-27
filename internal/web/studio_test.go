@@ -3,6 +3,7 @@ package web
 import (
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -49,6 +50,18 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode == 200 {
 		t.Fatal("developer stopped the owner's timer")
+	}
+	// Nor rewrite it (sequential ids are easy to guess).
+	for _, path := range []string{"/api/sessions/" + ownerID, "/api/v1/sessions/" + ownerID} {
+		resp = dev.do("PATCH", path, url.Values{"note": {"взлом"}, "start_at": {"2026-09-01T10:00"}, "end_at": {"2026-09-01T11:00"}}, htmx)
+		resp.Body.Close()
+		if resp.StatusCode != 404 {
+			t.Errorf("developer PATCH %s: %d, want 404", path, resp.StatusCode)
+		}
+	}
+	oid, _ := strconv.ParseInt(ownerID, 10, 64)
+	if got, _ := owner.srv.db.GetSession(t.Context(), 0, oid); (got.Note != nil && *got.Note == "взлом") || got.EndAt != nil {
+		t.Fatalf("developer rewrote the owner's session: %+v", got)
 	}
 	readBody(t, dev.do("POST", "/api/active/stop-all", nil, htmx))
 	if !strings.Contains(readBody(t, owner.do("GET", "/api/active", nil, htmx)), "ревью") {

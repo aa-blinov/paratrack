@@ -1,13 +1,11 @@
 package web
 
 import (
-	"math"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
@@ -39,8 +37,6 @@ type projectListRow struct {
 	MonthSecs  int
 	TodayLabel string // in the user's duration format
 	MonthLabel string
-	TotalSecs  int
-	LastUsed   string // formatted "3 days ago" or empty
 }
 
 // handleProjectsList — GET /projects?archived=1
@@ -55,20 +51,23 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := userNow(r)
+	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	monthFrom := now.Add(-30 * 24 * time.Hour)
+	counts, _ := s.db.ProjectActivityCounts(r.Context(), tid)
+	spans, _ := s.db.ProjectSpans(r.Context(), tid, monthFrom, now)
+	today, month := map[int64]int{}, map[int64]int{}
+	for _, sp := range spans {
+		// "Сегодня" is today from midnight, not the last 24 h.
+		today[sp.ProjectID] += sp.Session.TrackedSecondsInWindow(dayStart, now, now)
+		month[sp.ProjectID] += sp.Session.TrackedSecondsInWindow(monthFrom, now, now)
+	}
 	rows := make([]projectListRow, 0, len(projects))
 	for _, p := range projects {
-		acts, _ := s.db.ListActivitiesForProject(r.Context(), p.ID, true)
 		row := projectListRow{
 			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
-			Activities: len(acts),
+			Activities: counts[p.ID], TodaySecs: today[p.ID], MonthSecs: month[p.ID],
 		}
-		dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-		row.TodaySecs = projectSecondsInWindow(r, s, p.ID, dayStart, now) // "Сегодня" is today, not the last 24 h
-		row.MonthSecs = projectSecondsInWindow(r, s, p.ID, now.Add(-30*24*time.Hour), now)
-		row.TotalSecs = projectSecondsInWindow(r, s, p.ID, time.Unix(0, 0), now)
 		row.TodayLabel, row.MonthLabel = fmtDur(r, row.TodaySecs), fmtDur(r, row.MonthSecs)
-		row.LastUsed = lastUsedLabel(projects, p, rows)
-		_ = lastUsedLabel // keep linter quiet until we wire a real last-used query
 		rows = append(rows, row)
 	}
 
@@ -134,28 +133,22 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	// Recent sessions in this project (last 30 days, capped at 50).
 	now := userNow(r)
 	from := now.Add(-30 * 24 * time.Hour)
-	rawSessions, err := s.db.ListClosedSessionsInRange(r.Context(), tid, from, now, nil)
+	rawSessions, err := s.db.ProjectSessions(r.Context(), tid, p.ID, from, now)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	views := make([]sessionView, 0, len(rawSessions))
-	totalSec := 0
+	views := make([]sessionView, 0, min(len(rawSessions), 50))
 	monthSec := 0
 	for _, as := range rawSessions {
-		if as.Activity.ProjectID != p.ID {
-			continue
-		}
 		v := toSessionView(as.Session, as.Activity, from, now, now, resolveLang(r), durFmtOf(r))
 		monthSec += v.DurationSecs
-		// All-time total: unclipped wall clock for this project.
-		if as.Session.EndAt != nil {
-			totalSec += int(math.Ceil(as.Session.EndAt.Sub(as.Session.StartAt).Seconds()))
-		}
 		if len(views) < 50 {
 			views = append(views, v)
 		}
 	}
+	// "За всё время" is the whole history, tracked time (pauses out).
+	totalSec, _ := s.db.ProjectTrackedTotal(r.Context(), tid, p.ID)
 	hydrateSessionTags(r.Context(), s.db, views)
 	hydrateSessionProjects(r.Context(), s.db, views)
 
@@ -331,57 +324,4 @@ func (s *Server) handleProjectDeleteForm(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 }
 
-// projectSecondsInWindow sums the duration of closed sessions in a
-// project between [from, to]. It issues one IN-list query over the
-// project's activities, then sums on the Go side.
-func projectSecondsInWindow(r *http.Request, s *Server, projectID int64, from, to time.Time) int {
-	ctx := r.Context()
-	acts, err := s.db.ListActivitiesForProject(ctx, projectID, true)
-	if err != nil || len(acts) == 0 {
-		return 0
-	}
-	ids := make([]int64, len(acts))
-	for i, a := range acts {
-		ids[i] = a.ID
-	}
-	rows, err := s.db.SQL().QueryContext(ctx,
-		`SELECT activity_id, start_at, end_at, accumulated_seconds, paused
-		   FROM sessions
-		  WHERE activity_id IN (`+placeholders(len(ids))+`)
-		    AND end_at IS NOT NULL
-		    AND end_at >= ?
-		    AND start_at <= ?`,
-		append(toAny(ids), db.FormatTime(from), db.FormatTime(to))...)
-	if err != nil {
-		return 0
-	}
-	defer rows.Close()
-	total := 0
-	for rows.Next() {
-		var aid int64
-		var start, endS string
-		var accum int
-		var paused int
-		if err := rows.Scan(&aid, &start, &endS, &accum, &paused); err != nil {
-			continue
-		}
-		st, _ := db.ScanTime(start)
-		en, _ := db.ScanTime(endS)
-		sess := model.Session{
-			StartAt:            st,
-			EndAt:              &en,
-			AccumulatedSeconds: accum,
-			Paused:             paused == 1,
-		}
-		total += sess.TrackedSecondsInWindow(from, to, to)
-	}
-	_ = strconv.Itoa // keep import
-	return total
-}
 
-// lastUsedLabel is a placeholder; the real implementation lives
-// elsewhere if/when we add a "last_used_at" denormalisation. For
-// now it returns empty so the template renders a clean "—".
-func lastUsedLabel(_ []model.Project, _ model.Project, _ []projectListRow) string {
-	return ""
-}

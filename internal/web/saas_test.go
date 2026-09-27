@@ -115,6 +115,13 @@ func TestRateLimitLogin(t *testing.T) {
 	if code != http.StatusTooManyRequests {
 		t.Fatalf("after 12 attempts status = %d, want 429", code)
 	}
+	// A colleague from the same address still gets in: the limit is per
+	// account, not per office.
+	resp := e.do("POST", "/api/login", url.Values{"email": {"colleague@y.z"}, "password": {"wrongwrong"}}, nil)
+	resp.Body.Close()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		t.Fatal("one person's failed logins locked out everyone on the same IP")
+	}
 }
 
 func TestBackfillCreatesClosedSession(t *testing.T) {

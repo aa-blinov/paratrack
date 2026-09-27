@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -51,6 +52,9 @@ type timesheetData struct {
 	DayTotalLabels  [7]string
 	GrandTotal      int
 	GrandTotalLabel string
+	Others          []model.Activity // big workspace: activities not on the sheet
+	Added           []int64          // rows added by hand this visit
+	DateISO         string
 }
 
 // handleTimesheet renders the weekly grid. ?date= any day inside the
@@ -67,7 +71,13 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 	weekEnd := weekStart.AddDate(0, 0, 6)
 	lang := string(resolveLang(r))
 
-	grid, err := s.db.ListTimesheet(r.Context(), teamID(r), weekStart, now)
+	var added []int64
+	for _, v := range r.URL.Query()["add"] {
+		if id, err := strconv.ParseInt(v, 10, 64); err == nil && id > 0 {
+			added = append(added, id)
+		}
+	}
+	grid, err := s.db.ListTimesheet(r.Context(), teamID(r), weekStart, now, added...)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -130,6 +140,9 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		DayTotalLabels:  dayTotalLabels,
 		GrandTotal:      grid.GrandTotal,
 		GrandTotalLabel: fmtDur(r, grid.GrandTotal),
+		Others:          grid.Others,
+		Added:           added,
+		DateISO:         weekStart.Format("2006-01-02"),
 	}
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", "timesheet", &data)
 }
@@ -177,7 +190,7 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, actID int64, day time.Time) {
 	weekStart := startOfWeek(r, day)
 	now := userNow(r)
-	grid, err := s.db.ListTimesheet(r.Context(), teamID(r), weekStart, now)
+	grid, err := s.db.ListTimesheet(r.Context(), teamID(r), weekStart, now, actID)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

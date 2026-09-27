@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -191,5 +192,86 @@ func TestInvoiceAndPayrollCurrency(t *testing.T) {
 	}
 	if got, _ := d.GetInvoice(ctx, 1, inv.ID); got.Currency != "USD" {
 		t.Errorf("issued invoice must keep USD after team change, got %q", got.Currency)
+	}
+}
+
+// Two managers build the same unbilled time at once: the second invoice
+// is refused, nothing is billed twice.
+func TestInvoiceRaceBillsOnce(t *testing.T) {
+	d, err := newTestDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	d.SQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
+	d.SQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	start := time.Date(2026, 9, 21, 9, 0, 0, 0, time.UTC)
+	rate := 5000
+	p, _ := d.CreateProject(ctx, 1, "Ромашка", "", "#7c3aed")
+	d.SetProjectRate(ctx, 1, p.ID, &rate, nil)
+	a, _ := d.CreateActivity(ctx, 1, "вёрстка")
+	d.AssignActivityProject(ctx, 1, a.ID, p.ID)
+	d.CreateClosedSession(ctx, 1, a.ID, start, start.Add(time.Hour), "")
+	d.CreateClosedSession(ctx, 1, a.ID, start.Add(2*time.Hour), start.Add(3*time.Hour), "")
+	end := start.Add(4 * time.Hour)
+	first, _ := d.BuildInvoiceLines(ctx, 1, start, end, p.ID)
+	second, _ := d.BuildInvoiceLines(ctx, 1, start, end, p.ID) // read before the first is saved
+	if _, err := d.CreateInvoice(ctx, 1, "INV-R-1", "A", start, end, "", first); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.CreateInvoice(ctx, 1, "INV-R-2", "B", start, end, "", second); err != db.ErrAlreadyBilled {
+		t.Fatalf("second invoice over the same time: err %v, want ErrAlreadyBilled", err)
+	}
+	var n int
+	d.SQL().QueryRowContext(ctx, `SELECT count(*) FROM invoices WHERE number = 'INV-R-2'`).Scan(&n)
+	if n != 0 {
+		t.Error("the refused invoice was saved anyway")
+	}
+}
+
+// The dashboard's "not invoiced yet" sums in SQL; it must say exactly
+// what an invoice for the same time would.
+func TestUnbilledMatchesInvoice(t *testing.T) {
+	d, err := newTestDB(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := t.Context()
+	d.SQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
+	d.SQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	d.SetTeamBilling(ctx, 1, db.BillingRules{RoundMinutes: 15, RoundMode: "up", InvoicePrefix: "INV"})
+	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
+	var pids []int64
+	for pi, name := range []string{"Ромашка", "Лютик", "Acme"} {
+		rate := 3000 + pi*1700
+		p, _ := d.CreateProject(ctx, 1, name, "", "#7c3aed")
+		d.SetProjectRate(ctx, 1, p.ID, &rate, nil)
+		pids = append(pids, p.ID)
+		for ai := 0; ai < 3; ai++ {
+			a, _ := d.CreateActivity(ctx, 1, name+" задача "+strconv.Itoa(ai))
+			d.AssignActivityProject(ctx, 1, a.ID, p.ID)
+			for k := 0; k < 7; k++ {
+				st := start.Add(time.Duration(pi*100+ai*10+k) * 97 * time.Minute)
+				sess, _ := d.CreateClosedSession(ctx, 1, a.ID, st, st.Add(time.Duration(5+k*13)*time.Minute+17*time.Second), "")
+				if k%3 == 0 { // paused sessions carry their own tracked total
+					d.SQL().ExecContext(ctx, `UPDATE sessions SET accumulated_seconds = ? WHERE id = ?`, 60*(k+1)+11, sess.ID)
+				}
+			}
+		}
+	}
+	got, err := d.Unbilled(ctx, 1, 0)
+	if err != nil || len(got) != 3 {
+		t.Fatalf("unbilled: %v, %d projects", err, len(got))
+	}
+	for _, u := range got {
+		lines, _ := d.BuildInvoiceLines(ctx, 1, u.Since, time.Now().Add(time.Hour), u.ProjectID)
+		h, cents := 0, 0
+		for _, l := range lines {
+			h += db.HoursHundredths(l.Seconds)
+			cents += l.AmountCents
+		}
+		if u.Hundredths != h || u.AmountCents != cents || h == 0 {
+			t.Errorf("%s: unbilled %d h/100, %d cents; invoice %d h/100, %d cents", u.ProjectName, u.Hundredths, u.AmountCents, h, cents)
+		}
 	}
 }

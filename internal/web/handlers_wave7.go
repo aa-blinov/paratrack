@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/catalog"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // ---------------------------------------------------------------------------
@@ -68,6 +69,13 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		byRate   map[int]int // billable seconds per hourly rate
 	}
 	teamCur, _ := s.db.TeamCurrency(r.Context(), teamID(r))
+	// Every project once (archived too: old hours still belong to them).
+	projByID := map[int64]model.Project{}
+	if ps, err := s.db.ListProjects(r.Context(), teamID(r), true); err == nil {
+		for _, p := range ps {
+			projByID[p.ID] = p
+		}
+	}
 	projCur := map[int64]string{}
 	currencyOf := func(projectID int64) string {
 		if projectID == 0 {
@@ -99,11 +107,8 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 			if as.Activity.ProjectID == 0 {
 				key = i18n.T(resolveLang(r), "dash.uncategorized")
 			} else {
-				if p, err := s.db.GetProject(r.Context(), as.Activity.ProjectID); err == nil {
+				if p, ok := projByID[as.Activity.ProjectID]; ok {
 					key = p.Name
-					if tpl.Billable && p.BillableRateCents != nil {
-						_ = p
-					}
 				} else {
 					key = i18n.T(resolveLang(r), "dash.uncategorized")
 				}
@@ -147,7 +152,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		if tpl.Billable {
 			rate := 0
 			if as.Activity.ProjectID > 0 {
-				if p, err := s.db.GetProject(r.Context(), as.Activity.ProjectID); err == nil &&
+				if p, ok := projByID[as.Activity.ProjectID]; ok &&
 					p.Billable && p.BillableRateCents != nil {
 					rate = *p.BillableRateCents
 				}

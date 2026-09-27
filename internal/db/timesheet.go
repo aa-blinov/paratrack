@@ -37,13 +37,17 @@ type TimesheetWeek struct {
 	Rows       []DayCell
 	DayTotals  [7]int
 	GrandTotal int
+	Others     []model.Activity // not on the sheet; offered as "add a row"
 }
+
+// sheetAllRows: up to this many activities, every one gets a row.
+const sheetAllRows = 30
 
 // ListTimesheet aggregates tracked time per (activity, day) inside
 // [weekStart, weekStart+7d). Sessions are clipped to the week window
 // and scaled like TrackedSecondsInWindow so pause gaps don't inflate
 // the cell.
-func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Time, now time.Time) (TimesheetWeek, error) {
+func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Time, now time.Time, extra ...int64) (TimesheetWeek, error) {
 	weekEnd := weekStart.AddDate(0, 0, 7)
 	q := `
 		SELECT s.activity_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at,
@@ -158,8 +162,9 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 		}
 		return out.Rows[i].ActivityID < out.Rows[j].ActivityID
 	})
-	// Also include every activity that has no time this week so the
-	// user can fill an empty row (stable order by name).
+	// Empty rows to fill: every activity in a small workspace; in a big
+	// one only what this person used in the last 8 weeks plus rows they
+	// added, the rest offered in a picker.
 	if teamID > 0 {
 		acts, err := d.ListActivities(ctx, teamID, false)
 		if err == nil {
@@ -167,13 +172,37 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 			for _, r := range out.Rows {
 				seen[r.ActivityID] = true
 			}
+			want := func(int64) bool { return true }
+			if len(acts) > sheetAllRows {
+				keep := map[int64]bool{}
+				for _, id := range extra {
+					keep[id] = true
+				}
+				q := `SELECT DISTINCT activity_id FROM sessions WHERE team_id = ? AND start_at >= ? AND start_at < ?`
+				args := []any{teamID, FormatTime(weekStart.AddDate(0, 0, -56)), FormatTime(weekStart.AddDate(0, 0, 7))}
+				sc, args := scopeSQL(ctx, "user_id", args)
+				if rows, err := d.sql.QueryContext(ctx, q+sc, args...); err == nil {
+					for rows.Next() {
+						var id int64
+						if rows.Scan(&id) == nil {
+							keep[id] = true
+						}
+					}
+					rows.Close()
+				}
+				want = func(id int64) bool { return keep[id] }
+			}
 			for _, a := range acts {
-				if !seen[a.ID] {
+				switch {
+				case seen[a.ID]:
+				case want(a.ID):
 					out.Rows = append(out.Rows, DayCell{
 						ActivityID:   a.ID,
 						ActivityName: a.Name,
 						ProjectID:    a.ProjectID,
 					})
+				default:
+					out.Others = append(out.Others, a)
 				}
 			}
 		}

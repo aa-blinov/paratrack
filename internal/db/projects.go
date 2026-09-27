@@ -301,3 +301,90 @@ func slugify(s string) string {
 	}
 	return out
 }
+
+// ProjectSpan is one closed session's tracked time, tagged with its project.
+type ProjectSpan struct {
+	ProjectID int64
+	Session   model.Session
+}
+
+// ProjectSpans returns the closed sessions touching [from, to] that
+// belong to a project, in one query for the whole workspace (scoped to
+// the person for a member).
+func (d *DB) ProjectSpans(ctx context.Context, teamID int64, from, to time.Time) ([]ProjectSpan, error) {
+	q := `SELECT a.project_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused
+		FROM sessions s JOIN activities a ON a.id = s.activity_id
+		WHERE s.team_id = ? AND a.project_id IS NOT NULL AND s.end_at IS NOT NULL
+		  AND s.start_at <= ? AND s.end_at >= ?`
+	args := []any{teamID, FormatTime(to), FormatTime(from)}
+	sc, args := scopeSQL(ctx, "s.user_id", args)
+	rows, err := d.sql.QueryContext(ctx, q+sc, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ProjectSpan
+	for rows.Next() {
+		var sp ProjectSpan
+		var st, en string
+		var paused int
+		if err := rows.Scan(&sp.ProjectID, &st, &en, &sp.Session.AccumulatedSeconds, &paused); err != nil {
+			return nil, err
+		}
+		sp.Session.StartAt, _ = ScanTime(st)
+		end, _ := ScanTime(en)
+		sp.Session.EndAt = &end
+		sp.Session.Paused = paused == 1
+		out = append(out, sp)
+	}
+	return out, rows.Err()
+}
+
+// ProjectActivityCounts is the number of activities (archived too) per project.
+func (d *DB) ProjectActivityCounts(ctx context.Context, teamID int64) (map[int64]int, error) {
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT project_id, count(*) FROM activities WHERE team_id = ? AND project_id IS NOT NULL GROUP BY project_id`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var id int64
+		var n int
+		if err := rows.Scan(&id, &n); err != nil {
+			return nil, err
+		}
+		out[id] = n
+	}
+	return out, rows.Err()
+}
+
+// ProjectSessions is the project's closed sessions touching [from, to],
+// newest first (scoped to the person for a member).
+func (d *DB) ProjectSessions(ctx context.Context, teamID, projectID int64, from, to time.Time) ([]model.ActiveSession, error) {
+	q := sessionSelect + `
+		WHERE s.team_id = ? AND a.project_id = ? AND s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?`
+	args := []any{teamID, projectID, FormatTime(to), FormatTime(from)}
+	sc, args := scopeSQL(ctx, "s.user_id", args)
+	rows, err := d.sql.QueryContext(ctx, q+sc+` ORDER BY s.start_at DESC`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanActiveSessions(rows)
+}
+
+// ProjectTrackedTotal is all the tracked time ever put on the project
+// (closed sessions; scoped to the person for a member).
+func (d *DB) ProjectTrackedTotal(ctx context.Context, teamID, projectID int64) (int, error) {
+	q := `SELECT COALESCE(SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
+		       ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END), 0)::bigint
+		FROM sessions s JOIN activities a ON a.id = s.activity_id
+		WHERE s.team_id = ? AND a.project_id = ? AND s.end_at IS NOT NULL`
+	args := []any{teamID, projectID}
+	sc, args := scopeSQL(ctx, "s.user_id", args)
+	var total int64
+	err := d.sql.QueryRowContext(ctx, q+sc, args...).Scan(&total)
+	return int(total), err
+}

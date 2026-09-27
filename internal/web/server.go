@@ -198,8 +198,10 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /login",         s.handleLogin)
 	mux.HandleFunc("GET /register",      s.handleRegister)
 	mux.HandleFunc("GET /lang/{code}",     s.handleSetLang)
-	mux.Handle("POST /api/login",    s.rateLimit("login", 10, time.Minute)(http.HandlerFunc(s.handleAPILogin)))
-	mux.Handle("POST /api/register", s.rateLimit("register", 5, time.Minute)(http.HandlerFunc(s.handleAPIRegister)))
+	// Per account from an address, plus a ceiling per address (an office
+	// shares one IP).
+	mux.Handle("POST /api/login",    s.rateLimit("login-ip", 200, time.Minute)(s.rateLimit("login", 10, time.Minute, "email")(http.HandlerFunc(s.handleAPILogin))))
+	mux.Handle("POST /api/register", s.rateLimit("register", 30, time.Minute)(http.HandlerFunc(s.handleAPIRegister)))
 	mux.HandleFunc("POST /api/logout",   s.handleAPILogout)
 
 	staticFS, _ := fs.Sub(assets, "static")
