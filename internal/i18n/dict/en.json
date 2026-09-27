@@ -683,7 +683,6 @@
   "imp.extraHintClockify": "The part of the Clockify URL after /workspaces/.",
   "auth.registerBlurb": "paratrack shows where your time goes: start a timer on a task and it sorts the hours by project, day and client. Sign-up takes a minute and your personal workspace is ready right away.",
   "toast.stoppedFull": "Stopped: {name}, {dur}",
-  "dur.underMinute": "under a minute",
   "flash.msg.updated": "Saved.",
   "flash.msg.bad period": "Pick a valid period: the start must be before the end.",
   "flash.msg.no billable time in that period": "No billable time in that period. Check that the project is billable and has a rate.",

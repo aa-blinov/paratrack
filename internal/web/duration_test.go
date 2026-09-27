@@ -16,8 +16,8 @@ func TestFmtDurationLadder(t *testing.T) {
 	cases := map[int]string{
 		-5:   "0m",
 		0:    "0m",
-		1:    "1m",
-		59:   "1m",
+		1:    "<1m",
+		59:   "<1m",
 		60:   "1m",
 		90:   "1m",
 		120:  "2m",
