@@ -1,7 +1,11 @@
 package web
 
 import (
+	netmail "net/mail"
+	"net/url"
+
 	"errors"
+	"github.com/aa-blinov/paratrack/internal/mail"
 	"net/http"
 	"strconv"
 	"strings"
@@ -281,11 +285,19 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
 	}
-	link := "https://" + r.Host + "/invites/" + inv.Token
-	if r.TLS == nil && !strings.HasPrefix(r.Header.Get("X-Forwarded-Proto"), "https") {
-		link = "http://" + r.Host + "/invites/" + inv.Token
+	link := publicBaseURL(r) + "/invites/" + inv.Token
+	// With an address, the invitation goes out as a letter too.
+	if to := strings.TrimSpace(r.FormValue("email")); to != "" {
+		if _, err := netmail.ParseAddress(to); err == nil {
+			subj, ev := inviteEmail(resolveLang(r), user.Name, team.Name, link)
+			if msg, err := s.buildEmail(to, subj, ev); err == nil && s.deliver(msg) == nil && mail.Configured() {
+				http.Redirect(w, r, "/settings/invites?flash="+url.QueryEscape(encodeFlash(true,
+					i18n.T(resolveLang(r), "flash.inviteMailed")+" "+to+". "+link)), http.StatusSeeOther)
+				return
+			}
+		}
 	}
-	http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(true, i18n.T(resolveLang(r), "flash.inviteCreated")+" "+link), http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/invites?flash="+url.QueryEscape(encodeFlash(true, i18n.T(resolveLang(r), "flash.inviteCreated")+" "+link)), http.StatusSeeOther)
 }
 
 func (s *Server) handleAPIInviteRevoke(w http.ResponseWriter, r *http.Request) {

@@ -29,9 +29,16 @@ type Attachment struct {
 	Data        []byte
 }
 
-// AttachSender can send files too. Both built-in senders implement it.
-type AttachSender interface {
-	SendWith(to, subject, body string, files ...Attachment) error
+// Message is a full letter: plain text (always), optional HTML version
+// of the same content, optional files.
+type Message struct {
+	To, Subject, Text, HTML string
+	Files                   []Attachment
+}
+
+// RichSender delivers a Message. Both built-in senders implement it.
+type RichSender interface {
+	Deliver(m Message) error
 }
 
 // Configured reports whether real delivery is set up (SMTP host given).
@@ -47,11 +54,15 @@ func (LogSender) Send(to, subject, body string) error {
 	return nil
 }
 
-func (l LogSender) SendWith(to, subject, body string, files ...Attachment) error {
-	for _, f := range files {
+func (l LogSender) Deliver(m Message) error {
+	body := m.Text
+	if m.HTML != "" {
+		body += fmt.Sprintf("\n[html version, %d bytes]", len(m.HTML))
+	}
+	for _, f := range m.Files {
 		body += fmt.Sprintf("\n[attachment %s, %d bytes]", f.Name, len(f.Data))
 	}
-	return l.Send(to, subject, body)
+	return l.Send(m.To, m.Subject, body)
 }
 
 // SMTPSender delivers via an SMTP relay. Auth is skipped when username
@@ -63,11 +74,12 @@ type SMTPSender struct {
 	From     string // "paratrack@example.com"
 }
 
-func (s SMTPSender) Send(to, subject, body string) error { return s.SendWith(to, subject, body) }
+func (s SMTPSender) Send(to, subject, body string) error {
+	return s.Deliver(Message{To: to, Subject: subject, Text: body})
+}
 
-// SendWith builds a MIME message: UTF-8 text, RFC 2047 subject (Cyrillic
-// survives), files as base64 parts.
-func (s SMTPSender) SendWith(to, subject, body string, files ...Attachment) error {
+// Deliver sends m over SMTP (see buildMessage for the MIME shape).
+func (s SMTPSender) Deliver(m Message) error {
 	addr := s.Host
 	if addr == "" {
 		return fmt.Errorf("smtp host not configured")
@@ -76,28 +88,74 @@ func (s SMTPSender) SendWith(to, subject, body string, files ...Attachment) erro
 	if s.Username != "" {
 		auth = smtp.PlainAuth("", s.Username, s.Password, strings.Split(addr, ":")[0])
 	}
-	return smtp.SendMail(addr, auth, s.From, []string{to}, buildMessage(s.From, to, subject, body, files))
+	return smtp.SendMail(addr, auth, s.From, []string{m.To}, buildMessage(s.From, m))
 }
 
-func buildMessage(from, to, subject, body string, files []Attachment) []byte {
+// buildMessage is the MIME tree:
+//
+//	multipart/mixed            (only when there are files)
+//	├─ multipart/alternative   (only when there is HTML)
+//	│  ├─ text/plain
+//	│  └─ text/html
+//	└─ files…
+//
+// Text parts are UTF-8 base64; the subject is RFC 2047 so Cyrillic survives.
+func buildMessage(from string, m Message) []byte {
 	var buf bytes.Buffer
 	head := func(k, v string) { buf.WriteString(k + ": " + v + "\r\n") }
 	head("From", from)
-	head("To", to)
-	head("Subject", mime.QEncoding.Encode("utf-8", subject))
+	head("To", m.To)
+	head("Subject", mime.QEncoding.Encode("utf-8", m.Subject))
 	head("MIME-Version", "1.0")
-	if len(files) == 0 {
-		head("Content-Type", "text/plain; charset=UTF-8")
-		head("Content-Transfer-Encoding", "base64")
-		buf.WriteString("\r\n" + wrap64(base64.StdEncoding.EncodeToString([]byte(body))))
-	} else {
+	text := func(ct, body string) (textproto.MIMEHeader, []byte) {
+		return textproto.MIMEHeader{"Content-Type": {ct + "; charset=UTF-8"}, "Content-Transfer-Encoding": {"base64"}},
+			[]byte(wrap64(base64.StdEncoding.EncodeToString([]byte(body))))
+	}
+	// body writes the text (or text+html alternative) into w.
+	body := func(w *multipart.Writer) {
+		if m.HTML == "" {
+			h, b := text("text/plain", m.Text)
+			p, _ := w.CreatePart(h)
+			p.Write(b)
+			return
+		}
+		var alt bytes.Buffer
+		aw := multipart.NewWriter(&alt)
+		for _, part := range [][2]string{{"text/plain", m.Text}, {"text/html", m.HTML}} {
+			h, b := text(part[0], part[1])
+			p, _ := aw.CreatePart(h)
+			p.Write(b)
+		}
+		aw.Close()
+		p, _ := w.CreatePart(textproto.MIMEHeader{"Content-Type": {"multipart/alternative; boundary=" + aw.Boundary()}})
+		p.Write(alt.Bytes())
+	}
+	switch {
+	case len(m.Files) == 0 && m.HTML == "":
+		h, b := text("text/plain", m.Text)
+		for k, v := range h {
+			head(k, v[0])
+		}
+		buf.WriteString("\r\n")
+		buf.Write(b)
+	case len(m.Files) == 0:
+		var alt bytes.Buffer
+		aw := multipart.NewWriter(&alt)
+		for _, part := range [][2]string{{"text/plain", m.Text}, {"text/html", m.HTML}} {
+			h, b := text(part[0], part[1])
+			p, _ := aw.CreatePart(h)
+			p.Write(b)
+		}
+		aw.Close()
+		head("Content-Type", "multipart/alternative; boundary="+aw.Boundary())
+		buf.WriteString("\r\n")
+		buf.Write(alt.Bytes())
+	default:
 		mw := multipart.NewWriter(&buf)
 		head("Content-Type", "multipart/mixed; boundary="+mw.Boundary())
 		buf.WriteString("\r\n")
-		tp, _ := mw.CreatePart(textproto.MIMEHeader{
-			"Content-Type": {"text/plain; charset=UTF-8"}, "Content-Transfer-Encoding": {"base64"}})
-		tp.Write([]byte(wrap64(base64.StdEncoding.EncodeToString([]byte(body)))))
-		for _, f := range files {
+		body(mw)
+		for _, f := range m.Files {
 			ct := f.ContentType
 			if ct == "" {
 				ct = "application/octet-stream"

@@ -10,13 +10,15 @@ import (
 )
 
 type captureMail struct {
-	to, subject string
-	files       []mail.Attachment
+	to, subject, html string
+	files             []mail.Attachment
 }
 
-func (c *captureMail) Send(to, subject, body string) error { return c.SendWith(to, subject, body) }
-func (c *captureMail) SendWith(to, subject, body string, files ...mail.Attachment) error {
-	c.to, c.subject, c.files = to, subject, files
+func (c *captureMail) Send(to, subject, body string) error {
+	return c.Deliver(mail.Message{To: to, Subject: subject, Text: body})
+}
+func (c *captureMail) Deliver(m mail.Message) error {
+	c.to, c.subject, c.html, c.files = m.To, m.Subject, m.HTML, m.Files
 	return nil
 }
 
@@ -61,6 +63,9 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	resp.Body.Close()
 	if cm.to != "buh@romashka.ru" || len(cm.files) != 1 || !strings.HasPrefix(string(cm.files[0].Data), "%PDF") {
 		t.Fatalf("mail not sent with the PDF: to %q files %d", cm.to, len(cm.files))
+	}
+	if !strings.Contains(cm.html, "К оплате") || !strings.Contains(cm.html, "9\u00a0000,00") && !strings.Contains(cm.html, "6\u00a0000,00") {
+		t.Errorf("HTML letter lacks the amount block")
 	}
 	if page := readBody(t, e.do("GET", first.loc, nil, nil)); !strings.Contains(page, "doc-status is-sent") {
 		t.Error("sending didn't mark the invoice sent")
