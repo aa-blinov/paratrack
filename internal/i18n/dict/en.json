@@ -942,5 +942,10 @@
   "bill.removeLogo": "Remove logo",
   "bill.logoHint": "PNG or JPEG up to 200 KB. Shown on invoices, acts and PDFs.",
   "flash.logoBig": "The file is over 200 KB",
-  "flash.logoType": "Needs a PNG or JPEG"
+  "flash.logoType": "Needs a PNG or JPEG",
+  "flash.alreadyBilled": "Some of this time was just put on another invoice. Reload the page and create the invoice again.",
+  "stats.logCut": "Showing the latest %d of %d. Every entry is in the export:",
+  "ts.addRow": "Another activity",
+  "ts.addRowBtn": "Add a row",
+  "ts.addRowHint": "The sheet lists what you tracked in the last 8 weeks; add any other activity from here."
 }

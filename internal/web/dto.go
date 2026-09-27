@@ -172,6 +172,7 @@ type statsData struct {
 	Sessions     []sessionView
 	Total        string
 	SessionCount int
+	SessionsCut  bool // the log shows only the newest statsLogRows
 	TagFilter    string // current ?tag= value, empty if unfiltered
 	AllTagNames  []string // for the inline-add input autocomplete
 	SavedReports []dbpkg.SavedReport

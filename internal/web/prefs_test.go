@@ -144,3 +144,24 @@ func TestBillingRules(t *testing.T) {
 		t.Error("PDF has no logo image")
 	}
 }
+
+// Project page: "all time" is the whole history, and /projects shows a
+// member only their own hours.
+func TestProjectTotalsAllTimeAndScoped(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("proj@x.test")
+	htmx := map[string]string{"HX-Request": "true"}
+	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Ромашка"}}, nil))
+	old := time.Now().AddDate(0, -3, 0).Format("2006-01-02")
+	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {old + " 10:00"}, "end": {old + " 13:00"}, "project_id": {"1"}}, htmx))
+	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 11:00"}, "project_id": {"1"}}, htmx))
+	proj, _ := e.srv.db.GetProject(t.Context(), 1)
+	page := readBody(t, e.do("GET", "/projects/"+proj.Slug, nil, nil))
+	if !strings.Contains(page, "4\u00a0ч") {
+		t.Errorf("all-time total should be 4 h (3 h three months ago + 1 h yesterday)")
+	}
+	list := readBody(t, e.do("GET", "/projects", nil, nil))
+	if !strings.Contains(list, "1 ч") {
+		t.Errorf("30-day column should be 1 h")
+	}
+}

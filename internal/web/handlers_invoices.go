@@ -253,6 +253,10 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "mixed currency"), http.StatusSeeOther)
 		return
 	}
+	if errors.Is(err, dbpkg.ErrAlreadyBilled) {
+		http.Redirect(w, r, "/invoices?flash=already_billed", http.StatusSeeOther)
+		return
+	}
 	if err != nil {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return

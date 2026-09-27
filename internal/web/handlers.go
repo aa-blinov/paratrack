@@ -554,7 +554,14 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		allTagNames[i] = t.Name
 	}
 
+	// Totals cover every row; the editable log shows the newest ones only
+	// (a month of a big team is thousands of rows; CSV has them all).
+	shown := rows
+	if len(shown) > statsLogRows {
+		shown = shown[:statsLogRows]
+	}
 	s.render(w, r, "stats-content", &statsData{
+		SessionsCut:   len(shown) < len(rows),
 		People:        people,
 		PersonFilter:  personFilter,
 		pageData:      pageData{Title: "Stats", Active: "stats"},
@@ -563,7 +570,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		ByProject:     byProject,
 		Projects:      projects,
 		ProjectFilter: projectFilter,
-		Sessions:      rows,
+		Sessions:      shown,
 		Total:         fmtDur(r, total),
 		SessionCount:  len(rows),
 		TagFilter:     tagFilter,
@@ -571,6 +578,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		SavedReports:  s.loadSavedReports(r),
 	})
 }
+
+const statsLogRows = 200
 
 // filterByTag reduces the rows to only those carrying the named tag.
 // Since we already loaded everything from the DB the filtering is
@@ -715,8 +724,9 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	if stopped.DurationSeconds(userNow(r)) < 60 {
 		w.Header().Set("X-Toast-Discard", "/api/sessions/"+strconv.FormatInt(id, 10))
 	}
-	s.sendPush(teamID(r), "Session stopped", pushName+" finished", "/stats")
-	s.notifyNewlyMetGoals(r, stopped.ActivityID)
+	me, _ := UserFrom(ctx)
+	s.sendPush(teamID(r), []int64{me.ID}, "Session stopped", pushName+" finished", "/stats")
+	s.notifyNewlyMetGoals(r, stopped.ActivityID, stopped.DurationSeconds(userNow(r)))
 	s.respondActiveList(w, r)
 }
 
@@ -912,6 +922,11 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
+	// A member edits only their own time (GetSession is scoped).
+	if _, err := s.db.GetSession(r.Context(), teamID(r), id); err != nil {
+		http.Error(w, "session not found", 404)
+		return
+	}
 	if s.refuseLocked(w, r, id) {
 		return
 	}
@@ -1008,6 +1023,10 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 	if teamID(r) > 0 {
 		q += " AND team_id = ?"
 		updates = append(updates, teamID(r))
+	}
+	if uid := dbpkg.ScopedTo(ctx); uid > 0 {
+		q += " AND user_id = ?"
+		updates = append(updates, uid)
 	}
 	res, err := s.db.SQL().ExecContext(ctx, q, updates...)
 	if err != nil {
@@ -1632,7 +1651,7 @@ func clipSeconds(sess model.Session, start, end time.Time) int {
 // notifyNewlyMetGoals pushes a notification for every goal that crossed
 // 100% because of the session we just closed. Cheap: one ProgressForGoals
 // query; dedupe is by "goal was under 100 before the stop".
-func (s *Server) notifyNewlyMetGoals(r *http.Request, activityID int64) {
+func (s *Server) notifyNewlyMetGoals(r *http.Request, activityID int64, stoppedSec int) {
 	progress, err := s.db.ProgressForGoals(r.Context(), teamID(r), userNow(r))
 	if err != nil {
 		return
@@ -1641,14 +1660,15 @@ func (s *Server) notifyNewlyMetGoals(r *http.Request, activityID int64) {
 		if p.Goal.ActivityID != activityID {
 			continue
 		}
-		if p.PercentComplete < 100 {
-			continue
+		if p.PercentComplete < 100 || p.AchievedMinutes-stoppedSec/60 >= p.Goal.TargetMinutes {
+			continue // not met, or already met before this session
 		}
 		// We only see the AFTER state; treat "exceeded" as met and send
 		// at most once per period by checking if the goal just turned.
 		// A simple heuristic: send when percent is exactly around 100+
 		// and the achieved label is fresh — acceptable for v1.
-		s.sendPush(teamID(r),
+		me, _ := UserFrom(r.Context())
+		s.sendPush(teamID(r), []int64{me.ID},
 			"Goal met",
 			p.ActivityName+" · "+periodRangeLabel(p.Goal.Period, resolveLang(r)),
 			"/goals")
