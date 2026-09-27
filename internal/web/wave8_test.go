@@ -10,21 +10,21 @@ import (
 )
 
 func TestImportRange(t *testing.T) {
-	from, to, err := parseImportRange("2026-09-01", "2026-09-30")
+	from, to, err := parseImportRange("2026-09-01", "2026-09-30", "")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !to.After(from) {
 		t.Fatalf("range inverted: %v %v", from, to)
 	}
-	if _, _, err := parseImportRange("2026-09-30", "2026-09-01"); err == nil {
+	if _, _, err := parseImportRange("2026-09-30", "2026-09-01", ""); err == nil {
 		t.Fatal("bad range accepted")
 	}
-	if _, _, err := parseImportRange("nope", ""); err == nil {
+	if _, _, err := parseImportRange("nope", "", ""); err == nil {
 		t.Fatal("bad from accepted")
 	}
 	// defaults
-	from, to, _ = parseImportRange("", "")
+	from, to, _ = parseImportRange("", "", "")
 	if !to.After(from) {
 		t.Fatal("defaults inverted")
 	}
@@ -36,7 +36,7 @@ func TestFetchEntriesGuards(t *testing.T) {
 		!strings.Contains(err.Error(), "account id") {
 		t.Fatalf("harvest: %v", err)
 	}
-	if _, err := fetchEntries("nope", "", "", "", ""); err == nil {
+	if _, err := fetchEntries("nope", "", "", "", "", ""); err == nil {
 		t.Fatal("unknown provider accepted")
 	}
 }
@@ -143,5 +143,16 @@ func TestPWAAssets(t *testing.T) {
 	}
 	if !strings.Contains(page, "serviceWorker") {
 		t.Error("login missing SW registration")
+	}
+}
+
+// The import range is the user's calendar day, not UTC's.
+func TestImportRangeUsesBrowserZone(t *testing.T) {
+	from, to, err := parseImportRange("2026-09-01", "2026-09-01", "Asia/Almaty")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if from.Location().String() != "Asia/Almaty" || to.Sub(from) != 24*time.Hour || from.UTC().Hour() != 19 {
+		t.Fatalf("from %v to %v", from, to)
 	}
 }

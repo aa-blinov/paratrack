@@ -211,17 +211,14 @@ func fetchJiraIssues(secret, target string) ([]extItem, error) {
 		return nil, fmt.Errorf("jira: put the site first in the target, e.g. https://acme.atlassian.net PROJ")
 	}
 	site = strings.TrimRight(site, "/")
-	email, apiToken, ok := strings.Cut(secret, ":")
-	if !ok {
-		return nil, fmt.Errorf("jira: the secret is email:api-token")
+	// "email:api-token" is Jira Cloud (Basic auth, /rest/api/3/search/jql,
+	// nextPageToken). A bare token is a Data Center / Server PAT: Bearer
+	// auth on /rest/api/2/search, paged by startAt.
+	email, apiToken, cloud := strings.Cut(secret, ":")
+	if !cloud {
+		return fetchJiraDC(site, secret, jiraJQL(target))
 	}
-	jql := target
-	switch {
-	case jql == "":
-		jql = "assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC"
-	case jiraKey.MatchString(jql):
-		jql = "project = " + jql + " AND resolution = Unresolved ORDER BY updated DESC"
-	}
+	jql := jiraJQL(target)
 	var out []extItem
 	token := ""
 	for len(out) < maxImportTasks {
@@ -261,6 +258,52 @@ func fetchJiraIssues(secret, target string) ([]extItem, error) {
 			break
 		}
 		token = raw.NextPageToken
+	}
+	return out, nil
+}
+
+func jiraJQL(target string) string {
+	switch {
+	case target == "":
+		return "assignee = currentUser() AND resolution = Unresolved ORDER BY updated DESC"
+	case jiraKey.MatchString(target):
+		return "project = " + target + " AND resolution = Unresolved ORDER BY updated DESC"
+	}
+	return target
+}
+
+// fetchJiraDC reads Jira Data Center / Server: GET /rest/api/2/search with
+// a PAT, paged by startAt until startAt+len >= total.
+// https://developer.atlassian.com/server/jira/platform/rest/v10000/api-group-search/
+func fetchJiraDC(site, pat, jql string) ([]extItem, error) {
+	var out []extItem
+	for start := 0; len(out) < maxImportTasks; {
+		u := fmt.Sprintf("%s/rest/api/2/search?jql=%s&startAt=%d&maxResults=100&fields=summary,status",
+			site, url.QueryEscape(jql), start)
+		var raw struct {
+			StartAt int `json:"startAt"`
+			Total   int `json:"total"`
+			Issues  []struct {
+				Key    string `json:"key"`
+				Fields struct {
+					Summary string `json:"summary"`
+					Status  struct {
+						Name string `json:"name"`
+					} `json:"status"`
+				} `json:"fields"`
+			} `json:"issues"`
+		}
+		if _, err := getJSON("jira", newReq("GET", u, "", "Authorization", "Bearer "+pat, "Accept", "application/json"), &raw); err != nil {
+			return nil, err
+		}
+		for _, i := range raw.Issues {
+			out = append(out, extItem{ID: "jira-" + i.Key, Title: i.Key + " " + i.Fields.Summary,
+				URL: site + "/browse/" + i.Key, Status: strings.ToLower(i.Fields.Status.Name)})
+		}
+		start += len(raw.Issues)
+		if len(raw.Issues) == 0 || start >= raw.Total {
+			break
+		}
 	}
 	return out, nil
 }
@@ -385,7 +428,11 @@ func fetchAsanaTasks(token, projectGID string) ([]extItem, error) {
 // pages via Link rel="next". Self-hosted: PARATRACK_GITLAB_SITE.
 // https://docs.gitlab.com/api/issues/ · https://docs.gitlab.com/api/rest/
 func fetchGitLabIssues(token, project string) ([]extItem, error) {
+	// Self-hosted: the site may lead the target ("https://git.acme.ru group/app").
 	site := os.Getenv("PARATRACK_GITLAB_SITE")
+	if f := strings.Fields(project); len(f) == 2 && strings.HasPrefix(f[0], "https://") {
+		site, project = f[0], f[1]
+	}
 	if site == "" {
 		site = "https://gitlab.com"
 	}

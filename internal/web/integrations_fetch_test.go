@@ -212,3 +212,24 @@ func TestClockifyLastPageHeader(t *testing.T) {
 		t.Fatalf("pages %d entries %d err %v", pages, len(got), err)
 	}
 }
+
+// Jira Data Center: a bare PAT goes to /rest/api/2/search, paged by startAt.
+func TestJiraDataCenterPaging(t *testing.T) {
+	var starts []string
+	fakeProviders(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/rest/api/2/search" || r.Header.Get("Authorization") != "Bearer pat" {
+			w.WriteHeader(401)
+			return
+		}
+		starts = append(starts, r.URL.Query().Get("startAt"))
+		if r.URL.Query().Get("startAt") == "0" {
+			fmt.Fprint(w, `{"startAt":0,"total":2,"issues":[{"key":"A-1","fields":{"summary":"x"}}]}`)
+			return
+		}
+		fmt.Fprint(w, `{"startAt":1,"total":2,"issues":[{"key":"A-2","fields":{"summary":"y"}}]}`)
+	})
+	got, err := fetchJiraIssues("pat", "https://jira.acme.ru A")
+	if err != nil || len(got) != 2 || strings.Join(starts, ",") != "0,1" {
+		t.Fatalf("items %d err %v startAt %v", len(got), err, starts)
+	}
+}
