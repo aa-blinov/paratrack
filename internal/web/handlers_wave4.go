@@ -212,6 +212,9 @@ func (s *Server) handleAPIv1Session(w http.ResponseWriter, r *http.Request) {
 		// reuse the HTMX patch handler shape via form fields
 		s.handleUpdateSession(w, r)
 	case http.MethodDelete:
+		if s.refuseLocked(w, r, id) {
+			return
+		}
 		if err := s.db.DeleteSession(r.Context(), teamID(r), id); err != nil {
 			w.WriteHeader(404)
 			writeJSON(w, map[string]string{"error": err.Error()})

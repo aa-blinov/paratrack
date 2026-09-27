@@ -68,6 +68,8 @@
   </div>
 </section>
 
+{{if .Unbilled}}<div class="mt-4">{{template "unbilled" .}}</div>{{end}}
+
 {{/* Next steps after the first timer: quiet links, not a checklist card.
      Rendered hidden on a first run and revealed by the first Start (app.js);
      gone once a project exists or the visitor hides it. */}}
@@ -117,7 +119,7 @@
             <td class="text-right">
               <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML">
                 <input type="hidden" name="activity" value="{{.ActivityName}}">
-                <button type="submit" class="btn btn-ghost btn-xs gap-1"
+                <button type="submit" class="btn btn-ghost btn-xs gap-1 whitespace-nowrap"
                         title="{{printf (.T "dash.againTitle") .ActivityName}}" aria-label="{{printf (.T "dash.againTitle") .ActivityName}}">{{icon "play" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "dash.again"}}</span></button>
               </form>
             </td>

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -16,38 +18,38 @@ import (
 // ---------------------------------------------------------------------------
 
 type timesheetDay struct {
-	Index int    // 0..6
-	Label string // "Mon"
-	Date  string // "22"
-	ISO   string // 2026-09-22
-	Secs  int
-	Min   int    // minutes for the cell input
-	Total string // formatted
+	Index   int    // 0..6
+	Label   string // "Mon"
+	Date    string // "22"
+	ISO     string // 2026-09-22
+	Secs    int
+	Min     int    // minutes for the cell input
+	Total   string // formatted
 	IsToday bool
 }
 
 type timesheetRow struct {
-	ActivityID   int64
-	ActivityName string
-	Color        string
-	Secs         [7]int
-	Cells        [7]timesheetDay // copy of day headers + this row's secs
-	RowTotal     int
+	ActivityID    int64
+	ActivityName  string
+	Color         string
+	Secs          [7]int
+	Cells         [7]timesheetDay // copy of day headers + this row's secs
+	RowTotal      int
 	RowTotalLabel string
 }
 
 type timesheetData struct {
 	pageData
-	WeekStart     time.Time
-	WeekEnd       time.Time
-	PrevWeek      string // link query
-	NextWeek      string
-	WeekLabel     string // "Sep 22 – Sep 28"
-	Days          []timesheetDay
-	Rows          []timesheetRow
-	DayTotals     [7]int
-	DayTotalLabels [7]string
-	GrandTotal    int
+	WeekStart       time.Time
+	WeekEnd         time.Time
+	PrevWeek        string // link query
+	NextWeek        string
+	WeekLabel       string // "Sep 22 – Sep 28"
+	Days            []timesheetDay
+	Rows            []timesheetRow
+	DayTotals       [7]int
+	DayTotalLabels  [7]string
+	GrandTotal      int
 	GrandTotalLabel string
 }
 
@@ -98,7 +100,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		}
 		for i := 0; i < 7; i++ {
 			row.Cells[i] = timesheetDay{
-				Index: i,
+				Index:   i,
 				ISO:     days[i].ISO,
 				Secs:    rc.Secs[i],
 				Min:     cellMin(rc.Secs[i]),
@@ -153,6 +155,13 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 	mins, err := strconv.Atoi(strings.TrimSpace(r.FormValue("minutes")))
 	if err != nil || mins < 0 || mins > 24*60 {
 		http.Error(w, "minutes must be 0..1440", 400)
+		return
+	}
+	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
+	if num := s.db.DayLockFor(r.Context(), teamID(r), actID, dayStart, dayStart.AddDate(0, 0, 1)); num != "" {
+		// Put the cell back to what the invoice billed.
+		s.toast(w, fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), num), "error")
+		s.respondTimesheetRow(w, r, actID, day)
 		return
 	}
 	if err := s.db.UpsertDayTotal(r.Context(), teamID(r), actID, day, mins*60); err != nil {
