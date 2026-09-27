@@ -21,7 +21,7 @@
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {{range .Projects}}
         <a href="/projects/{{.Slug}}"
-           class="card bg-base-100 border border-base-300 transition-shadow block min-w-0 overflow-hidden">
+           class="card bg-base-100 border border-base-300 block min-w-0 overflow-hidden">
           <div class="card-body p-5 gap-3">
             <div class="flex items-center gap-2 min-w-0">
               <span class="inline-block w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span>
@@ -35,11 +35,11 @@
               </div>
               <div>
                 <dt>{{$.T "dash.today"}}</dt>
-                <dd class="text-base font-medium opacity-100">{{if eq .TodaySecs 0}}—{{else}}{{fmtDurL $.Lang .TodaySecs}}{{end}}</dd>
+                <dd class="text-base font-medium opacity-100">{{fmtDurL $.Lang .TodaySecs}}</dd>
               </div>
               <div>
-                <dt>30d</dt>
-                <dd class="text-base font-medium opacity-100">{{if eq .MonthSecs 0}}—{{else}}{{fmtDurL $.Lang .MonthSecs}}{{end}}</dd>
+                <dt>{{$.T "projects.last30"}}</dt>
+                <dd class="text-base font-medium opacity-100">{{fmtDurL $.Lang .MonthSecs}}</dd>
               </div>
             </dl>
           </div>
