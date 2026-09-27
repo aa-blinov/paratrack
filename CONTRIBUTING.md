@@ -46,7 +46,8 @@ The project ships two suites. Pick whichever fits:
 
 * **Go unit test** — for a pure function or DB method. The
   `internal/db` package has `openTestDB(t) *DB` that returns an
-  isolated `:memory:` SQLite, use it for any new DB CRUD.
+  isolated Postgres schema (other packages: `db.OpenTest(t)`), use it
+  for any new DB CRUD. Run everything with `scripts/test.sh`.
 * **Playwright E2E** — for anything that touches the web layer.
   `e2e/test_dashboard.py` is a single file with `check(name, ok,
   detail)` helpers; add new steps at the bottom and capture

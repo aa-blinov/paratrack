@@ -85,7 +85,7 @@ func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
 		w.WriteHeader(200)
 	}))
 	defer srv.Close()
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		t.Fatal(err)
 	}

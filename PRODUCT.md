@@ -26,7 +26,7 @@ paratrack is a strict, honest ledger of where time goes: live timers, a weekly t
 
 Against Toggl, Clockify and Harvest, all four of these hold together (confirmed):
 
-- **Your own server if you want it.** Runs as a public service at https://paratrack.duckdns.org, and the same product self-hosts as one docker compose stack (app + Postgres) or a single binary on SQLite. Data can stay with the user.
+- **Your own server if you want it.** Runs as a public service at https://paratrack.duckdns.org, and the same product self-hosts as one docker compose stack (app + Postgres) or a single binary next to any Postgres. Data can stay with the user.
 - **Parallel timers.** Several activities run at once; "Only this" pauses the rest. Most trackers allow one.
 - **Everything in one place.** Tracking, invoices, payouts, schedule and reports are built in, not upsells or add-on integrations.
 - **Russian first.** The interface is Russian by default with English second; copy is written for Russian speakers, not translated from English.
@@ -40,8 +40,8 @@ Against Toggl, Clockify and Harvest, all four of these hold together (confirmed)
 
 ## Capabilities and Constraints
 
-- Web UI is server-rendered Go (html/template) with HTMX and Alpine; Tailwind v4 + DaisyUI v5. Postgres in the compose deployment, SQLite for the CLI and single-binary installs.
-- A CLI (`paratrack start|stop|stats…`) works against local SQLite and is a real feature, not a dev tool.
+- Web UI is server-rendered Go (html/template) with HTMX and Alpine; Tailwind v4 + DaisyUI v5. Postgres is the only database.
+- A CLI (`paratrack start|stop|stats…`) works against the same Postgres (PARATRACK_DATABASE_URL) and is a real feature, not a dev tool.
 - Terminology in the Russian UI: Обзор, Статистика, Табель, Проекты, По часам, Цели, Теги, Счета, Выплаты, Расписание, Отчёты; «Идут сейчас» for running timers, «Только эта» for focus. English: Dashboard, Stats, Timesheet, Projects, By hour, Goals, Tags, Invoices, Payroll, Schedule, Reports, "Running now", "Only this".
 - Open decisions: pricing and any paid tier are undecided; do not state that the service is free or paid.
 

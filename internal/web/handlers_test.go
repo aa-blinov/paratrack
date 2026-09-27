@@ -8,10 +8,10 @@ import (
 )
 
 // TestNewServerSmoke verifies New() wires up successfully against an
-// in-memory SQLite DB — templates parse, routes register, DB migrates.
+// throwaway Postgres schema — templates parse, routes register, DB migrates.
 // Heavier behavioural tests live in colors_test.go and the e2e suite.
 func TestNewServerSmoke(t *testing.T) {
-	d, err := db.Open(":memory:")
+	d, err := db.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open :memory: db: %v", err)
 	}

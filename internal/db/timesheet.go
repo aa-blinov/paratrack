@@ -59,7 +59,7 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 	}
 	var sc string
 	sc, args = scopeSQL(ctx, "s.user_id", args)
-	q += sc + ` ORDER BY a.name COLLATE NOCASE, s.start_at`
+	q += sc + ` ORDER BY a.name, s.start_at`
 
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -274,7 +274,7 @@ func (d *DB) ListSavedReports(ctx context.Context, teamID int64) ([]SavedReport,
 		q += ` WHERE team_id = ?`
 		args = append(args, teamID)
 	}
-	q += ` ORDER BY name COLLATE NOCASE`
+	q += ` ORDER BY name`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

@@ -10,7 +10,7 @@ import (
 
 func openTestDB(t *testing.T) *dbpkg.DB {
 	t.Helper()
-	d, err := dbpkg.Open(t.TempDir() + "/teams.db")
+	d, err := dbpkg.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

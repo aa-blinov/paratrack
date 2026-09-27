@@ -1,7 +1,7 @@
 # paratrack
 
 Minimalist time tracker with parallel activities, team workspaces and billing.
-Single Go binary, embedded web UI, SQLite. No Node at runtime, no CGO.
+Single Go binary, embedded web UI, Postgres. No Node at runtime, no CGO.
 
 **Live:** https://paratrack.duckdns.org
 
@@ -162,7 +162,7 @@ GET        /api/v1/reports/summary
 
 ---
 
-## 5. Data model (SQLite)
+## 5. Data model (Postgres)
 
 Core tables: `users`, `teams`, `memberships`, `activities`, `sessions`, `projects`,
 `tags`, `session_tags`, `goals`, `saved_reports`, `password_reset_tokens`.
@@ -176,7 +176,7 @@ Rules worth knowing:
 - All domain data is `team_id`-scoped
 - `teams.owner_id` is `NOT NULL` → fixtures must insert users before teams
 - Nullable TEXT/INTEGER scans need `sql.NullString` / `sql.NullInt64`
-- Never issue a second query while a `rows` cursor is open (SQLite deadlock)
+- Queries use `?` placeholders; `db.Conn` rebinds them to `$1, $2, …`
 - `columnMigrations` runs before `uniqueMigrations`
 
 ---

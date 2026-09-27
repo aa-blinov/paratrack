@@ -157,7 +157,7 @@ func (s *Service) FindByID(ctx context.Context, id int64) (Team, error) {
 // FindBySlug looks up a team by its URL slug.
 func (s *Service) FindBySlug(ctx context.Context, slug string) (Team, error) {
 	row := s.d.SQL().QueryRowContext(ctx,
-		`SELECT id, slug, name, owner_id, created_at FROM teams WHERE slug = ? COLLATE NOCASE`,
+		`SELECT id, slug, name, owner_id, created_at FROM teams WHERE slug = ?`,
 		strings.ToLower(strings.TrimSpace(slug)),
 	)
 	return scanTeam(row)
@@ -492,7 +492,7 @@ func (s *Service) AcceptInvite(ctx context.Context, token string, userID int64) 
 	}()
 	now := db.FormatTime(time.Now().UTC())
 	_, err = tx.ExecContext(ctx,
-		`INSERT OR IGNORE INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)`,
+		`INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
 		inv.TeamID, userID, string(inv.Role), now,
 	)
 	if err != nil {
@@ -580,5 +580,5 @@ func scanInvite(r interface{ Scan(...any) error }) (Invite, error) {
 	return i, nil
 }
 
-// isUniqueViolation covers SQLite and Postgres (see db.IsUniqueViolation).
+// isUniqueViolation: see db.IsUniqueViolation.
 func isUniqueViolation(err error) bool { return db.IsUniqueViolation(err) }

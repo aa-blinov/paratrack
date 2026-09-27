@@ -85,7 +85,7 @@ func (d *DB) ListProjects(ctx context.Context, teamID int64, includeArchived boo
 	if !includeArchived {
 		q += ` AND archived = 0`
 	}
-	q += ` ORDER BY archived ASC, name COLLATE NOCASE`
+	q += ` ORDER BY archived ASC, name`
 	rows, err := d.sql.QueryContext(ctx, q, teamID)
 	if err != nil {
 		return nil, err
@@ -208,7 +208,7 @@ func (d *DB) ListActivitiesForProject(ctx context.Context, projectID int64, incl
 	if !includeArchived {
 		q += ` AND archived = 0`
 	}
-	q += ` ORDER BY name COLLATE NOCASE`
+	q += ` ORDER BY name`
 	rows, err := d.sql.QueryContext(ctx, q, projectID)
 	if err != nil {
 		return nil, err
@@ -269,7 +269,7 @@ func scanProject(r row) (model.Project, error) {
 	return p, nil
 }
 
-// boolInt converts a bool to the 0/1 used by SQLite INTEGER columns.
+// boolInt converts a bool to the 0/1 stored in the integer flag columns.
 func boolInt(b bool) int {
 	if b {
 		return 1

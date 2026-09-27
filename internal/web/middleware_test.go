@@ -17,7 +17,7 @@ import (
 // freshly minted session token so tests can hit authed paths.
 func newTestServer(t *testing.T) (*Server, string) {
 	t.Helper()
-	d, err := dbpkg.Open(t.TempDir() + "/web.db")
+	d, err := dbpkg.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}

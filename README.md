@@ -7,7 +7,7 @@
 
 ## Зачем
 
-Большинство трекеров времени делятся на два лагеря: тяжёлые веб-приложения на несколько мегабайт JavaScript и консольные утилиты без обратной связи. paratrack собирает оба в одном бинарнике на 20 МБ: живой интерфейс с таймером, неделей, отчётами и деньгами, и при этом SQLite-файл, который лежит у вас и нигде больше.
+Большинство трекеров времени делятся на два лагеря: тяжёлые веб-приложения на несколько мегабайт JavaScript и консольные утилиты без обратной связи. paratrack собирает оба в одном бинарнике на 20 МБ: живой интерфейс с таймером, неделей, отчётами и деньгами, и данные в вашем собственном Postgres, а не у кого-то ещё.
 
 Всё, что нужно команде для учёта времени, уже внутри: таймшит на неделю, оценки против факта, инвойсы с PDF и онлайн-оплатой, расчёт зарплаты, планирование людей по проектам, восемь интеграций и маркетплейс.
 
@@ -21,18 +21,20 @@ docker compose up -d --build
 # → http://127.0.0.1:8000/login
 ```
 
-Без Docker, на SQLite:
+Без Docker нужен любой Postgres 17, например в контейнере:
 
 ```bash
-make build    # заодно соберёт CSS (npm install + Tailwind)
+docker run -d --name paratrack-pg -e POSTGRES_PASSWORD=dev -p 127.0.0.1:5432:5432 postgres:17-alpine
+export PARATRACK_DATABASE_URL='postgres://postgres:dev@127.0.0.1:5432/postgres?sslmode=disable'
 
+make build    # заодно соберёт CSS (npm install + Tailwind)
 ./paratrack web --addr 127.0.0.1:8000
 # → http://127.0.0.1:8000/login  (здесь регистрируемся)
 ```
 
 После регистрации открывается обзор с формой «Новая активность» и коротким чек-листом из трёх шагов: запустить таймер, посмотреть стату, завести проект.
 
-В Docker данные живут в Postgres (том `pgdata`). Без Docker и в CLI данные лежат в `~/.track/track.db` (SQLite); если задан `PARATRACK_DATABASE_URL`, приложение работает с Postgres. Перенести SQLite в пустой Postgres: `paratrack migrate-to-postgres ~/.track/track.db`. При первом запуске с включённой авторизацией старая одноимённая база уходит в `~/.track/track.db.bak.<timestamp>` и создаётся свежая схема: совместная работа не уживается со старым анонимным форматом.
+Данные живут только в Postgres: в Docker это том `pgdata`, иначе база из `PARATRACK_DATABASE_URL`. CLI работает с той же базой и без этой переменной не запустится. Схема создаётся и обновляется сама при старте.
 
 ## Как выглядит
 
@@ -84,7 +86,7 @@ paratrack/
 ├── cmd/paratrack/          точка входа
 ├── internal/
 │   ├── catalog/            маркетплейс и шаблоны отчётов
-│   ├── db/                 SQLite (modernc.org/sqlite, без CGO)
+│   ├── db/                 Postgres (pgx), схема и запросы
 │   ├── model/              доменные типы
 │   ├── auth/               пользователи, сессии, bcrypt
 │   ├── teams/              пространства, участники, приглашения
@@ -103,7 +105,7 @@ paratrack/
 
 ### Миграция схемы
 
-Совместная работа не накладывается на старую анонимную схему. При первом запуске после обновления `db.Open` проверяет наличие таблицы `users`; если её нет, переименовывает `track.db` в `track.db.bak.<UTC-метка>` и создаёт схему заново.
+`db.Open` при каждом старте прогоняет идемпотентную схему (`internal/db/schema.go`): `CREATE … IF NOT EXISTS` и `ADD COLUMN IF NOT EXISTS`, так что новая колонка добавляется одной строкой в `columnMigrations`.
 
 ## Документация
 
@@ -115,8 +117,8 @@ paratrack/
 ## Проверка
 
 ```bash
-go test ./...                                   # юниты и интеграции (SQLite)
-PARATRACK_TEST_PG=postgres://user:pass@host/db go test -p 1 ./...  # то же на Postgres
+scripts/test.sh                                 # юниты и интеграции на временном Postgres в docker
+PARATRACK_TEST_PG=postgres://user:pass@host/db go test -p 1 ./...  # то же на своём Postgres
 
 python3 -m venv .venv && source .venv/bin/activate
 pip install playwright requests
@@ -132,7 +134,7 @@ python e2e/wave9_verify.py  # офлайн и push
 ## Стек
 
 - **Go 1.27**
-- **PostgreSQL 17** (веб, через pgx) и **modernc.org/sqlite** (CLI и запуск без Docker): оба на чистом Go, без CGO
+- **PostgreSQL 17** через pgx, на чистом Go, без CGO
 - **net/http**: маршрутизация из стандартной библиотеки
 - **html/template**: серверный рендер
 - **HTMX 2.0.4** и **Alpine.js 3.14.1**: лежат в репозитории
