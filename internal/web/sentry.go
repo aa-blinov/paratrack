@@ -1,16 +1,26 @@
 package web
 
 import (
+	"bufio"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	sentryhttp "github.com/getsentry/sentry-go/http"
 )
+
+// sentryDSN is the parsed DSN when reporting is on; the browser SDK gets
+// the same one and sends through /sentry-tunnel (same path as Go events).
+var sentryDSN *url.URL
 
 // initSentry turns error reporting on when PARATRACK_SENTRY_DSN is set.
 // Self-hosted installs leave it empty and nothing leaves the server.
@@ -37,9 +47,65 @@ func initSentry() bool {
 		log.Printf("sentry: %v (reporting off)", err)
 		return false
 	}
+	sentryDSN, _ = url.Parse(dsn)
+	sentryEnv = env
 	log.Printf("sentry: reporting on (%s, traces %.2f)", env, rate)
 	return true
 }
+
+var sentryEnv string
+
+// sentryPublicDSN is what base.html hands to the browser SDK ("" = off).
+func sentryPublicDSN() string {
+	if sentryDSN == nil {
+		return ""
+	}
+	return sentryDSN.String()
+}
+
+// handleSentryTunnel forwards browser envelopes to Sentry. Only envelopes
+// for our own DSN pass, so the endpoint can't be used as an open relay.
+func (s *Server) handleSentryTunnel(w http.ResponseWriter, r *http.Request) {
+	if sentryDSN == nil {
+		http.NotFound(w, r)
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		http.Error(w, "too large", http.StatusRequestEntityTooLarge)
+		return
+	}
+	first, _, _ := bufio.NewReader(bytes.NewReader(body)).ReadLine()
+	var hdr struct {
+		DSN string `json:"dsn"`
+	}
+	if json.Unmarshal(first, &hdr) != nil {
+		http.Error(w, "bad envelope", 400)
+		return
+	}
+	got, err := url.Parse(hdr.DSN)
+	if err != nil || got.Host != sentryDSN.Host || got.Path != sentryDSN.Path {
+		http.Error(w, "unknown dsn", 400)
+		return
+	}
+	project := strings.Trim(sentryDSN.Path, "/")
+	up, err := http.NewRequestWithContext(r.Context(), http.MethodPost,
+		"https://"+sentryDSN.Host+"/api/"+project+"/envelope/", bytes.NewReader(body))
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	up.Header.Set("Content-Type", "application/x-sentry-envelope")
+	resp, err := tunnelClient.Do(up)
+	if err != nil {
+		http.Error(w, "sentry unreachable", http.StatusBadGateway)
+		return
+	}
+	resp.Body.Close()
+	w.WriteHeader(resp.StatusCode)
+}
+
+var tunnelClient = &http.Client{Timeout: 5 * time.Second}
 
 // withSentry reports panics and every 5xx answer. Handlers answer
 // failures with http.Error(w, err.Error(), 500), so the body carries the

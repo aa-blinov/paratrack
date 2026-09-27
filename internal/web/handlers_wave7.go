@@ -55,11 +55,29 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	}
 
 	type acc struct {
-		secs   int
-		rate   int
-		amount int
-		byRate map[int]int // billable seconds per hourly rate
+		secs     int
+		rate     int
+		amount   int
+		currency string
+		byRate   map[int]int // billable seconds per hourly rate
 	}
+	teamCur, _ := s.db.TeamCurrency(r.Context(), teamID(r))
+	projCur := map[int64]string{}
+	currencyOf := func(projectID int64) string {
+		if projectID == 0 {
+			return teamCur
+		}
+		c, ok := projCur[projectID]
+		if !ok {
+			c, _ = s.db.ProjectCurrency(r.Context(), teamID(r), projectID)
+			projCur[projectID] = c
+		}
+		if c == "" {
+			return teamCur
+		}
+		return c
+	}
+	byCurrency := map[string]int{}
 	buckets := map[string]*acc{}
 	total := 0
 	totalCents := 0
@@ -100,9 +118,18 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		default:
 			key = as.Activity.Name
 		}
+		// Money rows never mix currencies: a foreign-currency project gets
+		// its own row, suffixed with the code.
+		cur := teamCur
+		if tpl.Billable {
+			cur = currencyOf(as.Activity.ProjectID)
+			if cur != teamCur {
+				key += " (" + cur + ")"
+			}
+		}
 		a := buckets[key]
 		if a == nil {
-			a = &acc{}
+			a = &acc{currency: cur}
 			buckets[key] = a
 		}
 		a.secs += sec
@@ -130,13 +157,14 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 			a.amount += dbpkg.PriceCents(sec, rate)
 		}
 		totalCents += a.amount
+		byCurrency[a.currency] += a.amount
 		share := 0.0
 		if total > 0 {
 			share = float64(a.secs) / float64(total) * 100
 		}
 		rows = append(rows, reportRow{
 			Key: k, Secs: a.secs, Hours: reportHours(r, tpl.Billable, a.secs), Share: share,
-			Rate: formatMoneyL(resolveLang(r), a.rate), Amount: formatMoneyL(resolveLang(r), a.amount),
+			Rate: moneyL(resolveLang(r), a.rate, a.currency), Amount: moneyL(resolveLang(r), a.amount, a.currency),
 			AmountCents: a.amount, RateCents: a.rate,
 		})
 	}
@@ -150,7 +178,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		Rows:        rows,
 		Total:       reportHours(r, tpl.Billable, total),
 		TotalSecs:   total,
-		TotalAmount: formatMoneyL(resolveLang(r), totalCents),
+		TotalAmount: moneyByCurrency(resolveLang(r), byCurrency),
 		TotalCents:  totalCents,
 	}, nil
 }

@@ -342,6 +342,16 @@
   .skip-link:focus { transform: none; }
   main:focus { outline: none; }
   .toast-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+  /* Documents (invoices, pay runs): status reads by word and ink, not a
+     grey pill for every state; muted text stays above 4.5:1. */
+  .doc-status {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border border-base-300;
+  }
+  .doc-status.is-sent { color: var(--ink-primary); border-color: color-mix(in oklab, var(--ink-primary) 40%, var(--color-base-300)); }
+  .doc-status.is-paid { color: var(--ink-success); background: color-mix(in oklab, var(--color-success) 12%, transparent); border-color: transparent; }
+  .doc-muted { color: color-mix(in oklab, var(--color-base-content) 72%, transparent); }
+  .doc-table thead th, .doc-table tfoot td { color: var(--color-base-content); }
+  .doc-table thead th { font-weight: 600; }
   /* First-run empty state inside the ledger, left-aligned with the rows. */
   .first-run { @apply py-4; }
   /* One quiet line of next steps under the ledger, hairline-ruled. */
@@ -377,7 +387,7 @@
 
 /* Invoice print sheet. */
 @media print {
-  .no-print, header, footer, #toast { display: none !important; }
+  .no-print, header, footer, #toast, .tabbar, .minibar, .skip-link { display: none !important; }
   body { background: #fff; }
   .card { box-shadow: none !important; border: 0 !important; }
 }
@@ -1052,4 +1062,20 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
       --btn-border: color-mix(in oklab, var(--color-error) 40%, var(--color-base-300));
     }
   }
+}
+
+/* Document lines on a phone: the work on its own row, then hours, rate
+   and amount under it, so the amount (the number that matters) is never
+   scrolled off. */
+@media (max-width: 639px) {
+  .doc-table thead { display: none; }
+  .doc-table tr {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 0.125rem 0.75rem;
+    padding: 0.5rem 0; border-bottom: 1px solid var(--color-base-300);
+  }
+  .doc-table td { padding: 0; border: 0; }
+  .doc-table td:first-child { grid-column: 1 / -1; }
+  .doc-table td:nth-child(2)::after { content: " ч"; }
+  .doc-table td:nth-child(3) { text-align: left; opacity: 0.8; }
+  .doc-table tfoot tr { border-bottom: 0; border-top: 2px solid var(--color-base-300); }
 }

@@ -1,98 +1,113 @@
 package web
 
 import (
+	_ "embed"
 	"fmt"
 	"strings"
 
 	"github.com/go-pdf/fpdf"
+
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
-// renderInvoicePDF builds a one-page A4 invoice for the given data.
-// Layout is intentionally plain: heading, client, period, items table,
-// total, notes. Branding stays minimal so it prints cleanly anywhere.
-func renderInvoicePDF(inv invoiceVM, teamName string) ([]byte, error) {
+// Inter, the UI face, embedded as TTF: the PDF core fonts are cp1252 and
+// turned Cyrillic into dots. Licence: pdffonts/Inter-LICENSE.txt (OFL).
+var (
+	//go:embed pdffonts/Inter-Regular.ttf
+	interRegular []byte
+	//go:embed pdffonts/Inter-SemiBold.ttf
+	interSemiBold []byte
+)
+
+// renderInvoicePDF builds a one-page A4 invoice in the reader's language.
+// Layout is plain: title and number, seller and client, dates, the lines
+// table, total, notes. It prints cleanly anywhere.
+func renderInvoicePDF(inv invoiceVM, teamName string, lang i18n.Lang) ([]byte, error) {
+	T := func(k string) string { return i18n.T(lang, k) }
 	pdf := fpdf.New("P", "mm", "A4", "")
+	pdf.AddUTF8FontFromBytes("Inter", "", interRegular)
+	pdf.AddUTF8FontFromBytes("Inter", "B", interSemiBold)
 	pdf.SetAutoPageBreak(true, 18)
+	pdf.SetMargins(15, 15, 15)
 	pdf.AddPage()
-	pdf.SetFont("Helvetica", "", 10)
-	// Core fonts are cp1252: translate UTF-8 so "·", "–", "…" print.
-	tr := pdf.UnicodeTranslatorFromDescriptor("")
+	grey := func() { pdf.SetTextColor(105, 105, 110) }
+	ink := func() { pdf.SetTextColor(20, 20, 24) }
+	ink()
 
-	// Header
-	pdf.SetFont("Helvetica", "B", 18)
-	pdf.Cell(0, 9, "INVOICE")
-	pdf.Ln(8)
-	pdf.SetFont("Helvetica", "", 11)
-	pdf.Cell(0, 6, tr(inv.Number))
-	pdf.Ln(6)
-	pdf.SetFont("Helvetica", "", 9)
-	pdf.SetTextColor(110, 110, 110)
-	pdf.Cell(0, 5, tr("From: "+teamName))
+	// Title + number, date on the right.
+	pdf.SetFont("Inter", "B", 18)
+	pdf.CellFormat(120, 9, T("inv.invoice")+" "+inv.Number, "", 0, "L", false, 0, "")
+	pdf.SetFont("Inter", "", 9)
+	grey()
+	pdf.CellFormat(0, 9, T("pdf.issued")+" "+inv.IssuedLabel, "", 1, "R", false, 0, "")
+	pdf.Ln(4)
+
+	// Seller | client, then the period.
+	y := pdf.GetY()
+	party := func(x float64, label, name string) {
+		pdf.SetXY(x, y)
+		pdf.SetFont("Inter", "", 8)
+		grey()
+		pdf.CellFormat(85, 5, strings.ToUpper(label), "", 2, "L", false, 0, "")
+		pdf.SetFont("Inter", "B", 11)
+		ink()
+		pdf.MultiCell(85, 6, name, "", "L", false)
+	}
+	party(15, T("pdf.from"), teamName)
+	yLeft := pdf.GetY()
+	party(110, T("pdf.billedTo"), inv.ClientName)
+	pdf.SetY(max(yLeft, pdf.GetY()) + 2)
+	pdf.SetFont("Inter", "", 9)
+	grey()
+	pdf.CellFormat(0, 5, T("inv.period")+": "+inv.PeriodLabel, "", 1, "L", false, 0, "")
+	ink()
 	pdf.Ln(5)
-	pdf.SetTextColor(0, 0, 0)
 
-	// Client block (right-ish)
-	pdf.SetY(18)
-	pdf.SetX(120)
-	pdf.SetFont("Helvetica", "", 9)
-	pdf.Cell(80, 5, "Billed to")
-	pdf.SetX(120)
-	pdf.SetFont("Helvetica", "B", 12)
-	pdf.Cell(80, 7, tr(inv.ClientName))
-	pdf.SetX(120)
-	pdf.SetFont("Helvetica", "", 9)
-	pdf.SetTextColor(110, 110, 110)
-	pdf.Cell(80, 5, tr(inv.PeriodISO))
-	pdf.SetTextColor(0, 0, 0)
-	pdf.Ln(14)
-
-	// Table header
-	pdf.SetFont("Helvetica", "B", 9)
-	pdf.SetFillColor(245, 246, 248)
-	pdf.CellFormat(90, 8, "Task", "1", 0, "L", true, 0, "")
-	pdf.CellFormat(25, 8, "Hours", "1", 0, "R", true, 0, "")
-	pdf.CellFormat(30, 8, "Rate", "1", 0, "R", true, 0, "")
-	pdf.CellFormat(35, 8, "Amount", "1", 0, "R", true, 0, "")
+	// Lines. Hairline rules, figures right-aligned.
+	cols := []float64{95, 25, 30, 30}
+	pdf.SetDrawColor(200, 200, 205)
+	pdf.SetFont("Inter", "B", 9)
+	for i, h := range []string{T("pdf.work"), T("inv.hours"), T("inv.rate"), T("inv.amount")} {
+		align := "R"
+		if i == 0 {
+			align = "L"
+		}
+		pdf.CellFormat(cols[i], 8, h, "B", 0, align, false, 0, "")
+	}
 	pdf.Ln(-1)
-
-	// Lines
-	pdf.SetFont("Helvetica", "", 9)
+	pdf.SetFont("Inter", "", 9)
 	for _, l := range inv.Lines {
 		label := l.Label
-		if pdf.GetStringWidth(label) > 85 {
-			label = truncateRunes(label, 28) + "…"
+		for pdf.GetStringWidth(label) > cols[0]-3 && len([]rune(label)) > 4 {
+			label = truncateRunes(label, len([]rune(label))-2) + "…"
+			label = strings.TrimSuffix(label, "……") // keep one ellipsis while shrinking
 		}
-		pdf.CellFormat(90, 7, tr(label), "1", 0, "L", false, 0, "")
-		pdf.CellFormat(25, 7, l.Hours, "1", 0, "R", false, 0, "")
-		pdf.CellFormat(30, 7, l.Rate, "1", 0, "R", false, 0, "")
-		pdf.CellFormat(35, 7, l.Amount, "1", 0, "R", false, 0, "")
+		pdf.CellFormat(cols[0], 7, label, "B", 0, "L", false, 0, "")
+		pdf.CellFormat(cols[1], 7, l.Hours, "B", 0, "R", false, 0, "")
+		pdf.CellFormat(cols[2], 7, l.Rate, "B", 0, "R", false, 0, "")
+		pdf.CellFormat(cols[3], 7, l.Amount, "B", 0, "R", false, 0, "")
 		pdf.Ln(-1)
 	}
+	pdf.SetFont("Inter", "B", 10)
+	pdf.CellFormat(cols[0], 9, T("pdf.total"), "", 0, "L", false, 0, "")
+	pdf.CellFormat(cols[1], 9, inv.Hours, "", 0, "R", false, 0, "")
+	pdf.CellFormat(cols[2], 9, "", "", 0, "R", false, 0, "")
+	pdf.CellFormat(cols[3], 9, inv.Total, "", 1, "R", false, 0, "")
 
-	// Total
-	pdf.SetFont("Helvetica", "B", 10)
-	pdf.CellFormat(115, 9, tr("Total · "+inv.Hours), "1", 0, "R", false, 0, "")
-	pdf.CellFormat(30, 9, "", "1", 0, "R", false, 0, "")
-	pdf.CellFormat(35, 9, inv.Total, "1", 0, "R", false, 0, "")
-	pdf.Ln(-1)
-
-	// Notes
 	if inv.Notes != "" {
-		pdf.Ln(8)
-		pdf.SetFont("Helvetica", "", 9)
-		pdf.MultiCell(0, 5, "Notes: "+inv.Notes, "", "L", false)
+		pdf.Ln(6)
+		pdf.SetFont("Inter", "", 9)
+		pdf.MultiCell(0, 5, inv.Notes, "", "L", false)
 	}
 	if inv.PaymentURL != "" {
-		pdf.Ln(4)
-		pdf.SetFont("Helvetica", "", 9)
-		pdf.Cell(0, 5, "Pay online: "+inv.PaymentURL)
-		pdf.Ln(5)
+		pdf.Ln(3)
+		pdf.SetFont("Inter", "", 9)
+		pdf.MultiCell(0, 5, T("inv.payOnline")+": "+inv.PaymentURL, "", "L", false)
 	}
-
 	pdf.Ln(6)
-	pdf.SetFont("Helvetica", "", 8)
-	pdf.SetTextColor(130, 130, 130)
-	pdf.Cell(0, 4, "Generated by paratrack from tracked time.")
+	pdf.SetFont("Inter", "", 8)
+	grey()
+	pdf.MultiCell(0, 4, T("inv.footNote"), "", "L", false)
 
 	var buf strings.Builder
 	if err := pdf.Output(&buf); err != nil {

@@ -1,11 +1,13 @@
 package web
 
 import (
-	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"errors"
-	"math"
+	"fmt"
+	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"math"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -52,28 +54,30 @@ func (s *Server) handleProjectRate(w http.ResponseWriter, r *http.Request) {
 // ---------------------------------------------------------------------------
 
 type invoiceLineVM struct {
-	Label     string
-	Hours     string
-	Rate      string // "45.00"
-	Amount    string // "180.00"
-	RateCents int
+	Label       string
+	Hours       string
+	Rate        string // "45.00"
+	Amount      string // "180.00"
+	RateCents   int
 	AmountCents int
-	Seconds   int
+	Seconds     int
 }
 
 type invoiceVM struct {
-	ID           int64
-	Number       string
-	ClientName   string
-	PeriodLabel  string
-	PeriodISO    string // PDF: the core font has no Cyrillic month names
-	Status       string
-	Notes        string
-	Lines        []invoiceLineVM
-	Total        string
-	TotalCents   int
-	Hours        string
-	PaymentURL   string
+	ID          int64
+	Number      string
+	ClientName  string
+	PeriodLabel string
+	PeriodISO   string // PDF: the core font has no Cyrillic month names
+	Status      string
+	Notes       string
+	Lines       []invoiceLineVM
+	Total       string
+	TotalCents  int
+	Hours       string
+	PaymentURL  string
+	Currency    string
+	IssuedLabel string // creation date, shown as the invoice date
 }
 
 // handleInvoices lists invoices and offers a generator form.
@@ -96,13 +100,13 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 			secs += dbpkg.HoursHundredths(l.Seconds)
 		}
 		data.Items = append(data.Items, invoiceSummary{
-			ID:       inv.ID,
-			Number:   inv.Number,
-			Client:   inv.ClientName,
-			Status:   inv.Status,
-			Total:    formatMoneyL(resolveLang(r), total),
-			Hours:    fmtHours(secs),
-			Period:   fmtDay(resolveLang(r), inv.PeriodStart) + " – " + fmtDay(resolveLang(r), inv.PeriodEnd),
+			ID:     inv.ID,
+			Number: inv.Number,
+			Client: inv.ClientName,
+			Status: inv.Status,
+			Total:  moneyL(resolveLang(r), total, inv.Currency),
+			Hours:  fmtHoursL(resolveLang(r), secs),
+			Period: fmtDay(resolveLang(r), inv.PeriodStart) + " – " + fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
 		})
 	}
 	// default window: this month
@@ -183,6 +187,10 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	inv, err := s.db.CreateInvoice(r.Context(), teamID(r), number, client, start, end, notes, lines)
+	if errors.Is(err, dbpkg.ErrMixedCurrency) {
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "mixed currency"), http.StatusSeeOther)
+		return
+	}
 	if err != nil {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)
 		return
@@ -192,54 +200,36 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	s.fireWebhook(r, "invoice.created", map[string]any{
 		"invoice_id": inv.ID, "number": inv.Number, "client": inv.ClientName,
 	})
+	// Same hours on two documents? Say so on the new one; the user decides.
+	labels := make([]string, 0, len(lines))
+	for _, l := range lines {
+		labels = append(labels, l.Label)
+	}
+	if nums, _ := s.db.OverlappingInvoices(r.Context(), teamID(r), inv.ID, start, end, labels); len(nums) > 0 {
+		msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.overlap"), strings.Join(nums, ", "))
+		http.Redirect(w, r, "/invoices/"+strconv.FormatInt(inv.ID, 10)+"?flash="+url.QueryEscape(encodeFlash(false, msg)), http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/invoices/"+strconv.FormatInt(inv.ID, 10), http.StatusSeeOther)
 }
 
-// handleInvoiceDetail renders one invoice (print-ready).
+// handleInvoiceDetail renders one invoice (print-ready). Same view model
+// as the PDF (loadInvoiceVM), so screen and file never disagree.
 func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/invoices/"), 10, 64)
-	if err != nil {
+	inv, _, vm, ok := s.loadInvoiceVM(r)
+	if !ok {
 		http.NotFound(w, r)
 		return
-	}
-	inv, err := s.db.GetInvoice(r.Context(), teamID(r), id)
-	if err != nil {
-		http.NotFound(w, r)
-		return
-	}
-	lines, _ := s.db.ListInvoiceLines(r.Context(), inv.ID)
-	lang := string(resolveLang(r))
-	total := 0
-	secs := 0
-	vms := make([]invoiceLineVM, 0, len(lines))
-	for _, l := range lines {
-		total += l.AmountCents
-		secs += dbpkg.HoursHundredths(l.Seconds)
-		vms = append(vms, invoiceLineVM{
-			Label:       l.Label,
-			Hours:       fmtHours(dbpkg.HoursHundredths(l.Seconds)),
-			Rate:        formatMoneyL(resolveLang(r), l.RateCents),
-			Amount:      formatMoneyL(resolveLang(r), l.AmountCents),
-			RateCents:   l.RateCents,
-			AmountCents: l.AmountCents,
-			Seconds:     l.Seconds,
-		})
 	}
 	data := invoiceDetailPage{
-		pageData: pageData{Title: inv.Number, Active: "invoices", Lang: lang},
-		Inv: invoiceVM{
-			ID:          inv.ID,
-			Number:      inv.Number,
-			ClientName:  inv.ClientName,
-			PeriodLabel: fmtDate(resolveLang(r), inv.PeriodStart) + " – " + fmtDate(resolveLang(r), inv.PeriodEnd),
-			Status:      inv.Status,
-			Notes:       inv.Notes,
-			Lines:       vms,
-			Total:       formatMoneyL(resolveLang(r), total),
-			TotalCents:  total,
-			Hours:       fmtHours(secs),
-			PaymentURL:  inv.PaymentURL,
-		},
+		pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))},
+		Inv:      vm,
+	}
+	if t, ok := TeamFrom(r.Context()); ok {
+		data.Seller = t.Name
+	}
+	if key, _, err := s.db.TeamStripe(r.Context(), teamID(r)); (err == nil && key != "") || stripeKeyFromEnv() != "" {
+		data.StripeReady = true
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -250,9 +240,11 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 // invoiceDetailPage is /invoices/{id}.
 type invoiceDetailPage struct {
 	pageData
-	Inv     invoiceVM
-	Flash   string
-	FlashOK bool
+	Inv         invoiceVM
+	Seller      string // workspace name, shown as the issuer
+	StripeReady bool   // online payment link only when Stripe is set up
+	Flash       string
+	FlashOK     bool
 }
 
 func (p *invoiceDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
@@ -260,7 +252,7 @@ func (p *invoiceDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 // handleInvoiceStatus flips draft → sent → paid.
 func (s *Server) handleInvoiceStatus(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/invoices/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -277,7 +269,7 @@ func (s *Server) handleInvoiceStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleInvoiceDelete removes a draft.
 func (s *Server) handleInvoiceDelete(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(strings.TrimPrefix(r.URL.Path, "/invoices/"), 10, 64)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -292,7 +284,9 @@ func (s *Server) handleInvoiceDelete(w http.ResponseWriter, r *http.Request) {
 func formCents(r *http.Request, name string) (cents int, has bool, err error) {
 	bad := errors.New("bad amount")
 	if v := strings.TrimSpace(r.Form.Get(name)); v != "" {
-		f, err := strconv.ParseFloat(strings.ReplaceAll(v, ",", "."), 64)
+		// "2 500,50", "2500,50" and "2500.50" all mean the same amount.
+		v = strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "", ",", ".").Replace(v)
+		f, err := strconv.ParseFloat(v, 64)
 		if err != nil || f < 0 {
 			return 0, true, bad
 		}

@@ -749,5 +749,22 @@
   "onb.nextStats": "See where the time went",
   "onb.nextProject": "Create a project with a rate",
   "onb.hide": "Hide",
-  "nav.skip": "Skip to content"
+  "nav.skip": "Skip to content",
+  "team.currencyTitle": "Currency",
+  "team.currencyHint": "Project rates, invoices and payroll use it. A project can have its own. Issued invoices and pay runs keep the currency they were made in; nothing is converted.",
+  "flash.msg.mixed currency": "Projects in this period use different currencies. Pick one project: one invoice, one currency.",
+  "proj.currency": "Rate currency",
+  "proj.currencyInherit": "Same as workspace",
+  "bill.ratePh": "45.00",
+  "pdf.issued": "Issued",
+  "pdf.from": "From",
+  "pdf.billedTo": "Billed to",
+  "pdf.work": "Work",
+  "pdf.total": "Total",
+  "inv.delete": "Delete invoice",
+  "inv.confirmDelete": "Delete invoice %s? This cannot be undone.",
+  "pay.delete": "Delete pay run",
+  "pay.confirmDelete": "Delete pay run %s? This cannot be undone.",
+  "pay.member": "Member",
+  "inv.overlap": "The period overlaps invoice %s for the same work. Check the hours aren't billed twice; delete the extra invoice if so."
 }

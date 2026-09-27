@@ -1,6 +1,7 @@
 package web
 
 import (
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/url"
 	"strings"
 	"testing"
@@ -43,14 +44,14 @@ func TestInvoicePDFAndPayment(t *testing.T) {
 	vm := invoiceVM{
 		ID: inv.ID, Number: inv.Number, ClientName: inv.ClientName,
 		PeriodLabel: "Sep 21, 2026 – Sep 22, 2026",
-		Notes: "net 14",
+		Notes:       "оплата в течение 14 дней",
 		Lines: []invoiceLineVM{{
 			Label: "Acme · consulting", Hours: "2h", Rate: "100.00", Amount: "200.00",
 			Seconds: 7200, RateCents: 10000, AmountCents: 20000,
 		}},
 		Total: "200.00", TotalCents: 20000, Hours: "2h",
 	}
-	pdf, err := renderInvoicePDF(vm, "My Team")
+	pdf, err := renderInvoicePDF(vm, "Анна Фрилансер", i18n.Ru)
 	if err != nil {
 		t.Fatalf("pdf: %v", err)
 	}
