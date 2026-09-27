@@ -1,7 +1,11 @@
 package web
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -79,7 +83,7 @@ func (s *Server) handleInvoicePayLink(w http.ResponseWriter, r *http.Request) {
 		if env := stripeKeyFromEnv(); env != "" {
 			key = env
 		} else {
-			fail("stripe key is not configured (team settings or STRIPE_SECRET_KEY)")
+			fail("stripe key is not configured (team settings or PARATRACK_STRIPE_KEY)")
 			return
 		}
 	}
@@ -126,23 +130,70 @@ func (s *Server) handleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", 400)
 		return
 	}
-	if payload.Type != "checkout.session.completed" {
-		w.WriteHeader(200)
+	// team_id is untrusted until the signature checks out: it only picks
+	// which secret to verify with.
+	teamIDv, _ := strconv.ParseInt(payload.Data.Object.Metadata.TeamID, 10, 64)
+	secret := strings.TrimSpace(os.Getenv("PARATRACK_STRIPE_WEBHOOK_SECRET"))
+	if teamIDv > 0 {
+		if _, ws, err := s.db.TeamStripe(r.Context(), teamIDv); err == nil && ws != "" {
+			secret = ws
+		}
+	}
+	if !verifyStripeSignature(r.Header.Get("Stripe-Signature"), body, secret, time.Now()) {
+		http.Error(w, "bad signature", 400)
 		return
 	}
+	paid := (payload.Type == "checkout.session.completed" && payload.Data.Object.PaymentStatus == "paid") ||
+		payload.Type == "checkout.session.async_payment_succeeded"
 	invID, _ := strconv.ParseInt(payload.Data.Object.Metadata.InvoiceID, 10, 64)
-	teamIDv, _ := strconv.ParseInt(payload.Data.Object.Metadata.TeamID, 10, 64)
-	if invID == 0 {
+	if !paid || invID == 0 || teamIDv == 0 {
 		w.WriteHeader(200)
 		return
 	}
 	if err := s.db.MarkInvoicePaid(r.Context(), teamIDv, invID); err != nil {
-		w.WriteHeader(200) // ack anyway — Stripe retries would be noisy
+		if errors.Is(err, db.ErrNotFound) {
+			w.WriteHeader(200) // not ours to retry
+			return
+		}
+		http.Error(w, err.Error(), 500) // Stripe retries
 		return
 	}
 	s.audit(r, "invoice.paid", strconv.FormatInt(invID, 10), "stripe")
-	s.fireWebhook(r, "invoice.paid", map[string]any{"invoice_id": invID, "team_id": teamIDv})
 	w.WriteHeader(200)
+}
+
+// verifyStripeSignature checks a Stripe-Signature header
+// ("t=<unix>,v1=<hex>[,v1=…]"): HMAC-SHA256 of "t.body" with the whsec_
+// secret, within 5 minutes. No secret means nothing can be verified.
+func verifyStripeSignature(header string, body []byte, secret string, now time.Time) bool {
+	if secret == "" || header == "" {
+		return false
+	}
+	var ts string
+	var sigs []string
+	for _, part := range strings.Split(header, ",") {
+		k, v, _ := strings.Cut(strings.TrimSpace(part), "=")
+		switch k {
+		case "t":
+			ts = v
+		case "v1":
+			sigs = append(sigs, v)
+		}
+	}
+	t, err := strconv.ParseInt(ts, 10, 64)
+	if err != nil || now.Sub(time.Unix(t, 0)).Abs() > 5*time.Minute {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(ts + "."))
+	mac.Write(body)
+	want := mac.Sum(nil)
+	for _, sig := range sigs {
+		if got, err := hex.DecodeString(sig); err == nil && hmac.Equal(got, want) {
+			return true
+		}
+	}
+	return false
 }
 
 // handleInvoiceMarkPaid is the manual "record payment" button.
@@ -204,9 +255,9 @@ func (s *Server) loadInvoiceVM(r *http.Request) (db.Invoice, []db.InvoiceLine, i
 		ID: inv.ID, Number: inv.Number, ClientName: inv.ClientName,
 		PeriodLabel: fmtDate(resolveLang(r), inv.PeriodStart) + " – " + fmtDate(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
 		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.AddDate(0, 0, -1).Format("2006-01-02"),
-		Status: inv.Status, Notes: inv.Notes, Lines: vms,
+		Status:      inv.Status, Notes: inv.Notes, Lines: vms,
 		Total: moneyL(resolveLang(r), total, inv.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
-		PaymentURL: inv.PaymentURL, Currency: inv.Currency,
+		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
 		IssuedLabel: fmtDate(resolveLang(r), inv.CreatedAt.Local()),
 	}
 	return inv, lines, vm, true
@@ -225,6 +276,7 @@ func createStripeCheckout(secret string, vm invoiceVM, successURL string) (strin
 	form.Set("cancel_url", successURL)
 	form.Set("client_reference_id", strconv.FormatInt(vm.ID, 10))
 	form.Set("metadata[invoice_id]", strconv.FormatInt(vm.ID, 10))
+	form.Set("metadata[team_id]", strconv.FormatInt(vm.TeamID, 10))
 	form.Set("line_items[0][quantity]", "1")
 	// The invoice's own currency: unit_amount is in its minor units.
 	form.Set("line_items[0][price_data][currency]", strings.ToLower(vm.Currency))

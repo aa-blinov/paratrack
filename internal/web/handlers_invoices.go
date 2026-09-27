@@ -78,6 +78,7 @@ type invoiceVM struct {
 	PaymentURL  string
 	Currency    string
 	IssuedLabel string // creation date, shown as the invoice date
+	TeamID      int64
 }
 
 // handleInvoices lists invoices and offers a generator form.
