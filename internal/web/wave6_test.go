@@ -109,3 +109,43 @@ func TestPayrollAPI(t *testing.T) {
 	}
 	resp.Body.Close()
 }
+
+// A second pay run over days already paid asks first, then goes through.
+func TestPayrollOverlapWarns(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("payover@x.test")
+	htmx := map[string]string{"HX-Request": "true"}
+	var uid string
+	e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = 'payover@x.test'`).Scan(&uid)
+	resp := e.do("POST", "/api/member/pay", url.Values{"user_id": {uid}, "hourly_pay": {"1000"}}, nil)
+	resp.Body.Close()
+	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:00"}}, htmx))
+	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	create := func(extra url.Values) string {
+		v := url.Values{"start": {day}, "end": {day}, "notes": {"сентябрь"}}
+		for k, x := range extra {
+			v[k] = x
+		}
+		resp := e.do("POST", "/payroll", v, nil)
+		resp.Body.Close()
+		return resp.Header.Get("Location")
+	}
+	if loc := create(nil); !strings.HasPrefix(loc, "/payroll/") {
+		t.Fatalf("first run: %q", loc)
+	}
+	loc := create(nil)
+	if !strings.Contains(loc, "overlap=") {
+		t.Fatalf("overlapping run created without a warning: %q", loc)
+	}
+	if page := readBody(t, e.do("GET", loc, nil, nil)); !strings.Contains(page, `name="confirm"`) || !strings.Contains(page, "PAY-") {
+		t.Error("warning page has no confirm button or run number")
+	}
+	var n int
+	e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM payroll_runs`).Scan(&n)
+	if n != 1 {
+		t.Fatalf("%d runs after the warning, want 1", n)
+	}
+	if loc := create(url.Values{"confirm": {"1"}}); !strings.HasPrefix(loc, "/payroll/") {
+		t.Fatalf("confirmed run: %q", loc)
+	}
+}
