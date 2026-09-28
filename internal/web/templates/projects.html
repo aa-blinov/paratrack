@@ -25,7 +25,7 @@
           <div class="card-body p-5 gap-3">
             <div class="flex items-center gap-2 min-w-0">
               <span class="inline-block w-3 h-3 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span>
-              <h2 class="card-title truncate min-w-0">{{.Name}}</h2>
+              <h2 class="card-title min-w-0" title="{{.Name}}"><span class="truncate">{{.Name}}</span></h2>
               {{if .Archived}}<span class="badge badge-ghost badge-sm">{{$.T "projects.archivedBadge"}}</span>{{end}}
             </div>
             <dl class="grid grid-cols-3 gap-2 text-xs opacity-70 min-w-0">

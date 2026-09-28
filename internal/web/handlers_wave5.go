@@ -29,10 +29,7 @@ func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	teamName := "paratrack"
-	if t, ok := TeamFrom(r.Context()); ok {
-		teamName = t.Name
-	}
+	teamName := s.sellerName(r)
 	pdf, err := renderInvoicePDF(vm, teamName, resolveLang(r))
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -65,10 +62,7 @@ func (s *Server) handleInvoiceActPDF(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	teamName := "paratrack"
-	if t, ok := TeamFrom(r.Context()); ok {
-		teamName = t.Name
-	}
+	teamName := s.sellerName(r)
 	pdf, err := renderDocPDF(vm, teamName, resolveLang(r), true)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
