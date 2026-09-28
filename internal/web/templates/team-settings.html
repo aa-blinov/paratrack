@@ -17,7 +17,7 @@
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.renameTitle"}}</h2>
-      <form method="POST" action="/api/team/rename" class="flex flex-col sm:flex-row gap-2">
+      <form method="POST" action="/api/team/rename" class="flex flex-col sm:flex-row gap-2 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="sr-only" for="team-name">{{.T "team.nameCol"}}</label>
         <input id="team-name" type="text" name="name" required minlength="1" value="{{.Team.Name}}"
@@ -31,7 +31,7 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-1">{{.T "team.currencyTitle"}}</h2>
       <p class="text-sm opacity-70 mb-3">{{.T "team.currencyHint"}}</p>
-      <form method="POST" action="/api/team/currency" class="flex gap-2">
+      <form method="POST" action="/api/team/currency" class="flex gap-2 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="sr-only" for="team-currency">{{.T "team.currencyTitle"}}</label>
         <select id="team-currency" name="currency" class="select select-bordered flex-1">
@@ -46,7 +46,7 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-1">{{.T "team.reqTitle"}}</h2>
       <p class="text-sm opacity-70 mb-3">{{.T "team.reqHint"}}</p>
-      <form method="POST" action="/api/team/requisites" class="space-y-3">
+      <form method="POST" action="/api/team/requisites" class="space-y-3 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="form-control">
           <span class="label-text">{{.T "team.reqLabel"}}</span>
@@ -64,7 +64,7 @@
   <div id="billing" class="card bg-base-100 border border-base-300">
     <div class="card-body p-5 gap-3">
       <h2 class="card-title">{{.T "bill.title"}}</h2>
-      <form method="POST" action="/api/team/billing" class="space-y-3">
+      <form method="POST" action="/api/team/billing" class="space-y-3 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div class="grid sm:grid-cols-2 gap-3">
           <label class="form-control">
@@ -92,7 +92,7 @@
       <div class="border-t border-base-300 pt-3 space-y-2">
         <span class="label-text">{{.T "bill.logo"}}</span>
         {{if .Billing.Logo}}<img src="{{.LogoURL}}" alt="{{.T "bill.logo"}}" class="max-h-14 max-w-48 object-contain border border-base-300 rounded p-1 bg-white">{{end}}
-        <form method="POST" action="/api/team/logo" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center">
+        <form method="POST" action="/api/team/logo" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center form-measure">
           <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
           <input type="file" name="logo" accept="image/png,image/jpeg" required class="file-input file-input-bordered file-input-sm flex-1 min-w-0">
           <button type="submit" class="btn btn-sm btn-neutral">{{.T "bill.upload"}}</button>
@@ -113,7 +113,7 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.createTitle"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "team.createBlurb"}}</p>
-      <form method="POST" action="/api/team/create" class="flex gap-2">
+      <form method="POST" action="/api/team/create" class="flex gap-2 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="sr-only" for="team-new-name">{{.T "projects.name"}}</label>
         <input id="team-new-name" type="text" name="name" required minlength="1" placeholder="{{.T "ph.team"}}"
@@ -127,7 +127,7 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "stripe.title"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "stripe.blurb"}}</p>
-      <form method="POST" action="/api/team/stripe" class="space-y-2">
+      <form method="POST" action="/api/team/stripe" class="space-y-2 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="form-control">
           <span class="label-text">{{.T "stripe.keyLabel"}}</span>
