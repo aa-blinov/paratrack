@@ -81,9 +81,9 @@
                class="btn {{if not .ProjectFilter}}btn-neutral{{else}}btn-ghost{{end}} btn-xs">{{.T "stats.all"}}</a>
             {{range .Projects}}
               <a href="?period={{$.Period.Label}}&project={{.Slug}}{{if $.TagFilter}}&tag={{urlquery $.TagFilter}}{{end}}"
-                 class="btn {{if eq $.ProjectFilter .Slug}}btn-neutral{{else}}btn-ghost{{end}} btn-xs">
-                <span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: {{.Color}}"></span>
-                {{.Name}}
+                 class="btn {{if eq $.ProjectFilter .Slug}}btn-neutral{{else}}btn-ghost{{end}} btn-xs max-w-full min-w-0" title="{{.Name}}">
+                <span class="inline-block w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span>
+                <span class="truncate">{{.Name}}</span>
               </a>
             {{end}}
           </div>

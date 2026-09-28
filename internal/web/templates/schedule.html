@@ -5,9 +5,9 @@
       <h1 class="mb-1">{{.T "sch.title"}}</h1>
       <p class="opacity-70 text-sm">{{.T "sch.blurb"}}</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="week-nav">
       <a href="/schedule?date={{.PrevWeek}}&project={{.ProjectID}}" class="btn btn-ghost btn-sm" aria-label="{{.T "sch.prev"}}">←</a>
-      <span class="font-mono text-sm px-2">{{.WeekLabel}}</span>
+      <span class="week-nav-label font-mono text-sm">{{.WeekLabel}}</span>
       <a href="/schedule?date={{.NextWeek}}&project={{.ProjectID}}" class="btn btn-ghost btn-sm" aria-label="{{.T "sch.next"}}">→</a>
       <a href="/schedule?project={{.ProjectID}}" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
     </div>
@@ -26,7 +26,8 @@
 
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
     <div class="card-body p-0">
-      <table class="table table-sm w-full min-w-[44rem]">
+      <table class="week-grid table table-sm w-full min-w-[48rem]">
+        <colgroup><col class="week-name-col"><col span="7"><col class="week-total-col"></colgroup>
         <thead>
           <tr>
             <th class="sticky left-0 bg-base-100 z-10">{{.T "nav.account"}}</th>

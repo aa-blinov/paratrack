@@ -8,13 +8,15 @@
   </header>
 
   {{if not .Billable}}
-  <div role="alert" class="alert alert-warning">
-    {{icon "flag"}}
-    <div>
-      <div class="font-medium">{{.T "inv.noRateTitle"}}</div>
-      <div class="text-sm">{{.T "inv.noRateHint"}}</div>
+  <div role="alert" class="alert alert-warning flex flex-wrap items-center gap-3">
+    <div class="flex items-start gap-3 min-w-0 flex-1 basis-72">
+      {{icon "flag"}}
+      <div class="min-w-0">
+        <div class="font-medium">{{.T "inv.noRateTitle"}}</div>
+        <div class="text-sm">{{.T "inv.noRateHint"}}</div>
+      </div>
     </div>
-    <a href="/projects" class="btn btn-sm">{{.T "inv.noRateCta"}}</a>
+    <a href="/projects" class="btn btn-sm ml-auto shrink-0">{{.T "inv.noRateCta"}}</a>
   </div>
   {{end}}
 
