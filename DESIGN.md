@@ -416,3 +416,24 @@ layout, `templates/email.html`, previewed at `/settings/email-preview`
 - **One dark button** (`#1a1d23`, white 15 px/600) with the raw link under
   it; the amount on an invoice sits under the 2 px total rule, like the
   ledger. Every letter also ships an identical plain-text part.
+
+## Public site
+
+The GitHub Pages site (`site/`: landing and docs, one stylesheet
+`site/assets/site.css`) is the same ledger on a public page, not a
+second world. Every rule above holds; these are the few things only
+the site needs.
+
+- **Dark ground:** in dark the page is `#15171c`, one step below the
+  app's darkest base, so `#1a1d23` sheets still read as sheets on it
+  with a `#2d3139` hairline. Both layouts set it as the dark `theme-color`.
+- **Marketing headings:** Inter 700 with tighter tracking than the app's
+  headline. Landing `h1` is `clamp(2.1rem, 1.3rem + 3vw, 3.4rem)`, lh 1.06,
+  −0.035em, one per page. Section `h2` is `clamp(1.6rem, 1.1rem + 1.8vw,
+  2.3rem)`, −0.025em. Docs `h1` is `clamp(1.9rem, 1.4rem + 1.6vw, 2.5rem)`.
+  Fraunces stays on the wordmark only.
+- **Live-fed figures:** a figure fed by the demo timers is set in bold
+  ink, never in indigo. Indigo stays for focus, selection, and link hover.
+- **Empty cells:** an empty table cell, or a "not included" cell, gets
+  the stroked minus icon in `--ink-3` with `aria-label="нет"`. Never a
+  bare dash or a blank cell.
