@@ -24,7 +24,7 @@
         <button type="submit" class="preset-card{{if .Active}} is-active{{end}}"{{if .Active}} aria-current="true"{{end}}>
           <span class="flex items-center gap-2 font-semibold">{{icon .Icon}}{{$.T .Title}}{{if .Active}}<span class="ms-auto">{{icon "check" "icon icon-sm"}}</span>{{end}}</span>
           <span class="text-sm opacity-80 text-left">{{$.T .Blurb}}</span>
-          <span class="text-xs doc-muted text-left">{{range $i, $n := .Names}}{{if $i}} · {{end}}{{$n}}{{end}}</span>
+          <span class="text-xs doc-muted text-left">{{range $i, $n := .Names}}{{if $i}}, {{end}}{{$n}}{{end}}</span>
         </button>
       </form>
       {{end}}

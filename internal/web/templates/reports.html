@@ -21,7 +21,7 @@
         <p class="text-sm opacity-70 flex-1">{{$.T (printf "mkt.%s.blurb" .ID)}}</p>
         {{if .Available}}
           <a href="/integrations?provider={{.ID}}" class="btn btn-neutral btn-sm gap-1.5 mt-2 w-full sm:w-auto">{{icon "plus"}}{{$.T "mkt.connect"}}</a>
-          <p class="text-xs opacity-50">{{$.T (printf "mkt.%s.secret" .ID)}} · {{$.T (printf "mkt.%s.target" .ID)}}</p>
+          <p class="text-xs opacity-50">{{$.T (printf "mkt.%s.secret" .ID)}} / {{$.T (printf "mkt.%s.target" .ID)}}</p>
         {{else}}
           <span class="btn btn-ghost btn-sm mt-2 opacity-50 pointer-events-none">{{$.T "mkt.soon"}}</span>
         {{end}}
