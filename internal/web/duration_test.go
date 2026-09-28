@@ -65,6 +65,20 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 	}
 }
 
+func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
+	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
+	end := start
+	sessions := []model.ActiveSession{{
+		Session: model.Session{StartAt: start, EndAt: &end, AccumulatedSeconds: 600},
+		Activity: model.Activity{Name: "imported"},
+	}}
+	period := timeparse.Period{Start: start.Add(-time.Hour), End: start.Add(time.Hour), Label: "today"}
+	chart := buildChartData(sessions, period, i18n.En)
+	if !chart.HasData || chart.Series[0].Data[start.Hour()] == 0 {
+		t.Fatalf("collapsed interval hid tracked time: %+v", chart)
+	}
+}
+
 func TestFilterByTagKeepsOnlyTaggedRows(t *testing.T) {
 	rows := []sessionView{
 		{ID: 1, ActivityName: "a", DurationSecs: 60, Tags: []tagChip{{Name: "deep"}}},

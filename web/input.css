@@ -310,6 +310,12 @@
     }
     .period-tabs {
       @apply flex w-full max-w-full overflow-x-auto whitespace-nowrap;
+      scrollbar-width: none;
+      padding-inline-end: .5rem;
+      scroll-padding-inline: .5rem;
+    }
+    .period-tabs::-webkit-scrollbar {
+      display: none;
     }
     .period-tabs a {
       @apply shrink-0;
