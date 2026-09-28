@@ -79,7 +79,7 @@ img { max-width: 100%; display: block; }
 html { scrollbar-color: var(--rule-strong) transparent; }
 .num, code, kbd, pre { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 code { font-size: 0.9em; background: color-mix(in oklab, var(--rule) 55%, transparent); padding: 0.1em 0.35em; border-radius: var(--r-sel); }
-kbd { font-size: 0.8em; border: 1px solid var(--rule-strong); border-bottom-width: 2px; padding: 0.05em 0.4em; border-radius: var(--r-sel); background: var(--sheet); }
+kbd { font-size: 0.8em; border: 1px solid var(--rule-strong); padding: 0.05em 0.4em; border-radius: var(--r-sel); background: var(--sheet); }
 .icon { width: 1.05em; height: 1.05em; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.15em; }
 .wrap { width: min(72rem, 100% - 2rem); margin-inline: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
@@ -89,7 +89,7 @@ kbd { font-size: 0.8em; border: 1px solid var(--rule-strong); border-bottom-widt
 /* Top bar: one row, wordmark left, actions right. */
 .bar { position: sticky; top: 0; z-index: 10; background: color-mix(in oklab, var(--sheet) 94%, transparent); border-bottom: 1px solid var(--rule); }
 .bar .wrap { display: flex; align-items: center; gap: 0.5rem; height: 3.5rem; }
-.wordmark { font-family: "Fraunces", Georgia, serif; font-weight: 620; font-size: 1.45rem; letter-spacing: -0.03em; line-height: 1; text-decoration: none; font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 48; margin-right: auto; }
+.wordmark { font-family: "Fraunces", Georgia, serif; font-weight: 620; font-size: 1.35rem; letter-spacing: -0.03em; line-height: 1; text-decoration: none; font-variation-settings: "SOFT" 40, "WONK" 1, "opsz" 48; margin-right: auto; }
 .bar nav { display: flex; align-items: center; gap: 0.25rem; }
 .bar nav a.link { text-decoration: none; font-weight: 500; font-size: var(--step--1); padding: 0.45rem 0.65rem; border-radius: var(--r); color: var(--ink-2); }
 .bar nav a.link:hover, .bar nav a.link[aria-current="page"] { color: var(--ink); background: color-mix(in oklab, var(--rule) 60%, transparent); }
@@ -106,7 +106,7 @@ kbd { font-size: 0.8em; border: 1px solid var(--rule-strong); border-bottom-widt
 .btn-ghost:hover { background: color-mix(in oklab, var(--rule) 70%, transparent); }
 .btn-stop { background: transparent; border-color: var(--rule); color: var(--red); height: 2rem; padding: 0 0.6rem; font-size: 0.78rem; }
 .btn-stop:hover { background: color-mix(in oklab, var(--red) 8%, transparent); }
-.bar .btn { height: 2.25rem; }
+.bar .btn { height: 2rem; }
 .bar .btn .short { display: none; }
 
 /* ---------- Landing ---------- */
@@ -117,7 +117,7 @@ h1, h2, h3 { text-wrap: balance; }
 .hero h1 { font-size: clamp(2.1rem, 1.3rem + 3vw, 3.4rem); line-height: 1.06; letter-spacing: -0.035em; font-weight: 700; margin: 0 0 1.1rem; }
 .hero .lede { font-size: var(--step-1); line-height: 1.5; color: var(--ink-2); margin: 0 0 1.75rem; max-width: 34rem; }
 .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
-.actions .btn { height: 2.75rem; padding: 0 1.2rem; font-size: 0.9rem; }
+.actions .btn { padding: 0 1.1rem; font-size: 0.875rem; }
 .hero .fine { margin-top: 1rem; font-size: var(--step--1); color: var(--ink-3); }
 
 /* The live ledger: a working copy of «Идут сейчас». */
@@ -201,7 +201,7 @@ pre.term .p { color: #a5b4fc; user-select: none; }
 .close .actions { margin-top: 1.25rem; }
 footer.foot { border-top: 1px solid var(--rule); padding: 2rem 0 2.5rem; font-size: var(--step--1); color: var(--ink-3); }
 footer.foot .wrap { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; align-items: center; }
-footer.foot .wordmark { font-size: 1.1rem; margin-right: auto; color: var(--ink); }
+footer.foot .wordmark { font-size: 1.35rem; margin-right: auto; color: var(--ink); }
 
 /* ---------- Docs ---------- */
 .docs { display: grid; grid-template-columns: 15rem minmax(0, 1fr); gap: clamp(1.5rem, 4vw, 3.5rem); padding: 2.5rem 0 4rem; align-items: start; }
@@ -209,7 +209,7 @@ footer.foot .wordmark { font-size: 1.1rem; margin-right: auto; color: var(--ink)
 .docs-nav ol { list-style: none; margin: 0; padding: 0; }
 .docs-nav a { display: block; padding: 0.4rem 0.7rem; border-radius: var(--r); text-decoration: none; color: var(--ink-2); line-height: 1.35; }
 .docs-nav a:hover { color: var(--ink); background: color-mix(in oklab, var(--rule) 55%, transparent); }
-.docs-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; background: var(--sheet); box-shadow: inset 0 0 0 1px var(--rule); }
+.docs-nav a[aria-current="page"] { color: var(--ink); font-weight: 600; background: var(--sheet); outline: 1px solid var(--rule); outline-offset: -1px; }
 .docs-nav .label { display: block; padding: 0 0.7rem 0.5rem; }
 .docs-nav details summary { display: none; }
 article.doc { max-width: 46rem; min-width: 0; }
