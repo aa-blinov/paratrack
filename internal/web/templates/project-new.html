@@ -11,7 +11,7 @@
     <p class="opacity-70 text-sm mt-1">{{.T "projects.slugHint"}}</p>
   </header>
 
-  <form method="POST" action="/projects/new" class="card bg-base-100 border border-base-300">
+  <form method="POST" action="/projects/new" class="card bg-base-100 border border-base-300 form-measure">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
     <div class="card-body p-5 gap-4">
       <label class="form-control">

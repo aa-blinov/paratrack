@@ -27,8 +27,7 @@
   <meta name="apple-mobile-web-app-title" content="paratrack">
   <link rel="apple-touch-icon" href="/static/icon192.png">
   <link rel="stylesheet" href="{{asset "css/paratrack.css"}}">
-  <link rel="preload" href="/static/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/static/fonts/fraunces-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/static/fonts/inter-{{if eq .Lang "ru"}}cyrillic{{else}}latin{{end}}.woff2" as="font" type="font/woff2" crossorigin>
   {{with sentryDSN}}<meta name="sentry" content="{{.}}" data-release="{{release}}" data-env="{{sentryEnv}}">
   <script src="{{asset "js/sentry.min.js"}}"></script>
   <script src="{{asset "js/sentry-init.js"}}"></script>{{end}}
