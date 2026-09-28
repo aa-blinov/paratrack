@@ -760,7 +760,7 @@ header .header-extra { display: none; }
 /* Phone: the edit card is two columns (start | end, duration | note),
    the name on top with its actions beside it, tags under. Was one field
    per line, ~430px a session. */
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .collapse-lg tbody tr { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.25rem 0.75rem; }
   .collapse-lg tbody td:first-child { grid-column: 1; grid-row: 1; }
   .collapse-lg tbody td:last-child { grid-column: 2; grid-row: 1; justify-self: end; align-self: start; }
@@ -1070,10 +1070,21 @@ header .header-extra { display: none; }
   align-items: center;
   gap: 0.375rem;
   min-height: 32px;
+  max-width: 100%;
+  min-width: 0;
   font-size: 0.875rem;
   cursor: pointer;
   border-radius: var(--radius-field);
 }
+.ledger-more-summary [data-project-label] {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ledger-more-summary > span:last-child { flex-shrink: 0; }
 .ledger-more[open] > .ledger-more-summary { display: none; }
 /* The day's sum sits under the running rows behind the 2px total rule. */
 .ledger-total {
@@ -1093,8 +1104,11 @@ header .header-extra { display: none; }
   flex: 1;
 }
 .ledger-figures > div { display: flex; align-items: baseline; gap: 0.5rem; }
-.ledger-figures dt { font-size: 0.875rem; color: color-mix(in srgb, var(--color-base-content) 62%, transparent); }
-.ledger-figures dd { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ledger-figures dt { font-size: 0.875rem; white-space: nowrap; color: color-mix(in srgb, var(--color-base-content) 62%, transparent); }
+.ledger-figures dd { min-width: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+@media (min-width: 640px) and (max-width: 1023px) {
+  .ledger-figures > div:last-child { flex-basis: 100%; }
+}
 /* Name column takes what is left and truncates, so row actions never
    get pushed off the sheet (Shrink-to-Truncate Rule). Rows are cards
    below 640px, where this would collapse the cell. */
@@ -1107,6 +1121,44 @@ header .header-extra { display: none; }
   .ledger-figures { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 0.5rem; }
   .ledger-figures > div:last-child { grid-column: 1 / -1; }
   .ledger-figures dt { white-space: nowrap; }
+}
+
+/* Weekly grids share one scale: keep days readable and let the card scroll
+   instead of allowing a long name to steal the week. */
+.week-grid { table-layout: fixed; }
+.week-grid .week-name-col { width: clamp(10.5rem, 23vw, 17rem); }
+.week-grid .week-total-col { width: 6rem; }
+.week-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.week-nav-label { white-space: nowrap; padding-inline: 0.25rem; }
+.week-nav .btn { padding-inline: 0.5rem; }
+@media (min-width: 640px) {
+  .week-nav { gap: 0.5rem; }
+  .week-nav-label { padding-inline: 0.5rem; }
+}
+
+/* Project detail: session names take a full line instead of turning the
+   three-column table into an eight-line narrow strip. */
+@media (max-width: 639px) {
+  .project-sessions-table,
+  .project-sessions-table tbody { display: block; width: 100%; }
+  .project-sessions-table thead { display: none; }
+  .project-sessions-table tbody tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.375rem 0.75rem;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--color-base-300);
+  }
+  .project-sessions-table tbody tr:last-child { border-bottom: 0; }
+  .project-sessions-table tbody td { display: block; min-width: 0; padding: 0; border: 0; }
+  .project-sessions-table tbody td:first-child { grid-column: 1 / -1; overflow-wrap: anywhere; }
+  .project-sessions-table tbody td:not(:first-child)::before {
+    content: attr(data-label);
+    display: block;
+    font-family: var(--font-sans);
+    font-size: var(--step--1);
+    opacity: 0.7;
+  }
 }
 
 /* Phone on its side: too little height for a sticky app bar on top of

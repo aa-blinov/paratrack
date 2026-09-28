@@ -5,9 +5,9 @@
       <h1 class="mb-1">{{.T "ts.title"}}</h1>
       <p class="opacity-70 text-sm">{{.T "ts.blurb"}}</p>
     </div>
-    <div class="flex items-center gap-2">
+    <div class="week-nav">
       <a href="/timesheet?date={{.PrevWeek}}" class="btn btn-ghost btn-sm">←</a>
-      <span class="font-mono text-sm px-2">{{.WeekLabel}}</span>
+      <span class="week-nav-label font-mono text-sm">{{.WeekLabel}}</span>
       <a href="/timesheet?date={{.NextWeek}}" class="btn btn-ghost btn-sm">→</a>
       <a href="/timesheet" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
     </div>
@@ -15,7 +15,8 @@
 
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
     <div class="card-body p-0">
-      <table class="table table-sm w-full min-w-[42rem]">
+      <table class="week-grid table table-sm w-full min-w-[48rem]">
+        <colgroup><col class="week-name-col"><col span="7"><col class="week-total-col"></colgroup>
         <thead>
           <tr>
             <th class="sticky left-0 bg-base-100 z-10">{{.T "dash.activity"}}</th>
@@ -33,7 +34,7 @@
           {{template "timesheet-row" .}}
           {{end}}
           {{if not .Rows}}
-          <tr><td colspan="8" class="text-center py-6">
+          <tr><td colspan="9" class="text-center py-6">
             <div class="font-medium">{{.T "ts.empty"}}</div>
             <div class="text-sm opacity-60 mt-1">{{.T "ts.emptyHint"}}</div>
             <a href="/" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "play" "icon icon-sm"}}{{.T "ts.emptyCta"}}</a>

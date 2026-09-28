@@ -335,8 +335,9 @@ def main() -> int:
         # Unique slug per run so repeated runs don't hit a duplicate.
         from time import time as _now
         proj_slug = f"eora-rag-{int(_now())}"
+        proj_name = f"EORA RAG {proj_slug}"
         page.goto(BASE + "/projects/new")
-        page.fill('input[name="name"]', "EORA RAG")
+        page.fill('input[name="name"]', proj_name)
         page.fill('input[name="slug"]', proj_slug)
         # Slug blank → auto. Color picker value is the hex text input.
         page.fill('input[name="color"][pattern]', "#7c3aed")
@@ -345,21 +346,21 @@ def main() -> int:
         check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
 
         # Detail page renders the right title.
-        expect(page.locator("h1")).to_contain_text("EORA RAG")
-        check("detail page shows project name", "EORA RAG" in page.content())
+        expect(page.locator("h1")).to_contain_text(proj_name)
+        check("detail page shows project name", proj_name in page.content())
 
-        # Start a fresh activity (not "writing", which already has a paused
-        # session from section 2 — re-using it would leave the active-list
-        # with a mix of one unbadged paused session and one badged active).
+        # A unique activity per run keeps repeated local E2E runs from
+        # inheriting a project assignment from an earlier run.
+        activity_name = f"deep-work-{proj_slug}"
         page.goto(BASE + "/")
-        page.fill('#activity', "deep-work")
-        page.select_option('#project_id', label="EORA RAG")
+        page.fill('#activity', activity_name)
+        page.select_option('#project_id', label=proj_name)
         with page.expect_response("**/api/start") as start_resp_info:
             page.click('button[type="submit"]:has-text("Start")')
         start_resp = start_resp_info.value
         check("start POST 200", start_resp.status == 200, f"status={start_resp.status}")
         # Wait for the new session row to land in the active-list fragment.
-        page.wait_for_selector("#active-list:has-text('deep-work')", timeout=3000)
+        page.wait_for_selector(f'#active-list:has-text("{activity_name}")', timeout=3000)
         check("dashboard shows new active session", True)
         # Small extra wait so HTMX finishes swapping the active-list
         # fragment before we look for the badge inside it.
@@ -374,9 +375,18 @@ def main() -> int:
         selected = project_select.locator("option:checked").inner_text()
         check(
             "active-list shows the selected project",
-            project_select.count() >= 1 and selected.strip() == "EORA RAG",
+            project_select.count() >= 1 and selected.strip() == proj_name,
             f"selected={selected!r}",
         )
+        page.set_viewport_size({"width": 320, "height": 900})
+        page.goto(BASE + f"/projects/{proj_slug}")
+        page.locator('main h1 span.truncate').first.evaluate(
+            "el => { el.textContent = 'A very long project title that must remain inside the detail page'; }")
+        check("long project detail title stays within 320px",
+              page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(BASE + "/")
+        project_select = page.locator("#active-list select.ledger-project")
         # A long project option must not steal the activity's entire lane
         # on the intermediate layout. Change display text only, then reload.
         for width in (390, 768, 1024, 1280):
@@ -390,21 +400,55 @@ def main() -> int:
                       "el => el.getBoundingClientRect().width > 36")
                   and abs(project_select.evaluate("el => el.getBoundingClientRect().width") - short_width) < 1
                   and page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
-            project_select.evaluate("el => { el.selectedOptions[0].textContent = 'EORA RAG'; }")
+            project_select.evaluate("(el, name) => { el.selectedOptions[0].textContent = name; }", proj_name)
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
 
-        # Give the just-started session a visible duration before the stats
-        # period/filter checks; a same-second session is correctly clipped to
-        # zero minutes by the product.
-        active_html = page.request.get(BASE + "/api/active").text()
-        new_sid = _re.findall(r"/api/sessions/(\d+)/(?:stop|pause|resume)", active_html)[-1]
-        api(page, "patch", BASE + f"/api/sessions/{new_sid}", form={"duration": "10m"})
+        # Weekly tables share a fixed name lane; long names must not consume
+        # day columns, even at narrow effective widths (browser zoom/mobile).
+        for width in (320, 1024):
+            page.set_viewport_size({"width": width, "height": 900})
+            page.goto(BASE + "/timesheet")
+            check(f"timesheet keeps a readable first column at {width}px",
+                  page.locator('.week-grid th').first.evaluate(
+                      "el => el.getBoundingClientRect().width >= 160")
+                  and page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                  and page.locator('.week-nav-label').evaluate(
+                      "el => getComputedStyle(el).whiteSpace === 'nowrap'"))
+        page.set_viewport_size({"width": 320, "height": 900})
+        page.goto(BASE + "/")
+        page.locator('[data-project-label]').first.evaluate(
+            "el => { el.textContent = 'A very long project name for the new timer'; }")
+        check("long project summary stays on one line at 320px",
+              page.locator('.ledger-more-summary').evaluate(
+                  "el => el.getBoundingClientRect().height < 40"))
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(BASE + "/")
+
+        # Set a visible duration before the stats period/filter checks.
+        # The duration PATCH closes a running session; a second stop would
+        # correctly return "already stopped".
+        stop_path = page.locator(f'#active-list tbody tr:has-text("{activity_name}") button[hx-post$="/stop"]').first.get_attribute("hx-post")
+        new_sid = _re.search(r"/api/sessions/(\d+)/stop", stop_path).group(1)
+        started_at = page.evaluate("""() => {
+            const d = new Date(Date.now() - 20 * 60 * 1000);
+            const pad = n => String(n).padStart(2, '0');
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }""")
+        check("project timer duration saved before stats",
+              api(page, "patch", BASE + f"/api/sessions/{new_sid}",
+                  form={"start_at": started_at, "duration": "10m"}).ok)
 
         # Stats page breakdown shows the project with our activity under it.
         page.goto(BASE + "/stats")
-        page.wait_for_selector("text=EORA RAG", timeout=3000)
-        check("stats breakdown mentions EORA RAG", "EORA RAG" in page.content())
+        page.wait_for_selector(f"text={proj_name}", timeout=3000)
+        check("stats breakdown mentions project", proj_name in page.content())
+        page.set_viewport_size({"width": 320, "height": 900})
+        page.locator('a[href*="project="] span.truncate').first.evaluate(
+            "el => { el.textContent = 'A very long project name that must stay inside the stats filter'; }")
+        check("long stats project filter fits at 320px",
+              page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+        page.set_viewport_size({"width": 1280, "height": 900})
 
         # Project filter narrows to just the one project.
         page.goto(BASE + f"/stats?project={proj_slug}")
@@ -412,8 +456,8 @@ def main() -> int:
         filtered_body = page.locator("body").inner_text()
         check(
             "project filter keeps the selected project",
-            "EORA RAG" in filtered_body and "writing" not in filtered_body,
-            f"contains_project={'EORA RAG' in filtered_body}",
+            proj_name in filtered_body and "writing" not in filtered_body,
+            f"contains_project={proj_name in filtered_body}",
         )
 
         shot(page, "11-projects-detail")
