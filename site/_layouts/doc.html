@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title }} · документация paratrack</title>
+  <meta name="description" content="{{ page.description | default: site.description }}">
+  <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#15171c" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="{{ '/assets/icon.png' | relative_url }}">
+  <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+</head>
+<body>
+<a class="skip" href="#doc">К тексту</a>
+{% assign icons = '/assets/icons.svg' | relative_url %}
+<header class="bar">
+  <div class="wrap">
+    <a class="wordmark" href="{{ '/' | relative_url }}">paratrack</a>
+    <nav aria-label="Сайт">
+      <a class="link" href="{{ '/docs/' | relative_url }}" aria-current="page">Документация</a>
+      <a class="link hide-sm" href="https://github.com/aa-blinov/paratrack">GitHub</a>
+      <a class="btn btn-primary" href="https://paratrack.duckdns.org/register" aria-label="Открыть paratrack"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg><span class="long">Открыть paratrack</span><span class="short">Открыть</span></a>
+    </nav>
+  </div>
+</header>
+{% assign docs = site.pages | where_exp: "p", "p.nav_order" | sort: "nav_order" %}
+<div class="wrap docs">
+  <nav class="docs-nav" aria-label="Разделы документации">
+    <details open id="docs-toc">
+      <summary><span>Разделы: {{ page.title }}</span> <svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-chevron-down"/></svg></summary>
+      <ol>
+        {% for d in docs %}<li><a href="{{ d.url | relative_url }}"{% if d.url == page.url %} aria-current="page"{% endif %}>{{ d.title }}</a></li>
+        {% endfor %}
+      </ol>
+    </details>
+    <script>if (matchMedia("(max-width: 900px)").matches) document.getElementById("docs-toc").open = false;</script>
+  </nav>
+  <article class="doc" id="doc">
+    <h1>{{ page.title }}</h1>
+    {{ content }}
+    {% for d in docs %}{% if d.url == page.url %}{% assign i = forloop.index0 %}{% endif %}{% endfor %}
+    {% assign prev_i = i | minus: 1 %}{% assign next_i = i | plus: 1 %}
+    <nav class="doc-pager" aria-label="Соседние разделы">
+      {% if i > 0 %}{% assign p = docs[prev_i] %}<a href="{{ p.url | relative_url }}"><span>Назад</span><b>{{ p.title }}</b></a>{% endif %}
+      {% if next_i < docs.size %}{% assign n = docs[next_i] %}<a href="{{ n.url | relative_url }}"><span>Дальше</span><b>{{ n.title }}</b></a>{% endif %}
+    </nav>
+  </article>
+</div>
+<footer class="foot">
+  <div class="wrap">
+    <span class="wordmark">paratrack</span>
+    <a href="https://github.com/aa-blinov/paratrack">GitHub</a>
+    <a href="https://github.com/aa-blinov/paratrack/blob/master/site/{{ page.path }}">Исправить эту страницу</a>
+    <a href="https://paratrack.duckdns.org">paratrack.duckdns.org</a>
+  </div>
+</footer>
+</body>
+</html>
