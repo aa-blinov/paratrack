@@ -4,6 +4,7 @@ import (
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,11 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
 	data.DefEnd = now.Format("2006-01-02")
+	// Coming back from a create that overlapped earlier runs: ask first.
+	if q := r.URL.Query(); q.Get("overlap") != "" {
+		data.Overlap = q.Get("overlap")
+		data.DefStart, data.DefEnd, data.DefNotes = q.Get("start"), q.Get("end"), q.Get("notes")
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -57,6 +63,8 @@ type payrollPage struct {
 	Items    []payrollSummary
 	DefStart string
 	DefEnd   string
+	DefNotes string
+	Overlap  string // runs whose period this one overlaps, "PAY-…, PAY-…"
 	Flash    string
 	FlashOK  bool
 }
@@ -76,6 +84,21 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	end = end.AddDate(0, 0, 1)
+	// The same hours paid twice: warn, create only once confirmed.
+	if r.PostForm.Get("confirm") == "" {
+		var clash []string
+		runs, _ := s.db.ListPayrollRuns(r.Context(), teamID(r))
+		for _, run := range runs {
+			if run.PeriodStart.Before(end) && start.Before(run.PeriodEnd) {
+				clash = append(clash, run.Number)
+			}
+		}
+		if len(clash) > 0 {
+			q := url.Values{"overlap": {strings.Join(clash, ", ")}, "start": {startStr}, "end": {endStr}, "notes": {notes}}
+			http.Redirect(w, r, "/payroll?"+q.Encode(), http.StatusSeeOther)
+			return
+		}
+	}
 	lines, err := s.db.BuildPayrollLines(r.Context(), teamID(r), start, end)
 	if err != nil {
 		http.Redirect(w, r, "/payroll?flash="+encodeFlash(false, err.Error()), http.StatusSeeOther)

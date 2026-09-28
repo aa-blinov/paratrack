@@ -7,6 +7,24 @@
     <p class="opacity-70 text-sm">{{.T "pay.blurb"}}</p>
   </header>
 
+  {{if .Overlap}}
+  <div role="alert" class="alert alert-warning items-start">
+    {{icon "flag"}}
+    <div class="space-y-2">
+      <p>{{printf (.T "pay.overlap") .Overlap}}</p>
+      <form method="POST" action="/payroll" class="flex flex-wrap gap-2">
+        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+        <input type="hidden" name="start" value="{{.DefStart}}">
+        <input type="hidden" name="end" value="{{.DefEnd}}">
+        <input type="hidden" name="notes" value="{{.DefNotes}}">
+        <input type="hidden" name="confirm" value="1">
+        <button type="submit" class="btn btn-sm btn-neutral">{{.T "pay.overlapCreate"}}</button>
+        <a href="/payroll" class="btn btn-sm btn-ghost">{{.T "pay.overlapCancel"}}</a>
+      </form>
+    </div>
+  </div>
+  {{end}}
+
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "pay.generate"}}</h2>
@@ -21,7 +39,7 @@
           <input id="pay-end" type="date" name="end" required value="{{.DefEnd}}" class="input input-bordered w-full">
         </div>
         <div class="flex items-end gap-2 sm:col-span-2">
-          <input type="text" name="notes" aria-label="{{.T "stats.note"}}" class="input input-bordered flex-1 min-w-0" placeholder="{{.T "pay.notesPh"}}">
+          <input type="text" name="notes" value="{{.DefNotes}}" aria-label="{{.T "stats.note"}}" class="input input-bordered flex-1 min-w-0" placeholder="{{.T "pay.notesPh"}}">
           <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "pay.create"}}</button>
         </div>
       </form>
