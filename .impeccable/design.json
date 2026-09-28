@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-25T11:37:06Z",
+  "generatedAt": "2026-09-28T05:43:00Z",
   "title": "Design System: paratrack",
   "extensions": {
     "colorMeta": {
@@ -17,7 +17,8 @@
           "#a8a9f7",
           "#cbccfa",
           "#efeffd"
-        ]
+        ],
+        "usage": "The signature: identity, the current place (active phone tab), focus ring, sent status, toast action, selection. Never the main button. Dark: #818cf8."
       },
       "ink-violet": {
         "role": "secondary",
@@ -32,7 +33,8 @@
           "#bea4f9",
           "#d8c9fc",
           "#f3eefe"
-        ]
+        ],
+        "usage": "Theme secondary, kept but unused by any screen today. Dark: #a78bfa."
       },
       "ledger-white": {
         "role": "neutral",
@@ -47,7 +49,8 @@
           "#ffffff",
           "#ffffff",
           "#ffffff"
-        ]
+        ],
+        "usage": "The sheet: card and input surfaces (base-100, light). Dark sheet #1a1d23."
       },
       "ledger-paper": {
         "role": "neutral",
@@ -62,7 +65,8 @@
           "#fbfcfc",
           "#fdfdfd",
           "#fefefe"
-        ]
+        ],
+        "usage": "The desk: page background (base-200), badge fills, quiet chips, main-button ink. Dark page #232730."
       },
       "ledger-rule": {
         "role": "neutral",
@@ -77,7 +81,8 @@
           "#f0f1f3",
           "#f6f7f8",
           "#fcfcfd"
-        ]
+        ],
+        "usage": "Hairlines, dividers, table rules, input strokes (base-300). Dark rule #2d3139."
       },
       "ledger-ink": {
         "role": "neutral",
@@ -92,7 +97,8 @@
           "#7f8184",
           "#b3b4b6",
           "#e8e8e9"
-        ]
+        ],
+        "usage": "All primary text (base-content, light). Dark ink #e5e7eb."
       },
       "ledger-charcoal": {
         "role": "neutral",
@@ -107,10 +113,11 @@
           "#82878f",
           "#b5b8bd",
           "#e8e9eb"
-        ]
+        ],
+        "usage": "The main button fill (btn-neutral) and dark-neutral blocks. Dark: #e5e7eb fill with #0f1115 ink."
       },
       "info-cyan": {
-        "role": "tertiary",
+        "role": "status",
         "displayName": "Info Cyan",
         "canonical": "#06b6d4",
         "tonalRamp": [
@@ -122,10 +129,11 @@
           "#74d6e7",
           "#ade7f0",
           "#e6f7fa"
-        ]
+        ],
+        "usage": "Informational notices only. Dark: #22d3ee."
       },
       "verdict-green": {
-        "role": "tertiary",
+        "role": "status",
         "displayName": "Verdict Green",
         "canonical": "#10b981",
         "tonalRamp": [
@@ -137,10 +145,11 @@
           "#79d8b8",
           "#b0e8d5",
           "#e7f8f2"
-        ]
+        ],
+        "usage": "Paid, done, active, on-track. Text on its tint uses --ink-success #047857 (light). Dark: #34d399."
       },
       "caution-amber": {
-        "role": "tertiary",
+        "role": "status",
         "displayName": "Caution Amber",
         "canonical": "#f59e0b",
         "tonalRamp": [
@@ -152,10 +161,11 @@
           "#f9c877",
           "#fbdfae",
           "#fef5e6"
-        ]
+        ],
+        "usage": "Paused, near-limit, needs attention. Text on its tint uses --ink-warning #b45309 (light). Dark: #fbbf24."
       },
       "verdict-red": {
-        "role": "tertiary",
+        "role": "status",
         "displayName": "Verdict Red",
         "canonical": "#dc2626",
         "tonalRamp": [
@@ -167,36 +177,199 @@
           "#eb8686",
           "#f3b7b7",
           "#fbe9e9"
-        ]
+        ],
+        "usage": "Destructive and failed; white ink 4.83:1. Stop and quiet-danger write in it as ink. Dark: #f87171."
       }
+    },
+    "textInks": [
+      {
+        "name": "--ink-primary",
+        "light": "#4f46e5",
+        "dark": "var(--color-primary) (#818cf8)",
+        "purpose": "Indigo written as text on a tint: sent document status, toast action."
+      },
+      {
+        "name": "--ink-success",
+        "light": "#047857",
+        "dark": "var(--color-success) (#34d399)",
+        "purpose": "Green written as text on its 15% tint: active status pill, paid document."
+      },
+      {
+        "name": "--ink-warning",
+        "light": "#b45309",
+        "dark": "var(--color-warning) (#fbbf24)",
+        "purpose": "Amber written as text on its 15% tint: paused status pill."
+      }
+    ],
+    "themes": {
+      "source": "web/input.css daisyUI themes paratrack-light (default) and paratrack-dark (prefersdark)",
+      "roles": [
+        {
+          "role": "Page (base-200)",
+          "light": "#f9fafb",
+          "dark": "#232730"
+        },
+        {
+          "role": "Sheet (base-100)",
+          "light": "#ffffff",
+          "dark": "#1a1d23"
+        },
+        {
+          "role": "Rule (base-300)",
+          "light": "#e5e7eb",
+          "dark": "#2d3139"
+        },
+        {
+          "role": "Ink (base-content)",
+          "light": "#1a1d23",
+          "dark": "#e5e7eb"
+        },
+        {
+          "role": "Signature (primary)",
+          "light": "#6366f1",
+          "dark": "#818cf8"
+        },
+        {
+          "role": "Main button (neutral)",
+          "light": "#1f2937 fill, #f9fafb ink",
+          "dark": "#e5e7eb fill, #0f1115 ink"
+        },
+        {
+          "role": "Success / warning / error",
+          "light": "#10b981 / #f59e0b / #dc2626",
+          "dark": "#34d399 / #fbbf24 / #f87171"
+        },
+        {
+          "role": "Info",
+          "light": "#06b6d4",
+          "dark": "#22d3ee"
+        },
+        {
+          "role": "Secondary (unused)",
+          "light": "#8b5cf6",
+          "dark": "#a78bfa"
+        }
+      ]
     },
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "The paratrack wordmark only. Fraunces, the seal on the ledger cover."
+        "purpose": "The paratrack wordmark and nothing else. Fraunces, the seal on the ledger cover."
       },
       "headline": {
         "displayName": "Headline",
-        "purpose": "Page h1. Exactly one per page."
+        "purpose": "Page h1 (--step-3). Exactly one per page. Section h2 sits at 620, 1.44rem (--step-2), lh 1.2, -0.015em."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "Card titles and section anchors."
+        "purpose": "Card titles and h3 (--step-1)."
       },
       "body": {
         "displayName": "Body",
-        "purpose": "All running text. 65-75ch measure."
+        "purpose": "All running text (--step-0). 65-75ch measure held by container width."
       },
       "label": {
         "displayName": "Label",
-        "purpose": "Uppercase column heads, stat titles, overlines."
+        "purpose": "A ledger strip's own name (.ledger-label, .stat-title), uppercase --step--2 at 0.08em. Names the block; never a kicker above a separate heading."
       },
       "mono": {
         "displayName": "Mono",
-        "purpose": "Every measured figure: durations, money, times, IDs. Tabular numerals."
+        "purpose": "Every measured figure: durations, money, times, counts, IDs. Tabular numerals."
       }
     },
-    "shadows": [],
+    "typeScale": {
+      "ratio": 1.2,
+      "anchor": "--step-0 = 1rem",
+      "steps": [
+        "0.694rem",
+        "0.833rem",
+        "1rem",
+        "1.2rem",
+        "1.44rem",
+        "1.728rem",
+        "2.074rem"
+      ],
+      "floor": "Nothing interactive or readable under 12px; daisyUI xs sizes raised to 0.75rem."
+    },
+    "shadows": [
+      {
+        "name": "inset-hairline",
+        "value": "inset 0 0 0 1px var(--color-base-300)",
+        "purpose": "The one allowed box-shadow: draws a hairline without shifting layout (the active period tab; the chosen preset card uses the same ring in base-content). Never elevation (--depth: 0 in both themes)."
+      }
+    ],
+    "rules": [
+      {
+        "name": "hairline",
+        "value": "1px solid base-300",
+        "purpose": "Card edges, table rows, dividers, input strokes. Same weight everywhere."
+      },
+      {
+        "name": "total-rule",
+        "value": "2px solid base-300 (top)",
+        "purpose": "Only where a sum is marked: a table's total row, the ledger strip's «Сегодня» line, the amount on a letter."
+      }
+    ],
+    "radii": [
+      {
+        "name": "selector",
+        "value": "6px",
+        "purpose": "daisyUI badges (project badge, tag link), checkboxes, toggles, kbd caps."
+      },
+      {
+        "name": "field / box",
+        "value": "10px",
+        "purpose": "Every field and container: buttons, inputs, selects, cards, dropdowns, alerts."
+      },
+      {
+        "name": "phone-shell",
+        "value": "20px (1.25rem) sheet top corners; 16px minibar card; 12px sheet rows; 4px chart loading bar tops",
+        "purpose": "The only corners outside 6 / 10 / 999, all on the touch shell (plus the chart skeleton)."
+      },
+      {
+        "name": "round",
+        "value": "999px",
+        "purpose": "Status pills, tag chips, document statuses, colour dots, icon-only btn-circle."
+      }
+    ],
+    "touch": [
+      {
+        "target": "btn-sm, select",
+        "value": "draws at 44px",
+        "purpose": "pointer: coarse"
+      },
+      {
+        "target": "input-sm, input-xs, select-sm, btn-xs",
+        "value": "draws at 36px",
+        "purpose": "pointer: coarse"
+      },
+      {
+        "target": "btn-xs, btn-circle, checkbox-xs",
+        "value": "44x44px hit area from a centred pseudo-element",
+        "purpose": "pointer: coarse"
+      },
+      {
+        "target": "period tabs",
+        "value": "draws at 40px",
+        "purpose": "pointer: coarse"
+      },
+      {
+        "target": "badges and table links",
+        "value": "drawn size kept; hit area 10px taller on each side (about 40px) from a pseudo-element",
+        "purpose": "pointer: coarse"
+      },
+      {
+        "target": "period-tabs, settings tabs",
+        "value": "touch-action: pan-x pan-y",
+        "purpose": "Scroll strips never swallow vertical scroll; open with the current tab in view."
+      }
+    ],
+    "shell": {
+      "desktop": "1024px and up: one 48px header row, wordmark · workspace switcher · links · «Ещё» · account. Workspace name truncates (full name in tooltip). Link cluster is not a scroll container. Links are 32px ghost buttons with an icon; active page is btn-active.",
+      "phone": "Below 1024px: header is the wordmark alone. Fixed tab bar (.tabbar, 3.5rem, base-100 with a base-300 top hairline) carries four user-chosen tabs plus «Ещё»; the current tab is indigo, the rest ink at 60%. «Ещё» opens a bottom sheet (dialog.sheet) with every other section, workspaces and account. A running timer sits in a minibar above the tabs. Wide edit tables (.collapse-lg) become cards. Sheet group headings: 0.75rem, weight 600, uppercase, tracking 0.05em, at 55% ink.",
+      "footer": "Language and theme on both. Current language is a non-link span with a check; theme cycles auto / light / dark.",
+      "stacking": "Header carries its own z-index because its view-transition-name makes it a stacking context."
+    },
     "motion": [
       {
         "name": "ease-standard",
@@ -217,6 +390,16 @@
         "name": "reduced-motion",
         "value": "0.01ms",
         "purpose": "prefers-reduced-motion: reduce — kill duration and movement, keep state change."
+      },
+      {
+        "name": "sheet-up",
+        "value": "0.24s cubic-bezier(0.2, 0.8, 0.2, 1)",
+        "purpose": "Phone bottom sheet entrance; removed under reduced motion."
+      },
+      {
+        "name": "press",
+        "value": "transform: scale(0.96), 0.08s ease-out",
+        "purpose": "Touch press feedback on .btn and tab bar items; removed under reduced motion."
       }
     ],
     "breakpoints": [
@@ -237,176 +420,239 @@
         "value": "1024px"
       }
     ],
-    "rules": [
-      {
-        "name": "The Signature Rule",
-        "section": "colors",
-        "body": "The primary accent occupies <=10% of any screen. It marks identity, focus, and the single primary action. If two things are indigo, one of them is wrong."
-      },
-      {
-        "name": "The No-Fake-Ink Rule",
-        "section": "colors",
-        "body": "A user-authored colour is never used as text ink. It appears as a swatch beside neutral text, or with an explicitly computed contrast-safe ink."
-      },
-      {
-        "name": "The Two-Theme Rule",
-        "section": "colors",
-        "body": "Every semantic colour means the same thing in both themes. Only the lightness shifts."
-      },
-      {
-        "name": "The One Headline Rule",
-        "section": "typography",
-        "body": "Exactly one h1 per page, and it names the page."
-      },
-      {
-        "name": "The Wordmark Lock",
-        "section": "typography",
-        "body": "Fraunces is the logo face. A heading, a stat, or a card title set in Fraunces is a bug."
-      },
-      {
-        "name": "The Ruled Column Rule",
-        "section": "typography",
-        "body": "Any figure a user compares vertically renders in JetBrains Mono with tabular-nums."
-      },
-      {
-        "name": "The One-Row Rule",
-        "section": "layout",
-        "body": "The header never wraps onto a second line. If the links do not fit, they scroll."
-      },
-      {
-        "name": "The Shrink-to-Truncate Rule",
-        "section": "layout",
-        "body": "A grid or flex item that carries a name must allow itself to shrink (min-width: 0) so truncate can work."
-      },
-      {
-        "name": "The No-Shadow Rule",
-        "section": "elevation",
-        "body": "Surfaces do not cast shadows. box-shadow is reserved for the focus ring and is never used for elevation."
-      },
-      {
-        "name": "The Hairline Rule",
-        "section": "elevation",
-        "body": "A 1px solid base-300 rule is the separator, used at the same weight everywhere."
-      },
-      {
-        "name": "The Ladder Rule",
-        "section": "components",
-        "body": "A button's height states its rank: 40px = do this now, 32px = act on this row, 24px = tweak this chip."
-      },
-      {
-        "name": "The Fixed Order Rule",
-        "section": "components",
-        "body": "Classes read btn -> variant -> size -> shape -> gap -> layout -> state."
-      }
-    ]
+    "email": {
+      "layout": "One layout, templates/email.html, previewed at /settings/email-preview (?kind=invoice|reset|invite, &text=1 for the plain part).",
+      "sheet": "Tables and inline styles only; 560px sheet on #f3f4f6; white card with a 1px #e5e7eb hairline, 12px radius; color-scheme: light.",
+      "type": "Body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Arial, sans-serif. Figures: system mono stack. Wordmark: Georgia.",
+      "button": "One dark button (#1a1d23, white 15px/600) with the raw link under it. Invoice amount sits under the 2px total rule. Every letter ships an identical plain-text part."
+    },
+    "publicSite": {
+      "source": "site/ (landing and docs), one stylesheet site/assets/site.css. Same ledger, not a second world.",
+      "darkGround": "Dark page #15171c, one step below the app's darkest base, so #1a1d23 sheets read on it with a #2d3139 hairline; also the dark theme-color.",
+      "headings": "Inter 700. Landing h1 clamp(2.1rem, 1.3rem + 3vw, 3.4rem), lh 1.06, -0.035em, one per page. Section h2 clamp(1.6rem, 1.1rem + 1.8vw, 2.3rem), -0.025em. Docs h1 clamp(1.9rem, 1.4rem + 1.6vw, 2.5rem). Fraunces on the wordmark only.",
+      "liveFigures": "Figures fed by the demo timers are bold ink, never indigo. Indigo stays for focus, selection and link hover.",
+      "emptyCells": "Stroked minus icon in --ink-3 with aria-label=\"нет\". Never a bare dash or a blank cell."
+    },
+    "focus": {
+      "value": "outline: 2px solid var(--color-primary); outline-offset: 2px",
+      "toast": "outline-offset: 1px inside a toast, where the action sits against the toast's edge",
+      "purpose": "The focus ring is an outline, not a shadow."
+    },
+    "overlay": {
+      "name": "bottom-sheet",
+      "value": "native <dialog>, border 0, ::backdrop rgb(0 0 0 / 0.4)",
+      "purpose": "The one overlay that dims the page, because it takes the whole screen's attention. Dropdowns and menus use a border and a tonal step."
+    }
   },
   "components": [
     {
       "name": "CTA Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "The one primary action per form. 40px lane, charcoal fill.",
-      "html": "<button class=\"ds-btn-cta\">Start</button>",
-      "css": ".ds-btn-cta {\n  display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n  height: 40px; padding: 0 16px;\n  background: #1f2937; color: #f9fafb;\n  border: 1px solid #1f2937; border-radius: 10px;\n  font: 600 14px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .2s cubic-bezier(.4,0,.2,1), border-color .2s;\n}\n.ds-btn-cta:hover { background: #111827; border-color: #111827; }\n.ds-btn-cta:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-cta:disabled { opacity: .4; pointer-events: none; }"
+      "description": "btn-neutral. The one call to action per form. 40px lane, charcoal fill, paper ink. Never indigo.",
+      "html": "<button class=\"ds-btn-cta\">Начать</button>",
+      "css": ".ds-btn-cta { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 40px; padding: 0 16px; font-size: 14px; background: #1f2937; color: #f9fafb; border: 1px solid #1f2937; transition: background-color .2s cubic-bezier(.4,0,.2,1), border-color .2s; }\n.ds-btn-cta:hover { background: #111827; border-color: #111827; }\n.ds-btn-cta:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-cta:disabled { opacity: .2; pointer-events: none; }"
     },
     {
       "name": "Row Button",
       "kind": "button",
       "refersTo": "button-row",
-      "description": "Navigation, toolbar and row actions. 32px ghost lane.",
-      "html": "<button class=\"ds-btn-row\">Pause</button>",
-      "css": ".ds-btn-row {\n  display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n  height: 32px; padding: 0 12px;\n  background: transparent; color: #1a1d23;\n  border: 1px solid transparent; border-radius: 10px;\n  font: 600 12px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .15s cubic-bezier(.4,0,.2,1), color .15s;\n}\n.ds-btn-row:hover { background: #f9fafb; }\n.ds-btn-row:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-row.ds-active { background: #e5e7eb; }"
+      "description": "btn-ghost btn-sm. Navigation, toolbars, row actions. 32px lane.",
+      "html": "<button class=\"ds-btn-row\">Пауза</button>",
+      "css": ".ds-btn-row { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: transparent; color: #1a1d23; border: 1px solid transparent; transition: background-color .15s cubic-bezier(.4,0,.2,1); }\n.ds-btn-row:hover { background: #f9fafb; }\n.ds-btn-row.ds-active { background: #e5e7eb; }\n.ds-btn-row:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Stop Button",
+      "kind": "button",
+      "refersTo": "button-row",
+      "description": ".btn-stop. Stop is instant and undoable from its toast, so it reads as a line item: transparent, hairline base-300 border, verdict-red ink, tint only on hover. 32px lane.",
+      "html": "<button class=\"ds-btn-stop\">Стоп</button>",
+      "css": ".ds-btn-stop { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: transparent; color: #dc2626; border: 1px solid #e5e7eb; transition: background-color .15s, border-color .15s; }\n@media (hover: hover) { .ds-btn-stop:hover { background: color-mix(in oklab, #dc2626 8%, transparent); border-color: color-mix(in oklab, #dc2626 40%, #e5e7eb); } }\n.ds-btn-stop:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
     },
     {
       "name": "Destructive Button",
       "kind": "button",
       "refersTo": "button-destructive",
-      "description": "Stop / Delete. 32px, verdict red with white ink (4.83:1).",
-      "html": "<button class=\"ds-btn-danger\">Stop</button>",
-      "css": ".ds-btn-danger {\n  display: inline-flex; align-items: center; justify-content: center; gap: 6px;\n  height: 32px; padding: 0 12px;\n  background: #dc2626; color: #ffffff;\n  border: 1px solid #dc2626; border-radius: 10px;\n  font: 600 12px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .15s cubic-bezier(.4,0,.2,1);\n}\n.ds-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }\n.ds-btn-danger:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+      "description": "btn-error. Irreversible Delete only. 32px, verdict red with white ink (4.83:1). Never decorative.",
+      "html": "<button class=\"ds-btn-danger\">Удалить</button>",
+      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: #dc2626; color: #ffffff; border: 1px solid #dc2626; transition: background-color .15s cubic-bezier(.4,0,.2,1); }\n.ds-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }\n.ds-btn-danger:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Quiet-danger Button",
+      "kind": "button",
+      "refersTo": "button-row",
+      "description": "btn-ghost + text-error. Row-level removals: red ink on transparent, 32px lane.",
+      "html": "<button class=\"ds-btn-quiet-danger\">Убрать</button>",
+      "css": ".ds-btn-quiet-danger { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: transparent; color: #dc2626; border: 1px solid transparent; transition: background-color .15s; }\n.ds-btn-quiet-danger:hover { background: #f9fafb; }\n.ds-btn-quiet-danger:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
     },
     {
       "name": "Chip Button",
       "kind": "button",
       "refersTo": "button-chip",
-      "description": "Filter chips and inline toggles. 24px micro lane.",
-      "html": "<button class=\"ds-btn-chip\">All</button>",
-      "css": ".ds-btn-chip {\n  display: inline-flex; align-items: center; justify-content: center; gap: 4px;\n  height: 24px; padding: 0 8px;\n  background: transparent; color: #1a1d23;\n  border: 1px solid transparent; border-radius: 10px;\n  font: 600 11px/1 'Inter', system-ui, sans-serif;\n  cursor: pointer;\n  transition: background-color .15s cubic-bezier(.4,0,.2,1);\n}\n.ds-btn-chip:hover { background: #f9fafb; }\n.ds-btn-chip:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-chip.ds-active { background: #6366f1; color: #fff; }"
+      "description": "btn-ghost btn-xs. Filter chips, tag remove, inline toggles. 24px micro lane, 4px gap, 12px floor on text.",
+      "html": "<button class=\"ds-btn-chip ds-active\">Все</button><button class=\"ds-btn-chip\">Неделя</button>",
+      "css": ".ds-btn-chip { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 4px; height: 24px; padding: 0 8px; font-size: 12px; background: transparent; color: #1a1d23; border: 1px solid transparent; transition: background-color .15s cubic-bezier(.4,0,.2,1); }\n.ds-btn-chip:hover { background: #f9fafb; }\n.ds-btn-chip.ds-active { background: #e5e7eb; }\n.ds-btn-chip:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Quick Start Button",
+      "kind": "button",
+      "refersTo": "button-row",
+      "description": "btn-sm btn-quick. The example activities under an empty «Идут сейчас»: transparent, hairline base-300 border, weight 500; one tap starts that timer. 32px lane.",
+      "html": "<button class=\"ds-btn-quick\">работа</button> <button class=\"ds-btn-quick\">чтение</button>",
+      "css": ".ds-btn-quick { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; font-weight: 500; background: transparent; color: #1a1d23; border: 1px solid #e5e7eb; transition: background-color .15s; }\n.ds-btn-quick:hover { background: #f9fafb; }\n.ds-btn-quick:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "A ledger cell you can type into. 40px, hairline stroke, 10px radius.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"reading, work, exercise…\">",
-      "css": ".ds-input {\n  display: inline-flex; align-items: center;\n  height: 40px; padding: 0 12px; width: 100%; max-width: 20rem;\n  background: #ffffff; color: #1a1d23;\n  border: 1px solid rgba(26,29,35,.2); border-radius: 10px;\n  font: 400 14px/1 'Inter', system-ui, sans-serif;\n  caret-color: #1a1d23;\n}\n.ds-input::placeholder { color: #1a1d23; opacity: .5; }\n.ds-input:focus {\n  outline: 2px solid #6366f1; outline-offset: 2px;\n  border-color: #1a1d23;\n}\n.ds-input:disabled { background: #f9fafb; opacity: .5; cursor: not-allowed; }"
+      "description": "A ledger cell you can type into. 40px, base-content stroke at 20%, 10px radius, 12px padding.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"чтение, работа, спорт…\">",
+      "css": ".ds-input { height: 40px; padding: 0 12px; width: 100%; max-width: 20rem; background: #ffffff; color: #1a1d23; border: 1px solid rgba(26,29,35,.2); border-radius: 10px; font: 400 14px/1 'Inter', system-ui, sans-serif; caret-color: #1a1d23; }\n.ds-input::placeholder { color: rgba(26,29,35,.5); }\n.ds-input:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-color: #1a1d23; }\n.ds-input[aria-invalid=true] { border-color: #dc2626; }\n.ds-input:disabled { background: #f9fafb; color: rgba(26,29,35,.4); cursor: not-allowed; }"
     },
     {
       "name": "Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "A sheet on the desk. Flat, hairline-bordered, 24px padding.",
-      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Active sessions</h2><p class=\"ds-card-body\">Two activities running.</p></div>",
-      "css": ".ds-card {\n  background: #ffffff; color: #1a1d23;\n  border: 1px solid #e5e7eb; border-radius: 10px;\n  padding: 24px;\n  /* No shadow. The hairline is the elevation. */\n}\n.ds-card-title {\n  margin: 0 0 12px;\n  font: 600 19.2px/1.3 'Inter', system-ui, sans-serif;\n  letter-spacing: -0.01em;\n}\n.ds-card-body {\n  margin: 0;\n  font: 400 16px/1.55 'Inter', system-ui, sans-serif;\n  color: rgba(26,29,35,.7);\n}"
+      "description": "A sheet on the desk. Flat, 1px base-300 hairline, 10px radius, 24px padding, no shadow; a sum sits under the 2px total rule.",
+      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Идут сейчас</h2><p class=\"ds-card-body\">Два таймера.</p><div class=\"ds-card-total\"><span>Сегодня</span><span class=\"ds-num\">3:15</span></div></div>",
+      "css": ".ds-card { background: #ffffff; color: #1a1d23; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; }\n.ds-card-title { margin: 0 0 12px; font: 600 19.2px/1.3 'Inter', system-ui, sans-serif; letter-spacing: -0.01em; }\n.ds-card-body { margin: 0; font: 400 16px/1.55 'Inter', system-ui, sans-serif; color: rgba(26,29,35,.72); }\n.ds-card-total { display: flex; gap: 24px; align-items: baseline; margin-top: 20px; padding-top: 14px; border-top: 2px solid #e5e7eb; font: 400 14px/1.55 'Inter', system-ui, sans-serif; }\n.ds-num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }"
     },
     {
-      "name": "Badge",
+      "name": "Pills and Chips",
       "kind": "chip",
       "refersTo": "badge",
-      "description": "Project / activity chip. Colour is a swatch, text is always neutral ink.",
-      "html": "<span class=\"ds-badge\"><span class=\"ds-swatch\"></span>Deep work</span>",
-      "css": ".ds-badge {\n  display: inline-flex; align-items: center; gap: 6px;\n  height: 24px; padding: 0 8px;\n  background: #f9fafb; color: #1a1d23;\n  border: 1px solid #e5e7eb; border-radius: 6px;\n  font: 500 12px/1 'Inter', system-ui, sans-serif;\n}\n.ds-swatch {\n  width: 6px; height: 6px; border-radius: 999px; background: #6366f1; flex-shrink: 0;\n}"
+      "description": "Round (999px) tokens: .status-pill tinted 15% and written in the deeper status ink; .tag-chip on base-200; .doc-status reads by word and ink (sent in --ink-primary, paid in --ink-success).",
+      "html": "<span class=\"ds-pill ds-pill-active\">Активна</span> <span class=\"ds-pill ds-pill-paused\">Пауза</span> <span class=\"ds-tag\">клиент</span> <span class=\"ds-doc ds-doc-sent\">Отправлен</span> <span class=\"ds-doc ds-doc-paid\">Оплачен</span>",
+      "css": ".ds-pill, .ds-tag, .ds-doc { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font: 550 13.3px/1.2 'Inter', system-ui, sans-serif; color: #1a1d23; }\n.ds-pill-active { background: color-mix(in srgb, #10b981 15%, transparent); color: #047857; }\n.ds-pill-paused { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #b45309; }\n.ds-tag { background: #f9fafb; font-weight: 400; }\n.ds-doc { font-size: 12px; font-weight: 500; border: 1px solid #e5e7eb; }\n.ds-doc-sent { color: #4f46e5; border-color: color-mix(in oklab, #4f46e5 40%, #e5e7eb); }\n.ds-doc-paid { color: #047857; background: color-mix(in oklab, #10b981 12%, transparent); border-color: transparent; }"
     },
     {
-      "name": "Navigation",
+      "name": "Project Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "daisyUI badge, 6px radius. Filled with the project's colour and written in computed ink (inkFor); a long name truncates inside a max-width badge.",
+      "html": "<span class=\"ds-badge\" style=\"background:#d9f99d;color:#1a1d23\"><span class=\"ds-truncate\">Очень длинное название проекта клиента</span></span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; max-width: 12rem; height: 24px; padding: 0 8px; border-radius: 6px; font: 500 12px/1 'Inter', system-ui, sans-serif; }\n.ds-truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
+    },
+    {
+      "name": "Desktop Header",
       "kind": "nav",
       "refersTo": "navigation",
-      "description": "One 48px row. Wordmark · scrollable links · fixed actions. Never wraps.",
-      "html": "<nav class=\"ds-nav\"><span class=\"ds-wordmark\">paratrack</span><div class=\"ds-nav-links\"><a class=\"ds-nav-link ds-active\" href=\"#\">Dashboard</a><a class=\"ds-nav-link\" href=\"#\">Stats</a><a class=\"ds-nav-link\" href=\"#\">Timesheet</a></div></nav>",
-      "css": ".ds-nav {\n  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;\n  height: 48px; padding: 0 16px;\n  background: #ffffff; border-bottom: 1px solid #e5e7eb;\n}\n.ds-wordmark {\n  font: 620 21.6px/1 'Fraunces', Georgia, serif;\n  letter-spacing: -0.03em; flex-shrink: 0;\n  margin-right: 8px;\n}\n.ds-nav-links {\n  display: flex; align-items: center; gap: 2px;\n  flex: 1 1 0; min-width: 0; overflow-x: auto;\n}\n.ds-nav-link {\n  display: inline-flex; align-items: center; gap: 6px;\n  height: 32px; padding: 0 12px; border-radius: 10px;\n  font: 600 12px/1 'Inter', system-ui, sans-serif;\n  color: #1a1d23; text-decoration: none; white-space: nowrap;\n  transition: background-color .15s;\n}\n.ds-nav-link:hover { background: #f9fafb; }\n.ds-nav-link.ds-active { background: #e5e7eb; }\n.ds-nav-link:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+      "description": "1024px and up: one 48px row, wordmark · workspace switcher · links · «Ещё» · account. Only the workspace name gives up width. Never wraps, never scrolls.",
+      "html": "<nav class=\"ds-nav\"><span class=\"ds-wordmark\">paratrack</span><span class=\"ds-ws\">Очень длинное имя рабочего пространства</span><a class=\"ds-nav-link ds-active\" href=\"#\">Таймер</a><a class=\"ds-nav-link\" href=\"#\">Отчёты</a><a class=\"ds-nav-link\" href=\"#\">Ещё</a></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; height: 48px; padding: 0 16px; background: #ffffff; border-bottom: 1px solid #e5e7eb; }\n.ds-wordmark { font: 620 21.6px/1 'Fraunces', 'Iowan Old Style', Georgia, serif; font-variation-settings: 'SOFT' 40, 'WONK' 1, 'opsz' 48; letter-spacing: -0.03em; flex-shrink: 0; margin-right: 8px; }\n.ds-ws { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13.3px/1 'Inter', system-ui, sans-serif; margin-right: 8px; }\n.ds-nav-link { display: inline-flex; align-items: center; flex-shrink: 0; gap: 6px; height: 32px; padding: 0 12px; border-radius: 10px; font: 600 12px/1 'Inter', system-ui, sans-serif; color: #1a1d23; text-decoration: none; white-space: nowrap; transition: background-color .15s; }\n.ds-nav-link:hover { background: #f9fafb; }\n.ds-nav-link.ds-active { background: #e5e7eb; }\n.ds-nav-link:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+    },
+    {
+      "name": "Phone Tab Bar",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Below 1024px: fixed 3.5rem tab bar, four user-chosen tabs plus «Ещё». The current tab is indigo (the signature marks the place); the rest are ink at 60%. Flat: base-100 with a top hairline, no blur.",
+      "html": "<nav class=\"ds-tabbar\"><a class=\"ds-tab ds-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>Таймер</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/></svg>Отчёты</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M3 12h18M3 18h18\"/></svg>Ещё</a></nav>",
+      "css": ".ds-tabbar { display: grid; grid-template-columns: repeat(3, 1fr); background: #ffffff; border-top: 1px solid #e5e7eb; }\n.ds-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 3.5rem; font: 500 12px/1.2 'Inter', system-ui, sans-serif; color: color-mix(in srgb, #1a1d23 60%, transparent); text-decoration: none; }\n.ds-tab.ds-active { color: #6366f1; }\n.ds-tab:active { transform: scale(0.96); }\n.ds-tab:focus-visible { outline: 2px solid #6366f1; outline-offset: -2px; }"
     },
     {
       "name": "Data Table",
       "kind": "custom",
       "refersTo": "table",
-      "description": "The ruled column. Hairlines, tabular numerals, uppercase heads.",
-      "html": "<table class=\"ds-table\"><thead><tr><th>Activity</th><th>Duration</th></tr></thead><tbody><tr><td>Deep work</td><td class=\"ds-num\">2h 30m</td></tr><tr><td>Reading</td><td class=\"ds-num\">45m</td></tr></tbody></table>",
-      "css": ".ds-table {\n  width: 100%; border-collapse: separate; border-spacing: 0;\n  border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;\n  font: 400 14px/1.55 'Inter', system-ui, sans-serif; color: #1a1d23;\n}\n.ds-table th {\n  text-align: left; padding: 12px 16px;\n  background: #ffffff;\n  border-bottom: 1px solid #e5e7eb;\n  font: 600 11px/1.2 'Inter', system-ui, sans-serif;\n  letter-spacing: 0.08em; text-transform: uppercase;\n  color: rgba(26,29,35,.6);\n}\n.ds-table td {\n  padding: 12px 16px; border-bottom: 1px solid #e5e7eb;\n}\n.ds-table tbody tr:last-child td { border-bottom: none; }\n.ds-table tbody tr:nth-child(even) { background: #f9fafb; }\n.ds-num {\n  font-family: 'JetBrains Mono', ui-monospace, monospace;\n  font-variant-numeric: tabular-nums;\n  font-size: .92em;\n}"
+      "description": "The ruled column. Hairline rules, base-200 zebra, sentence-case heads at 600, mono tabular figures, 2px total rule, «—» for an empty measured cell.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Занятие</th><th>Длительность</th></tr></thead><tbody><tr><td>Работа</td><td class=\"ds-num\">2:30</td></tr><tr><td>Чтение</td><td class=\"ds-num\">—</td></tr></tbody><tfoot><tr><td>Итого</td><td class=\"ds-num\">2:30</td></tr></tfoot></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; font: 400 14px/1.55 'Inter', system-ui, sans-serif; color: #1a1d23; }\n.ds-table th { text-align: left; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }\n.ds-table td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }\n.ds-table tbody tr:nth-child(even) { background: #f9fafb; }\n.ds-table tfoot td { border-top: 2px solid #e5e7eb; border-bottom: 0; font-weight: 600; }\n.ds-num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: .92em; }"
     }
   ],
   "narrative": {
     "northStar": "The Honest Ledger",
-    "overview": "paratrack is a book of accounts for time. Every surface behaves like a well-kept ledger: the numbers line up, the rules are visible, and nothing is claimed that cannot be checked. The interface is a measuring instrument, not a stage — it reports, it does not persuade.\n\nThe visual world is strict and high-contrast. Type is large enough to read at a glance, boundaries are explicit, and the ink is dark on paper. Density is deliberate: an operator scanning a timesheet at 09:00 wants the figures, not atmosphere. This is an anti-reference to marketing gloss and to the purple gradient AI aesthetic — the accent here is a signature, applied once and meaningly, never as decoration.\n\nDepth is flat. Surfaces are separated by tone and by a hairline rule, the way a ledger separates columns. There are no floating cards, no ambient glows, no drop shadows pretending to be material.",
+    "overview": "paratrack is a book of accounts for time. Every surface behaves like a well-kept ledger: the numbers line up, the rules are visible, and nothing is claimed that cannot be checked. The interface is a measuring instrument, not a stage — it reports, it does not persuade. Where marketing software shouts, this one states.\n\nThe visual world is **strict and high-contrast**. Type is large enough to read at a glance, boundaries are explicit, and the ink is dark on paper. Density is deliberate: an operator scanning a timesheet at 09:00 wants the figures, not atmosphere. This is an anti-reference to marketing gloss and to the purple gradient AI aesthetic — the accent here is a *signature*, applied once and meaningly, never as decoration.\n\nDepth is **flat**. Surfaces are separated by tone and by a hairline rule, the way a ledger separates columns. There are no floating cards, no ambient glows, no drop shadows pretending to be material. If something is on top of something else, a 1px border says so.",
     "keyCharacteristics": [
-      "Flat surfaces; depth from tonal layering (base-100 / 200 / 300) and hairline rules only",
+      "Flat surfaces; depth from tonal layering (`base-100 / 200 / 300`) and hairline rules only",
       "High contrast ink-on-paper in both themes",
       "Tabular numerals everywhere digits must align in a column",
-      "One accent (indigo ink), used sparingly and with weight",
+      "One accent (indigo ink), used for identity, the current place and focus, never for the main button",
       "A measured type scale (1.2 ratio) with negative tracking on headings",
-      "A single radius language: 6px for small selectors, 10px for fields and containers",
-      "Every control has a fixed geometric lane — 40 / 32 / 24 px"
+      "A single radius language: 6px for small selectors, 10px for fields and containers, fully round for status pills and chips; the phone shell's sheet and cards round a little more",
+      "Every control has a fixed geometric lane — 40 / 32 / 24 px, grown for touch"
+    ],
+    "rules": [
+      {
+        "name": "The Signature Rule",
+        "body": "The primary accent occupies ≤10% of any screen. It marks identity, the current place and focus. The main action is charcoal, so indigo never has to shout. If indigo appears on a figure or a decoration, it is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The No-Fake-Ink Rule",
+        "body": "A user-authored colour (project colour, activity colour) is never used as text ink. It appears as a swatch beside neutral text, or with an explicitly computed contrast-safe ink (`inkFor`). A pale lime project name must still be readable.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Theme Rule",
+        "body": "Every semantic colour means the same thing in both themes. Green is a verdict in both; amber is caution in both. Only the lightness shifts.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Headline Rule",
+        "body": "Exactly one `h1` per page, and it names the page. Cards open with `h2`/`h3`, never with a heading level jump.",
+        "section": "typography"
+      },
+      {
+        "name": "The Wordmark Lock",
+        "body": "Fraunces is the logo face. A heading, a stat, or a card title set in Fraunces is a bug — the seal does not do the writing.",
+        "section": "typography"
+      },
+      {
+        "name": "The Ruled Column Rule",
+        "body": "Any figure a user compares vertically (durations, money, timestamps, counts) renders in JetBrains Mono with `tabular-nums`. Ragged digits in a column are a defect, not a style.",
+        "section": "typography"
+      },
+      {
+        "name": "The One-Row Rule",
+        "body": "The header never wraps onto a second line. At 1024px and up it is wordmark · workspace switcher · links · «Ещё» · account; the workspace name is the one item that gives up width (it truncates, the full name is in its tooltip). The link cluster is not a scroll container, because overflow would clip its dropdowns. Below 1024px the header is the wordmark alone. A crooked header is the first thing a user sees.",
+        "section": "layout"
+      },
+      {
+        "name": "The Shrink-to-Truncate Rule",
+        "body": "A grid or flex item that carries a name must allow itself to shrink (`min-width: 0`) so `truncate` can work. A 200-character project name must never widen the page.",
+        "section": "layout"
+      },
+      {
+        "name": "The No-Shadow Rule",
+        "body": "Surfaces do not cast shadows. `box-shadow` has one allowed use: an inset 1px ring that draws a hairline without shifting layout (the active period tab, the chosen preset card). The focus ring is an `outline`, not a shadow. Shadows are never used for elevation (`--depth: 0` in both themes). If a component looks like it needs a shadow to separate from its background, the background tone is wrong.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Hairline Rule",
+        "body": "A `1px` solid `base-300` rule is the separator. It is used for card edges, table rows, dividers and input strokes — the same weight everywhere. A 2px rule appears only as a total rule, where it marks a sum (a table's total row, the ledger strip's «Сегодня» line, the amount on a letter).",
+        "section": "elevation"
+      },
+      {
+        "name": "The Ladder Rule",
+        "body": "A button's height states its rank. 40px = do this now, 32px = act on this row, 24px = tweak this chip. Mixing ranks in one cluster is a defect.",
+        "section": "components"
+      },
+      {
+        "name": "The Fixed Order Rule",
+        "body": "Classes read `btn → variant → size → shape → gap → layout → state`. Scrambled order is a signal the system was not consulted.",
+        "section": "components"
+      }
     ],
     "dos": [
-      "Do keep depth flat: tone and hairlines only. A 1px base-300 rule separates everything.",
-      "Do render every comparable figure in JetBrains Mono with tabular-nums.",
-      "Do put exactly one h1 on a page and one btn-neutral CTA in a form.",
-      "Do use a colour swatch beside neutral text for user-authored colours; compute contrast-safe ink when a colour becomes a background.",
-      "Do keep the primary accent under 10% of a screen. One signature per page.",
-      "Do measure the button lanes: 40 / 32 / 24 px, 10px radius, 6px icon gap.",
-      "Do let names truncate: min-width: 0 on the container, truncate on the name.",
-      "Do theme browser surfaces: ::selection, caret-color, text-underline-offset, scrollbar-color.",
-      "Do hold body measure to 65-75ch and set labels in uppercase with 0.08em tracking."
+      "**Do** keep depth flat: tone and hairlines only. A `1px base-300` rule separates everything; only the phone's bottom sheet dims the page.",
+      "**Do** render every comparable figure in JetBrains Mono with `tabular-nums` — durations, money, times, counts.",
+      "**Do** put exactly one `h1` on a page and one `btn-neutral` CTA in a form; keep indigo off that button.",
+      "**Do** use a colour swatch beside neutral text for user-authored colours; compute contrast-safe ink (`inkFor`) when a colour becomes a background.",
+      "**Do** keep the primary accent under 10% of a screen. One signature per page.",
+      "**Do** measure the button lanes: 40 / 32 / 24 px, 10px radius, 6px icon gap.",
+      "**Do** let names truncate: `min-width: 0` on the container, `truncate` on the name.",
+      "**Do** theme browser surfaces: `::selection`, `caret-color`, `text-underline-offset`, `scrollbar-color`.",
+      "**Do** hold body measure to 65–75ch and set labels in uppercase `--step--2` with 0.08em tracking."
     ],
     "donts": [
-      "Don't use box-shadow for elevation. Shadows are for the focus ring only.",
-      "Don't use Fraunces anywhere but the wordmark.",
-      "Don't paint user-authored colours as text ink.",
-      "Don't wrap the header onto a second row. Scroll, do not stack.",
-      "Don't hard-code #fff ink on a user-coloured background — compute it.",
-      "Don't mix button lanes in one cluster, or scramble the class order.",
-      "Don't rely on hover for anything a touch user must reach.",
-      "Don't add gradient text, glassmorphism, decorative blur, or thick accent borders on cards.",
-      "Don't drop prefers-reduced-motion: kill duration and movement, keep state change and hierarchy."
+      "**Don't** use box-shadow for elevation. Its one use is the inset 1px hairline ring; focus is an outline.",
+      "**Don't** use Fraunces anywhere but the wordmark. The seal does not do the writing.",
+      "**Don't** paint user-authored colours as text ink. A lime activity name on white is a defect.",
+      "**Don't** wrap the header onto a second row: truncate the workspace name, and below 1024px move links to the tab bar.",
+      "**Don't** hard-code `#fff` ink on a user-coloured background — compute it.",
+      "**Don't** mix button lanes in one cluster, or scramble the class order.",
+      "**Don't** rely on hover for anything a touch user must reach; give compact controls a 44px hit area.",
+      "**Don't** add gradient text, glassmorphism, decorative blur, or thick accent borders on cards. The ledger does not shimmer.",
+      "**Don't** drop `prefers-reduced-motion`: kill duration and movement, keep state change and hierarchy."
     ]
   }
 }
