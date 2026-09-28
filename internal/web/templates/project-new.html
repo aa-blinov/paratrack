@@ -1,5 +1,5 @@
 {{define "project-new"}}
-<div class="max-w-md mx-auto space-y-6">
+<div class="space-y-6">
   <div class="text-sm">
     <a href="/projects" class="link link-hover opacity-70">{{.T "nav.projects"}}</a>
     <span class="opacity-40"> / </span>
@@ -17,13 +17,13 @@
       <label class="form-control">
         <span class="label-text">{{.T "projects.name"}}</span>
         <input type="text" name="name" required minlength="1"
-               class="input input-bordered" placeholder="EORA RAG">
+               class="input input-bordered w-full" placeholder="EORA RAG">
       </label>
 
       <label class="form-control">
         <span class="label-text">{{.T "projects.slugOpt"}}</span>
         <input type="text" name="slug" pattern="[a-z0-9][a-z0-9_\-]*"
-               class="input input-bordered font-mono" placeholder="eora-rag">
+               class="input input-bordered font-mono w-full" placeholder="eora-rag">
       </label>
 
       <label class="form-control">
@@ -32,19 +32,19 @@
           <input type="color" name="color" value="#7c3aed"
                  class="w-10 h-10 rounded border border-base-300 bg-transparent cursor-pointer">
           <input type="text" name="color" value="#7c3aed"
-                 class="input input-bordered flex-1 font-mono" pattern="^#[0-9a-fA-F]{6}$">
+                 class="input input-bordered flex-1 min-w-0 font-mono" pattern="^#[0-9a-fA-F]{6}$">
         </div>
       </label>
 
       <div class="grid gap-3 sm:grid-cols-2">
         <label class="form-control">
           <span class="label-text">{{.T "bill.rate"}} {{.T "bill.cents"}} <span class="opacity-70">({{.T "projects.optional"}})</span></span>
-          <input type="text" name="rate" inputmode="decimal" autocomplete="off" class="input input-bordered" placeholder="{{.T "bill.ratePh"}}">
+          <input type="text" name="rate" inputmode="decimal" autocomplete="off" class="input input-bordered w-full" placeholder="{{.T "bill.ratePh"}}">
           <span class="text-xs opacity-70 mt-1">{{.T "bill.rateHint"}}</span>
         </label>
         <label class="form-control">
           <span class="label-text">{{.T "proj.currency"}}</span>
-          <select name="currency" class="select select-bordered">
+          <select name="currency" class="select select-bordered w-full">
             <option value="">{{.T "proj.currencyInherit"}} ({{.TeamCurrency}})</option>
             {{range .Currencies}}<option value="{{.Code}}">{{.Label}}</option>{{end}}
           </select>
