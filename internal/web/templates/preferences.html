@@ -13,7 +13,7 @@
         <h2 class="card-title">{{.T "prefs.formats"}}</h2>
         <label class="form-control">
           <span class="label-text">{{.T "prefs.duration"}}</span>
-          <select name="duration" class="select select-bordered w-full">
+          <select name="duration" class="select select-bordered w-full form-measure">
             <option value=""{{if eq .P.Duration ""}} selected{{end}}>{{.T "prefs.dur.hm"}}</option>
             <option value="decimal"{{if eq .P.Duration "decimal"}} selected{{end}}>{{.T "prefs.dur.decimal"}}</option>
             <option value="clock"{{if eq .P.Duration "clock"}} selected{{end}}>{{.T "prefs.dur.clock"}}</option>
@@ -21,14 +21,14 @@
         </label>
         <label class="form-control">
           <span class="label-text">{{.T "prefs.weekStart"}}</span>
-          <select name="week_start" class="select select-bordered w-full">
+          <select name="week_start" class="select select-bordered w-full form-measure">
             <option value="mon"{{if ne .P.WeekStart "sun"}} selected{{end}}>{{.T "prefs.mon"}}</option>
             <option value="sun"{{if eq .P.WeekStart "sun"}} selected{{end}}>{{.T "prefs.sun"}}</option>
           </select>
         </label>
         <label class="form-control">
           <span class="label-text">{{.T "prefs.tz"}}</span>
-          <select name="tz" class="select select-bordered w-full">
+          <select name="tz" class="select select-bordered w-full form-measure">
             <option value=""{{if eq .P.TZ ""}} selected{{end}}>{{.T "prefs.tzAuto"}}</option>
             {{range .Zones}}<option value="{{.}}"{{if eq . $.P.TZ}} selected{{end}}>{{.}}</option>{{end}}
           </select>
@@ -43,7 +43,7 @@
         {{if .Projects}}
         <label class="form-control">
           <span class="label-text">{{.T "prefs.defProject"}}</span>
-          <select name="default_project" class="select select-bordered w-full">
+          <select name="default_project" class="select select-bordered w-full form-measure">
             <option value="0">{{.T "prefs.defProjectLast"}}</option>
             {{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.DefProj}} selected{{end}}>{{.Name}}</option>{{end}}
           </select>

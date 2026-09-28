@@ -187,6 +187,17 @@ def main() -> int:
                     and abs(box["width"] - baseline["width"]) < 1
                     and page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
                 )
+        page.set_viewport_size({"width": 1440, "height": 900})
+        page.goto(BASE + "/settings/profile")
+        check("profile fields keep a readable measure", page.locator('form[action="/api/profile"]').evaluate(
+            "el => el.getBoundingClientRect().width <= 768"))
+        page.goto(BASE + "/projects/new")
+        check("new-project form keeps a readable measure", page.locator('form[action="/projects/new"]').evaluate(
+            "el => el.getBoundingClientRect().width <= 768"))
+        check("critical font preload matches page language", page.evaluate("""() =>
+            [...document.querySelectorAll('link[rel="preload"][as="font"]')].some(link =>
+                link.href.endsWith(document.documentElement.lang === 'ru'
+                    ? '/inter-cyrillic.woff2' : '/inter-latin.woff2'))"""))
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
 
