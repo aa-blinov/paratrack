@@ -93,6 +93,18 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 			}
 			cur = nextHour
 		}
+		// A hand-edited or imported row can carry tracked seconds while its
+		// wall-clock interval collapses to zero (for example after rounding
+		// timestamps). Keep that time visible instead of rendering a named
+		// activity with an entirely empty chart.
+		if b.total == 0 {
+			tracked := as.Session.DurationSeconds(time.Now())
+			if tracked > 0 {
+				mins := (tracked + 59) / 60
+				b.minutes[s.Hour()] += mins
+				b.total += mins
+			}
+		}
 	}
 
 	if len(buckets) == 0 {
