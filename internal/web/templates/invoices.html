@@ -1,5 +1,5 @@
 {{define "invoices"}}
-<div class="max-w-3xl mx-auto space-y-4">
+<div class="space-y-4">
   {{template "flash-banner" .}}
 
   <header>
@@ -105,7 +105,7 @@
 {{end}}
 
 {{define "invoice-detail"}}
-<div class="max-w-2xl mx-auto space-y-4">
+<div class="space-y-4">
   {{template "flash-banner" .}}
 
   {{/* One primary action: the next step of the document. */}}
@@ -260,7 +260,7 @@
 {{end}}
 
 {{define "invoice-act"}}
-<div class="max-w-2xl mx-auto space-y-4">
+<div class="space-y-4">
   <div class="flex flex-wrap items-center gap-2 no-print">
     <a href="/invoices/{{.Inv.ID}}" class="link link-hover text-sm opacity-80">{{.T "inv.invoice"}} {{.Inv.Number}}</a>
     <a href="/invoices/{{.Inv.ID}}/act.pdf" class="btn btn-ghost btn-sm gap-1.5 ms-auto">{{icon "download"}}PDF</a>
