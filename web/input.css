@@ -3,6 +3,25 @@
 
 @import "tailwindcss";
 
+/* Keep the rendered document in place while the next server screen arrives.
+   Browsers without cross-document view transitions simply ignore this. */
+@view-transition {
+  navigation: auto;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 140ms;
+  animation-timing-function: ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
+}
+
 /* Vendored fonts (all self-hosted, no CDN).
  *
  * Inter        — UI sans. Variable weight 100..900, full Cyrillic + Latin.
