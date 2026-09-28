@@ -705,12 +705,23 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 
 }
 
-/* Between the laptop and full desktop widths the header keeps every primary
-   destination, but drops labels so the workspace switcher and account menu
-   still have a lane of their own. The labels remain available to assistive
-   technology and in each control's tooltip. */
-@media (min-width: 64rem) and (max-width: 79.99rem) {
-  header .nav-label { display: none; }
+/* Keep the four core destinations labeled. Reveal optional sections only
+   when there is enough room; each leaves More at the same breakpoint. */
+header .header-extra { display: none; }
+@media (min-width: 72rem) {
+  header .header-extra-graph { display: inline-flex; }
+  header .header-more-graph { display: none; }
+  header .more-active-graph { --btn-bg: transparent; }
+}
+@media (min-width: 80rem) {
+  header .header-extra-goals { display: inline-flex; }
+  header .header-more-goals { display: none; }
+  header .more-active-goals { --btn-bg: transparent; }
+}
+@media (min-width: 90rem) {
+  header .header-extra-tags { display: inline-flex; }
+  header .header-more-tags { display: none; }
+  header .more-active-tags { --btn-bg: transparent; }
 }
 
 /* Up to laptop width: week grids keep a narrow name column so the days

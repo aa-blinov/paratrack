@@ -53,7 +53,7 @@
             <ul class="text-xs space-y-0.5" aria-label="{{$.T "wh.deliveries"}}">
               {{range .Deliveries}}
               <li class="flex gap-2"><span class="font-mono {{if .OK}}text-success{{else}}text-error{{end}}">{{if .Status}}{{.Status}}{{else}}—{{end}}</span>
-                <span class="opacity-80">{{.When}} · {{$.T (printf "wh.ev.%s" .Event)}}</span>{{if .Error}}<span class="opacity-80 truncate">{{.Error}}</span>{{end}}</li>
+                <span class="opacity-80">{{.When}}: {{$.T (printf "wh.ev.%s" .Event)}}</span>{{if .Error}}<span class="opacity-80 truncate">{{.Error}}</span>{{end}}</li>
               {{end}}
             </ul>
           </td></tr>

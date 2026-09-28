@@ -17,13 +17,13 @@ var currencies = []struct{ Code, Symbol string }{
 
 type currencyOption struct{ Code, Label string }
 
-// currencyOptions is the <select> menu: "RUB · ₽".
+// currencyOptions is the <select> menu: "RUB (₽)".
 func currencyOptions() []currencyOption {
 	out := make([]currencyOption, 0, len(currencies))
 	for _, c := range currencies {
 		label := c.Code
 		if c.Symbol != c.Code {
-			label += " · " + c.Symbol
+			label += " (" + c.Symbol + ")"
 		}
 		out = append(out, currencyOption{c.Code, label})
 	}
@@ -75,7 +75,7 @@ func moneyByCurrency(lang i18n.Lang, sums map[string]int) string {
 	if len(parts) == 0 {
 		return moneyL(lang, 0, "RUB")
 	}
-	return strings.Join(parts, " · ")
+	return strings.Join(parts, ", ")
 }
 
 // formatMoneyInput is an editable amount: "2500,50" in Russian (no

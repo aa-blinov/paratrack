@@ -51,7 +51,7 @@
 <body class="min-h-screen flex flex-col bg-base-200 text-base-content">
   <a href="#main" class="skip-link">{{.T "nav.skip"}}</a>
   <header class="appbar bg-base-100 border-b border-base-300">
-    <div class="navbar min-h-12! mx-auto max-w-6xl px-2 sm:px-4 gap-1 flex-nowrap items-center">
+    <div class="navbar min-h-12! mx-auto max-w-[90rem] px-2 sm:px-4 gap-1 flex-nowrap items-center">
       <div class="shrink-0 flex items-center mr-2">
         <a href="/" class="btn btn-ghost btn-sm px-2 normal-case">
           <span class="wordmark" style="position:relative;top:-1px">paratrack</span>
@@ -67,7 +67,7 @@
              (it truncates, full name in the tooltip), so a long name can
              never push the links into the user menu (One-Row Rule). */}}
         <div class="dropdown dropdown-end hidden lg:block min-w-0 shrink max-w-[14rem]">
-          <button tabindex="0" class="btn btn-ghost btn-sm max-w-full flex-nowrap" title="{{.Team.Name}} · {{.T "nav.switchWorkspace"}}">
+          <button tabindex="0" class="btn btn-ghost btn-sm max-w-full flex-nowrap" title="{{.T "nav.switchWorkspace"}}: {{.Team.Name}}">
             <span class="font-medium truncate min-w-0">{{.Team.Name}}</span>
             <span class="opacity-60 text-xs">▾</span>
           </button>
@@ -94,12 +94,15 @@
           <a href="/stats" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "stats"}}btn-active{{end}}" aria-label="{{.T "nav.stats"}}" title="{{.T "nav.stats"}}">{{icon "bar-chart-3"}}<span class="nav-label">{{.T "nav.stats"}}</span></a>
           <a href="/timesheet" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "timesheet"}}btn-active{{end}}" aria-label="{{.T "nav.timesheet"}}" title="{{.T "nav.timesheet"}}">{{icon "calendar"}}<span class="nav-label">{{.T "nav.timesheet"}}</span></a>
           <a href="/projects" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "projects"}}btn-active{{end}}" aria-label="{{.T "nav.projects"}}" title="{{.T "nav.projects"}}">{{icon "folder"}}<span class="nav-label">{{.T "nav.projects"}}</span></a>
+          {{if .On "graph"}}<a href="/graph" class="header-extra header-extra-graph btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "graph"}}btn-active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a>{{end}}
+          {{if .On "goals"}}<a href="/goals" class="header-extra header-extra-goals btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "goals"}}btn-active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a>{{end}}
+          {{if .On "tags"}}<a href="/tags" class="header-extra header-extra-tags btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "tags"}}btn-active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a>{{end}}
           <div class="dropdown dropdown-end shrink-0">
-            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if or (eq .Active "graph") (eq .Active "goals") (eq .Active "tags") (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "schedule")}}btn-active{{end}}" title="{{.T "nav.more"}}" aria-label="{{.T "nav.more"}}">{{icon "menu"}}<span class="nav-label">{{.T "nav.more"}}</span></button>
+            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if or (eq .Active "graph") (eq .Active "goals") (eq .Active "tags") (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "schedule")}}btn-active{{end}} {{if eq .Active "graph"}}more-active-graph{{end}} {{if eq .Active "goals"}}more-active-goals{{end}} {{if eq .Active "tags"}}more-active-tags{{end}}" title="{{.T "nav.more"}}" aria-label="{{.T "nav.more"}}">{{icon "menu"}}<span class="nav-label">{{.T "nav.more"}}</span></button>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-56 p-2 z-50">
-              {{if .On "graph"}}<li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>{{end}}
-              {{if .On "goals"}}<li><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>{{end}}
-              {{if .On "tags"}}<li><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>{{end}}
+              {{if .On "graph"}}<li class="header-more-graph"><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>{{end}}
+              {{if .On "goals"}}<li class="header-more-goals"><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>{{end}}
+              {{if .On "tags"}}<li class="header-more-tags"><a href="/tags" class="{{if eq .Active "tags"}}active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a></li>{{end}}
               {{if and .CanManage (.On "invoices")}}<li class=""><a href="/invoices" class="{{if eq .Active "invoices"}}active{{end}}">{{icon "zap"}}{{.T "nav.invoices"}}</a></li>{{end}}
               {{if and .CanManage (.On "payroll")}}<li class=""><a href="/payroll" class="{{if eq .Active "payroll"}}active{{end}}">{{icon "users"}}{{.T "nav.payroll"}}</a></li>{{end}}
               {{if .On "schedule"}}<li class=""><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>{{end}}
@@ -115,7 +118,7 @@
         {{/* --- right actions: fixed, never wrap --- */}}
         <div class="flex items-center gap-0.5 shrink min-w-0 sm:shrink-0">
         <div class="dropdown dropdown-end hidden lg:block shrink-0">
-          <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.User.Name}} · {{.User.Email}}">
+          <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5" title="{{.User.Name}} ({{.User.Email}})">
             {{icon "user"}}
             <span class="hidden sm:inline max-w-[6rem] xl:max-w-[8rem] truncate">{{.User.Name}}</span>
           </button>
@@ -159,7 +162,7 @@
   <footer class="{{if .User}}hidden lg:block {{end}}border-t border-base-300 bg-base-100 py-3">
     <div class="mx-auto max-w-6xl px-4 flex items-center gap-2 flex-wrap">
       <div class="text-sm opacity-60 flex-1 min-w-0 whitespace-nowrap truncate">
-        {{.T "version"}}<span class="hidden sm:inline">{{if .User}} · {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">p</kbd> {{.T "kbd.pause"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
+        {{.T "version"}}<span class="hidden sm:inline">{{if .User}} | {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">p</kbd> {{.T "kbd.pause"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button type="button" data-install hidden class="btn btn-ghost btn-xs gap-1" title="{{.T "pwa.installTitle"}}">

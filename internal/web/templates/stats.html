@@ -171,7 +171,7 @@
       </table>
     </div>
     {{if .SessionsCut}}<p class="text-sm doc-muted mt-3">{{printf (.T "stats.logCut") (len .Sessions) .SessionCount}}
-      {{if lt (len .Sessions) 500}}<a href="{{.ShowAllURL}}" class="link">{{.T "stats.logAll"}}</a> ·{{end}}
+      {{if lt (len .Sessions) 500}}<a href="{{.ShowAllURL}}" class="link">{{.T "stats.logAll"}}</a>{{end}}
       <a href="/api/reports.csv" class="link" download>{{.T "nav.csvExport"}}</a></p>{{end}}
     {{else}}
     <div class="text-center py-6">

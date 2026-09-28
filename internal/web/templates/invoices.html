@@ -270,7 +270,7 @@
     <div class="card-body p-6 gap-4">
       {{with .Inv.Logo}}<img src="{{.}}" alt="" class="h-12 w-auto max-w-48 object-contain self-start">{{end}}
       <h1 class="text-2xl font-semibold">{{.T "act.heading"}} <span class="font-mono">{{.Inv.Number}}</span></h1>
-      <div class="text-sm doc-muted">{{.T "pdf.issued"}} {{.Inv.IssuedLabel}} · {{.T "inv.period"}}: {{.Inv.PeriodLabel}}</div>
+      <div class="text-sm doc-muted">{{.T "pdf.issued"}} {{.Inv.IssuedLabel}}, {{.T "inv.period"}}: {{.Inv.PeriodLabel}}</div>
       <dl class="grid sm:grid-cols-2 gap-4">
         <div><dt class="text-xs doc-muted">{{.T "pdf.from"}}</dt><dd class="font-medium">{{.Seller}}</dd>
           {{with .Inv.SellerDetails}}<dd class="text-sm whitespace-pre-line mt-1">{{.}}</dd>{{end}}</div>
@@ -306,7 +306,7 @@
       {{range .Unbilled}}
       <li class="flex flex-wrap items-center gap-x-4 gap-y-1 py-2">
         <a href="/projects/{{.Slug}}" class="font-medium min-w-0 truncate py-2 -my-2">{{.ProjectName}}</a>
-        <span class="font-mono whitespace-nowrap">{{.Hours}} {{$.T "inv.hoursShort"}} · {{.Amount}}</span>
+        <span class="font-mono whitespace-nowrap">{{.Hours}} {{$.T "inv.hoursShort"}} / {{.Amount}}</span>
         <span class="text-xs doc-muted">{{$.T "inv.since"}} {{.Since}}</span>
         <a href="/invoices?project={{.ProjectID}}&from={{.SinceISO}}#new" class="btn btn-neutral btn-xs ms-auto">{{$.T "inv.billNow"}}</a>
       </li>

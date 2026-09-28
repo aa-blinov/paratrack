@@ -91,7 +91,7 @@
           <span class="label-text text-sm">{{.T "team.transferPick"}}</span>
           <select name="user_id" required class="select select-bordered select-sm w-full">
             <option value="" disabled selected>…</option>
-            {{range .Members}}{{if ne .UserID $.User.ID}}<option value="{{.UserID}}">{{.Name}} · {{.Email}}</option>{{end}}{{end}}
+            {{range .Members}}{{if ne .UserID $.User.ID}}<option value="{{.UserID}}">{{.Name}} ({{.Email}})</option>{{end}}{{end}}
           </select>
         </label>
         <button type="submit" class="btn btn-sm btn-outline btn-error">{{.T "team.transferBtn"}}</button>

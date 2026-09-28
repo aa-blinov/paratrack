@@ -1686,7 +1686,7 @@ func (s *Server) notifyNewlyMetGoals(r *http.Request, activityID int64, stoppedS
 		me, _ := UserFrom(r.Context())
 		s.sendPush(teamID(r), []int64{me.ID},
 			"Goal met",
-			p.ActivityName+" · "+periodRangeLabel(p.Goal.Period, resolveLang(r)),
+			p.ActivityName+": "+periodRangeLabel(p.Goal.Period, resolveLang(r)),
 			"/goals")
 		break // one push per stop
 	}
