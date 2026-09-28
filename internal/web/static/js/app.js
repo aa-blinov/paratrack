@@ -882,6 +882,21 @@ document.addEventListener('pointerdown', () => { window._paratrackKeyboard = fal
   });
 })();
 
+// Clicking the already active navigation item should not tear down the page.
+// Keep real navigation for links with a query/hash, modifiers, downloads, or
+// another origin; only the exact current document is a no-op.
+document.addEventListener('click', (e) => {
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = e.target.closest('a[href]');
+  if (!link || link.hasAttribute('download') || link.target && link.target !== '_self') return;
+  let url;
+  try { url = new URL(link.href, location.href); } catch (_) { return; }
+  if (url.origin !== location.origin || url.pathname !== location.pathname || url.search !== location.search || url.hash) return;
+  e.preventDefault();
+  link.blur();
+  link.closest('dialog[open]')?.close();
+}, true);
+
 // A tab strip that scrolls sideways on a phone (settings) opens with the
 // current tab in view, not cut off past the edge.
 (function () {
