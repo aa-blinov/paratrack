@@ -132,26 +132,33 @@ else, a 1px border says so.
 - Flat surfaces; depth from tonal layering (`base-100 / 200 / 300`) and hairline rules only
 - High contrast ink-on-paper in both themes
 - Tabular numerals everywhere digits must align in a column
-- One accent (indigo ink), used sparingly and with weight
+- One accent (indigo ink), used for identity, the current place and focus, never for the main button
 - A measured type scale (1.2 ratio) with negative tracking on headings
-- A single radius language: 6px for small selectors, 10px for fields and containers
-- Every control has a fixed geometric lane — 40 / 32 / 24 px
+- A single radius language: 6px for small selectors, 10px for fields and containers, fully round for status pills and chips; the phone shell's sheet and cards round a little more
+- Every control has a fixed geometric lane — 40 / 32 / 24 px, grown for touch
 
 ## Colors
 
 Two themes, one grammar. Light is the canonical reading of the palette; dark is
 its inversion with the same roles and the same meanings. Names below are the
-character of the colour, not its hex.
+character of the colour, not its hex. Values live in the two daisyUI themes in
+`web/input.css` (`paratrack-light`, `paratrack-dark`).
 
 ### Primary
-- **Indigo Ink** (`#6366f1`): the signature. Reserved for the wordmark's world,
-  active affordances, focus rings and the one primary action per surface. Its
-  rarity is the point — a ledger is signed once per page.
+- **Indigo Ink** (`#6366f1`): the signature. It marks where you are and what
+  is live: the active tab in the phone tab bar, the focus ring, a sent
+  document's status, the action inside a toast, text selection. It is **not**
+  the main button: the one call to action per form is charcoal (see Buttons).
+  Its rarity is the point — a ledger is signed, not coloured in.
+- **Ink for text on tints** (`--ink-primary #4f46e5`, `--ink-success #047857`,
+  `--ink-warning #b45309` in light; the plain theme colours in dark): the
+  saturated status hues fail contrast as text on their own 15% tint (≈2:1),
+  so pills and statuses write in these deeper inks.
 
 ### Secondary
-- **Violet Ink** (`#8b5cf6`): the second hand. Related-but-distinct entities —
-  a linked project chip, a secondary series in a chart. Never competes with the
-  signature.
+- **Violet Ink** (`#8b5cf6`): the second hand, kept as the theme's `secondary`
+  but not used by any screen today. If it is ever needed, it marks a
+  related-but-distinct entity and never competes with the signature.
 
 ### Neutral
 - **Ledger White** (`#ffffff`): the sheet. Card and input surfaces in light theme.
@@ -159,7 +166,22 @@ character of the colour, not its hex.
   badge fills, quiet chips.
 - **Ledger Rule** (`#e5e7eb`): hairlines, dividers, table rules, input strokes.
 - **Ledger Ink** (`#1a1d23`): the writing. All primary text in light theme.
-- **Ledger Charcoal** (`#1f2937`): the primary button fill and dark-neutral blocks.
+- **Ledger Charcoal** (`#1f2937`): the primary button fill (`btn-neutral`) and dark-neutral blocks.
+
+### Dark theme
+The same roles, one step lighter or darker:
+
+| Role | Light | Dark |
+|---|---|---|
+| Page (`base-200`) | `#f9fafb` | `#232730` |
+| Sheet (`base-100`) | `#ffffff` | `#1a1d23` |
+| Rule (`base-300`) | `#e5e7eb` | `#2d3139` |
+| Ink (`base-content`) | `#1a1d23` | `#e5e7eb` |
+| Signature (`primary`) | `#6366f1` | `#818cf8` |
+| Main button (`neutral`) | `#1f2937` fill, `#f9fafb` ink | `#e5e7eb` fill, `#0f1115` ink |
+| Success / warning / error | `#10b981` / `#f59e0b` / `#dc2626` | `#34d399` / `#fbbf24` / `#f87171` |
+| Info | `#06b6d4` | `#22d3ee` |
+| Secondary (unused) | `#8b5cf6` | `#a78bfa` |
 
 ### Status
 - **Info Cyan** (`#06b6d4`): informational notices only.
@@ -171,8 +193,8 @@ character of the colour, not its hex.
 ### Named Rules
 
 **The Signature Rule.** The primary accent occupies ≤10% of any screen. It marks
-identity, focus, and the single primary action. If two things are indigo, one of
-them is wrong.
+identity, the current place and focus. The main action is charcoal, so indigo
+never has to shout. If indigo appears on a figure or a decoration, it is wrong.
 
 **The No-Fake-Ink Rule.** A user-authored colour (project colour, activity
 colour) is never used as text ink. It appears as a swatch beside neutral text,
@@ -201,12 +223,18 @@ is monospaced and tabular.
   the `paratrack` wordmark and nothing else.
 - **Headline** (650, 1.728rem / `--step-3`, lh 1.15, tracking −0.02em): page `h1`,
   exactly one per page.
+- **Section** (620, 1.44rem / `--step-2`, lh 1.2, tracking −0.015em): `h2` section
+  headings on a page.
 - **Title** (600, 1.2rem / `--step-1`, lh 1.3, tracking −0.01em): card titles and
-  section anchors.
+  `h3`.
 - **Body** (400, 1rem / `--step-0`, lh 1.55): all running text. Measure held to
   65–75ch by container width.
-- **Label** (600, 0.694rem / `--step--2`, tracking 0.08em, uppercase): stat
-  titles, overlines, column heads. The ledger's column headers.
+- **Label** (600, 0.694rem / `--step--2`, tracking 0.08em, uppercase): a block's
+  own name when the block is a ledger strip, such as «ИДУТ СЕЙЧАС» or
+  «НЕ ВЫСТАВЛЕНО» (`.ledger-label`, `.stat-title`). It names the block; it is never
+  a kicker above a separate heading.
+- **Control text:** labels of fields 550 at `--step--1`; nothing interactive or
+  readable goes under 12px (daisyUI's xs sizes are raised to 0.75rem).
 
 Scale ratio is **1.2**, anchored at `--step-0 = 1rem`:
 `0.694 · 0.833 · 1 · 1.2 · 1.44 · 1.728 · 2.074rem`.
@@ -241,18 +269,36 @@ Related content sits tightly; distinct groups are separated generously. More
 space above a heading than below it.
 
 **Responsive.** Three real breakpoints: `sm` 40rem (640px), `md` 48rem (768px),
-`lg` 64rem (1024px). Tables collapse to labelled cards below 640px
-(`.responsive-collapse`). The topbar is one row that never wraps: logo · scrollable
-link cluster · fixed action cluster. Scrollable strips (`period-tabs`, nav)
-pan horizontally under touch (`touch-action: pan-x pan-y`) and never swallow
-vertical page scroll. Compact controls expand their hit area to 44×44px under a
-coarse pointer without changing their drawn size.
+`lg` 64rem (1024px).
+- **Below 1024px** the app becomes a phone shell: the header keeps only the
+  wordmark, a fixed tab bar (`.tabbar`, 3.5rem) carries four user-chosen tabs
+  and «Ещё», which opens a bottom sheet (`dialog.sheet`) with every other
+  section; a running timer sits in a bar above the tabs (`.minibar`). Wide edit
+  tables (`.collapse-lg`) turn into cards at this width too.
+- **Below 640px** every data table collapses to labelled cards
+  (`.responsive-collapse`); card cells wrap, and cells marked `whitespace-nowrap`
+  (times, sums) keep one line. In the stats log card
+  date-times take the full width, duration and note sit side by side.
+- Scrollable strips (`period-tabs`, settings tabs) pan horizontally under touch
+  (`touch-action: pan-x pan-y`), never swallow vertical scroll, and open with
+  the current tab scrolled into view.
+- **Touch** (`pointer: coarse`), measured from `web/input.css`:
+  - `btn-sm` and `select` draw at 44px;
+  - `input-sm`, `input-xs`, `select-sm` and `btn-xs` draw at 36px;
+  - `btn-xs` and `btn-circle` also get a 44×44px hit area from a centred
+    pseudo-element, and `checkbox-xs` the same;
+  - period tabs draw at 40px;
+  - badges and table links keep their drawn size and get a hit area 10px taller
+    on each side (about 40px) from a pseudo-element.
 
 **Named Rules.**
 
-**The One-Row Rule.** The header never wraps onto a second line. If the links do
-not fit, they scroll — they do not stack. A crooked header is the first thing a
-user sees.
+**The One-Row Rule.** The header never wraps onto a second line. At 1024px and
+up it is wordmark · workspace switcher · links · «Ещё» · account; the workspace
+name is the one item that gives up width (it truncates, the full name is in its
+tooltip). The link cluster is not a scroll container, because overflow would
+clip its dropdowns. Below 1024px the header is the wordmark alone. A crooked
+header is the first thing a user sees.
 
 **The Shrink-to-Truncate Rule.** A grid or flex item that carries a name must
 allow itself to shrink (`min-width: 0`) so `truncate` can work. A 200-character
@@ -264,33 +310,44 @@ project name must never widen the page.
 `base-200` on `base-300` — and by a hairline `1px` rule (`--border`). There are
 no drop shadows, no ambient glows, no floating cards, and no blur-as-decoration.
 
-A modal or dropdown that must sit above the page says so with a border and a
+A dropdown or menu that must sit above the page says so with a border and a
 tonal step, not with a shadow. The rule is visible; that is the depth system.
+The one overlay that dims the page is the phone's bottom sheet: a native
+`<dialog>` without a border over a 40% black backdrop, because it takes the
+whole screen's attention.
 
 ### Named Rules
 
-**The No-Shadow Rule.** Surfaces do not cast shadows. `box-shadow` is reserved
-for the focus ring (an accessibility affordance) and is never used for elevation.
-If a component looks like it needs a shadow to separate from its background, the
-background tone is wrong.
+**The No-Shadow Rule.** Surfaces do not cast shadows. `box-shadow` has one
+allowed use: an inset 1px ring that draws a hairline without shifting layout
+(the active period tab, the chosen preset card). The focus ring is an `outline`,
+not a shadow. Shadows are never used for elevation (`--depth: 0` in both themes). If a component looks like
+it needs a shadow to separate from its background, the background tone is wrong.
 
 **The Hairline Rule.** A `1px` solid `base-300` rule is the separator. It is used
 for card edges, table rows, dividers and input strokes — the same weight
-everywhere. Thickness variation (`border-t-2`) is allowed only as a table total
-rule, where it marks a sum.
+everywhere. A 2px rule appears only as a total rule, where it marks a sum (a
+table's total row, the ledger strip's «Сегодня» line, the amount on a letter).
 
 ## Shapes
 
-One corner language, two steps:
+One corner language: two steps for the app's controls and containers, round for tokens, and a few larger corners reserved for the phone shell:
 
-- **6px (`--radius-selector`)** — small internal controls: badges, chips,
-  checkboxes, toggles, kbd caps.
+- **6px (`--radius-selector`)** — small internal controls: daisyUI badges (the
+  project badge in a row, a tag link), checkboxes, toggles, kbd caps.
 - **10px (`--radius-field` / `--radius-box`)** — every field and every container:
   buttons, inputs, selects, cards, dropdowns, alerts.
+- **Phone shell surfaces** — the only larger corners, all on the touch shell:
+  the bottom sheet's top corners 20px (`1.25rem`), the running-timer card in
+  the minibar 16px, rows inside the sheet 12px. The chart's loading bars round
+  their top corners at 4px.
+- **Round (`999px`)** — things that state a status or hold a label as a token:
+  status pills (`.status-pill` «Активна» / «Пауза»), tag chips (`.tag-chip`),
+  document statuses (`.doc-status`), colour dots, and icon-only controls
+  (`btn-circle`).
 
 Corner radius is applied to the outside of the element and never doubled by an
-inner radius. Icon-only controls are full circles (`btn-circle`) — the one place
-the radius language breaks, and only for a control with no label.
+inner radius.
 
 Borders are `1px` hairlines in `base-300` (or `base-content` at low opacity in
 dark). No thick accent bars on cards. No gradient strokes.
@@ -299,8 +356,8 @@ dark). No thick accent bars on cards. No gradient strokes.
 
 ### Buttons
 
-A **four-lane ladder**. The lane is the geometry; the variant is the meaning.
-Measured heights are 40 / 32 / 24 px with a fixed 10px radius and a 6px
+A **three-step ladder** of heights with several variants on it. The height is the
+rank; the variant is the meaning. Measured heights are 40 / 32 / 24 px with a fixed 10px radius and a 6px
 icon-to-label gap (`gap-1.5`; `gap-1` on the 24px lane).
 
 - **Shape:** 10px radius (`--radius-field`); icon-only buttons are circles.
@@ -316,11 +373,16 @@ icon-to-label gap (`gap-1.5`; `gap-1` on the 24px lane).
   Pause/Resume is the wide button and Stop its narrower peer.
 - **Quiet-danger (32px)** — `btn-ghost` + `text-error` ink on transparent.
   Row-level removals.
-- **Chip / micro (24px)** — `btn-ghost` `btn-xs`: 8px padding, 11px semibold.
+- **Chip / micro (24px)** — `btn-ghost` `btn-xs`: 8px padding, 12px semibold.
   Filter chips, tag remove, inline toggles.
 
+- **Quick start (32px)** — `btn-sm btn-quick`: transparent, hairline `base-300`
+  border, weight 500. The example activities under an empty «Идут сейчас»
+  («работа», «чтение», …): one tap starts that timer.
+
 **States.** Hover lifts the fill one tonal step (ghost gains `base-200`).
-`focus-visible` draws a 2px solid `primary` ring at 2px offset. Disabled is
+`focus-visible` draws a 2px solid `primary` outline at 2px offset (1px inside
+a toast, where the action sits against the toast's edge). Disabled is
 `base-content` at 20% opacity with `pointer-events: none`. Loading sets
 `aria-busy` and disables the button.
 
@@ -335,10 +397,21 @@ layout → state`. Scrambled order is a signal the system was not consulted.
 
 ### Chips & Badges
 
-Round-ended (`999px`), 24px tall, `base-200` fill on `base-100`. Project and
-activity chips carry a **6px colour swatch** before neutral ink — the swatch is
-the colour, the text is always readable. Removable chips carry a 24px circular
-remove control with a 44px hit area on touch.
+Two kinds, and they do not swap:
+
+- **Pills and chips (round, `999px`)**: `.status-pill` for a timer's state,
+  tinted with the status colour at 15% and written in the deeper status ink;
+  `.tag-chip` on `base-200` for a tag; `.doc-status` for an invoice or pay run,
+  which reads by word and ink (sent in `--ink-primary`, paid in `--ink-success`),
+  not a grey pill for every state.
+- **Badges (6px, daisyUI `badge`)**: the project badge next to an activity in a
+  row, filled with the project's colour and written in computed ink (`inkFor`);
+  a tag as a link. A long project name truncates inside the badge (a `span.truncate`
+  in it, `max-width` on the badge) and never pushes the activity out.
+
+Activity and project names elsewhere carry a colour dot before neutral ink —
+the dot is the colour, the text is always readable. Removable chips carry a
+24px circular remove control with a 44px hit area on touch.
 
 ### Cards / Containers
 
@@ -353,7 +426,7 @@ remove control with a 44px hit area on touch.
 
 - **Style:** `base-100` fill, 1px `base-content` stroke at 20% opacity, 10px
   radius, 12px padding, 40px height
-- **Focus:** stroke goes to full `base-content` and a 2px `primary` ring appears
+- **Focus:** stroke goes to full `base-content` and a 2px `primary` outline appears
   at 2px offset. No glow.
 - **Error:** `verdict-red` stroke plus inline message beside the field
 - **Disabled:** `base-200` fill, 40% ink, `not-allowed` cursor
@@ -362,25 +435,36 @@ remove control with a 44px hit area on touch.
 
 ### Navigation
 
-A single 48px row. Wordmark left (Fraunces), primary links center in a
-scrollable cluster, actions right in a fixed cluster. Links are 32px ghost
-buttons; the active page is `btn-active` (one tonal step). Below `sm` the link
-cluster collapses to a ☰ dropdown and the labels drop from the language and
-theme controls. The current language is a non-link `span` with a check — it does
-not reload the page.
+- **Desktop (1024px and up):** a single 48px row (see The One-Row Rule). Links
+  are 32px ghost buttons with an icon; the active page is `btn-active` (one tonal
+  step). «Ещё» is a dropdown with the sections the workspace has switched on;
+  the account menu holds settings, help and sign-out.
+- **Phone (below 1024px):** the tab bar at the bottom: four tabs the person picks
+  in «Под себя» plus «Ещё». The current tab is indigo (the signature marks the
+  place), the rest are ink at reduced opacity. «Ещё» opens a bottom sheet with
+  every other section, the workspaces and the account. Its group headings are
+  small caps of their own: 0.75rem, weight 600, uppercase, tracking 0.05em, at
+  55% ink.
+- **Footer (both):** language and theme. The current language is a non-link
+  `span` with a check; theme cycles auto / light / dark.
+- Menus and dropdowns sit above page content: the header carries its own
+  z-index, because its `view-transition-name` makes it a stacking context.
 
 ### Tables
 
-Hairline rules, `base-200` zebra on even rows, uppercase 11px column heads, and
-monospace tabular numerals in every measured column. Total rows take a `2px`
-top rule. Below 640px rows become labelled cards (`.responsive-collapse`).
+Hairline rules, `base-200` zebra on even rows, column heads in sentence case at
+weight 600, and monospace tabular numerals in every measured column. Total rows
+take a `2px` top rule. An empty measured cell shows «—» in the app (the public
+site uses a minus icon, see Public site). Below 640px rows become labelled
+cards (`.responsive-collapse`); long logs show the newest rows first with a way
+to see all, never an unbounded table.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** keep depth flat: tone and hairlines only. A `1px base-300` rule separates everything.
+- **Do** keep depth flat: tone and hairlines only. A `1px base-300` rule separates everything; only the phone's bottom sheet dims the page.
 - **Do** render every comparable figure in JetBrains Mono with `tabular-nums` — durations, money, times, counts.
-- **Do** put exactly one `h1` on a page and one `btn-neutral` CTA in a form.
+- **Do** put exactly one `h1` on a page and one `btn-neutral` CTA in a form; keep indigo off that button.
 - **Do** use a colour swatch beside neutral text for user-authored colours; compute contrast-safe ink (`inkFor`) when a colour becomes a background.
 - **Do** keep the primary accent under 10% of a screen. One signature per page.
 - **Do** measure the button lanes: 40 / 32 / 24 px, 10px radius, 6px icon gap.
@@ -389,10 +473,10 @@ top rule. Below 640px rows become labelled cards (`.responsive-collapse`).
 - **Do** hold body measure to 65–75ch and set labels in uppercase `--step--2` with 0.08em tracking.
 
 ### Don't:
-- **Don't** use box-shadow for elevation. Shadows are for the focus ring only.
+- **Don't** use box-shadow for elevation. Its one use is the inset 1px hairline ring; focus is an outline.
 - **Don't** use Fraunces anywhere but the wordmark. The seal does not do the writing.
 - **Don't** paint user-authored colours as text ink. A lime activity name on white is a defect.
-- **Don't** wrap the header onto a second row. Scroll, do not stack.
+- **Don't** wrap the header onto a second row: truncate the workspace name, and below 1024px move links to the tab bar.
 - **Don't** hard-code `#fff` ink on a user-coloured background — compute it.
 - **Don't** mix button lanes in one cluster, or scramble the class order.
 - **Don't** rely on hover for anything a touch user must reach; give compact controls a 44px hit area.
