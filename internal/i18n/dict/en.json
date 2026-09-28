@@ -957,5 +957,8 @@
   "team.transferHint": "The new owner gets every right, including deleting the workspace and changing roles. You stay on as an admin.",
   "team.transferPick": "To",
   "team.transferBtn": "Hand over",
-  "team.transferConfirm": "Hand the workspace over? Only the new owner can give it back."
+  "team.transferConfirm": "Hand the workspace over? Only the new owner can give it back.",
+  "pay.overlap": "This period overlaps pay runs %s: hours on the shared days would be paid twice. Create it anyway?",
+  "pay.overlapCreate": "Create anyway",
+  "pay.overlapCancel": "Cancel"
 }
