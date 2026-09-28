@@ -226,12 +226,12 @@
         <tr>
           <td data-label="{{.T "dash.activity"}}" class="ledger-name">
             <div class="flex items-center gap-2 min-w-0">
-              <span class="inline-flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
+              <span class="ledger-activity inline-flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
               {{if $.Projects}}
               {{/* The project lives on the activity: changing it here moves
                    this activity's past sessions too (the title says so). */}}
               {{$cur := .ProjectSlug}}
-              <select name="project_id" class="select select-ghost select-xs ledger-project max-w-[10rem] shrink-0"
+              <select name="project_id" class="select select-ghost select-xs ledger-project"
                       aria-label="{{.T "dash.projectLabel"}}" title="{{.T "dash.projectChangeTitle"}}"
                       hx-post="/api/activities/{{.ActivityID}}/project" hx-trigger="change" hx-swap="none"
                       hx-on::after-request="htmx.ajax('GET', '/api/active', {target: '#active-list', swap: 'innerHTML'})">
@@ -258,20 +258,20 @@
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/focus/{{pathesc .ActivityName}}"
                       hx-target="#active-list" hx-swap="innerHTML"
-                      title="{{.T "dash.focusTitle"}}" aria-label="{{.T "dash.focus"}}">{{icon "target"}}<span class="sm:max-xl:sr-only">{{.T "dash.focus"}}</span></button>
+                      title="{{.T "dash.focusTitle"}}" aria-label="{{.T "dash.focus"}}">{{icon "target"}}<span class="lg:max-xl:sr-only">{{.T "dash.focus"}}</span></button>
               {{if .Paused}}
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/resume"
-                      hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.resume"}}" aria-label="{{.T "dash.resume"}}">{{icon "play"}}<span class="sm:max-xl:sr-only">{{.T "dash.resume"}}</span></button>
+                      hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.resume"}}" aria-label="{{.T "dash.resume"}}">{{icon "play"}}<span class="lg:max-xl:sr-only">{{.T "dash.resume"}}</span></button>
               {{else}}
               <button class="btn btn-ghost btn-sm gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/pause"
-                      hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.pause"}}" aria-label="{{.T "dash.pause"}}">{{icon "pause"}}<span class="sm:max-xl:sr-only">{{.T "dash.pause"}}</span></button>
+                      hx-target="#active-list" hx-swap="innerHTML" title="{{.T "dash.pause"}}" aria-label="{{.T "dash.pause"}}">{{icon "pause"}}<span class="lg:max-xl:sr-only">{{.T "dash.pause"}}</span></button>
               {{end}}
               <button class="btn btn-sm btn-stop gap-1.5"
                       hx-post="/api/sessions/{{.ID}}/stop"
                       hx-target="#active-list" hx-swap="innerHTML"
-                      title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="sm:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
+                      title="{{.T "dash.stop"}}" aria-label="{{.T "dash.stop"}}">{{icon "square"}}<span class="lg:max-xl:sr-only">{{.T "dash.stop"}}</span></button>
             </div>
           </td>
         </tr>
