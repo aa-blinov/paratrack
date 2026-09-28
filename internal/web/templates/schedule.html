@@ -64,7 +64,7 @@
 <tr id="sch-row-{{.Row.UserID}}">
   <td class="sticky left-0 bg-base-100 z-10">
     <div class="font-medium grid-name truncate" title="{{.Row.UserName}}">{{.Row.UserName}}</div>
-    <div class="text-xs opacity-60 font-mono">{{.Row.Total}} · {{.Row.LoadPct}}%</div>
+    <div class="text-xs opacity-60 font-mono">{{.Row.Total}} ({{.Row.LoadPct}}%)</div>
   </td>
   {{range .Row.Cells}}
   <td class="text-center p-1 {{if .IsToday}}bg-base-200{{end}}">
@@ -74,7 +74,7 @@
            name="minutes"
            value="{{if .Min}}{{.Min}}{{end}}"
            placeholder="—"
-           title="{{.ISO}} · {{$.T "sch.dayAll"}} {{.Total}}"
+           title="{{.ISO}}: {{$.T "sch.dayAll"}} {{.Total}}"
            aria-label="{{$.Row.UserName}} {{.ISO}}"
            hx-post="/api/schedule/cell"
            hx-trigger="change"

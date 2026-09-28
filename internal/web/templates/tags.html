@@ -36,7 +36,7 @@
         {{range .Tags}}
         <div class="badge badge-lg badge-outline gap-2 py-3 h-auto max-w-full">
           <span>#{{.Name}}</span>
-          <span class="opacity-50">·</span>
+          <span class="opacity-50" aria-hidden="true">/</span>
           <span class="font-mono font-semibold" title="{{.T "tags.countTitle"}}">{{.SessionCount}}</span>
           {{if $.CanManage}}<button class="btn btn-ghost btn-xs btn-circle ml-1"
                   hx-delete="/api/tags?id={{.ID}}"

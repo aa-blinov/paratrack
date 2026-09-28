@@ -137,13 +137,24 @@ def main() -> int:
         nav_text = page.locator("header nav").inner_text()
         for label in ["Dashboard", "Stats"]:
             check(f"nav has '{label}' link", label in nav_text)
-        # Optional sections and CSV live in the deliberate More menu rather
-        # than competing with the timer's primary navigation.
+        # Optional sections move into the top bar as width allows; CSV stays
+        # in More. Exactly one visible link should lead to each destination.
         more = page.locator('header nav button:has-text("More")')
         more.click()
-        check("More menu exposes Graph", page.locator('header nav a[href="/graph"]').count() == 1)
+        check("Graph has one visible destination", page.locator('header nav a[href="/graph"]:visible').count() == 1)
         check("More menu exposes CSV", page.locator('header nav a[href="/api/reports.csv"]').count() == 1)
         page.keyboard.press("Escape")
+        for width, visible_extra in ((1024, ()), (1152, ("/graph",)),
+                                     (1280, ("/graph", "/goals")),
+                                     (1440, ("/graph", "/goals", "/tags"))):
+            page.set_viewport_size({"width": width, "height": 900})
+            check(
+                f"header destinations fit at {width}px",
+                page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
+                and all(page.locator(f'header nav a[href="{path}"]:visible').count() == 1
+                        for path in visible_extra),
+            )
+        page.set_viewport_size({"width": 1280, "height": 900})
         check(
             "theme toggle button present",
             page.locator('[data-theme-toggle]').count() >= 1,
@@ -228,8 +239,7 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 5
         print("\n== 5. Graph page")
-        page.locator('header nav button:has-text("More")').click()
-        page.locator('header nav a[href="/graph"]').click()
+        page.locator('header nav a[href="/graph"]:visible').click()
         page.wait_for_url("**/graph")
         # The seeded sessions use a synthetic future end; a complete week
         # keeps them visible while today correctly clips at the current time.
