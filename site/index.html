@@ -1,0 +1,216 @@
+---
+layout: null
+title: "paratrack: учёт времени, из которого сразу выходит счёт"
+---
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>paratrack: учёт времени, из которого сразу выходит счёт</title>
+  <meta name="description" content="Параллельные таймеры, табель, статистика, счета клиентам и выплаты команде в одном приложении. В браузере и на телефоне, можно поставить на свой сервер.">
+  <meta property="og:title" content="paratrack: учёт времени, из которого сразу выходит счёт">
+  <meta property="og:description" content="Параллельные таймеры, табель, счета и выплаты в одном приложении. Можно на своём сервере.">
+  <meta property="og:image" content="{{ '/assets/shots/dashboard.webp' | absolute_url }}">
+  <meta name="theme-color" content="#f9fafb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#15171c" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="{{ '/assets/icon.png' | relative_url }}">
+  <link rel="preload" href="{{ '/assets/fonts/inter-cyrillic.woff2' | relative_url }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+</head>
+<body>
+<a class="skip" href="#main">К содержимому</a>
+{% assign icons = '/assets/icons.svg' | relative_url %}
+<header class="bar">
+  <div class="wrap">
+    <a class="wordmark" href="{{ '/' | relative_url }}">paratrack</a>
+    <nav aria-label="Сайт">
+      <a class="link" href="{{ '/docs/' | relative_url }}">Документация</a>
+      <a class="link hide-sm" href="https://github.com/aa-blinov/paratrack">GitHub</a>
+      <a class="btn btn-primary" href="https://paratrack.duckdns.org/register" aria-label="Открыть paratrack"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg><span class="long">Открыть paratrack</span><span class="short">Открыть</span></a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <div>
+        <h1 id="hero-title">Учёт времени, из которого сразу выходит счёт</h1>
+        <p class="lede">Запускаете таймеры на задачах, хоть три сразу. paratrack раскладывает минуты по проектам и дням, собирает табель, счёт клиенту и выплаты команде. Работает в браузере и на телефоне, ставится на свой сервер.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://paratrack.duckdns.org/register"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg>Открыть paratrack</a>
+          <a class="btn btn-line" href="{{ '/docs/self-host/' | relative_url }}">Развернуть у себя</a>
+        </div>
+        <p class="fine">Интерфейс на русском, есть английский. Исходный код открыт, лицензия MIT.</p>
+      </div>
+
+      <div>
+        <div class="sheet ledger" id="ledger" aria-labelledby="ledger-title">
+          <div class="ledger-head">
+            <h2 class="label" id="ledger-title">Идут сейчас</h2>
+            <button class="btn btn-ghost" type="button" data-all="pause"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-pause"/></svg>Пауза всем</button>
+          </div>
+          <div class="row" data-id="a" data-color="#8b5cf6" data-sec="4360">
+            <div><div class="name"><span class="dot" style="background:#8b5cf6"></span><span>вёрстка</span></div><span class="proj">Сайт для «Ромашки»</span></div>
+            <span class="status"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg><span class="st">Активна</span></span>
+            <span class="clock" aria-live="off">1:12:40</span>
+            <div class="ctl">
+              <button class="btn btn-ghost" type="button" data-act="focus" title="Поставить на паузу все остальные таймеры, этот продолжит идти"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-target"/></svg>Только эта</button>
+              <button class="btn btn-ghost" type="button" data-act="toggle"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-pause"/></svg><span>Пауза</span></button>
+              <button class="btn btn-stop" type="button" data-act="stop"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-square"/></svg>Стоп</button>
+            </div>
+          </div>
+          <div class="row" data-id="b" data-color="#ec4899" data-sec="2285">
+            <div><div class="name"><span class="dot" style="background:#ec4899"></span><span>ревью кода</span></div><span class="proj">Приложение «Лютик»</span></div>
+            <span class="status"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg><span class="st">Активна</span></span>
+            <span class="clock" aria-live="off">0:38:05</span>
+            <div class="ctl">
+              <button class="btn btn-ghost" type="button" data-act="focus" title="Поставить на паузу все остальные таймеры, этот продолжит идти"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-target"/></svg>Только эта</button>
+              <button class="btn btn-ghost" type="button" data-act="toggle"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-pause"/></svg><span>Пауза</span></button>
+              <button class="btn btn-stop" type="button" data-act="stop"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-square"/></svg>Стоп</button>
+            </div>
+          </div>
+          <div class="row" data-id="c" data-color="#f59e0b" data-sec="1142">
+            <div><div class="name"><span class="dot" style="background:#f59e0b"></span><span>созвон с клиентом</span></div><span class="proj">Сайт для «Ромашки»</span></div>
+            <span class="status"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg><span class="st">Активна</span></span>
+            <span class="clock" aria-live="off">0:19:02</span>
+            <div class="ctl">
+              <button class="btn btn-ghost" type="button" data-act="focus" title="Поставить на паузу все остальные таймеры, этот продолжит идти"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-target"/></svg>Только эта</button>
+              <button class="btn btn-ghost" type="button" data-act="toggle"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-pause"/></svg><span>Пауза</span></button>
+              <button class="btn btn-stop" type="button" data-act="stop"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-square"/></svg>Стоп</button>
+            </div>
+          </div>
+          <div class="today" aria-live="polite">
+            <span class="label">Сегодня</span>
+            <span>учтено<b id="t-total">2:09:47</b></span>
+            <span>идут<b id="t-running">3</b></span>
+            <span>на паузе<b id="t-paused">0</b></span>
+          </div>
+        </div>
+        <p class="demo-note">Живая копия экрана «Обзор»: кнопки работают, данные придуманы и нигде не сохраняются.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="carry-title">
+    <div class="wrap">
+      <h2 id="carry-title">Те же минуты доходят до счёта</h2>
+      <p class="intro">Таймер выше пишет прямо в табель и в черновик счёта для «Ромашки». Часы округляются до сотых (36 секунд), и в каждой строке «часы × ставка = сумма». Итог счёта сходится с табелем до копейки, пересчитывать в таблице не придётся.</p>
+      <div class="carry">
+        <div class="sheet">
+          <h3>Табель, эта неделя</h3>
+          <p class="sub">Минуты по активностям и дням. Забыли запустить таймер: впишите число в ячейку.</p>
+          <div class="scroll-x">
+          <table class="ledger-table" id="week">
+            <thead><tr><th>Активность</th><th class="n">Пн</th><th class="n">Вт</th><th class="n">Ср</th><th class="n">Чт</th><th class="n">Пт</th><th class="n">Итого</th></tr></thead>
+            <tbody>
+              <tr data-row="a"><td>вёрстка</td><td class="n">90</td><td class="n">120</td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n">165</td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n" data-sum></td></tr>
+              <tr data-row="c"><td>созвон с клиентом</td><td class="n">30</td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n">45</td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n" data-sum></td></tr>
+              <tr data-row="d"><td>дизайн макетов</td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n">150</td><td class="n">60</td><td class="n">60</td><td class="n"><svg class="icon nil" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="n" data-sum></td></tr>
+            </tbody>
+            <tfoot><tr class="total"><td>Итого</td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n"></td><td class="n" id="week-total"></td></tr></tfoot>
+          </table>
+          </div>
+          <p class="math">Колонка «сегодня» берёт минуты у идущих таймеров. Итог недели и итог счёта это одни и те же минуты.</p>
+        </div>
+        <div class="sheet">
+          <h3>Черновик счёта: ООО «Ромашка»</h3>
+          <p class="sub">Проект «Сайт для «Ромашки»», ставка 3 500,00 ₽ в час.</p>
+          <table class="ledger-table" id="invoice">
+            <thead><tr><th>Работа</th><th class="n">Часы</th><th class="n">Сумма</th></tr></thead>
+            <tbody>
+              <tr data-line="a"><td>вёрстка</td><td class="n live"></td><td class="n live"></td></tr>
+              <tr data-line="c"><td>созвон с клиентом</td><td class="n live"></td><td class="n live"></td></tr>
+              <tr data-line="d"><td>дизайн макетов</td><td class="n"></td><td class="n"></td></tr>
+              <tr class="total"><td>Итого</td><td class="n" id="inv-h"></td><td class="n" id="inv-sum"></td></tr>
+            </tbody>
+          </table>
+          <p class="math">Дальше из черновика выходят PDF, акт выполненных работ и письмо клиенту. Отправленный счёт закрывает свои часы от правок.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="screens-title">
+    <div class="wrap">
+      <h2 id="screens-title">Как это выглядит</h2>
+      <p class="intro">Настоящие экраны приложения на демонстрационных данных студии «Кедр».</p>
+      <div class="screens">
+        <figure class="wide"><img src="{{ '/assets/shots/dashboard.webp' | relative_url }}" width="2880" height="1800" loading="lazy" alt="Обзор: три таймера идут одновременно, ниже блок «Не выставлено» с суммами по проектам"><figcaption><b>Обзор.</b> Что идёт прямо сейчас, пауза, «Только эта», стоп. Ниже видно, сколько ещё не выставлено клиентам.</figcaption></figure>
+        <figure class="tall phone-frame"><img src="{{ '/assets/shots/phone.webp' | relative_url }}" width="780" height="1688" loading="lazy" alt="paratrack на телефоне: карточки идущих таймеров и нижняя панель вкладок"><figcaption><b>Телефон.</b> Ставится на главный экран, работает и без сети.</figcaption></figure>
+        <figure class="half"><img src="{{ '/assets/shots/timesheet.webp' | relative_url }}" width="2880" height="1800" loading="lazy" alt="Табель недели: строки активностей, столбцы дней, итоги"><figcaption><b>Табель.</b> Неделя как таблица, минуты вписываются прямо в ячейку.</figcaption></figure>
+        <figure class="half"><img src="{{ '/assets/shots/invoice.webp' | relative_url }}" width="2880" height="1800" loading="lazy" alt="Счёт INV-2026-001: исполнитель, заказчик с реквизитами, строки работ и итог"><figcaption><b>Счёт.</b> Реквизиты сторон, строки по работам, итог, PDF и акт.</figcaption></figure>
+        <figure class="half"><img src="{{ '/assets/shots/stats.webp' | relative_url }}" width="2880" height="1800" loading="lazy" alt="Статистика за неделю: разбивка по проектам и активностям"><figcaption><b>Статистика.</b> Разбивка по проектам, фильтры по периоду, людям и тегам.</figcaption></figure>
+        <figure class="half"><img src="{{ '/assets/shots/dashboard-dark.webp' | relative_url }}" width="2880" height="1800" loading="lazy" alt="Обзор в тёмной теме"><figcaption><b>Тёмная тема.</b> Переключается сама вслед за системой или вручную.</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="grow-title">
+    <div class="wrap">
+      <h2 id="grow-title">Один человек, фрилансер или студия</h2>
+      <p class="intro">При регистрации выбираете, как будете работать, и в меню остаётся только нужное. Обзор, статистика, табель и проекты есть всегда, остальное включается позже в пару нажатий.</p>
+      <div style="overflow-x:auto">
+      <table class="grow">
+        <thead><tr><th scope="col"><span class="sr-only">Раздел</span></th><th scope="col">Для себя<small>Куда уходит день, привычки, цели</small></th><th scope="col">Фрилансер<small>Ставки, счета, акты, отчёты</small></th><th scope="col">Студия<small>Плюс выплаты и расписание</small></th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Таймеры, табель, статистика, проекты</th><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+          <tr><th scope="row">По часам, цели, теги<span>когда вы работаете и сколько хотите</span></th><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+          <tr><th scope="row">Счета и акты<span>PDF, письмо клиенту, онлайн-оплата</span></th><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+          <tr><th scope="row">Отчёты<span>HTML и CSV, деньги по проектам и людям</span></th><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+          <tr><th scope="row">Выплаты участникам<span>часы каждого × его ставка</span></th><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+          <tr><th scope="row">Расписание<span>кто сколько на каком проекте на неделе</span></th><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+          <tr><th scope="row">Роли<span>владелец, администраторы, участники</span></th><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td class="no"><svg class="icon" role="img" aria-label="нет"><use href="{{ icons }}#i-minus"/></svg></td><td><svg class="icon" role="img" aria-label="есть"><use href="{{ icons }}#i-check"/></svg></td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="band" aria-labelledby="own-title">
+    <div class="wrap two">
+      <div>
+        <h2 id="own-title">Данные могут жить у вас</h2>
+        <p class="intro">Пользуйтесь сервисом или поднимите такой же на своём сервере: одно приложение и Postgres в docker compose. Схема базы создаётся и обновляется сама.</p>
+        <ul class="facts">
+          <li><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-link"/></svg><div><b>Интеграции и импорт</b><p>Задачи из GitHub, GitLab, Jira, Trello, Asana, ClickUp, Todoist и Notion. История из Toggl, Harvest и Clockify.</p></div></li>
+          <li><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-zap"/></svg><div><b>API, вебхуки, журнал</b><p>Токены с правами «только чтение», REST API, подписанные вебхуки, журнал действий.</p></div></li>
+          <li><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-timer"/></svg><div><b>Терминал и браузер</b><p>CLI для <code>start</code>, <code>stop</code>, <code>stats</code>, расширение для Chrome с таймером в попапе.</p></div></li>
+        </ul>
+      </div>
+      <div>
+<pre class="term" aria-label="Запуск на своём сервере"><span class="p">$ </span>git clone https://github.com/aa-blinov/paratrack
+<span class="p">$ </span>cd paratrack &amp;&amp; cp .env.example .env
+<span class="c"># в .env: POSTGRES_PASSWORD и PARATRACK_SECRET_KEY</span>
+<span class="p">$ </span>docker compose up -d --build
+<span class="c"># → http://127.0.0.1:8000/register</span></pre>
+        <p class="math">Подробно, с переменными окружения, бэкапами и обновлением: <a href="{{ '/docs/self-host/' | relative_url }}">свой сервер</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="band close" aria-labelledby="close-title">
+    <div class="wrap">
+      <h2 id="close-title">Первый таймер за минуту</h2>
+      <p class="intro">Регистрация по почте. Сразу после неё paratrack спросит, как вы будете работать, и откроет обзор с полем «Что вы делаете?».</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://paratrack.duckdns.org/register"><svg class="icon" aria-hidden="true"><use href="{{ icons }}#i-play"/></svg>Открыть paratrack</a>
+        <a class="btn btn-line" href="{{ '/docs/' | relative_url }}">Читать документацию</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <span class="wordmark">paratrack</span>
+    <a href="{{ '/docs/' | relative_url }}">Документация</a>
+    <a href="https://github.com/aa-blinov/paratrack">GitHub</a>
+    <a href="https://github.com/aa-blinov/paratrack/blob/master/LICENSE">Лицензия MIT</a>
+    <a href="https://paratrack.duckdns.org">paratrack.duckdns.org</a>
+  </div>
+</footer>
+<script src="{{ '/assets/landing.js' | relative_url }}" defer></script>
+</body>
+</html>

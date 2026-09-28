@@ -1,0 +1,15 @@
+title: paratrack
+description: Учёт времени, из которого сразу выходит счёт.
+lang: ru
+url: https://aa-blinov.github.io
+baseurl: /paratrack
+markdown: kramdown
+kramdown:
+  input: GFM
+  auto_ids: true
+  hard_wrap: false
+defaults:
+  - scope: { path: "docs" }
+    values: { layout: doc }
+exclude: [README.md]
+permalink: pretty
