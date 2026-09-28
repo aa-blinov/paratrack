@@ -202,7 +202,7 @@ func (s *Server) handleAPITeamModules(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/sections?flash="+url.QueryEscape(encodeFlash(false, err.Error())), http.StatusSeeOther)
 		return
 	}
-	s.audit(r, "team.modules", encodeModules(on), "")
+	s.audit(r, "team.modules", strings.ReplaceAll(encodeModules(on), ",", ", "), "")
 	if r.PostForm.Get("from") == "welcome" {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return

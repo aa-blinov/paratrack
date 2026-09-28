@@ -8,15 +8,15 @@
       <h2 class="card-title mb-3">{{.T "audit.title"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "audit.blurb"}}</p>
       {{if .Items}}
-      <table class="table table-sm">
+      <table class="table table-sm responsive-collapse">
         <thead><tr><th>{{.T "audit.time"}}</th><th>{{.T "audit.action"}}</th><th>{{.T "audit.target"}}</th><th>IP</th></tr></thead>
         <tbody>
           {{range .Items}}
           <tr>
-            <td class="font-mono text-xs opacity-70">{{.Time}}</td>
-            <td><span class="badge badge-ghost badge-sm" title="{{.Action}}">{{tOr $.Lang (printf "audit.act.%s" .Action) .Action}}</span></td>
-            <td class="text-xs break-all">{{.Target}}</td>
-            <td class="font-mono text-xs opacity-60">{{.IP}}</td>
+            <td data-label="{{$.T "audit.time"}}" class="font-mono text-xs opacity-70 whitespace-nowrap">{{.Time}}</td>
+            <td data-label="{{$.T "audit.action"}}"><span class="badge badge-ghost badge-sm h-auto min-h-5 py-0.5 whitespace-normal text-left" title="{{.Action}}">{{tOr $.Lang (printf "audit.act.%s" .Action) .Action}}</span></td>
+            <td data-label="{{$.T "audit.target"}}" class="text-xs break-anywhere">{{.Target}}</td>
+            <td data-label="IP" class="font-mono text-xs opacity-60">{{.IP}}</td>
           </tr>
           {{end}}
         </tbody>

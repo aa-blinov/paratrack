@@ -302,9 +302,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 		pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))},
 		Inv:      vm,
 	}
-	if t, ok := TeamFrom(r.Context()); ok {
-		data.Seller = t.Name
-	}
+	data.Seller = s.sellerName(r)
 	if key, _, err := s.db.TeamStripe(r.Context(), teamID(r)); (err == nil && key != "") || stripeKeyFromEnv() != "" {
 		data.StripeReady = true
 	}
@@ -506,10 +504,7 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, false, i18n.T(lang, "inv.mailOff"))
 		return
 	}
-	seller := "paratrack"
-	if t, ok := TeamFrom(r.Context()); ok {
-		seller = t.Name
-	}
+	seller := s.sellerName(r)
 	pdf, err := renderInvoicePDF(vm, seller, lang)
 	if err != nil {
 		s.invoiceBack(w, r, false, err.Error())
@@ -530,4 +525,20 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "invoice.send", inv.Number, to)
 	s.invoiceBack(w, r, true, fmt.Sprintf(i18n.T(lang, "inv.mailed"), to))
+}
+
+// sellerName is who issues the documents: the workspace, or for a
+// personal one ("Пространство: Аня") the owner's own name, which is what
+// belongs on an invoice or act.
+func (s *Server) sellerName(r *http.Request) string {
+	t, ok := TeamFrom(r.Context())
+	if !ok {
+		return "paratrack"
+	}
+	if strings.HasPrefix(t.Slug, fmt.Sprintf("personal-%d-", t.OwnerID)) {
+		if u, err := s.auth.FindByID(r.Context(), t.OwnerID); err == nil && strings.TrimSpace(u.Name) != "" {
+			return u.Name
+		}
+	}
+	return t.Name
 }

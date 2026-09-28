@@ -104,13 +104,13 @@
             <td data-label="{{.T "dash.activity"}}" class="ledger-name">
               <div class="flex items-center gap-2 min-w-0">
                 <span class="inline-flex items-center gap-1.5 min-w-0" title="{{.ActivityName}}"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></span>
-                {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+                {{if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0 max-w-[45%]" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}"><span class="truncate">{{.ProjectName}}</span></a>{{end}}
               </div>
             </td>
             <td data-label="{{.T "dash.startLabel"}}" class="font-mono whitespace-nowrap">{{.StartLocal}}</td>
             <td data-label="{{.T "stats.end"}}" class="font-mono whitespace-nowrap">{{.EndLocal}}</td>
             <td data-label="{{.T "dash.duration"}}" class="font-mono whitespace-nowrap">{{.Duration}}</td>
-            <td data-label="{{.T "stats.note"}}" class="opacity-60{{if not .Note}} is-empty{{end}}">{{.Note}}</td>
+            <td data-label="{{.T "stats.note"}}" class="opacity-60 min-w-[10rem]{{if not .Note}} is-empty{{end}}">{{.Note}}</td>
             <td data-label="{{.T "stats.tags"}}"{{if not .Tags}} class="is-empty"{{end}}>
               <div class="flex flex-wrap gap-1">
                 {{range .Tags}}<a class="badge badge-outline badge-sm whitespace-nowrap" href="/stats?tag={{urlquery .Name}}">#{{.Name}}</a>{{end}}
@@ -152,7 +152,7 @@
             <strong class="inline-flex items-center gap-1.5 min-w-0"><span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{.Color}}"></span><span class="truncate">{{.ActivityName}}</span></strong>
             <span class="opacity-60">{{.PeriodRangeLabel}}</span>
           </div>
-          <span class="font-mono">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
+          <span class="font-mono whitespace-nowrap">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
         </div>
         <progress class="progress w-full" value="{{if le .Percent 100}}{{.Percent}}{{else}}100{{end}}" max="100"></progress>
       </div>
@@ -238,7 +238,7 @@
                 <option value="0">{{.T "dash.uncategorized"}}</option>
                 {{range $.Projects}}<option value="{{.ID}}"{{if eq .Slug $cur}} selected{{end}}>{{.Name}}</option>{{end}}
               </select>
-              {{else if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs shrink-0" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}">{{.ProjectName}}</a>{{end}}
+              {{else if .ProjectSlug}}<a href="/projects/{{.ProjectSlug}}" class="badge badge-sm border-0 text-xs min-w-0 max-w-[12rem]" style="background-color: {{.ProjectColor}}; color: {{inkFor .ProjectColor}};" title="{{.ProjectName}}"><span class="truncate">{{.ProjectName}}</span></a>{{end}}
             </div>
           </td>
           <td data-label="{{.T "dash.status"}}">

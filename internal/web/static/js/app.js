@@ -881,3 +881,18 @@ document.addEventListener('pointerdown', () => { window._paratrackKeyboard = fal
     btn?.focus();
   });
 })();
+
+// A tab strip that scrolls sideways on a phone (settings) opens with the
+// current tab in view, not cut off past the edge.
+(function () {
+  function centre() {
+    document.querySelectorAll('[role="tablist"]').forEach((list) => {
+      const cur = list.querySelector('[aria-current="page"]');
+      if (cur && list.scrollWidth > list.clientWidth) {
+        list.scrollLeft = cur.offsetLeft - (list.clientWidth - cur.offsetWidth) / 2;
+      }
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", centre);
+  else centre();
+})();

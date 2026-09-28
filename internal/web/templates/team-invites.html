@@ -23,19 +23,19 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "team.outstanding"}} ({{len .Invites}})</h2>
       {{if .Invites}}
-      <table class="table">
+      <table class="table responsive-collapse">
         <thead><tr><th>{{.T "team.token"}}</th><th>{{.T "team.status"}}</th><th>{{.T "team.created"}}</th><th>{{.T "team.expires"}}</th><th></th></tr></thead>
         <tbody>
         {{range .Invites}}
           <tr>
-            <td class="font-mono text-xs">
+            <td data-label="{{$.T "team.token"}}" class="font-mono text-xs">
               {{if .Live}}
                 <a href="/invites/{{.Token}}" class="link link-primary">{{slice .Token 0 12}}…</a>
               {{else}}
                 <span class="opacity-50">{{slice .Token 0 12}}…</span>
               {{end}}
             </td>
-            <td>
+            <td data-label="{{$.T "team.status"}}">
               {{if .Used}}
                 <span class="badge badge-neutral">{{$.T "team.used"}}</span>
               {{else if .Expired}}
@@ -44,9 +44,9 @@
                 <span class="badge badge-success">{{$.T "team.live"}}</span>
               {{end}}
             </td>
-            <td class="font-mono text-xs opacity-70">{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
-            <td class="font-mono text-xs opacity-70">{{.ExpiresAt.Format "2006-01-02 15:04"}}</td>
-            <td class="text-right">
+            <td data-label="{{$.T "team.created"}}" class="font-mono text-xs opacity-70 whitespace-nowrap">{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+            <td data-label="{{$.T "team.expires"}}" class="font-mono text-xs opacity-70 whitespace-nowrap">{{.ExpiresAt.Format "2006-01-02 15:04"}}</td>
+            <td data-label="" class="text-right">
               {{if .Live}}
                 <form method="POST" action="/api/team/invites/{{.Token}}/revoke"
                       onsubmit="return confirm('{{$.T "team.confirmRevoke"}}')">

@@ -34,6 +34,7 @@
     <div class="echart-wrap"
          id="echart-wrap"
          {{if .Chart.HasData}}data-chart='{{.ChartJSON}}'{{end}}>
+      {{if .Chart.HasData}}
       <div class="relative">
         <div id="echart-skeleton" class="sk-chart" aria-hidden="true">
           <span style="height:38%"></span><span style="height:62%"></span>
@@ -43,6 +44,7 @@
         </div>
         <div class="echart-canvas w-full" id="echart-canvas" style="height: 380px;"></div>
       </div>
+      {{end}}
 
       {{if .Chart.HasData}}
       <div class="text-sm mt-2">

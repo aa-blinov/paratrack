@@ -17,7 +17,7 @@
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-2">{{.T "team.renameTitle"}}</h2>
-      <form method="POST" action="/api/team/rename" class="flex gap-2">
+      <form method="POST" action="/api/team/rename" class="flex flex-col sm:flex-row gap-2">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="sr-only" for="team-name">{{.T "team.nameCol"}}</label>
         <input id="team-name" type="text" name="name" required minlength="1" value="{{.Team.Name}}"
