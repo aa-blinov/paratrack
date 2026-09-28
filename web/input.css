@@ -705,6 +705,14 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 
 }
 
+/* Between the laptop and full desktop widths the header keeps every primary
+   destination, but drops labels so the workspace switcher and account menu
+   still have a lane of their own. The labels remain available to assistive
+   technology and in each control's tooltip. */
+@media (min-width: 64rem) and (max-width: 79.99rem) {
+  header .nav-label { display: none; }
+}
+
 /* Up to laptop width: week grids keep a narrow name column so the days
    stay on screen, and wide edit tables (.collapse-lg) switch to cards
    instead of hiding columns in a sideways scroll. */
