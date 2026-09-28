@@ -166,6 +166,29 @@ def main() -> int:
             page.locator('header button:has-text("workspace")').count() >= 1,
         )
         shot(page, "01-dashboard-light")
+        for width in (390, 1440):
+            page.set_viewport_size({"width": width, "height": 900})
+            page.goto(BASE + "/")
+            baseline = page.evaluate("""() => {
+                const main = document.querySelector('main');
+                const rect = main.getBoundingClientRect();
+                const style = getComputedStyle(main);
+                const left = parseFloat(style.paddingLeft);
+                const right = parseFloat(style.paddingRight);
+                return {x: rect.x + left, width: rect.width - left - right};
+            }""")
+            for path in ("/settings/profile", "/settings/preferences", "/settings/team",
+                         "/settings/members", "/settings/notifications", "/projects/new"):
+                page.goto(BASE + path)
+                box = page.locator("main > div").first.bounding_box()
+                check(
+                    f"{path} matches dashboard width at {width}px",
+                    abs(box["x"] - baseline["x"]) < 1
+                    and abs(box["width"] - baseline["width"]) < 1
+                    and page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
+                )
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(BASE + "/")
 
         # ------------------------------------------------------------------ 2
         print("\n== 2. Start a new activity via the form (UI)")
