@@ -377,6 +377,22 @@ def main() -> int:
             project_select.count() >= 1 and selected.strip() == "EORA RAG",
             f"selected={selected!r}",
         )
+        # A long project option must not steal the activity's entire lane
+        # on the intermediate layout. Change display text only, then reload.
+        for width in (390, 768, 1024, 1280):
+            page.set_viewport_size({"width": width, "height": 900})
+            short_width = project_select.evaluate("el => el.getBoundingClientRect().width")
+            project_select.evaluate("el => { el.selectedOptions[0].textContent = 'A very long project name that must not move the timer columns'; }")
+            if width == 768:
+                page.screenshot(path=str(SCREENSHOTS / "11-project-long-name.png"))
+            check(f"long project keeps activity visible at {width}px",
+                  page.locator('#active-list .ledger-activity').last.evaluate(
+                      "el => el.getBoundingClientRect().width > 36")
+                  and abs(project_select.evaluate("el => el.getBoundingClientRect().width") - short_width) < 1
+                  and page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+            project_select.evaluate("el => { el.selectedOptions[0].textContent = 'EORA RAG'; }")
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(BASE + "/")
 
         # Give the just-started session a visible duration before the stats
         # period/filter checks; a same-second session is correctly clipped to

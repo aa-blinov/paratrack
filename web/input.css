@@ -317,7 +317,7 @@
     box-shadow: inset 0 0 0 1px var(--color-base-300);
   }
 
-  @media (max-width: 640px) {
+  @media (max-width: 639px) {
     .responsive-collapse thead { display: none; }
     .responsive-collapse tbody tr {
       @apply block rounded-box border border-base-300 p-3 mb-2;
@@ -683,7 +683,7 @@ html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 /* ------------------------------------------------------------------ */
 /* Phones                                                              */
 /* ------------------------------------------------------------------ */
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   /* Card rows: an action cell has no label and its buttons wrap
      instead of running off the card (Stop was clipped at 390px). */
   .responsive-collapse tbody td[data-label=""]::before { content: none; }
@@ -972,16 +972,23 @@ header .header-extra { display: none; }
   .today-stats .stat-title { font-size: 0.75rem; letter-spacing: 0.02em; }
 }
 
-/* Active timers on a phone: a compact row, not a label/value form.
-   Name, then status + big live duration, then three equal buttons. */
-@media (max-width: 639px) {
+/* Active timers need cards until the desktop table can fit every column. */
+@media (max-width: 1023px) {
+  #active-list .responsive-collapse,
+  #active-list .responsive-collapse tbody { display: block; width: 100%; }
+  #active-list .responsive-collapse thead { display: none; }
   #active-list .responsive-collapse tbody tr {
     display: grid;
     grid-template-columns: 1fr auto;
     align-items: center;
     gap: 0.25rem 0.75rem;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-box);
   }
-  #active-list .responsive-collapse tbody td { padding: 0; border: 0; }
+  #active-list .responsive-collapse tbody td { display: block; padding: 0; border: 0; }
+  #active-list .ledger-name { width: auto; max-width: none; }
   #active-list .responsive-collapse tbody td::before { content: none; }
   #active-list .responsive-collapse tbody td:nth-child(1) { grid-column: 1 / -1; font-weight: 600; }
   /* Start time stays visible, small, under the status: "when did I start?" */
@@ -1004,7 +1011,10 @@ header .header-extra { display: none; }
     --btn-bg: var(--color-base-200); --btn-border: var(--color-base-300);
   }
   #active-list .responsive-collapse tbody td:last-child > .flex > :last-child { grid-row: 1; grid-column: 2; }
+  #active-list .responsive-collapse tbody td:last-child .btn { width: 100%; }
+}
 
+@media (max-width: 639px) {
   /* Recent on a phone: one ledger line per session, not a label/value card.
      name ........ duration
      start → end   note        */
@@ -1033,7 +1043,6 @@ header .header-extra { display: none; }
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #recent .responsive-collapse tbody td:nth-child(6) { grid-column: 1 / -1; grid-row: 3; }
-  #active-list .responsive-collapse tbody td:last-child .btn { width: 100%; }
 }
 
 /* Phone cards: skip empty optional fields; labels always in the UI face
@@ -1089,7 +1098,7 @@ header .header-extra { display: none; }
 /* Name column takes what is left and truncates, so row actions never
    get pushed off the sheet (Shrink-to-Truncate Rule). Rows are cards
    below 640px, where this would collapse the cell. */
-@media (min-width: 640px) {
+@media (min-width: 1024px) {
   .ledger-name { width: 100%; max-width: 0; }
 }
 /* Phone: the label on its own line, the four figures as a 2×2 grid. */
@@ -1146,9 +1155,14 @@ header .header-extra { display: none; }
   .doc-table tfoot tr { border-bottom: 0; border-top: 2px solid var(--color-base-300); }
 }
 
-/* Project picker inside a running row: a quiet label-sized control, not a
-   second title (the phone card makes its cell bold and large). */
+/* Keep activity and project in stable lanes: a native select otherwise sizes
+   itself from its options and can squeeze the activity down to zero. */
+.ledger-activity { flex: 1 1 0; min-width: 0; }
+.ledger-activity > .truncate { min-width: 0; }
 .ledger-project {
+  width: clamp(6rem, 14vw, 10rem);
+  min-width: 0;
+  flex: none;
   font-size: var(--step--1) !important;
   font-weight: 400;
   color: color-mix(in oklab, var(--color-base-content) 75%, transparent);
