@@ -18,7 +18,7 @@
           {{if .Connected}}<span class="badge badge-success badge-xs">{{$.T "mkt.connected"}}</span>{{end}}
           {{if not .Available}}<span class="badge badge-ghost badge-xs">{{$.T "mkt.soon"}}</span>{{end}}
         </div>
-        <p class="text-sm opacity-70">{{$.T (printf "mkt.%s.blurb" .ID)}}</p>
+        <p class="text-sm opacity-70 flex-1">{{$.T (printf "mkt.%s.blurb" .ID)}}</p>
         {{if .Available}}
           <a href="/integrations?provider={{.ID}}" class="btn btn-neutral btn-sm gap-1.5 mt-2 w-full sm:w-auto">{{icon "plus"}}{{$.T "mkt.connect"}}</a>
           <p class="text-xs opacity-50">{{$.T (printf "mkt.%s.secret" .ID)}} · {{$.T (printf "mkt.%s.target" .ID)}}</p>

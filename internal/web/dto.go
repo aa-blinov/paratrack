@@ -174,6 +174,7 @@ type statsData struct {
 	SessionCount int
 	SessionsCut  bool // the log shows only the newest statsLogRows
 	MeID         int64
+	ShowAllURL   string // this view with the whole log
 	TagFilter    string // current ?tag= value, empty if unfiltered
 	AllTagNames  []string // for the inline-add input autocomplete
 	SavedReports []dbpkg.SavedReport

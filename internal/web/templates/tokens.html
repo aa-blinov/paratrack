@@ -36,16 +36,16 @@
         <p class="text-xs opacity-70 sm:col-span-3">{{.T "tokens.scopeHint"}}</p>
       </form>
       {{if .Tokens}}
-      <table class="table table-sm">
+      <table class="table table-sm responsive-collapse">
         <thead><tr><th>{{.T "tokens.name"}}</th><th>{{.T "tokens.prefix"}}</th><th>{{.T "tokens.access"}}</th><th>{{.T "tokens.expires"}}</th><th></th></tr></thead>
         <tbody>
           {{range .Tokens}}
           <tr>
-            <td>{{.Name}}</td>
-            <td class="font-mono text-xs">{{.Prefix}}…</td>
-            <td class="text-xs">{{if .Team}}{{.Team}} · {{end}}{{if .ReadOnly}}{{$.T "tokens.roShort"}}{{else}}{{$.T "tokens.rwShort"}}{{end}}</td>
-            <td class="text-xs {{if .Expired}}text-error{{else}}opacity-80{{end}}">{{if .Expires}}{{.Expires}}{{else}}{{$.T "tokens.expNever"}}{{end}}</td>
-            <td class="text-right">
+            <td data-label="{{$.T "tokens.name"}}">{{.Name}}</td>
+            <td data-label="{{$.T "tokens.prefix"}}" class="font-mono text-xs">{{.Prefix}}…</td>
+            <td data-label="{{$.T "tokens.access"}}" class="text-xs">{{if .Team}}{{.Team}} · {{end}}{{if .ReadOnly}}{{$.T "tokens.roShort"}}{{else}}{{$.T "tokens.rwShort"}}{{end}}</td>
+            <td data-label="{{$.T "tokens.expires"}}" class="text-xs whitespace-nowrap {{if .Expired}}text-error{{else}}opacity-80{{end}}">{{if .Expires}}{{.Expires}}{{else}}{{$.T "tokens.expNever"}}{{end}}</td>
+            <td data-label="" class="text-right">
               <form method="POST" action="/api/tokens/{{.ID}}/delete" class="inline">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                 <button type="submit" class="btn btn-ghost btn-xs gap-1">{{icon "trash-2" "icon icon-sm"}}{{$.T "nav.delete"}}</button>

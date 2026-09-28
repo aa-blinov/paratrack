@@ -53,7 +53,7 @@
               <span class="opacity-60">{{.PeriodRangeLabel}} ({{.PeriodStartLabel}} → {{.PeriodEndLabel}})</span>
             </div>
             <div class="flex items-center gap-2">
-              <span class="font-mono">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
+              <span class="font-mono whitespace-nowrap">{{.AchievedLabel}}<span class="opacity-60"> / {{.TargetLabel}}</span></span>
               {{if $.CanManage}}<button class="btn btn-ghost btn-sm btn-circle"
                       hx-delete="/api/goals?activity={{urlquery .ActivityName}}&period={{urlquery .Period}}"
                       hx-target="#goals-list" hx-swap="innerHTML"

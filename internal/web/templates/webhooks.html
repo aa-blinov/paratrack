@@ -34,14 +34,14 @@
         </div>
       </form>
       {{if .Items}}
-      <table class="table table-sm">
+      <table class="table table-sm responsive-collapse">
         <thead><tr><th>{{.T "wh.urlLabel"}}</th><th>{{.T "wh.eventsLabel"}}</th><th></th></tr></thead>
         <tbody>
           {{range .Items}}
           <tr>
-            <td class="font-mono text-xs break-all">{{.URL}}</td>
-            <td class="text-xs opacity-70">{{range $i, $e := splitComma .Events}}{{if $i}}, {{end}}{{$.T (printf "wh.ev.%s" $e)}}{{end}}</td>
-            <td class="text-right">
+            <td data-label="{{$.T "wh.urlLabel"}}" class="font-mono text-xs break-all">{{.URL}}</td>
+            <td data-label="{{$.T "wh.eventsLabel"}}" class="text-xs opacity-70">{{range $i, $e := splitComma .Events}}{{if $i}}, {{end}}{{$.T (printf "wh.ev.%s" $e)}}{{end}}</td>
+            <td data-label="" class="text-right">
               <form method="POST" action="/api/webhooks/{{.ID}}/delete" class="inline">
                 <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                 <button type="submit" class="btn btn-ghost btn-xs" title="{{$.T "wh.delete"}}" aria-label="{{$.T "wh.delete"}}">{{icon "trash-2" "icon icon-sm"}}</button>
@@ -49,7 +49,7 @@
             </td>
           </tr>
           {{if .Deliveries}}
-          <tr><td colspan="3" class="pt-0">
+          <tr><td colspan="3" data-label="" class="pt-0">
             <ul class="text-xs space-y-0.5" aria-label="{{$.T "wh.deliveries"}}">
               {{range .Deliveries}}
               <li class="flex gap-2"><span class="font-mono {{if .OK}}text-success{{else}}text-error{{end}}">{{if .Status}}{{.Status}}{{else}}—{{end}}</span>

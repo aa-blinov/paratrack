@@ -557,11 +557,16 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	// Totals cover every row; the editable log shows the newest ones only
 	// (a month of a big team is thousands of rows; CSV has them all).
 	shown := rows
-	if len(shown) > statsLogRows {
-		shown = shown[:statsLogRows]
+	logCap := statsLogRows
+	if r.URL.Query().Get("log") == "all" {
+		logCap = statsLogAll
+	}
+	if len(shown) > logCap {
+		shown = shown[:logCap]
 	}
 	s.render(w, r, "stats-content", &statsData{
 		SessionsCut:   len(shown) < len(rows),
+		ShowAllURL:    func() string { q := r.URL.Query(); q.Set("log", "all"); return "/stats?" + q.Encode() }(),
 		MeID:          func() int64 { u, _ := UserFrom(ctx); return u.ID }(),
 		People:        people,
 		PersonFilter:  personFilter,
@@ -580,7 +585,12 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-const statsLogRows = 200
+// The editable log shows the newest statsLogRows; "show all" lifts it to
+// statsLogAll (past that the CSV export has everything).
+const (
+	statsLogRows = 50
+	statsLogAll  = 500
+)
 
 // filterByTag reduces the rows to only those carrying the named tag.
 // Since we already loaded everything from the DB the filtering is
