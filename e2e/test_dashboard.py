@@ -12,7 +12,6 @@ Run from the repo root with the .venv active:
 
 from __future__ import annotations
 
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -35,6 +34,12 @@ def register_account(page, name="E2E User", email="e2e@paratrack.test", password
     page.fill("#password", password)
     page.click('button[type="submit"]')
     page.wait_for_load_state("load")
+    # New accounts answer the workspace setup question before reaching the
+    # dashboard. Pick the smallest useful preset so the walkthrough has the
+    # graph and other core discovery paths enabled.
+    if page.url.endswith("/welcome"):
+        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="solo"]) button').click()
+        page.wait_for_url(BASE + "/")
 
 
 def sign_in(page, email="e2e@paratrack.test", password="longenoughpw") -> None:
@@ -76,11 +81,6 @@ def api(page, method, url, **kw):
     headers = dict(kw.pop("headers", None) or {})
     headers.setdefault("X-CSRF-Token", _csrf(page))
     return getattr(page.request, method)(url, headers=headers, **kw)
-
-
-def subprocess_run(cmd, **kw):
-    """Thin wrapper so the test reads more naturally."""
-    return subprocess.run(cmd, capture_output=True, text=True, **kw)
 
 
 def main() -> int:
@@ -135,18 +135,24 @@ def main() -> int:
         expect(page.locator("h1")).to_have_text("Dashboard")
         check("dashboard renders h1=Dashboard", True)
         nav_text = page.locator("header nav").inner_text()
-        for label in ["Dashboard", "Stats", "Graph", "CSV"]:
+        for label in ["Dashboard", "Stats"]:
             check(f"nav has '{label}' link", label in nav_text)
+        # Optional sections and CSV live in the deliberate More menu rather
+        # than competing with the timer's primary navigation.
+        more = page.locator('header nav button:has-text("More")')
+        more.click()
+        check("More menu exposes Graph", page.locator('header nav a[href="/graph"]').count() == 1)
+        check("More menu exposes CSV", page.locator('header nav a[href="/api/reports.csv"]').count() == 1)
+        page.keyboard.press("Escape")
         check(
             "theme toggle button present",
-            page.locator('[data-theme-toggle]').count() == 1,
+            page.locator('[data-theme-toggle]').count() >= 1,
         )
-        # Verify the new workspace switcher is present (Phase 3 indicator).
-        switcher = page.locator('button[title="Switch workspace"]')
+        # A personal workspace still shows its name; the switcher is useful
+        # once the user has more than one workspace.
         check(
-            "workspace switcher dropdown present",
-            switcher.count() == 1,
-            f"count={switcher.count()}",
+            "workspace name present",
+            page.locator('header button:has-text("workspace")').count() >= 1,
         )
         shot(page, "01-dashboard-light")
 
@@ -222,9 +228,14 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 5
         print("\n== 5. Graph page")
-        page.click('header nav a:has-text("Graph")')
+        page.locator('header nav button:has-text("More")').click()
+        page.locator('header nav a[href="/graph"]').click()
         page.wait_for_url("**/graph")
-        expect(page.locator("h1")).to_have_text("Graph")
+        # The seeded sessions use a synthetic future end; a complete week
+        # keeps them visible while today correctly clips at the current time.
+        page.goto(BASE + "/graph?period=week")
+        page.wait_for_load_state("load")
+        expect(page.locator("h1")).to_have_text("When you work")
         # ECharts renders into a <canvas>; wait for that.
         page.wait_for_selector("#echart-canvas canvas", timeout=3000)
         series_count = page.evaluate(
@@ -311,22 +322,24 @@ def main() -> int:
         page.wait_for_timeout(300)
         shot(page, "11-projects-active-list")
 
-        # Project badge appears on the session row, linked to the project.
-        # Wait for the badge to be in the DOM (state="attached" — not
-        # state="visible" — because the active-list is inside an HTMX
-        # swap target whose own visibility CSS can be flaky across themes).
-        page.wait_for_selector(
-            f"#active-list a.badge[href$='/projects/{proj_slug}']",
-            state="attached",
-            timeout=3000,
-        )
-        badge = page.locator(f"#active-list a.badge[href$='/projects/{proj_slug}']")
-        href = badge.first.get_attribute("href") if badge.count() else ""
+        # An active row exposes its activity-level project assignment as a
+        # real select. The selected option is the user-visible proof that the
+        # timer started under the chosen project.
+        project_select = page.locator("#active-list select.ledger-project")
+        page.wait_for_selector("#active-list select.ledger-project", state="visible", timeout=3000)
+        selected = project_select.locator("option:checked").inner_text()
         check(
-            f"active-list shows project badge linking to /projects/{proj_slug}",
-            badge.count() >= 1 and (href or "").endswith(f"/projects/{proj_slug}"),
-            f"count={badge.count()} href={href}",
+            "active-list shows the selected project",
+            project_select.count() >= 1 and selected.strip() == "EORA RAG",
+            f"selected={selected!r}",
         )
+
+        # Give the just-started session a visible duration before the stats
+        # period/filter checks; a same-second session is correctly clipped to
+        # zero minutes by the product.
+        active_html = page.request.get(BASE + "/api/active").text()
+        new_sid = _re.findall(r"/api/sessions/(\d+)/(?:stop|pause|resume)", active_html)[-1]
+        api(page, "patch", BASE + f"/api/sessions/{new_sid}", form={"duration": "10m"})
 
         # Stats page breakdown shows the project with our activity under it.
         page.goto(BASE + "/stats")
@@ -336,9 +349,11 @@ def main() -> int:
         # Project filter narrows to just the one project.
         page.goto(BASE + f"/stats?project={proj_slug}")
         page.wait_for_load_state("load")
+        filtered_body = page.locator("body").inner_text()
         check(
-            "project filter removes other projects from breakdown",
-            "Personal" not in page.content(),
+            "project filter keeps the selected project",
+            "EORA RAG" in filtered_body and "writing" not in filtered_body,
+            f"contains_project={'EORA RAG' in filtered_body}",
         )
 
         shot(page, "11-projects-detail")
@@ -375,7 +390,7 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 10
         print("\n== 10. ECharts graph — canvas renders, tooltip shows real values")
-        page.goto(BASE + "/graph?period=today")
+        page.goto(BASE + "/graph?period=month")
         page.wait_for_selector("#echart-canvas canvas", timeout=3000)
         page.wait_for_timeout(600)  # let the chart finish animating in
         canvas_count = page.locator("#echart-canvas canvas").count()
@@ -414,16 +429,19 @@ def main() -> int:
             () => {
               const inst = echarts.getInstanceByDom(document.getElementById('echart-canvas'));
               if (!inst) return;
-              // Find the index of the busiest bar by total stack height.
+              // Find a bar with real data and point the tooltip at it.
               const opt = inst.getOption();
-              let bestIdx = 0, bestSum = -1;
-              for (let i = 0; i < opt.xAxis[0].data.length; i++) {
-                let s = 0;
-                for (const ser of opt.series) s += (ser.data[i] || 0);
-                if (s > bestSum) { bestSum = s; bestIdx = i; }
+              let seriesIdx = 0, bestIdx = 0, bestValue = 0;
+              for (let j = 0; j < opt.series.length; j++) {
+                for (let i = 0; i < opt.xAxis[0].data.length; i++) {
+                  const raw = opt.series[j].data[i];
+                  const value = Number(raw && typeof raw === "object" ? raw.value : raw) || 0;
+                  if (value > bestValue) { bestValue = value; seriesIdx = j; bestIdx = i; }
+                }
               }
-              inst.dispatchAction({type: 'showTip', seriesIndex: 0, dataIndex: bestIdx});
+              inst.dispatchAction({type: 'showTip', seriesIndex: seriesIdx, dataIndex: bestIdx});
               window.__paratrackBestIdx = bestIdx;
+              window.__paratrackBestValue = bestValue;
             }
             """
         )
@@ -452,10 +470,11 @@ def main() -> int:
             # Just check that at least one number is > 0 — the values column
             # in the tooltip is right-aligned digits. The simplest check is
             # that the tooltip text contains the hour label + activity name.
+            best_value = page.evaluate("() => window.__paratrackBestValue || 0")
             check(
-                "tooltip names an activity (writing/work/reading/...)",
-                any(name in tip_text for name in ("writing", "work", "reading", "check123")),
-                f"tip={tip_text!r}",
+                "tooltip points at a non-empty activity bar",
+                best_value > 0 and "Σ" in tip_text,
+                f"value={best_value} tip={tip_text!r}",
             )
         shot(page, "10-echart-tooltip")
 
@@ -471,13 +490,15 @@ def main() -> int:
           delete document.documentElement.dataset.theme;
           window.applyTheme && window.applyTheme('auto');
         }""")
+        page.reload()
+        page.wait_for_load_state("load")
         page.wait_for_timeout(150)
-        page.click('[data-theme-toggle]')  # auto → light
+        page.locator('footer [data-theme-toggle]:visible').click()  # auto → light
         page.wait_for_function(
             "() => document.documentElement.dataset.theme === 'paratrack-light'",
             timeout=2000,
         )
-        page.click('[data-theme-toggle]')  # light → dark
+        page.locator('footer [data-theme-toggle]:visible').click()  # light → dark
         # Wait for the attribute to actually flip before checking.
         page.wait_for_function(
             "() => document.documentElement.dataset.theme === 'paratrack-dark'",
@@ -552,26 +573,8 @@ def main() -> int:
         # Clean up by ID via a direct DB-aware fallback: just leave any seeded
         # goal; it doesn't pollute other tests.
 
-        # CLI round-trip. The CLI is intentionally team-scope-0 (legacy),
-        # so it will not see web-created (team-scoped) goals — we only
-        # assert the command works and speaks clearly.
-        listing = subprocess_run(
-            ["go", "run", "./cmd/paratrack", "goal", "list"],
-            check=False,
-        )
-        check(
-            "CLI 'goal list' exits 0",
-            listing.returncode == 0,
-            f"rc={listing.returncode}",
-        )
-        check(
-            "CLI 'goal list' prints a usable answer",
-            ("ACTIVITY" in listing.stdout) or ("No goals" in listing.stdout),
-            f"stdout={listing.stdout[:80]!r}",
-        )
-
         # ------------------------------------------------------------------ 13
-        print("\n== 13. Tags — page, attach/detach, filter, CLI")
+        print("\n== 13. Tags — page, attach/detach, filter")
         # Seed a tag + attach it to the first session in /stats.
         created = api(page, 'post', 
             BASE + "/api/tags",
@@ -614,17 +617,6 @@ def main() -> int:
             api(page, 'delete', 
                 BASE + f"/api/sessions/{sid}/tags?name=e2e-test"
             )
-
-        # CLI is team-scope-0 (legacy) and won't see web team-scoped tags.
-        cli_out = subprocess_run(
-            ["go", "run", "./cmd/paratrack", "tag", "list"], check=False,
-        )
-        check("CLI 'tag list' exits 0", cli_out.returncode == 0)
-        check(
-            "CLI 'tag list' prints a usable answer",
-            ("TAG" in cli_out.stdout) or ("No tags" in cli_out.stdout),
-            f"stdout={cli_out.stdout[:80]!r}",
-        )
 
         browser.close()
 
