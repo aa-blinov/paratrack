@@ -229,10 +229,12 @@ def main() -> int:
         touch_context.close()
         more_tab.click()
         sheet.locator('a[href="/export"]').click()
-        check("mobile Export opens an explanation before downloading",
+        check("mobile Export explains sessions and offers a summary route",
               page.url.endswith('/export')
               and page.locator('form[action="/api/reports.csv"] button[type="submit"]').count() == 1
-              and 'paratrack.csv' in page.locator('main').inner_text())
+              and 'paratrack.csv' in page.locator('main').inner_text()
+              and page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 1
+              and page.locator('main a[href="/reports"]').count() == 0)
         for width in (390, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/")
