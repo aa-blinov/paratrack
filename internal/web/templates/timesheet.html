@@ -13,6 +13,7 @@
     </div>
   </header>
 
+  {{if .Rows}}
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
     <div class="card-body p-0">
       <table class="week-grid table table-sm w-full min-w-[48rem]">
@@ -33,13 +34,6 @@
           {{range .Rows}}
           {{template "timesheet-row" .}}
           {{end}}
-          {{if not .Rows}}
-          <tr><td colspan="9" class="text-center py-6">
-            <div class="font-medium">{{.T "ts.empty"}}</div>
-            <div class="text-sm opacity-60 mt-1">{{.T "ts.emptyHint"}}</div>
-            <a href="/" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "play" "icon icon-sm"}}{{.T "ts.emptyCta"}}</a>
-          </td></tr>
-          {{end}}
         </tbody>
         <tfoot>
           <tr class="font-semibold border-t-2 border-base-300">
@@ -53,6 +47,15 @@
       </table>
     </div>
   </div>
+  {{else}}
+  <div class="card bg-base-100 border border-base-300">
+    <div class="card-body items-center text-center py-8">
+      <div class="font-medium">{{.T "ts.empty"}}</div>
+      <p class="text-sm opacity-70">{{.T "ts.emptyHint"}}</p>
+      <a href="/" class="btn btn-neutral btn-sm gap-1.5 mt-2">{{icon "play" "icon icon-sm"}}{{.T "ts.emptyCta"}}</a>
+    </div>
+  </div>
+  {{end}}
 
   {{if .Others}}
   <form method="GET" action="/timesheet" class="flex flex-wrap items-center gap-2">
@@ -84,7 +87,7 @@
            name="minutes"
            value="{{if .Secs}}{{.Min}}{{end}}"
            placeholder="—"
-           title="{{.ISO}}"
+           title="{{.ISO}}" aria-label="{{$.ActivityName}} — {{.ISO}}"
            hx-post="/api/timesheet/cell"
            hx-trigger="change"
            hx-vals='{"activity_id": {{$.ActivityID}}, "date": "{{.ISO}}"}'

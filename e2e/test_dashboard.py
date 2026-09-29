@@ -166,6 +166,15 @@ def main() -> int:
             page.locator('header button:has-text("workspace")').count() >= 1,
         )
         shot(page, "01-dashboard-light")
+        page.set_viewport_size({"width": 320, "height": 844})
+        page.goto(BASE + "/timesheet")
+        if page.locator('#ts-body tr').count() == 0:
+            empty_cta = page.locator('main a[href="/"]:has-text("Start a timer")')
+            box = empty_cta.bounding_box()
+            check("empty timesheet action is visible without grid scrolling",
+                  box is not None and box['x'] >= 0 and box['x'] + box['width'] <= 320
+                  and page.locator('table.week-grid').count() == 0)
+        page.goto(BASE + "/")
         page.set_viewport_size({"width": 390, "height": 844})
         more_tab = page.locator('[data-sheet-open="more-sheet"]')
         sheet = page.locator('#more-sheet')
@@ -803,6 +812,36 @@ def main() -> int:
                 BASE + f"/api/sessions/{sid}/tags?name=e2e-test"
             )
 
+        # Mobile tables: report rows must keep every figure readable without
+        # enlarging the page; inline date editing must fit on a 320px phone.
+        page.set_viewport_size({"width": 320, "height": 844})
+        page.goto(BASE + "/stats?period=month")
+        date_input = page.locator('main input[type="datetime-local"]').first
+        check("mobile session date has room for the native picker",
+              date_input.count() == 1 and date_input.evaluate('e => e.clientWidth >= 240 && parseFloat(getComputedStyle(e).fontSize) >= 16')
+              and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        page.goto(BASE + "/settings/sections")
+        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]) button').click()
+        for width in (320, 390):
+            page.set_viewport_size({"width": width, "height": 844})
+            for report_id in ("by-project", "by-day", "billable", "utilization"):
+                page.goto(BASE + f"/reports/run?id={report_id}")
+                check(f"{report_id} report fits and labels its figures at {width}px",
+                      page.locator('table.report-table').count() == 1
+                      and page.locator('table.report-table .report-mobile-label:visible').count() > 0
+                      and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        page.set_viewport_size({"width": 1280, "height": 900})
+        page.goto(BASE + "/reports/run?id=by-project")
+        check("desktop retains the report table",
+              page.locator('table.report-table thead').is_visible()
+              and page.locator('table.report-table .report-mobile-label:visible').count() == 0)
+        page.set_viewport_size({"width": 320, "height": 844})
+        page.emulate_media(media="print")
+        check("printing from a phone retains column headers",
+              page.locator('table.report-table').evaluate('e => getComputedStyle(e).display') == 'table'
+              and page.locator('table.report-table thead').is_visible()
+              and page.locator('table.report-table .report-mobile-label:visible').count() == 0)
+        page.emulate_media(media="screen")
         browser.close()
 
     # Summary
