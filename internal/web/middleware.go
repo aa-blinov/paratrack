@@ -232,6 +232,7 @@ func setTeamCookie(w http.ResponseWriter, r *http.Request, teamID int64) {
 }
 
 const teamCookieName = "paratrack_team"
+
 type roleKey struct{}
 
 var ctxRoleKey = roleKey{}
@@ -244,8 +245,9 @@ func RoleFrom(ctx context.Context) teams.Role {
 
 func canManage(r *http.Request) bool { return RoleFrom(r.Context()).CanManage() }
 
-// manage guards money and workspace settings: owner and admin only. A
-// member gets a plain 403 (JSON on /api/), never a half-rendered page.
+// manage guards money and workspace settings: owner and admin only.
+// Denied document GETs keep the app shell so the member can navigate away;
+// APIs and mutations retain their 403 response format.
 func (s *Server) manage(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if canManage(r) {
@@ -255,6 +257,10 @@ func (s *Server) manage(h http.HandlerFunc) http.HandlerFunc {
 		msg := i18n.T(resolveLang(r), "err.managersOnly")
 		if strings.HasPrefix(r.URL.Path, "/api/") && r.Header.Get("HX-Request") == "" {
 			writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": msg})
+			return
+		}
+		if r.Method == http.MethodGet && r.Header.Get("HX-Request") == "" {
+			s.renderPageForRequestStatus(w, r, http.StatusForbidden, "Access denied", "", "access-denied", &pageData{})
 			return
 		}
 		s.toast(w, msg, "error")

@@ -1,0 +1,9 @@
+{{define "access-denied"}}
+<div class="form-measure space-y-4">
+  <header>
+    <h1 class="mb-1">{{.T "err.accessDeniedTitle"}}</h1>
+    <p class="text-sm opacity-70">{{.T "err.managersOnly"}}</p>
+  </header>
+  <a href="/" class="btn btn-neutral btn-sm">{{.T "err.backToDashboard"}}</a>
+</div>
+{{end}}

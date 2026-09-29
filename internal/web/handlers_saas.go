@@ -2,6 +2,8 @@ package web
 
 import (
 	"errors"
+	"fmt"
+	"html"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -116,6 +118,16 @@ func publicBaseURL(r *http.Request) string {
 // Web backfill — create a closed session without the CLI.
 // ---------------------------------------------------------------------------
 
+// backfillError keeps the form intact and puts a localized error next to the
+// field. HTMX swaps the active list as usual and the out-of-band message into
+// the still-open backfill form.
+func (s *Server) backfillError(w http.ResponseWriter, r *http.Request, field, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("X-Backfill-Field", field)
+	fmt.Fprintf(w, `<span id="b-%s-error" hx-swap-oob="innerHTML">%s</span>`, field, html.EscapeString(message))
+	s.respondActiveList(w, r)
+}
+
 // handleBackfill creates a finished session from the dashboard form.
 // Accepts natural-language times (same parser as the CLI `add`).
 func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
@@ -128,32 +140,34 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 	endStr := strings.TrimSpace(r.FormValue("end"))
 	note := strings.TrimSpace(r.FormValue("note"))
 	if name == "" || startStr == "" || endStr == "" {
-		s.toastL(w, r, "err.backfillRequired", "", "error")
-		s.respondActiveList(w, r) // keep the HTMX target happy
+		field := "activity"
+		if name != "" {
+			field = "start"
+			if startStr != "" {
+				field = "end"
+			}
+		}
+		s.backfillError(w, r, field, i18n.T(resolveLang(r), "err.backfillRequired"))
 		return
 	}
 	now := userNow(r)
 	start, err := timeparse.ParseDateTime(startStr, now)
 	if err != nil {
-		s.toastL(w, r, "err.badStart", startStr, "error")
-		s.respondActiveList(w, r)
+		s.backfillError(w, r, "start", i18n.T(resolveLang(r), "err.badStart")+" "+startStr)
 		return
 	}
 	end, err := timeparse.ParseDateTime(endStr, now)
 	if err != nil {
-		s.toastL(w, r, "err.badEnd", endStr, "error")
-		s.respondActiveList(w, r)
+		s.backfillError(w, r, "end", i18n.T(resolveLang(r), "err.badEnd")+" "+endStr)
 		return
 	}
 	if !end.After(start) {
-		s.toastL(w, r, "err.endBeforeStart", "", "error")
-		s.respondActiveList(w, r)
+		s.backfillError(w, r, "end", i18n.T(resolveLang(r), "err.endBeforeStart"))
 		return
 	}
 	act, err := s.db.GetOrCreateActivity(r.Context(), teamID(r), name)
 	if err != nil {
-		s.toast(w, err.Error(), "error")
-		s.respondActiveList(w, r)
+		s.backfillError(w, r, "form", err.Error())
 		return
 	}
 	if pidStr := r.FormValue("project_id"); pidStr != "" {
@@ -163,17 +177,16 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 				if errors.Is(err, errRebind) {
 					msg = i18n.T(resolveLang(r), "act.rebindForbidden")
 				}
-				s.toast(w, msg, "error")
-				s.respondActiveList(w, r)
+				s.backfillError(w, r, "form", msg)
 				return
 			}
 		}
 	}
 	if _, err := s.db.CreateClosedSession(r.Context(), teamID(r), act.ID, start, end, note); err != nil {
-		s.toast(w, err.Error(), "error")
-		s.respondActiveList(w, r)
+		s.backfillError(w, r, "form", err.Error())
 		return
 	}
+	w.Header().Set("X-Backfill-Saved", "true")
 	s.toastL(w, r, "toast.added", act.Name+" "+start.Format("15:04")+"→"+end.Format("15:04"), "success")
 	// Refresh the active list (unchanged) so HTMX has a target; the
 	// user then looks at /stats for the closed row.

@@ -137,6 +137,9 @@ func TestBackfillCreatesClosedSession(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("backfill: %d %s", resp.StatusCode, readBody(t, resp))
 	}
+	if resp.Header.Get("X-Backfill-Saved") != "true" {
+		t.Fatal("successful backfill must signal that the browser may reset the form")
+	}
 	resp.Body.Close()
 
 	resp = e.do("GET", "/api/reports.csv", nil, nil)
@@ -146,7 +149,30 @@ func TestBackfillCreatesClosedSession(t *testing.T) {
 	}
 }
 
-type spyMail struct{ sent []struct{ to, subject, body string } }
+func TestBackfillValidationKeepsFormAndEscapesError(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("backfill-error@x.test")
+	resp := e.do("POST", "/api/sessions/backfill", url.Values{
+		"activity": {"draft that must survive"},
+		"start":    {"<script>alert(1)</script>"},
+		"end":      {"yesterday 11:00"},
+	}, map[string]string{"HX-Request": "true"})
+	body := readBody(t, resp)
+	if resp.StatusCode != 200 || resp.Header.Get("X-Backfill-Field") != "start" || resp.Header.Get("X-Backfill-Saved") != "" {
+		t.Fatalf("invalid start should keep the form: %d headers=%v", resp.StatusCode, resp.Header)
+	}
+	if !strings.Contains(body, `id="b-start-error" hx-swap-oob="innerHTML"`) || strings.Contains(body, "<script>") || !strings.Contains(body, "&lt;script&gt;") {
+		t.Fatalf("missing or unescaped inline error: %s", body)
+	}
+	var count int
+	if err := e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("invalid entry created a session: count=%d err=%v", count, err)
+	}
+}
+
+type spyMail struct {
+	sent []struct{ to, subject, body string }
+}
 
 func (s *spyMail) Send(to, subject, body string) error {
 	s.sent = append(s.sent, struct{ to, subject, body string }{to, subject, body})
