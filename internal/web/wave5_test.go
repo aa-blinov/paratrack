@@ -89,8 +89,8 @@ func TestManualPaymentLinkEndpoint(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("pay@x.test")
 	// seed a tiny invoice via DB through API is heavy — use form create
-	start := "2026-09-20"
-	end := "2026-09-27"
+	start := time.Now().AddDate(0, 0, -2).Format("2006-01-02")
+	end := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
 	// no billable time yet → create project+rate+session first via HTTP is verbose;
 	// manual link path only needs an invoice, so generate via db on the same server.
 	// Fall back: create through the UI form after seeding time with backfill.
