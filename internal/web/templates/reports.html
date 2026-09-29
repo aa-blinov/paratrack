@@ -14,7 +14,7 @@
       <div class="card-body p-4 gap-2">
         <div class="flex items-center gap-2">
           {{icon .Icon "icon icon-lg opacity-80"}}
-          <h3 class="card-title text-base">{{.Name}}</h3>
+          <h2 class="card-title text-base">{{.Name}}</h2>
           {{if .Connected}}<span class="badge badge-success badge-xs">{{$.T "mkt.connected"}}</span>{{end}}
           {{if not .Available}}<span class="badge badge-ghost badge-xs">{{$.T "mkt.soon"}}</span>{{end}}
         </div>
@@ -22,8 +22,6 @@
         {{if .Available}}
           <a href="/integrations?provider={{.ID}}" class="btn btn-neutral btn-sm gap-1.5 mt-2 w-full sm:w-auto">{{icon "plus"}}{{$.T "mkt.connect"}}</a>
           <p class="text-xs opacity-50">{{$.T (printf "mkt.%s.secret" .ID)}} / {{$.T (printf "mkt.%s.target" .ID)}}</p>
-        {{else}}
-          <span class="btn btn-ghost btn-sm mt-2 opacity-50 pointer-events-none">{{$.T "mkt.soon"}}</span>
         {{end}}
       </div>
     </div>
@@ -45,18 +43,18 @@
       <div class="card-body p-4 gap-2">
         <div class="flex items-center gap-2">
           {{icon .Icon "icon icon-lg opacity-80"}}
-          <h3 class="card-title text-base">{{$.T (printf "rep.%s.name" .ID)}}</h3>
+          <h2 class="card-title text-base">{{$.T (printf "rep.%s.name" .ID)}}</h2>
         </div>
         <p class="text-sm opacity-70">{{$.T (printf "rep.%s.blurb" .ID)}}</p>
         <form method="GET" action="/reports/run" class="flex flex-wrap items-end gap-2 mt-2">
           <input type="hidden" name="id" value="{{.ID}}">
           <div class="flex-1">
-            <label class="label py-0"><span class="label-text text-xs">{{$.T "inv.from"}}</span></label>
-            <input type="date" name="from" value="{{$.DefFrom}}" class="input input-xs input-bordered w-full">
+            <label class="label py-0" for="report-{{.ID}}-from"><span class="label-text text-xs">{{$.T "inv.from"}}</span></label>
+            <input id="report-{{.ID}}-from" type="date" name="from" value="{{$.DefFrom}}" class="input input-xs input-bordered w-full">
           </div>
           <div class="flex-1">
-            <label class="label py-0"><span class="label-text text-xs">{{$.T "inv.to"}}</span></label>
-            <input type="date" name="to" value="{{$.DefTo}}" class="input input-xs input-bordered w-full">
+            <label class="label py-0" for="report-{{.ID}}-to"><span class="label-text text-xs">{{$.T "inv.to"}}</span></label>
+            <input id="report-{{.ID}}-to" type="date" name="to" value="{{$.DefTo}}" class="input input-xs input-bordered w-full">
           </div>
           <button type="submit" class="btn btn-neutral btn-sm gap-1.5 w-full sm:w-auto">{{icon "bar-chart-3"}}{{$.T "rep.run"}}</button>
         </form>

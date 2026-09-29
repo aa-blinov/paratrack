@@ -205,8 +205,8 @@
   {{if .User}}
   {{/* Phone / tablet chrome: running-timer bar, bottom tabs, "More" sheet. */}}
   {{if ne .Active "dashboard"}}
-  <div id="minibar" class="minibar lg:hidden" hx-get="/api/minibar"
-       hx-trigger="load, sessions-changed from:body, every 30s" hx-swap="innerHTML"></div>
+  <aside id="minibar" class="minibar lg:hidden" aria-label="{{.T "dash.activeSessions"}}" hx-get="/api/minibar"
+       hx-trigger="load, sessions-changed from:body, every 30s" hx-swap="innerHTML"></aside>
   {{end}}
   <nav class="tabbar lg:hidden" aria-label="{{.T "nav.menu"}}">
     {{/* The four tabs are the user's pick (settings), core ones by default. */}}

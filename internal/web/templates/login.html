@@ -30,11 +30,11 @@
       {{end}}
       </form>
 
-      <p class="text-sm opacity-60 mt-4 text-center">
-        {{.T "auth.noAccount"}}
+      <p class="text-sm mt-4 text-center">
+        <span class="doc-muted">{{.T "auth.noAccount"}}</span>
         <a href="/register{{with .Next}}?next={{urlquery .}}{{end}}" class="link link-primary">{{.T "nav.signup"}}</a>
       </p>
-      <p class="text-sm opacity-60 mt-2 text-center">
+      <p class="text-sm mt-2 text-center">
         <a href="/forgot-password" class="link link-hover opacity-80">{{.T "auth.forgot"}}</a>
       </p>
     </div>
