@@ -215,6 +215,7 @@ func (s *Server) routes() http.Handler {
 	pages := http.NewServeMux()
 	pages.HandleFunc("GET /{$}",                    s.mine(s.handleDashboard))
 	pages.HandleFunc("GET /stats",                  s.handleStats)
+	pages.HandleFunc("GET /export",                 s.handleExport)
 	pages.HandleFunc("GET /graph",                  s.module("graph", s.handleGraph))
 	pages.HandleFunc("GET /goals",                  s.module("goals", s.handleGoals))
 	pages.HandleFunc("GET /tags",                   s.module("tags", s.handleTagsPage))
