@@ -37,7 +37,7 @@
       <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
       {{if .Welcome}}<input type="hidden" name="from" value="welcome">{{end}}
       <p class="text-sm doc-muted">{{.T "sections.core"}}</p>
-      <ul class="divide-y divide-base-300 border-y border-base-300">
+      <ul class="grid lg:grid-cols-2 lg:gap-x-5 border-t border-base-300 [&>li]:border-b [&>li]:border-base-300">
         {{range .Modules}}
         <li>
           <label class="flex items-start gap-3 py-3 cursor-pointer">
