@@ -89,7 +89,7 @@
           </div>
         {{end}}
       <div class="overflow-x-auto">
-        <table class="table table-zebra table-sm sm:table-md">
+        <table class="table table-zebra table-sm sm:table-md stats-breakdown-table">
           <thead>
             <tr><th>{{.T "stats.projectActivity"}}</th><th class="text-right">{{.T "stats.time"}}</th><th class="text-right">{{.T "stats.share"}}</th></tr>
           </thead>
@@ -154,8 +154,8 @@
 </div>
 
 <!-- Session log with inline edit -->
-<div class="card bg-base-100 border border-base-300 mt-4">
-  <div class="card-body p-5">
+<div class="card bg-base-100 border border-base-300 mt-4 stats-session-list">
+  <div class="card-body p-3 sm:p-5">
     <div class="card-title mb-3">{{.T "stats.sessions"}} ({{.SessionCount}})</div>
     {{if .Sessions}}
     <div class="overflow-x-auto">
@@ -188,7 +188,7 @@
 <tr id="row-{{.ID}}">
   <td data-label="{{.T "dash.activity"}}"><span style="color: {{.Color}};">{{.ActivityName}}</span>{{with .PersonName}}<span class="block text-xs doc-muted">{{.}}</span>{{end}}</td>
   <td data-label="{{.T "dash.startLabel"}}" class="font-mono">
-    <input type="datetime-local" name="start_at"
+    <input type="datetime-local" name="start_at" aria-label="{{.T "dash.startLabel"}} — {{.ActivityName}}"
            value="{{.StartInput}}"
            hx-patch="/api/sessions/{{.ID}}"
            hx-include="#row-{{.ID}} [name='end_at'],[name='note']"
@@ -198,7 +198,7 @@
            class="input input-sm input-bordered">
   </td>
   <td data-label="{{.T "stats.end"}}" class="font-mono">
-    <input type="datetime-local" name="end_at"
+    <input type="datetime-local" name="end_at" aria-label="{{.T "stats.end"}} — {{.ActivityName}}"
            value="{{.EndInput}}"
            hx-patch="/api/sessions/{{.ID}}"
            hx-include="#row-{{.ID}} [name='start_at'],[name='note']"
@@ -209,6 +209,7 @@
   </td>
   <td data-label="{{.T "dash.duration"}}" class="font-mono">
     <input type="text" name="duration" value="{{.DurationInput}}"
+           aria-label="{{.T "dash.duration"}} — {{.ActivityName}}"
            placeholder="{{.T "ph.duration"}}"
            title="{{.T "stats.durationTitle"}}"
            class="input input-sm input-bordered w-24"
@@ -217,6 +218,7 @@
   </td>
   <td data-label="{{.T "stats.note"}}">
     <input type="text" name="note" value="{{.Note}}"
+           aria-label="{{.T "stats.note"}} — {{.ActivityName}}"
            placeholder="{{.T "dash.noteShort"}}"
            hx-patch="/api/sessions/{{.ID}}"
            hx-include="#row-{{.ID}} [name='start_at'],[name='end_at']"
@@ -231,6 +233,7 @@
       <span class="join">
         <input type="text"
                id="tag-input-{{.ID}}"
+               aria-label="{{.T "stats.addTag"}} — {{.ActivityName}}"
                placeholder="{{.T "stats.addTag"}}"
                list="known-tags-all"
                name="name"

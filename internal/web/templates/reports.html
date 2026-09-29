@@ -86,11 +86,11 @@
     <div class="card-body p-6 gap-4">
       <div>
         <div class="text-xs uppercase tracking-wider opacity-50">{{.T "rep.report"}}</div>
-        <div class="text-2xl font-semibold">{{.T (printf "rep.%s.name" .VM.Template.ID)}}</div>
+        <h1 class="text-2xl font-semibold">{{.T (printf "rep.%s.name" .VM.Template.ID)}}</h1>
         <div class="text-xs opacity-60 font-mono">{{.VM.PeriodLabel}}</div>
       </div>
 
-      <table class="table table-sm">
+      <table class="table table-sm report-table">
         <thead>
           <tr>
             <th>{{.T "rep.key"}}</th>
@@ -106,16 +106,16 @@
           {{range .VM.Rows}}
           <tr>
             <td>{{.Key}}</td>
-            <td class="text-right font-mono">{{.Hours}}</td>
+            <td class="text-right font-mono"><span class="report-mobile-label">{{$.T "inv.hours"}}</span>{{.Hours}}</td>
             {{if $.VM.Template.Billable}}
-            <td class="text-right font-mono">{{.Rate}}</td>
-            <td class="text-right font-mono">{{.Amount}}</td>
+            <td class="text-right font-mono"><span class="report-mobile-label">{{$.T "inv.rate"}}</span>{{.Rate}}</td>
+            <td class="text-right font-mono"><span class="report-mobile-label">{{$.T "inv.amount"}}</span>{{.Amount}}</td>
             {{end}}
-            <td class="text-right font-mono opacity-60">{{printf "%.1f%%" .Share}}</td>
+            <td class="text-right font-mono opacity-60"><span class="report-mobile-label">{{$.T "stats.share"}}</span>{{printf "%.1f%%" .Share}}</td>
           </tr>
           {{end}}
           {{if not .VM.Rows}}
-          <tr><td colspan="5" class="text-center py-6">
+          <tr><td colspan="{{if .VM.Template.Billable}}5{{else}}3{{end}}" class="text-center py-6">
             <div class="font-medium">{{.T "rep.empty"}}</div>
             <div class="text-sm opacity-60 mt-1">{{.T "rep.emptyHint"}}</div>
             <a href="/reports" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "bar-chart-3" "icon icon-sm"}}{{.T "rep.emptyCta"}}</a>
@@ -125,10 +125,10 @@
         <tfoot>
           <tr class="font-semibold border-t-2 border-base-300">
             <td>{{.T "stats.total"}}</td>
-            <td class="text-right font-mono">{{.VM.Total}}</td>
+            <td class="text-right font-mono"><span class="report-mobile-label">{{.T "inv.hours"}}</span>{{.VM.Total}}</td>
             {{if .VM.Template.Billable}}
             <td></td>
-            <td class="text-right font-mono">{{.VM.TotalAmount}}</td>
+            <td class="text-right font-mono"><span class="report-mobile-label">{{.T "inv.amount"}}</span>{{.VM.TotalAmount}}</td>
             {{end}}
             <td></td>
           </tr>
