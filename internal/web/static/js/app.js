@@ -916,3 +916,17 @@ document.addEventListener('click', (e) => {
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", centre);
   else centre();
 })();
+
+// Reject an inverted date range before the export navigates to a CSV response.
+(function () {
+  const form = document.querySelector('[data-export-form]');
+  if (!form) return;
+  const from = form.elements.namedItem('from');
+  const to = form.elements.namedItem('to');
+  const validate = () => to.setCustomValidity(
+    from.value && to.value && from.value > to.value ? form.dataset.invalidPeriod : ''
+  );
+  form.addEventListener('input', validate);
+  form.addEventListener('change', validate);
+  form.addEventListener('submit', validate);
+})();

@@ -142,7 +142,7 @@ def main() -> int:
         more = page.locator('header nav button:has-text("More")')
         more.click()
         check("Graph has one visible destination", page.locator('header nav a[href="/graph"]:visible').count() == 1)
-        check("More menu exposes CSV", page.locator('header nav a[href="/api/reports.csv"]').count() == 1)
+        check("More menu opens export settings", page.locator('header nav a[href="/export"]').count() == 1)
         page.keyboard.press("Escape")
         for width, visible_extra in ((1024, ()), (1152, ("/graph",)),
                                      (1280, ("/graph", "/goals")),
@@ -184,6 +184,12 @@ def main() -> int:
         more_tab.click()
         page.keyboard.press("Escape")
         check("mobile More sheet closes via Escape", not sheet.evaluate("el => el.open"))
+        more_tab.click()
+        sheet.locator('a[href="/export"]').click()
+        check("mobile Export opens an explanation before downloading",
+              page.url.endswith('/export')
+              and page.locator('form[action="/api/reports.csv"] button[type="submit"]').count() == 1
+              and 'paratrack.csv' in page.locator('main').inner_text())
         for width in (390, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/")

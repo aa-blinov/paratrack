@@ -97,7 +97,7 @@
           {{if .On "goals"}}<a href="/goals" class="header-extra header-extra-goals btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "goals"}}btn-active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a>{{end}}
           {{if .On "tags"}}<a href="/tags" class="header-extra header-extra-tags btn btn-ghost btn-sm gap-1.5 shrink-0 {{if eq .Active "tags"}}btn-active{{end}}">{{icon "tag"}}{{.T "nav.tags"}}</a>{{end}}
           <div class="dropdown dropdown-end shrink-0">
-            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if or (eq .Active "graph") (eq .Active "goals") (eq .Active "tags") (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "schedule")}}btn-active{{end}} {{if eq .Active "graph"}}more-active-graph{{end}} {{if eq .Active "goals"}}more-active-goals{{end}} {{if eq .Active "tags"}}more-active-tags{{end}}" title="{{.T "nav.more"}}" aria-label="{{.T "nav.more"}}">{{icon "menu"}}<span class="nav-label">{{.T "nav.more"}}</span></button>
+            <button tabindex="0" class="btn btn-ghost btn-sm gap-1.5 shrink-0 {{if or (eq .Active "graph") (eq .Active "goals") (eq .Active "tags") (eq .Active "invoices") (eq .Active "payroll") (eq .Active "reports") (eq .Active "import") (eq .Active "export") (eq .Active "schedule")}}btn-active{{end}} {{if eq .Active "graph"}}more-active-graph{{end}} {{if eq .Active "goals"}}more-active-goals{{end}} {{if eq .Active "tags"}}more-active-tags{{end}}" title="{{.T "nav.more"}}" aria-label="{{.T "nav.more"}}">{{icon "menu"}}<span class="nav-label">{{.T "nav.more"}}</span></button>
             <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mt-2 w-56 p-2 z-50">
               {{if .On "graph"}}<li class="header-more-graph"><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>{{end}}
               {{if .On "goals"}}<li class="header-more-goals"><a href="/goals" class="{{if eq .Active "goals"}}active{{end}}">{{icon "flag"}}{{.T "nav.goals"}}</a></li>{{end}}
@@ -107,7 +107,7 @@
               {{if .On "schedule"}}<li class=""><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>{{end}}
               {{if and .CanManage (.On "reports")}}<li class=""><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>{{end}}
               {{if .On "import"}}<li class=""><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>{{end}}
-              <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
+              <li><a href="/export" class="{{if eq .Active "export"}}active{{end}}">{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
               <li class="border-t border-base-300 mt-1 pt-1"><a href="/settings/preferences">{{icon "settings"}}{{.T "nav.prefs"}}</a></li>
               {{if .CanManage}}<li><a href="/settings/sections">{{icon "settings"}}{{.T "nav.sections"}}</a></li>{{end}}
             </ul>
@@ -233,7 +233,7 @@
       {{if .On "schedule"}}<li><a href="/schedule" class="{{if eq .Active "schedule"}}active{{end}}">{{icon "calendar"}}{{.T "nav.schedule"}}</a></li>{{end}}
       {{if and .CanManage (.On "reports")}}<li><a href="/reports" class="{{if eq .Active "reports"}}active{{end}}">{{icon "bar-chart-3"}}{{.T "nav.reports"}}</a></li>{{end}}
       {{if .On "import"}}<li><a href="/import" class="{{if eq .Active "import"}}active{{end}}">{{icon "download"}}{{.T "nav.import"}}</a></li>{{end}}
-      <li><a href="/api/reports.csv" download>{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
+      <li><a href="/export" class="{{if eq .Active "export"}}active{{end}}">{{icon "download"}}{{.T "nav.csvExport"}}</a></li>
       <li><a href="/settings/preferences">{{icon "settings"}}{{.T "nav.prefs"}}</a></li>
       {{if .CanManage}}<li><a href="/settings/sections">{{icon "settings"}}{{.T "nav.sections"}}</a></li>{{end}}
     </ul>

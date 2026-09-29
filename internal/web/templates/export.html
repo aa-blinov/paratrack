@@ -1,0 +1,39 @@
+{{define "export"}}
+<div class="space-y-4">
+  <header>
+    <h1 class="mb-1">{{.T "export.title"}}</h1>
+    <p class="text-sm opacity-70">{{.T "export.blurb"}}</p>
+  </header>
+
+  <div class="card bg-base-100 border border-base-300 max-w-3xl">
+    <div class="card-body p-5 sm:p-6 gap-5">
+      <div>
+        <h2 class="text-lg font-semibold mb-1">{{.T "export.sessions"}}</h2>
+        <p class="text-sm opacity-70">{{.T "export.contents"}}</p>
+        <p class="text-sm opacity-70 mt-2">{{.T "export.columns"}}</p>
+      </div>
+
+      <form method="GET" action="/api/reports.csv" data-export-form data-invalid-period="{{.T "export.invalidPeriod"}}" class="border-t border-base-300 pt-5 space-y-4">
+        <fieldset>
+          <legend class="font-semibold mb-2">{{.T "export.period"}}</legend>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label for="export-from" class="label py-1">{{.T "export.from"}}</label>
+              <input id="export-from" type="date" name="from" class="input input-bordered w-full">
+            </div>
+            <div>
+              <label for="export-to" class="label py-1">{{.T "export.to"}}</label>
+              <input id="export-to" type="date" name="to" class="input input-bordered w-full">
+            </div>
+          </div>
+          <p class="text-sm opacity-70 mt-2">{{.T "export.periodHint"}}</p>
+        </fieldset>
+        <div class="flex flex-wrap items-center gap-3">
+          <button type="submit" class="btn btn-neutral gap-2">{{icon "download"}}{{.T "export.download"}}</button>
+          <span class="text-sm font-mono opacity-70">paratrack.csv</span>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}
