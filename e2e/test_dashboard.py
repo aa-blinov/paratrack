@@ -853,6 +853,29 @@ def main() -> int:
               and page.locator('table.report-table thead').is_visible()
               and page.locator('table.report-table .report-mobile-label:visible').count() == 0)
         page.emulate_media(media="screen")
+
+        # Short cards and long option lists share desktop space, but keep
+        # a single-column reading order on narrow screens.
+        layouts = (
+            ("preferences", "/settings/preferences", 'form[action="/api/me/preferences"] > .grid > .card'),
+            ("workspace", "/settings/team", 'main > div .grid > .card'),
+            ("sections", "/settings/sections", 'form[action="/api/team/modules"] > ul > li'),
+            ("export", "/export", 'main .grid > .card'),
+            ("help", "/help", 'main .grid > section.card'),
+        )
+        for width in (390, 1024):
+            page.set_viewport_size({"width": width, "height": 900})
+            for name, route, selector in layouts:
+                page.goto(BASE + route)
+                items = page.locator(selector)
+                if items.count() < 2:
+                    check(f"{name} layout has two blocks at {width}px", False)
+                    continue
+                first, second = items.nth(0).bounding_box(), items.nth(1).bounding_box()
+                same_row = abs(first["y"] - second["y"]) < 2
+                check(f"{name} uses {'two columns' if width == 1024 else 'one column'} at {width}px",
+                      same_row == (width == 1024)
+                      and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         browser.close()
 
     # Summary
