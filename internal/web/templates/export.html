@@ -35,5 +35,24 @@
       </form>
     </div>
   </div>
+
+  <div class="card bg-base-100 border border-base-300 max-w-3xl">
+    <div class="card-body p-5 sm:p-6 gap-3">
+      <div>
+        <h2 class="text-lg font-semibold mb-1">{{.T "export.summary"}}</h2>
+        <p class="text-sm opacity-70">{{.T "export.summaryHint"}}</p>
+      </div>
+      {{if .CanManage}}
+        {{if .ReportsEnabled}}
+        <a href="/reports" class="btn btn-ghost gap-2 min-h-11 self-start">{{icon "bar-chart-3"}}{{.T "export.chooseReport"}}</a>
+        {{else}}
+        <p class="text-sm opacity-70">{{.T "export.reportsOff"}}</p>
+        <a href="/settings/sections" class="btn btn-ghost gap-2 min-h-11 self-start">{{icon "settings"}}{{.T "export.enableReports"}}</a>
+        {{end}}
+      {{else}}
+      <p class="text-sm opacity-70">{{.T "export.reportsRestricted"}}</p>
+      {{end}}
+    </div>
+  </div>
 </div>
 {{end}}

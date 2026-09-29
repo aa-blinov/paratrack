@@ -1518,9 +1518,17 @@ func periodRangeLabel(period string, lang i18n.Lang) string {
 	return period
 }
 
+type exportPage struct {
+	pageData
+	ReportsEnabled bool
+}
+
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
-	data := pageData{Title: "Export", Active: "export"}
-	s.renderPageForRequest(w, r, "Export", "export", "export", &data)
+	data := &exportPage{
+		pageData:       pageData{Title: "Export", Active: "export"},
+		ReportsEnabled: s.teamModules(r)["reports"],
+	}
+	s.renderPageForRequest(w, r, "Export", "export", "export", data)
 }
 
 func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
