@@ -904,6 +904,49 @@ def main() -> int:
         page.wait_for_function("document.querySelector('#b-activity').value === ''")
         check("successful backfill clears the form", page.input_value("#b-activity") == "")
 
+        # A long activity must wrap inside the breakdown and editable log,
+        # rather than widening either table or hiding their figure columns.
+        long_activity = "VeryLongActivityWithoutAnySpaces" * 6
+        created = api(page, 'post', BASE + '/api/sessions/backfill', form={
+            'activity': long_activity, 'start': 'yesterday 09:00', 'end': 'yesterday 10:00',
+        })
+        check("long activity is saved", created.status == 200)
+        page.goto(BASE + "/stats?period=yesterday")
+        check("long activity appears in both stats sections",
+              page.locator('.stats-breakdown-table .activity-name').filter(has_text=long_activity).count() >= 1
+              and page.locator('.stats-session-list .activity-name').filter(has_text=long_activity).count() >= 1)
+        saved_names = ("A very long saved report for the team", "Another saved report for this period")
+        for name in saved_names:
+            page.fill('#report-save-name', name)
+            page.locator('form[action="/api/reports/save"] button').click()
+            page.wait_for_load_state('load')
+        for width in (320, 390, 768, 1440):
+            page.set_viewport_size({"width": width, "height": 900})
+            page.goto(BASE + "/stats?period=yesterday")
+            check(f"saved reports and long activity fit at {width}px",
+                  page.locator('a.saved-report-name').count() >= 2
+                  and page.locator('.stats-breakdown-table').count() == 1
+                  and page.evaluate('''() => {
+                    const card = document.querySelector('.stats-session-list').getBoundingClientRect();
+                    const name = document.querySelector('.stats-session-list .activity-name').getBoundingClientRect();
+                    return document.documentElement.scrollWidth <= innerWidth
+                      && name.right <= card.right && name.left >= card.left;
+                  }'''))
+            if width >= 640:
+                check(f"breakdown retains time and share columns at {width}px",
+                      page.locator('.stats-breakdown-table thead th:visible').count() == 3)
+            else:
+                check(f"breakdown labels figures at {width}px",
+                      page.locator('.stats-breakdown-table tbody tr:nth-child(2) td[data-label]').count() == 3)
+        page.goto(BASE + "/stats?period=today")
+        page.get_by_role('link', name=saved_names[0]).click()
+        page.wait_for_url('**period=yesterday*')
+        check("saved report opens its period", 'period=yesterday' in page.url)
+        for name in saved_names:
+            row = page.locator('form[action$="/delete"]').filter(has=page.get_by_role('link', name=name)).first
+            row.locator('button[type="submit"]').click()
+            page.wait_for_load_state('load')
+
         # Labels have accessible names, not merely adjacent visual captions.
         for route, selector in (
             ("/reports", 'main input[type="date"]'),

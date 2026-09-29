@@ -698,6 +698,14 @@ td[data-label], .table td, .table th {
 /* fallback if the mode attribute is somehow missing */
 html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 
+/* Names can be user-written, including long strings without spaces.
+   Keep them inside their cell without stealing the figure columns. */
+.saved-report-name, .activity-name { min-width: 0; overflow-wrap: anywhere; }
+.stats-breakdown-table { width: 100%; table-layout: fixed; }
+.stats-breakdown-table :is(th, td):first-child { width: 60%; }
+.stats-breakdown-table :is(th, td):nth-child(2) { width: 20%; }
+.stats-breakdown-table :is(th, td):last-child { width: 20%; }
+
 /* ------------------------------------------------------------------ */
 /* Phones                                                              */
 /* ------------------------------------------------------------------ */
@@ -794,13 +802,25 @@ header .header-extra { display: none; }
     font-variant-numeric: tabular-nums;
     padding-inline: .25rem;
   }
-  .stats-breakdown-table { width: 100%; table-layout: fixed; }
-  .stats-breakdown-table :is(th, td) { padding-inline: .25rem; }
-  .stats-breakdown-table :is(th, td):first-child { width: 49%; }
-  .stats-breakdown-table :is(th, td):nth-child(2) { width: 31%; }
-  .stats-breakdown-table :is(th, td):last-child { width: 20%; }
-  .stats-breakdown-table th { white-space: normal; overflow-wrap: anywhere; }
-  .stats-breakdown-table td.pl-8 { padding-inline-start: .75rem; }
+  /* Each project/activity has a full-width name and a labelled measure
+     row. A three-column table leaves too few characters per line at 320px. */
+  .stats-breakdown-table, .stats-breakdown-table tbody { display: block; width: 100%; }
+  .stats-breakdown-table thead { display: none; }
+  .stats-breakdown-table tbody tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto;
+    gap: .25rem .5rem; padding: .5rem .25rem;
+    border-bottom: 1px solid var(--color-base-300);
+  }
+  .stats-breakdown-table tbody tr:last-child { border-bottom: 0; }
+  .stats-breakdown-table tbody td { display: block; width: auto; padding: 0; border: 0; }
+  .stats-breakdown-table tbody td:first-child { grid-column: 1 / -1; width: 100%; }
+  .stats-breakdown-table tbody td:nth-child(2) { grid-column: 1; width: auto; padding-inline-start: .75rem; text-align: left; }
+  .stats-breakdown-table tbody td:last-child { grid-column: 2; width: auto; display: flex; align-items: baseline; justify-content: flex-end; gap: .25rem; text-align: right; }
+  .stats-breakdown-table tbody td:nth-child(n+2):not(:empty)::before {
+    content: attr(data-label) " "; font-family: var(--font-sans);
+    font-size: .75rem; font-weight: 400; color: var(--color-base-content);
+  }
+  .stats-breakdown-table tbody td.pl-8 { padding-inline-start: .75rem; }
 }
 
 /* Report figures remain a real table on wide screens and in print. On a
