@@ -166,6 +166,24 @@ def main() -> int:
             page.locator('header button:has-text("workspace")').count() >= 1,
         )
         shot(page, "01-dashboard-light")
+        page.set_viewport_size({"width": 390, "height": 844})
+        more_tab = page.locator('[data-sheet-open="more-sheet"]')
+        sheet = page.locator('#more-sheet')
+        more_tab.click()
+        expect(sheet).to_be_visible()
+        check("mobile More sheet has one accessible grab-to-close control",
+              sheet.locator('[data-sheet-grab][aria-label="Close"]').count() == 1
+              and sheet.locator('form[method="dialog"]').count() == 0)
+        page.wait_for_timeout(300)  # Capture the open sheet, not its entrance animation.
+        page.screenshot(path=str(SCREENSHOTS / "01-more-sheet-mobile.png"))
+        sheet.locator('[data-sheet-grab]').click()
+        check("mobile More sheet closes by tapping grab", not sheet.evaluate("el => el.open"))
+        more_tab.click()
+        page.mouse.click(10, 10)
+        check("mobile More sheet closes via backdrop", not sheet.evaluate("el => el.open"))
+        more_tab.click()
+        page.keyboard.press("Escape")
+        check("mobile More sheet closes via Escape", not sheet.evaluate("el => el.open"))
         for width in (390, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/")

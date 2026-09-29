@@ -766,6 +766,11 @@ document.addEventListener('htmx:configRequest', (e) => {
       if (d && !d.open) d.showModal();
       return;
     }
+    const grab = e.target.closest('[data-sheet-grab]');
+    if (grab) {
+      grab.closest('dialog')?.close();
+      return;
+    }
     // Tap on the dimmed backdrop closes the sheet. Backdrop clicks target
     // the dialog itself, but so do clicks on its padding: check the point.
     const d = e.target.matches && e.target.matches('dialog.sheet[open]') ? e.target : null;

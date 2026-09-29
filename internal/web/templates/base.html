@@ -219,13 +219,10 @@
   </nav>
 
   <dialog id="more-sheet" class="sheet" aria-label="{{.T "nav.more"}}">
-    <div class="sheet-grab" data-sheet-grab></div>
-    <div class="flex items-center justify-between mb-2">
-      <div class="min-w-0">
-        <div class="font-semibold truncate">{{.User.Name}}</div>
-        <div class="text-sm opacity-60 truncate">{{.User.Email}}</div>
-      </div>
-      <form method="dialog"><button class="btn btn-ghost btn-circle" aria-label="{{.T "sheet.close"}}">{{icon "x"}}</button></form>
+    <button type="button" class="sheet-grab" data-sheet-grab aria-label="{{.T "sheet.close"}}"></button>
+    <div class="min-w-0 mb-2">
+      <div class="font-semibold truncate">{{.User.Name}}</div>
+      <div class="text-sm opacity-60 truncate">{{.User.Email}}</div>
     </div>
     <ul class="sheet-list">
       {{if .On "graph"}}<li><a href="/graph" class="{{if eq .Active "graph"}}active{{end}}">{{icon "clock"}}{{.T "nav.graph"}}</a></li>{{end}}
