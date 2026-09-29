@@ -15,7 +15,7 @@ func TestExportExplainsCSVAndFiltersDates(t *testing.T) {
 		t.Fatalf("export page: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	page := readBody(t, resp)
-	for _, want := range []string{"Завершённые сеансы", "Текущие таймеры в выгрузку не входят", "paratrack.csv", `action="/api/reports.csv"`} {
+	for _, want := range []string{"Завершённые сеансы", "Текущие таймеры в выгрузку не входят", "Сводные отчёты", "Выбрать отчёт", `href="/reports"`, "paratrack.csv", `action="/api/reports.csv"`} {
 		if !strings.Contains(page, want) {
 			t.Errorf("export page missing %q", want)
 		}
@@ -59,4 +59,14 @@ func TestExportExplainsCSVAndFiltersDates(t *testing.T) {
 		t.Errorf("invalid date: %d, want 400", resp.StatusCode)
 	}
 	resp.Body.Close()
+
+	// A solo workspace has Reports disabled. Export must show how to enable
+	// that module rather than sending its owner to a redirecting /reports link.
+	resp = e.do("POST", "/api/team/modules", url.Values{"preset": {"solo"}}, nil)
+	resp.Body.Close()
+	resp = e.do("GET", "/export", nil, nil)
+	page = readBody(t, resp)
+	if !strings.Contains(page, "Включить отчёты") || strings.Contains(page, `href="/reports"`) {
+		t.Errorf("disabled Reports needs a setup path, not a broken link")
+	}
 }
