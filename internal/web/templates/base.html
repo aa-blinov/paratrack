@@ -174,14 +174,14 @@
           <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box border border-base-300 mb-2 w-28 p-2 z-50">
             <li>
               {{if eq .Lang "en"}}
-                <span class="flex items-center gap-2 opacity-60">{{icon "check" "icon icon-sm"}}English</span>
+                <span class="font-semibold" aria-current="true">English</span>
               {{else}}
                 <a href="/lang/en?next={{urlquery .RequestPath}}">English</a>
               {{end}}
             </li>
             <li>
               {{if eq .Lang "ru"}}
-                <span class="flex items-center gap-2 opacity-60">{{icon "check" "icon icon-sm"}}Русский</span>
+                <span class="font-semibold" aria-current="true">Русский</span>
               {{else}}
                 <a href="/lang/ru?next={{urlquery .RequestPath}}">Русский</a>
               {{end}}
@@ -247,8 +247,8 @@
           <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
           <input type="hidden" name="team_id" value="{{.ID}}">
           <input type="hidden" name="next" value="{{$.RequestPath}}">
-          <button type="submit" class="sheet-team {{if eq .ID $.Team.ID}}active{{end}}">
-            {{icon "users"}}<span class="truncate flex-1 text-left">{{.Name}}</span>{{if eq .ID $.Team.ID}}{{icon "check"}}{{end}}
+          <button type="submit" class="sheet-team {{if eq .ID $.Team.ID}}active{{end}}"{{if eq .ID $.Team.ID}} aria-current="true"{{end}}>
+            {{icon "users"}}<span class="truncate flex-1 text-left">{{.Name}}</span>
           </button>
         </form>
       </li>
