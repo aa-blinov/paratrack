@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/catalog"
 )
@@ -58,8 +59,12 @@ func TestReportRunAndCSV(t *testing.T) {
 	}, map[string]string{"HX-Request": "true"})
 	resp.Body.Close()
 
+	// Keep the report period aligned with the relative "yesterday" backfill.
+	from := time.Now().AddDate(0, 0, -2).Format("2006-01-02")
+	to := time.Now().AddDate(0, 0, 1).Format("2006-01-02")
+	path := "/reports/run?id=by-activity&from=" + from + "&to=" + to
 	// HTML report
-	resp = e.do("GET", "/reports/run?id=by-activity&from=2026-09-20&to=2026-09-27", nil, nil)
+	resp = e.do("GET", path, nil, nil)
 	if resp.StatusCode != 200 {
 		t.Fatalf("report: %d %s", resp.StatusCode, readBody(t, resp))
 	}
@@ -71,7 +76,7 @@ func TestReportRunAndCSV(t *testing.T) {
 		t.Fatalf("missing row")
 	}
 	// CSV
-	resp = e.do("GET", "/reports/run?id=by-activity&from=2026-09-20&to=2026-09-27&format=csv", nil, nil)
+	resp = e.do("GET", path+"&format=csv", nil, nil)
 	if resp.StatusCode != 200 {
 		t.Fatalf("csv: %d", resp.StatusCode)
 	}
@@ -98,5 +103,3 @@ func TestReportRunAndCSV(t *testing.T) {
 		t.Fatalf("marketplace content: %s", m[200:500])
 	}
 }
-
-
