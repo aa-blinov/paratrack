@@ -5,7 +5,8 @@
     <p class="text-sm opacity-70">{{.T "export.blurb"}}</p>
   </header>
 
-  <div class="card bg-base-100 border border-base-300 max-w-3xl">
+  <div class="grid gap-4 lg:grid-cols-2 lg:items-start">
+  <div class="card bg-base-100 border border-base-300 max-w-3xl lg:max-w-none">
     <div class="card-body p-5 sm:p-6 gap-5">
       <div>
         <h2 class="text-lg font-semibold mb-1">{{.T "export.sessions"}}</h2>
@@ -36,7 +37,7 @@
     </div>
   </div>
 
-  <div class="card bg-base-100 border border-base-300 max-w-3xl">
+  <div class="card bg-base-100 border border-base-300 max-w-3xl lg:max-w-none">
     <div class="card-body p-5 sm:p-6 gap-3">
       <div>
         <h2 class="text-lg font-semibold mb-1">{{.T "export.summary"}}</h2>
@@ -53,6 +54,7 @@
       <p class="text-sm opacity-70">{{.T "export.reportsRestricted"}}</p>
       {{end}}
     </div>
+  </div>
   </div>
 </div>
 {{end}}

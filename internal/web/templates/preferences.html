@@ -8,6 +8,7 @@
   <form method="POST" action="/api/me/preferences" class="space-y-4">
     <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
 
+    <div class="grid gap-4 lg:grid-cols-2 lg:items-start">
     <div class="card bg-base-100 border border-base-300">
       <div class="card-body p-5 gap-3">
         <h2 class="card-title">{{.T "prefs.formats"}}</h2>
@@ -79,7 +80,7 @@
     </div>
     {{end}}
 
-    <div class="card bg-base-100 border border-base-300">
+    <div class="card bg-base-100 border border-base-300{{if not .Sections}} lg:col-span-2{{end}}">
       <div class="card-body p-5 gap-2">
         <h2 class="card-title">{{.T "prefs.tabs"}}</h2>
         <p class="text-sm doc-muted">{{.T "prefs.tabsHint"}}</p>
@@ -96,6 +97,7 @@
       </div>
     </div>
 
+    </div>
     <button type="submit" class="btn btn-neutral">{{.T "profile.save"}}</button>
   </form>
 </div>
