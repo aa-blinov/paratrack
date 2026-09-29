@@ -812,6 +812,17 @@ def main() -> int:
                 BASE + f"/api/sessions/{sid}/tags?name=e2e-test"
             )
 
+        # The breakdown owns the width; project share bars carry the visual
+        # distribution without a second, mostly empty, column.
+        for width in (390, 768, 1440):
+            page.set_viewport_size({"width": width, "height": 900})
+            page.goto(BASE + "/stats?period=month")
+            breakdown = page.locator('.card:has(table.stats-breakdown-table)')
+            check(f"stats breakdown uses available width at {width}px",
+                  breakdown.count() == 1
+                  and breakdown.evaluate('e => e.getBoundingClientRect().width >= document.querySelector("main").clientWidth - 34')
+                  and page.locator('table.stats-breakdown-table tbody tr.font-semibold [aria-hidden="true"]').count() > 0
+                  and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         # Mobile tables: report rows must keep every figure readable without
         # enlarging the page; inline date editing must fit on a 320px phone.
         page.set_viewport_size({"width": 320, "height": 844})
