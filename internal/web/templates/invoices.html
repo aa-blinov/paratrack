@@ -129,7 +129,7 @@
       {{if ne .Inv.Status "paid"}}
       <form method="POST" action="/invoices/{{.Inv.ID}}/paid">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="btn {{if eq .Inv.Status "sent"}}btn-neutral{{else}}btn-ghost{{end}} btn-sm gap-1.5">{{icon "check"}}{{.T "inv.markPaid"}}</button>
+        <button type="submit" class="btn {{if eq .Inv.Status "sent"}}btn-neutral{{else}}btn-ghost{{end}} btn-sm">{{.T "inv.markPaid"}}</button>
       </form>
       {{end}}
       <a href="/invoices/{{.Inv.ID}}/pdf" class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}PDF</a>

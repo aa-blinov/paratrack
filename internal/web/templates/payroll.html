@@ -93,7 +93,7 @@
       {{if ne .Run.Status "paid"}}
       <form method="POST" action="/payroll/{{.Run.ID}}/paid">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-        <button type="submit" class="btn btn-neutral btn-sm gap-1.5">{{icon "check"}}{{.T "pay.markPaid"}}</button>
+        <button type="submit" class="btn btn-neutral btn-sm">{{.T "pay.markPaid"}}</button>
       </form>
       {{end}}
       <button type="button" class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{.T "inv.print"}}</button>
