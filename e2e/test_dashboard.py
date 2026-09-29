@@ -184,6 +184,49 @@ def main() -> int:
         more_tab.click()
         page.keyboard.press("Escape")
         check("mobile More sheet closes via Escape", not sheet.evaluate("el => el.open"))
+        # Real synthesized Chromium touch input: list scroll must not drag
+        # the dialog; only the always-visible handle can dismiss it.
+        touch_context = browser.new_context(
+            viewport={"width": 390, "height": 650}, is_mobile=True,
+            has_touch=True, storage_state=context.storage_state(),
+        )
+        touch_page = touch_context.new_page()
+        touch_page.goto(BASE + "/")
+        touch_page.locator('[data-sheet-open="more-sheet"]').click()
+        touch_page.wait_for_timeout(300)
+        touch_sheet = touch_page.locator('#more-sheet')
+        scroller = touch_sheet.locator('.sheet-content')
+        top = touch_sheet.evaluate('el => el.getBoundingClientRect().top')
+        body_scroll = touch_page.evaluate('document.scrollingElement.scrollTop')
+        cdp = touch_context.new_cdp_session(touch_page)
+
+        def swipe(x, y, distance):
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x, 'y': y}]})
+            for step in range(1, 9):
+                cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove',
+                         'touchPoints': [{'x': x, 'y': y + distance * step / 8}]})
+                touch_page.wait_for_timeout(15)
+            cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+            touch_page.wait_for_timeout(250)
+
+        swipe(185, 530, -330)
+        check("More list scrolls while sheet and page stay put",
+              scroller.evaluate('el => el.scrollTop') > 0
+              and abs(touch_sheet.evaluate('el => el.getBoundingClientRect().top') - top) < 1
+              and touch_page.evaluate('document.scrollingElement.scrollTop') == body_scroll)
+        check("More handle stays visible after scrolling",
+              touch_sheet.locator('[data-sheet-grab]').is_visible())
+        swipe(185, 350, 250)
+        check("dragging the list back up does not close the sheet",
+              touch_sheet.evaluate('el => el.open')
+              and scroller.evaluate('el => el.scrollTop') == 0)
+        grab_box = touch_sheet.locator('[data-sheet-grab]').bounding_box()
+        swipe(grab_box['x'] + grab_box['width'] / 2,
+              grab_box['y'] + grab_box['height'] / 2, 170)
+        check("handle swipe dismisses the sheet", not touch_sheet.evaluate('el => el.open'))
+        touch_page.locator('[data-sheet-open="more-sheet"]').click()
+        check("reopened More sheet starts at top", scroller.evaluate('el => el.scrollTop') == 0)
+        touch_context.close()
         more_tab.click()
         sheet.locator('a[href="/export"]').click()
         check("mobile Export opens an explanation before downloading",
