@@ -40,40 +40,46 @@
 {{end}}
 
 
-<!-- Saved reports (Wave 1) -->
-{{if or .SavedReports .Period}}
+<!-- Saved filters are a separate task from reading the breakdown below. -->
 <div class="card bg-base-100 border border-base-300 mb-4">
-  <div class="card-body p-4">
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-xs uppercase tracking-wider opacity-60">{{.T "reports.title"}}</span>
-      {{range .SavedReports}}
-        <form method="POST" action="/api/reports/{{.ID}}/delete" class="join">
-          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-          <a href="/stats?period={{.Period}}{{if .ProjectSlug}}&project={{.ProjectSlug}}{{end}}{{if .Tag}}&tag={{urlquery .Tag}}{{end}}"
-             class="btn btn-ghost btn-sm join-item border border-base-300">{{.Name}}</a>
-          {{if or $.CanManage (eq .CreatedBy $.MeID)}}<button type="submit" class="btn btn-ghost btn-sm join-item border border-base-300 px-2 opacity-60"
-                  title="{{$.T "reports.delete"}}" aria-label="{{$.T "reports.delete"}}">×</button>{{end}}
-        </form>
-      {{end}}
-      <form method="POST" action="/api/reports/save" class="flex items-center gap-1 ml-auto">
-        <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+  <div class="card-body p-4 gap-3">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <h2 class="text-base font-semibold">{{.T "reports.title"}}</h2>
+      <form method="POST" action="/api/reports/save" class="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+        <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
         <input type="hidden" name="period" value="{{.Period.Label}}">
         <input type="hidden" name="project" value="{{.ProjectFilter}}">
         <input type="hidden" name="tag" value="{{.TagFilter}}">
         <label for="report-save-name" class="sr-only">{{.T "reports.namePh"}}</label>
         <input id="report-save-name" type="text" name="name" required maxlength="40" placeholder="{{.T "reports.namePh"}}"
-               class="input input-sm input-bordered w-36">
-        <button type="submit" class="btn btn-neutral btn-sm gap-1">{{icon "plus"}}{{.T "reports.save"}}</button>
+               class="input input-sm input-bordered min-w-0 flex-1 sm:w-44">
+        <button type="submit" class="btn btn-neutral btn-sm gap-1 shrink-0">{{icon "plus"}}{{.T "reports.save"}}</button>
       </form>
     </div>
+    {{if .SavedReports}}
+    <ul class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+      {{range .SavedReports}}
+      <li class="min-w-0">
+        <form method="POST" action="/api/reports/{{.ID}}/delete" class="flex min-w-0 rounded-box border border-base-300">
+          <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+          <a href="/stats?period={{.Period}}{{if .ProjectSlug}}&project={{.ProjectSlug}}{{end}}{{if .Tag}}&tag={{urlquery .Tag}}{{end}}"
+             class="btn btn-ghost btn-sm h-auto min-h-8 min-w-0 flex-1 justify-start rounded-none text-left whitespace-normal saved-report-name">{{.Name}}</a>
+          {{if or $.CanManage (eq .CreatedBy $.MeID)}}
+          <button type="submit" class="btn btn-ghost btn-sm shrink-0 rounded-none border-l border-base-300 px-2"
+                  title="{{$.T "reports.delete"}}" aria-label="{{printf ($.T "reports.deleteNamed") .Name}}">{{icon "x" "icon icon-sm"}}</button>
+          {{end}}
+        </form>
+      </li>
+      {{end}}
+    </ul>
+    {{else}}<p class="text-sm doc-muted">{{.T "reports.emptyHint"}}</p>{{end}}
   </div>
 </div>
-{{end}}
 
 <!-- Project totals, activity rows and distribution belong to one ledger. -->
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
-      <div class="card-title mb-3">{{.T "stats.breakdown"}}</div>
+      <h2 class="card-title mb-3">{{.T "stats.breakdown"}}</h2>
       {{if .ByProject}}
         {{if .Projects}}
           <div class="flex flex-wrap gap-1 mb-3">
@@ -112,7 +118,7 @@
               </tr>
               {{range .Activities}}
               <tr>
-                <td data-label="{{$.T "dash.activity"}}" class="pl-8 whitespace-normal break-words"><span class="inline-flex items-center gap-1.5"><span aria-hidden="true" class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span>{{.ActivityName}}</span></td>
+                <td data-label="{{$.T "dash.activity"}}" class="pl-8 whitespace-normal"><span class="inline-flex min-w-0 max-w-full items-start gap-1.5"><span aria-hidden="true" class="mt-1.5 w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span><span class="activity-name">{{.ActivityName}}</span></span></td>
                 <td data-label="{{$.T "stats.time"}}" class="text-right font-mono whitespace-nowrap opacity-70">{{.Duration}}</td>
                 <td data-label="{{$.T "stats.share"}}" class="text-right font-mono opacity-50">{{printf "%.1f%%" .Share}}</td>
               </tr>
@@ -120,7 +126,7 @@
             {{end}}
             <tr class="font-semibold border-t-2 border-base-300">
               <td>{{.T "stats.total"}}</td>
-              <td class="text-right font-mono whitespace-nowrap">{{.Total}}</td>
+              <td data-label="{{.T "stats.time"}}" class="text-right font-mono whitespace-nowrap">{{.Total}}</td>
               <td></td>
             </tr>
           </tbody>
@@ -136,12 +142,12 @@
 <!-- Session log with inline edit -->
 <div class="card bg-base-100 border border-base-300 mt-4 stats-session-list">
   <div class="card-body p-3 sm:p-5">
-    <div class="card-title mb-3">{{.T "stats.sessions"}} ({{.SessionCount}})</div>
+    <h2 class="card-title mb-3">{{.T "stats.sessions"}} ({{.SessionCount}})</h2>
     {{if .Sessions}}
     <div class="overflow-x-auto">
       <table class="table table-zebra responsive-collapse collapse-lg lg:max-xl:table-sm">
         <thead>
-          <tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.startLabel"}}</th><th>{{.T "stats.end"}}</th><th>{{.T "dash.duration"}}</th><th>{{.T "stats.note"}}</th><th>{{.T "stats.tags"}}</th><th></th></tr>
+          <tr><th>{{.T "dash.activity"}}</th><th>{{.T "dash.startLabel"}}</th><th>{{.T "stats.end"}}</th><th>{{.T "dash.duration"}}</th><th>{{.T "stats.note"}}</th><th>{{.T "stats.tags"}}</th><th><span class="sr-only">{{.T "stats.deleteSession"}}</span></th></tr>
         </thead>
         <tbody>
           {{range .Sessions}}
@@ -166,7 +172,7 @@
 
 {{define "session-row"}}
 <tr id="row-{{.ID}}">
-  <td data-label="{{.T "dash.activity"}}"><span class="inline-flex items-center gap-1.5"><span aria-hidden="true" class="w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span>{{.ActivityName}}</span>{{with .PersonName}}<span class="block text-xs doc-muted">{{.}}</span>{{end}}</td>
+  <td data-label="{{.T "dash.activity"}}"><span class="inline-flex min-w-0 max-w-full items-start gap-1.5"><span aria-hidden="true" class="mt-1.5 w-2 h-2 rounded-full shrink-0" style="background-color: {{.Color}}"></span><span class="activity-name">{{.ActivityName}}</span></span>{{with .PersonName}}<span class="block text-xs doc-muted">{{.}}</span>{{end}}</td>
   <td data-label="{{.T "dash.startLabel"}}" class="font-mono">
     <input type="datetime-local" name="start_at" aria-label="{{.T "dash.startLabel"}} — {{.ActivityName}}"
            value="{{.StartInput}}"
