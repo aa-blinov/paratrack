@@ -71,8 +71,8 @@
     <div class="card-title mb-3">{{.T "graph.legend"}}</div>
     <div class="flex flex-wrap gap-2" id="legend-chips">
       {{range $i, $l := .Chart.Legend}}
-      <div class="badge badge-outline gap-2 cursor-pointer hover:bg-base-200" data-series-index="{{$i}}" role="button" tabindex="0" aria-pressed="false" title="Click to hide / show {{$l.Name}}">
-        <span style="color: {{$l.Color}};">{{$l.Name}}</span>
+      <div class="badge badge-outline gap-2 cursor-pointer hover:bg-base-200" data-series-index="{{$i}}" role="button" tabindex="0" aria-pressed="false" title="{{printf ($.T "graph.toggleSeries") $l.Name}}">
+        <span aria-hidden="true" class="w-2 h-2 rounded-full shrink-0" style="background-color: {{$l.Color}}"></span><span>{{$l.Name}}</span>
       </div>
       {{end}}
     </div>

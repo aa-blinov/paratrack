@@ -71,9 +71,12 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	// Money and settings are for managers.
 	for _, path := range []string{"/invoices", "/payroll", "/settings/team", "/settings/members", "/reports"} {
 		resp := dev.do("GET", path, nil, nil)
-		resp.Body.Close()
+		body := readBody(t, resp)
 		if resp.StatusCode != 403 {
 			t.Errorf("developer GET %s: %d, want 403", path, resp.StatusCode)
+		}
+		if !strings.Contains(body, `<main id="main"`) || !strings.Contains(body, `href="/" class="btn btn-neutral btn-sm"`) || !strings.Contains(body, "Это доступно владельцу") {
+			t.Errorf("developer GET %s: denial must explain access and offer a way back", path)
 		}
 	}
 	resp = dev.do("POST", "/api/team/currency", url.Values{"currency": {"USD"}}, nil)

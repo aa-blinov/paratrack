@@ -1,21 +1,21 @@
 package web
 
 import (
-	"net/url"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
-	"github.com/aa-blinov/paratrack/internal/i18n"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/teams"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
@@ -24,9 +24,9 @@ import (
 // ---------- helpers ------------------------------------------------
 
 // renderPage is the canonical two-step page renderer:
-//   1. Execute the page-specific content template into a buffer.
-//   2. Wrap the result in the base.html layout, with the buffer as
-//      ContentHTML (template.HTML keeps the renderer from re-escaping).
+//  1. Execute the page-specific content template into a buffer.
+//  2. Wrap the result in the base.html layout, with the buffer as
+//     ContentHTML (template.HTML keeps the renderer from re-escaping).
 //
 // The same data struct is passed to both renders so per-page fields
 // like .Period, .Sessions etc. are still in scope when the content
@@ -74,8 +74,8 @@ func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, activ
 		return
 	}
 	wrapper := pageData{
-		CanManage: canManage(r),
-		Mods:      mods,
+		CanManage:   canManage(r),
+		Mods:        mods,
 		Title:       pageTitle(lang, title),
 		Active:      active,
 		ContentHTML: template.HTML(buf.String()),
@@ -119,6 +119,10 @@ func pageTitle(lang i18n.Lang, title string) string {
 // them in the wrapper so base.html can render the user menu and the
 // current-team switcher. Handlers wrapped by RequireAuth call this.
 func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, title, active, contentTpl string, data any) {
+	s.renderPageForRequestStatus(w, r, http.StatusOK, title, active, contentTpl, data)
+}
+
+func (s *Server) renderPageForRequestStatus(w http.ResponseWriter, r *http.Request, status int, title, active, contentTpl string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	token := ensureCSRF(w, r)
 	lang := resolveLang(r)
@@ -178,6 +182,7 @@ func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, ti
 			}
 		}
 	}
+	w.WriteHeader(status)
 	if err := s.tmpl.ExecuteTemplate(w, "base", wrapper); err != nil {
 		http.Error(w, "render base: "+err.Error(), http.StatusInternalServerError)
 	}
@@ -621,9 +626,9 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 
 	chartJSON, _ := json.Marshal(chart)
 	s.render(w, r, "graph-content", &graphData{
-		pageData: pageData{Title: "Graph", Active: "graph"},
-		Period:   period,
-		Chart:    chart,
+		pageData:  pageData{Title: "Graph", Active: "graph"},
+		Period:    period,
+		Chart:     chart,
 		ChartJSON: string(chartJSON),
 	})
 }
@@ -1365,9 +1370,10 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGoalsUpsert creates or replaces a goal. Body params:
-//   activity   (required)
-//   period     required — daily | weekly | monthly
-//   minutes    required — integer target in minutes
+//
+//	activity   (required)
+//	period     required — daily | weekly | monthly
+//	minutes    required — integer target in minutes
 //
 // HTMX callers get the refreshed `goals-list` fragment; plain requests
 // keep the JSON shape.
@@ -1696,7 +1702,6 @@ func sortAggsDesc(rows []aggRow) {
 func clipSeconds(sess model.Session, start, end time.Time) int {
 	return sess.TrackedSecondsInWindow(start, end, time.Now())
 }
-
 
 // notifyNewlyMetGoals pushes a notification for every goal that crossed
 // 100% because of the session we just closed. Cheap: one ProgressForGoals

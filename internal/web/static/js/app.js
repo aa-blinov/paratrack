@@ -444,6 +444,35 @@ document.addEventListener('htmx:configRequest', (e) => {
   if (t) e.detail.headers['X-CSRF-Token'] = t;
 });
 
+// Keep backfill values until the server confirms a saved session. Errors
+// arrive as out-of-band field messages alongside the refreshed timer list.
+document.querySelector('#backfill form')?.addEventListener('input', (event) => {
+  const field = event.target;
+  if (!['b-activity', 'b-start', 'b-end'].includes(field.id)) return;
+  field.removeAttribute('aria-invalid');
+  const message = document.getElementById(field.id + '-error');
+  if (message) message.textContent = '';
+});
+function backfillBeforeRequest(form) {
+  form.parentElement.querySelectorAll('[id^="b-"][id$="-error"]').forEach(el => { el.textContent = ''; });
+  form.querySelectorAll('[aria-invalid]').forEach(el => el.removeAttribute('aria-invalid'));
+}
+function backfillAfterRequest(form, event) {
+  const xhr = event.detail.xhr;
+  if (xhr.getResponseHeader('X-Backfill-Saved') === 'true') {
+    form.reset();
+    return;
+  }
+  const field = xhr.getResponseHeader('X-Backfill-Field');
+  const input = field && ['activity', 'start', 'end'].includes(field) ? form.querySelector('#b-' + field) : null;
+  if (input) {
+    input.setAttribute('aria-invalid', 'true');
+    input.focus();
+  } else if (!field) {
+    form.parentElement.querySelector('#b-form-error').textContent = form.dataset.networkError;
+  }
+}
+
 // Keyboard shortcuts. Available on every page, ignored when typing.
 (function() {
   function isTyping(target) {
@@ -460,16 +489,31 @@ document.addEventListener('htmx:configRequest', (e) => {
     if (key === 's' && here !== '/stats')  { window.location.href = '/stats'; return; }
     if (key === 'd' && here !== '/')       { window.location.href = '/'; return; }
     if (key === 't') { themeBtnClick(); return; }
-    if (key === 'n' && here === '/') { document.querySelector('input[name="activity"]')?.focus(); return; }
-    // p: pause every running timer (a break), same as the "pause all" button.
-    if (key === 'p' && here === '/' && window.htmx) {
-      htmx.ajax('POST', '/api/active/pause-all', { target: '#active-list', swap: 'innerHTML' });
+    if (key === 'n') {
+      if (here === '/') document.querySelector('input[name="activity"]')?.focus();
+      else {
+        sessionStorage.setItem('paratrack-focus-new', '1');
+        window.location.href = '/';
+      }
+      return;
+    }
+    // p: pause timers from any screen. Outside the dashboard, the response
+    // only triggers a minibar refresh; never insert the active-list there.
+    if (key === 'p' && window.htmx) {
+      htmx.ajax('POST', '/api/active/pause-all', {
+        target: here === '/' ? '#active-list' : '#minibar',
+        swap: here === '/' ? 'innerHTML' : 'none'
+      });
       return;
     }
   });
   function themeBtnClick() {
     const btn = document.querySelector('[data-theme-toggle]');
     if (btn) btn.click();
+  }
+  if (window.location.pathname === '/' && sessionStorage.getItem('paratrack-focus-new') === '1') {
+    sessionStorage.removeItem('paratrack-focus-new');
+    document.querySelector('input[name="activity"]')?.focus();
   }
 })();
 

@@ -110,9 +110,9 @@
             </label>
             <span class="label-text text-sm">{{.T "projects.color"}}</span>
             <div class="flex items-center gap-2">
-              <input type="color" name="color" value="{{.Project.Color}}"
+              <input type="color" name="color" value="{{.Project.Color}}" aria-label="{{.T "projects.colorPicker"}}"
                      class="w-10 h-8 rounded border border-base-300 bg-transparent cursor-pointer">
-              <input type="text" name="color" value="{{.Project.Color}}"
+              <input type="text" name="color" value="{{.Project.Color}}" aria-label="{{.T "projects.colorHex"}}"
                      class="input input-bordered input-xs flex-1 min-w-0 font-mono" pattern="^#[0-9a-fA-F]{6}$">
             </div>
             <label class="label cursor-pointer justify-start items-start gap-2 py-1 w-full whitespace-normal">
@@ -120,9 +120,9 @@
               <span class="label-text text-sm">{{.T "projects.archivedLabel"}} <span class="opacity-60">({{.T "projects.archivedHint"}})</span></span>
             </label>
             <div class="w-full">
-              <span class="label-text text-sm">{{.T "projects.estimate"}}</span>
+              <label for="project-estimate" class="label-text text-sm">{{.T "projects.estimate"}}</label>
               <span class="block text-xs opacity-60">{{.T "projects.estimateHint"}}</span>
-              <input type="number" name="estimate_minutes" min="0" step="30" class="input input-bordered input-sm w-full"
+              <input id="project-estimate" type="number" name="estimate_minutes" min="0" step="30" class="input input-bordered input-sm w-full"
                      value="{{.EstimateInput}}"
                      placeholder="480">
             </div>

@@ -212,7 +212,7 @@
    fill colours to clear 4.5:1; dark theme reads the hues as they are. */
 [data-theme="paratrack-light"] {
   --ink-success: #047857;
-  --ink-warning: #b45309;
+  --ink-warning: #92400e;
   --ink-primary: #4f46e5;
 }
 [data-theme="paratrack-dark"] {
@@ -258,6 +258,25 @@
     font-weight: 550;
   }
 }
+
+/* Muted copy must remain readable on paper in both themes. Opacity 50/60
+   was producing 2–4.47:1 on labels; keep disabled controls distinct. */
+@layer utilities {
+  .opacity-60 { opacity: .72; }
+  .opacity-50:not(.pointer-events-none), .opacity-40 { opacity: .72; }
+}
+.tabs .tab:not(.tab-active) {
+  color: color-mix(in srgb, var(--color-base-content) 76%, var(--color-base-200));
+}
+.label-text { color: color-mix(in srgb, var(--color-base-content) 76%, var(--color-base-100)); }
+.label-text .opacity-70 { opacity: 1; }
+:is(.input, .textarea)::placeholder {
+  color: color-mix(in srgb, var(--color-base-content) 76%, var(--color-base-100));
+  opacity: 1;
+}
+.table thead th, .table tfoot td { color: var(--color-base-content); }
+.link-primary { color: var(--ink-primary); }
+#backfill [aria-invalid="true"] { border-color: var(--color-error); }
 
 /* The paratrack wordmark — Fraunces, only used here. */
 .wordmark {
@@ -327,7 +346,7 @@
     }
     .responsive-collapse tbody td::before {
       content: attr(data-label);
-      @apply mr-2 font-medium text-base-content/60;
+      @apply mr-2 font-medium text-base-content/70;
       font-size: var(--step--1);
     }
     .period-tabs {
@@ -881,12 +900,12 @@ header .header-extra { display: none; }
     min-height: var(--tabbar-h);
     font-size: 0.75rem;
     font-weight: 500;
-    color: color-mix(in srgb, var(--color-base-content) 60%, transparent);
+    color: color-mix(in srgb, var(--color-base-content) 72%, transparent);
     background: none;
     border: 0;
   }
   .tabbar .icon { width: 22px; height: 22px; }
-  .tabbar .active { color: var(--color-primary); }
+  .tabbar .active { color: var(--ink-primary); }
 
   body:has(.tabbar) { padding-bottom: calc(var(--tabbar-h) + var(--safe-b)); }
 
@@ -1195,6 +1214,9 @@ header .header-extra { display: none; }
 .week-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
 .week-nav-label { white-space: nowrap; padding-inline: 0.25rem; }
 .week-nav .btn { padding-inline: 0.5rem; }
+@media (pointer: coarse) {
+  .week-nav .btn { min-width: 44px; min-height: 44px; }
+}
 @media (min-width: 640px) {
   .week-nav { gap: 0.5rem; }
   .week-nav-label { padding-inline: 0.5rem; }

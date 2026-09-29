@@ -26,15 +26,15 @@
                class="input input-bordered font-mono w-full" placeholder="eora-rag">
       </label>
 
-      <label class="form-control">
-        <span class="label-text">{{.T "projects.color"}}</span>
+      <fieldset class="form-control">
+        <legend class="label-text">{{.T "projects.color"}}</legend>
         <div class="flex items-center gap-2">
-          <input type="color" name="color" value="#7c3aed"
+          <input type="color" name="color" value="#7c3aed" aria-label="{{.T "projects.colorPicker"}}"
                  class="w-10 h-10 rounded border border-base-300 bg-transparent cursor-pointer">
-          <input type="text" name="color" value="#7c3aed"
+          <input type="text" name="color" value="#7c3aed" aria-label="{{.T "projects.colorHex"}}"
                  class="input input-bordered flex-1 min-w-0 font-mono" pattern="^#[0-9a-fA-F]{6}$">
         </div>
-      </label>
+      </fieldset>
 
       <div class="grid gap-3 sm:grid-cols-2">
         <label class="form-control">

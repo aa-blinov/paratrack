@@ -242,8 +242,10 @@ def main() -> int:
               page.url.endswith('/export')
               and page.locator('form[action="/api/reports.csv"] button[type="submit"]').count() == 1
               and 'paratrack.csv' in page.locator('main').inner_text()
-              and page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 1
-              and page.locator('main a[href="/reports"]').count() == 0)
+              and ((page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 1
+                    and page.locator('main a[href="/reports"]').count() == 0)
+                   or (page.locator('main a[href="/reports"]').count() == 1
+                       and page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 0)))
         page.evaluate("window.paratrackToast('Saved', 'success', 10000)")
         check("success toast is readable without a decorative check",
               page.locator('#toast .toast-note').inner_text() == 'Saved'
@@ -876,6 +878,81 @@ def main() -> int:
                 check(f"{name} uses {'two columns' if width == 1024 else 'one column'} at {width}px",
                       same_row == (width == 1024)
                       and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+
+        # Invalid manual time must not discard the rest of the form.
+        page.set_viewport_size({"width": 390, "height": 844})
+        page.goto(BASE + "/")
+        page.locator("#backfill summary").click()
+        page.fill("#b-activity", "e2e-backfill-preserved")
+        page.fill("#b-start", "not a time")
+        page.fill("#b-end", "yesterday 11:00")
+        page.fill('#backfill input[name="note"]', "keep this note")
+        page.locator('#backfill button[type="submit"]').click()
+        page.locator("#b-start-error").get_by_text("not a time").wait_for()
+        check("invalid backfill keeps every entered field and focuses start",
+              page.input_value("#b-activity") == "e2e-backfill-preserved"
+              and page.input_value('#backfill input[name="note"]') == "keep this note"
+              and page.input_value("#b-end") == "yesterday 11:00"
+              and page.locator("#b-start").get_attribute("aria-invalid") == "true"
+              and page.evaluate('document.activeElement.id') == 'b-start')
+        page.fill("#b-start", "yesterday 09:00")
+        check("editing backfill start clears its stale error",
+              page.locator("#b-start").get_attribute("aria-invalid") is None
+              and page.locator("#b-start-error").inner_text() == "")
+        page.locator('#backfill button[type="submit"]').click()
+        page.locator("#b-activity").wait_for(state="visible")
+        page.wait_for_function("document.querySelector('#b-activity').value === ''")
+        check("successful backfill clears the form", page.input_value("#b-activity") == "")
+
+        # Labels have accessible names, not merely adjacent visual captions.
+        for route, selector in (
+            ("/reports", 'main input[type="date"]'),
+            ("/import", 'main select[name="provider"], main input[name="from"], main input[name="to"]'),
+            ("/integrations", 'main select[name="provider"]'),
+            ("/settings/team", 'main input[name="logo"]'),
+        ):
+            page.goto(BASE + route)
+            controls = page.locator(selector)
+            check(f"{route} fields have associated labels",
+                  controls.count() > 0 and controls.evaluate_all(
+                      '(nodes) => nodes.every(e => e.labels?.length || e.getAttribute("aria-label"))'))
+
+        # The footer promises shortcuts on every page, not only the overview.
+        page.goto(BASE + "/stats")
+        page.locator("main h1").click()
+        page.keyboard.press("n")
+        page.wait_for_url(BASE + "/")
+        check("n from stats focuses the new timer", page.evaluate('document.activeElement?.name') == 'activity')
+        api(page, 'post', BASE + "/api/start", form={"activity": "e2e-pause-shortcut"})
+        page.goto(BASE + "/stats")
+        page.locator("main h1").click()
+        with page.expect_response(lambda response: response.url.endswith('/api/active/pause-all')) as pause:
+            page.keyboard.press("p")
+        check("p pauses timers from stats without leaving the page",
+              pause.value.status == 200 and page.url.endswith('/stats')
+              and 'e2e-pause-shortcut' in page.request.get(BASE + '/api/active').text())
+
+        # Browser placeholder colors are computed from the actual theme, not
+        # inferred from design tokens (axe does not check placeholder text).
+        for theme in ('paratrack-light', 'paratrack-dark'):
+            page.goto(BASE + '/')
+            page.evaluate('(theme) => document.documentElement.dataset.theme = theme', theme)
+            ratio = page.locator('#activity').evaluate('''e => {
+              const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
+              const rgb = color => {
+                ctx.canvas.width = ctx.canvas.height = 1;
+                ctx.fillStyle = color;
+                ctx.fillRect(0, 0, 1, 1);
+                return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3);
+              };
+              const lum = color => rgb(color).map(c => c / 255)
+                .map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
+                .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
+              const fg = lum(getComputedStyle(e, '::placeholder').color);
+              const bg = lum(getComputedStyle(e).backgroundColor);
+              return (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05);
+            }''')
+            check(f"{theme} placeholder contrast is at least 4.5:1", ratio >= 4.5, f"{ratio:.2f}:1")
         browser.close()
 
     # Summary

@@ -151,7 +151,7 @@ character of the colour, not its hex. Values live in the two daisyUI themes in
   the main button: the one call to action per form is charcoal (see Buttons).
   Its rarity is the point — a ledger is signed, not coloured in.
 - **Ink for text on tints** (`--ink-primary #4f46e5`, `--ink-success #047857`,
-  `--ink-warning #b45309` in light; the plain theme colours in dark): the
+  `--ink-warning #92400e` in light; the plain theme colours in dark): the
   saturated status hues fail contrast as text on their own 15% tint (≈2:1),
   so pills and statuses write in these deeper inks.
 
