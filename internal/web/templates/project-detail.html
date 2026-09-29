@@ -144,7 +144,7 @@
               <input type="checkbox" name="billable" value="1" class="checkbox checkbox-xs" {{if .Project.Billable}}checked{{end}}>
               <span class="label-text text-sm">{{.T "bill.billable"}}</span>
             </label>
-            <button type="submit" class="btn btn-neutral btn-sm gap-1.5 w-full">{{icon "check"}}{{.T "projects.save"}}</button>
+            <button type="submit" class="btn btn-neutral btn-sm w-full">{{.T "projects.save"}}</button>
           </form>
           <form method="POST" action="/projects/{{.Project.Slug}}/delete"
                 onsubmit="return confirm('{{.T "projects.confirmDelete"}}');">

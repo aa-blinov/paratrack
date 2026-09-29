@@ -235,6 +235,18 @@ def main() -> int:
               and 'paratrack.csv' in page.locator('main').inner_text()
               and page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 1
               and page.locator('main a[href="/reports"]').count() == 0)
+        page.evaluate("window.paratrackToast('Saved', 'success', 10000)")
+        check("success toast is readable without a decorative check",
+              page.locator('#toast .toast-note').inner_text() == 'Saved'
+              and page.locator('#toast .toast-note svg').count() == 0)
+        page.evaluate("window.paratrackToast('Failed', 'error', 10000)")
+        check("error toast retains its distinct icon",
+              page.locator('#toast .toast-note[role="alert"] svg use[href$="#i-x"]').count() == 1)
+        page.goto(BASE + '/settings/sections')
+        check("preset stays selected without a redundant check",
+              page.locator('.preset-card.is-active[aria-current="true"]').count() == 1
+              and page.locator('.preset-card.is-active use[href$="#i-check"]').count() == 0
+              and page.locator('input[name="modules"]:checked').count() > 0)
         for width in (390, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/")

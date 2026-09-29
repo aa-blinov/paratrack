@@ -314,21 +314,24 @@ window.paratrackToast = function(message, kind, ms, actions) {
   const el = document.getElementById('toast');
   if (!el) return;
   const variant = kind || 'success';
-  // Quiet ledger note: hairline card, only the icon carries the kind.
+  // The message already confirms success; errors and notices keep their icon.
   const box = document.createElement('div');
   box.className = `toast-note toast-${variant} opacity-100 transition-opacity duration-200`;
   // #toast is the live region; an error also interrupts.
   if (variant === 'error') box.setAttribute('role', 'alert');
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'icon');
-  svg.setAttribute('aria-hidden', 'true');
-  const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-  use.setAttribute('href', '/static/icons.svg#i-' + (variant === 'success' ? 'check' : variant === 'error' ? 'x' : 'info'));
-  svg.append(use);
+  if (variant !== 'success') {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('class', 'icon');
+    svg.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '/static/icons.svg#i-' + (variant === 'error' ? 'x' : 'info'));
+    svg.append(use);
+    box.append(svg);
+  }
   // textContent: messages carry user input (activity names).
   const text = document.createElement('span');
   text.textContent = message;
-  box.append(svg, text);
+  box.append(text);
   for (const a of actions || []) {
     const b = document.createElement('button');
     b.type = 'button';

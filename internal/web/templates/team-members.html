@@ -53,7 +53,7 @@
                 <input form="pay-{{.UserID}}" type="number" name="capacity_minutes" min="0" step="30"
                        value="{{if $pay.Capacity}}{{$pay.Capacity}}{{end}}" placeholder="480" aria-label="{{$.T "pay.capCol"}}"
                        class="input input-sm input-bordered w-20">
-                <button form="pay-{{.UserID}}" type="submit" class="btn btn-ghost btn-sm" title="{{$.T "projects.save"}}" aria-label="{{$.T "projects.save"}}">{{icon "check" "icon icon-sm"}}</button>
+                <button form="pay-{{.UserID}}" type="submit" class="btn btn-ghost btn-sm">{{$.T "projects.save"}}</button>
               </div>
             </td>
             <td data-label="" class="text-right">
