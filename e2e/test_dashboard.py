@@ -225,10 +225,11 @@ def main() -> int:
               and touch_page.evaluate('document.scrollingElement.scrollTop') == body_scroll)
         check("More handle stays visible after scrolling",
               touch_sheet.locator('[data-sheet-grab]').is_visible())
+        scrolled_down = scroller.evaluate('el => el.scrollTop')
         swipe(185, 350, 250)
         check("dragging the list back up does not close the sheet",
               touch_sheet.evaluate('el => el.open')
-              and scroller.evaluate('el => el.scrollTop') == 0)
+              and scroller.evaluate('el => el.scrollTop') < scrolled_down)
         grab_box = touch_sheet.locator('[data-sheet-grab]').bounding_box()
         swipe(grab_box['x'] + grab_box['width'] / 2,
               grab_box['y'] + grab_box['height'] / 2, 170)
@@ -645,11 +646,11 @@ def main() -> int:
         tip_text = page.evaluate(
             """
             () => {
-              const all = document.querySelectorAll('div');
+              const all = document.querySelectorAll('#echart-canvas div');
               for (const e of all) {
                 if (e.style && e.style.position === 'absolute'
                     && e.innerText && /\\d/.test(e.innerText)
-                    && e.innerText.length < 200) {
+                    && e.innerText.length < 2000) {
                   return e.innerText;
                 }
               }
@@ -946,6 +947,57 @@ def main() -> int:
             row = page.locator('form[action$="/delete"]').filter(has=page.get_by_role('link', name=name)).first
             row.locator('button[type="submit"]').click()
             page.wait_for_load_state('load')
+
+        # The same long name must remain within the graph card. Legend
+        # buttons must actually toggle the series by mouse and keyboard.
+        for width in (320, 390, 768, 1440):
+            page.set_viewport_size({"width": width, "height": 900})
+            page.goto(BASE + "/graph?period=yesterday")
+            chip = page.locator('#legend-chips .legend-chip').filter(has_text=long_activity).first
+            chip.wait_for()
+            check(f"graph legend fits at {width}px",
+                  chip.get_attribute('aria-pressed') == 'true'
+                  and page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+                  and chip.evaluate('e => e.getBoundingClientRect().right <= innerWidth'))
+        page.wait_for_selector('#echart-canvas canvas', timeout=3000)
+        chip.click()
+        check("graph legend hides its series on click",
+              chip.get_attribute('aria-pressed') == 'false'
+              and chip.evaluate('''e => echarts.getInstanceByDom(document.getElementById('echart-canvas'))
+                .getOption().series[Number(e.dataset.seriesIndex)].data.every(value => value === 0)'''))
+        chip.focus()
+        page.keyboard.press('Enter')
+        check("graph legend restores its series with Enter",
+              chip.get_attribute('aria-pressed') == 'true'
+              and chip.evaluate('''e => echarts.getInstanceByDom(document.getElementById('echart-canvas'))
+                .getOption().series[Number(e.dataset.seriesIndex)].data.some(value => value > 0)'''))
+        page.keyboard.press('Space')
+        check("graph legend toggles with Space", chip.get_attribute('aria-pressed') == 'false')
+        page.evaluate("document.documentElement.dataset.theme = 'paratrack-dark'")
+        page.wait_for_function('''() => {
+          const chip = document.querySelector('#legend-chips .legend-chip[aria-pressed="false"]');
+          const chart = echarts.getInstanceByDom(document.getElementById('echart-canvas'));
+          return chip && chart && chart.getOption().series[Number(chip.dataset.seriesIndex)]
+            .data.every(value => value === 0);
+        }''')
+        check("graph legend state survives a theme change", chip.get_attribute('aria-pressed') == 'false')
+        tooltip_html = page.evaluate('''() => {
+          const option = echarts.getInstanceByDom(document.getElementById('echart-canvas')).getOption();
+          return option.tooltip[0].formatter([{
+            axisValue: '<img src=x>', seriesName: '<img src=x onerror=alert(1)>',
+            value: 12, color: 'red;position:absolute',
+          }]);
+        }''')
+        check("graph tooltip escapes activity names and colors",
+              '&lt;img' in tooltip_html and '<img' not in tooltip_html
+              and 'position:absolute' not in tooltip_html)
+        axis_labels = page.evaluate('''() => {
+          const axis = echarts.getInstanceByDom(document.getElementById('echart-canvas'))
+            .getOption().yAxis[0].axisLabel.formatter;
+          return [axis(60), axis(80)];
+        }''')
+        check("graph hour tick labels distinguish minutes",
+              axis_labels[0] != axis_labels[1] and '20' in axis_labels[1])
 
         # Labels have accessible names, not merely adjacent visual captions.
         for route, selector in (
