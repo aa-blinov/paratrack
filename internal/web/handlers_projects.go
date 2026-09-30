@@ -212,6 +212,11 @@ func (s *Server) handleAPIAssignActivityProject(w http.ResponseWriter, r *http.R
 	}
 	_ = tid
 	if err := s.bindActivityProject(r, id, pid); err != nil {
+		if errors.Is(err, db.ErrAlreadyBilled) {
+			w.WriteHeader(http.StatusConflict)
+			writeJSON(w, map[string]string{"error": i18n.T(resolveLang(r), "inv.activityProjectLocked")})
+			return
+		}
 		if errors.Is(err, errRebind) {
 			w.WriteHeader(http.StatusForbidden)
 			writeJSON(w, map[string]string{"error": i18n.T(resolveLang(r), "act.rebindForbidden")})

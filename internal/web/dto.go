@@ -204,9 +204,14 @@ type projectAggRow struct {
 // graphData feeds graph.html.
 type graphData struct {
 	pageData
-	Period    timeparse.Period
-	Chart     ChartData
-	ChartJSON string // pre-serialised JSON for the data-chart attribute
+	Period        timeparse.Period
+	Chart         ChartData
+	ChartJSON     string // pre-serialised JSON for the data-chart attribute
+	ProjectFilter string
+	ProjectName   string
+	TagFilter     string
+	PersonFilter  int64
+	PersonName    string
 }
 
 // tagChip is the lightweight view-model for a tag in the stats row

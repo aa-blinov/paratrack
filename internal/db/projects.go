@@ -184,8 +184,11 @@ func (d *DB) AssignActivityProject(ctx context.Context, teamID, activityID, proj
 	}
 	now := FormatTime(time.Now().UTC())
 	res, err := d.sql.ExecContext(ctx,
-		`UPDATE activities SET project_id = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
-		pid, now, activityID, teamID)
+		`UPDATE activities SET project_id = ?, updated_at = ?
+		 WHERE id = ? AND team_id = ?
+		 AND (project_id IS NOT DISTINCT FROM ? OR NOT EXISTS (
+		   SELECT 1 FROM sessions WHERE activity_id = activities.id AND invoice_id IS NOT NULL))`,
+		pid, now, activityID, teamID, pid)
 	if err != nil {
 		return err
 	}
@@ -194,6 +197,64 @@ func (d *DB) AssignActivityProject(ctx context.Context, teamID, activityID, proj
 		return err
 	}
 	if n == 0 {
+		if a, err := d.GetActivity(ctx, activityID); err == nil && a.TeamID == teamID {
+			return ErrAlreadyBilled
+		}
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UnassignedActivity is an activity with completed time that cannot be
+// invoiced until the entire activity is assigned to a billable project.
+type UnassignedActivity struct {
+	ID, Sessions int64
+	Name         string
+	Billed       bool
+}
+
+func (d *DB) UnassignedActivities(ctx context.Context, teamID int64) ([]UnassignedActivity, error) {
+	rows, err := d.sql.QueryContext(ctx, `
+		SELECT a.id, a.name, COUNT(s.id) FILTER (WHERE s.invoice_id IS NULL),
+		       COUNT(s.id) FILTER (WHERE s.invoice_id IS NOT NULL)
+		FROM activities a JOIN sessions s ON s.activity_id = a.id
+		WHERE a.team_id = ? AND a.project_id IS NULL AND s.end_at IS NOT NULL
+		GROUP BY a.id, a.name
+		HAVING COUNT(s.id) FILTER (WHERE s.invoice_id IS NULL) > 0
+		ORDER BY a.name`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []UnassignedActivity
+	for rows.Next() {
+		var a UnassignedActivity
+		var billed int64
+		if err := rows.Scan(&a.ID, &a.Name, &a.Sessions, &billed); err != nil {
+			return nil, err
+		}
+		a.Billed = billed > 0
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// AssignUnassignedActivityForBilling deliberately changes the activity,
+// not just one session: all its past and future time will follow the project.
+// Do not move an activity that has already been included in any invoice.
+func (d *DB) AssignUnassignedActivityForBilling(ctx context.Context, teamID, activityID, projectID int64) error {
+	p, err := d.GetProject(ctx, projectID)
+	if err != nil || p.TeamID != teamID || p.Archived || !p.Billable || p.BillableRateCents == nil || *p.BillableRateCents <= 0 {
+		return ErrNotFound
+	}
+	res, err := d.sql.ExecContext(ctx, `UPDATE activities SET project_id = ?, updated_at = ?
+		WHERE id = ? AND team_id = ? AND project_id IS NULL
+		AND NOT EXISTS (SELECT 1 FROM sessions WHERE activity_id = activities.id AND invoice_id IS NOT NULL)`,
+		projectID, FormatTime(time.Now().UTC()), activityID, teamID)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrNotFound
 	}
 	return nil

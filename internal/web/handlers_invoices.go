@@ -130,7 +130,8 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 			if p.Billable && p.BillableRateCents != nil && *p.BillableRateCents > 0 {
 				data.Billable = true
 			}
-			opt := invoiceProjectOpt{ID: p.ID, Name: p.Name, Selected: p.ID == want}
+			opt := invoiceProjectOpt{ID: p.ID, Name: p.Name, Selected: p.ID == want,
+				Eligible: !p.Archived && p.Billable && p.BillableRateCents != nil && *p.BillableRateCents > 0}
 			if c, err := s.db.GetProjectClient(r.Context(), teamID(r), p.ID); err == nil {
 				opt.ClientName, opt.ClientDetails, opt.ClientEmail = c.Name, c.Details, c.Email
 			}
@@ -141,6 +142,11 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data.Unbilled = s.unbilledViews(r, 0)
+	data.Unassigned, err = s.db.UnassignedActivities(r.Context(), teamID(r))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -153,7 +159,7 @@ type invoiceProjectOpt struct {
 	ID                                     int64
 	Name                                   string
 	ClientName, ClientDetails, ClientEmail string
-	Selected                               bool
+	Selected, Eligible                     bool
 }
 
 // unbilledView is one project's "not invoiced yet" line.
@@ -199,18 +205,40 @@ type invoiceSummary struct {
 // invoicesPage is the /invoices envelope.
 type invoicesPage struct {
 	pageData
-	Items    []invoiceSummary
-	Projects []invoiceProjectOpt
-	Prefill  invoiceProjectOpt // the project picked via ?project=
-	Unbilled []unbilledView
-	Billable bool // any project with a rate; otherwise invoices come out empty
-	DefStart string
-	DefEnd   string
-	Flash    string
-	FlashOK  bool
+	Items      []invoiceSummary
+	Projects   []invoiceProjectOpt
+	Prefill    invoiceProjectOpt // the project picked via ?project=
+	Unbilled   []unbilledView
+	Unassigned []dbpkg.UnassignedActivity
+	Billable   bool // any project with a rate; otherwise invoices come out empty
+	DefStart   string
+	DefEnd     string
+	Flash      string
+	FlashOK    bool
 }
 
 func (p *invoicesPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+
+// handleInvoiceAssignActivity makes the whole history of an unassigned
+// activity billable. The form names this consequence before submission.
+func (s *Server) handleInvoiceAssignActivity(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	activityID, errA := strconv.ParseInt(r.PostForm.Get("activity_id"), 10, 64)
+	projectID, errP := strconv.ParseInt(r.PostForm.Get("project_id"), 10, 64)
+	if errA != nil || errP != nil || activityID <= 0 || projectID <= 0 || r.PostForm.Get("confirm_history") != "1" {
+		http.Error(w, i18n.T(resolveLang(r), "inv.assignInvalid"), http.StatusBadRequest)
+		return
+	}
+	if err := s.db.AssignUnassignedActivityForBilling(r.Context(), teamID(r), activityID, projectID); err != nil {
+		http.Redirect(w, r, "/invoices?flash="+url.QueryEscape(encodeFlash(false, i18n.T(resolveLang(r), "inv.assignFailed"))), http.StatusSeeOther)
+		return
+	}
+	s.audit(r, "activity.project", strconv.FormatInt(activityID, 10), strconv.FormatInt(projectID, 10))
+	http.Redirect(w, r, "/invoices?project="+strconv.FormatInt(projectID, 10)+"&flash="+url.QueryEscape(encodeFlash(true, i18n.T(resolveLang(r), "inv.assignDone"))), http.StatusSeeOther)
+}
 
 // handleInvoiceCreate generates a draft from tracked time.
 func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
