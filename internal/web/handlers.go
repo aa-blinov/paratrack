@@ -616,20 +616,86 @@ func filterByTag(rows []sessionView, tagName string) []sessionView {
 
 func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 	period := s.parsePeriod(r)
+	ctx := r.Context()
+	personFilter, _ := strconv.ParseInt(r.URL.Query().Get("person"), 10, 64)
+	personName := ""
+	if canManage(r) && personFilter > 0 {
+		if members, err := s.teams.Members(ctx, teamID(r)); err == nil {
+			for _, m := range members {
+				if m.UserID == personFilter {
+					personName = m.Name
+					if personName == "" {
+						personName = m.Email
+					}
+					ctx = dbpkg.WithScope(ctx, personFilter)
+					break
+				}
+			}
+		}
+	}
+	if personName == "" {
+		personFilter = 0
+	}
 
-	sessions, err := s.db.ListClosedSessionsInRange(r.Context(), teamID(r), period.Start, period.End, nil)
+	projectFilter := strings.TrimSpace(r.URL.Query().Get("project"))
+	projectName := ""
+	var projectID int64
+	if projectFilter != "" {
+		if proj, err := s.db.GetProjectBySlug(ctx, teamID(r), projectFilter); err == nil {
+			projectID, projectName = proj.ID, proj.Name
+		} else {
+			projectFilter = ""
+		}
+	}
+	tagFilter := strings.TrimSpace(r.URL.Query().Get("tag"))
+	sessions, err := s.db.ListClosedSessionsInRange(ctx, teamID(r), period.Start, period.End, nil)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+	if projectID > 0 || tagFilter != "" {
+		ids := make([]int64, 0, len(sessions))
+		for _, as := range sessions {
+			if projectID == 0 || as.Activity.ProjectID == projectID {
+				ids = append(ids, as.Session.ID)
+			}
+		}
+		var tagsBySession map[int64][]model.Tag
+		if tagFilter != "" {
+			tagsBySession, err = s.db.TagsForSessions(ctx, ids)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+		}
+		filtered := make([]model.ActiveSession, 0, len(ids))
+		for _, as := range sessions {
+			if projectID > 0 && as.Activity.ProjectID != projectID {
+				continue
+			}
+			if tagFilter != "" {
+				found := false
+				for _, tag := range tagsBySession[as.Session.ID] {
+					if tag.Name == tagFilter {
+						found = true
+						break
+					}
+				}
+				if !found {
+					continue
+				}
+			}
+			filtered = append(filtered, as)
+		}
+		sessions = filtered
+	}
 	chart := buildChartData(sessions, period, resolveLang(r))
-
 	chartJSON, _ := json.Marshal(chart)
 	s.render(w, r, "graph-content", &graphData{
-		pageData:  pageData{Title: "Graph", Active: "graph"},
-		Period:    period,
-		Chart:     chart,
-		ChartJSON: string(chartJSON),
+		pageData: pageData{Title: "Graph", Active: "graph"},
+		Period:   period, Chart: chart, ChartJSON: string(chartJSON),
+		ProjectFilter: projectFilter, ProjectName: projectName,
+		TagFilter: tagFilter, PersonFilter: personFilter, PersonName: personName,
 	})
 }
 
@@ -665,6 +731,12 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 				if errors.Is(err, errRebind) {
 					s.toast(w, i18n.T(resolveLang(r), "act.rebindForbidden"), "error")
 					http.Error(w, i18n.T(resolveLang(r), "act.rebindForbidden"), http.StatusForbidden)
+					return
+				}
+				if errors.Is(err, dbpkg.ErrAlreadyBilled) {
+					msg := i18n.T(resolveLang(r), "inv.activityProjectLocked")
+					s.toast(w, msg, "error")
+					http.Error(w, msg, http.StatusConflict)
 					return
 				}
 				http.Error(w, "project: "+err.Error(), 400)

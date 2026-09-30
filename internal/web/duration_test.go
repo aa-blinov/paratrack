@@ -69,13 +69,31 @@ func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	end := start
 	sessions := []model.ActiveSession{{
-		Session: model.Session{StartAt: start, EndAt: &end, AccumulatedSeconds: 600},
+		Session:  model.Session{StartAt: start, EndAt: &end, AccumulatedSeconds: 600},
 		Activity: model.Activity{Name: "imported"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: start.Add(time.Hour), Label: "today"}
 	chart := buildChartData(sessions, period, i18n.En)
 	if !chart.HasData || chart.Series[0].Data[start.Hour()] == 0 {
 		t.Fatalf("collapsed interval hid tracked time: %+v", chart)
+	}
+}
+
+func TestChartUsesTrackedTimeAndLocalHourBuckets(t *testing.T) {
+	loc := time.FixedZone("IST", 5*3600+30*60)
+	start := time.Date(2026, 9, 22, 10, 30, 0, 0, loc)
+	end := start.Add(2 * time.Hour)
+	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
+	chart := buildChartData([]model.ActiveSession{{
+		Session:  model.Session{StartAt: start.UTC(), EndAt: &end, AccumulatedSeconds: 3600},
+		Activity: model.Activity{Name: "paused-work"},
+	}}, period, i18n.En)
+	if chart.TotalLabel != "1h" || !chart.HasData {
+		t.Fatalf("chart counts wall time instead of tracked time: %+v", chart)
+	}
+	series := chart.Series[0].Data
+	if series[10] != 15 || series[11] != 30 || series[12] != 15 {
+		t.Fatalf("local-hour distribution of 1 tracked hour: 10=%d 11=%d 12=%d", series[10], series[11], series[12])
 	}
 }
 

@@ -243,6 +243,7 @@ func (s *Server) routes() http.Handler {
 	pages.HandleFunc("POST /projects/{slug}/rate", s.manage(s.handleProjectRate))
 	pages.HandleFunc("GET /invoices",             s.module("invoices", s.manage(s.handleInvoices)))
 	pages.HandleFunc("POST /invoices",            s.module("invoices", s.manage(s.handleInvoiceCreate)))
+	pages.HandleFunc("POST /invoices/assign",     s.module("invoices", s.manage(s.handleInvoiceAssignActivity)))
 	pages.HandleFunc("GET /invoices/{id}",        s.module("invoices", s.manage(s.handleInvoiceDetail)))
 	pages.HandleFunc("POST /invoices/{id}/status", s.module("invoices", s.manage(s.handleInvoiceStatus)))
 	pages.HandleFunc("POST /invoices/{id}/delete", s.module("invoices", s.manage(s.handleInvoiceDelete)))

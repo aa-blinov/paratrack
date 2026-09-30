@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/auth"
+	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -176,6 +177,8 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 				msg := "project: " + err.Error()
 				if errors.Is(err, errRebind) {
 					msg = i18n.T(resolveLang(r), "act.rebindForbidden")
+				} else if errors.Is(err, db.ErrAlreadyBilled) {
+					msg = i18n.T(resolveLang(r), "inv.activityProjectLocked")
 				}
 				s.backfillError(w, r, "form", msg)
 				return

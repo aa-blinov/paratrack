@@ -3,7 +3,8 @@
   {{range $.AllTagNames}}<option value="{{.}}">{{end}}
 </datalist>
 <h1 class="mb-1">{{.T "stats.title"}}</h1>
-<p class="text-sm opacity-70 mb-4">{{.T "stats.blurb"}}</p>
+<p class="text-sm opacity-70 mb-2">{{.T "stats.blurb"}}</p>
+{{if .On "graph"}}<a class="link link-hover text-sm inline-block mb-4" href="/graph?period={{.Period.Label}}{{if eq .Period.Label "custom"}}&start={{urlquery (.Period.Start.Format "2006-01-02T15:04")}}&end={{urlquery (.Period.End.Format "2006-01-02T15:04")}}{{end}}{{if .ProjectFilter}}&project={{urlquery .ProjectFilter}}{{end}}{{if .TagFilter}}&tag={{urlquery .TagFilter}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}">{{if or .ProjectFilter .TagFilter .PersonFilter}}{{.T "stats.viewGraph"}}{{else}}{{.T "stats.viewGraphAll"}}{{end}} →</a>{{end}}
 
 <div class="period-tabs mb-4">
   {{$cur := .Period.Label}}

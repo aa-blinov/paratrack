@@ -15,19 +15,19 @@ import (
 // are activities. This gives an "average hour-of-day" view that works
 // for periods of any length without per-day faceting.
 type ChartData struct {
-	HasData    bool                `json:"hasData"`
-	Hours      []string            `json:"hours"`      // 0..23 as zero-padded strings
-	Series     []chartSeries       `json:"series"`     // one per activity
-	TotalLabel string              `json:"totalLabel"` // "1d 04h 30m"
-	Legend     []chartLegendEntry  `json:"legend"`
-	Period     string              `json:"period"`
+	HasData    bool               `json:"hasData"`
+	Hours      []string           `json:"hours"`      // 0..23 as zero-padded strings
+	Series     []chartSeries      `json:"series"`     // one per activity
+	TotalLabel string             `json:"totalLabel"` // "1d 04h 30m"
+	Legend     []chartLegendEntry `json:"legend"`
+	Period     string             `json:"period"`
 }
 
 type chartSeries struct {
-	Name   string `json:"name"`
-	Color  string `json:"color"`
-	Data   []int  `json:"data"` // minutes per hour, length 24
-	Total  int    `json:"total"`
+	Name  string `json:"name"`
+	Color string `json:"color"`
+	Data  []int  `json:"data"` // minutes per hour, length 24
+	Total int    `json:"total"`
 }
 
 type chartLegendEntry struct {
@@ -49,12 +49,14 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 		out.Hours[h] = fmtHourLabel(h)
 	}
 
-	// bucket[activityName] -> 24-element minutes array
+	// Distribute tracked (non-paused) time over the visible wall interval.
+	// Buckets display whole minutes, but the total keeps exact seconds.
 	type activityBuckets struct {
 		minutes [24]int
 		total   int
 	}
 	buckets := map[string]*activityBuckets{}
+	totalSeconds := 0
 	for _, as := range sessions {
 		if as.Session.EndAt == nil {
 			continue
@@ -64,46 +66,50 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 		if e.Before(period.Start) || s.After(period.End) {
 			continue
 		}
-		// Clip to the period window so a 3-day session in "today" period
-		// doesn't leak time outside the visible range.
 		if s.Before(period.Start) {
 			s = period.Start
 		}
 		if e.After(period.End) {
 			e = period.End
 		}
-		b, ok := buckets[as.Activity.Name]
-		if !ok {
+		tracked := as.Session.TrackedSecondsInWindow(period.Start, period.End, time.Now())
+		if !e.After(s) {
+			// A hand-edited/imported session may have a zero wall-clock span.
+			tracked = as.Session.DurationSeconds(time.Now())
+		}
+		if tracked <= 0 {
+			continue
+		}
+		totalSeconds += tracked
+		b := buckets[as.Activity.Name]
+		if b == nil {
 			b = &activityBuckets{}
 			buckets[as.Activity.Name] = b
 		}
-		// Walk hour-by-hour along [s, e].
-		cur := s
-		for cur.Before(e) {
-			nextHour := cur.Truncate(time.Hour).Add(time.Hour)
-			endOfSegment := e
-			if nextHour.Before(endOfSegment) {
-				endOfSegment = nextHour
-			}
-			mins := int(endOfSegment.Sub(cur).Minutes())
-			if mins > 0 {
-				h := cur.Hour()
-				b.minutes[h] += mins
-				b.total += mins
-			}
-			cur = nextHour
+		minutes := max(1, (tracked+30)/60) // chart resolution: nearest minute
+		b.total += minutes
+		// The chart is explicitly about the user's hours, not UTC hours.
+		s, e = s.In(period.Start.Location()), e.In(period.Start.Location())
+		if !e.After(s) {
+			b.minutes[s.Hour()] += minutes
+			continue
 		}
-		// A hand-edited or imported row can carry tracked seconds while its
-		// wall-clock interval collapses to zero (for example after rounding
-		// timestamps). Keep that time visible instead of rendering a named
-		// activity with an entirely empty chart.
-		if b.total == 0 {
-			tracked := as.Session.DurationSeconds(time.Now())
-			if tracked > 0 {
-				mins := (tracked + 59) / 60
-				b.minutes[s.Hour()] += mins
-				b.total += mins
+		span := e.Sub(s)
+		cur, assigned := s, 0
+		for cur.Before(e) {
+			end := time.Date(cur.Year(), cur.Month(), cur.Day(), cur.Hour()+1, 0, 0, 0, cur.Location())
+			if !end.After(cur) { // daylight-saving fall-back hour
+				end = cur.Add(time.Hour)
 			}
+			if end.After(e) {
+				end = e
+			}
+			// Cumulative rounding guarantees every session contributes exactly
+			// its tracked minutes across the 24 buckets.
+			allocated := int(float64(minutes)*float64(end.Sub(s))/float64(span) + 0.5)
+			b.minutes[cur.Hour()] += allocated - assigned
+			assigned = allocated
+			cur = end
 		}
 	}
 
@@ -120,14 +126,15 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 	for name, b := range buckets {
 		rows = append(rows, row{name, b.total})
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].total > rows[j].total })
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].total == rows[j].total {
+			return rows[i].name < rows[j].name
+		}
+		return rows[i].total > rows[j].total
+	})
 
-	totalAll := 0
-	for _, b := range buckets {
-		totalAll += b.total
-	}
-	// buckets accumulate MINUTES; fmtDuration takes seconds.
-	out.TotalLabel = fmtDurL(lang, totalAll * 60)
+	// The displayed total uses tracked seconds, not rounded bar heights.
+	out.TotalLabel = fmtDurL(lang, totalSeconds)
 
 	for _, r := range rows {
 		b := buckets[r.name]
