@@ -553,6 +553,18 @@ def main() -> int:
             f"contains_project={proj_name in filtered_body}",
         )
 
+        graph_link = page.locator('main a[href^="/graph?period="]').first
+        check("stats links to a graph with its project filter",
+              graph_link.count() == 1 and f"project={proj_slug}" in graph_link.get_attribute('href'))
+        graph_link.click()
+        page.wait_for_selector('#echart-canvas canvas')
+        check("graph scope reflects filtered stats",
+              page.locator('.legend-chip').filter(has_text=activity_name).count() == 1
+              and page.locator('.legend-chip').filter(has_text='writing').count() == 0
+              and f'project={proj_slug}' in page.url)
+        week_link = page.locator('.period-tabs a[href^="?period=week"]').first
+        check("graph period change keeps project scope", f'project={proj_slug}' in week_link.get_attribute('href'))
+        page.goto(BASE + f"/stats?project={proj_slug}")
         shot(page, "11-projects-detail")
 
         # ------------------------------------------------------------------ 8
@@ -836,6 +848,12 @@ def main() -> int:
               and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/settings/sections")
         page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]) button').click()
+        page.goto(BASE + "/reports")
+        check("report action says it opens a read-only result",
+              page.locator('form[action="/reports/run"] button:has-text("View report")').count() == 5)
+        page.locator('form[action="/reports/run"] button:has-text("View report")').first.click()
+        check("report preview opens without creating a document",
+              '/reports/run?' in page.url and page.locator('table.report-table').count() == 1)
         for width in (320, 390):
             page.set_viewport_size({"width": width, "height": 844})
             for report_id in ("by-project", "by-day", "billable", "utilization"):

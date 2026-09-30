@@ -3,15 +3,27 @@
 <h1 class="mb-1">{{.T "graph.title"}}</h1>
 <p class="text-sm opacity-70 mb-4">{{.T "graph.pageBlurb"}}</p>
 
+{{$project := urlquery .ProjectFilter}}
+{{$tag := urlquery .TagFilter}}
 <div class="period-tabs mb-4">
   {{$cur := .Period.Label}}
-  <a href="?period=today"      class="{{if eq $cur "today"}}active{{end}}">{{.T "dash.today"}}</a>
-  <a href="?period=yesterday"  class="{{if eq $cur "yesterday"}}active{{end}}">{{.T "stats.yesterday"}}</a>
-  <a href="?period=week"       class="{{if eq $cur "week"}}active{{end}}">{{.T "stats.week"}}</a>
-  <a href="?period=last_week"  class="{{if eq $cur "last_week"}}active{{end}}">{{.T "stats.lastWeek"}}</a>
-  <a href="?period=month"      class="{{if eq $cur "month"}}active{{end}}">{{.T "stats.month"}}</a>
-  <a href="?period=last_month" class="{{if eq $cur "last_month"}}active{{end}}">{{.T "stats.lastMonth"}}</a>
+  <a href="?period=today{{if .ProjectFilter}}&project={{$project}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"      class="{{if eq $cur "today"}}active{{end}}">{{.T "dash.today"}}</a>
+  <a href="?period=yesterday{{if .ProjectFilter}}&project={{$project}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"  class="{{if eq $cur "yesterday"}}active{{end}}">{{.T "stats.yesterday"}}</a>
+  <a href="?period=week{{if .ProjectFilter}}&project={{$project}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"       class="{{if eq $cur "week"}}active{{end}}">{{.T "stats.week"}}</a>
+  <a href="?period=last_week{{if .ProjectFilter}}&project={{$project}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"  class="{{if eq $cur "last_week"}}active{{end}}">{{.T "stats.lastWeek"}}</a>
+  <a href="?period=month{{if .ProjectFilter}}&project={{$project}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}"      class="{{if eq $cur "month"}}active{{end}}">{{.T "stats.month"}}</a>
+  <a href="?period=last_month{{if .ProjectFilter}}&project={{$project}}{{end}}{{if .TagFilter}}&tag={{$tag}}{{end}}{{if .PersonFilter}}&person={{.PersonFilter}}{{end}}" class="{{if eq $cur "last_month"}}active{{end}}">{{.T "stats.lastMonth"}}</a>
 </div>
+
+{{if or .ProjectFilter .TagFilter .PersonFilter}}
+<div role="status" class="rounded-box border border-base-300 bg-base-100 p-3 mb-4 flex items-center gap-3 flex-wrap text-sm">
+  <span class="doc-muted">{{.T "graph.scope"}}</span>
+  {{if .ProjectFilter}}<strong>{{.ProjectName}}</strong>{{end}}
+  {{if .TagFilter}}<strong>#{{.TagFilter}}</strong>{{end}}
+  {{if .PersonFilter}}<strong>{{.PersonName}}</strong>{{end}}
+  <a href="?period={{.Period.Label}}{{if eq .Period.Label "custom"}}&start={{urlquery (.Period.Start.Format "2006-01-02T15:04")}}&end={{urlquery (.Period.End.Format "2006-01-02T15:04")}}{{end}}" class="btn btn-ghost btn-sm ml-auto">{{.T "stats.clearFilters"}}</a>
+</div>
+{{end}}
 
 <script>
   // ECharts imperative init — runs after Alpine has mounted so the
@@ -57,8 +69,13 @@
     {{if not .Chart.HasData}}
     <div class="text-center py-8">
       <div class="font-medium">{{.T "graph.noData"}}</div>
-      <div class="text-sm opacity-60 mt-1">{{.T "graph.noDataHint"}}</div>
+      {{if or .ProjectFilter .TagFilter .PersonFilter}}
+      <div class="text-sm doc-muted mt-1">{{.T "graph.noDataFiltered"}}</div>
+      <a href="?period={{.Period.Label}}{{if eq .Period.Label "custom"}}&start={{urlquery (.Period.Start.Format "2006-01-02T15:04")}}&end={{urlquery (.Period.End.Format "2006-01-02T15:04")}}{{end}}" class="btn btn-ghost btn-sm mt-3">{{.T "stats.clearFilters"}}</a>
+      {{else}}
+      <div class="text-sm doc-muted mt-1">{{.T "graph.noDataHint"}}</div>
       <a href="/" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "play" "icon icon-sm"}}{{.T "graph.noDataCta"}}</a>
+      {{end}}
     </div>
     {{end}}
   </div>
