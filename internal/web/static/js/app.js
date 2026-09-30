@@ -161,7 +161,15 @@ document.addEventListener('alpine:init', () => {
     let data;
     try { data = JSON.parse(raw); } catch (_) { return; }
     if (!data.hasData || typeof echarts === 'undefined') return;
+    // Both the script onload and Alpine's cached-script fallback may call us.
+    // One chart means one set of listeners and one source of legend state.
+    if (canvas.dataset.echartsInitialized === 'true') return;
+    canvas.dataset.echartsInitialized = 'true';
 
+    const hiddenSeries = new Set();
+    const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    })[char]);
     const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
     let chart;
     const build = () => {
@@ -181,11 +189,13 @@ document.addEventListener('alpine:init', () => {
           textStyle: { color: cssVar('--color-base-content') || '#1a1d23', fontSize: 12 },
           formatter: function (ps) {
             if (!ps || !ps.length) return '';
-            const rows = ps.filter(p => p.value > 0).map(p =>
-              '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + p.color + ';margin-right:6px"></span>' +
-              p.seriesName + ': <b>' + p.value + U()[1] + '</b>');
+            const rows = ps.filter(p => p.value > 0).map(p => {
+              const color = typeof p.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(p.color) ? p.color : 'currentColor';
+              return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + color + ';margin-right:6px"></span>' +
+                escapeHTML(p.seriesName) + ': <b>' + p.value + U()[1] + '</b>';
+            });
             const total = ps.reduce((a, p) => a + (p.value || 0), 0);
-            return '<div style="font-weight:600;margin-bottom:4px">' + ps[0].axisValue + ':00</div>' +
+            return '<div style="font-weight:600;margin-bottom:4px">' + escapeHTML(ps[0].axisValue) + ':00</div>' +
               (rows.length ? rows.join('<br/>') : '<span style="opacity:.6">0m</span>') +
               '<div style="margin-top:6px;opacity:.65">Σ ' + total + 'm</div>';
           }
@@ -210,7 +220,10 @@ document.addEventListener('alpine:init', () => {
             color: cssVar('--muted') || '#6b7280',
             fontSize: 11,
             formatter: function (v) {
-              if (v >= 60) return Math.floor(v / 60) + U()[0];
+              if (v >= 60) {
+                const hours = Math.floor(v / 60), minutes = Math.round(v % 60);
+                return hours + U()[0] + (minutes ? ' ' + minutes + U()[1] : '');
+              }
               // Sub-minute: data is in minutes, so v*60 = seconds. Show
               // "Xs" so the chart axis matches the column-header units
               // on /stats (Xh YYm / Xm) for any non-zero value.
@@ -220,11 +233,11 @@ document.addEventListener('alpine:init', () => {
           },
           splitLine: { lineStyle: { color: cssVar('--color-base-300') || '#e5e7eb', type: 'dashed' } },
         },
-        series: data.series.map((s) => ({
+        series: data.series.map((s, index) => ({
           name: s.name,
           type: 'bar',
           stack: 'hour',
-          data: s.data,
+          data: hiddenSeries.has(index) ? s.data.map(() => 0) : s.data,
           itemStyle: { color: s.color, borderRadius: [4, 4, 0, 0], borderColor: cssVar('--color-base-100') || '#fff', borderWidth: 0.5 },
           barMaxWidth: 22,
           barCategoryGap: '28%',
@@ -256,23 +269,17 @@ document.addEventListener('alpine:init', () => {
         const idx = parseInt(chip.dataset.seriesIndex, 10);
         const i = echarts.getInstanceByDom(canvas);
         if (!i) return;
-        const opt = i.getOption();
-        const isHidden = (opt.series[idx] && opt.series[idx].itemStyle && opt.series[idx].itemStyle.opacity === 0);
+        if (hiddenSeries.has(idx)) hiddenSeries.delete(idx);
+        else hiddenSeries.add(idx);
+        // Zero hidden data so the remaining series really restack and the
+        // tooltip no longer counts an invisible activity.
         i.setOption({
-          series: data.series.map((s, j) => j === idx ? {
+          series: data.series.map((s, j) => ({
             ...s,
-            itemStyle: { ...(s.itemStyle || {}), color: s.color, opacity: isHidden ? 1 : 0 },
-          } : s),
+            data: hiddenSeries.has(j) ? s.data.map(() => 0) : s.data,
+          })),
         });
-        chip.setAttribute('aria-pressed', isHidden ? 'false' : 'true');
-      });
-      // Keyboard activation (Enter / Space) for accessibility.
-      chipsHost.addEventListener('keydown', (e) => {
-        if (e.key !== 'Enter' && e.key !== ' ') return;
-        const chip = e.target.closest('.legend-chip');
-        if (!chip) return;
-        e.preventDefault();
-        chip.click();
+        chip.setAttribute('aria-pressed', hiddenSeries.has(idx) ? 'false' : 'true');
       });
     }
   };

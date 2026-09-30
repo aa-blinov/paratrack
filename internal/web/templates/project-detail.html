@@ -117,7 +117,7 @@
             </div>
             <label class="label cursor-pointer justify-start items-start gap-2 py-1 w-full whitespace-normal">
               <input type="checkbox" name="archived" value="1" class="checkbox checkbox-xs" {{if .Archived}}checked{{end}}>
-              <span class="label-text text-sm">{{.T "projects.archivedLabel"}} <span class="opacity-60">({{.T "projects.archivedHint"}})</span></span>
+              <span class="label-text text-sm">{{.T "projects.archivedLabel"}} <span class="doc-muted font-normal">({{.T "projects.archivedHint"}})</span></span>
             </label>
             <div class="w-full">
               <label for="project-estimate" class="label-text text-sm">{{.T "projects.estimate"}}</label>
