@@ -895,6 +895,8 @@ function backfillAfterRequest(form, event) {
   });
   const sel = document.getElementById('project_id');
   const label = document.querySelector('[data-project-label]');
+  const activity = document.getElementById('activity');
+  const rebindHint = document.getElementById('ledger-project-rebind');
   // The last chosen project sticks: a freelancer starting one client task
   // after another should not fall back to unbilled «Без проекта».
   const KEY = 'paratrack-last-project';
@@ -906,7 +908,13 @@ function backfillAfterRequest(form, event) {
   };
   const sync = () => {
     if (sel && label) label.textContent = sel.options[sel.selectedIndex].text;
+    if (sel && activity && rebindHint) {
+      const known = [...document.querySelectorAll('#known-activities option')]
+        .find((o) => o.value === activity.value.trim());
+      rebindHint.hidden = !known || (known.dataset.project || '0') === (sel.value || '0');
+    }
   };
+  activity?.addEventListener('input', sync);
   if (sel) {
     sel.addEventListener('change', () => {
       try { localStorage.setItem(KEY, sel.value); } catch (_) {}

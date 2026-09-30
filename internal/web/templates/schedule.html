@@ -5,12 +5,12 @@
       <h1 class="mb-1">{{.T "sch.title"}}</h1>
       <p class="opacity-70 text-sm">{{.T "sch.blurb"}}</p>
     </div>
-    <div class="week-nav">
+    {{if .Projects}}<div class="week-nav">
       <a href="/schedule?date={{.PrevWeek}}&project={{.ProjectID}}" class="btn btn-ghost btn-sm" aria-label="{{.T "sch.prev"}}">←</a>
       <span class="week-nav-label font-mono text-sm">{{.WeekLabel}}</span>
       <a href="/schedule?date={{.NextWeek}}&project={{.ProjectID}}" class="btn btn-ghost btn-sm" aria-label="{{.T "sch.next"}}">→</a>
       <a href="/schedule?project={{.ProjectID}}" class="btn btn-ghost btn-sm">{{.T "ts.thisWeek"}}</a>
-    </div>
+    </div>{{end}}
   </header>
 
   {{if .Projects}}
@@ -22,6 +22,9 @@
     </select>
     <span class="text-xs doc-muted">{{.T "sch.planningHint"}}</span>
   </form>
+
+  {{if and .CanManage (eq (len .Rows) 1)}}
+  <p class="text-sm text-base-content/70">{{.T "sch.onlyOwner"}} <a href="/settings/invites" class="link font-medium text-base-content">{{.T "sch.inviteTeam"}}</a></p>
   {{end}}
 
   <div class="card bg-base-100 border border-base-300 overflow-x-auto">
@@ -44,19 +47,24 @@
           {{range .RowVMs}}
           {{template "schedule-row" .}}
           {{end}}
-          {{if not .Projects}}
-          <tr><td colspan="9" class="text-center py-8">
-            <div class="font-medium">{{.T "sch.empty"}}</div>
-            <div class="text-sm opacity-60 mt-1">{{.T "sch.emptyHint"}}</div>
-            <a href="/projects/new" class="btn btn-neutral btn-sm gap-1.5 mt-3">{{icon "plus" "icon icon-sm"}}{{.T "sch.emptyCta"}}</a>
-          </td></tr>
-          {{end}}
         </tbody>
       </table>
     </div>
   </div>
-
   <p class="text-sm opacity-60">{{.T "sch.hint"}}</p>
+  {{else}}
+  <section class="card bg-base-100 border border-base-300">
+    <div class="card-body p-5">
+      <h2 class="card-title">{{.T "sch.empty"}}</h2>
+      <p class="text-sm opacity-70">{{.T "sch.emptyHint"}}</p>
+      {{if .CanManage}}
+      <a href="/projects/new" class="btn btn-neutral btn-sm gap-1.5 self-start mt-2">{{icon "plus" "icon icon-sm"}}{{.T "sch.emptyCta"}}</a>
+      {{else}}
+      <p class="text-sm opacity-70">{{.T "sch.emptyMember"}}</p>
+      {{end}}
+    </div>
+  </section>
+  {{end}}
 </div>
 {{end}}
 
