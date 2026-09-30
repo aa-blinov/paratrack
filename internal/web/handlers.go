@@ -350,6 +350,16 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
+		// A project page can hand the user straight to the timer with that
+		// project selected. Never accept a project outside this workspace.
+		if requested, err := strconv.ParseInt(r.URL.Query().Get("project"), 10, 64); err == nil && requested > 0 {
+			for _, p := range projects {
+				if p.ID == requested {
+					d.DefaultProject = requested
+					break
+				}
+			}
+		}
 		d.ActiveVM.Projects = projects
 	}
 	// First run: the account is new until it has any session at all.

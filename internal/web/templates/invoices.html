@@ -16,7 +16,8 @@
         <div class="text-sm">{{.T "inv.noRateHint"}}</div>
       </div>
     </div>
-    <a href="/projects" class="btn btn-sm ml-auto shrink-0">{{.T "inv.noRateCta"}}</a>
+    {{if .Projects}}<a href="/projects" class="btn btn-sm ml-auto shrink-0">{{.T "inv.noRateCta"}}</a>
+    {{else}}<a href="/projects/new" class="btn btn-sm ml-auto shrink-0">{{.T "inv.createProject"}}</a>{{end}}
   </div>
   {{end}}
 
