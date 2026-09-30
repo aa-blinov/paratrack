@@ -445,8 +445,19 @@ def main() -> int:
         # A unique activity per run keeps repeated local E2E runs from
         # inheriting a project assignment from an earlier run.
         activity_name = f"deep-work-{proj_slug}"
-        page.goto(BASE + "/")
+        page.locator('main a[href^="/?project="]').first.click()
+        page.wait_for_url("**/?project=*")
+        selected_id = page.url.split('project=')[-1]
+        check("project page opens live and past time with its project selected",
+              page.locator('#project_id').input_value() == selected_id
+              and page.locator('#b-project').input_value() == selected_id)
+        unassigned = page.locator('#known-activities option[data-project="0"]').first.get_attribute('value')
+        page.fill('#activity', unassigned)
+        check("reusing an activity explains that its history moves",
+              page.locator('#ledger-project-rebind').is_visible())
         page.fill('#activity', activity_name)
+        check("new activities do not show the history warning",
+              not page.locator('#ledger-project-rebind').is_visible())
         page.select_option('#project_id', label=proj_name)
         with page.expect_response("**/api/start") as start_resp_info:
             page.click('button[type="submit"]:has-text("Start")')
@@ -1044,6 +1055,17 @@ def main() -> int:
         check("p pauses timers from stats without leaving the page",
               pause.value.status == 200 and page.url.endswith('/stats')
               and 'e2e-pause-shortcut' in page.request.get(BASE + '/api/active').text())
+
+        # A rejected start must not discard what the person typed.
+        page.goto(BASE + "/")
+        page.route('**/api/start', lambda route: route.fulfill(status=400, body='Rejected start'))
+        page.fill('#activity', 'keep-my-entry-on-error')
+        with page.expect_response('**/api/start') as rejected_start:
+            page.locator('#activity').press('Enter')
+        page.wait_for_timeout(250)
+        check("rejected timer start preserves the activity name",
+              rejected_start.value.status == 400 and page.locator('#activity').input_value() == 'keep-my-entry-on-error')
+        page.unroute('**/api/start')
 
         # Browser placeholder colors are computed from the actual theme, not
         # inferred from design tokens (axe does not check placeholder text).

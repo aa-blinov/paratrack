@@ -11,6 +11,69 @@ import (
 	"github.com/aa-blinov/paratrack/internal/db"
 )
 
+func TestNewProjectLeadsToTimeTrackingWithProjectSelected(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("project-next-step@x.test")
+	created := e.do("POST", "/projects/new", url.Values{"name": {"Client work"}, "rate": {"1500"}}, nil)
+	projectURL := created.Header.Get("Location")
+	created.Body.Close()
+	if !strings.HasPrefix(projectURL, "/projects/") {
+		t.Fatalf("project creation did not open its detail: %q", projectURL)
+	}
+	page := readBody(t, e.do("GET", projectURL, nil, nil))
+	if !strings.Contains(page, `href="/?project=1"`) {
+		t.Fatal("new project detail has no direct path to start tracking for this project")
+	}
+	start := readBody(t, e.do("GET", "/?project=1", nil, nil))
+	backfill := strings.Index(start, `id="b-project"`)
+	if !strings.Contains(start, `id="project_id"`) || !strings.Contains(start, `data-default="1"`) || backfill < 0 ||
+		!strings.Contains(strings.SplitN(start[backfill:], "</select>", 2)[0], `<option value="1" selected>Client work</option>`) {
+		t.Fatal("project handoff did not preselect the project for live and past time")
+	}
+	other := newAPIEnvSharedDB(t, e)
+	other.register("project-other-team@x.test")
+	readBody(t, other.do("POST", "/projects/new", url.Values{"name": {"Private project"}}, nil))
+	unknown := readBody(t, e.do("GET", "/?project=2", nil, nil))
+	if strings.Contains(unknown, `data-default="2"`) {
+		t.Fatal("another workspace's project could be preselected")
+	}
+}
+
+func TestEmptyScheduleOffersProjectWithoutScrollingTheGrid(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("empty-plan@x.test")
+	page := readBody(t, e.do("GET", "/schedule", nil, nil))
+	if strings.Contains(page, `class="week-grid `) || !strings.Contains(page, `href="/projects/new"`) {
+		t.Fatal("empty schedule hides its next action inside a horizontally scrolled grid")
+	}
+	member := newAPIEnvSharedDB(t, e)
+	member.register("empty-plan-member@x.test")
+	joinStudio(t, e, map[string]*apiEnv{"empty-plan-member@x.test": member}, "empty-plan-member@x.test")
+	memberPage := readBody(t, member.do("GET", "/schedule", nil, nil))
+	if strings.Contains(memberPage, `href="/projects/new"`) || !strings.Contains(memberPage, "Попросите владельца") {
+		t.Fatal("member sees a project creation action they cannot use")
+	}
+}
+
+func TestScheduleWithOnlyOwnerLinksToInvitations(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("first-plan@x.test")
+	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Studio work"}}, nil))
+	page := readBody(t, e.do("GET", "/schedule", nil, nil))
+	if !strings.Contains(page, `class="week-grid `) || !strings.Contains(page, `href="/settings/invites"`) {
+		t.Fatal("first schedule has no direct next step for adding teammates")
+	}
+}
+
+func TestFirstInvoiceLinksStraightToCreateProject(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("first-bill@x.test")
+	page := readBody(t, e.do("GET", "/invoices", nil, nil))
+	if !strings.Contains(page, `href="/projects/new"`) {
+		t.Fatal("invoices without any projects add an unnecessary projects-list stop")
+	}
+}
+
 func TestGraphUsesStatsScopeAndPreservesItAcrossPeriods(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("graph-scope@x.test")

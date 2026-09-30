@@ -17,6 +17,7 @@
         <p class="opacity-70 text-sm mt-1 font-mono">{{.Project.Slug}}</p>
       </div>
     </div>
+    {{if not .Archived}}<a href="/?project={{.Project.ID}}" class="btn btn-neutral btn-sm gap-1.5">{{icon "play" "icon icon-sm"}}{{.T "projects.trackTime"}}</a>{{end}}
   </header>
 
   {{template "flash" .}}
