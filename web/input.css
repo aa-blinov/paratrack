@@ -698,6 +698,20 @@ td[data-label], .table td, .table th {
 /* fallback if the mode attribute is somehow missing */
 html:not([data-theme-mode]) .theme-icon-auto { display: inline-flex; }
 
+/* DaisyUI's badge height is fixed. A graph legend button must grow with
+   its user-written label rather than paint text outside its hit area. */
+#legend-chips { align-items: flex-start; }
+#legend-chips .legend-chip {
+  max-width: min(100%, 28rem); min-width: 0; height: auto; min-height: 2.5rem;
+  padding: .5rem .75rem; white-space: normal; text-align: start;
+  align-items: flex-start; cursor: pointer;
+}
+#legend-chips .legend-chip > [aria-hidden] { margin-top: .35rem; }
+#legend-chips .legend-name { min-width: 0; overflow-wrap: anywhere; }
+@media (pointer: coarse) {
+  #legend-chips .legend-chip { min-height: 48px; }
+}
+
 /* Names can be user-written, including long strings without spaces.
    Keep them inside their cell without stealing the figure columns. */
 .saved-report-name, .activity-name { min-width: 0; overflow-wrap: anywhere; }
