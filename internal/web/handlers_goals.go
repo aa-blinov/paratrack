@@ -16,20 +16,13 @@ import (
 // handleGoals serves the /goals management page.
 func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
-
-	acts, err := s.services.Goals.Activities(r.Context(), teamID(r))
+	snapshot, err := s.services.Goals.Management(r.Context(), appmodel.GoalManagementQuery{TeamID: teamID(r), Now: now})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
 
-	progress, err := s.services.Goals.Progress(r.Context(), teamID(r), now)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-
-	gv := toGoalViews(progress, resolveLang(r))
+	gv := toGoalViews(snapshot.Progress, resolveLang(r))
 	lang := string(resolveLang(r))
 	for i := range gv {
 		gv[i].Lang = lang
@@ -42,7 +35,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		GoalsVM    goalsListVM
 	}{
 		pageData:   pageData{Title: "Goals", Active: "goals", Lang: lang},
-		Activities: activityViews(acts, lang),
+		Activities: activityViews(snapshot.Activities, lang),
 		Goals:      gv,
 		GoalsVM:    goalsListVM{Lang: lang, Goals: gv},
 	}

@@ -6,10 +6,37 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 type progressReaderStub struct{ progress []model.GoalProgress }
+
+type managementActivityReader struct {
+	activities []model.Activity
+	teamID     int64
+	archived   bool
+}
+
+func (s *managementActivityReader) ListActivities(_ context.Context, teamID int64, archived bool) ([]model.Activity, error) {
+	s.teamID, s.archived = teamID, archived
+	return s.activities, nil
+}
+
+type managementProgressReader struct {
+	progress []model.GoalProgress
+	teamID   int64
+	now      time.Time
+}
+
+func (s *managementProgressReader) ListGoals(context.Context, int64, *int64) ([]model.Goal, error) {
+	return nil, nil
+}
+
+func (s *managementProgressReader) ProgressForGoals(_ context.Context, teamID int64, now time.Time) ([]model.GoalProgress, error) {
+	s.teamID, s.now = teamID, now
+	return s.progress, nil
+}
 
 func (s progressReaderStub) ListGoals(context.Context, int64, *int64) ([]model.Goal, error) {
 	return nil, nil
@@ -23,6 +50,26 @@ func TestProgressRequiresWorkspace(t *testing.T) {
 	service := &Service{}
 	if _, err := service.Progress(context.Background(), 0, time.Now()); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("Progress with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+func TestManagementAssemblesScopedActivityAndProgressSnapshot(t *testing.T) {
+	now := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC)
+	activity := model.Activity{ID: 7, TeamID: 3, Name: "Focus"}
+	goal := model.GoalProgress{ActivityName: "Focus", Goal: model.Goal{ActivityID: 7, Period: "daily"}}
+	activities := &managementActivityReader{activities: []model.Activity{activity}}
+	progress := &managementProgressReader{progress: []model.GoalProgress{goal}}
+	service := &Service{deps: Dependencies{Activities: activities, Goals: progress}}
+
+	snapshot, err := service.Management(context.Background(), appmodel.GoalManagementQuery{TeamID: 3, Now: now})
+	if err != nil {
+		t.Fatalf("Management: %v", err)
+	}
+	if len(snapshot.Activities) != 1 || snapshot.Activities[0] != activity || len(snapshot.Progress) != 1 || snapshot.Progress[0] != goal {
+		t.Fatalf("management snapshot = %+v", snapshot)
+	}
+	if activities.teamID != 3 || activities.archived || progress.teamID != 3 || !progress.now.Equal(now) {
+		t.Fatalf("read scope = activity(team=%d archived=%v), progress(team=%d now=%s)", activities.teamID, activities.archived, progress.teamID, progress.now)
 	}
 }
 

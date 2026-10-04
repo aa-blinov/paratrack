@@ -68,6 +68,26 @@ func (s *Service) Activities(ctx context.Context, teamID int64) ([]model.Activit
 	return activities, nil
 }
 
+// Management combines the activity catalog with current goal progress for
+// the team management page.
+func (s *Service) Management(ctx context.Context, query appmodel.GoalManagementQuery) (appmodel.GoalManagementSnapshot, error) {
+	if query.TeamID <= 0 {
+		return appmodel.GoalManagementSnapshot{}, ErrInvalidTeam
+	}
+	if query.Now.IsZero() {
+		return appmodel.GoalManagementSnapshot{}, ErrInvalidProgressQuery
+	}
+	activities, err := s.Activities(ctx, query.TeamID)
+	if err != nil {
+		return appmodel.GoalManagementSnapshot{}, err
+	}
+	progress, err := s.Progress(ctx, query.TeamID, query.Now)
+	if err != nil {
+		return appmodel.GoalManagementSnapshot{}, fmt.Errorf("load goal management progress: %w", err)
+	}
+	return appmodel.GoalManagementSnapshot{Activities: activities, Progress: progress}, nil
+}
+
 func (s *Service) List(ctx context.Context, teamID int64) ([]model.Goal, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
