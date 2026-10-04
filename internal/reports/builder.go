@@ -34,6 +34,7 @@ type ProjectReader interface {
 	List(context.Context, int64, bool) ([]model.Project, error)
 	GetBySlug(context.Context, int64, string) (model.Project, error)
 	Currencies(context.Context, int64) (map[int64]string, error)
+	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
 }
 
 type UserReader interface {
@@ -273,4 +274,60 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 		return AggregateResult{}, fmt.Errorf("aggregate report: %w", err)
 	}
 	return result, nil
+}
+
+// BuildExport loads, decorates and filters the closed session rows used by
+// CSV export. Project names are fetched in one scoped batch for all sessions.
+func (b *Builder) BuildExport(ctx context.Context, query appmodel.ExportBuildQuery) (appmodel.ExportSnapshot, error) {
+	if query.TeamID <= 0 || query.Start.IsZero() || !query.End.After(query.Start) || query.Now.IsZero() {
+		return appmodel.ExportSnapshot{}, ErrInvalidReportQuery
+	}
+	sessions, err := b.sessions.ClosedSessions(ctx, query.TeamID, query.Start, query.End, nil)
+	if err != nil {
+		return appmodel.ExportSnapshot{}, fmt.Errorf("load export sessions: %w", err)
+	}
+	visible := make([]model.ActiveSession, 0, len(sessions))
+	projectIDs := make([]int64, 0)
+	seenProjects := make(map[int64]struct{})
+	for _, session := range sessions {
+		if (query.HasFrom && session.Session.StartAt.Before(query.Start)) ||
+			(query.HasTo && !session.Session.StartAt.Before(query.End)) {
+			continue
+		}
+		visible = append(visible, session)
+		projectID := session.Activity.ProjectID
+		if projectID <= 0 {
+			continue
+		}
+		if _, seen := seenProjects[projectID]; seen {
+			continue
+		}
+		seenProjects[projectID] = struct{}{}
+		projectIDs = append(projectIDs, projectID)
+	}
+	projectNames := make(map[int64]model.ProjectSummary)
+	if len(projectIDs) > 0 {
+		projectNames, err = b.projects.Summaries(ctx, query.TeamID, projectIDs)
+		if err != nil {
+			return appmodel.ExportSnapshot{}, fmt.Errorf("load export project names: %w", err)
+		}
+	}
+	rows := make([]appmodel.ExportRow, 0, len(visible))
+	for _, session := range visible {
+		row := appmodel.ExportRow{
+			SessionID: session.Session.ID, ActivityName: session.Activity.Name,
+			ProjectName: projectNames[session.Activity.ProjectID].Name,
+			StartAt:     session.Session.StartAt,
+		}
+		if session.Session.EndAt != nil {
+			end := *session.Session.EndAt
+			row.EndAt = &end
+			row.DurationSeconds = session.Session.DurationSeconds(query.Now)
+		}
+		if session.Session.Note != nil {
+			row.Note = *session.Session.Note
+		}
+		rows = append(rows, row)
+	}
+	return appmodel.ExportSnapshot{Rows: rows}, nil
 }

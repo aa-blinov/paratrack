@@ -451,6 +451,9 @@ date parsing, labels, colors and HTML view-model construction.
 Active-session and closed-range reads, first-run checks, and scoped
 session/activity lookups also pass through tracking so timer, dashboard,
 statistics, graph, export and API handlers share one access boundary.
+The reports builder assembles export rows with scoped project names and applies
+the requested start-date filters; HTTP parses dates and serializes the rows as
+CSV.
 Paginated session history also lives there: page-size limits and canonical
 cursor validation are application rules, while HTTP only encodes the opaque
 cursor token and formats the response.

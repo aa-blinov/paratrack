@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
@@ -37,37 +38,12 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 		}
 		end, hasTo = day.AddDate(0, 0, 1), true
 	}
-	sessions, err := s.services.Tracking.Queries.ClosedSessions(r.Context(), teamID(r), start, end, nil)
+	snapshot, err := s.services.ReportBuilder.BuildExport(r.Context(), appmodel.ExportBuildQuery{
+		TeamID: teamID(r), Start: start, End: end, Now: userNow(r), HasFrom: hasFrom, HasTo: hasTo,
+	})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
-	}
-	// Look up project names in one IN-list query so the per-row join
-	// is O(1) instead of one extra round-trip per session.
-	projNameByID := map[int64]string{}
-	if len(sessions) > 0 {
-		seen := map[int64]struct{}{}
-		var pids []int64
-		for _, as := range sessions {
-			if as.Activity.ProjectID == 0 {
-				continue
-			}
-			if _, ok := seen[as.Activity.ProjectID]; ok {
-				continue
-			}
-			seen[as.Activity.ProjectID] = struct{}{}
-			pids = append(pids, as.Activity.ProjectID)
-		}
-		if len(pids) > 0 {
-			projects, err := s.services.Projects.Queries.Summaries(r.Context(), teamID(r), pids)
-			if err != nil {
-				s.writeInternalError(w, err)
-				return
-			}
-			for id, project := range projects {
-				projNameByID[id] = project.Name
-			}
-		}
 	}
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="paratrack.csv"`)
@@ -75,30 +51,19 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 	if err := csvWriter.Write([]string{"id", "activity", "project", "start", "end", "duration_seconds", "note"}); err != nil {
 		return
 	}
-	for _, as := range sessions {
-		if (hasFrom && as.Session.StartAt.Before(start)) || (hasTo && !as.Session.StartAt.Before(end)) {
-			continue
-		}
+	for _, row := range snapshot.Rows {
 		end := time.Time{}
-		if as.Session.EndAt != nil {
-			end = *as.Session.EndAt
+		if row.EndAt != nil {
+			end = *row.EndAt
 		}
 		dur := ""
-		if as.Session.EndAt != nil {
-			dur = strconv.Itoa(as.Session.DurationSeconds(userNow(r)))
-		}
-		note := ""
-		if as.Session.Note != nil {
-			note = *as.Session.Note
-		}
-		project := "" // "" = Uncategorized in the CSV
-		if name, ok := projNameByID[as.Activity.ProjectID]; ok {
-			project = name
+		if row.EndAt != nil {
+			dur = strconv.Itoa(row.DurationSeconds)
 		}
 		if err := csvWriter.Write([]string{
-			strconv.FormatInt(as.Session.ID, 10), as.Activity.Name, project,
-			as.Session.StartAt.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339),
-			dur, note,
+			strconv.FormatInt(row.SessionID, 10), row.ActivityName, row.ProjectName,
+			row.StartAt.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339),
+			dur, row.Note,
 		}); err != nil {
 			return
 		}
