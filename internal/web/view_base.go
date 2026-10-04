@@ -80,6 +80,7 @@ func projectViews(projects []model.Project) []projectView {
 type activityView struct {
 	ID        int64
 	Name      string
+	Color     string
 	ProjectID int64
 	Archived  bool
 	Lang      string
@@ -90,6 +91,7 @@ func activityViews(activities []model.Activity, lang string) []activityView {
 	for _, activity := range activities {
 		views = append(views, activityView{
 			ID: activity.ID, Name: activity.Name, ProjectID: activity.ProjectID,
+			Color:    colorFor(activity.Name),
 			Archived: activity.Archived, Lang: lang,
 		})
 	}

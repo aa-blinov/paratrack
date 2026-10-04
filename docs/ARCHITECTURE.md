@@ -3,20 +3,23 @@
 paratrack is a modular Go application shipped as one binary. It has two
 entrypoints into the same product: a command-line interface and an HTTP
 application. PostgreSQL is the durable store. The UI migration to React and
-shadcn is in progress: the dashboard and project list mount React screens on
-Go-rendered pages, and the remaining routes still use Go templates, HTMX and
-Alpine.js.
+shadcn is in progress: the dashboard, project list and project detail mount
+React screens on Go-rendered pages, and the remaining routes still use Go
+templates, HTMX and Alpine.js.
 
 `web/src/main.tsx` is the current React entrypoint. The dashboard loads data
 from the authenticated `GET /api/dashboard` endpoint; timer mutations reuse the
 existing form endpoints and refresh that snapshot. The project list receives
 its server-built view model as bootstrap data, and its existing links continue
-to drive archive filtering and project navigation. `web/src/components/ui`
-contains the shadcn-generated Radix primitives, styled to the existing Honest
-Ledger design. `make ui` builds both the legacy stylesheet and the React bundle
-into `internal/web/static`, which is embedded in the Go binary. Shared
-navigation, PWA/offline behavior and other screens still depend on the legacy
-browser stack until their React replacements are complete.
+to drive archive filtering and project navigation. The project detail uses the
+same view model, keeps its existing manager-only edit/delete endpoints and
+timer links, and loads its screen code as a separate bundle chunk.
+`web/src/components/ui` contains the shadcn-generated Radix primitives, styled
+to the existing Honest Ledger design. `make ui` builds both the legacy
+stylesheet and the React bundle into `internal/web/static`, which is embedded
+in the Go binary. Shared navigation, PWA/offline behavior and other screens
+still depend on the legacy browser stack until their React replacements are
+complete.
 
 `internal/web/static/js/app.js` is the browser entrypoint. Dedicated modules
 register the live timer/total and invoice-form Alpine components. A small

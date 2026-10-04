@@ -1,6 +1,7 @@
 export interface Activity {
   ID: number
   Name: string
+  Color: string
   ProjectID: number
   Archived: boolean
 }
@@ -11,6 +12,7 @@ export interface Project {
   Name: string
   Color: string
   Archived: boolean
+  Billable: boolean
 }
 
 export interface Tag {
@@ -113,7 +115,32 @@ export interface ProjectListData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData
+export interface ProjectDetailData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  Lang: string
+  Project: Project
+  Activities: Activity[]
+  Sessions: Session[]
+  Total: string
+  MonthTotal: string
+  Archived: boolean
+  EstimateLabel: string
+  EstimateInput: string
+  EstimatePercent: number
+  RateInput: string
+  Currency: string
+  TeamCurrency: string
+  Currencies: Array<{ Code: string; Label: string }>
+  Flash: string
+  FlashOK: boolean
+  CSRFToken: string
+  CanManage: boolean
+  Unbilled: UnbilledItem[]
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

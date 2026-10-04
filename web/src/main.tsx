@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, StrictMode, Suspense, useEffect, useMemo, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,11 +10,12 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import { ProjectList } from "@/projects/project-list"
-import type { DashboardData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
+import type { DashboardData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
+const ProjectList = lazy(() => import("@/projects/project-list").then(module => ({ default: module.ProjectList })))
+const ProjectDetail = lazy(() => import("@/projects/project-detail").then(module => ({ default: module.ProjectDetail })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -193,9 +194,13 @@ if (root && payload) {
     const restoreFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity"
     createRoot(root).render(
       <StrictMode>
-        {"ShowArchived" in initial.data
-          ? <ProjectList data={initial.data as ProjectListData} />
-          : <DashboardApp initial={initial.data as DashboardData} restoreFocus={restoreFocus} />}
+        <Suspense fallback={<div className="min-h-32 animate-pulse rounded-lg bg-muted" aria-hidden="true" />}>
+          {"Sessions" in initial.data
+            ? <ProjectDetail data={initial.data as ProjectDetailData} />
+            : "ShowArchived" in initial.data
+            ? <ProjectList data={initial.data as ProjectListData} />
+            : <DashboardApp initial={initial.data as DashboardData} restoreFocus={restoreFocus} />}
+        </Suspense>
       </StrictMode>
     )
   } catch (error) {

@@ -13,6 +13,7 @@ import (
 type projectDetailData struct {
 	Title           string
 	Active          string
+	ReactApp        bool
 	Project         projectView
 	Activities      []activityView
 	Sessions        []sessionView
@@ -34,7 +35,8 @@ type projectDetailData struct {
 	CanManage       bool // rates, client and settings are for managers only
 }
 
-func (projectDetailData) isTemplateData() {}
+func (projectDetailData) isTemplateData()    {}
+func (projectDetailData) usesReactApp() bool { return true }
 
 func (p *projectDetailData) setCSRF(t string)   { p.CSRFToken = t }
 func (p *projectDetailData) setManage(v bool)   { p.CanManage = v }
@@ -68,7 +70,7 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 		rateInput = formatMoneyInput(resolveLang(r), *p.BillableRateCents)
 	}
 	data := projectDetailData{
-		Title: p.Name, Active: "projects",
+		Title: p.Name, Active: "projects", ReactApp: true,
 		Project: projectView{
 			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color,
 			Archived: p.Archived, Billable: p.Billable,
