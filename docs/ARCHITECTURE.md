@@ -496,6 +496,9 @@ order. `ConnectAndSync`
 owns the initial create-then-fetch use case; a failed initial sync is returned
 alongside the persisted connection so the HTTP adapter can render its detail
 page without taking over orchestration.
+Integration management reads assemble credential-free connection summaries
+with imported-task counts, and detail reads return the connection with its
+tasks. The HTTP adapter formats those results without grouping task records.
 The `internal/integrations/providers` adapter implements the shared
 `internal/integrationport` provider contract, owns provider HTTP parsing and
 pagination, and receives its HTTP client and Jira/GitLab default sites from
