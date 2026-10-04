@@ -322,14 +322,14 @@ type IdentityWorkflow interface {
 
 // SignInWorkflow handles password, SSO and account-registration sign-in.
 type SignInWorkflow interface {
-	AuthenticatePassword(context.Context, appmodel.PasswordLoginRequest) (appmodel.UserIdentity, model.AuthSession, error)
-	AuthenticateSSO(context.Context, appmodel.SSOAuthenticationRequest) (appmodel.UserIdentity, model.AuthSession, bool, error)
-	RegisterAndStartSession(context.Context, appmodel.RegistrationRequest) (model.AuthSession, int64, error)
+	AuthenticatePassword(context.Context, appmodel.PasswordLoginRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error)
+	AuthenticateSSO(context.Context, appmodel.SSOAuthenticationRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, bool, error)
+	RegisterAndStartSession(context.Context, appmodel.RegistrationRequest) (appmodel.AuthSessionCredential, int64, error)
 }
 
 // PasswordRecoveryWorkflow owns password reset request and completion.
 type PasswordRecoveryWorkflow interface {
-	CompletePasswordReset(context.Context, appmodel.PasswordResetCompletionRequest) (appmodel.UserIdentity, model.AuthSession, error)
+	CompletePasswordReset(context.Context, appmodel.PasswordResetCompletionRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error)
 	RequestPasswordReset(context.Context, appmodel.PasswordResetRequest) (appmodel.UserIdentity, string, error)
 }
 

@@ -20,6 +20,7 @@ func TestSensitiveApplicationFieldsAreExcludedFromJSON(t *testing.T) {
 		{"registration password", RegistrationRequest{Password: "registration-password-marker"}, "registration-password-marker"},
 		{"account password hash", AccountCreateRequest{PasswordHash: "account-hash-marker"}, "account-hash-marker"},
 		{"session token", AuthSessionCreateRequest{Token: "session-create-token-marker"}, "session-create-token-marker"},
+		{"session credential result", AuthSessionCredential{Token: "session-result-token-marker"}, "session-result-token-marker"},
 		{"session deletion token", AuthSessionDeleteRequest{Token: "session-delete-token-marker"}, "session-delete-token-marker"},
 		{"session touch token", AuthSessionTouchRequest{Token: "session-touch-token-marker"}, "session-touch-token-marker"},
 		{"api token lookup", APITokenLookupRequest{Raw: "api-token-marker"}, "api-token-marker"},
