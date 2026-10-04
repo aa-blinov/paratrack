@@ -134,15 +134,15 @@ func (s *Service) ListWithActivityCounts(ctx context.Context, query appmodel.Pro
 
 // ListWithUsage assembles the project list and its time-window summaries for
 // one adapter read, keeping list composition in the project workflow.
-func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectListQuery) (appmodel.ProjectListSnapshot, error) {
-	if query.TeamID <= 0 {
+func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectUsageQuery) (appmodel.ProjectListSnapshot, error) {
+	if query.Catalog.TeamID <= 0 {
 		return appmodel.ProjectListSnapshot{}, ErrInvalidTeam
 	}
-	catalog, err := s.ListWithActivityCounts(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID, IncludeArchived: query.IncludeArchived})
+	catalog, err := s.ListWithActivityCounts(ctx, query.Catalog)
 	if err != nil {
 		return appmodel.ProjectListSnapshot{}, err
 	}
-	usage, err := s.usageSummaryWithCounts(ctx, query.TeamID, query.TodayStart, query.MonthStart, query.Now, catalog.ActivityCounts)
+	usage, err := s.usageSummaryWithCounts(ctx, query.Catalog.TeamID, query.TodayStart, query.MonthStart, query.Now, catalog.ActivityCounts)
 	if err != nil {
 		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project usage summary: %w", err)
 	}

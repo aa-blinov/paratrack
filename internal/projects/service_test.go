@@ -131,8 +131,9 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 		t.Fatalf("catalog request scope = team %d archived %v, want team 3 archived true", catalog.teamID, catalog.includeArchived)
 	}
 
-	snapshot, err := service.ListWithUsage(context.Background(), appmodel.ProjectListQuery{
-		TeamID: 3, IncludeArchived: true, TodayStart: start, MonthStart: monthStart, Now: now,
+	snapshot, err := service.ListWithUsage(context.Background(), appmodel.ProjectUsageQuery{
+		Catalog:    appmodel.ProjectCatalogQuery{TeamID: 3, IncludeArchived: true},
+		TodayStart: start, MonthStart: monthStart, Now: now,
 	})
 	if err != nil {
 		t.Fatalf("ListWithUsage: %v", err)
