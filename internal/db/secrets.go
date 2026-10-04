@@ -131,6 +131,31 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 			return fmt.Errorf("close secrets from %s.%s: %w", c.table, c.col, err)
 		}
 	}
+	// Invite tokens use a string primary key, so they do not participate in
+	// the numeric-id plaintext sealing pass below. Validate their ciphertexts
+	// here so a wrong key fails during startup instead of on the team page.
+	rows, err := tx.QueryContext(ctx, `SELECT sealed_token FROM invites WHERE sealed_token <> ''`)
+	if err != nil {
+		return fmt.Errorf("read encrypted invite tokens: %w", err)
+	}
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("scan encrypted invite token: %w", err)
+		}
+		if _, err := d.openSecret(value); err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("validate encrypted invite token: %w", err)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return fmt.Errorf("iterate encrypted invite tokens: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return fmt.Errorf("close encrypted invite tokens: %w", err)
+	}
 	if !sealPlaintext {
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("commit secret validation: %w", err)
