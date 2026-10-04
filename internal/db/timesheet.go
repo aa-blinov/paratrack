@@ -39,11 +39,16 @@ type timesheetAccumulator struct {
 // [weekStart, weekStart+7d). Sessions are clipped to the week window
 // and scaled like TrackedSecondsInWindow so pause gaps don't inflate
 // the cell.
-func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Time, now time.Time, extra ...int64) (TimesheetWeek, error) {
-	if teamID <= 0 || weekStart.IsZero() || now.IsZero() {
+func (d *DB) ListTimesheet(ctx context.Context, request appmodel.TimesheetRequest) (TimesheetWeek, error) {
+	if request.TeamID <= 0 || request.WeekStart.IsZero() || request.Now.IsZero() {
 		return TimesheetWeek{}, ErrNotFound
 	}
-	weekEnd := weekStart.AddDate(0, 0, 7)
+	for _, activityID := range request.ExtraActivityIDs {
+		if activityID <= 0 {
+			return TimesheetWeek{}, ErrNotFound
+		}
+	}
+	weekEnd := request.WeekStart.AddDate(0, 0, 7)
 	query := `
 		SELECT s.activity_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at,
 		       a.name, a.project_id
@@ -51,11 +56,11 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 		JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
 		WHERE s.start_at < ?
 		  AND (s.end_at IS NULL OR s.end_at >= ?)`
-	args := []any{FormatTime(weekEnd), FormatTime(weekStart)}
+	args := []any{FormatTime(weekEnd), FormatTime(request.WeekStart)}
 	query += ` AND s.team_id = ?`
-	args = append(args, teamID)
+	args = append(args, request.TeamID)
 	scope, args := scopeSQL(ctx, "s.user_id", args)
-	buckets, err := d.aggregateTimesheetSessions(ctx, query+scope, args, weekStart, now)
+	buckets, err := d.aggregateTimesheetSessions(ctx, query+scope, args, request.WeekStart, request.Now)
 	if err != nil {
 		return TimesheetWeek{}, err
 	}
@@ -64,7 +69,7 @@ func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Tim
 	if err != nil {
 		return TimesheetWeek{}, err
 	}
-	if err := d.appendTimesheetActivities(ctx, &week, teamID, weekStart, extra); err != nil {
+	if err := d.appendTimesheetActivities(ctx, &week, request.TeamID, request.WeekStart, request.ExtraActivityIDs); err != nil {
 		return TimesheetWeek{}, err
 	}
 	return week, nil
