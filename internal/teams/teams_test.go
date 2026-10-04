@@ -177,6 +177,36 @@ func TestCreateTeamAndList(t *testing.T) {
 	}
 }
 
+func TestFindByIDsBatchesDistinctWorkspacesAndOmitsMissingIDs(t *testing.T) {
+	d := openTestDB(t)
+	svc := newTestService(t, d)
+	ctx := context.Background()
+	ownerA := newUser(t, d, "batch-a@example.com")
+	ownerB := newUser(t, d, "batch-b@example.com")
+	teamA, err := svc.Create(ctx, appmodel.TeamCreateRequest{OwnerID: ownerA, Name: "Workspace A"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	teamB, err := svc.Create(ctx, appmodel.TeamCreateRequest{OwnerID: ownerB, Name: "Workspace B"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	teams, err := svc.FindByIDs(ctx, []int64{teamB.ID, teamA.ID, teamA.ID, teamA.ID + 100000})
+	if err != nil {
+		t.Fatalf("find workspace batch: %v", err)
+	}
+	if len(teams) != 2 || teams[teamA.ID].Name != teamA.Name || teams[teamB.ID].Name != teamB.Name {
+		t.Fatalf("workspace batch result = %+v", teams)
+	}
+	empty, err := svc.FindByIDs(ctx, nil)
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("empty workspace batch = %+v, %v", empty, err)
+	}
+	if _, err := svc.FindByIDs(ctx, []int64{teamA.ID, 0}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("non-positive workspace ID error = %v, want %v", err, ErrNotFound)
+	}
+}
+
 func TestInviteFlow(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestService(t, d)

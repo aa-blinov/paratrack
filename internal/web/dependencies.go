@@ -349,6 +349,7 @@ type APITokenWorkflow interface {
 // HTTP routes.
 type TeamDirectory interface {
 	FindByID(context.Context, int64) (model.Team, error)
+	FindByIDs(context.Context, []int64) (map[int64]model.Team, error)
 	IsMember(context.Context, int64, int64) (model.TeamRole, bool, error)
 	Members(context.Context, int64) ([]model.TeamMember, error)
 	MembershipForUser(context.Context, int64, int64) (model.TeamMembership, bool, error)

@@ -731,7 +731,9 @@ number prefixes, currency code shape and requisites length. HTTP parses the
 form and maps validation failures; it no longer reads and rewrites settings
 around those workflows. Member roster views load all payroll settings in one
 query through the payroll workflow instead of issuing one read per member;
-workspace membership does not own compensation policy. Logo
+workspace membership does not own compensation policy. Workspace names for
+scoped API tokens are resolved with one bounded batch read instead of one query
+per token. Logo
 updates accept only bounded PNG/JPEG data URLs and check that the team row was
 updated. The service also owns the canonical section key set and the legacy
 empty-means-all setting; HTTP fails closed if it cannot read section state.
