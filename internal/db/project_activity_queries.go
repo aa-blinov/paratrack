@@ -12,15 +12,15 @@ import (
 // ListActivitiesForProject returns the non-archived activities under
 // a project, sorted by name. Used by /projects/{slug} to show what's
 // in the project.
-func (d *DB) ListActivitiesForProject(ctx context.Context, teamID, projectID int64, includeArchived bool) ([]model.Activity, error) {
-	if teamID <= 0 || projectID <= 0 {
+func (d *DB) ListActivitiesForProject(ctx context.Context, query appmodel.ProjectActivityCatalogQuery) ([]model.Activity, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return nil, ErrNotFound
 	}
 	q := `SELECT a.id, a.name, a.team_id, a.project_id, a.archived, a.created_at, a.updated_at
 	        FROM activities a JOIN projects p ON p.id = a.project_id
 	        WHERE a.project_id = ? AND a.team_id = ? AND p.team_id = ?`
-	args := []any{projectID, teamID, teamID}
-	if !includeArchived {
+	args := []any{query.ProjectID, query.TeamID, query.TeamID}
+	if !query.IncludeArchived {
 		q += ` AND a.archived = 0`
 	}
 	q += ` ORDER BY a.name`

@@ -272,7 +272,7 @@ func TestListActivitiesForProject(t *testing.T) {
 	_ = d.AssignActivityProject(ctx, appmodel.AssignActivityProjectRequest{TeamID: teamID, ActivityID: a1.ID, ProjectID: p.ID, CallerID: teamOwner(t, d, teamID)})
 	_ = d.AssignActivityProject(ctx, appmodel.AssignActivityProjectRequest{TeamID: teamID, ActivityID: a2.ID, ProjectID: p.ID, CallerID: teamOwner(t, d, teamID)})
 
-	list, err := d.ListActivitiesForProject(ctx, teamID, p.ID, false)
+	list, err := d.ListActivitiesForProject(ctx, appmodel.ProjectActivityCatalogQuery{TeamID: teamID, ProjectID: p.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
