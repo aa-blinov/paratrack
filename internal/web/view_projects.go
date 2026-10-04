@@ -8,7 +8,6 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
-	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // projectDetailData is the presentation envelope for /projects/{slug}.
@@ -64,7 +63,7 @@ func (s *Server) buildProjectDetailPage(r *http.Request, detail model.ProjectDet
 	if p.EstimateMinutes != nil && *p.EstimateMinutes > 0 {
 		estimateLabel = fmtMinutesL(resolveLang(r), *p.EstimateMinutes)
 		estimateInput = strconv.Itoa(*p.EstimateMinutes)
-		estimatePercent = money.PercentRatio(totalSeconds, *p.EstimateMinutes, 5, 3)
+		estimatePercent = detail.EstimatePercent
 	}
 	if p.BillableRateCents != nil && canManage(r) {
 		rateInput = formatMoneyInput(resolveLang(r), *p.BillableRateCents)
