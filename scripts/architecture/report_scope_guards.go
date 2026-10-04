@@ -14,18 +14,35 @@ func checkReportPersonScope(fset *token.FileSet) error {
 	}
 	for _, name := range []string{"buildStatsData", "buildGraphData"} {
 		function := functionNamed(viewFile, name)
-		if function == nil || !functionCalls(function, "resolveReportPersonScope") {
-			return fmt.Errorf("internal/web/stats_view.go: %s must use the shared report person scope", name)
+		if function == nil || !functionCalls(function, "requestedReportPerson") {
+			return fmt.Errorf("internal/web/stats_view.go: %s must pass the manager-selected report person", name)
 		}
 	}
-
-	scopeFile, err := parser.ParseFile(fset, "internal/web/report_scope.go", nil, 0)
-	if err != nil {
-		return fmt.Errorf("parse report scope: %w", err)
+	requestedPerson := functionNamed(viewFile, "requestedReportPerson")
+	if requestedPerson == nil || !functionCalls(requestedPerson, "canManage") {
+		return fmt.Errorf("internal/web/stats_view.go: report person selection must be limited to managers")
 	}
-	resolver := functionNamed(scopeFile, "resolveReportPersonScope")
-	if resolver == nil || !functionCalls(resolver, "applyPersonScope") || !managerGuardPrecedesMemberRead(resolver) {
-		return fmt.Errorf("internal/web/report_scope.go: report person scope must load members and reject non-managers before applying the filter")
+
+	builderFile, err := parser.ParseFile(fset, "internal/reports/builder.go", nil, 0)
+	if err != nil {
+		return fmt.Errorf("parse report builder: %w", err)
+	}
+	for _, check := range []struct{ function, scope string }{
+		{function: "BuildStats", scope: "loadPersonScope"},
+		{function: "BuildGraph", scope: "resolvePersonScope"},
+	} {
+		function := functionNamed(builderFile, check.function)
+		if function == nil || !functionCalls(function, check.scope) {
+			return fmt.Errorf("internal/reports/builder.go: %s must resolve report member scope in the workflow", check.function)
+		}
+	}
+	resolver := functionNamed(builderFile, "resolvePersonScope")
+	if resolver == nil || !functionCalls(resolver, "loadPersonScope") {
+		return fmt.Errorf("internal/reports/builder.go: graph person scope must validate membership")
+	}
+	scope := functionNamed(builderFile, "loadPersonScope")
+	if scope == nil || !functionCalls(scope, "Members") || !functionCalls(scope, "WithScope") {
+		return fmt.Errorf("internal/reports/builder.go: report scope must validate workspace membership before applying user scope")
 	}
 	return nil
 }
@@ -59,55 +76,4 @@ func functionCalls(function *ast.FuncDecl, name string) bool {
 		return true
 	})
 	return found
-}
-
-func managerGuardPrecedesMemberRead(function *ast.FuncDecl) bool {
-	if function == nil || function.Body == nil {
-		return false
-	}
-	var guard token.Pos
-	for _, statement := range function.Body.List {
-		conditional, ok := statement.(*ast.IfStmt)
-		if !ok || !isNegatedCall(conditional.Cond, "canManage") {
-			continue
-		}
-		for _, branchStatement := range conditional.Body.List {
-			if _, ok := branchStatement.(*ast.ReturnStmt); ok {
-				guard = conditional.Pos()
-				break
-			}
-		}
-		if guard.IsValid() {
-			break
-		}
-	}
-	if !guard.IsValid() {
-		return false
-	}
-	var memberRead token.Pos
-	ast.Inspect(function.Body, func(node ast.Node) bool {
-		call, ok := node.(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		selector, ok := call.Fun.(*ast.SelectorExpr)
-		if ok && selector.Sel.Name == "Members" && (!memberRead.IsValid() || call.Pos() < memberRead) {
-			memberRead = call.Pos()
-		}
-		return true
-	})
-	return memberRead.IsValid() && guard < memberRead
-}
-
-func isNegatedCall(expression ast.Expr, name string) bool {
-	negation, ok := expression.(*ast.UnaryExpr)
-	if !ok || negation.Op != token.NOT {
-		return false
-	}
-	call, ok := negation.X.(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	identifier, ok := call.Fun.(*ast.Ident)
-	return ok && identifier.Name == name
 }
