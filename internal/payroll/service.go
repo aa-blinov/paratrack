@@ -21,7 +21,7 @@ import (
 // one workspace-locked transaction.
 type Store interface {
 	CreatePayrollDraft(context.Context, appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error)
-	ListPayrollRunDetails(context.Context, int64) ([]model.PayrollRunDetails, error)
+	ListPayrollRunDetails(context.Context, appmodel.PayrollRunListQuery) ([]model.PayrollRunDetails, error)
 	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error)
 	MarkPayrollPaidWithRecipients(context.Context, appmodel.PayrollMutationRequest) (bool, []int64, error)
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
@@ -74,11 +74,11 @@ type RunDetails = model.PayrollRunDetails
 
 type PaidResult = appmodel.PayrollPaidResult
 
-func (s *Service) ListRuns(ctx context.Context, teamID int64) ([]appmodel.PayrollRunSummary, error) {
-	if teamID <= 0 {
+func (s *Service) ListRuns(ctx context.Context, query appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
-	runs, err := s.store.ListPayrollRunDetails(ctx, teamID)
+	runs, err := s.store.ListPayrollRunDetails(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list payroll run details: %w", err)
 	}

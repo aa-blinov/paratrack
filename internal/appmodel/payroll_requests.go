@@ -6,6 +6,11 @@ type PayrollRunLookupQuery struct {
 	RunID  int64
 }
 
+// PayrollRunListQuery scopes a payroll run catalog to one workspace.
+type PayrollRunListQuery struct {
+	TeamID int64
+}
+
 type PayrollMutationRequest struct {
 	TeamID   int64
 	RunID    int64
