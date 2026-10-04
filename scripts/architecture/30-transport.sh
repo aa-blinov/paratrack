@@ -184,6 +184,16 @@ if printf '%s\n' "$focus_handler" | grep -q 'Tracking\.Queries\.FindActivity' ||
 	exit 1
 fi
 
+# Workspace section settings must be read through the request-scoped cache so
+# route guards and page navigation share one consistent snapshot.
+module_settings_reads=$(grep -Rho 'Settings\.SectionModules[[:space:]]*(' internal/web --include='*.go' --exclude='*_test.go' | wc -l | tr -d ' ')
+if [ "$module_settings_reads" != "1" ] ||
+	! grep -q 'ctxTeamModulesKey, &teamModulesCache{}' internal/web/middleware.go ||
+	! grep -q 'cache.load(read)' internal/web/modules.go; then
+	echo "architecture check: workspace section reads must use the request-scoped module cache" >&2
+	exit 1
+fi
+
 # Shared HTML layout data must use narrow view models instead of auth/domain
 # records, which may contain fields that templates should never receive. Check
 # the positive shape too, so renaming a domain type cannot bypass this rule.

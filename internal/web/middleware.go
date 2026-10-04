@@ -20,6 +20,7 @@ type ctxKey int
 const (
 	ctxUserKey ctxKey = iota
 	ctxTeamKey
+	ctxTeamModulesKey
 )
 
 var errNoTeamMembership = errors.New("user has no team membership")
@@ -186,6 +187,7 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			}
 			ctx = WithUser(ctx, user)
 			ctx = WithTeam(ctx, team)
+			ctx = context.WithValue(ctx, ctxTeamModulesKey, &teamModulesCache{})
 			ctx = context.WithValue(ctx, ctxRoleKey, role)
 			ctx = requestctx.WithLocale(ctx, string(resolveLang(r)))
 			ctx = requestctx.WithTeamID(ctx, team.ID)
