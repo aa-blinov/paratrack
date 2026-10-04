@@ -182,7 +182,7 @@ type TagCommands interface {
 // SessionDecorationBuilding batches optional tag and project metadata for session rows.
 type SessionDecorationBuilding interface {
 	Build(context.Context, appmodel.SessionDecorationRequest) (appmodel.SessionDecorationSnapshot, error)
-	BuildRow(context.Context, int64, int64) (appmodel.SessionDecorationRowSnapshot, error)
+	BuildRow(context.Context, appmodel.SessionLookupQuery) (appmodel.SessionDecorationRowSnapshot, error)
 }
 
 // ProjectQueries provides project and activity data to HTTP views.

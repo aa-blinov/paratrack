@@ -37,8 +37,8 @@ type sessionReaderStub struct {
 	err       error
 }
 
-func (stub *sessionReaderStub) SessionActivity(_ context.Context, teamID, sessionID int64) (model.Session, model.Activity, error) {
-	stub.teamID, stub.sessionID = teamID, sessionID
+func (stub *sessionReaderStub) SessionActivity(_ context.Context, query appmodel.SessionLookupQuery) (model.Session, model.Activity, error) {
+	stub.teamID, stub.sessionID = query.TeamID, query.SessionID
 	return stub.session, stub.activity, stub.err
 }
 
@@ -110,7 +110,7 @@ func TestBuildRowLoadsSessionAndDecoratesItInOneWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := builder.BuildRow(context.Background(), 5, 12)
+	snapshot, err := builder.BuildRow(context.Background(), appmodel.SessionLookupQuery{TeamID: 5, SessionID: 12})
 	if err != nil {
 		t.Fatalf("BuildRow: %v", err)
 	}

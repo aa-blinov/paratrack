@@ -44,7 +44,7 @@ func TestMutationsRejectUnscopedWorkspace(t *testing.T) {
 func TestSessionActivityKeepsWorkspaceOnActivityLookup(t *testing.T) {
 	reader := &sessionActivityLookupStub{}
 	service := &Service{sessionActivities: reader}
-	session, activity, err := service.SessionActivity(context.Background(), 4, 7)
+	session, activity, err := service.SessionActivity(context.Background(), appmodel.SessionLookupQuery{TeamID: 4, SessionID: 7})
 	if err != nil {
 		t.Fatal(err)
 	}

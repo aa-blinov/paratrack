@@ -308,6 +308,16 @@ if ! printf '%s\n' "$session_lookup" | grep -Fq 'query appmodel.SessionLookupQue
 	echo "architecture check: session reads must carry session identity and workspace scope in one query" >&2
 	exit 1
 fi
+tagged_session_lookup=$(sed -n '/^func (s \*Service) SessionActivity(/,/^}/p' internal/tagging/service.go)
+session_row_builder=$(sed -n '/^func (b \*Builder) BuildRow(/,/^}/p' internal/sessiondecorations/builder.go)
+session_decoration_port=$(sed -n '/^type SessionDecorationBuilding interface {/,/^}/p' internal/web/dependencies.go)
+if ! printf '%s\n' "$tagged_session_lookup" | grep -Fq 'appmodel.SessionLookupQuery' ||
+	! printf '%s\n' "$tagged_session_lookup" | grep -Fq 'GetSession(ctx, query)' ||
+	! printf '%s\n' "$session_row_builder" | grep -Fq 'appmodel.SessionLookupQuery' ||
+	! printf '%s\n' "$session_decoration_port" | grep -Fq 'BuildRow(context.Context, appmodel.SessionLookupQuery)'; then
+	echo "architecture check: session identity and workspace scope must stay typed through row decoration" >&2
+	exit 1
+fi
 closed_sessions_lookup=$(sed -n '/^func (d \*DB) ListClosedSessions(/,/^}/p' internal/db/session_queries.go)
 if ! printf '%s\n' "$closed_sessions_lookup" | grep -Fq 'query appmodel.ClosedSessionsQuery' ||
 	! printf '%s\n' "$closed_sessions_lookup" | grep -Fq 'query.TeamID <= 0' ||

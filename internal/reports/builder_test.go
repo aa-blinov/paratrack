@@ -35,7 +35,7 @@ type reportTeamsStub struct{ members []model.TeamMember }
 
 type sessionReaderStub struct{}
 
-func (sessionReaderStub) SessionActivity(context.Context, int64, int64) (model.Session, model.Activity, error) {
+func (sessionReaderStub) SessionActivity(context.Context, appmodel.SessionLookupQuery) (model.Session, model.Activity, error) {
 	return model.Session{}, model.Activity{}, nil
 }
 

@@ -165,7 +165,7 @@ func (s *Server) writeTagCreateError(w http.ResponseWriter, err error) {
 // badge included) so HTMX outerHTML swaps keep the row intact.
 func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id int64) {
 	ctx := r.Context()
-	snapshot, err := s.services.SessionDecorations.BuildRow(ctx, teamID(r), id)
+	snapshot, err := s.services.SessionDecorations.BuildRow(ctx, appmodel.SessionLookupQuery{TeamID: teamID(r), SessionID: id})
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			http.NotFound(w, r)
