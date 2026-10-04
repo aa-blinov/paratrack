@@ -76,7 +76,7 @@ func TestPayrollAndSchedule(t *testing.T) {
 		t.Fatal(err)
 	}
 	monday := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
-	rows, pnames, err := d.ListSchedule(ctx, 1, monday)
+	rows, pnames, err := d.ListSchedule(ctx, appmodel.ScheduleQuery{TeamID: 1, WeekStart: monday})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func TestPayrollAndSchedule(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	rows, _, _ = d.ListSchedule(ctx, 1, monday)
+	rows, _, _ = d.ListSchedule(ctx, appmodel.ScheduleQuery{TeamID: 1, WeekStart: monday})
 	if rows[0].Minutes[1] != 0 {
 		t.Fatalf("not cleared: %+v", rows[0])
 	}
