@@ -4,19 +4,37 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/webhookport"
 )
 
-// CreateSession inserts a new session in active state (paused = 0,
-// last_resume_at = start_at so the live timer starts ticking immediately).
-// teamID is the workspace this session is filed under; pass 0 to skip
-// the team association (legacy / tests).
-func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startAt time.Time, note string) (model.Session, error) {
+var ErrSessionNotActive = model.ErrSessionNotActive
+
+// SessionUpdate is kept as an adapter alias for callers that used the db type.
+type SessionUpdate = appmodel.SessionUpdate
+
+// createLegacySession inserts an unscoped active session for legacy data.
+// Workspace sessions must use StartSession, which enforces membership and
+// the one-active-session rule in the same transaction.
+func (d *DB) createLegacySession(ctx context.Context, request legacySessionCreateRequest) (model.Session, error) {
+	const teamID int64 = 0
+	activityID, startAt, note := request.ActivityID, request.At, request.Note
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.Session{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
+		return model.Session{}, err
+	}
 	startStr := FormatTime(startAt)
 	var id int64
-	err := d.sql.QueryRowContext(ctx,
+	err = tx.QueryRowContext(ctx,
 		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at, user_id)
 		 VALUES (?, ?, ?, ?, 0, 0, ?, ?) RETURNING id`,
 		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr, actorOf(ctx),
@@ -24,382 +42,363 @@ func (d *DB) CreateSession(ctx context.Context, teamID, activityID int64, startA
 	if err != nil {
 		return model.Session{}, err
 	}
+	session, err := getSessionTx(ctx, tx, teamID, id)
 	if err != nil {
 		return model.Session{}, err
 	}
-	return d.GetSession(ctx, teamID, id)
+	if err := tx.Commit(); err != nil {
+		return model.Session{}, err
+	}
+	return session, nil
+}
+
+// StartSession atomically enforces one open session per activity. It locks the
+// actor while composing start/focus operations, then the activity to protect
+// the per-activity uniqueness rule.
+func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartRequest) (model.Session, error) {
+	teamID, activityID, startAt, note := request.TeamID, request.ActivityID, request.At, request.Note
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.Session{}, err
+	}
+	defer tx.Rollback()
+	if err := lockSessionOwner(ctx, tx, teamID); err != nil {
+		return model.Session{}, err
+	}
+	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
+		return model.Session{}, err
+	}
+
+	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
+		return model.Session{}, err
+	}
+
+	activeQuery := `SELECT s.id FROM sessions s WHERE s.activity_id = ? AND s.end_at IS NULL`
+	activeArgs := []any{activityID}
+	if teamID > 0 {
+		activeQuery += ` AND s.team_id = ?`
+		activeArgs = append(activeArgs, teamID)
+	}
+	if actor := actorID(ctx); actor > 0 {
+		activeQuery += ` AND s.user_id = ?`
+		activeArgs = append(activeArgs, actor)
+	} else {
+		scope, args := scopeSQL(ctx, `s.user_id`, activeArgs)
+		activeQuery += scope
+		activeArgs = args
+	}
+	activeQuery += ` LIMIT 1`
+	var existingID int64
+	err = tx.QueryRowContext(ctx, activeQuery, activeArgs...).Scan(&existingID)
+	if err == nil {
+		return model.Session{}, model.ErrActiveSessionExists
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return model.Session{}, err
+	}
+
+	startStr := FormatTime(startAt)
+	var id int64
+	err = tx.QueryRowContext(ctx,
+		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at, user_id)
+		 VALUES (?, ?, ?, ?, 0, 0, ?, ?) RETURNING id`,
+		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr, actorOf(ctx),
+	).Scan(&id)
+	if err != nil {
+		return model.Session{}, err
+	}
+	var activityName string
+	if err := tx.QueryRowContext(ctx, `SELECT name FROM activities WHERE id = ?`, activityID).Scan(&activityName); err != nil {
+		return model.Session{}, err
+	}
+	if err := d.recordWebhookEventTx(ctx, tx, teamID, webhookport.SessionStartedEvent{SessionID: id, Activity: activityName}, startAt); err != nil {
+		return model.Session{}, err
+	}
+	session, err := getSessionTx(ctx, tx, teamID, id)
+	if err != nil {
+		return model.Session{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.Session{}, err
+	}
+	return session, nil
+}
+
+func lockActivityForSession(ctx context.Context, tx *Tx, teamID, activityID int64) error {
+	query := `SELECT id FROM activities WHERE id = ?`
+	args := []any{activityID}
+	if teamID > 0 {
+		query += ` AND team_id = ?`
+		args = append(args, teamID)
+	} else {
+		query += ` AND team_id IS NULL`
+	}
+	var lockedID int64
+	if err := tx.QueryRowContext(ctx, query+` FOR UPDATE`, args...).Scan(&lockedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	return nil
+}
+
+// UpdateSessionFields applies a partial edit within the request's workspace
+// and user scope. It keeps dynamic SQL construction inside the storage layer.
+func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUpdateRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.SessionID <= 0 {
+		return ErrNotFound
+	}
+	teamID, actorID, id, update := request.TeamID, request.CallerID, request.SessionID, request.Update
+	if update.AccumulatedSeconds != nil {
+		if *update.AccumulatedSeconds < 0 {
+			return appmodel.ErrInvalidSessionLength
+		}
+		if int64(*update.AccumulatedSeconds) > model.MaxSessionDurationSeconds {
+			return model.ErrSessionDurationOverflow
+		}
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	ownerID, role, err := lockTeamRole(ctx, tx, teamID, actorID)
+	if err != nil {
+		return err
+	}
+	if actorID == ownerID && role != model.TeamRoleOwner {
+		return model.ErrForbidden
+	}
+	editScopeUserID := int64(0)
+	if !role.CanManage() {
+		editScopeUserID = actorID
+	}
+	lockedSession, err := lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID)
+	if err != nil {
+		return err
+	}
+	sets := make([]string, 0, 5)
+	args := make([]any, 0, 7)
+	if update.StartAt != nil {
+		sets = append(sets, `start_at = ?`)
+		args = append(args, FormatTime(*update.StartAt))
+	}
+	if update.EndAt != nil {
+		sets = append(sets, `end_at = ?`)
+		args = append(args, FormatTime(*update.EndAt))
+	}
+	if update.AccumulatedSeconds != nil {
+		sets = append(sets, `accumulated_seconds = ?`)
+		args = append(args, *update.AccumulatedSeconds)
+	}
+	sets = append(sets, `note = ?`, `updated_at = ?`)
+	args = append(args, nullableString(update.Note), FormatTime(update.UpdatedAt))
+	args = append(args, id)
+	query := `UPDATE sessions SET ` + strings.Join(sets, `, `) + ` WHERE id = ?`
+	if teamID > 0 {
+		query += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	if !role.CanManage() {
+		query += ` AND user_id = ?`
+		args = append(args, actorID)
+	}
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	if affected, err := result.RowsAffected(); err != nil {
+		return err
+	} else if affected == 0 {
+		return ErrNotFound
+	}
+	if lockedSession.wasOpen && update.EndAt != nil {
+		startAt, err := ScanTime(lockedSession.startAt)
+		if err != nil {
+			return fmt.Errorf("parse session start for stop event: %w", err)
+		}
+		if update.StartAt != nil {
+			startAt = *update.StartAt
+		}
+		if err := d.recordWebhookEventTx(ctx, tx, teamID, webhookport.SessionStoppedEvent{
+			SessionID: id, ActivityID: lockedSession.activityID,
+			Start: startAt.UTC().Format(time.RFC3339),
+		}, update.UpdatedAt); err != nil {
+			return fmt.Errorf("record edited session stop: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+type sessionEditState struct {
+	invoiceID  int64
+	activityID int64
+	startAt    string
+	wasOpen    bool
+}
+
+// lockSessionForEdit serializes a session edit with invoice status changes.
+// Sent and paid invoices freeze their linked sessions; drafts remain editable.
+func lockSessionForEdit(ctx context.Context, tx *Tx, teamID, id, scopeUserID int64) (sessionEditState, error) {
+	query := `SELECT COALESCE(invoice_id, 0), activity_id, start_at, end_at FROM sessions WHERE id = ?`
+	args := []any{id}
+	if teamID > 0 {
+		query += ` AND team_id = ?`
+		args = append(args, teamID)
+	}
+	if scopeUserID > 0 {
+		query += ` AND user_id = ?`
+		args = append(args, scopeUserID)
+	}
+	query += ` FOR UPDATE`
+	var state sessionEditState
+	var startAt string
+	var endAt sql.NullString
+	if err := tx.QueryRowContext(ctx, query, args...).Scan(&state.invoiceID, &state.activityID, &startAt, &endAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sessionEditState{}, ErrNotFound
+		}
+		return sessionEditState{}, err
+	}
+	state.startAt = startAt
+	state.wasOpen = !endAt.Valid
+	if state.invoiceID == 0 {
+		return state, nil
+	}
+	var number, status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT number, status FROM invoices WHERE id = ? FOR UPDATE`, state.invoiceID).Scan(&number, &status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return state, nil
+		}
+		return sessionEditState{}, err
+	}
+	if status == "sent" || status == "paid" {
+		return sessionEditState{}, &model.SessionInvoiceLockError{InvoiceNumber: number}
+	}
+	return state, nil
 }
 
 // CreateClosedSession inserts a finished session in one go. Used by the
 // `add` command for back-filling past intervals.
-// ImportedSessionExists reports whether an entry from another tracker
-// (externalID "toggl:123") is already in the workspace.
-func (d *DB) ImportedSessionExists(ctx context.Context, teamID int64, externalID string) bool {
-	var one int
-	return d.sql.QueryRowContext(ctx, `SELECT 1 FROM sessions WHERE team_id = ? AND external_id = ?`, teamID, externalID).Scan(&one) == nil
+func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddRequest) (model.Session, error) {
+	teamID, activityID, startAt, endAt, note := request.TeamID, request.ActivityID, request.Start, request.End, request.Note
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.Session{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockSessionOwner(ctx, tx, teamID); err != nil {
+		return model.Session{}, err
+	}
+	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
+		return model.Session{}, err
+	}
+	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
+		return model.Session{}, err
+	}
+	id, err := insertClosedSessionTx(ctx, tx, teamID, activityID, startAt, endAt, note)
+	if err != nil {
+		return model.Session{}, err
+	}
+	session, err := getSessionTx(ctx, tx, teamID, id)
+	if err != nil {
+		return model.Session{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.Session{}, err
+	}
+	return session, nil
 }
 
-// MarkImported stamps a session with the id it had in the source tracker.
-func (d *DB) MarkImported(ctx context.Context, teamID, sessionID int64, externalID string) error {
-	_, err := d.sql.ExecContext(ctx, `UPDATE sessions SET external_id = ? WHERE id = ? AND team_id = ?`, externalID, sessionID, teamID)
-	return err
-}
-
-func (d *DB) CreateClosedSession(ctx context.Context, teamID, activityID int64, startAt, endAt time.Time, note string) (model.Session, error) {
+func insertClosedSessionTx(ctx context.Context, tx *Tx, teamID, activityID int64, startAt, endAt time.Time, note string) (int64, error) {
+	duration := endAt.Sub(startAt)
+	if duration <= 0 {
+		return 0, appmodel.ErrInvalidSessionPeriod
+	}
+	if duration > time.Duration(model.MaxSessionDurationSeconds)*time.Second {
+		return 0, model.ErrSessionDurationOverflow
+	}
 	startStr := FormatTime(startAt)
 	endStr := FormatTime(endAt)
 	var id int64
-	err := d.sql.QueryRowContext(ctx,
+	err := tx.QueryRowContext(ctx,
 		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at, user_id)
 		 VALUES (?, ?, ?, ?, ?, 0, ?, NULL, ?) RETURNING id`,
 		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note),
 		max(0, int(endAt.Sub(startAt).Seconds())), actorOf(ctx), // a closed session carries its tracked total
 	).Scan(&id)
 	if err != nil {
-		return model.Session{}, err
+		return 0, err
 	}
-	if err != nil {
-		return model.Session{}, err
-	}
-	return d.GetSession(ctx, teamID, id)
+	return id, nil
 }
 
-// GetSession fetches a session by id. Pass teamID > 0 to require the
-// session to belong to that workspace (0 = legacy / CLI / tests).
-func (d *DB) GetSession(ctx context.Context, teamID, id int64) (model.Session, error) {
-	q := sessionSelect + ` WHERE s.id = ?`
+func getSessionTx(ctx context.Context, tx *Tx, teamID, id int64) (model.Session, error) {
+	query := sessionSelect + ` WHERE s.id = ?`
 	args := []any{id}
-	var sc string
-	sc, args = scopeSQL(ctx, "s.user_id", args)
-	q += sc
+	var scope string
+	scope, args = scopeSQL(ctx, "s.user_id", args)
+	query += scope
 	if teamID > 0 {
-		q += ` AND s.team_id = ?`
+		query += ` AND s.team_id = ?`
 		args = append(args, teamID)
 	}
-	row := d.sql.QueryRowContext(ctx, q, args...)
-	return scanSession(row)
-}
-
-// HasAnySession reports whether the workspace has ever tracked anything;
-// the dashboard's first-run state hangs off it.
-func (d *DB) HasAnySession(ctx context.Context, teamID int64) (bool, error) {
-	q := `SELECT 1 FROM sessions WHERE 1 = 1`
-	var args []any
-	if teamID > 0 {
-		q += ` AND team_id = ?`
-		args = append(args, teamID)
-	}
-	var sc string
-	sc, args = scopeSQL(ctx, "user_id", args)
-	q += sc
-	var one int
-	err := d.sql.QueryRowContext(ctx, q+` LIMIT 1`, args...).Scan(&one)
+	query += ` FOR UPDATE OF s`
+	session, err := scanSession(tx.QueryRowContext(ctx, query, args...))
 	if errors.Is(err, sql.ErrNoRows) {
-		return false, nil
+		return model.Session{}, ErrNotFound
 	}
-	return err == nil, err
-}
-
-// ListActiveSessions returns all sessions with end_at IS NULL, newest
-// first, scoped to teamID (0 means "all teams" / legacy).
-func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.ActiveSession, error) {
-	q := sessionSelect + ` WHERE s.end_at IS NULL`
-	args := []any{}
-	var sc string
-	sc, args = scopeSQL(ctx, "s.user_id", args)
-	q += sc
-	if teamID > 0 {
-		q += ` AND s.team_id = ?`
-		args = append(args, teamID)
-	}
-	q += ` ORDER BY s.start_at DESC`
-	rows, err := d.sql.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanActiveSessions(rows)
-}
-
-// ListClosedSessionsInRange returns finished sessions whose interval
-// overlaps [start, end]. Activity filter is optional.
-func (d *DB) ListClosedSessionsInRange(ctx context.Context, teamID int64, start, end time.Time, activityID *int64) ([]model.ActiveSession, error) {
-	q := sessionSelect + `
-		WHERE s.end_at IS NOT NULL
-		  AND s.start_at <= ?
-		  AND s.end_at   >= ?`
-	args := []any{FormatTime(end), FormatTime(start)}
-	if teamID > 0 {
-		q += ` AND s.team_id = ?`
-		args = append(args, teamID)
-	}
-	if activityID != nil {
-		q += ` AND s.activity_id = ?`
-		args = append(args, *activityID)
-	}
-	var sc string
-	sc, args = scopeSQL(ctx, "s.user_id", args)
-	q += sc + ` ORDER BY s.start_at DESC`
-	rows, err := d.sql.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	return scanActiveSessions(rows)
-}
-
-// UpdateSessionEnd stops the session with a wall-clock end_at. Any
-// time since the last resume is folded into accumulated_seconds first,
-// so DurationSeconds() keeps working after close (pause gaps stay
-// excluded). teamID > 0 restricts the write to that workspace.
-func (d *DB) UpdateSessionEnd(ctx context.Context, teamID, id int64, endAt time.Time) (model.Session, error) {
-	s, err := d.GetSession(ctx, teamID, id)
-	if err != nil {
-		return model.Session{}, err
-	}
-	newAcc := s.AccumulatedSeconds
-	if !s.Paused {
-		anchor := s.LastResumeAt
-		if anchor == nil {
-			anchor = &s.StartAt
-		}
-		elapsed := int(endAt.Sub(*anchor).Seconds())
-		if elapsed > 0 {
-			newAcc += elapsed
-		}
-	}
-	q := `UPDATE sessions SET end_at = ?, accumulated_seconds = ?, updated_at = ? WHERE id = ?`
-	args := []any{FormatTime(endAt), newAcc, FormatTime(time.Now().UTC()), id}
-	if teamID > 0 {
-		q += ` AND team_id = ?`
-		args = append(args, teamID)
-	}
-	res, err := d.sql.ExecContext(ctx, q, args...)
-	if err != nil {
-		return model.Session{}, err
-	}
-	if teamID > 0 {
-		if n, _ := res.RowsAffected(); n == 0 {
-			return model.Session{}, ErrNotFound
-		}
-	}
-	return d.GetSession(ctx, teamID, id)
-}
-
-// PauseSession rolls the running time into accumulated_seconds and flips
-// the paused flag. Uses a single UPDATE for atomicity.
-func (d *DB) PauseSession(ctx context.Context, teamID, id int64, now time.Time) (model.Session, error) {
-	s, err := d.GetSession(ctx, teamID, id)
-	if err != nil {
-		return model.Session{}, err
-	}
-	if s.EndAt != nil || s.Paused {
-		return s, nil // idempotent
-	}
-	anchor := s.LastResumeAt
-	if anchor == nil {
-		anchor = &s.StartAt
-	}
-	elapsed := int(now.Sub(*anchor).Seconds())
-	if elapsed < 0 {
-		elapsed = 0
-	}
-	newAcc := s.AccumulatedSeconds + elapsed
-	nowStr := FormatTime(now)
-	q := `UPDATE sessions
-		 SET paused = 1,
-		     paused_at = ?,
-		     accumulated_seconds = ?,
-		     last_resume_at = NULL,
-		     updated_at = ?
-		 WHERE id = ?`
-	args := []any{nowStr, newAcc, FormatTime(time.Now().UTC()), id}
-	if teamID > 0 {
-		q += ` AND team_id = ?`
-		args = append(args, teamID)
-	}
-	_, err = d.sql.ExecContext(ctx, q, args...)
-	if err != nil {
-		return model.Session{}, err
-	}
-	return d.GetSession(ctx, teamID, id)
-}
-
-// ResumeSession flips paused → false and sets last_resume_at = now.
-func (d *DB) ResumeSession(ctx context.Context, teamID, id int64, now time.Time) (model.Session, error) {
-	s, err := d.GetSession(ctx, teamID, id)
-	if err != nil {
-		return model.Session{}, err
-	}
-	if s.EndAt != nil || !s.Paused {
-		return s, nil
-	}
-	nowStr := FormatTime(now)
-	q := `UPDATE sessions
-		 SET paused = 0,
-		     paused_at = NULL,
-		     last_resume_at = ?,
-		     updated_at = ?
-		 WHERE id = ?`
-	args := []any{nowStr, FormatTime(time.Now().UTC()), id}
-	if teamID > 0 {
-		q += ` AND team_id = ?`
-		args = append(args, teamID)
-	}
-	_, err = d.sql.ExecContext(ctx, q, args...)
-	if err != nil {
-		return model.Session{}, err
-	}
-	return d.GetSession(ctx, teamID, id)
-}
-
-// ReopenSession undoes a stop: clears end_at and, for a session that was
-// running, resumes it from the stop moment so the undo leaves no gap.
-// accumulated_seconds already holds the time folded in at stop.
-func (d *DB) ReopenSession(ctx context.Context, teamID, id int64) (model.Session, error) {
-	s, err := d.GetSession(ctx, teamID, id)
-	if err != nil {
-		return model.Session{}, err
-	}
-	if s.EndAt == nil {
-		return s, nil
-	}
-	q := `UPDATE sessions SET end_at = NULL, updated_at = ?`
-	args := []any{FormatTime(time.Now().UTC())}
-	if !s.Paused {
-		q += `, last_resume_at = ?`
-		args = append(args, FormatTime(*s.EndAt))
-	}
-	q += ` WHERE id = ?`
-	args = append(args, id)
-	if teamID > 0 {
-		q += ` AND team_id = ?`
-		args = append(args, teamID)
-	}
-	if _, err := d.sql.ExecContext(ctx, q, args...); err != nil {
-		return model.Session{}, err
-	}
-	return d.GetSession(ctx, teamID, id)
+	return session, err
 }
 
 // DeleteSession removes a session by id (FK cascades handle session_tags).
 // teamID > 0 restricts the delete to that workspace.
-func (d *DB) DeleteSession(ctx context.Context, teamID, id int64) error {
+func (d *DB) DeleteSession(ctx context.Context, request appmodel.SessionDeleteRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.SessionID <= 0 {
+		return ErrNotFound
+	}
+	teamID, actorID, id := request.TeamID, request.CallerID, request.SessionID
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	ownerID, role, err := lockTeamRole(ctx, tx, teamID, actorID)
+	if err != nil {
+		return err
+	}
+	if actorID == ownerID && role != model.TeamRoleOwner {
+		return model.ErrForbidden
+	}
+	editScopeUserID := int64(0)
+	if !role.CanManage() {
+		editScopeUserID = actorID
+	}
+	if _, err := lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID); err != nil {
+		return err
+	}
 	q := `DELETE FROM sessions WHERE id = ?`
 	args := []any{id}
 	if teamID > 0 {
 		q += ` AND team_id = ?`
 		args = append(args, teamID)
 	}
-	var sc string
-	sc, args = scopeSQL(ctx, "user_id", args)
-	q += sc
-	res, err := d.sql.ExecContext(ctx, q, args...)
+	if !role.CanManage() {
+		q += ` AND user_id = ?`
+		args = append(args, actorID)
+	}
+	res, err := tx.ExecContext(ctx, q, args...)
 	if err != nil {
 		return err
 	}
-	if teamID > 0 {
-		if n, _ := res.RowsAffected(); n == 0 {
-			return ErrNotFound
-		}
+	if n, err := res.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
 	}
-	return nil
-}
-
-const sessionSelect = `
-SELECT s.id, s.activity_id, s.team_id, s.user_id, s.start_at, s.end_at, s.note,
-       s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
-       s.created_at, s.updated_at,
-       a.name AS activity_name, a.project_id AS activity_project_id
-FROM sessions s
-JOIN activities a ON a.id = s.activity_id`
-
-func scanActiveSessions(rows *sql.Rows) ([]model.ActiveSession, error) {
-	var out []model.ActiveSession
-	for rows.Next() {
-		s, name, projectID, err := scanSessionWithActivity(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, model.ActiveSession{
-			Session:  s,
-			Activity: model.Activity{ID: s.ActivityID, Name: name, ProjectID: projectID},
-		})
-	}
-	return out, rows.Err()
-}
-
-func scanSession(r row) (model.Session, error) {
-	s, _, _, err := scanSessionWithActivity(r)
-	return s, err
-}
-
-func scanSessionWithActivity(r row) (model.Session, string, int64, error) {
-	var (
-		s              model.Session
-		teamID         sql.NullInt64
-		userID         sql.NullInt64
-		startAt        string
-		endAt          sql.NullString
-		note           sql.NullString
-		paused         int
-		pausedAt       sql.NullString
-		lastResumeAt   sql.NullString
-		createdAt      string
-		updatedAt      string
-		activityName   string
-		activityPID    sql.NullInt64
-	)
-	if err := r.Scan(
-		&s.ID, &s.ActivityID, &teamID, &userID, &startAt, &endAt, &note,
-		&paused, &pausedAt, &s.AccumulatedSeconds, &lastResumeAt,
-		&createdAt, &updatedAt, &activityName, &activityPID,
-	); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return model.Session{}, "", 0, ErrNotFound
-		}
-		return model.Session{}, "", 0, err
-	}
-	if teamID.Valid {
-		s.TeamID = teamID.Int64
-	}
-	if userID.Valid {
-		s.UserID = userID.Int64
-	}
-	if t, err := ScanTime(startAt); err == nil {
-		s.StartAt = t
-	}
-	if endAt.Valid {
-		if t, err := ScanTime(endAt.String); err == nil {
-			s.EndAt = &t
-		}
-	}
-	if note.Valid {
-		v := note.String
-		s.Note = &v
-	}
-	s.Paused = paused != 0
-	if pausedAt.Valid {
-		if t, err := ScanTime(pausedAt.String); err == nil {
-			s.PausedAt = &t
-		}
-	}
-	if lastResumeAt.Valid {
-		if t, err := ScanTime(lastResumeAt.String); err == nil {
-			s.LastResumeAt = &t
-		}
-	}
-	if t, err := ScanTime(createdAt); err == nil {
-		s.CreatedAt = t
-	}
-	if t, err := ScanTime(updatedAt); err == nil {
-		s.UpdatedAt = t
-	}
-	var pid int64
-	if activityPID.Valid {
-		pid = activityPID.Int64
-	}
-	return s, activityName, pid, nil
+	return tx.Commit()
 }
 
 func nullableString(s string) any {
@@ -416,43 +415,4 @@ func nullableInt64(n int64) any {
 		return nil
 	}
 	return n
-}
-// SessionCursor is where a page of sessions stopped: the last row's start
-// and id (the list is newest first, ties broken by id).
-type SessionCursor struct {
-	Start string
-	ID    int64
-}
-
-// ListSessionsPage is one page of the sessions touching [from, to]:
-// closed ones overlapping it and running ones started inside it, newest
-// first, at most limit rows after the cursor. more says whether another
-// page follows.
-func (d *DB) ListSessionsPage(ctx context.Context, teamID int64, from, to time.Time, after *SessionCursor, limit int) (list []model.ActiveSession, more bool, err error) {
-	q := sessionSelect + `
-		WHERE s.team_id = ?
-		  AND ((s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?)
-		    OR (s.end_at IS NULL AND s.start_at >= ? AND s.start_at < ?))`
-	args := []any{teamID, FormatTime(to), FormatTime(from), FormatTime(from), FormatTime(to)}
-	if after != nil {
-		// "C" order: the ISO strings sort byte by byte, as time does.
-		q += ` AND (s.start_at COLLATE "C" < ? OR (s.start_at = ? AND s.id < ?))`
-		args = append(args, after.Start, after.Start, after.ID)
-	}
-	sc, args := scopeSQL(ctx, "s.user_id", args)
-	q += sc + ` ORDER BY s.start_at COLLATE "C" DESC, s.id DESC LIMIT ?`
-	args = append(args, limit+1)
-	rows, err := d.sql.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, false, err
-	}
-	defer rows.Close()
-	list, err = scanActiveSessions(rows)
-	if err != nil {
-		return nil, false, err
-	}
-	if len(list) > limit {
-		return list[:limit], true, nil
-	}
-	return list, false, nil
 }

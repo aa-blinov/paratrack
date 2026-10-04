@@ -34,7 +34,7 @@
 ```bash
 git clone https://github.com/aa-blinov/paratrack
 cd paratrack
-cp .env.example .env   # POSTGRES_PASSWORD и PARATRACK_SECRET_KEY: openssl rand -hex 24 / 32
+cp .env.example .env   # задайте POSTGRES_PASSWORD и PARATRACK_SECRET_KEY
 docker compose up -d --build
 # → http://127.0.0.1:8000/register
 ```
@@ -45,11 +45,12 @@ docker compose up -d --build
 
 ```bash
 export PARATRACK_DATABASE_URL='postgres://postgres:dev@127.0.0.1:5432/postgres?sslmode=disable'
+export PARATRACK_ENV=development PARATRACK_PUBLIC_URL=http://127.0.0.1:8000
 make build    # заодно соберёт CSS (npm install + Tailwind)
 ./paratrack web --addr 127.0.0.1:8000
 ```
 
-CLI работает с той же базой: `paratrack start вёрстка`, `paratrack stop`, `paratrack stats`, полный список в `paratrack help`.
+CLI работает с той же базой и использует workspace с наименьшим ID: `paratrack start вёрстка`, `paratrack stop`, `paratrack stats`. Полный список команд — `paratrack help`.
 
 ## Для разработчиков
 
@@ -59,17 +60,16 @@ CLI работает с той же базой: `paratrack start вёрстка`
 
 ```
 paratrack/
-├── cmd/paratrack/     точка входа: CLI и веб-сервер
+├── cmd/paratrack/     process root: конфигурация, сборка графа и lifecycle
 ├── internal/
-│   ├── db/            Postgres (pgx): схема, миграции, запросы
-│   ├── web/           HTTP-сервер, обработчики, шаблоны, статика
-│   ├── auth/          пользователи, сессии входа, bcrypt
-│   ├── teams/         пространства, роли, приглашения
-│   ├── timeparse/     разбор времени в свободной форме
-│   ├── i18n/          словари RU и EN
-│   ├── mail/          письма: SMTP или лог
-│   ├── catalog/       маркетплейс интеграций и шаблоны отчётов
-│   └── model/         доменные типы
+│   ├── cli/, web/      CLI и HTTP transport adapters
+│   ├── application/    consumer contracts для transports
+│   ├── app/            сборка workflow и outbound adapters
+│   ├── auth/, teams/, tracking/, invoicing/, ...
+│   │                   feature workflows и их persistence ports
+│   ├── db/             Postgres (pgx): schema, migrations, queries
+│   ├── model/          transport-neutral domain types
+│   └── mail/, stripe/, netclients/, ... outbound adapters и shared leaves
 ├── web/               исходники стилей (make ui)
 ├── site/              сайт и пользовательская документация (GitHub Pages)
 ├── extension/         расширение для Chrome
@@ -77,7 +77,14 @@ paratrack/
 └── docs/              PRODUCT, QA, JOURNEY: внутренние заметки
 ```
 
-Каждая страница и каждый `/api/*` проходят через `requireAuth`: кука сессии или токен `Authorization: Bearer pt_…`. Все выборки ограничены пространством, у участника ещё и своими сессиями. Схема в `internal/db/schema.go` идемпотентна: новая колонка это одна строка в `columnMigrations`.
+Подробная карта зависимостей, владения ресурсами и правил слоёв — в
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). Структура SQL задана в
+`internal/db/schema.sql`; startup migrations и совместимость со старыми
+базами принадлежат `internal/db`.
+
+Каждая страница и каждый `/api/*` проходят через `requireAuth`: кука сессии
+или токен `Authorization: Bearer pt_…`. Все выборки ограничены пространством,
+у участника ещё и своими сессиями.
 
 ### Проверка
 
@@ -97,6 +104,7 @@ CI на GitHub Actions прогоняет юнит-тесты на Postgres, с�
 ### Документы
 
 - [docs/PRODUCT.md](docs/PRODUCT.md): возможности, бизнес-логика денег и времени, модель безопасности, HTTP-поверхность, схема данных
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): пакеты, dependency rules, resource ownership и workflow boundaries
 - [docs/QA.md](docs/QA.md): матрица проверок и найденные баги
 - [docs/JOURNEY.md](docs/JOURNEY.md): карта переходов и пустые состояния
 - [DESIGN.md](DESIGN.md): дизайн-система

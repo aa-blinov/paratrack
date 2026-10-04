@@ -4,54 +4,142 @@ package auth
 
 import (
 	"context"
-	"database/sql"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/mail"
 	"strings"
 	"time"
 
-	"github.com/aa-blinov/paratrack/internal/db"
-	"github.com/aa-blinov/paratrack/internal/teams"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/depcheck"
+	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/postcommit"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// User is a registered paratrack account. Email is the login id, the
-// password hash is bcrypt, and Name is what we show in the UI.
-type User struct {
-	ID           int64     `json:"id"`
-	Email        string    `json:"email"`
-	PasswordHash string    `json:"-"`
-	Name         string    `json:"name"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+// User preserves the auth package API while sharing the persistence record.
+type User = model.User
+
+// UserStore provides account creation and profile operations.
+type UserStore interface {
+	CreateAccount(context.Context, appmodel.AccountCreateRequest) (int64, int64, error)
+	FindUserByEmail(context.Context, string) (model.User, error)
+	FindUserByID(context.Context, int64) (model.User, error)
+	FindUserIdentitiesByIDs(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
+	UpdateUserName(context.Context, appmodel.ProfileNameRequest) error
+	UpdateUserPasswordIfHashMatches(context.Context, appmodel.PasswordHashUpdateRequest) (bool, error)
 }
 
-// Service groups DB-backed operations on users. Construct one with
-// NewService and reuse it across handlers — it's safe for concurrent
-// use because the underlying *sql.DB serialises writes.
+// SessionStore provides authentication-session persistence.
+type SessionStore interface {
+	CreateAuthSession(context.Context, appmodel.AuthSessionCreateRequest) (model.AuthSession, error)
+	FindAuthSession(context.Context, string) (model.AuthSession, model.User, error)
+	TouchAuthSession(context.Context, appmodel.AuthSessionTouchRequest) error
+	DeleteAuthSession(context.Context, appmodel.AuthSessionDeleteRequest) error
+	DeleteAuthSessionsByUser(context.Context, appmodel.AuthSessionsDeleteByUserRequest) error
+	PurgeExpiredAuthSessions(context.Context, appmodel.AuthSessionsPurgeExpiredRequest) (int64, error)
+}
+
+// PasswordResetStore provides single-use password-reset persistence.
+type PasswordResetStore interface {
+	CreatePasswordReset(context.Context, appmodel.PasswordResetCreateRequest) error
+	ConsumePasswordReset(context.Context, appmodel.PasswordResetConsumeRequest) (model.User, error)
+}
+
+// APITokenStore provides API-token lifecycle operations.
+type APITokenStore interface {
+	CreateAPIToken(context.Context, appmodel.APITokenCreateRequest) (string, model.APIToken, error)
+	ListAPITokens(context.Context, int64) ([]model.APIToken, error)
+	DeleteAPIToken(context.Context, appmodel.APITokenDeleteRequest) error
+	APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (model.APIToken, error)
+}
+
+// MembershipReader provides the membership check required to scope tokens.
+type MembershipReader interface {
+	FindMembershipForUser(context.Context, int64, int64) (model.TeamMembership, bool, error)
+}
+
+// Dependencies binds each authentication workflow to a narrow persistence port.
+type Dependencies struct {
+	Users       UserStore
+	Sessions    SessionStore
+	Resets      PasswordResetStore
+	Tokens      APITokenStore
+	Memberships MembershipReader
+	Now         func() time.Time
+	Audit       AuditRecorder
+	Logger      Logger
+}
+
+type AuditRecorder interface {
+	Record(context.Context, model.AuditRecord) error
+	RecordGlobal(context.Context, model.AuditRecord) error
+}
+
+type Logger interface {
+	Printf(string, ...any)
+}
+
+var ErrIncompleteDependencies = errors.New("authentication service dependencies are incomplete")
+
+// Service groups authentication workflows. Construct one with NewService
+// and reuse it across handlers.
 type Service struct {
-	d *db.DB
+	users       UserStore
+	sessions    SessionStore
+	resets      PasswordResetStore
+	tokens      APITokenStore
+	memberships MembershipReader
+	now         func() time.Time
+	audit       AuditRecorder
+	logger      Logger
 }
 
-// NewService returns a Service bound to the given DB.
-func NewService(d *db.DB) *Service { return &Service{d: d} }
+// NewService returns a Service bound to its persistence contract.
+func NewService(deps Dependencies) (*Service, error) {
+	missing := []struct {
+		name string
+		port any
+	}{
+		{"users", deps.Users}, {"sessions", deps.Sessions}, {"password resets", deps.Resets},
+		{"API tokens", deps.Tokens}, {"memberships", deps.Memberships},
+		{"audit recorder", deps.Audit}, {"logger", deps.Logger},
+	}
+	for _, dependency := range missing {
+		if depcheck.IsNil(dependency.port) {
+			return nil, fmt.Errorf("%w: %s", ErrIncompleteDependencies, dependency.name)
+		}
+	}
+	if deps.Now == nil {
+		return nil, fmt.Errorf("%w: clock", ErrIncompleteDependencies)
+	}
+	return &Service{
+		users: deps.Users, sessions: deps.Sessions, resets: deps.Resets,
+		tokens: deps.Tokens, memberships: deps.Memberships, now: deps.Now,
+		audit: deps.Audit, logger: deps.Logger,
+	}, nil
+}
 
 // ErrInvalidEmail is returned when the supplied email is malformed or
 // empty. Other invalid cases (password too short, name empty) map to
 // the generic ErrValidation.
 var (
-	ErrInvalidEmail = errors.New("invalid email")
-	ErrValidation   = errors.New("validation failed")
-	ErrNotFound     = errors.New("not found")
-	ErrBadPassword  = errors.New("bad password")
+	ErrInvalidEmail       = appmodel.ErrAuthInvalidEmail
+	ErrValidation         = appmodel.ErrAuthValidation
+	ErrNotFound           = appmodel.ErrAuthNotFound
+	ErrBadPassword        = appmodel.ErrAuthBadPassword
+	ErrCredentialsInvalid = appmodel.ErrAuthCredentialsInvalid
+	ErrForbidden          = appmodel.ErrAuthForbidden
 )
 
 // Validate runs static checks on email / password / name before any DB
 // touch. Returns ErrInvalidEmail / ErrValidation with a wrapped reason.
 func Validate(email, password, name string) error {
 	if _, err := mail.ParseAddress(strings.TrimSpace(email)); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidEmail, err)
+		return fmt.Errorf("%w: %w", ErrInvalidEmail, err)
 	}
 	if len(password) < 8 {
 		return fmt.Errorf("%w: password must be at least 8 characters", ErrValidation)
@@ -67,76 +155,182 @@ func Validate(email, password, name string) error {
 	return nil
 }
 
-// CreateUser inserts a user, hashes the password, and (in one tx) creates
+// createUser inserts a user, hashes the password, and (in one tx) creates
 // their personal team + owner row so the new account can immediately
 // log in and have an empty workspace. Returns the new id and the
 // personal team id (so the caller can set it as the current team).
-func (s *Service) CreateUser(ctx context.Context, email, password, name string) (userID, teamID int64, err error) {
-	if err := Validate(email, password, name); err != nil {
+func (s *Service) createUser(ctx context.Context, email, password, name string) (userID, teamID int64, err error) {
+	return s.createUserWithTeamName(ctx, appmodel.RegistrationRequest{
+		Email: email, Password: password, Name: name,
+		TeamName: strings.TrimSpace(name) + "'s workspace",
+	})
+}
+
+// createUserWithTeamName creates the account, its personal workspace with the
+// caller-selected display name, and owner membership as one store operation.
+func (s *Service) createUserWithTeamName(ctx context.Context, request appmodel.RegistrationRequest) (userID, teamID int64, err error) {
+	if err := Validate(request.Email, request.Password, request.Name); err != nil {
 		return 0, 0, err
 	}
-	email = strings.ToLower(strings.TrimSpace(email))
-	name = strings.TrimSpace(name)
+	request.TeamName = strings.TrimSpace(request.TeamName)
+	if request.TeamName == "" {
+		return 0, 0, fmt.Errorf("%w: workspace name is required", ErrValidation)
+	}
+	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
+	request.Name = strings.TrimSpace(request.Name)
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := hashPassword(request.Password)
 	if err != nil {
 		return 0, 0, fmt.Errorf("hash password: %w", err)
 	}
 
-	tx, err := s.d.SQL().BeginTx(ctx, nil)
+	userID, teamID, err = s.users.CreateAccount(ctx, appmodel.AccountCreateRequest{
+		Email: request.Email, PasswordHash: string(hash), Name: request.Name, TeamName: request.TeamName,
+	})
 	if err != nil {
-		return 0, 0, err
-	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	now := db.FormatTime(time.Now().UTC())
-	err = tx.QueryRowContext(ctx,
-		`INSERT INTO users (email, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		email, string(hash), name, now, now,
-	).Scan(&userID)
-	if err != nil {
-		return 0, 0, fmt.Errorf("insert user: %w", err)
-	}
-	if err != nil {
-		return 0, 0, err
-	}
-
-	teamSvc := teams.NewService(s.d)
-	teamID, err = teamSvc.CreatePersonalInTx(ctx, tx, userID, name)
-	if err != nil {
-		return 0, 0, fmt.Errorf("create personal team: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
 		return 0, 0, err
 	}
 	return userID, teamID, nil
 }
 
-// FindByEmail returns the user with the given email (case-insensitive).
-func (s *Service) FindByEmail(ctx context.Context, email string) (User, error) {
-	row := s.d.SQL().QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at
-		 FROM users WHERE email = ?`, strings.ToLower(strings.TrimSpace(email)),
-	)
-	return scanUser(row)
+// RegisterAndStartSession creates an account with its personal workspace and
+// issues the initial session. Validation and account-creation errors retain
+// their types for adapter-specific responses.
+func (s *Service) RegisterAndStartSession(ctx context.Context, request appmodel.RegistrationRequest) (Session, int64, error) {
+	userID, teamID, err := s.createUserWithTeamName(ctx, request)
+	if err != nil {
+		return Session{}, 0, err
+	}
+	session, err := s.newSession(ctx, userID)
+	if err != nil {
+		return Session{}, 0, fmt.Errorf("create registration session: %w", err)
+	}
+	s.recordAudit(ctx, teamID, userID, "auth.register", strings.ToLower(strings.TrimSpace(request.Email)), "")
+	return session, teamID, nil
 }
 
-// FindByID returns the user with the given id.
-func (s *Service) FindByID(ctx context.Context, id int64) (User, error) {
-	row := s.d.SQL().QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE id = ?`, id,
-	)
-	return scanUser(row)
+// findByEmail returns the user with the given email (case-insensitive).
+func (s *Service) findByEmail(ctx context.Context, email string) (User, error) {
+	user, err := s.users.FindUserByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
+	return user, mapStoreNotFound(err)
 }
 
-// VerifyPassword returns nil if the supplied password matches the
+// AuthenticatePassword verifies an email/password pair and starts a session.
+// Unknown users and wrong passwords have the same public error.
+func (s *Service) AuthenticatePassword(ctx context.Context, request appmodel.PasswordLoginRequest) (appmodel.UserIdentity, Session, error) {
+	user, err := s.findByEmail(ctx, request.Email)
+	if errors.Is(err, ErrNotFound) {
+		return appmodel.UserIdentity{}, Session{}, ErrCredentialsInvalid
+	}
+	if err != nil {
+		return appmodel.UserIdentity{}, Session{}, fmt.Errorf("find login account: %w", err)
+	}
+	if err := s.verifyPassword(user, request.Password); err != nil {
+		return appmodel.UserIdentity{}, Session{}, ErrCredentialsInvalid
+	}
+	session, err := s.newSession(ctx, user.ID)
+	if err != nil {
+		return appmodel.UserIdentity{}, Session{}, fmt.Errorf("create login session: %w", err)
+	}
+	s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.login", user.Email, "")
+	return identityOf(user), session, nil
+}
+
+func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action, target, meta string) {
+	effectCtx, cancel := postcommit.NewContext(ctx)
+	defer cancel()
+	var err error
+	if teamID == 0 {
+		err = s.audit.RecordGlobal(effectCtx, model.AuditRecord{
+			UserID: actorID, Action: action, Target: target, Meta: meta, IP: requestctx.ClientIP(ctx),
+		})
+	} else {
+		err = s.audit.Record(effectCtx, model.AuditRecord{
+			TeamID: teamID, UserID: actorID, Action: action, Target: target, Meta: meta, IP: requestctx.ClientIP(ctx),
+		})
+	}
+	if err != nil {
+		s.logger.Printf("auth: record %s audit for user %d: %v", action, actorID, err)
+	}
+}
+
+// AuthenticateSSO resolves the account for a provider-verified email,
+// creating its personal workspace on first use, then issues an auth session.
+// If callbacks race to register the same address, the losing callback reloads
+// and uses the account that won.
+func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthenticationRequest) (identity appmodel.UserIdentity, session Session, created bool, err error) {
+	var user User
+	user, err = s.findByEmail(ctx, request.Email)
+	if errors.Is(err, ErrNotFound) {
+		request.Name = strings.TrimSpace(request.Name)
+		if request.Name == "" {
+			request.Name = strings.SplitN(strings.TrimSpace(request.Email), "@", 2)[0]
+		}
+		passwordBytes := make([]byte, 32)
+		if _, err := rand.Read(passwordBytes); err != nil {
+			return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("generate SSO password: %w", err)
+		}
+		password := hex.EncodeToString(passwordBytes)
+		userID, _, createErr := s.createUserWithTeamName(ctx, appmodel.RegistrationRequest{
+			Email: request.Email, Password: password, Name: request.Name, TeamName: request.TeamName,
+		})
+		if createErr != nil {
+			// A concurrent callback may have inserted the same normalized email.
+			// Resolve that unique-key race without weakening ordinary registration.
+			user, err = s.findByEmail(ctx, request.Email)
+			if err != nil {
+				return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("create SSO account: %w", createErr)
+			}
+		} else {
+			user, err = s.findByID(ctx, userID)
+			if err != nil {
+				return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("load created SSO account: %w", err)
+			}
+			created = true
+		}
+	} else if err != nil {
+		return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("find SSO account: %w", err)
+	}
+	session, err = s.newSession(ctx, user.ID)
+	if err != nil {
+		return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("create SSO session: %w", err)
+	}
+	if created {
+		s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.sso_register", user.Email, request.Subject)
+	}
+	s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.sso_login", user.Email, request.Subject)
+	return identityOf(user), session, created, nil
+}
+
+// findByID returns the user with the given id.
+func (s *Service) findByID(ctx context.Context, id int64) (User, error) {
+	user, err := s.users.FindUserByID(ctx, id)
+	return user, mapStoreNotFound(err)
+}
+
+// IdentityByID returns credential-free fields for transport and notification
+// use cases that need only an account's display identity.
+func (s *Service) IdentityByID(ctx context.Context, id int64) (appmodel.UserIdentity, error) {
+	user, err := s.findByID(ctx, id)
+	if err != nil {
+		return appmodel.UserIdentity{}, err
+	}
+	return identityOf(user), nil
+}
+
+// FindIdentitiesByID returns credential-free identities for the requested IDs.
+// Missing IDs are omitted from the result.
+func (s *Service) FindIdentitiesByID(ctx context.Context, ids []int64) (map[int64]appmodel.UserIdentity, error) {
+	identities, err := s.users.FindUserIdentitiesByIDs(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("find user identities by IDs: %w", err)
+	}
+	return identities, nil
+}
+
+// verifyPassword returns nil if the supplied password matches the
 // user's stored hash, or ErrBadPassword otherwise.
-func (s *Service) VerifyPassword(user User, password string) error {
+func (s *Service) verifyPassword(user User, password string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return ErrBadPassword
 	}
@@ -144,60 +338,63 @@ func (s *Service) VerifyPassword(user User, password string) error {
 }
 
 // UpdateName changes the user's display name. Empty names are rejected.
-func (s *Service) UpdateName(ctx context.Context, userID int64, name string) error {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return fmt.Errorf("%w: name cannot be empty", ErrValidation)
-	}
-	now := db.FormatTime(time.Now().UTC())
-	res, err := s.d.SQL().ExecContext(ctx,
-		`UPDATE users SET name = ?, updated_at = ? WHERE id = ?`, name, now, userID,
-	)
-	if err != nil {
-		return err
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
+func (s *Service) UpdateName(ctx context.Context, request appmodel.ProfileNameRequest) error {
+	if request.UserID <= 0 {
 		return ErrNotFound
 	}
-	return nil
+	request.Name = strings.TrimSpace(request.Name)
+	if request.Name == "" {
+		return fmt.Errorf("%w: name cannot be empty", ErrValidation)
+	}
+	return mapStoreNotFound(s.users.UpdateUserName(ctx, request))
 }
 
 // UpdatePassword re-hashes the new password. Same length rules as
 // registration (8-72 chars).
-func (s *Service) UpdatePassword(ctx context.Context, userID int64, newPassword string) error {
-	if len(newPassword) < 8 || len(newPassword) > 72 {
-		return fmt.Errorf("%w: password must be 8-72 characters", ErrValidation)
-	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+// ChangePassword verifies the caller's current credential and replaces it
+// without exposing the stored password hash to transport adapters. The
+// conditional write prevents a concurrent credential change from being
+// overwritten with a hash verified against an older value.
+func (s *Service) ChangePassword(ctx context.Context, request appmodel.PasswordChangeRequest) error {
+	userID, currentPassword, newPassword := request.UserID, request.CurrentPassword, request.NewPassword
+	user, err := s.findByID(ctx, userID)
 	if err != nil {
 		return err
 	}
-	now := db.FormatTime(time.Now().UTC())
-	_, err = s.d.SQL().ExecContext(ctx,
-		`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
-		string(hash), now, userID,
-	)
-	return err
+	if err := s.verifyPassword(user, currentPassword); err != nil {
+		return err
+	}
+	if len(newPassword) < 8 || len(newPassword) > 72 {
+		return fmt.Errorf("%w: password must be 8-72 characters", ErrValidation)
+	}
+	hash, err := hashPassword(newPassword)
+	if err != nil {
+		return fmt.Errorf("hash new password: %w", err)
+	}
+	updated, err := s.users.UpdateUserPasswordIfHashMatches(ctx, appmodel.PasswordHashUpdateRequest{
+		UserID: userID, ExpectedHash: user.PasswordHash, PasswordHash: string(hash),
+	})
+	if err != nil {
+		return mapStoreNotFound(err)
+	}
+	if !updated {
+		return ErrBadPassword
+	}
+	s.recordAudit(ctx, requestctx.TeamID(ctx), userID, "auth.password_change", user.Email, "")
+	return nil
 }
 
-func scanUser(r interface{ Scan(...any) error }) (User, error) {
-	var (
-		u        User
-		created  string
-		updated  string
-	)
-	if err := r.Scan(&u.ID, &u.Email, &u.PasswordHash, &u.Name, &created, &updated); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return User{}, ErrNotFound
-		}
-		return User{}, err
+func hashPassword(password string) ([]byte, error) {
+	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+}
+
+func identityOf(user User) appmodel.UserIdentity {
+	return appmodel.UserIdentity{ID: user.ID, Email: user.Email, Name: user.Name}
+}
+
+func mapStoreNotFound(err error) error {
+	if errors.Is(err, model.ErrNotFound) {
+		return ErrNotFound
 	}
-	if t, err := db.ScanTime(created); err == nil {
-		u.CreatedAt = t
-	}
-	if t, err := db.ScanTime(updated); err == nil {
-		u.UpdatedAt = t
-	}
-	return u, nil
+	return err
 }

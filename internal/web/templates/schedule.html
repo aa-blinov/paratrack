@@ -17,7 +17,7 @@
   <form method="GET" class="flex flex-wrap items-center gap-2 text-sm">
     <input type="hidden" name="date" value="{{.ThisWeek}}">
     <label for="sch-project" class="doc-muted">{{.T "sch.planning"}}</label>
-    <select id="sch-project" name="project" class="select select-bordered select-sm" onchange="this.form.submit()">
+    <select id="sch-project" name="project" class="select select-bordered select-sm" data-submit-on-change>
       {{range .Projects}}<option value="{{.ID}}"{{if eq .ID $.ProjectID}} selected{{end}}>{{.Name}}</option>{{end}}
     </select>
     <span class="text-xs doc-muted">{{.T "sch.planningHint"}}</span>

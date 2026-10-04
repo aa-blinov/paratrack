@@ -1,6 +1,9 @@
 package db
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 // Documents price the rounded hours, so hours × rate = amount always.
 func TestPriceCents(t *testing.T) {
@@ -19,7 +22,11 @@ func TestPriceCents(t *testing.T) {
 		if h := HoursHundredths(c.sec); h != c.hundredths {
 			t.Errorf("HoursHundredths(%d) = %d, want %d", c.sec, h, c.hundredths)
 		}
-		if got := PriceCents(c.sec, c.rate); got != c.cents {
+		got, err := PriceCents(c.sec, c.rate)
+		if err != nil {
+			t.Fatalf("PriceCents(%d, %d): %v", c.sec, c.rate, err)
+		}
+		if got != c.cents {
 			t.Errorf("PriceCents(%d, %d) = %d, want %d", c.sec, c.rate, got, c.cents)
 		}
 	}
@@ -35,6 +42,9 @@ func TestRoundBilled(t *testing.T) {
 	}{
 		{61 * 60, up, 75 * 60}, {61 * 60, near, 60 * 60}, {68 * 60, near, 75 * 60},
 		{10, BillingRules{}, 10}, {0, up, 0},
+		{math.MaxInt, BillingRules{RoundMinutes: 60}, math.MaxInt},
+		{math.MaxInt, BillingRules{RoundMinutes: 60, RoundMode: "up"}, math.MaxInt},
+		{10, BillingRules{RoundMinutes: math.MaxInt}, 10},
 	} {
 		if got := RoundBilled(c.sec, c.r); got != c.want {
 			t.Errorf("RoundBilled(%d, %+v) = %d, want %d", c.sec, c.r, got, c.want)

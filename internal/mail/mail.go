@@ -1,60 +1,59 @@
 // Package mail sends transactional mail. The default implementation
-// writes to a log sink so local / CI deploys work without SMTP; set
-// SMTP_* env vars (or wire a custom Sender) for production delivery.
+// writes to a log sink so local / CI deploys work without SMTP. The process
+// composition root converts SMTP settings into a Sender, or may inject a
+// custom Sender for another delivery mechanism.
 package mail
 
 import (
 	"bytes"
+	"context"
+	"crypto/tls"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"io"
 	"log"
 	"mime"
 	"mime/multipart"
+	"net"
 	"net/smtp"
 	"net/textproto"
-	"os"
 	"strings"
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/mailport"
 )
 
-// Sender delivers a single message. Implementations must be safe for
-// concurrent use.
-type Sender interface {
-	Send(to, subject, body string) error
-}
+type Sender = mailport.Sender
+type Attachment = mailport.Attachment
+type Message = mailport.Message
+type RichSender = mailport.RichSender
 
-// Attachment is a file sent along (an invoice PDF).
-type Attachment struct {
-	Name        string
-	ContentType string
-	Data        []byte
+// Available reports whether the injected sender can deliver real messages.
+// Custom senders are considered available unless they expose an Available
+// method, keeping transport behavior aligned with the dependency it received.
+func Available(sender Sender) bool {
+	return mailport.Available(sender)
 }
-
-// Message is a full letter: plain text (always), optional HTML version
-// of the same content, optional files.
-type Message struct {
-	To, Subject, Text, HTML string
-	Files                   []Attachment
-}
-
-// RichSender delivers a Message. Both built-in senders implement it.
-type RichSender interface {
-	Deliver(m Message) error
-}
-
-// Configured reports whether real delivery is set up (SMTP host given).
-func Configured() bool { return os.Getenv("PARATRACK_SMTP_HOST") != "" }
 
 // LogSender prints the message to the process log. Used when no SMTP
 // host is configured — fine for self-hosted / dev, NOT for real SaaS
 // delivery (the reset link only lands in the server log).
-type LogSender struct{}
+type LogSender struct {
+	Logger *log.Logger
+}
 
-func (LogSender) Send(to, subject, body string) error {
-	log.Printf("mail → to=%s subject=%q\n%s", to, subject, strings.TrimRight(body, "\n"))
+func (LogSender) Available() bool { return false }
+
+func (s LogSender) Send(_ context.Context, to, subject, body string) error {
+	if s.Logger == nil {
+		return fmt.Errorf("log mail sender requires a logger")
+	}
+	s.Logger.Printf("mail → to=%s subject=%q\n%s", to, subject, strings.TrimRight(body, "\n"))
 	return nil
 }
 
-func (l LogSender) Deliver(m Message) error {
+func (l LogSender) Deliver(ctx context.Context, m Message) error {
 	body := m.Text
 	if m.HTML != "" {
 		body += fmt.Sprintf("\n[html version, %d bytes]", len(m.HTML))
@@ -62,7 +61,7 @@ func (l LogSender) Deliver(m Message) error {
 	for _, f := range m.Files {
 		body += fmt.Sprintf("\n[attachment %s, %d bytes]", f.Name, len(f.Data))
 	}
-	return l.Send(m.To, m.Subject, body)
+	return l.Send(ctx, m.To, m.Subject, body)
 }
 
 // SMTPSender delivers via an SMTP relay. Auth is skipped when username
@@ -74,21 +73,97 @@ type SMTPSender struct {
 	From     string // "paratrack@example.com"
 }
 
-func (s SMTPSender) Send(to, subject, body string) error {
-	return s.Deliver(Message{To: to, Subject: subject, Text: body})
+func (s SMTPSender) Available() bool { return s.Host != "" }
+
+func (s SMTPSender) Send(ctx context.Context, to, subject, body string) error {
+	return s.Deliver(ctx, Message{To: to, Subject: subject, Text: body})
 }
 
 // Deliver sends m over SMTP (see buildMessage for the MIME shape).
-func (s SMTPSender) Deliver(m Message) error {
+func (s SMTPSender) Deliver(ctx context.Context, m Message) error {
+	if err := validateMessageHeaders(s.From, m); err != nil {
+		return err
+	}
+	if ctx == nil {
+		return ErrNilDeliveryContext
+	}
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	addr := s.Host
 	if addr == "" {
 		return fmt.Errorf("smtp host not configured")
 	}
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("smtp address %q must include a port: %w", addr, err)
+	}
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	stopClose := context.AfterFunc(ctx, func() { _ = conn.Close() })
+	defer stopClose()
+	if deadline, ok := ctx.Deadline(); ok {
+		if err := conn.SetDeadline(deadline); err != nil {
+			return err
+		}
+	}
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return err
+	}
+	defer c.Close()
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
+			return err
+		}
+	}
 	var auth smtp.Auth
 	if s.Username != "" {
-		auth = smtp.PlainAuth("", s.Username, s.Password, strings.Split(addr, ":")[0])
+		auth = smtp.PlainAuth("", s.Username, s.Password, host)
 	}
-	return smtp.SendMail(addr, auth, s.From, []string{m.To}, buildMessage(s.From, m))
+	if auth != nil {
+		if err := c.Auth(auth); err != nil {
+			return err
+		}
+	}
+	if err := c.Mail(s.From); err != nil {
+		return err
+	}
+	if err := c.Rcpt(m.To); err != nil {
+		return err
+	}
+	w, err := c.Data()
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(w, bytes.NewReader(buildMessage(s.From, m))); err != nil {
+		_ = w.Close()
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	return c.Quit()
+}
+
+var ErrNilDeliveryContext = errors.New("mail delivery context is nil")
+
+// validateMessageHeaders rejects line breaks in values that are written into
+// SMTP or MIME headers. Message producers are separate workflows, so the
+// transport adapter enforces this boundary even when a future producer accepts
+// less-trusted attachment metadata.
+func validateMessageHeaders(from string, m Message) error {
+	if strings.ContainsAny(from, "\r\n") || strings.ContainsAny(m.To, "\r\n") || strings.ContainsAny(m.Subject, "\r\n") {
+		return fmt.Errorf("mail headers must not contain line breaks")
+	}
+	for i, file := range m.Files {
+		if strings.ContainsAny(file.Name, "\r\n") || strings.ContainsAny(file.ContentType, "\r\n") {
+			return fmt.Errorf("mail attachment %d headers must not contain line breaks", i)
+		}
+	}
+	return nil
 }
 
 // buildMessage is the MIME tree:
@@ -184,20 +259,30 @@ func wrap64(s string) string {
 	return b.String()
 }
 
-// FromEnv picks SMTP when PARATRACK_SMTP_HOST is set, else the log sink.
-// PARATRACK_SMTP_USER / PARATRACK_SMTP_PASS / PARATRACK_MAIL_FROM
-// complete the relay config.
-func FromEnv() Sender {
-	host := os.Getenv("PARATRACK_SMTP_HOST")
-	if host == "" {
-		return LogSender{}
+// SMTPConfig holds the process-wide SMTP relay settings.
+type SMTPConfig struct {
+	Host     string
+	Username string
+	Password string
+	From     string
+}
+
+// NewSender selects SMTP when configured, otherwise it uses the log sink.
+var ErrMissingLogger = errors.New("mail log sender requires a logger")
+
+func NewSender(config SMTPConfig, logger *log.Logger) (Sender, error) {
+	if config.Host == "" {
+		if logger == nil {
+			return nil, ErrMissingLogger
+		}
+		return LogSender{Logger: logger}, nil
 	}
 	return SMTPSender{
-		Host:     host,
-		Username: os.Getenv("PARATRACK_SMTP_USER"),
-		Password: os.Getenv("PARATRACK_SMTP_PASS"),
-		From:     orDefault(os.Getenv("PARATRACK_MAIL_FROM"), "paratrack@localhost"),
-	}
+		Host:     config.Host,
+		Username: config.Username,
+		Password: config.Password,
+		From:     orDefault(config.From, "paratrack@localhost"),
+	}, nil
 }
 
 func orDefault(v, def string) string {

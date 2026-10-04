@@ -1,14 +1,14 @@
 package web
 
 import (
-	"encoding/json"
-	"strconv"
 	"bytes"
+	"encoding/json"
 	"image"
 	"image/png"
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -29,8 +29,8 @@ func TestPreferences(t *testing.T) {
 	resp := e.do("POST", "/api/me/preferences", url.Values{
 		"duration": {"clock"}, "week_start": {"sun"}, "tz": {"Asia/Novosibirsk"},
 		"sections_all": {"graph", "goals"}, "sections": {"goals"},
-		"tabs":     {"goals", "stats", "graph"}, // graph is hidden, so it can't be a tab
-		"widgets":  {"unbilled", "goals", "backfill"},
+		"tabs":            {"goals", "stats", "graph"}, // graph is hidden, so it can't be a tab
+		"widgets":         {"unbilled", "goals", "backfill"},
 		"default_project": {"2"},
 	}, nil)
 	resp.Body.Close()
@@ -157,7 +157,7 @@ func TestProjectTotalsAllTimeAndScoped(t *testing.T) {
 	old := time.Now().AddDate(0, -3, 0).Format("2006-01-02")
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {old + " 10:00"}, "end": {old + " 13:00"}, "project_id": {"1"}}, htmx))
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 11:00"}, "project_id": {"1"}}, htmx))
-	proj, _ := e.srv.db.GetProject(t.Context(), 1)
+	proj, _ := e.db.GetProjectByID(t.Context(), 1)
 	page := readBody(t, e.do("GET", "/projects/"+proj.Slug, nil, nil))
 	if !strings.Contains(page, "4\u00a0ч") {
 		t.Errorf("all-time total should be 4 h (3 h three months ago + 1 h yesterday)")

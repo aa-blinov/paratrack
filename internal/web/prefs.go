@@ -2,35 +2,24 @@ package web
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
 
-	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // Prefs is how one person likes the app, on top of what their workspace
 // switched on. Stored as JSON on the user; zero values are the defaults.
-type Prefs struct {
-	HiddenSections []string         `json:"hidden,omitempty"`          // sections the user doesn't want in their menu
-	Tabs           []string         `json:"tabs,omitempty"`            // phone tab bar, up to 4 (default: the core four)
-	Duration       string           `json:"duration,omitempty"`        // "hm" (2 ч 30 мин) | "decimal" (2,50 ч) | "clock" (2:30)
-	WeekStart      string           `json:"week_start,omitempty"`      // "mon" | "sun"
-	TZ             string           `json:"tz,omitempty"`              // manual zone; "" = the browser's
-	HiddenWidgets  []string         `json:"widgets_hidden,omitempty"` // dashboard blocks switched off
-	DefaultProject map[string]int64 `json:"default_project,omitempty"` // workspace id → project for new timers
-}
-
-func parsePrefs(raw string) Prefs {
-	var p Prefs
-	_ = json.Unmarshal([]byte(raw), &p)
-	return p
-}
+type Prefs = appmodel.UserPreferences
 
 type prefsKey struct{}
 
-func withPrefs(ctx context.Context, p Prefs) context.Context { return context.WithValue(ctx, prefsKey{}, p) }
+func withPrefs(ctx context.Context, p Prefs) context.Context {
+	return context.WithValue(ctx, prefsKey{}, p)
+}
 
 func prefsOf(r *http.Request) Prefs {
 	if r == nil {
@@ -53,7 +42,7 @@ func durFmtOf(r *http.Request) string { return prefsOf(r).Duration }
 
 func weekStartsSunday(r *http.Request) bool { return prefsOf(r).WeekStart == "sun" }
 
-func (p Prefs) defaultProject(teamID int64) int64 {
+func defaultProject(p Prefs, teamID int64) int64 {
 	return p.DefaultProject[strconv.FormatInt(teamID, 10)]
 }
 
@@ -135,7 +124,7 @@ type prefsPage struct {
 	Widgets  []prefCheck
 	P        Prefs
 	Zones    []string
-	Projects []model.Project
+	Projects []projectView
 	DefProj  int64
 	Flash    string
 	FlashOK  bool
@@ -165,8 +154,13 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 	for _, k := range widgetKeys {
 		data.Widgets = append(data.Widgets, prefCheck{k, "", "widget." + k, widgetOn(r, k)})
 	}
-	data.Projects, _ = s.db.ListProjects(r.Context(), teamID(r), false)
-	data.DefProj = p.defaultProject(teamID(r))
+	projects, err := s.services.Projects.Queries.List(r.Context(), teamID(r), false)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	data.Projects = projectViews(projects)
+	data.DefProj = defaultProject(p, teamID(r))
 	if f := r.URL.Query().Get("flash"); f != "" {
 		data.Flash, data.FlashOK = decodeFlash(f, lang)
 	}
@@ -176,7 +170,10 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 // handleAPIPreferences saves the whole form. Sections the workspace has
 // off aren't on the form, so an earlier personal choice about them is kept.
 func (s *Server) handleAPIPreferences(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/settings/preferences?flash=bad_request", http.StatusSeeOther)
+		return
+	}
 	f := r.PostForm
 	p := prefsOf(r)
 	shown := map[string]bool{}
@@ -228,14 +225,17 @@ func (s *Server) handleAPIPreferences(w http.ResponseWriter, r *http.Request) {
 	}
 	delete(p.DefaultProject, tid)
 	if id, _ := strconv.ParseInt(f.Get("default_project"), 10, 64); id > 0 {
-		if pr, err := s.db.GetProject(r.Context(), id); err == nil && pr.TeamID == teamID(r) {
-			p.DefaultProject[tid] = id
-		}
+		p.DefaultProject[tid] = id
 	}
-	raw, _ := json.Marshal(p)
 	user, _ := UserFrom(r.Context())
-	if err := s.db.SetUserPrefs(r.Context(), user.ID, string(raw)); err != nil {
-		http.Redirect(w, r, "/settings/preferences?flash="+url.QueryEscape(encodeFlash(false, err.Error())), http.StatusSeeOther)
+	if err := s.services.Preferences.Save(r.Context(), appmodel.PreferencesSaveRequest{UserID: user.ID, TeamID: teamID(r), Preferences: p}); err != nil {
+		msg := i18n.T(resolveLang(r), "err.internal")
+		if errors.Is(err, appmodel.ErrInvalidDefaultProject) || errors.Is(err, appmodel.ErrInvalidPreferences) {
+			msg = i18n.T(resolveLang(r), "err.invalidInput")
+		} else {
+			s.logInternalError(err)
+		}
+		http.Redirect(w, r, "/settings/preferences?flash="+url.QueryEscape(encodeFlash(false, msg)), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/settings/preferences?flash=updated", http.StatusSeeOther)

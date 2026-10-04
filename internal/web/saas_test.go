@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -46,7 +47,7 @@ func TestPasswordResetFlow(t *testing.T) {
 	e := newAPIEnv(t)
 	// Capture the mail the log sender writes by swapping in a spy.
 	spy := &spyMail{}
-	e.srv.mailer = spy
+	e.srv.runtime.Mailer = spy
 
 	e.register("reset@x.test")
 
@@ -165,7 +166,7 @@ func TestBackfillValidationKeepsFormAndEscapesError(t *testing.T) {
 		t.Fatalf("missing or unescaped inline error: %s", body)
 	}
 	var count int
-	if err := e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions`).Scan(&count); err != nil || count != 0 {
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("invalid entry created a session: count=%d err=%v", count, err)
 	}
 }
@@ -174,7 +175,7 @@ type spyMail struct {
 	sent []struct{ to, subject, body string }
 }
 
-func (s *spyMail) Send(to, subject, body string) error {
+func (s *spyMail) Send(_ context.Context, to, subject, body string) error {
 	s.sent = append(s.sent, struct{ to, subject, body string }{to, subject, body})
 	return nil
 }

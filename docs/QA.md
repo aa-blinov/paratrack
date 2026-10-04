@@ -1,15 +1,35 @@
 # QA
 
-Status of the last full pass: **all four suites green**.
+## Automated CI gates
+
+GitHub Actions is the source of truth for pushes and pull requests targeting
+`main` or `master`. It runs these gates:
+
+| Job | Commands / coverage |
+|---|---|
+| UI build | `npm ci`, `npm run build`, `npm run test:js` |
+| Architecture | `make verify` (Go static/security/build checks, architecture rules, JS lint/import graph and npm audit) |
+| Go tests | `go test -race -count=1 -p 1 ./...` plus coverage for `internal/db`, `internal/web` and `internal/timeparse` |
+| Browser E2E | `python e2e/test_dashboard.py` against the CI Postgres service |
+
+The expanded QA suites below are manual acceptance runs. Their counts are the
+last recorded snapshot and do not prove the current working tree or a specific
+commit; use the CI run for commit-specific status.
+
+## Last recorded manual QA snapshot
 
 | Suite | Command | Result |
 |---|---|---|
 | Unit + integration | `go test ./...` | 6 packages ok |
 | UI / visual | `python e2e/qa_full.py` | **63/63** |
 | Business logic | `python e2e/qa_logic.py` | **65/65** |
-| Offline + push | `python e2e/wave9_verify.py` | **14/14** |
+| Offline + push | `python e2e/qa_offline_push.py` | **14/14** |
 
-Screenshots: `e2e/screenshots/qa/`, `e2e/screenshots/qa-logic/`, `e2e/screenshots/wave9/`.
+Screenshots: `e2e/screenshots/qa/`, `e2e/screenshots/qa-logic/`, `e2e/screenshots/offline-push/`.
+
+Mutating QA scripts default to the local server at `http://127.0.0.1:8888`.
+Start the local service with `make e2e-up` before running them. Set
+`PARATRACK_BASE` explicitly when intentionally targeting another deployment.
 
 ---
 
@@ -54,7 +74,7 @@ Screenshots: `e2e/screenshots/qa/`, `e2e/screenshots/qa-logic/`, `e2e/screenshot
 | K. i18n | RU + EN switch |
 | L. CSV | `text/csv` export with data rows |
 
-## Offline + push (`e2e/wave9_verify.py`)
+## Offline + push (`e2e/qa_offline_push.py`)
 
 | Check | Proof |
 |---|---|
@@ -62,8 +82,9 @@ Screenshots: `e2e/screenshots/qa/`, `e2e/screenshots/qa-logic/`, `e2e/screenshot
 | Offline banner | appears on `offline` |
 | Mutation queue | `POST /api/start` queued **with body** |
 | Flush | queue drains on reconnect, session actually created |
+| Sensitive mutations | login, password, integration, push and payment bodies are not queued |
 | VAPID | `GET /api/push/key` returns `publicKey` |
-| Push page | `window.paratrackPush`, status messages bound |
+| Push page | controls and status are present; behavior stays module-scoped; translated messages are bound |
 | Enable push | status updates (no silent click) |
 | Subscribe / unsubscribe | 200 |
 | PWA manifest | `display: standalone`, 2 icons |
@@ -93,8 +114,8 @@ Screenshots: `e2e/screenshots/qa/`, `e2e/screenshots/qa-logic/`, `e2e/screenshot
    the body and only dequeues on 2xx.
 
 6. **Push settings silently did nothing** — `html/template` double-escapes `{{printf "%q"}}`
-   inside `<script>`, which is a JS syntax error, so `window.paratrackPush` never existed.
-   Messages moved to `data-msg-*` attributes.
+   inside `<script>`, which is a JS syntax error. Messages moved to `data-msg-*`
+   attributes and behavior now lives in an ES module without a `window` global.
 
 7. **Service worker had scope `/static/`** — a script at `/static/sw.js` cannot control `/`.
    Now served at `/sw.js` with `Service-Worker-Allowed: /`.

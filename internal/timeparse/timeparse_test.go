@@ -1,6 +1,8 @@
 package timeparse
 
 import (
+	"errors"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -74,9 +76,20 @@ func TestParseDuration(t *testing.T) {
 
 	// Explicit error cases. -1h is now rejected — the regex would
 	// otherwise strip the leading "-" and silently parse "1h".
-	for _, bad := range []string{"", "abc", "1 unknown-unit", "-1h", "-30m"} {
+	for _, bad := range []string{"", "abc", "1 unknown-unit", "-1h", "-30m", "junk2h", "2h trailing", "1e309h"} {
 		if _, err := ParseDuration(bad); err == nil {
 			t.Errorf("ParseDuration(%q) should error, got nil", bad)
+		}
+	}
+}
+
+func TestParseDurationRejectsOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	tooManyMinutes := strconv.Itoa(maxInt)
+	tooManySeconds := strconv.FormatInt(int64(maxDurationSeconds())+1, 10) + "s"
+	for _, input := range []string{tooManyMinutes, tooManySeconds, "999999999999999999999999999999999999999h"} {
+		if _, err := ParseDuration(input); !errors.Is(err, ErrDurationOverflow) {
+			t.Errorf("ParseDuration(%q) error = %v, want ErrDurationOverflow", input, err)
 		}
 	}
 }
@@ -172,6 +185,19 @@ func TestResolvePeriod_UnknownName(t *testing.T) {
 	}
 }
 
+func TestIsKnownPeriod(t *testing.T) {
+	for _, name := range []string{"today", "yesterday", "week", "last_week", "month", "last_month"} {
+		if !IsKnownPeriod(name) {
+			t.Errorf("IsKnownPeriod(%q) = false, want true", name)
+		}
+	}
+	for _, name := range []string{"", "custom", "fortnight"} {
+		if IsKnownPeriod(name) {
+			t.Errorf("IsKnownPeriod(%q) = true, want false", name)
+		}
+	}
+}
+
 func TestParseDateTime_Ago(t *testing.T) {
 	got, err := ParseDateTime("2 hours ago", fixedNow)
 	if err != nil {
@@ -180,6 +206,9 @@ func TestParseDateTime_Ago(t *testing.T) {
 	want := fixedNow.Add(-2 * time.Hour)
 	if !got.Equal(want) {
 		t.Errorf("2 hours ago = %v, want %v", got, want)
+	}
+	if _, err := ParseDateTime("9999999999999999 hours ago", fixedNow); err == nil {
+		t.Fatal("duration beyond time.Duration range unexpectedly parsed")
 	}
 }
 
@@ -201,6 +230,22 @@ func TestParseDateTime_ISOWithZone(t *testing.T) {
 	}
 	if got.Year() != 2026 || got.Hour() != 14 {
 		t.Errorf("ISO parse = %v, want 2026-09-22T14:30:00Z", got)
+	}
+}
+
+func TestParseDateTimeUsesClockLocationForNaiveDates(t *testing.T) {
+	location, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 22, 15, 30, 0, 0, location)
+	got, err := ParseDateTime("2026-09-22 14:30", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, 9, 22, 14, 30, 0, 0, location)
+	if !got.Equal(want) || got.Location() != location {
+		t.Errorf("naive datetime = %v (%s), want %v (%s)", got, got.Location(), want, location)
 	}
 }
 

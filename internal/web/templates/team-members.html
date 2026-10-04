@@ -21,7 +21,7 @@
               {{else if $.IsOwner}}
                 <form method="POST" action="/api/team/members/{{.UserID}}/role">
                   <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
-                  <select name="role" class="select select-bordered select-sm" aria-label="{{$.T "team.roleCol"}}" onchange="this.form.requestSubmit()">
+                  <select name="role" class="select select-bordered select-sm" aria-label="{{$.T "team.roleCol"}}" data-submit-on-change>
                     <option value="member"{{if eq .Role "member"}} selected{{end}}>{{$.T "team.roleMember"}}</option>
                     <option value="admin"{{if eq .Role "admin"}} selected{{end}}>{{$.T "team.roleAdmin"}}</option>
                   </select>
@@ -59,7 +59,7 @@
             <td data-label="" class="text-right">
               {{if ne .UserID $.User.ID}}
                 <form method="POST" action="/api/team/members/{{.UserID}}/remove"
-                      onsubmit="return confirm('{{$.T "team.confirmRemove"}}')">
+                      data-confirm="{{$.T "team.confirmRemove"}}">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
                   <button type="submit" class="btn btn-ghost btn-sm gap-1.5">{{icon "x"}}{{$.T "team.remove"}}</button>
                 </form>
@@ -85,7 +85,7 @@
       <h2 class="card-title">{{.T "team.transferTitle"}}</h2>
       <p class="text-sm opacity-70">{{.T "team.transferHint"}}</p>
       <form method="POST" action="/api/team/transfer" class="flex flex-wrap gap-2 items-end"
-            onsubmit="return confirm('{{.T "team.transferConfirm"}}')">
+            data-confirm="{{.T "team.transferConfirm"}}">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <label class="form-control flex-1 min-w-[12rem]">
           <span class="label-text text-sm">{{.T "team.transferPick"}}</span>

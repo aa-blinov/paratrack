@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/testutil"
 )
 
 // --- helper ---------------------------------------------------------
@@ -22,6 +23,7 @@ import (
 
 type projectTestEnv struct {
 	srv    *Server
+	db     *db.DB
 	ts     *httptest.Server
 	t      *testing.T
 	cookie string
@@ -30,13 +32,13 @@ type projectTestEnv struct {
 
 func newProjectTestEnv(t *testing.T) *projectTestEnv {
 	t.Helper()
-	d, err := db.OpenTest(t)
+	d, err := testutil.OpenTest(t)
 	if err != nil {
-		t.Fatalf("open :memory: db: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
 
-	srv, err := New(d, "127.0.0.1:0")
+	srv, err := newServerForTest(d, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("new server: %v", err)
 	}
@@ -46,7 +48,7 @@ func newProjectTestEnv(t *testing.T) *projectTestEnv {
 	ctx := context.Background()
 
 	var uid int64
-	err = srv.db.SQL().QueryRowContext(ctx,
+	err = d.TestSQL().QueryRowContext(ctx,
 		`INSERT INTO users (email, password_hash, name) VALUES (?, ?, ?) RETURNING id`,
 		"projects@test.local", "x", "Projects Tester").Scan(&uid)
 	if err != nil {
@@ -54,34 +56,34 @@ func newProjectTestEnv(t *testing.T) *projectTestEnv {
 	}
 
 	const tok = "test-token-projects"
-	if _, err := srv.db.SQL().ExecContext(ctx,
+	if _, err := d.TestSQL().ExecContext(ctx,
 		`INSERT INTO auth_sessions (token, user_id, expires_at) VALUES (?, ?, ?)`,
 		tok, uid, "2099-01-01T00:00:00Z"); err != nil {
 		t.Fatalf("seed auth_session: %v", err)
 	}
 
 	var tid int64
-	err = srv.db.SQL().QueryRowContext(ctx,
+	err = d.TestSQL().QueryRowContext(ctx,
 		`INSERT INTO teams (slug, name, owner_id) VALUES (?, ?, ?) RETURNING id`,
 		"projects-team", "Projects Team", uid).Scan(&tid)
 	if err != nil {
 		t.Fatalf("seed team: %v", err)
 	}
 
-	if _, err := srv.db.SQL().ExecContext(ctx,
+	if _, err := d.TestSQL().ExecContext(ctx,
 		`INSERT INTO memberships (team_id, user_id, role) VALUES (?, ?, 'owner')`,
 		tid, uid); err != nil {
 		t.Fatalf("seed membership: %v", err)
 	}
 
 	// Pre-select this team as the active one so middleware picks it up.
-	if _, err := srv.db.SQL().ExecContext(ctx,
+	if _, err := d.TestSQL().ExecContext(ctx,
 		`UPDATE users SET name = name WHERE id = ?`, uid); err != nil {
 		// no-op; just to make the variable "used" if we extend later
 	}
 	_ = srv
 
-	return &projectTestEnv{srv: srv, ts: ts, t: t, cookie: tok, teamID: tid}
+	return &projectTestEnv{srv: srv, db: d, ts: ts, t: t, cookie: tok, teamID: tid}
 }
 
 func (e *projectTestEnv) do(method, path string, body []byte, ct string) *httptest.ResponseRecorder {
@@ -182,12 +184,12 @@ func TestAPIProjects_RejectsBadColor(t *testing.T) {
 }
 
 func TestAPIProjects_UnauthenticatedRejected(t *testing.T) {
-	d, err := db.OpenTest(t)
+	d, err := testutil.OpenTest(t)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
-	srv, err := New(d, "127.0.0.1:0")
+	srv, err := newServerForTest(d, "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}

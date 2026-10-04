@@ -14,8 +14,7 @@
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "int.connect"}}</h2>
       {{/* Hints follow the chosen provider instead of listing all eight. */}}
-      <form method="POST" action="/integrations" class="grid gap-3 sm:grid-cols-2"
-            x-data='{p: "github", ph: {github:{s:"ghp_…",t:"owner/repo"},gitlab:{s:"glpat-…",t:"group/project"},jira:{s:"you@company.com:api-token",t:"PROJ"},trello:{s:"key:token",t:"id доски"},asana:{s:"1/…",t:"GID проекта"},clickup:{s:"pk_…",t:"id списка"},todoist:{s:"api-token",t:""},notion:{s:"ntn_…",t:"id базы"}}}'>
+      <form method="POST" action="/integrations" class="grid gap-3 sm:grid-cols-2" x-data="integrationForm">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div>
           <label class="label py-1" for="integration-provider"><span class="label-text">{{.T "int.provider"}}</span></label>
@@ -37,7 +36,7 @@
         </div>
         <div class="sm:col-span-2">
           <label class="label py-1" for="integration-secret"><span class="label-text">{{.T "int.secret"}}</span></label>
-          <input id="integration-secret" type="password" name="secret" required class="input input-bordered w-full" :placeholder="ph[p].s">
+          <input id="integration-secret" type="password" name="secret" required class="input input-bordered w-full">
           <p class="text-xs opacity-60 mt-1" x-show="p === 'github'">{{.T "int.key.github"}}</p>
           <p class="text-xs opacity-60 mt-1" x-show="p === 'gitlab'" x-cloak>{{.T "int.key.gitlab"}}</p>
           <p class="text-xs opacity-60 mt-1" x-show="p === 'jira'" x-cloak>{{.T "int.key.jira"}}</p>
@@ -49,7 +48,7 @@
         </div>
         <div class="sm:col-span-2">
           <label class="label py-1" for="integration-target"><span class="label-text">{{.T "int.target"}}</span></label>
-          <input id="integration-target" type="text" name="extra" class="input input-bordered w-full" :placeholder="ph[p].t">
+          <input id="integration-target" type="text" name="extra" class="input input-bordered w-full">
           <p class="text-xs opacity-60 mt-1" x-show="p === 'github'">{{.T "int.target.github"}}</p>
           <p class="text-xs opacity-60 mt-1" x-show="p === 'gitlab'" x-cloak>{{.T "int.target.gitlab"}}</p>
           <p class="text-xs opacity-60 mt-1" x-show="p === 'jira'" x-cloak>{{.T "int.target.jira"}}</p>

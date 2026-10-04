@@ -1,5 +1,4 @@
-"""QA pass — exercise every shipped feature (waves 1-8) against a live
-server and capture screenshots + pass/fail per claim.
+"""Exercise the shipped product flows against a server and capture results.
 
 Run:  . .venv/bin/activate && python e2e/qa_full.py
 """
@@ -11,7 +10,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-BASE = "https://paratrack.duckdns.org"
+from target import BASE_URL as BASE
+
 OUT = Path(__file__).parent / "screenshots" / "qa"
 OUT.mkdir(parents=True, exist_ok=True)
 
@@ -253,7 +253,7 @@ def main() -> int:
         # ---------- J. Invoices ----------
         print("== J. Invoices")
         # Unassigned time is not invoiceable — bind the activity to the project.
-        assign = pg.evaluate("""async () => {
+        assign = pg.evaluate(r"""async () => {
           const csrf = decodeURIComponent(document.cookie.match(/paratrack_csrf=([^;]+)/)?.[1] || '');
           const proj = await (await fetch('/api/v1/projects', {credentials:'same-origin'})).json();
           const plist = proj.projects || proj || [];

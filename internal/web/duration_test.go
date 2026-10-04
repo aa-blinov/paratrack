@@ -1,14 +1,17 @@
 package web
 
 import (
+	"fmt"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
+	"github.com/aa-blinov/paratrack/internal/testutil"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -56,7 +59,10 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 		Activity: model.Activity{Name: "work"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart := buildChartData(sessions, period, i18n.En)
+	chart, err := buildChartData(sessions, period, end, i18n.En)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !chart.HasData {
 		t.Fatal("expected chart data")
 	}
@@ -73,7 +79,10 @@ func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
 		Activity: model.Activity{Name: "imported"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: start.Add(time.Hour), Label: "today"}
-	chart := buildChartData(sessions, period, i18n.En)
+	chart, err := buildChartData(sessions, period, end, i18n.En)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !chart.HasData || chart.Series[0].Data[start.Hour()] == 0 {
 		t.Fatalf("collapsed interval hid tracked time: %+v", chart)
 	}
@@ -84,30 +93,19 @@ func TestChartUsesTrackedTimeAndLocalHourBuckets(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 30, 0, 0, loc)
 	end := start.Add(2 * time.Hour)
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart := buildChartData([]model.ActiveSession{{
+	chart, err := buildChartData([]model.ActiveSession{{
 		Session:  model.Session{StartAt: start.UTC(), EndAt: &end, AccumulatedSeconds: 3600},
 		Activity: model.Activity{Name: "paused-work"},
-	}}, period, i18n.En)
+	}}, period, end, i18n.En)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if chart.TotalLabel != "1h" || !chart.HasData {
 		t.Fatalf("chart counts wall time instead of tracked time: %+v", chart)
 	}
 	series := chart.Series[0].Data
 	if series[10] != 15 || series[11] != 30 || series[12] != 15 {
 		t.Fatalf("local-hour distribution of 1 tracked hour: 10=%d 11=%d 12=%d", series[10], series[11], series[12])
-	}
-}
-
-func TestFilterByTagKeepsOnlyTaggedRows(t *testing.T) {
-	rows := []sessionView{
-		{ID: 1, ActivityName: "a", DurationSecs: 60, Tags: []tagChip{{Name: "deep"}}},
-		{ID: 2, ActivityName: "b", DurationSecs: 120},
-	}
-	got := filterByTag(rows, "deep")
-	if len(got) != 1 || got[0].ID != 1 {
-		t.Fatalf("filterByTag = %+v, want only row 1", got)
-	}
-	if got[0].DurationSecs != 60 {
-		t.Errorf("DurationSecs lost in filter: %d", got[0].DurationSecs)
 	}
 }
 
@@ -129,12 +127,12 @@ func TestPageMetaCoversGoalsAndTags(t *testing.T) {
 }
 
 func TestSessionTagHTMXReturnsRowFragment(t *testing.T) {
-	d, err := db.OpenTest(t)
+	d, err := testutil.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
-	srv, err := New(d, "127.0.0.1:0")
+	srv, err := newServerForTest(d, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
@@ -160,7 +158,7 @@ func TestSessionTagHTMXReturnsRowFragment(t *testing.T) {
 	}
 }
 func TestSessionMutationsScopedByTeam(t *testing.T) {
-	d, err := db.OpenTest(t)
+	d, err := testutil.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
@@ -170,23 +168,28 @@ func TestSessionMutationsScopedByTeam(t *testing.T) {
 	// Seed two workspaces owned by two users.
 	for _, id := range []int64{1, 2} {
 		email := "t" + string(rune('0'+id)) + "@x.test"
-		if _, err := d.SQL().ExecContext(ctx,
+		if _, err := d.TestSQL().ExecContext(ctx,
 			`INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)`,
 			id, email, "x", "user"+string(rune('0'+id))); err != nil {
 			t.Fatalf("seed user %d: %v", id, err)
 		}
-		if _, err := d.SQL().ExecContext(ctx,
+		if _, err := d.TestSQL().ExecContext(ctx,
 			`INSERT INTO teams (id, name, slug, owner_id) VALUES (?, ?, ?, ?)`,
 			id, "t"+string(rune('0'+id)), "t"+string(rune('0'+id)), id); err != nil {
 			t.Fatalf("seed team %d: %v", id, err)
 		}
 	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO memberships (team_id, user_id, role) VALUES (1, 1, 'owner')`); err != nil {
+		t.Fatalf("seed membership: %v", err)
+	}
+	ctx = requestctx.WithActor(ctx, 1)
 
-	actA, err := d.GetOrCreateActivity(ctx, 1, "work")
+	actA, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: 1, CallerID: 1, Name: "work"})
 	if err != nil {
 		t.Fatalf("activity: %v", err)
 	}
-	sess, err := d.CreateSession(ctx, 1, actA.ID, time.Now(), "")
+	sess, err := d.StartSession(ctx, appmodel.TimerStartRequest{TeamID: 1, ActivityID: actA.ID, At: time.Now(), Note: ""})
 	if err != nil {
 		t.Fatalf("create: %v", err)
 	}
@@ -195,17 +198,25 @@ func TestSessionMutationsScopedByTeam(t *testing.T) {
 	if _, err := d.GetSession(ctx, 2, sess.ID); err == nil {
 		t.Fatal("team 2 could read team 1 session")
 	}
-	if err := d.DeleteSession(ctx, 2, sess.ID); err == nil {
+	if err := d.DeleteSession(ctx, appmodel.SessionDeleteRequest{TeamID: 2, CallerID: 1, SessionID: sess.ID}); err == nil {
 		t.Fatal("team 2 could delete team 1 session")
 	}
-	if _, err := d.UpdateSessionEnd(ctx, 2, sess.ID, time.Now()); err == nil {
+	if _, err := d.UpdateSessionEnd(ctx, appmodel.TimerStopRequest{TeamID: 2, SessionID: sess.ID, At: time.Now()}); err == nil {
 		t.Fatal("team 2 could stop team 1 session")
 	}
-	if err := d.AttachTag(ctx, 2, sess.ID, "sneaky"); err == nil {
+	if err := d.AttachTagForMember(ctx, appmodel.SessionTagRequest{TeamID: 2, CallerID: 1, SessionID: sess.ID, Name: "sneaky"}); err == nil {
 		t.Fatal("team 2 could tag team 1 session")
 	}
 	// Owner team still works.
 	if _, err := d.GetSession(ctx, 1, sess.ID); err != nil {
 		t.Fatalf("team 1 lost access: %v", err)
+	}
+}
+
+func TestFormatVeryLargeMinuteValuesWithoutSecondsOverflow(t *testing.T) {
+	maxMinutes := int(^uint(0) >> 1)
+	want := fmt.Sprintf("%dh %dm", maxMinutes/60, maxMinutes%60)
+	if got := fmtMinutesL(i18n.En, maxMinutes); got != want {
+		t.Fatalf("fmtMinutesL(max int) = %q, want %q", got, want)
 	}
 }

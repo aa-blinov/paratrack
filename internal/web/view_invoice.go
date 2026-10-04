@@ -1,0 +1,191 @@
+package web
+
+import (
+	"fmt"
+	"html/template"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
+)
+
+type invoiceLineVM struct {
+	Label       string
+	Hours       string
+	Rate        string
+	Amount      string
+	RateCents   int
+	AmountCents int
+	Seconds     int
+}
+
+type invoiceVM struct {
+	ID                                    int64
+	Number                                string
+	ClientName                            string
+	PeriodLabel                           string
+	PeriodISO                             string
+	Status                                string
+	Notes                                 string
+	Lines                                 []invoiceLineVM
+	Total                                 string
+	TotalCents                            int
+	Hours                                 string
+	PaymentURL                            string
+	Currency                              string
+	IssuedLabel                           string
+	SellerDetails, ClientDetails, VATNote string
+	ClientEmail, Receipt                  string
+	TeamID                                int64
+	Logo                                  template.URL
+}
+
+type invoiceProjectOpt struct {
+	ID                                     int64
+	Name                                   string
+	ClientName, ClientDetails, ClientEmail string
+	Selected, Eligible                     bool
+}
+
+type unassignedActivityView struct {
+	ID       int64
+	Sessions int64
+	Name     string
+	Billed   bool
+}
+
+type unbilledView struct {
+	ProjectID         int64
+	ProjectName, Slug string
+	Hours, Amount     string
+	Since, SinceISO   string
+}
+
+type invoiceSummary struct {
+	ID     int64
+	Number string
+	Client string
+	Status string
+	Total  string
+	Hours  string
+	Period string
+}
+
+type invoicesPage struct {
+	pageData
+	Items      []invoiceSummary
+	Projects   []invoiceProjectOpt
+	Prefill    invoiceProjectOpt
+	Unbilled   []unbilledView
+	Unassigned []unassignedActivityView
+	Billable   bool
+	DefStart   string
+	DefEnd     string
+	Flash      string
+	FlashOK    bool
+}
+
+func (p *invoicesPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+
+type invoiceDetailPage struct {
+	pageData
+	Inv         invoiceVM
+	Seller      string
+	StripeReady bool
+	MailReady   bool
+	MailtoURL   string
+	Flash       string
+	FlashOK     bool
+}
+
+func (p *invoiceDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+
+// loadInvoiceVM builds the shared invoice presentation used by the page and documents.
+func (s *Server) loadInvoiceVM(r *http.Request) (model.Invoice, invoiceVM, error) {
+	path := strings.TrimPrefix(r.URL.Path, "/invoices/")
+	idStr := strings.SplitN(path, "/", 2)[0]
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || id <= 0 {
+		return model.Invoice{}, invoiceVM{}, model.ErrNotFound
+	}
+	details, err := s.services.Invoicing.Queries.Get(r.Context(), teamID(r), id)
+	if err != nil {
+		return model.Invoice{}, invoiceVM{}, err
+	}
+	inv, lines := details.Invoice, details.Lines
+	total, secs := 0, 0
+	vms := make([]invoiceLineVM, 0, len(lines))
+	lang := resolveLang(r)
+	for _, line := range lines {
+		total, err = money.AddCents(total, line.AmountCents)
+		if err != nil {
+			return model.Invoice{}, invoiceVM{}, fmt.Errorf("sum invoice %d: %w", inv.ID, err)
+		}
+		secs, err = money.AddInt(secs, money.HoursHundredths(line.Seconds))
+		if err != nil {
+			return model.Invoice{}, invoiceVM{}, fmt.Errorf("sum invoice %d hours: %w", inv.ID, err)
+		}
+		vms = append(vms, invoiceLineVM{
+			Label: line.Label, Hours: fmtHoursL(lang, money.HoursHundredths(line.Seconds)),
+			Rate: moneyL(lang, line.RateCents, inv.Currency), Amount: moneyL(lang, line.AmountCents, inv.Currency),
+			RateCents: line.RateCents, AmountCents: line.AmountCents, Seconds: line.Seconds,
+		})
+	}
+	vm := invoiceVM{
+		ID: inv.ID, Number: inv.Number, ClientName: inv.ClientName,
+		PeriodLabel: fmtDate(lang, inv.PeriodStart) + " – " + fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1)),
+		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.AddDate(0, 0, -1).Format("2006-01-02"),
+		Status:      inv.Status, Notes: inv.Notes, Lines: vms,
+		Total: moneyL(lang, total, inv.Currency), TotalCents: total, Hours: fmtHoursL(lang, secs),
+		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
+		IssuedLabel:   fmtDate(lang, inv.CreatedAt.In(userLoc(r))),
+		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
+		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
+	}
+	billingRules, err := s.services.Teams.Settings.BillingRules(r.Context(), inv.TeamID)
+	if err != nil {
+		return model.Invoice{}, invoiceVM{}, fmt.Errorf("load billing rules for invoice %d: %w", inv.ID, err)
+	}
+	vm.Logo = logoURL(billingRules.Logo)
+	return inv, vm, nil
+}
+
+func (s *Server) unbilledViews(r *http.Request, projectID int64) ([]unbilledView, error) {
+	list, err := s.services.Invoicing.Queries.UnbilledProjectTime(r.Context(), teamID(r), projectID)
+	if err != nil {
+		return nil, err
+	}
+	return unbilledViewsFrom(list, r), nil
+}
+
+func unbilledViewsFrom(list []model.UnbilledProject, r *http.Request) []unbilledView {
+	lang := resolveLang(r)
+	out := make([]unbilledView, 0, len(list))
+	for _, item := range list {
+		if item.Hundredths == 0 {
+			continue
+		}
+		localSince := item.Since.In(userLoc(r))
+		out = append(out, unbilledView{
+			ProjectID: item.ProjectID, ProjectName: item.ProjectName, Slug: item.ProjectSlug,
+			Hours: fmtHoursL(lang, item.Hundredths), Amount: moneyL(lang, item.AmountCents, item.Currency),
+			Since: fmtDay(lang, localSince), SinceISO: localSince.Format("2006-01-02"),
+		})
+	}
+	return out
+}
+
+func (s *Server) sellerName(r *http.Request) string {
+	t, ok := TeamFrom(r.Context())
+	if !ok {
+		return "paratrack"
+	}
+	if strings.HasPrefix(t.Slug, fmt.Sprintf("personal-%d-", t.OwnerID)) {
+		if user, err := s.services.Auth.Identity.IdentityByID(r.Context(), t.OwnerID); err == nil && strings.TrimSpace(user.Name) != "" {
+			return user.Name
+		}
+	}
+	return t.Name
+}

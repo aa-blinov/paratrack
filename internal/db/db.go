@@ -8,61 +8,112 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"os"
+	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx"
 )
 
+// ErrNilDatabaseContext is returned when startup is called without a lifecycle
+// context. Opening the database always performs cancellable migrations.
+var ErrNilDatabaseContext = errors.New("database startup context is nil")
+
+var ErrMissingLogger = errors.New("database logger is required")
+var ErrMissingClock = errors.New("database clock is required")
+
 // DB wraps the connection and exposes typed queries.
 type DB struct {
-	sql *Conn
+	sql     *Conn
+	secrets secretCodec
+	logger  *log.Logger
+	now     func() time.Time
 }
 
-// OpenDefault opens the database at PARATRACK_DATABASE_URL.
-func OpenDefault() (*DB, error) {
-	url := os.Getenv("PARATRACK_DATABASE_URL")
-	if url == "" {
+// Config contains connection, at-rest encryption, and logging settings
+// supplied by the process composition root.
+type Config struct {
+	URL              string
+	SecretKey        string
+	RequireSecretKey bool
+	Logger           *log.Logger
+	Now              func() time.Time
+}
+
+// OpenConfiguredContext connects to Postgres and applies schema and data
+// migrations using explicit process configuration and cancellable startup.
+func OpenConfiguredContext(ctx context.Context, config Config) (*DB, error) {
+	if ctx == nil {
+		return nil, ErrNilDatabaseContext
+	}
+	if config.RequireSecretKey && strings.TrimSpace(config.SecretKey) == "" {
+		return nil, errors.New("PARATRACK_SECRET_KEY is required in this environment")
+	}
+	if config.URL == "" {
 		return nil, errors.New("PARATRACK_DATABASE_URL is not set (postgres://user:pass@host:5432/db)")
 	}
-	return Open(url)
+	if config.Logger == nil {
+		return nil, ErrMissingLogger
+	}
+	if config.Now == nil {
+		return nil, ErrMissingClock
+	}
+	return openContext(ctx, config.URL, config.SecretKey, config.Logger, config.Now)
 }
 
-// Open connects to a Postgres url and brings the schema up to date.
-func Open(url string) (*DB, error) {
+func openContext(ctx context.Context, url, secretKey string, logger *log.Logger, now func() time.Time) (*DB, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	sdb, err := sql.Open("pgx", url)
 	if err != nil {
 		return nil, err
 	}
 	sdb.SetMaxOpenConns(10)
 	sdb.SetConnMaxIdleTime(5 * time.Minute)
-	d := &DB{sql: &Conn{DB: sdb}}
+	d := &DB{
+		sql:     &Conn{db: sdb},
+		secrets: newSecretCodec(secretKey),
+		logger:  logger,
+		now:     now,
+	}
 	steps := []struct {
 		name string
 		fn   func() error
 	}{
-		{"apply schema", d.applySchema},
-		{"activity keys", d.fillActivityKeys},
-		{"seal secrets", d.sealExistingSecrets},
-		{"assign orphan sessions", func() error { return d.assignOrphanSessions(context.Background()) }},
-		{"stamp legacy invoices", func() error { return d.stampLegacyInvoices(context.Background()) }},
+		{"apply schema", func() error { return d.applySchemaContext(ctx) }},
+		{"activity keys", func() error { return d.migrateActivityKeys(ctx) }},
+		{"seal secrets", func() error { return d.sealExistingSecretsContext(ctx) }},
+		{"assign orphan sessions", func() error { return d.assignOrphanSessions(ctx) }},
+		{"stamp legacy invoices", func() error { return d.stampLegacyInvoices(ctx) }},
+	}
+	closeAfterStartupFailure := func(primary error) error {
+		if closeErr := sdb.Close(); closeErr != nil {
+			return errors.Join(primary, fmt.Errorf("close database after startup failure: %w", closeErr))
+		}
+		return primary
 	}
 	for _, st := range steps {
+		if err := ctx.Err(); err != nil {
+			return nil, closeAfterStartupFailure(fmt.Errorf("%s: %w", st.name, err))
+		}
 		if err := st.fn(); err != nil {
-			_ = sdb.Close()
-			return nil, fmt.Errorf("%s: %w", st.name, err)
+			return nil, closeAfterStartupFailure(fmt.Errorf("%s: %w", st.name, err))
 		}
 	}
 	return d, nil
 }
 
+func (d *DB) currentTime() time.Time { return d.now() }
+
+// TestSQL exposes the connection for integration-test setup and diagnostics.
+// Production code must use typed operations in this package. The architecture
+// check restricts callers to test files.
+func (d *DB) TestSQL() *Conn { return d.sql }
+
 // Close releases the underlying database handle.
 func (d *DB) Close() error { return d.sql.Close() }
-
-// SQL exposes the connection for callers outside this package.
-// Production code should use the typed helpers in activities.go and sessions.go.
-func (d *DB) SQL() *Conn { return d.sql }
 
 // FormatTime returns the canonical RFC3339Nano UTC string used to store
 // timestamps. Centralised so all writers agree.
@@ -111,14 +162,6 @@ func ScanTime(src any) (time.Time, error) {
 	default:
 		return time.Time{}, fmt.Errorf("unsupported time source: %T", src)
 	}
-}
-
-// NullTime returns nil for zero-value times, otherwise a pointer to UTC.
-func NullTime(t time.Time) any {
-	if t.IsZero() {
-		return nil
-	}
-	return FormatTime(t)
 }
 
 // isUniqueViolation returns true when err is a UNIQUE constraint

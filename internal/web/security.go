@@ -5,14 +5,10 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
-	"net"
 	"net/http"
 	"strings"
-	"sync"
-	"time"
 
-	"github.com/aa-blinov/paratrack/internal/auth"
-	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
 // ---------------------------------------------------------------------------
@@ -35,6 +31,7 @@ const (
 	csrfFieldName  = "csrf_token"
 	csrfHeaderName = "X-CSRF-Token"
 	csrfCtxKey     = ctxKey(100)
+	maxRequestBody = 10 << 20
 )
 
 // ensureCSRF returns the request's CSRF token, issuing one if needed.
@@ -69,7 +66,7 @@ func issueCSRF(w http.ResponseWriter, r *http.Request) string {
 		Path:     "/",
 		HttpOnly: false, // JS must read it for hx-headers
 		SameSite: http.SameSiteLaxMode,
-		MaxAge:   int(auth.SessionTTL.Seconds()),
+		MaxAge:   int(appmodel.SessionTTL.Seconds()),
 		Secure:   r != nil && isSecureRequest(r),
 	})
 	return token
@@ -107,6 +104,17 @@ func csrfProtect(next http.Handler) http.Handler {
 		if !csrfTokensEqual(token, sent) {
 			writeCSRFError(w, r)
 			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// limitRequestBody bounds every request body before CSRF or form parsing.
+// Per-endpoint decoders may apply smaller limits for structured payloads.
+func limitRequestBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil && r.Body != http.NoBody {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
 		}
 		next.ServeHTTP(w, r)
 	})
@@ -157,7 +165,8 @@ func securityHeaders(next http.Handler) http.Handler {
 		h := w.Header()
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
-		h.Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		// Avoid forwarding query credentials such as password-reset tokens.
+		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
 		// 'unsafe-inline' for script is required by the inline HTMX glue in
 		// base.html and Alpine's x-on attributes; 'unsafe-eval' is required
@@ -181,162 +190,17 @@ func securityHeaders(next http.Handler) http.Handler {
 }
 
 // isSecureRequest reports whether the client spoke TLS directly or via
-// a TLS-terminating proxy that sets X-Forwarded-Proto.
+// a configured, trusted TLS-terminating proxy that sets X-Forwarded-Proto.
 func isSecureRequest(r *http.Request) bool {
 	if r.TLS != nil {
 		return true
 	}
-	return strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https")
-}
-
-// ---------------------------------------------------------------------------
-// Rate limiting — sliding window per key, in-memory.
-//
-// Good enough for a single-node deploy. Behind multiple replicas put a
-// shared limiter (Redis) in front; this protects the common
-// single-binary self-host and the auth endpoints from casual abuse.
-// ---------------------------------------------------------------------------
-
-type rateLimiter struct {
-	mu      sync.Mutex
-	windows map[string][]time.Time
-	limit   int
-	window  time.Duration
-}
-
-func newRateLimiter(limit int, window time.Duration) *rateLimiter {
-	return &rateLimiter{windows: map[string][]time.Time{}, limit: limit, window: window}
-}
-
-// allow records a hit for key and reports whether it fits the budget.
-func (l *rateLimiter) allow(key string) bool {
-	now := time.Now()
-	cut := now.Add(-l.window)
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	hits := l.windows[key]
-	// Drop expired from the front; keep the rest and record this hit.
-	i := 0
-	for ; i < len(hits) && hits[i].Before(cut); i++ {
+	if secure, _ := r.Context().Value(securePublicOriginKey{}).(bool); secure {
+		return true
 	}
-	hits = append(hits[i:], now)
-	l.windows[key] = hits
-	if len(hits) > l.limit {
+	if len(trustedProxyPrefixes(r)) == 0 {
 		return false
 	}
-	// Opportunistic GC so the map doesn't grow without bound.
-	if len(l.windows) > 10_000 {
-		for k, v := range l.windows {
-			if len(v) == 0 || v[len(v)-1].Before(cut) {
-				delete(l.windows, k)
-			}
-		}
-	}
-	return true
-}
-
-// clientIP extracts the caller's address. X-Forwarded-For is trusted
-// only when the request came over TLS (i.e. via our reverse proxy);
-// direct HTTP peers cannot spoof the header past the limit.
-func clientIP(r *http.Request) string {
-	if isSecureRequest(r) {
-		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-			parts := strings.Split(xff, ",")
-			return strings.TrimSpace(parts[0])
-		}
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
-
-// rateLimit returns middleware that allows `limit` requests per `window`
-// per (ip + bucket). bucket lets login/register share a table without
-// colliding. With a field ("email"), the key is ip + that form value, so
-// a whole office behind one address can still sign in at nine while
-// guessing one account's password stays slow.
-func (s *Server) rateLimit(bucket string, limit int, window time.Duration, field ...string) func(http.Handler) http.Handler {
-	lim := newRateLimiter(limit, window)
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			key := bucket + "|" + clientIP(r)
-			for _, f := range field {
-				key += "|" + strings.ToLower(strings.TrimSpace(r.FormValue(f)))
-			}
-			if !lim.allow(key) {
-				w.Header().Set("Retry-After", "60")
-				if strings.HasPrefix(r.URL.Path, "/api/") {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusTooManyRequests)
-					_, _ = w.Write([]byte(`{"error":"too many requests"}`))
-					return
-				}
-				http.Error(w, "Too many attempts. Try again in a minute.", http.StatusTooManyRequests)
-				return
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
-
-// ---------------------------------------------------------------------------
-// UI language
-// ---------------------------------------------------------------------------
-
-const langCookieName = "paratrack_lang"
-
-// resolveLang picks the visitor's language: explicit cookie first, then
-// Accept-Language, then English.
-func resolveLang(r *http.Request) i18n.Lang {
-	if c, err := r.Cookie(langCookieName); err == nil && c.Value != "" {
-		return i18n.Normalize(c.Value)
-	}
-	al := r.Header.Get("Accept-Language")
-	// First matching tag wins; "ru-RU,ru;q=0.9,en;q=0.8" → ru.
-	// Match explicitly — i18n.Default is ru, so it cannot act as the
-	// "not recognised" sentinel.
-	for _, part := range strings.Split(al, ",") {
-		tag := strings.ToLower(strings.TrimSpace(strings.SplitN(part, ";", 2)[0]))
-		if tag == "" {
-			continue
-		}
-		switch {
-		case strings.HasPrefix(tag, "ru"):
-			return i18n.Ru
-		case strings.HasPrefix(tag, "en"):
-			return i18n.En
-		}
-	}
-	return i18n.Default
-}
-
-func setLangCookie(w http.ResponseWriter, r *http.Request, lang i18n.Lang) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     langCookieName,
-		Value:    string(lang),
-		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   365 * 24 * 3600,
-		Secure:   isSecureRequest(r),
-	})
-}
-
-
-// cacheStatic sets a modest immutable-ish policy for vendored assets.
-// Filenames do not change when content does (single css / js names), so
-// we use a one-day TTL rather than `immutable` — a deploy picks up new
-// bytes within a day, and repeat visits skip the network.
-func cacheStatic(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Versioned URLs (?v=assetVersion) never change content: cache for good.
-		if r.URL.Query().Get("v") != "" {
-			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-		} else {
-			w.Header().Set("Cache-Control", "public, max-age=86400")
-		}
-		w.Header().Set("Vary", "Accept-Encoding")
-		next.ServeHTTP(w, r)
-	})
+	proto := strings.TrimSpace(strings.SplitN(r.Header.Get("X-Forwarded-Proto"), ",", 2)[0])
+	return strings.EqualFold(proto, "https")
 }

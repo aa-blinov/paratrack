@@ -96,9 +96,9 @@
         <button type="submit" class="btn btn-neutral btn-sm">{{.T "pay.markPaid"}}</button>
       </form>
       {{end}}
-      <button type="button" class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{.T "inv.print"}}</button>
+      <button type="button" class="btn btn-ghost btn-sm gap-1.5" data-print>{{.T "inv.print"}}</button>
       <form method="POST" action="/payroll/{{.Run.ID}}/delete" class="ms-auto"
-            onsubmit="return confirm({{printf (.T "pay.confirmDelete") .Run.Number}})">
+            data-confirm="{{printf (.T "pay.confirmDelete") .Run.Number}}">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error" aria-label="{{.T "pay.delete"}}">{{icon "trash-2" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "pay.delete"}}</span></button>
       </form>

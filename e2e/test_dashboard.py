@@ -1,8 +1,8 @@
 """E2E walkthrough for paratrack web UI.
 
-Drives the running paratrack server (assumed at http://127.0.0.1:8888)
-with Playwright. Takes a screenshot at each major state, runs assertions
-on the DOM, and prints a one-line pass/fail per step.
+Drives the running paratrack server with Playwright. The target defaults to
+http://127.0.0.1:8888 and can be overridden with PARATRACK_BASE. Takes a
+screenshot at each major state, runs DOM assertions, and prints each result.
 
 Run from the repo root with the .venv active:
 
@@ -18,7 +18,8 @@ from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
-BASE = "http://127.0.0.1:8888"
+from target import BASE_URL as BASE
+
 SCREENSHOTS = Path(__file__).parent / "screenshots"
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 

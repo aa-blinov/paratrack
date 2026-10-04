@@ -36,15 +36,14 @@ func colorFor(name string) string {
 	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(name))))
 	return palette[int(h.Sum32())%len(palette)]
 }
+
 // inkFor returns the foreground (#000 / #fff) with the higher WCAG
 // contrast against the given hex surface. Used for badges and chips
 // that take a user-authored project colour as their background — a
 // hard-coded #fff fails as soon as the project colour is pale.
 func inkFor(bg string) string {
 	c := strings.TrimSpace(bg)
-	if strings.HasPrefix(c, "#") {
-		c = c[1:]
-	}
+	c = strings.TrimPrefix(c, "#")
 	if len(c) == 3 {
 		c = string([]byte{c[0], c[0], c[1], c[1], c[2], c[2]})
 	}
