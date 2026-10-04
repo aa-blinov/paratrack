@@ -205,7 +205,9 @@ fi
 session_edit_transition=$(sed -n '/^func (d \*DB) UpdateSessionFields(/,/^}/p' internal/db/sessions.go)
 lock_line=$(printf '%s\n' "$session_edit_transition" | grep -n -m1 'lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID)' | cut -d: -f1)
 resolve_line=$(printf '%s\n' "$session_edit_transition" | grep -n -m1 'resolveLockedSessionUpdate(lockedSession, request)' | cut -d: -f1)
-if [ -z "$lock_line" ] || [ -z "$resolve_line" ] || [ "$lock_line" -ge "$resolve_line" ]; then
+locked_resolution=$(sed -n '/^func resolveLockedSessionUpdate(/,/^}/p' internal/db/sessions.go)
+if [ -z "$lock_line" ] || [ -z "$resolve_line" ] || [ "$lock_line" -ge "$resolve_line" ] ||
+	! printf '%s\n' "$locked_resolution" | grep -q 'model.ResolveSessionIntervalEdit('; then
 	echo "architecture check: session-edit interval resolution must use the locked persistence state" >&2
 	exit 1
 fi
