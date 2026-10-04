@@ -12,7 +12,7 @@ import (
 
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	data := &exportPage{
-		pageData:       pageData{Title: "Export", Active: "export"},
+		pageData:       pageData{Title: "Export", Active: "export", ReactApp: true},
 		ReportsEnabled: s.teamModules(r)["reports"],
 	}
 	s.renderPageForRequest(w, r, "Export", "export", "export", data)
