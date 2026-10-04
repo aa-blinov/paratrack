@@ -14,7 +14,8 @@ type AuthSessionDeleteRequest struct {
 }
 
 type AuthSessionsDeleteByUserRequest struct {
-	UserID int64
+	UserID   int64
+	CallerID int64
 }
 
 type AuthSessionTouchRequest struct {
