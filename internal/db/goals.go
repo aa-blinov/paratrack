@@ -155,15 +155,15 @@ func (d *DB) DeleteGoalsForManager(ctx context.Context, request appmodel.GoalUns
 
 // ListGoals returns every configured goal in the given team. If
 // activityID is non-nil the list is filtered to that single activity.
-func (d *DB) ListGoals(ctx context.Context, teamID int64, activityID *int64) ([]model.Goal, error) {
-	if teamID <= 0 {
+func (d *DB) ListGoals(ctx context.Context, query appmodel.GoalListQuery) ([]model.Goal, error) {
+	if query.TeamID <= 0 || (query.ActivityID != nil && *query.ActivityID <= 0) {
 		return nil, ErrNotFound
 	}
 	q := `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ?`
-	args := []any{teamID}
-	if activityID != nil {
+	args := []any{query.TeamID}
+	if query.ActivityID != nil {
 		q += ` AND activity_id = ?`
-		args = append(args, *activityID)
+		args = append(args, *query.ActivityID)
 	}
 	q += ` ORDER BY activity_id, period`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
@@ -194,7 +194,7 @@ type GoalProgress = model.GoalProgress
 // period times are computed against `now` so the caller can pin time
 // for tests by passing a fixed value.
 func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQuery) ([]GoalProgress, error) {
-	goals, err := d.ListGoals(ctx, query.TeamID, nil)
+	goals, err := d.ListGoals(ctx, appmodel.GoalListQuery{TeamID: query.TeamID})
 	if err != nil {
 		return nil, err
 	}

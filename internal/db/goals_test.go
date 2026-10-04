@@ -225,7 +225,7 @@ func TestUpsertAndDeleteGoalsForManagerBatch(t *testing.T) {
 	if err != nil || deleted != 2 {
 		t.Fatalf("DeleteGoalsForManager = %d goals, %v", deleted, err)
 	}
-	remaining, err := d.ListGoals(ctx, teamID, nil)
+	remaining, err := d.ListGoals(ctx, appmodel.GoalListQuery{TeamID: teamID})
 	if err != nil || len(remaining) != 0 {
 		t.Fatalf("remaining goals = %+v, %v", remaining, err)
 	}
