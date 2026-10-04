@@ -13,7 +13,7 @@ import (
 )
 
 type InvoiceReader interface {
-	Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error)
+	Get(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error)
 	StripeReady(context.Context, int64) (bool, error)
 }
 
@@ -59,7 +59,7 @@ func (b *Builder) Build(ctx context.Context, request appmodel.InvoiceDocumentReq
 	if request.TeamID <= 0 || request.InvoiceID <= 0 {
 		return appmodel.InvoiceDocumentSnapshot{}, model.ErrNotFound
 	}
-	details, err := b.invoices.Get(ctx, request.TeamID, request.InvoiceID)
+	details, err := b.invoices.Get(ctx, appmodel.InvoiceLookupQuery{TeamID: request.TeamID, InvoiceID: request.InvoiceID})
 	if err != nil {
 		return appmodel.InvoiceDocumentSnapshot{}, fmt.Errorf("load invoice %d details: %w", request.InvoiceID, err)
 	}

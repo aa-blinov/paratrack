@@ -297,11 +297,11 @@ func (s *Service) OverlappingDocuments(ctx context.Context, query appmodel.Invoi
 	return numbers, nil
 }
 
-func (s *Service) Get(ctx context.Context, teamID, invoiceID int64) (appmodel.InvoiceDetailResult, error) {
-	if teamID <= 0 || invoiceID <= 0 {
+func (s *Service) Get(ctx context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
 		return appmodel.InvoiceDetailResult{}, ErrInvalidInvoice
 	}
-	details, err := s.reader.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoiceID})
+	details, err := s.reader.GetInvoiceDetails(ctx, query)
 	if err != nil {
 		return appmodel.InvoiceDetailResult{}, fmt.Errorf("get invoice details: %w", err)
 	}

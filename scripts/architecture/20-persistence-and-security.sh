@@ -380,6 +380,16 @@ if ! printf '%s\n' "$invoice_lookup" | grep -Fq 'query appmodel.InvoiceLookupQue
 	echo "architecture check: invoice details must validate explicit workspace and invoice scope" >&2
 	exit 1
 fi
+invoice_service_get=$(sed -n '/^func (s \*Service) Get(/,/^}/p' internal/invoicing/service.go)
+invoice_document_reader=$(sed -n '/^type InvoiceReader interface {/,/^}/p' internal/invoicedocuments/builder.go)
+http_invoice_queries=$(sed -n '/^type InvoiceQueries interface {/,/^}/p' internal/web/dependencies.go)
+if ! printf '%s\n' "$invoice_service_get" | grep -Fq 'query appmodel.InvoiceLookupQuery' ||
+	! printf '%s\n' "$invoice_service_get" | grep -Fq 'GetInvoiceDetails(ctx, query)' ||
+	! printf '%s\n' "$invoice_document_reader" | grep -Fq 'Get(context.Context, appmodel.InvoiceLookupQuery)' ||
+	! printf '%s\n' "$http_invoice_queries" | grep -Fq 'Get(context.Context, appmodel.InvoiceLookupQuery)'; then
+	echo "architecture check: invoice scope must remain typed through workflow, document builder and HTTP ports" >&2
+	exit 1
+fi
 invoice=$(sed -n '/^func (d \*DB) GetInvoice(/,/^}/p' internal/db/invoices.go)
 if ! printf '%s\n' "$invoice" | grep -Fq 'query appmodel.InvoiceLookupQuery' ||
 	! printf '%s\n' "$invoice" | grep -Fq 'query.TeamID <= 0' ||

@@ -124,7 +124,7 @@ ports. `ProjectSpansQuery` scopes time aggregation, while
 activity, session history and batched tag reads across project, tracking,
 reports and tagging workflows. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects,
-project pages, HTTP and invoicing. `InvoiceLookupQuery` scopes invoice reads,
+project pages, HTTP and invoicing. `InvoiceLookupQuery` scopes invoice reads through HTTP and document workflows,
 details and frozen lines; `PayrollRunLookupQuery` scopes payroll run reads and
 details. `WebhookLookupQuery` scopes webhook endpoint reads to their workspace.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
