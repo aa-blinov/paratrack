@@ -116,7 +116,7 @@ func TestStartActivityResolvesAssignsAndStartsThroughOneOperation(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if activity.ID != 7 || activity.Name != "Deep work" || session.ID != 81 {
+	if activity.ID != 7 || activity.Name != "Deep work" || activity.ProjectID != 9 || session.ID != 81 {
 		t.Fatalf("start activity result = activity %+v, session %+v", activity, session)
 	}
 	if sessions.project.TeamID != 4 || sessions.project.CallerID != 12 || sessions.project.ActivityID != 7 || sessions.project.ProjectID != 9 {
@@ -144,7 +144,7 @@ func TestAddClosedActivityResolvesAssignsAndPersistsClosedSession(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if activity.ID != 7 || session.ID != 82 {
+	if activity.ID != 7 || activity.ProjectID != 9 || session.ID != 82 {
 		t.Fatalf("backfill result = activity %+v, session %+v", activity, session)
 	}
 	if sessions.closed.TeamID != 4 || sessions.closed.ActivityID != 7 || !sessions.closed.Start.Equal(start) || !sessions.closed.End.Equal(end) || sessions.closed.Note != "note" {

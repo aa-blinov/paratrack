@@ -220,9 +220,7 @@ func (s *Service) resolveActivity(ctx context.Context, teamID, callerID int64, n
 	}); err != nil {
 		return activity, err
 	}
-	if refreshed, err := s.activities.Activity(ctx, teamID, activity.ID); err == nil {
-		activity = refreshed
-	}
+	activity.ProjectID = projectID
 	return activity, nil
 }
 
