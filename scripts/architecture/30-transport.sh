@@ -166,6 +166,15 @@ for source in internal/web/*.go; do
 	fi
 done
 
+# API token page data combines auth tokens with team labels in the token
+# management workflow; the transport must not assemble this cross-feature view.
+token_page=$(sed -n '/^func (s \*Server) renderTokens(/,/^}/p' internal/web/handlers_tokens.go)
+if printf '%s\n' "$token_page" | grep -q 'Teams\.Directory\.FindByIDs' ||
+	! printf '%s\n' "$token_page" | grep -q 'TokenAdmin\.Management'; then
+	echo "architecture check: API token page must use the token management read workflow" >&2
+	exit 1
+fi
+
 # Shared HTML layout data must use narrow view models instead of auth/domain
 # records, which may contain fields that templates should never receive. Check
 # the positive shape too, so renaming a domain type cannot bypass this rule.

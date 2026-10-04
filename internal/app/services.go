@@ -31,6 +31,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/sessiondecorations"
 	"github.com/aa-blinov/paratrack/internal/teamops"
 	"github.com/aa-blinov/paratrack/internal/teams"
+	"github.com/aa-blinov/paratrack/internal/tokenadmin"
 	"github.com/aa-blinov/paratrack/internal/trackingops"
 )
 
@@ -119,6 +120,10 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct teams service: %w", err)
+	}
+	tokenAdminBuilder, err := tokenadmin.New(tokenadmin.Dependencies{Tokens: authService, Teams: teamService})
+	if err != nil {
+		return nil, fmt.Errorf("construct API token management builder: %w", err)
 	}
 	stripeHTTPClient := netclients.External()
 	resources.clients = append(resources.clients, stripeHTTPClient)
@@ -243,6 +248,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	return &Services{
 		Billing:            billingService,
 		Auth:               authService,
+		TokenAdmin:         tokenAdminBuilder,
 		AuditLog:           auditService,
 		Teams:              teamService,
 		TeamOps:            teamOpsService,
