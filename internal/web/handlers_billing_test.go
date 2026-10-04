@@ -7,15 +7,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 type invoiceDetailsStub struct {
 	InvoiceQueries
-	details model.InvoiceDetails
+	details appmodel.InvoiceDetailResult
 }
 
-func (s invoiceDetailsStub) Get(context.Context, int64, int64) (model.InvoiceDetails, error) {
+func (s invoiceDetailsStub) Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error) {
 	return s.details, nil
 }
 
@@ -31,7 +32,7 @@ func (s billingRulesErrorStub) BillingRules(context.Context, int64) (model.Billi
 func TestLoadInvoiceVMReturnsBillingRulesError(t *testing.T) {
 	wantErr := errors.New("billing rules unavailable")
 	server := &Server{services: Dependencies{
-		Invoicing: InvoiceDependencies{Queries: invoiceDetailsStub{details: model.InvoiceDetails{Invoice: model.Invoice{
+		Invoicing: InvoiceDependencies{Queries: invoiceDetailsStub{details: appmodel.InvoiceDetailResult{Invoice: model.Invoice{
 			ID: 4, TeamID: 8, Currency: "RUB",
 			PeriodStart: time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC),
 			PeriodEnd:   time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC),

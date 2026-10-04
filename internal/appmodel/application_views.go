@@ -176,3 +176,11 @@ type InvoiceDraftCreation struct {
 	Overlaps      []string
 	AdvisoryError error
 }
+
+// InvoiceDetailResult contains the invoice snapshot and workflow-calculated totals.
+type InvoiceDetailResult struct {
+	Invoice              model.Invoice
+	Lines                []model.InvoiceLine
+	TotalCents           int
+	TotalHoursHundredths int
+}
