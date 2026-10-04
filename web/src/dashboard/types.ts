@@ -533,7 +533,24 @@ export interface ProfileData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData
+export interface PreferencesData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  PrefsReact: boolean
+  Sections: Array<{ Key: string; Icon: string; Label: string; On: boolean }>
+  TabOpts: Array<{ Key: string; Icon: string; Label: string; On: boolean }>
+  Widgets: Array<{ Key: string; Icon: string; Label: string; On: boolean }>
+  P: { Duration: string; WeekStart: string; TZ: string }
+  Zones: string[]
+  Projects: Array<{ ID: number; Name: string }>
+  DefProj: number
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

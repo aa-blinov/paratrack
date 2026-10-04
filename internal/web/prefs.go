@@ -119,15 +119,16 @@ type prefCheck struct {
 
 type prefsPage struct {
 	pageData
-	Sections []prefCheck // workspace sections, On = shown to me
-	TabOpts  []prefCheck // On = in my phone tab bar
-	Widgets  []prefCheck
-	P        Prefs
-	Zones    []string
-	Projects []projectView
-	DefProj  int64
-	Flash    string
-	FlashOK  bool
+	PrefsReact bool
+	Sections   []prefCheck // workspace sections, On = shown to me
+	TabOpts    []prefCheck // On = in my phone tab bar
+	Widgets    []prefCheck
+	P          Prefs
+	Zones      []string
+	Projects   []projectView
+	DefProj    int64
+	Flash      string
+	FlashOK    bool
 }
 
 func (p *prefsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
@@ -135,7 +136,7 @@ func (p *prefsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 	lang := resolveLang(r)
 	p := prefsOf(r)
-	data := &prefsPage{pageData: pageData{Title: "Preferences", Active: "settings-prefs", Lang: string(lang)}, P: p, Zones: zones}
+	data := &prefsPage{pageData: pageData{Title: "Preferences", Active: "settings-prefs", Lang: string(lang), ReactApp: true}, PrefsReact: true, P: p, Zones: zones}
 	team := s.teamModules(r)
 	for _, m := range modules {
 		if team[m.Key] && (!m.Manage || canManage(r)) {

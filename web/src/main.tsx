@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, PayrollData, PayrollDetailData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData, TokensData } from "@/dashboard/types"
+import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData, TokensData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -35,6 +35,7 @@ const IntegrationDetailPage = lazy(() => import("@/integrations/integrations-pag
 const MarketplacePage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.MarketplacePage })))
 const TokensPage = lazy(() => import("@/settings/tokens-page").then(module => ({ default: module.TokensPage })))
 const ProfilePage = lazy(() => import("@/settings/profile-page").then(module => ({ default: module.ProfilePage })))
+const PreferencesPage = lazy(() => import("@/settings/preferences-page").then(module => ({ default: module.PreferencesPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -252,6 +253,8 @@ if (root && payload) {
             ? <TokensPage data={initial.data as TokensData} />
             : "ProfileReact" in initial.data && initial.data.ProfileReact
             ? <ProfilePage data={initial.data as ProfileData} />
+            : "PrefsReact" in initial.data && initial.data.PrefsReact
+            ? <PreferencesPage data={initial.data as PreferencesData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
