@@ -39,7 +39,7 @@ type sessionView struct {
 	AccumulatedSeconds int
 	Paused             bool
 	Note               string
-	Tags               []tagChip // attached tags, populated by hydrateSessionTags
+	Tags               []tagChip // attached tags from the dashboard read snapshot
 	Lang               string    // i18n for fragment templates (session-row, active-list)
 }
 

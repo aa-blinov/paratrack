@@ -38,21 +38,21 @@ type ProjectReader interface {
 	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
 }
 
+type SessionDecorationBuilder interface {
+	Build(context.Context, appmodel.SessionDecorationRequest) (appmodel.SessionDecorationSnapshot, error)
+}
+
 type UserReader interface {
 	FindIdentitiesByID(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
 }
 
 type BuilderDependencies struct {
-	Sessions SessionReader
-	Teams    TeamReader
-	Projects ProjectReader
-	Users    UserReader
-	Tags     TagReader
-	Logger   Logger
-}
-
-type Logger interface {
-	Printf(string, ...any)
+	Sessions    SessionReader
+	Teams       TeamReader
+	Projects    ProjectReader
+	Users       UserReader
+	Tags        TagReader
+	Decorations SessionDecorationBuilder
 }
 
 type ReportLabels = appmodel.ReportLabels
@@ -60,12 +60,12 @@ type BuildQuery = appmodel.ReportBuildQuery
 
 // Builder coordinates report reads and applies the shared aggregation rules.
 type Builder struct {
-	sessions SessionReader
-	teams    TeamReader
-	projects ProjectReader
-	users    UserReader
-	tags     TagReader
-	logger   Logger
+	sessions    SessionReader
+	teams       TeamReader
+	projects    ProjectReader
+	users       UserReader
+	tags        TagReader
+	decorations SessionDecorationBuilder
 }
 
 func NewBuilder(deps BuilderDependencies) (*Builder, error) {
@@ -74,7 +74,7 @@ func NewBuilder(deps BuilderDependencies) (*Builder, error) {
 		port any
 	}{
 		{"sessions", deps.Sessions}, {"teams", deps.Teams},
-		{"projects", deps.Projects}, {"users", deps.Users}, {"tags", deps.Tags}, {"logger", deps.Logger},
+		{"projects", deps.Projects}, {"users", deps.Users}, {"tags", deps.Tags}, {"session decorations", deps.Decorations},
 	}
 	for _, dependency := range missing {
 		if depcheck.IsNil(dependency.port) {
@@ -83,8 +83,7 @@ func NewBuilder(deps BuilderDependencies) (*Builder, error) {
 	}
 	return &Builder{
 		sessions: deps.Sessions, teams: deps.Teams,
-		projects: deps.Projects, users: deps.Users, tags: deps.Tags,
-		logger: deps.Logger,
+		projects: deps.Projects, users: deps.Users, tags: deps.Tags, decorations: deps.Decorations,
 	}, nil
 }
 
@@ -195,20 +194,17 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 		}
 		sessions = filtered
 	}
-	projectIDs := sessionProjectIDs(sessions)
-	projectsByID := make(map[int64]model.ProjectSummary)
-	if len(projectIDs) > 0 {
-		projectsByID, err = b.projects.Summaries(ctx, query.TeamID, projectIDs)
-		if err != nil {
-			b.logger.Printf("reports: load stats session project summaries for team %d: %v", query.TeamID, err)
-			projectsByID = make(map[int64]model.ProjectSummary)
-		}
+	decorations, err := b.decorations.Build(ctx, appmodel.SessionDecorationRequest{
+		TeamID: query.TeamID, Sessions: sessions, IncludeProjects: true,
+	})
+	if err != nil {
+		return StatsResult{}, fmt.Errorf("build stats session decorations: %w", err)
 	}
 	summary, err := SummarizeStats(sessions, projectByID, query.From, query.To, query.Now, query.Uncategorized)
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("summarize stats: %w", err)
 	}
-	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, ProjectsByID: projectsByID, People: people, PersonFilter: personFilter, Projects: projects, Project: project, Tags: tags,
+	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, ProjectsByID: decorations.ProjectsByID, People: people, PersonFilter: personFilter, Projects: projects, Project: project, Tags: tags,
 		Summary: summary}, nil
 }
 
@@ -246,23 +242,6 @@ func (b *Builder) loadPersonScope(ctx context.Context, teamID, requestedID int64
 		return requestctx.WithScope(ctx, member.UserID), member.UserID, members, nil
 	}
 	return ctx, 0, members, nil
-}
-
-func sessionProjectIDs(sessions []model.ActiveSession) []int64 {
-	seen := make(map[int64]struct{}, len(sessions))
-	ids := make([]int64, 0, len(sessions))
-	for _, session := range sessions {
-		id := session.Activity.ProjectID
-		if id <= 0 {
-			continue
-		}
-		if _, ok := seen[id]; ok {
-			continue
-		}
-		seen[id] = struct{}{}
-		ids = append(ids, id)
-	}
-	return ids
 }
 
 // loadProjectSessions resolves an optional slug and applies its workspace

@@ -18,33 +18,33 @@ var ErrIncompleteServices = errors.New("HTTP application dependencies are incomp
 
 // Dependencies are the workflow ports consumed by the HTTP adapter.
 type Dependencies struct {
-	Billing          BillingWorkflow
-	Auth             AuthenticationDependencies
-	AuditLog         AuditWorkflow
-	Teams            TeamDependencies
-	TeamOps          TeamOperations
-	Tracking         TrackingDependencies
-	TrackingOps      TrackingOperations
-	Imports          ImportWorkflow
-	Integrations     IntegrationDependencies
-	Invoicing        InvoiceDependencies
-	InvoiceDocuments InvoiceDocumentBuilding
-	Payroll          PayrollWorkflow
-	MemberAdmin      TeamMemberManagementBuilding
-	PayrollPaid      PayrollPaymentWorkflow
-	Preferences      PreferenceWorkflow
-	Scheduling       SchedulingWorkflow
-	Projects         ProjectDependencies
-	ProjectPages     ProjectPageBuilding
-	Reports          SavedReportWorkflow
-	ReportBuilder    ReportBuilding
-	Dashboard        DashboardBuilding
-	Push             PushWorkflow
-	Tagging          TagDependencies
-	SessionTags      SessionTagReader
-	Goals            GoalWorkflow
-	Webhooks         WebhookWorkflow
-	MailQueue        InvoiceMailQueue
+	Billing            BillingWorkflow
+	Auth               AuthenticationDependencies
+	AuditLog           AuditWorkflow
+	Teams              TeamDependencies
+	TeamOps            TeamOperations
+	Tracking           TrackingDependencies
+	TrackingOps        TrackingOperations
+	Imports            ImportWorkflow
+	Integrations       IntegrationDependencies
+	Invoicing          InvoiceDependencies
+	InvoiceDocuments   InvoiceDocumentBuilding
+	Payroll            PayrollWorkflow
+	MemberAdmin        TeamMemberManagementBuilding
+	PayrollPaid        PayrollPaymentWorkflow
+	Preferences        PreferenceWorkflow
+	Scheduling         SchedulingWorkflow
+	Projects           ProjectDependencies
+	ProjectPages       ProjectPageBuilding
+	Reports            SavedReportWorkflow
+	ReportBuilder      ReportBuilding
+	Dashboard          DashboardBuilding
+	SessionDecorations SessionDecorationBuilding
+	Push               PushWorkflow
+	Tagging            TagDependencies
+	Goals              GoalWorkflow
+	Webhooks           WebhookWorkflow
+	MailQueue          InvoiceMailQueue
 }
 
 // AuthenticationDependencies groups the HTTP consumer contracts for account
@@ -178,10 +178,9 @@ type TagCommands interface {
 	DetachForMember(context.Context, appmodel.SessionTagRequest) error
 }
 
-// SessionTagReader is the minimal batch-read port used to decorate rendered
-// session rows, separate from tag management operations.
-type SessionTagReader interface {
-	TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error)
+// SessionDecorationBuilding batches optional tag and project metadata for session rows.
+type SessionDecorationBuilding interface {
+	Build(context.Context, appmodel.SessionDecorationRequest) (appmodel.SessionDecorationSnapshot, error)
 }
 
 // ProjectQueries provides project and activity data to HTTP views.
@@ -190,7 +189,6 @@ type ProjectQueries interface {
 	GetBySlug(context.Context, int64, string) (model.Project, error)
 	List(context.Context, int64, bool) ([]model.Project, error)
 	ListWithUsage(context.Context, appmodel.ProjectListQuery) (appmodel.ProjectListSnapshot, error)
-	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
 }
 
 // ProjectCommands owns project and activity assignment mutations.
@@ -461,7 +459,7 @@ func (s Dependencies) Validate() error {
 		dependency{"push", depcheck.IsNil(s.Push)},
 		dependency{"tag queries", depcheck.IsNil(s.Tagging.Queries)},
 		dependency{"tag commands", depcheck.IsNil(s.Tagging.Commands)},
-		dependency{"session tags", depcheck.IsNil(s.SessionTags)},
+		dependency{"session decorations", depcheck.IsNil(s.SessionDecorations)},
 		dependency{"goals", depcheck.IsNil(s.Goals)},
 		dependency{"webhooks", depcheck.IsNil(s.Webhooks)},
 		dependency{"mail queue", depcheck.IsNil(s.MailQueue)},

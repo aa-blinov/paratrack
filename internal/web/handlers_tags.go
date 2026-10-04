@@ -177,8 +177,16 @@ func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id in
 	now := userNow(r)
 	period := s.parsePeriodAt(r, now)
 	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now, resolveLang(r), durFmtOf(r))}
-	hydrateSessionTags(ctx, s.services.SessionTags, teamID(r), views, s.logger)
-	hydrateSessionProjects(ctx, s.services.Projects.Queries, teamID(r), views, s.logger)
+	decorations, err := s.services.SessionDecorations.Build(ctx, appmodel.SessionDecorationRequest{
+		TeamID: teamID(r), Sessions: []model.ActiveSession{{Session: sess, Activity: act}},
+		IncludeTags: true, IncludeProjects: true,
+	})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	attachSessionTags(views, decorations.TagsBySession)
+	attachSessionProjects(views, decorations.ProjectsByID)
 	views[0].Lang = string(resolveLang(r))
 	fragment, err := s.executeTemplate("session-row", views[0])
 	if err != nil {

@@ -54,7 +54,7 @@ done
 # dependency direction inward: adapters and composition belong outside them,
 # and persistence must not import application policy back from a workflow.
 # projectpages composes read-only workflow ports into a project-page snapshot.
-core_packages="audit auth billing dashboard goals importing integrations invoicedocuments invoicing mailqueue memberadmin payroll payrollops preferences projectpages projects push reports scheduling tagging teamops teams tracking trackingops webhooks"
+core_packages="audit auth billing dashboard goals importing integrations invoicedocuments invoicing mailqueue memberadmin payroll payrollops preferences projectpages projects push reports scheduling sessiondecorations tagging teamops teams tracking trackingops webhooks"
 for package in $core_packages; do
 	import_path="$module/internal/$package"
 	[ -d "internal/$package" ] || continue

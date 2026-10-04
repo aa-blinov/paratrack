@@ -10,6 +10,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
+	"github.com/aa-blinov/paratrack/internal/sessiondecorations"
 )
 
 type graphSessionsStub struct {
@@ -81,6 +82,15 @@ type reportLoggerStub struct{ messages []string }
 
 func (stub *reportLoggerStub) Printf(format string, args ...any) {
 	stub.messages = append(stub.messages, fmt.Sprintf(format, args...))
+}
+
+func decorationsForTest(t *testing.T, projects ProjectReader, tags TagReader, logger *reportLoggerStub) SessionDecorationBuilder {
+	t.Helper()
+	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Tags: tags, Projects: projects, Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return builder
 }
 
 func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
@@ -160,9 +170,13 @@ func TestBuildStatsReturnsMemberOptionsAndSelectedScope(t *testing.T) {
 	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	to := from.Add(time.Hour)
 	reader := &graphSessionsStub{}
-	builder := &Builder{sessions: reader, projects: graphProjectsStub{}, teams: reportTeamsStub{members: []model.TeamMember{
-		{UserID: 5, Email: "five@example.test"}, {UserID: 6, Name: "Six"}, {UserID: 7},
-	}}, tags: &graphTagsStub{}}
+	projects := graphProjectsStub{}
+	tags := &graphTagsStub{}
+	builder := &Builder{
+		sessions: reader, projects: projects, teams: reportTeamsStub{members: []model.TeamMember{
+			{UserID: 5, Email: "five@example.test"}, {UserID: 6, Name: "Six"}, {UserID: 7},
+		}}, tags: tags, decorations: decorationsForTest(t, projects, tags, &reportLoggerStub{}),
+	}
 	result, err := builder.BuildStats(context.Background(), StatsQuery{
 		TeamID: 4, From: from, To: to, Now: to, PersonID: 6, IncludePeople: true, Uncategorized: "Uncategorized",
 	})
@@ -186,7 +200,7 @@ func TestBuildStatsFiltersTaggedSessionsBeforeAggregation(t *testing.T) {
 	}}
 	tags := &graphTagsStub{bySession: map[int64][]model.Tag{1: {{Name: "urgent"}}, 2: {{Name: "later"}}}}
 	projects := graphProjectsStub{project: model.Project{ID: 7, Name: "Project", Slug: "project"}}
-	builder := &Builder{sessions: reader, projects: projects, tags: tags}
+	builder := &Builder{sessions: reader, projects: projects, tags: tags, decorations: decorationsForTest(t, projects, tags, &reportLoggerStub{})}
 	result, err := builder.BuildStats(context.Background(), StatsQuery{
 		TeamID: 4, From: start.Add(-time.Hour), To: end, Now: end,
 		ProjectSlug: "project", Tag: "urgent", Uncategorized: "Uncategorized",
@@ -216,9 +230,11 @@ func TestBuildStatsKeepsReportAvailableWhenProjectDecorationFails(t *testing.T) 
 		Activity: model.Activity{Name: "Focus", ProjectID: 7},
 	}}}
 	logger := &reportLoggerStub{}
+	projects := graphProjectsStub{project: model.Project{ID: 7}, summaryErr: errors.New("summary store unavailable")}
+	tags := &graphTagsStub{}
 	builder := &Builder{
-		sessions: reader, projects: graphProjectsStub{project: model.Project{ID: 7}, summaryErr: errors.New("summary store unavailable")},
-		tags: &graphTagsStub{}, logger: logger,
+		sessions: reader, projects: projects, tags: tags,
+		decorations: decorationsForTest(t, projects, tags, logger),
 	}
 	result, err := builder.BuildStats(context.Background(), StatsQuery{
 		TeamID: 4, From: from, To: to, Now: to, Uncategorized: "Uncategorized",

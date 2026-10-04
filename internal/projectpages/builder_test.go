@@ -8,6 +8,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/sessiondecorations"
 )
 
 type projectReaderStub struct {
@@ -69,6 +70,15 @@ func (stub *loggerStub) Printf(format string, args ...any) {
 	stub.messages = append(stub.messages, fmt.Sprintf(format, args...))
 }
 
+func decorationsForTest(t *testing.T, projects *projectReaderStub, tags *sessionTagReaderStub, logger *loggerStub) SessionDecorationBuilder {
+	t.Helper()
+	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Tags: tags, Projects: projects, Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return builder
+}
+
 func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, teamID, projectID int64) ([]model.UnbilledProject, error) {
 	stub.teamID, stub.projectID = teamID, projectID
 	return stub.rows, stub.err
@@ -90,7 +100,7 @@ func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 	builder, err := New(Dependencies{
 		Projects: projects, Teams: teamSettingsReaderStub{currency: "EUR"},
 		Memberships: teamMembershipReaderStub{role: model.TeamRoleOwner, member: true}, Invoicing: invoices,
-		Tags: tags, Logger: &loggerStub{},
+		Decorations: decorationsForTest(t, projects, tags, &loggerStub{}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -120,7 +130,7 @@ func TestBuildSkipsInvoiceHistoryWhenNotRequested(t *testing.T) {
 	builder, err := New(Dependencies{
 		Projects: &projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
 		Teams:    teamSettingsReaderStub{currency: "USD"}, Memberships: teamMembershipReaderStub{}, Invoicing: invoices,
-		Tags: &sessionTagReaderStub{}, Logger: &loggerStub{},
+		Decorations: decorationsForTest(t, &projectReaderStub{}, &sessionTagReaderStub{}, &loggerStub{}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -140,7 +150,7 @@ func TestBuildPropagatesWorkspaceCurrencyFailure(t *testing.T) {
 	builder, err := New(Dependencies{
 		Projects: &projectReaderStub{}, Teams: teamSettingsReaderStub{err: wantErr},
 		Memberships: teamMembershipReaderStub{}, Invoicing: &invoiceHistoryReaderStub{},
-		Tags: &sessionTagReaderStub{}, Logger: &loggerStub{},
+		Decorations: decorationsForTest(t, &projectReaderStub{}, &sessionTagReaderStub{}, &loggerStub{}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +169,7 @@ func TestBuildDoesNotReadInvoiceHistoryForNonManager(t *testing.T) {
 		Teams:       teamSettingsReaderStub{currency: "USD"},
 		Memberships: teamMembershipReaderStub{role: model.TeamRoleMember, member: true},
 		Invoicing:   invoices,
-		Tags:        &sessionTagReaderStub{}, Logger: &loggerStub{},
+		Decorations: decorationsForTest(t, &projectReaderStub{}, &sessionTagReaderStub{}, &loggerStub{}),
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -190,7 +200,7 @@ func TestBuildKeepsDetailWhenSessionDecorationReadsFail(t *testing.T) {
 	builder, err := New(Dependencies{
 		Projects: projects, Teams: teamSettingsReaderStub{currency: "USD"},
 		Memberships: teamMembershipReaderStub{}, Invoicing: &invoiceHistoryReaderStub{},
-		Tags: tags, Logger: logger,
+		Decorations: decorationsForTest(t, projects, tags, logger),
 	})
 	if err != nil {
 		t.Fatal(err)

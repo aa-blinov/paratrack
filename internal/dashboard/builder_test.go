@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/sessiondecorations"
 )
 
 type loggerStub struct{ messages []string }
@@ -73,6 +74,15 @@ func (s *tagsStub) TagsForSessions(_ context.Context, _ int64, ids []int64) (map
 	return map[int64][]model.Tag{}, nil
 }
 
+func decorationsForTest(t *testing.T, projects *projectsStub, tags *tagsStub, logger *loggerStub) SessionDecorationBuilder {
+	t.Helper()
+	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Tags: tags, Projects: projects, Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return builder
+}
+
 type invoicesStub struct{ calls int }
 
 func (s *invoicesStub) UnbilledProjectTime(context.Context, int64, int64) ([]model.UnbilledProject, error) {
@@ -87,7 +97,7 @@ func TestBuildUsesDashboardWindowsAndOptionalBilling(t *testing.T) {
 	invoices := &invoicesStub{}
 	logger := &loggerStub{}
 	builder, err := NewBuilder(Dependencies{
-		Goals: goalsStub{}, Tracking: tracking, Projects: projects, Tags: tags, Invoices: invoices,
+		Goals: goalsStub{}, Tracking: tracking, Projects: projects, Decorations: decorationsForTest(t, projects, tags, logger), Invoices: invoices,
 		Logger: logger,
 	})
 	if err != nil {
@@ -161,7 +171,7 @@ func TestBuildUsesCalendarDayAcrossDST(t *testing.T) {
 	}
 	tracking := &trackingStub{}
 	builder, err := NewBuilder(Dependencies{
-		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Tags: &tagsStub{}, Invoices: &invoicesStub{},
+		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Decorations: decorationsForTest(t, &projectsStub{}, &tagsStub{}, &loggerStub{}), Invoices: &invoicesStub{},
 		Logger: &loggerStub{},
 	})
 	if err != nil {
@@ -185,7 +195,7 @@ func TestBuildUsesFirstRunFallbackWhenRecentSessionsAreEmpty(t *testing.T) {
 	tracking := &trackingStub{anySession: true}
 	invoices := &invoicesStub{}
 	builder, err := NewBuilder(Dependencies{
-		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Tags: &tagsStub{}, Invoices: invoices,
+		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Decorations: decorationsForTest(t, &projectsStub{}, &tagsStub{}, &loggerStub{}), Invoices: invoices,
 		Logger: &loggerStub{},
 	})
 	if err != nil {
@@ -211,7 +221,7 @@ func TestBuildActiveListCoordinatesRowsAndFirstRunState(t *testing.T) {
 	tags := &tagsStub{}
 	logger := &loggerStub{}
 	builder, err := NewBuilder(Dependencies{
-		Goals: goalsStub{}, Tracking: tracking, Projects: projects, Tags: tags,
+		Goals: goalsStub{}, Tracking: tracking, Projects: projects, Decorations: decorationsForTest(t, projects, tags, logger),
 		Invoices: &invoicesStub{}, Logger: logger,
 	})
 	if err != nil {
@@ -238,7 +248,7 @@ func TestBuildActiveListCoordinatesRowsAndFirstRunState(t *testing.T) {
 func TestBuildActiveListUsesFirstRunFallback(t *testing.T) {
 	tracking := &trackingStub{}
 	builder, err := NewBuilder(Dependencies{
-		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Tags: &tagsStub{},
+		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Decorations: decorationsForTest(t, &projectsStub{}, &tagsStub{}, &loggerStub{}),
 		Invoices: &invoicesStub{}, Logger: &loggerStub{},
 	})
 	if err != nil {
