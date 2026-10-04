@@ -442,6 +442,22 @@ func (s *Service) UpdateFields(ctx context.Context, request appmodel.SessionUpda
 	if update.EndAt != nil {
 		end = update.EndAt
 	}
+	if request.DurationSeconds != nil {
+		seconds := *request.DurationSeconds
+		if seconds < 0 {
+			return ErrInvalidDuration
+		}
+		if int64(seconds) > model.MaxSessionDurationSeconds {
+			return model.ErrSessionDurationOverflow
+		}
+		newEnd := start.Add(time.Duration(seconds) * time.Second)
+		update.EndAt = &newEnd
+		update.AccumulatedSeconds = &seconds
+		end = update.EndAt
+	} else if request.RecomputeDuration && end != nil {
+		seconds := int(end.Sub(start).Seconds())
+		update.AccumulatedSeconds = &seconds
+	}
 	if (update.StartAt != nil || update.EndAt != nil) && end != nil {
 		if !end.After(start) {
 			return ErrInvalidInterval
@@ -458,6 +474,9 @@ func (s *Service) UpdateFields(ctx context.Context, request appmodel.SessionUpda
 			return model.ErrSessionDurationOverflow
 		}
 	}
+	request.DurationSeconds = nil
+	request.RecomputeDuration = false
+	request.Update = update
 	if err := s.sessions.UpdateSessionFields(ctx, request); err != nil {
 		return fmt.Errorf("update session: %w", err)
 	}

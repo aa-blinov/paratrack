@@ -193,6 +193,16 @@ if printf '%s\n' "$integration_start_handler" | grep -q 'Integrations\.Queries\.
 	exit 1
 fi
 
+# Session-edit interval arithmetic depends on the stored session and belongs in
+# tracking, where the current state is already loaded for validation.
+session_edit=$(sed -n '/^func (s \*Server) applySessionUpdateRequest(/,/^}/p' internal/web/handlers_session_edits.go)
+if printf '%s\n' "$session_edit" | grep -q 'Tracking\.Queries\.Session' ||
+	! printf '%s\n' "$session_edit" | grep -q 'DurationSeconds' ||
+	! printf '%s\n' "$session_edit" | grep -q 'RecomputeDuration'; then
+	echo "architecture check: session-edit intent must be resolved by the tracking workflow" >&2
+	exit 1
+fi
+
 # Workspace section settings must be read through the request-scoped cache so
 # route guards and page navigation share one consistent snapshot.
 module_settings_reads=$(grep -Rho 'Settings\.SectionModules[[:space:]]*(' internal/web --include='*.go' --exclude='*_test.go' | wc -l | tr -d ' ')
