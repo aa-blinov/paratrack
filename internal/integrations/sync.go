@@ -25,21 +25,21 @@ const MaxSyncTasks = integrationport.MaxSyncTasks
 
 // IntegrationManager owns connection creation and removal.
 type IntegrationManager interface {
-	CreateIntegration(context.Context, appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error)
+	CreateIntegration(context.Context, appmodel.IntegrationCreateRequest) (appmodel.IntegrationSummary, error)
 	DeleteIntegration(context.Context, appmodel.IntegrationMutationRequest) error
 }
 
 // IntegrationCatalog provides credential-free workspace summaries.
 type IntegrationCatalog interface {
-	ListIntegrations(context.Context, int64) ([]model.IntegrationSummary, error)
-	GetIntegrationSummary(context.Context, appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error)
+	ListIntegrations(context.Context, int64) ([]appmodel.IntegrationSummary, error)
+	GetIntegrationSummary(context.Context, appmodel.IntegrationLookupQuery) (appmodel.IntegrationSummary, error)
 }
 
 // IntegrationTaskStore owns task queries and atomic snapshot synchronization.
 type IntegrationTaskStore interface {
 	ListExternalTasks(context.Context, appmodel.IntegrationLookupQuery) ([]model.ExternalTask, error)
 	GetExternalTask(context.Context, appmodel.ExternalTaskLookupQuery) (model.ExternalTask, error)
-	ListExternalTasksForTeam(context.Context, int64) ([]model.ExternalTaskWithProvider, error)
+	ListExternalTasksForTeam(context.Context, int64) ([]appmodel.ExternalTaskWithProvider, error)
 	SyncExternalTasks(context.Context, appmodel.IntegrationTaskSyncRequest) error
 }
 
@@ -107,22 +107,22 @@ func New(deps Dependencies, providers ProviderClient) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) Create(ctx context.Context, request appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error) {
+func (s *Service) Create(ctx context.Context, request appmodel.IntegrationCreateRequest) (appmodel.IntegrationSummary, error) {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
-		return model.IntegrationSummary{}, fmt.Errorf("%w: team ID must be positive", ErrInvalidIntegration)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("%w: team ID must be positive", ErrInvalidIntegration)
 	}
 	request.Provider = strings.ToLower(strings.TrimSpace(request.Provider))
 	definition, ok := catalog.IntegrationByID(request.Provider)
 	if !ok || !definition.Available {
-		return model.IntegrationSummary{}, fmt.Errorf("%w: provider is not available", ErrInvalidIntegration)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("%w: provider is not available", ErrInvalidIntegration)
 	}
 	request.Name, request.Secret = strings.TrimSpace(request.Name), strings.TrimSpace(request.Secret)
 	if request.Name == "" || request.Secret == "" {
-		return model.IntegrationSummary{}, fmt.Errorf("%w: name and secret are required", ErrInvalidIntegration)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("%w: name and secret are required", ErrInvalidIntegration)
 	}
 	integration, err := s.manager.CreateIntegration(ctx, request)
 	if err != nil {
-		return model.IntegrationSummary{}, fmt.Errorf("create integration: %w", err)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("create integration: %w", err)
 	}
 	s.recordAudit(ctx, request.TeamID, request.CallerID, "integration.create", fmt.Sprint(integration.ID), request.Provider+" "+request.Name)
 	return integration, nil
@@ -145,7 +145,7 @@ func (s *Service) ConnectAndSync(ctx context.Context, request appmodel.Integrati
 	return ConnectResult{Integration: integration, Imported: count, SyncError: syncErr}, nil
 }
 
-func (s *Service) List(ctx context.Context, teamID int64) ([]model.IntegrationSummary, error) {
+func (s *Service) List(ctx context.Context, teamID int64) ([]appmodel.IntegrationSummary, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidIntegration
 	}
@@ -183,13 +183,13 @@ func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.Integr
 }
 
 // Summary returns display data for one connection without exposing credentials.
-func (s *Service) Summary(ctx context.Context, query appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error) {
+func (s *Service) Summary(ctx context.Context, query appmodel.IntegrationLookupQuery) (appmodel.IntegrationSummary, error) {
 	if query.TeamID <= 0 || query.IntegrationID <= 0 {
-		return model.IntegrationSummary{}, ErrInvalidIntegration
+		return appmodel.IntegrationSummary{}, ErrInvalidIntegration
 	}
 	item, err := s.catalog.GetIntegrationSummary(ctx, query)
 	if err != nil {
-		return model.IntegrationSummary{}, fmt.Errorf("get integration summary: %w", err)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("get integration summary: %w", err)
 	}
 	return item, nil
 }
@@ -258,7 +258,7 @@ func (s *Service) Task(ctx context.Context, query appmodel.ExternalTaskLookupQue
 	return task, nil
 }
 
-func (s *Service) TasksForTeam(ctx context.Context, teamID int64) ([]model.ExternalTaskWithProvider, error) {
+func (s *Service) TasksForTeam(ctx context.Context, teamID int64) ([]appmodel.ExternalTaskWithProvider, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidIntegration
 	}

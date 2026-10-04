@@ -18,7 +18,7 @@ type integrationStoreStub struct {
 	IntegrationCatalog
 	IntegrationTaskStore
 	IntegrationSyncStarter
-	created     model.IntegrationSummary
+	created     appmodel.IntegrationSummary
 	credential  appmodel.IntegrationSyncCredentials
 	deleteErr   error
 	syncCalls   int
@@ -32,26 +32,26 @@ type integrationManagementStore struct {
 	listTasksCalls, detailTasksCalls                          int
 }
 
-func (s *integrationManagementStore) ListIntegrations(_ context.Context, teamID int64) ([]model.IntegrationSummary, error) {
+func (s *integrationManagementStore) ListIntegrations(_ context.Context, teamID int64) ([]appmodel.IntegrationSummary, error) {
 	s.listTeamID = teamID
-	return []model.IntegrationSummary{
+	return []appmodel.IntegrationSummary{
 		{ID: 2, TeamID: teamID, Provider: "github", Name: "Code"},
 		{ID: 3, TeamID: teamID, Provider: "jira", Name: "Issues"},
 	}, nil
 }
 
-func (s *integrationManagementStore) ListExternalTasksForTeam(_ context.Context, teamID int64) ([]model.ExternalTaskWithProvider, error) {
+func (s *integrationManagementStore) ListExternalTasksForTeam(_ context.Context, teamID int64) ([]appmodel.ExternalTaskWithProvider, error) {
 	s.taskTeamID = teamID
 	s.listTasksCalls++
-	return []model.ExternalTaskWithProvider{
+	return []appmodel.ExternalTaskWithProvider{
 		{ID: 1, IntegrationID: 2}, {ID: 2, IntegrationID: 2}, {ID: 3, IntegrationID: 3},
 	}, nil
 }
 
-func (s *integrationManagementStore) GetIntegrationSummary(_ context.Context, query appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error) {
+func (s *integrationManagementStore) GetIntegrationSummary(_ context.Context, query appmodel.IntegrationLookupQuery) (appmodel.IntegrationSummary, error) {
 	s.detailQuery = query
 	s.detailTeamID, s.detailIntegrationID = query.TeamID, query.IntegrationID
-	return model.IntegrationSummary{ID: query.IntegrationID, TeamID: query.TeamID, Provider: "github", Name: "Code"}, nil
+	return appmodel.IntegrationSummary{ID: query.IntegrationID, TeamID: query.TeamID, Provider: "github", Name: "Code"}, nil
 }
 
 func (s *integrationManagementStore) ListExternalTasks(_ context.Context, query appmodel.IntegrationLookupQuery) ([]model.ExternalTask, error) {
@@ -61,8 +61,8 @@ func (s *integrationManagementStore) ListExternalTasks(_ context.Context, query 
 	return []model.ExternalTask{{ID: 8, IntegrationID: query.IntegrationID, Title: "Fix"}}, nil
 }
 
-func (s *integrationStoreStub) CreateIntegration(_ context.Context, request appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error) {
-	s.created = model.IntegrationSummary{ID: 17, TeamID: request.TeamID, Provider: request.Provider, Name: request.Name, CreatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}
+func (s *integrationStoreStub) CreateIntegration(_ context.Context, request appmodel.IntegrationCreateRequest) (appmodel.IntegrationSummary, error) {
+	s.created = appmodel.IntegrationSummary{ID: 17, TeamID: request.TeamID, Provider: request.Provider, Name: request.Name, CreatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}
 	return s.created, nil
 }
 
