@@ -17,6 +17,7 @@ func checkSelfScopedPersistenceWrites(fset *token.FileSet) error {
 		{"internal/db/preferences.go", "SetUserPrefs"},
 		{"internal/db/auth.go", "UpdateUserName"},
 		{"internal/db/auth.go", "UpdateUserPasswordIfHashMatches"},
+		{"internal/db/auth.go", "DeleteAuthSessionsByUser"},
 		{"internal/db/tokens.go", "CreateAPIToken"},
 		{"internal/db/tokens.go", "ListAPITokens"},
 		{"internal/db/tokens.go", "DeleteAPIToken"},

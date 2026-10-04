@@ -9,6 +9,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 // Session represents a logged-in browser. The token is the only thing
@@ -95,7 +96,11 @@ func (s *Service) Logout(ctx context.Context, request appmodel.LogoutRequest) er
 // DeleteByUser removes every session for a user. Useful for "log out
 // everywhere" or when an account is being closed.
 func (s *Service) DeleteByUser(ctx context.Context, userID int64) error {
-	return s.sessions.DeleteAuthSessionsByUser(ctx, appmodel.AuthSessionsDeleteByUserRequest{UserID: userID})
+	callerID := requestctx.ActorID(ctx)
+	if userID <= 0 || callerID <= 0 || userID != callerID {
+		return model.ErrForbidden
+	}
+	return s.sessions.DeleteAuthSessionsByUser(ctx, appmodel.AuthSessionsDeleteByUserRequest{UserID: userID, CallerID: callerID})
 }
 
 // PurgeExpired deletes every session whose expires_at has passed. Call
