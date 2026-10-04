@@ -156,7 +156,7 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			if principal.teamID > 0 {
 				// A token acts in the workspace it was made in, while the
 				// owner is still a member there.
-				membership, ok, merr := s.services.Teams.Directory.MembershipForUser(ctx, principal.teamID, user.ID)
+				membership, ok, merr := s.services.Teams.Directory.MembershipForUser(ctx, appmodel.TeamMembershipQuery{TeamID: principal.teamID, UserID: user.ID})
 				if merr != nil {
 					s.writeInternalError(w, merr)
 					return
@@ -218,7 +218,7 @@ func (s *Server) resolveTeam(ctx context.Context, user appmodel.UserIdentity, r 
 	if cookie, err := r.Cookie(teamCookieName); err == nil {
 		var wantID int64
 		if _, scanErr := scanInt(cookie.Value, &wantID); scanErr == nil && wantID > 0 {
-			membership, ok, err := s.services.Teams.Directory.MembershipForUser(ctx, wantID, user.ID)
+			membership, ok, err := s.services.Teams.Directory.MembershipForUser(ctx, appmodel.TeamMembershipQuery{TeamID: wantID, UserID: user.ID})
 			if err != nil {
 				return model.Team{}, "", fmt.Errorf("load selected workspace membership: %w", err)
 			}

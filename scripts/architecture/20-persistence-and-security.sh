@@ -317,6 +317,18 @@ for method in FindMembershipForUser TeamMemberRole; do
 		exit 1
 	fi
 done
+team_is_member=$(sed -n '/^func (s \*Service) IsMember(/,/^}/p' internal/teams/members.go)
+team_membership_for_user=$(sed -n '/^func (s \*Service) MembershipForUser(/,/^}/p' internal/teams/teams.go)
+team_directory=$(sed -n '/^type TeamDirectory interface {/,/^}/p' internal/web/dependencies.go)
+if ! printf '%s\n' "$team_is_member" | grep -Fq 'appmodel.TeamMembershipQuery' ||
+	! printf '%s\n' "$team_is_member" | grep -Fq 'TeamMemberRole(ctx, query)' ||
+	! printf '%s\n' "$team_membership_for_user" | grep -Fq 'appmodel.TeamMembershipQuery' ||
+	! printf '%s\n' "$team_membership_for_user" | grep -Fq 'FindMembershipForUser(ctx, query)' ||
+	! printf '%s\n' "$team_directory" | grep -Fq 'IsMember(context.Context, appmodel.TeamMembershipQuery)' ||
+	! printf '%s\n' "$team_directory" | grep -Fq 'MembershipForUser(context.Context, appmodel.TeamMembershipQuery)'; then
+	echo "architecture check: membership scope must remain typed through teams workflow and HTTP directory ports" >&2
+	exit 1
+fi
 payroll_run_lookup=$(sed -n '/^func (d \*DB) GetPayrollRunDetails(/,/^}/p' internal/db/payroll_queries.go)
 if ! printf '%s\n' "$payroll_run_lookup" | grep -Fq 'query appmodel.PayrollRunLookupQuery' ||
 	! printf '%s\n' "$payroll_run_lookup" | grep -Fq 'query.TeamID <= 0' ||

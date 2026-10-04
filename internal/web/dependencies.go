@@ -373,9 +373,9 @@ type APITokenManagementBuilding interface {
 // HTTP routes.
 type TeamDirectory interface {
 	FindByID(context.Context, int64) (model.Team, error)
-	IsMember(context.Context, int64, int64) (model.TeamRole, bool, error)
+	IsMember(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error)
 	Members(context.Context, int64) ([]model.TeamMember, error)
-	MembershipForUser(context.Context, int64, int64) (model.TeamMembership, bool, error)
+	MembershipForUser(context.Context, appmodel.TeamMembershipQuery) (model.TeamMembership, bool, error)
 	MembershipsForUser(context.Context, int64) ([]model.TeamMembership, error)
 }
 
