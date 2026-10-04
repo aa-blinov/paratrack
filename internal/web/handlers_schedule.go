@@ -64,18 +64,13 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	weekStart := startOfWeek(r, day)
 	resolvedLang := resolveLang(r)
 	lang := string(resolvedLang)
-	projects, err := s.services.Projects.Queries.List(r.Context(), teamID(r), false)
+	schedule, err := s.scheduleRows(r, weekStart, r.URL.Query().Get("project"))
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
-	projectVMs := projectViews(projects)
-	pid := schedProject(r.URL.Query().Get("project"), projects)
-	schedule, err := s.scheduleRows(r, weekStart, pid)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
+	projectVMs := schedule.Projects
+	pid := schedule.ProjectID
 	days := make([]schedDay, 7)
 	for i := 0; i < 7; i++ {
 		d := weekStart.AddDate(0, 0, i)
@@ -126,14 +121,17 @@ func schedProject(v string, projects []model.Project) int64 {
 type scheduleRowsView struct {
 	Rows         []schedRow
 	ProjectNames map[int64]string
+	Projects     []projectView
+	ProjectID    int64
 	TotalMinutes int
 }
 
-func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, pid int64) (scheduleRowsView, error) {
+func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, project string) (scheduleRowsView, error) {
 	snapshot, err := s.services.Scheduling.List(r.Context(), teamID(r), weekStart)
 	if err != nil {
 		return scheduleRowsView{}, err
 	}
+	pid := schedProject(project, snapshot.Projects)
 	now := userNow(r)
 	out := make([]schedRow, 0, len(snapshot.Rows))
 	for _, rc := range snapshot.Rows {
@@ -152,7 +150,10 @@ func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, pid int64) (
 		}
 		out = append(out, row)
 	}
-	return scheduleRowsView{Rows: out, ProjectNames: snapshot.ProjectNames, TotalMinutes: snapshot.TotalMinutes}, nil
+	return scheduleRowsView{
+		Rows: out, ProjectNames: snapshot.ProjectNames, Projects: projectViews(snapshot.Projects),
+		ProjectID: pid, TotalMinutes: snapshot.TotalMinutes,
+	}, nil
 }
 
 // handleScheduleCell writes one plan cell.
@@ -222,20 +223,14 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 		http.Error(w, "bad date", 400)
 		return
 	}
-	projects, err := s.services.Projects.Queries.List(r.Context(), teamID(r), false)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	pid := schedProject(r.PostForm.Get("project_id"), projects)
-	schedule, err := s.scheduleRows(r, startOfWeek(r, t), pid)
+	schedule, err := s.scheduleRows(r, startOfWeek(r, t), r.PostForm.Get("project_id"))
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
 	for _, row := range schedule.Rows {
 		if row.UserID == uid {
-			s.renderFragment(w, "schedule-row", schedRowVM{Row: row, Projects: projectViews(projects), ProjectID: pid, CanManage: canManage(r), Lang: string(resolveLang(r))})
+			s.renderFragment(w, "schedule-row", schedRowVM{Row: row, Projects: schedule.Projects, ProjectID: schedule.ProjectID, CanManage: canManage(r), Lang: string(resolveLang(r))})
 			return
 		}
 	}
