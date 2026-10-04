@@ -8,6 +8,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestPushKeysAndSubscribe(t *testing.T) {
@@ -15,7 +16,7 @@ func TestPushKeysAndSubscribe(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := t.Context()
+	ctx := requestctx.WithActor(t.Context(), 1)
 	d.TestSQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
 	d.TestSQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
 	d.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role) VALUES (1,1,'owner')`)
@@ -38,18 +39,18 @@ func TestPushKeysAndSubscribe(t *testing.T) {
 		t.Fatalf("pub key len=%d err=%v", len(b), err)
 	}
 
-	if err := d.UpsertPushSubscription(ctx, appmodel.PushSubscribeRequest{TeamID: 1, UserID: 1, Endpoint: "https://push.example/1", PublicKey: "p256dh", AuthSecret: "auth"}); err != nil {
+	if err := d.UpsertPushSubscription(ctx, appmodel.PushSubscribeRequest{TeamID: 1, UserID: 1, CallerID: 1, Endpoint: "https://push.example/1", PublicKey: "p256dh", AuthSecret: "auth"}); err != nil {
 		t.Fatal(err)
 	}
 	// upsert same endpoint refreshes
-	if err := d.UpsertPushSubscription(ctx, appmodel.PushSubscribeRequest{TeamID: 1, UserID: 1, Endpoint: "https://push.example/1", PublicKey: "p256dh2", AuthSecret: "auth2"}); err != nil {
+	if err := d.UpsertPushSubscription(ctx, appmodel.PushSubscribeRequest{TeamID: 1, UserID: 1, CallerID: 1, Endpoint: "https://push.example/1", PublicKey: "p256dh2", AuthSecret: "auth2"}); err != nil {
 		t.Fatal(err)
 	}
 	subs, _ := d.ListPushSubscriptions(ctx, 1)
 	if len(subs) != 1 || subs[0].P256DH != "p256dh2" {
 		t.Fatalf("subs=%+v", subs)
 	}
-	if err := d.DeletePushSubscription(ctx, appmodel.PushUnsubscribeRequest{TeamID: 1, UserID: 1, Endpoint: "https://push.example/1"}); err != nil {
+	if err := d.DeletePushSubscription(ctx, appmodel.PushUnsubscribeRequest{TeamID: 1, UserID: 1, CallerID: 1, Endpoint: "https://push.example/1"}); err != nil {
 		t.Fatal(err)
 	}
 	subs, _ = d.ListPushSubscriptions(ctx, 1)

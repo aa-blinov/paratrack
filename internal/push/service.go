@@ -36,6 +36,7 @@ type Store interface {
 	ListPushSubscriptions(context.Context, int64, ...int64) ([]pushport.Subscription, error)
 	CountPushSubscriptions(context.Context, int64) (int, error)
 	DeletePushSubscription(context.Context, appmodel.PushUnsubscribeRequest) error
+	DeletePushSubscriptionForCleanup(context.Context, appmodel.PushSubscriptionCleanupRequest) error
 }
 
 // Sender owns Web Push protocol details and outbound network policy.
@@ -234,7 +235,7 @@ func (s *Service) notify(ctx context.Context, teamID int64, userIDs []int64, not
 			continue
 		}
 		if result.SubscriptionExpired {
-			if err := s.unsubscribe(ctx, appmodel.PushUnsubscribeRequest{TeamID: sub.TeamID, UserID: sub.UserID, Endpoint: sub.Endpoint}); err != nil {
+			if err := s.removeExpired(ctx, appmodel.PushSubscriptionCleanupRequest{TeamID: sub.TeamID, UserID: sub.UserID, Endpoint: sub.Endpoint}); err != nil {
 				deliveryErrors = append(deliveryErrors, fmt.Errorf("remove expired Web Push subscription %d: %w", sub.ID, err))
 			}
 		}
@@ -263,7 +264,13 @@ func (s *Service) Subscribe(ctx context.Context, request appmodel.PushSubscribeR
 	request.PublicKey = strings.TrimSpace(request.PublicKey)
 	request.AuthSecret = strings.TrimSpace(request.AuthSecret)
 	parsed, err := url.Parse(request.Endpoint)
-	if request.TeamID <= 0 || request.UserID <= 0 || err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidSubscription
+	}
+	if request.CallerID != request.UserID {
+		return model.ErrForbidden
+	}
+	if err != nil || parsed.Scheme != "https" || parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
 		return ErrInvalidSubscription
 	}
 	publicKey, err := base64.RawURLEncoding.DecodeString(request.PublicKey)
@@ -282,25 +289,39 @@ func (s *Service) Subscribe(ctx context.Context, request appmodel.PushSubscribeR
 }
 
 // UnsubscribeForMember is the user initiated operation exposed to transports.
-// Internal endpoint cleanup continues to use Unsubscribe without audit noise.
+// Internal endpoint cleanup uses its own maintenance command without audit noise.
 func (s *Service) UnsubscribeForMember(ctx context.Context, request appmodel.PushUnsubscribeRequest) error {
-	if request.TeamID <= 0 || request.UserID <= 0 {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.CallerID <= 0 {
 		return ErrInvalidSubscription
 	}
-	if err := s.unsubscribe(ctx, request); err != nil {
+	if request.CallerID != request.UserID {
+		return model.ErrForbidden
+	}
+	if err := s.unsubscribeMember(ctx, request); err != nil {
 		return err
 	}
 	s.recordAudit(ctx, request.TeamID, request.UserID, "push.unsubscribe")
 	return nil
 }
 
-func (s *Service) unsubscribe(ctx context.Context, request appmodel.PushUnsubscribeRequest) error {
+func (s *Service) unsubscribeMember(ctx context.Context, request appmodel.PushUnsubscribeRequest) error {
 	request.Endpoint = strings.TrimSpace(request.Endpoint)
-	if request.TeamID <= 0 || request.UserID <= 0 || request.Endpoint == "" {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.CallerID != request.UserID || request.Endpoint == "" {
 		return ErrInvalidSubscription
 	}
 	if err := s.store.DeletePushSubscription(ctx, request); err != nil {
 		return fmt.Errorf("delete push subscription: %w", err)
+	}
+	return nil
+}
+
+func (s *Service) removeExpired(ctx context.Context, request appmodel.PushSubscriptionCleanupRequest) error {
+	request.Endpoint = strings.TrimSpace(request.Endpoint)
+	if request.TeamID <= 0 || request.UserID <= 0 || request.Endpoint == "" {
+		return ErrInvalidSubscription
+	}
+	if err := s.store.DeletePushSubscriptionForCleanup(ctx, request); err != nil {
+		return fmt.Errorf("delete expired push subscription: %w", err)
 	}
 	return nil
 }
