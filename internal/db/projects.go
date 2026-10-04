@@ -129,7 +129,7 @@ func (d *DB) GetProjectBySlug(ctx context.Context, query appmodel.ProjectSlugQue
 	return scanProject(row)
 }
 
-type ProjectSummary = model.ProjectSummary
+type ProjectSummary = appmodel.ProjectSummary
 
 // ProjectSummaries returns summaries for a set of IDs in one round trip.
 func (d *DB) ProjectSummaries(ctx context.Context, query appmodel.ProjectSummariesQuery) (map[int64]ProjectSummary, error) {

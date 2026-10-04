@@ -25,7 +25,7 @@ func (stub *tagReaderStub) TagsForSessions(_ context.Context, query appmodel.Ses
 type projectReaderStub struct {
 	teamID int64
 	ids    []int64
-	by     map[int64]model.ProjectSummary
+	by     map[int64]appmodel.ProjectSummary
 	err    error
 }
 
@@ -42,7 +42,7 @@ func (stub *sessionReaderStub) SessionActivity(_ context.Context, query appmodel
 	return stub.session, stub.activity, stub.err
 }
 
-func (stub *projectReaderStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+func (stub *projectReaderStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error) {
 	stub.teamID = query.TeamID
 	stub.ids = append([]int64(nil), query.ProjectIDs...)
 	return stub.by, stub.err
@@ -56,7 +56,7 @@ func (stub *loggerStub) Printf(format string, args ...any) {
 
 func TestBuildBatchesDistinctSessionAndProjectIDs(t *testing.T) {
 	tags := &tagReaderStub{by: map[int64][]model.Tag{2: {{ID: 8, Name: "urgent"}}}}
-	projects := &projectReaderStub{by: map[int64]model.ProjectSummary{7: {ID: 7, Name: "Client"}}}
+	projects := &projectReaderStub{by: map[int64]appmodel.ProjectSummary{7: {ID: 7, Name: "Client"}}}
 	builder, err := New(Dependencies{Sessions: &sessionReaderStub{}, Tags: tags, Projects: projects, Logger: &loggerStub{}})
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func TestBuildKeepsSessionRowsWhenOptionalDecorationsFail(t *testing.T) {
 func TestBuildRowLoadsSessionAndDecoratesItInOneWorkflow(t *testing.T) {
 	sessions := &sessionReaderStub{session: model.Session{ID: 12}, activity: model.Activity{ID: 4, ProjectID: 9}}
 	tags := &tagReaderStub{by: map[int64][]model.Tag{12: {{ID: 3, Name: "priority"}}}}
-	projects := &projectReaderStub{by: map[int64]model.ProjectSummary{9: {ID: 9, Name: "Client"}}}
+	projects := &projectReaderStub{by: map[int64]appmodel.ProjectSummary{9: {ID: 9, Name: "Client"}}}
 	builder, err := New(Dependencies{Sessions: sessions, Tags: tags, Projects: projects, Logger: &loggerStub{}})
 	if err != nil {
 		t.Fatal(err)

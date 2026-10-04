@@ -19,7 +19,7 @@ type DashboardSnapshot struct {
 	RecentSessions    []model.ActiveSession
 	Projects          []model.Project
 	TagsBySession     map[int64][]model.Tag
-	ProjectsByID      map[int64]model.ProjectSummary
+	ProjectsByID      map[int64]ProjectSummary
 	Goals             []model.GoalProgress
 	Unbilled          []model.UnbilledProject
 	TodayStart        time.Time
@@ -37,7 +37,7 @@ type ActiveListSnapshot struct {
 	ActiveSessions []model.ActiveSession
 	Projects       []model.Project
 	TagsBySession  map[int64][]model.Tag
-	ProjectsByID   map[int64]model.ProjectSummary
+	ProjectsByID   map[int64]ProjectSummary
 	FirstRun       bool
 }
 
@@ -54,7 +54,7 @@ type SessionDecorationRequest struct {
 // by session or project ID.
 type SessionDecorationSnapshot struct {
 	TagsBySession map[int64][]model.Tag
-	ProjectsByID  map[int64]model.ProjectSummary
+	ProjectsByID  map[int64]ProjectSummary
 }
 
 type SessionDecorationRowSnapshot struct {
@@ -66,7 +66,7 @@ type SessionDecorationRowSnapshot struct {
 // values displayed beside them.
 type ProjectListSnapshot struct {
 	Projects []model.Project
-	Usage    map[int64]model.ProjectUsage
+	Usage    map[int64]ProjectUsage
 }
 
 // ProjectCatalogSnapshot combines projects with their activity counts for

@@ -13,7 +13,7 @@ import (
 )
 
 type ProjectReader interface {
-	Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error)
+	Detail(context.Context, appmodel.ProjectDetailRequest) (appmodel.ProjectDetail, error)
 }
 
 type SessionDecorationBuilder interface {

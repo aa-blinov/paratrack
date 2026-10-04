@@ -73,7 +73,7 @@ func (stub *projectListCatalogStub) ListProjects(_ context.Context, query appmod
 type projectListUsageStub struct {
 	ProjectUsageStore
 	counts map[int64]int
-	spans  []model.ProjectSessionSpan
+	spans  []appmodel.ProjectSessionSpan
 }
 
 type projectSummariesUsageStub struct {
@@ -81,9 +81,9 @@ type projectSummariesUsageStub struct {
 	query appmodel.ProjectSummariesQuery
 }
 
-func (stub *projectSummariesUsageStub) ProjectSummaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+func (stub *projectSummariesUsageStub) ProjectSummaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error) {
 	stub.query = query
-	return map[int64]model.ProjectSummary{7: {ID: 7, Name: "Alpha"}}, nil
+	return map[int64]appmodel.ProjectSummary{7: {ID: 7, Name: "Alpha"}}, nil
 }
 
 type projectMutationWriterStub struct {
@@ -106,7 +106,7 @@ func (stub projectListUsageStub) ProjectActivityCounts(context.Context, int64) (
 	return stub.counts, nil
 }
 
-func (stub projectListUsageStub) ProjectSpans(context.Context, appmodel.ProjectSpansQuery) ([]model.ProjectSessionSpan, error) {
+func (stub projectListUsageStub) ProjectSpans(context.Context, appmodel.ProjectSpansQuery) ([]appmodel.ProjectSessionSpan, error) {
 	return stub.spans, nil
 }
 
@@ -142,7 +142,7 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 		catalog: catalog,
 		usage: projectListUsageStub{
 			counts: map[int64]int{7: 2},
-			spans: []model.ProjectSessionSpan{{ProjectID: 7, Session: model.Session{
+			spans: []appmodel.ProjectSessionSpan{{ProjectID: 7, Session: model.Session{
 				StartAt: start, EndAt: &ended, AccumulatedSeconds: 2 * 60 * 60,
 			}}},
 		},
