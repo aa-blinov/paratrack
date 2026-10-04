@@ -1,10 +1,20 @@
 # Architecture
 
 paratrack is a modular Go application shipped as one binary. It has two
-entrypoints into the same product: a command-line interface and a server-rendered
-HTTP application. PostgreSQL is the durable store. The browser uses HTML from Go
-templates, HTMX for server interactions, and small JavaScript modules for local
-behavior.
+entrypoints into the same product: a command-line interface and an HTTP
+application. PostgreSQL is the durable store. The UI migration to React and
+shadcn is in progress: the dashboard mounts a React screen on a Go-rendered
+page, and the remaining routes still use Go templates, HTMX and Alpine.js.
+
+`web/src/main.tsx` is the current React entrypoint. It loads dashboard data
+from the authenticated `GET /api/dashboard` endpoint; timer mutations reuse the
+existing form endpoints and refresh that snapshot. `web/src/components/ui`
+contains the shadcn-generated Radix primitives, styled to the existing Honest
+Ledger design. `make ui` builds both the legacy stylesheet and the React bundle
+into `internal/web/static`, which is embedded in the Go binary. This is an
+incremental migration: shared navigation, PWA/offline behavior and other
+screens still depend on the legacy browser stack and must remain available
+until their React replacements are complete.
 
 `internal/web/static/js/app.js` is the browser entrypoint. Dedicated modules
 register the live timer/total and invoice-form Alpine components. A small

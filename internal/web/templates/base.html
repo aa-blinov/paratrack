@@ -14,6 +14,7 @@
   <meta name="apple-mobile-web-app-title" content="paratrack">
   <link rel="apple-touch-icon" href="/static/icon192.png">
   <link rel="stylesheet" href="{{asset "css/paratrack.css"}}">
+  {{if .ReactApp}}<link rel="stylesheet" href="{{asset "ui/app.css"}}">{{end}}
   <link rel="preload" href="/static/fonts/inter-{{if eq .Lang "ru"}}cyrillic{{else}}latin{{end}}.woff2" as="font" type="font/woff2" crossorigin>
   {{with sentryDSN}}<meta name="sentry" content="{{.}}" data-release="{{release}}" data-env="{{sentryEnv}}">
   <script src="{{asset "js/sentry.min.js"}}"></script>
@@ -22,6 +23,7 @@
   <script type="importmap">{{appImportMap}}</script>
   <script type="module" src="{{asset "js/app.js"}}"></script>
   <script defer src="{{asset "js/alpine.min.js"}}"></script>
+  {{if .ReactApp}}<script type="module" src="{{asset "ui/app.js"}}"></script>{{end}}
 </head>
 <body class="min-h-screen flex flex-col bg-base-200 text-base-content"
   data-i18n-send-error="{{.T "pwa.sendError"}}"
@@ -139,7 +141,7 @@
   </header>
 
   <main id="main" tabindex="-1" class="flex-1 mx-auto max-w-6xl px-4 py-6 w-full">
-    {{.ContentHTML}}
+    {{if .ReactApp}}<div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">{{.ContentHTML}}</div>{{else}}{{.ContentHTML}}{{end}}
   </main>
 
   {{/* Permanent live region: a region inserted together with its text is

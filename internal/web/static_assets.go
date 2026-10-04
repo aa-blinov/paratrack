@@ -49,7 +49,7 @@ func computeAssetVersion(source fs.FS) (string, error) {
 
 var appImportMapCache struct {
 	once  sync.Once
-	value template.JS
+	value template.HTML
 	err   error
 }
 
@@ -60,7 +60,7 @@ type appImportMapResponse struct {
 // appImportMap includes every embedded frontend module so new local imports
 // receive the same content hash as ordinary asset URLs without a second
 // hand-maintained module list.
-func appImportMap() (template.JS, error) {
+func appImportMap() (template.HTML, error) {
 	appImportMapCache.once.Do(func() {
 		if assetVersionErr != nil {
 			appImportMapCache.err = fmt.Errorf("hash embedded static assets: %w", assetVersionErr)
@@ -85,7 +85,10 @@ func appImportMap() (template.JS, error) {
 			appImportMapCache.err = fmt.Errorf("encode frontend import map: %w", err)
 			return
 		}
-		appImportMapCache.value = template.JS(data)
+		// The browser expects raw JSON inside <script type="importmap">.
+		// The bytes come from json.Marshal over embedded asset paths and the
+		// content hash, so they are safe to emit without HTML entity escaping.
+		appImportMapCache.value = template.HTML(data)
 	})
 	return appImportMapCache.value, appImportMapCache.err
 }

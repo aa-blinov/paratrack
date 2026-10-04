@@ -362,15 +362,22 @@ func (s *Service) Pause(ctx context.Context, request appmodel.TimerSessionReques
 	if request.TeamID <= 0 || request.SessionID <= 0 || request.At.IsZero() {
 		return model.Session{}, fmt.Errorf("%w: invalid pause request", ErrInvalidStart)
 	}
+	current, err := s.queries.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: request.TeamID, SessionID: request.SessionID})
+	if err != nil {
+		return model.Session{}, fmt.Errorf("load session before pause: %w", err)
+	}
+	if current.EndAt != nil {
+		return model.Session{}, ErrSessionNotActive
+	}
+	if current.Paused {
+		return model.Session{}, ErrAlreadyPaused
+	}
 	session, err := s.sessions.PauseSession(ctx, request)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("pause session: %w", err)
 	}
 	if session.EndAt != nil {
 		return model.Session{}, ErrSessionNotActive
-	}
-	if session.Paused {
-		return model.Session{}, ErrAlreadyPaused
 	}
 	return session, nil
 }
@@ -379,15 +386,22 @@ func (s *Service) Resume(ctx context.Context, request appmodel.TimerSessionReque
 	if request.TeamID <= 0 || request.SessionID <= 0 || request.At.IsZero() {
 		return model.Session{}, fmt.Errorf("%w: invalid resume request", ErrInvalidStart)
 	}
+	current, err := s.queries.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: request.TeamID, SessionID: request.SessionID})
+	if err != nil {
+		return model.Session{}, fmt.Errorf("load session before resume: %w", err)
+	}
+	if current.EndAt != nil {
+		return model.Session{}, ErrSessionNotActive
+	}
+	if !current.Paused {
+		return model.Session{}, ErrNotPaused
+	}
 	session, err := s.sessions.ResumeSession(ctx, request)
 	if err != nil {
 		return model.Session{}, fmt.Errorf("resume session: %w", err)
 	}
 	if session.EndAt != nil {
 		return model.Session{}, ErrSessionNotActive
-	}
-	if !session.Paused {
-		return model.Session{}, ErrNotPaused
 	}
 	return session, nil
 }

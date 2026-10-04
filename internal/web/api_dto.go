@@ -8,6 +8,12 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
+type dashboardPageResponse struct {
+	Data dashboardData `json:"data"`
+}
+
+func (dashboardPageResponse) isJSONResponse() {}
+
 type apiErrorResponse struct {
 	Error string `json:"error"`
 }

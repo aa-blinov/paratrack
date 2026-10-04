@@ -29,11 +29,15 @@ type pageData struct {
 	CanManage     bool            // owner/admin: money and settings are shown
 	Mods          map[string]bool // sections this workspace uses (modules.go)
 	DurFmt        string          // user's duration format, for the JS clocks
+	ReactApp      bool            // render page content from the React application
+	ReactPayload  template.HTML   // JSON bootstrap data for the React application
 	Tabs          []navItem       // phone tab bar (prefs)
 	hiddenWidgets []string
 }
 
 func (pageData) isTemplateData() {}
+
+func (p pageData) usesReactApp() bool { return p.ReactApp }
 
 // userView exposes only fields used by the shared HTML layout.
 type userView struct {
