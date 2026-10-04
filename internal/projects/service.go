@@ -20,7 +20,7 @@ import (
 type ProjectCatalogStore interface {
 	ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	ListActivitiesForProject(context.Context, int64, int64, bool) ([]model.Activity, error)
-	GetProjectInTeam(context.Context, int64, int64) (model.Project, error)
+	GetProjectInTeam(context.Context, appmodel.ProjectScopeQuery) (model.Project, error)
 	GetProjectBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
 	GetActivity(context.Context, int64, int64) (model.Activity, error)
 }
@@ -30,13 +30,13 @@ type ProjectUsageStore interface {
 	ProjectActivityCounts(context.Context, int64) (map[int64]int, error)
 	ProjectSpans(context.Context, int64, time.Time, time.Time) ([]model.ProjectSessionSpan, error)
 	ProjectSummaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
-	ProjectSessions(context.Context, int64, int64, time.Time, time.Time) ([]model.ActiveSession, error)
-	ProjectTrackedTotal(context.Context, int64, int64) (int, error)
+	ProjectSessions(context.Context, appmodel.ProjectActivityQuery) ([]model.ActiveSession, error)
+	ProjectTrackedTotal(context.Context, appmodel.ProjectScopeQuery) (int, error)
 }
 
 // ProjectBillingStore provides billing defaults and project currencies.
 type ProjectBillingStore interface {
-	ProjectCurrency(context.Context, int64, int64) (string, error)
+	ProjectCurrency(context.Context, appmodel.ProjectScopeQuery) (string, error)
 	ProjectCurrencies(context.Context, int64) (map[int64]string, error)
 }
 
@@ -192,19 +192,19 @@ func (s *Service) Summaries(ctx context.Context, query appmodel.ProjectSummaries
 	return summaries, nil
 }
 
-func (s *Service) Activity(ctx context.Context, teamID, projectID int64, from, through time.Time) (ActivitySummary, error) {
-	if teamID <= 0 || projectID <= 0 || from.IsZero() || through.IsZero() || through.Before(from) {
+func (s *Service) Activity(ctx context.Context, query appmodel.ProjectActivityQuery) (ActivitySummary, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 || query.From.IsZero() || query.Through.IsZero() || query.Through.Before(query.From) {
 		return ActivitySummary{}, model.ErrNotFound
 	}
-	recent, err := s.usage.ProjectSessions(ctx, teamID, projectID, from, through)
+	recent, err := s.usage.ProjectSessions(ctx, query)
 	if err != nil {
 		return ActivitySummary{}, fmt.Errorf("load project sessions: %w", err)
 	}
-	recentSeconds, err := sumRecentProjectTime(recent, from, through)
+	recentSeconds, err := sumRecentProjectTime(recent, query.From, query.Through)
 	if err != nil {
 		return ActivitySummary{}, err
 	}
-	total, err := s.usage.ProjectTrackedTotal(ctx, teamID, projectID)
+	total, err := s.usage.ProjectTrackedTotal(ctx, appmodel.ProjectScopeQuery{TeamID: query.TeamID, ProjectID: query.ProjectID})
 	if err != nil {
 		return ActivitySummary{}, fmt.Errorf("load project tracked total: %w", err)
 	}
@@ -223,11 +223,11 @@ func sumRecentProjectTime(recent []model.ActiveSession, from, through time.Time)
 	return total, nil
 }
 
-func (s *Service) Currency(ctx context.Context, teamID, projectID int64) (string, error) {
-	if teamID <= 0 || projectID <= 0 {
+func (s *Service) Currency(ctx context.Context, query appmodel.ProjectScopeQuery) (string, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return "", model.ErrNotFound
 	}
-	currency, err := s.billing.ProjectCurrency(ctx, teamID, projectID)
+	currency, err := s.billing.ProjectCurrency(ctx, query)
 	if err != nil {
 		return "", fmt.Errorf("load project currency: %w", err)
 	}
@@ -252,11 +252,11 @@ func (s *Service) Activities(ctx context.Context, teamID, projectID int64, inclu
 	return s.catalog.ListActivitiesForProject(ctx, teamID, projectID, includeArchived)
 }
 
-func (s *Service) GetInTeam(ctx context.Context, teamID, projectID int64) (model.Project, error) {
-	if teamID <= 0 || projectID <= 0 {
+func (s *Service) GetInTeam(ctx context.Context, query appmodel.ProjectScopeQuery) (model.Project, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return model.Project{}, model.ErrNotFound
 	}
-	return s.catalog.GetProjectInTeam(ctx, teamID, projectID)
+	return s.catalog.GetProjectInTeam(ctx, query)
 }
 
 func (s *Service) GetBySlug(ctx context.Context, query appmodel.ProjectSlugQuery) (model.Project, error) {
@@ -280,11 +280,11 @@ func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequ
 	if err != nil {
 		return model.ProjectDetail{}, fmt.Errorf("list project activities: %w", err)
 	}
-	activity, err := s.Activity(ctx, request.TeamID, project.ID, request.From, request.Through)
+	activity, err := s.Activity(ctx, appmodel.ProjectActivityQuery{TeamID: request.TeamID, ProjectID: project.ID, From: request.From, Through: request.Through})
 	if err != nil {
 		return model.ProjectDetail{}, fmt.Errorf("load project activity summary: %w", err)
 	}
-	currency, err := s.Currency(ctx, request.TeamID, project.ID)
+	currency, err := s.Currency(ctx, appmodel.ProjectScopeQuery{TeamID: request.TeamID, ProjectID: project.ID})
 	if err != nil {
 		return model.ProjectDetail{}, fmt.Errorf("load project currency: %w", err)
 	}

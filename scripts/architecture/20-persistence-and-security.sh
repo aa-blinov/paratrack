@@ -264,7 +264,12 @@ if ! printf '%s\n' "$payroll_line_builder" | grep -Fq 'teamID <= 0' ||
 fi
 for method in ProjectSpans ProjectActivityCounts ProjectSessions ProjectTrackedTotal; do
 	project_query=$(sed -n "/^func (d \*DB) $method(/,/^}/p" internal/db/project_activity_queries.go)
-	if ! printf '%s\n' "$project_query" | grep -Fq 'teamID <= 0'; then
+	case "$method" in
+		ProjectSessions) scope_check='query.TeamID <= 0 || query.ProjectID <= 0' ;;
+		ProjectTrackedTotal) scope_check='query.TeamID <= 0 || query.ProjectID <= 0' ;;
+		*) scope_check='teamID <= 0' ;;
+	esac
+	if ! printf '%s\n' "$project_query" | grep -Fq "$scope_check"; then
 		echo "architecture check: project usage query $method must validate scope and same-workspace joins" >&2
 		exit 1
 	fi

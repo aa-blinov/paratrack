@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -109,15 +110,15 @@ func (d *DB) ProjectActivityCounts(ctx context.Context, teamID int64) (map[int64
 
 // ProjectSessions is the project's closed sessions touching [from, to],
 // newest first (scoped to the person for a member).
-func (d *DB) ProjectSessions(ctx context.Context, teamID, projectID int64, from, to time.Time) ([]model.ActiveSession, error) {
-	if teamID <= 0 || projectID <= 0 || from.IsZero() || to.Before(from) {
+func (d *DB) ProjectSessions(ctx context.Context, query appmodel.ProjectActivityQuery) ([]model.ActiveSession, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 || query.From.IsZero() || query.Through.Before(query.From) {
 		return nil, ErrNotFound
 	}
 	q := sessionSelect + `
 	JOIN projects p ON p.id = a.project_id AND p.team_id = s.team_id
 		WHERE s.team_id = ? AND a.team_id = s.team_id AND p.team_id = s.team_id AND a.project_id = ?
 		  AND s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?`
-	args := []any{teamID, projectID, FormatTime(to), FormatTime(from)}
+	args := []any{query.TeamID, query.ProjectID, FormatTime(query.Through), FormatTime(query.From)}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
 	rows, err := d.sql.QueryContext(ctx, q+sc+` ORDER BY s.start_at DESC`, args...)
 	if err != nil {
@@ -129,8 +130,8 @@ func (d *DB) ProjectSessions(ctx context.Context, teamID, projectID int64, from,
 
 // ProjectTrackedTotal is all the tracked time ever put on the project
 // (closed sessions; scoped to the person for a member).
-func (d *DB) ProjectTrackedTotal(ctx context.Context, teamID, projectID int64) (int, error) {
-	if teamID <= 0 || projectID <= 0 {
+func (d *DB) ProjectTrackedTotal(ctx context.Context, query appmodel.ProjectScopeQuery) (int, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return 0, ErrNotFound
 	}
 	q := `SELECT COALESCE(SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
@@ -139,7 +140,7 @@ func (d *DB) ProjectTrackedTotal(ctx context.Context, teamID, projectID int64) (
 		JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
 		JOIN projects p ON p.id = a.project_id AND p.team_id = s.team_id
 		WHERE s.team_id = ? AND a.project_id = ? AND s.end_at IS NOT NULL`
-	args := []any{teamID, projectID}
+	args := []any{query.TeamID, query.ProjectID}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
 	var total int64
 	err := d.sql.QueryRowContext(ctx, q+sc, args...).Scan(&total)

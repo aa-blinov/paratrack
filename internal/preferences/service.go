@@ -49,7 +49,7 @@ type Store interface {
 }
 
 type ProjectLookup interface {
-	GetInTeam(context.Context, int64, int64) (model.Project, error)
+	GetInTeam(context.Context, appmodel.ProjectScopeQuery) (model.Project, error)
 }
 
 var ErrIncompleteDependencies = errors.New("preference service dependencies are incomplete")
@@ -100,7 +100,7 @@ func (s *Service) Save(ctx context.Context, request appmodel.PreferencesSaveRequ
 	}
 	userID, teamID, prefs := request.UserID, request.TeamID, request.Preferences
 	if projectID := prefs.DefaultProject[fmt.Sprint(teamID)]; projectID > 0 {
-		project, err := s.projects.GetInTeam(ctx, teamID, projectID)
+		project, err := s.projects.GetInTeam(ctx, appmodel.ProjectScopeQuery{TeamID: teamID, ProjectID: projectID})
 		if errors.Is(err, model.ErrNotFound) || errors.Is(err, model.ErrForbidden) {
 			return ErrInvalidDefaultProject
 		}

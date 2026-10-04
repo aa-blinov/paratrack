@@ -105,12 +105,12 @@ func (d *DB) GetProjectByID(ctx context.Context, id int64) (model.Project, error
 }
 
 // GetProjectInTeam fetches a project only when it belongs to teamID.
-func (d *DB) GetProjectInTeam(ctx context.Context, teamID, id int64) (model.Project, error) {
-	if teamID <= 0 || id <= 0 {
+func (d *DB) GetProjectInTeam(ctx context.Context, query appmodel.ProjectScopeQuery) (model.Project, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return model.Project{}, ErrNotFound
 	}
 	return scanProject(d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE id = ? AND team_id = ?`, id, teamID))
+		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID))
 }
 
 func (d *DB) TeamOwnerID(ctx context.Context, teamID int64) (int64, error) {
