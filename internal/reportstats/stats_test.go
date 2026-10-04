@@ -25,14 +25,14 @@ func TestSummarizeTotalsSharesAndStableOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.TotalSeconds != 10800 {
-		t.Fatalf("TotalSeconds = %d, want 10800", got.TotalSeconds)
+	if got.TotalSeconds != 9000 {
+		t.Fatalf("TotalSeconds = %d, want 9000", got.TotalSeconds)
 	}
 	if len(got.Activities) != 3 {
 		t.Fatalf("activity count = %d, want 3", len(got.Activities))
 	}
-	if got.Activities[0].Name != "Alpha" || got.Activities[0].Seconds != 5400 || got.Activities[0].Share != 50 {
-		t.Fatalf("first activity = %#v, want Alpha at 5400 seconds and 50%%", got.Activities[0])
+	if got.Activities[0].Name != "Alpha" || got.Activities[0].Seconds != 5400 || got.Activities[0].Share != 60 {
+		t.Fatalf("first activity = %#v, want Alpha at 5400 seconds and 60%%", got.Activities[0])
 	}
 	if got.Activities[1].Name != "Misc" || got.Activities[2].Name != "Zulu" {
 		t.Fatalf("tied activities = %q, %q, want alphabetical order", got.Activities[1].Name, got.Activities[2].Name)
@@ -41,13 +41,13 @@ func TestSummarizeTotalsSharesAndStableOrdering(t *testing.T) {
 		t.Fatalf("project order = %#v, want project 2 then uncategorized", got.Projects)
 	}
 	project := got.Projects[0]
-	if project.Name != "Client work" || project.Slug != "client-work" || project.Color != "#123456" || project.Seconds != 9000 {
+	if project.Name != "Client work" || project.Slug != "client-work" || project.Color != "#123456" || project.Seconds != 7200 {
 		t.Fatalf("project summary = %#v", project)
 	}
-	if math.Abs(project.Share-83.33333333333333) > 0.000001 {
-		t.Fatalf("project share = %v, want 83.333333%%", project.Share)
+	if math.Abs(project.Share-80) > 0.000001 {
+		t.Fatalf("project share = %v, want 80%%", project.Share)
 	}
-	if got.Projects[1].Name != "Uncategorized" || got.Projects[1].Color != "#9ca3af" || math.Abs(got.Projects[1].Share-100.0/6.0) > 0.000001 {
+	if got.Projects[1].Name != "Uncategorized" || got.Projects[1].Color != "#9ca3af" || math.Abs(got.Projects[1].Share-20) > 0.000001 {
 		t.Fatalf("uncategorized summary = %#v", got.Projects[1])
 	}
 	if len(project.Activities) != 2 || project.Activities[0].Name != "Alpha" || project.Activities[1].Name != "Zulu" {

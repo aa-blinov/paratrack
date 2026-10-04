@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"testing"
 	"time"
 
@@ -111,7 +112,7 @@ func TestCreateInvoiceCannotBillSessionsFromAnotherWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
-	session, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)})
+	session, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerB), appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}

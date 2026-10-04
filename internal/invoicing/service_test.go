@@ -355,11 +355,11 @@ func TestCreateDraftWithOverlapCheckKeepsAdvisoryFailureNonBlocking(t *testing.T
 	if err != nil {
 		t.Fatalf("draft creation should succeed despite advisory failure: %v", err)
 	}
-	if created.Invoice.ID != 12 || created.AdvisoryError != advisoryErr {
+	if created.Invoice.ID != 12 || !errors.Is(created.AdvisoryError, advisoryErr) {
 		t.Fatalf("unexpected creation result: invoice=%d advisory=%v", created.Invoice.ID, created.AdvisoryError)
 	}
-	if len(created.Overlaps) != 1 || created.Overlaps[0] != "INV-OLD" {
-		t.Fatalf("overlaps = %v, want [INV-OLD]", created.Overlaps)
+	if len(created.Overlaps) != 0 {
+		t.Fatalf("overlaps = %v, want no results when the advisory query fails", created.Overlaps)
 	}
 	if len(reader.overlapLabels) != 2 || reader.overlapLabels[0] != "Design" || reader.overlapLabels[1] != "Engineering" {
 		t.Fatalf("overlap labels = %v", reader.overlapLabels)

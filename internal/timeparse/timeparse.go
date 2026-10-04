@@ -319,7 +319,7 @@ var (
 	agoRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+(hour|hours|hr|hrs|minute|minutes|min|mins|day|days|week|weeks)\s+ago$`)
 	// durationTokenRe matches number + unit word; the unit alternative
 	// is bounded (no \b) so that "2h30m" splits at "2h" + "30m".
-	durationTokenRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?|s|secs?|seconds?|d|days?|w|weeks?|часа|часов|час|ч|минуты|минута|минут|мин|м|сек|с|дней|дня|день|дн|д|недели|неделя|недель|нед|н)`)
+	durationTokenRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s|days?|d|weeks?|w|часа|часов|час|ч|минуты|минута|минут|мин|м|сек|с|дней|дня|день|дн|д|недели|неделя|недель|нед|н)`)
 	// weekdayRe matches bare "monday" / "last monday" / "<weekday> HH:MM" / "last <weekday> HH:MM".
 	weekdayRe = regexp.MustCompile(`^(last\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)(\s+\d{1,2}:\d{2})?$`)
 )

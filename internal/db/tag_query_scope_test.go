@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestTeamTagCountsIgnoreForeignSessionAssociations(t *testing.T) {
@@ -27,11 +28,11 @@ func TestTeamTagCountsIgnoreForeignSessionAssociations(t *testing.T) {
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
-	sessionA, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamA, ActivityID: activityA.ID, Start: start, End: start.Add(time.Hour)})
+	sessionA, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerA), appmodel.TimerAddRequest{TeamID: teamA, ActivityID: activityA.ID, Start: start, End: start.Add(time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	sessionB, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activityB.ID, Start: start, End: start.Add(time.Hour)})
+	sessionB, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerB), appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activityB.ID, Start: start, End: start.Add(time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}

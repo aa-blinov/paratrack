@@ -33,7 +33,7 @@ func (d *DB) importEntries(ctx context.Context, teamID, callerID int64, provider
 	}
 	defer tx.Rollback()
 
-	if err := lockCurrentTeamMember(ctx, tx, teamID, callerID); err != nil {
+	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
 		return result, fmt.Errorf("authorize import workspace: %w", err)
 	}
 	now := d.currentTime().UTC()
