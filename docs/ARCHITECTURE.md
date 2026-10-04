@@ -732,6 +732,8 @@ transaction so open-session pricing, the run number year, and creation time
 share the same snapshot boundary. `appmodel.PayrollDraftRequest` carries the
 workspace, caller, period and overlap decision by name through the service and
 transactional store ports.
+Payroll read results include workflow-calculated money and hour totals with
+overflow checks; HTTP only formats each run and its line snapshot.
 Payment, draft deletion and member-pay changes likewise pass typed mutation
 requests through the payroll store port.
 Draft creation locks the workspace, rechecks the authenticated manager role,
