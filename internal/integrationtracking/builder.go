@@ -13,7 +13,7 @@ import (
 )
 
 type TaskReader interface {
-	Task(context.Context, int64, int64) (model.ExternalTask, error)
+	Task(context.Context, appmodel.ExternalTaskLookupQuery) (model.ExternalTask, error)
 }
 
 type TimerStarter interface {
@@ -54,7 +54,7 @@ func (b *Builder) Start(ctx context.Context, request appmodel.ImportedTaskStartR
 	if request.TeamID <= 0 || request.TaskID <= 0 {
 		return model.Activity{}, model.Session{}, model.ErrNotFound
 	}
-	task, err := b.tasks.Task(ctx, request.TeamID, request.TaskID)
+	task, err := b.tasks.Task(ctx, appmodel.ExternalTaskLookupQuery{TeamID: request.TeamID, TaskID: request.TaskID})
 	if err != nil {
 		return model.Activity{}, model.Session{}, fmt.Errorf("load imported task %d: %w", request.TaskID, err)
 	}

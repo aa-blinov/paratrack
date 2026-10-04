@@ -6,6 +6,18 @@ import "github.com/aa-blinov/paratrack/internal/integrationport"
 // integration command and sync workflow.
 type IntegrationConfig = integrationport.ProviderConfig
 
+// IntegrationLookupQuery resolves one integration within its workspace.
+type IntegrationLookupQuery struct {
+	TeamID        int64
+	IntegrationID int64
+}
+
+// ExternalTaskLookupQuery resolves one imported task within its workspace.
+type ExternalTaskLookupQuery struct {
+	TeamID int64
+	TaskID int64
+}
+
 type IntegrationMutationRequest struct {
 	TeamID        int64
 	IntegrationID int64

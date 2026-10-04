@@ -144,14 +144,17 @@ func (d *DB) BeginIntegrationSync(ctx context.Context, request appmodel.Integrat
 }
 
 // GetIntegrationSummary reads one connection without decrypting its secret.
-func (d *DB) GetIntegrationSummary(ctx context.Context, teamID, id int64) (model.IntegrationSummary, error) {
+func (d *DB) GetIntegrationSummary(ctx context.Context, query appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error) {
+	if query.TeamID <= 0 || query.IntegrationID <= 0 {
+		return model.IntegrationSummary{}, ErrNotFound
+	}
 	var (
 		item    model.IntegrationSummary
 		created string
 	)
 	err := d.sql.QueryRowContext(ctx,
 		`SELECT id, team_id, provider, name, created_at
-		 FROM integrations WHERE id = ? AND team_id = ?`, id, teamID,
+		 FROM integrations WHERE id = ? AND team_id = ?`, query.IntegrationID, query.TeamID,
 	).Scan(&item.ID, &item.TeamID, &item.Provider, &item.Name, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -198,11 +201,14 @@ func (d *DB) DeleteIntegration(ctx context.Context, request appmodel.Integration
 }
 
 // ListExternalTasks returns imported items for a workspace integration.
-func (d *DB) ListExternalTasks(ctx context.Context, teamID, integrationID int64) ([]ExternalTask, error) {
+func (d *DB) ListExternalTasks(ctx context.Context, query appmodel.IntegrationLookupQuery) ([]ExternalTask, error) {
+	if query.TeamID <= 0 || query.IntegrationID <= 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT t.id, t.integration_id, t.external_id, t.title, t.url, t.status, COALESCE(t.activity_id, 0)
 		 FROM external_tasks t JOIN integrations i ON i.id = t.integration_id
-		 WHERE i.team_id = ? AND t.integration_id = ? ORDER BY t.status, t.title`, teamID, integrationID)
+		 WHERE i.team_id = ? AND t.integration_id = ? ORDER BY t.status, t.title`, query.TeamID, query.IntegrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -220,11 +226,14 @@ func (d *DB) ListExternalTasks(ctx context.Context, teamID, integrationID int64)
 
 // GetExternalTask fetches one imported task only when its integration belongs
 // to the requested workspace.
-func (d *DB) GetExternalTask(ctx context.Context, teamID, id int64) (ExternalTask, error) {
+func (d *DB) GetExternalTask(ctx context.Context, query appmodel.ExternalTaskLookupQuery) (ExternalTask, error) {
+	if query.TeamID <= 0 || query.TaskID <= 0 {
+		return ExternalTask{}, ErrNotFound
+	}
 	task, err := scanExternalTask(d.sql.QueryRowContext(ctx,
 		`SELECT t.id, t.integration_id, t.external_id, t.title, t.url, t.status, COALESCE(t.activity_id, 0)
 		 FROM external_tasks t JOIN integrations i ON i.id = t.integration_id
-		 WHERE t.id = ? AND i.team_id = ?`, id, teamID))
+		 WHERE t.id = ? AND i.team_id = ?`, query.TaskID, query.TeamID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return ExternalTask{}, ErrNotFound
 	}

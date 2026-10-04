@@ -13,13 +13,15 @@ import (
 type taskReaderStub struct {
 	calls          int
 	teamID, taskID int64
+	query          appmodel.ExternalTaskLookupQuery
 	task           model.ExternalTask
 	err            error
 }
 
-func (stub *taskReaderStub) Task(_ context.Context, teamID, taskID int64) (model.ExternalTask, error) {
+func (stub *taskReaderStub) Task(_ context.Context, query appmodel.ExternalTaskLookupQuery) (model.ExternalTask, error) {
 	stub.calls++
-	stub.teamID, stub.taskID = teamID, taskID
+	stub.query = query
+	stub.teamID, stub.taskID = query.TeamID, query.TaskID
 	return stub.task, stub.err
 }
 
@@ -51,7 +53,7 @@ func TestStartCoordinatesImportedTaskAndTimer(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if reader.teamID != 4 || reader.taskID != 31 {
+	if reader.teamID != 4 || reader.taskID != 31 || reader.query != (appmodel.ExternalTaskLookupQuery{TeamID: 4, TaskID: 31}) {
 		t.Fatalf("task lookup scope = team %d task %d", reader.teamID, reader.taskID)
 	}
 	if timer.request.TeamID != 4 || timer.request.CallerID != 12 || timer.request.ActivityName != "Fix issue" || timer.request.ProjectID != 9 || !timer.request.At.Equal(at) || timer.request.Note != "from integration" {
