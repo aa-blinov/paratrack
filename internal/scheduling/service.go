@@ -18,18 +18,31 @@ type Store interface {
 	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
 }
 
+// ProjectCatalog supplies selectable projects for the schedule editor.
+type ProjectCatalog interface {
+	List(context.Context, int64, bool) ([]model.Project, error)
+}
+
 // Row adds scheduling policy derived from the persisted weekly plan.
 type Row = appmodel.ScheduleViewRow
 
-type Service struct{ store Store }
+type Dependencies struct {
+	Store    Store
+	Projects ProjectCatalog
+}
 
-var ErrIncompleteDependencies = errors.New("scheduling service store is nil")
+type Service struct {
+	store    Store
+	projects ProjectCatalog
+}
 
-func New(store Store) (*Service, error) {
-	if depcheck.IsNil(store) {
+var ErrIncompleteDependencies = errors.New("scheduling service dependencies are incomplete")
+
+func New(deps Dependencies) (*Service, error) {
+	if depcheck.IsNil(deps.Store) || depcheck.IsNil(deps.Projects) {
 		return nil, ErrIncompleteDependencies
 	}
-	return &Service{store: store}, nil
+	return &Service{store: deps.Store, projects: deps.Projects}, nil
 }
 
 var ErrInvalidScheduleCell = appmodel.ErrInvalidScheduleCell
@@ -55,7 +68,11 @@ func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (
 		}
 		rows = append(rows, row)
 	}
-	return appmodel.ScheduleSnapshot{Rows: rows, ProjectNames: names, TotalMinutes: totalMinutes}, nil
+	projects, err := s.projects.List(ctx, teamID, false)
+	if err != nil {
+		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule projects: %w", err)
+	}
+	return appmodel.ScheduleSnapshot{Rows: rows, ProjectNames: names, Projects: projects, TotalMinutes: totalMinutes}, nil
 }
 
 func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequest) error {
