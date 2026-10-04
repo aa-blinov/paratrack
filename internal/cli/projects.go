@@ -196,7 +196,7 @@ func runProjectShow(rt *Runtime, args []string) error {
 	fmt.Fprintf(rt.Out, "name     %s\n", p.Name)
 	fmt.Fprintf(rt.Out, "color    %s\n", p.Color)
 	fmt.Fprintf(rt.Out, "state    %s\n", stateStr(p.Archived))
-	acts, err := service.Activities(ctx, p.TeamID, p.ID, true)
+	acts, err := service.Activities(ctx, appmodel.ProjectActivityCatalogQuery{TeamID: p.TeamID, ProjectID: p.ID, IncludeArchived: true})
 	if err != nil {
 		return fmt.Errorf("list activities for project %d: %w", p.ID, err)
 	}

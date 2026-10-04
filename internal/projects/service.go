@@ -19,7 +19,7 @@ import (
 // ProjectCatalogStore provides project and activity lookups.
 type ProjectCatalogStore interface {
 	ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
-	ListActivitiesForProject(context.Context, int64, int64, bool) ([]model.Activity, error)
+	ListActivitiesForProject(context.Context, appmodel.ProjectActivityCatalogQuery) ([]model.Activity, error)
 	GetProjectInTeam(context.Context, appmodel.ProjectScopeQuery) (model.Project, error)
 	GetProjectBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
 	GetActivity(context.Context, int64, int64) (model.Activity, error)
@@ -245,11 +245,11 @@ func (s *Service) Currencies(ctx context.Context, teamID int64) (map[int64]strin
 	return currencies, nil
 }
 
-func (s *Service) Activities(ctx context.Context, teamID, projectID int64, includeArchived bool) ([]model.Activity, error) {
-	if teamID <= 0 || projectID <= 0 {
+func (s *Service) Activities(ctx context.Context, query appmodel.ProjectActivityCatalogQuery) ([]model.Activity, error) {
+	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return nil, model.ErrNotFound
 	}
-	return s.catalog.ListActivitiesForProject(ctx, teamID, projectID, includeArchived)
+	return s.catalog.ListActivitiesForProject(ctx, query)
 }
 
 func (s *Service) GetInTeam(ctx context.Context, query appmodel.ProjectScopeQuery) (model.Project, error) {
@@ -276,7 +276,7 @@ func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequ
 	if err != nil {
 		return model.ProjectDetail{}, err
 	}
-	activities, err := s.catalog.ListActivitiesForProject(ctx, request.TeamID, project.ID, request.IncludeArchived)
+	activities, err := s.catalog.ListActivitiesForProject(ctx, appmodel.ProjectActivityCatalogQuery{TeamID: request.TeamID, ProjectID: project.ID, IncludeArchived: request.IncludeArchived})
 	if err != nil {
 		return model.ProjectDetail{}, fmt.Errorf("list project activities: %w", err)
 	}

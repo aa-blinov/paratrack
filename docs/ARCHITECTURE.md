@@ -115,8 +115,9 @@ workspace scope across project reads in CLI, HTTP, dashboard, reports,
 scheduling, invoicing, workflows and persistence; catalog queries also carry
 archived-row selection. `ProjectSummariesQuery` keeps a batch of project IDs
 scoped to its workspace across report and session decoration workflows.
-`ProjectScopeQuery` and `ProjectActivityQuery` keep project identity, workspace
-and time range together across preference, detail workflow and persistence
+`ProjectScopeQuery`, `ProjectActivityQuery` and
+`ProjectActivityCatalogQuery` keep project identity, workspace, time range and
+archive selection together across preference, detail, CLI and persistence
 ports. Goal progress reads carry a typed query with the workspace and snapshot
 instant across CLI, HTTP, dashboard, workflow and persistence ports. Manager
 goal writes preserve caller and workspace scope through the workflow;
