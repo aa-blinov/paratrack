@@ -18,7 +18,7 @@ import (
 
 // handleInvoicePDF streams a downloadable PDF of the invoice.
 func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
-	inv, vm, err := s.loadInvoiceVM(r)
+	inv, vm, _, err := s.loadInvoiceVM(r, false)
 	if err != nil {
 		s.invoiceLoadError(w, r, err)
 		return
@@ -37,7 +37,7 @@ func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 
 // handleInvoiceAct shows the certificate of completion for an invoice.
 func (s *Server) handleInvoiceAct(w http.ResponseWriter, r *http.Request) {
-	inv, vm, err := s.loadInvoiceVM(r)
+	inv, vm, _, err := s.loadInvoiceVM(r, false)
 	if err != nil {
 		s.invoiceLoadError(w, r, err)
 		return
@@ -48,7 +48,7 @@ func (s *Server) handleInvoiceAct(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleInvoiceActPDF(w http.ResponseWriter, r *http.Request) {
-	inv, vm, err := s.loadInvoiceVM(r)
+	inv, vm, _, err := s.loadInvoiceVM(r, false)
 	if err != nil {
 		s.invoiceLoadError(w, r, err)
 		return

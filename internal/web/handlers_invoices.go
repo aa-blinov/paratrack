@@ -2,7 +2,6 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -32,7 +31,7 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 // handleInvoiceDetail renders a print-ready invoice page using the same
 // view model as its downloadable documents.
 func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
-	inv, vm, err := s.loadInvoiceVM(r)
+	inv, vm, stripeReady, err := s.loadInvoiceVM(r, true)
 	if err != nil {
 		s.invoiceLoadError(w, r, err)
 		return
@@ -42,11 +41,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 		Inv:      vm,
 	}
 	data.Seller = s.sellerName(r)
-	if ready, err := s.services.Invoicing.Queries.StripeReady(r.Context(), teamID(r)); err != nil {
-		s.logInternalError(fmt.Errorf("load Stripe readiness for invoice page: %w", err))
-	} else {
-		data.StripeReady = ready
-	}
+	data.StripeReady = stripeReady
 	data.MailReady = mailport.Available(s.runtime.Mailer)
 	subj, body := invoiceMailText(resolveLang(r), vm, data.Seller)
 	data.MailtoURL = "mailto:" + url.PathEscape(vm.ClientEmail) + "?subject=" + url.QueryEscape(subj) + "&body=" + url.QueryEscape(body)

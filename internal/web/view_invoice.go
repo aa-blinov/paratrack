@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/money"
 )
@@ -103,17 +104,20 @@ type invoiceDetailPage struct {
 func (p *invoiceDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
 // loadInvoiceVM builds the shared invoice presentation used by the page and documents.
-func (s *Server) loadInvoiceVM(r *http.Request) (model.Invoice, invoiceVM, error) {
+func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (model.Invoice, invoiceVM, bool, error) {
 	path := strings.TrimPrefix(r.URL.Path, "/invoices/")
 	idStr := strings.SplitN(path, "/", 2)[0]
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil || id <= 0 {
-		return model.Invoice{}, invoiceVM{}, model.ErrNotFound
+		return model.Invoice{}, invoiceVM{}, false, model.ErrNotFound
 	}
-	details, err := s.services.Invoicing.Queries.Get(r.Context(), teamID(r), id)
+	snapshot, err := s.services.InvoiceDocuments.Build(r.Context(), appmodel.InvoiceDocumentRequest{
+		TeamID: teamID(r), InvoiceID: id, IncludeStripeReadiness: includeStripeReadiness,
+	})
 	if err != nil {
-		return model.Invoice{}, invoiceVM{}, err
+		return model.Invoice{}, invoiceVM{}, false, err
 	}
+	details := snapshot.Details
 	inv, lines := details.Invoice, details.Lines
 	vms := make([]invoiceLineVM, 0, len(lines))
 	lang := resolveLang(r)
@@ -136,12 +140,8 @@ func (s *Server) loadInvoiceVM(r *http.Request) (model.Invoice, invoiceVM, error
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
 	}
-	billingRules, err := s.services.Teams.Settings.BillingRules(r.Context(), inv.TeamID)
-	if err != nil {
-		return model.Invoice{}, invoiceVM{}, fmt.Errorf("load billing rules for invoice %d: %w", inv.ID, err)
-	}
-	vm.Logo = logoURL(billingRules.Logo)
-	return inv, vm, nil
+	vm.Logo = logoURL(snapshot.BillingRules.Logo)
+	return inv, vm, snapshot.StripeReady, nil
 }
 
 func unbilledViewsFrom(list []model.UnbilledProject, r *http.Request) []unbilledView {

@@ -18,32 +18,33 @@ var ErrIncompleteServices = errors.New("HTTP application dependencies are incomp
 
 // Dependencies are the workflow ports consumed by the HTTP adapter.
 type Dependencies struct {
-	Billing       BillingWorkflow
-	Auth          AuthenticationDependencies
-	AuditLog      AuditWorkflow
-	Teams         TeamDependencies
-	TeamOps       TeamOperations
-	Tracking      TrackingDependencies
-	TrackingOps   TrackingOperations
-	Imports       ImportWorkflow
-	Integrations  IntegrationDependencies
-	Invoicing     InvoiceDependencies
-	Payroll       PayrollWorkflow
-	MemberAdmin   TeamMemberManagementBuilding
-	PayrollPaid   PayrollPaymentWorkflow
-	Preferences   PreferenceWorkflow
-	Scheduling    SchedulingWorkflow
-	Projects      ProjectDependencies
-	ProjectPages  ProjectPageBuilding
-	Reports       SavedReportWorkflow
-	ReportBuilder ReportBuilding
-	Dashboard     DashboardBuilding
-	Push          PushWorkflow
-	Tagging       TagDependencies
-	SessionTags   SessionTagReader
-	Goals         GoalWorkflow
-	Webhooks      WebhookWorkflow
-	MailQueue     InvoiceMailQueue
+	Billing          BillingWorkflow
+	Auth             AuthenticationDependencies
+	AuditLog         AuditWorkflow
+	Teams            TeamDependencies
+	TeamOps          TeamOperations
+	Tracking         TrackingDependencies
+	TrackingOps      TrackingOperations
+	Imports          ImportWorkflow
+	Integrations     IntegrationDependencies
+	Invoicing        InvoiceDependencies
+	InvoiceDocuments InvoiceDocumentBuilding
+	Payroll          PayrollWorkflow
+	MemberAdmin      TeamMemberManagementBuilding
+	PayrollPaid      PayrollPaymentWorkflow
+	Preferences      PreferenceWorkflow
+	Scheduling       SchedulingWorkflow
+	Projects         ProjectDependencies
+	ProjectPages     ProjectPageBuilding
+	Reports          SavedReportWorkflow
+	ReportBuilder    ReportBuilding
+	Dashboard        DashboardBuilding
+	Push             PushWorkflow
+	Tagging          TagDependencies
+	SessionTags      SessionTagReader
+	Goals            GoalWorkflow
+	Webhooks         WebhookWorkflow
+	MailQueue        InvoiceMailQueue
 }
 
 // AuthenticationDependencies groups the HTTP consumer contracts for account
@@ -117,6 +118,12 @@ type WebhookWorkflow interface {
 // InvoiceMailQueue enqueues frozen invoice messages for durable delivery.
 type InvoiceMailQueue interface {
 	EnqueueInvoice(context.Context, mailport.InvoiceQueueRequest) error
+}
+
+// InvoiceDocumentBuilding assembles cross-workflow data shared by invoice
+// pages and generated documents.
+type InvoiceDocumentBuilding interface {
+	Build(context.Context, appmodel.InvoiceDocumentRequest) (appmodel.InvoiceDocumentSnapshot, error)
 }
 
 // ReportBuilding is the query surface used by the HTTP adapter. Keeping the
@@ -440,6 +447,7 @@ func (s Dependencies) Validate() error {
 		dependency{"invoice queries", depcheck.IsNil(s.Invoicing.Queries)},
 		dependency{"invoice drafts", depcheck.IsNil(s.Invoicing.Drafts)},
 		dependency{"invoice payment links", depcheck.IsNil(s.Invoicing.PaymentLinks)},
+		dependency{"invoice documents", depcheck.IsNil(s.InvoiceDocuments)},
 		dependency{"payroll", depcheck.IsNil(s.Payroll)},
 		dependency{"payroll payment operations", depcheck.IsNil(s.PayrollPaid)},
 		dependency{"preferences", depcheck.IsNil(s.Preferences)},

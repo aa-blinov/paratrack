@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/goals"
 	"github.com/aa-blinov/paratrack/internal/importing"
 	"github.com/aa-blinov/paratrack/internal/integrations"
+	"github.com/aa-blinov/paratrack/internal/invoicedocuments"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mailqueue"
 	"github.com/aa-blinov/paratrack/internal/memberadmin"
@@ -34,32 +35,33 @@ import (
 // persistence and outbound adapters. Transport packages receive only their
 // own consumer-defined interfaces.
 type Services struct {
-	Billing       *billing.Service
-	Auth          *auth.Service
-	AuditLog      *audit.Service
-	Teams         *teams.Service
-	TeamOps       *teamops.Service
-	Tracking      *tracking.Service
-	TrackingOps   *trackingops.Service
-	Imports       *importing.Service
-	Integrations  *integrations.Service
-	Invoicing     *invoicing.Service
-	Payroll       *payroll.Service
-	PayrollPaid   *payrollops.Service
-	Preferences   *preferences.Service
-	Scheduling    *scheduling.Service
-	Projects      *projects.Service
-	ProjectPages  *projectpages.Builder
-	Reports       *savedreports.Service
-	ReportBuilder *savedreports.Builder
-	Dashboard     *dashboard.Builder
-	MemberAdmin   *memberadmin.Service
-	Push          *push.Service
-	Tagging       *tagging.Service
-	Goals         *goals.Service
-	Webhooks      *webhooks.Service
-	MailQueue     *mailqueue.Service
-	Resources     io.Closer
+	Billing          *billing.Service
+	Auth             *auth.Service
+	AuditLog         *audit.Service
+	Teams            *teams.Service
+	TeamOps          *teamops.Service
+	Tracking         *tracking.Service
+	TrackingOps      *trackingops.Service
+	Imports          *importing.Service
+	Integrations     *integrations.Service
+	Invoicing        *invoicing.Service
+	InvoiceDocuments *invoicedocuments.Builder
+	Payroll          *payroll.Service
+	PayrollPaid      *payrollops.Service
+	Preferences      *preferences.Service
+	Scheduling       *scheduling.Service
+	Projects         *projects.Service
+	ProjectPages     *projectpages.Builder
+	Reports          *savedreports.Service
+	ReportBuilder    *savedreports.Builder
+	Dashboard        *dashboard.Builder
+	MemberAdmin      *memberadmin.Service
+	Push             *push.Service
+	Tagging          *tagging.Service
+	Goals            *goals.Service
+	Webhooks         *webhooks.Service
+	MailQueue        *mailqueue.Service
+	Resources        io.Closer
 }
 
 // Close stops application workers and releases outbound clients owned by this graph.
