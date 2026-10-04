@@ -119,8 +119,8 @@ scoped to its workspace across report and session decoration workflows.
 `ProjectActivityCatalogQuery` keep project identity, workspace, time range and
 archive selection together across preference, detail, CLI and persistence
 ports. `ProjectSpansQuery` scopes time aggregation, while
-`ActivityLookupQuery`, `ActivityNameQuery` and `SessionLookupQuery` scope
-activity and session reads
+`ActivityLookupQuery`, `ActivityNameQuery`, `SessionLookupQuery` and
+`SessionTagsQuery` scope activity, session and batched tag reads
 across project, tracking and tagging workflows. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects,
 project pages, HTTP and invoicing. `PayrollRunLookupQuery` scopes run details to

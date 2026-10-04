@@ -13,7 +13,7 @@ import (
 )
 
 type TagReader interface {
-	TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error)
+	TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error)
 }
 
 type ProjectReader interface {
@@ -88,7 +88,7 @@ func (b *Builder) Build(ctx context.Context, request appmodel.SessionDecorationR
 	}
 	sessionIDs, projectIDs := collectReferences(request.Sessions)
 	if request.IncludeTags && len(sessionIDs) > 0 {
-		tags, err := b.tags.TagsForSessions(ctx, request.TeamID, sessionIDs)
+		tags, err := b.tags.TagsForSessions(ctx, appmodel.SessionTagsQuery{TeamID: request.TeamID, SessionIDs: sessionIDs})
 		if err != nil {
 			b.logger.Printf("sessiondecorations: load tags for team %d: %v", request.TeamID, err)
 		} else {

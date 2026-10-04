@@ -79,9 +79,9 @@ type tagsStub struct {
 	ids   []int64
 }
 
-func (s *tagsStub) TagsForSessions(_ context.Context, _ int64, ids []int64) (map[int64][]model.Tag, error) {
+func (s *tagsStub) TagsForSessions(_ context.Context, query appmodel.SessionTagsQuery) (map[int64][]model.Tag, error) {
 	s.calls++
-	s.ids = append(s.ids, ids...)
+	s.ids = append(s.ids, query.SessionIDs...)
 	return map[int64][]model.Tag{}, nil
 }
 
