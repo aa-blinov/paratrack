@@ -42,6 +42,13 @@ type ActiveListSnapshot struct {
 	FirstRun       bool
 }
 
+// ProjectListSnapshot combines projects with the workflow-calculated usage
+// values displayed beside them.
+type ProjectListSnapshot struct {
+	Projects []model.Project
+	Usage    map[int64]model.ProjectUsage
+}
+
 // TimerStopResult carries the stopped session and its duration as calculated
 // at the stop request's timestamp.
 type TimerStopResult struct {

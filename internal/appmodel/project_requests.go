@@ -38,3 +38,12 @@ type ProjectDetailRequest struct {
 	From            time.Time
 	Through         time.Time
 }
+
+// ProjectListQuery carries the date window used for project usage totals.
+type ProjectListQuery struct {
+	TeamID          int64
+	IncludeArchived bool
+	TodayStart      time.Time
+	MonthStart      time.Time
+	Now             time.Time
+}
