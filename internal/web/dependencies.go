@@ -29,6 +29,7 @@ type Dependencies struct {
 	Integrations  IntegrationDependencies
 	Invoicing     InvoiceDependencies
 	Payroll       PayrollWorkflow
+	MemberAdmin   TeamMemberManagementBuilding
 	PayrollPaid   PayrollPaymentWorkflow
 	Preferences   PreferenceWorkflow
 	Scheduling    SchedulingWorkflow
@@ -351,6 +352,10 @@ type TeamDirectory interface {
 	MembershipsForUser(context.Context, int64) ([]model.TeamMembership, error)
 }
 
+type TeamMemberManagementBuilding interface {
+	Management(context.Context, int64) (appmodel.TeamMemberManagementSnapshot, error)
+}
+
 // TeamInvitations handles workspace invitation lifecycle operations.
 type TeamInvitations interface {
 	AcceptInvite(context.Context, appmodel.TeamInviteAcceptRequest) (model.Team, error)
@@ -412,6 +417,7 @@ func (s Dependencies) Validate() error {
 		dependency{"team settings", depcheck.IsNil(s.Teams.Settings)},
 		dependency{"team administration", depcheck.IsNil(s.Teams.Administration)},
 		dependency{"team operations", depcheck.IsNil(s.TeamOps)},
+		dependency{"team member administration", depcheck.IsNil(s.MemberAdmin)},
 		dependency{"tracking queries", depcheck.IsNil(s.Tracking.Queries)},
 		dependency{"tracking commands", depcheck.IsNil(s.Tracking.Commands)},
 		dependency{"tracking operations", depcheck.IsNil(s.TrackingOps)},

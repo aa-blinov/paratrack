@@ -53,7 +53,7 @@ done
 # Feature workflows depend on ports and transport-neutral data. Keep their
 # dependency direction inward: adapters and composition belong outside them,
 # and persistence must not import application policy back from a workflow.
-core_packages="audit auth billing dashboard goals importing integrations invoicing mailqueue payroll payrollops preferences projects push reports scheduling tagging teamops teams tracking trackingops webhooks"
+core_packages="audit auth billing dashboard goals importing integrations invoicing mailqueue memberadmin payroll payrollops preferences projects push reports scheduling tagging teamops teams tracking trackingops webhooks"
 for package in $core_packages; do
 	import_path="$module/internal/$package"
 	[ -d "internal/$package" ] || continue

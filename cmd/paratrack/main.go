@@ -117,6 +117,7 @@ func main() {
 			Reports:       services.Reports,
 			ReportBuilder: services.ReportBuilder,
 			Dashboard:     services.Dashboard,
+			MemberAdmin:   services.MemberAdmin,
 			Push:          services.Push,
 			Tagging: web.TagDependencies{
 				Queries: services.Tagging, Commands: services.Tagging,
