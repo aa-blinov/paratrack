@@ -121,8 +121,9 @@ archive selection together across preference, detail, CLI and persistence
 ports. `ProjectSpansQuery` scopes time aggregation, while
 `ActivityLookupQuery` and `SessionLookupQuery` scope activity and session reads
 across project, tracking and tagging workflows. `TeamMembershipQuery` scopes
-membership and role reads across authentication, teams, importing, projects and
-invoicing. `PayrollRunLookupQuery` scopes run details to the requested workspace.
+membership and role reads across authentication, teams, importing, projects,
+project pages, HTTP and invoicing. `PayrollRunLookupQuery` scopes run details to
+the requested workspace.
 `InvoiceLookupQuery` scopes invoice details and frozen lines the same way.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
 sentinel, for invoice, dashboard and project-page reads.

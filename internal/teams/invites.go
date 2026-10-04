@@ -17,7 +17,7 @@ func (s *Service) NewInvite(ctx context.Context, request appmodel.TeamInviteCrea
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return Invite{}, ErrNotFound
 	}
-	role, isCaller, err := s.IsMember(ctx, request.TeamID, request.CallerID)
+	role, isCaller, err := s.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: request.TeamID, UserID: request.CallerID})
 	if err != nil {
 		return Invite{}, err
 	}
@@ -104,7 +104,7 @@ func (s *Service) RevokeInvite(ctx context.Context, request appmodel.TeamInviteR
 	if request.TeamID <= 0 || request.CallerID <= 0 || request.Token == "" {
 		return ErrNotFound
 	}
-	role, isCaller, err := s.IsMember(ctx, request.TeamID, request.CallerID)
+	role, isCaller, err := s.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: request.TeamID, UserID: request.CallerID})
 	if err != nil {
 		return err
 	}

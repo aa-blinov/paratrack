@@ -25,7 +25,7 @@ type TeamSettingsReader interface {
 }
 
 type TeamMembershipReader interface {
-	IsMember(context.Context, int64, int64) (model.TeamRole, bool, error)
+	IsMember(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error)
 }
 
 type InvoiceHistoryReader interface {
@@ -103,7 +103,7 @@ func (b *Builder) Build(ctx context.Context, request appmodel.ProjectPageRequest
 		if request.CallerID <= 0 {
 			return appmodel.ProjectPageSnapshot{}, model.ErrNotFound
 		}
-		role, member, err := b.members.IsMember(ctx, request.TeamID, request.CallerID)
+		role, member, err := b.members.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: request.TeamID, UserID: request.CallerID})
 		if err != nil {
 			return appmodel.ProjectPageSnapshot{}, fmt.Errorf("resolve project page member role: %w", err)
 		}

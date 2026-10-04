@@ -10,12 +10,12 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-// IsMember reports whether userID belongs to teamID and returns their role.
-func (s *Service) IsMember(ctx context.Context, teamID, userID int64) (Role, bool, error) {
-	if teamID <= 0 || userID <= 0 {
+// IsMember reports whether the requested user belongs to the workspace.
+func (s *Service) IsMember(ctx context.Context, query appmodel.TeamMembershipQuery) (Role, bool, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
 		return "", false, ErrNotFound
 	}
-	role, ok, err := s.memberships.TeamMemberRole(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: userID})
+	role, ok, err := s.memberships.TeamMemberRole(ctx, query)
 	if err != nil {
 		return "", false, err
 	}
@@ -73,7 +73,7 @@ func (s *Service) TransferOwnership(ctx context.Context, request appmodel.TeamOw
 	if strings.HasPrefix(t.Slug, fmt.Sprintf("personal-%d-", callerID)) {
 		return fmt.Errorf("%w: a personal workspace can't be handed over", ErrValidation)
 	}
-	_, ok, err := s.IsMember(ctx, teamID, newOwnerID)
+	_, ok, err := s.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: newOwnerID})
 	if err != nil {
 		return err
 	}
@@ -94,7 +94,7 @@ func (s *Service) RemoveMember(ctx context.Context, request appmodel.TeamMemberR
 		return ErrNotFound
 	}
 	teamID, targetUserID, callerID := request.TeamID, request.TargetUserID, request.CallerID
-	callerRole, isCaller, err := s.IsMember(ctx, teamID, callerID)
+	callerRole, isCaller, err := s.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: callerID})
 	if err != nil {
 		return err
 	}
@@ -106,7 +106,7 @@ func (s *Service) RemoveMember(ctx context.Context, request appmodel.TeamMemberR
 	} else if !callerRole.CanManage() {
 		return ErrForbidden
 	} else {
-		targetRole, isTarget, err := s.IsMember(ctx, teamID, targetUserID)
+		targetRole, isTarget, err := s.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: targetUserID})
 		if err != nil {
 			return err
 		}
