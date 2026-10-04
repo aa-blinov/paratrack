@@ -76,8 +76,11 @@ func (d *DB) getActivityByName(ctx context.Context, teamID int64, name string) (
 
 // FindActivityByName is the case-insensitive lookup kept for callers
 // that don't want to lowercase first.
-func (d *DB) FindActivityByName(ctx context.Context, teamID int64, name string) (model.Activity, error) {
-	return d.getActivityByName(ctx, teamID, name)
+func (d *DB) FindActivityByName(ctx context.Context, query appmodel.ActivityNameQuery) (model.Activity, error) {
+	if query.TeamID <= 0 || strings.TrimSpace(query.Name) == "" {
+		return model.Activity{}, ErrNotFound
+	}
+	return d.getActivityByName(ctx, query.TeamID, query.Name)
 }
 
 // getOrCreateActivity resolves or creates an activity in the legacy unscoped

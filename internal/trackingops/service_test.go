@@ -35,8 +35,8 @@ func (*sessionStarterStub) Activity(_ context.Context, _ int64, activityID int64
 	return model.Activity{ID: activityID, Name: "Deep work"}, nil
 }
 
-func (*sessionStarterStub) FindActivity(_ context.Context, _ int64, name string) (model.Activity, error) {
-	return model.Activity{ID: 7, Name: name}, nil
+func (*sessionStarterStub) FindActivity(_ context.Context, query appmodel.ActivityNameQuery) (model.Activity, error) {
+	return model.Activity{ID: 7, Name: query.Name, TeamID: query.TeamID}, nil
 }
 
 func (s *sessionStarterStub) ResolveActivityForMember(_ context.Context, request appmodel.ActivityResolveRequest) (model.Activity, error) {

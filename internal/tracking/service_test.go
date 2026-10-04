@@ -11,7 +11,8 @@ import (
 
 type activityLookupStub struct {
 	ActivityStore
-	query appmodel.ActivityLookupQuery
+	query     appmodel.ActivityLookupQuery
+	nameQuery appmodel.ActivityNameQuery
 }
 
 type sessionLookupStub struct {
@@ -27,6 +28,11 @@ func (stub *sessionLookupStub) GetSession(_ context.Context, query appmodel.Sess
 func (stub *activityLookupStub) GetActivity(_ context.Context, query appmodel.ActivityLookupQuery) (model.Activity, error) {
 	stub.query = query
 	return model.Activity{ID: query.ActivityID, TeamID: query.TeamID}, nil
+}
+
+func (stub *activityLookupStub) FindActivityByName(_ context.Context, query appmodel.ActivityNameQuery) (model.Activity, error) {
+	stub.nameQuery = query
+	return model.Activity{TeamID: query.TeamID, Name: query.Name}, nil
 }
 
 func TestUnscopedWorkspaceIsRejected(t *testing.T) {
@@ -49,6 +55,20 @@ func TestActivityLookupKeepsWorkspaceAndActivityTogether(t *testing.T) {
 	want := appmodel.ActivityLookupQuery{TeamID: 4, ActivityID: 9}
 	if got.TeamID != want.TeamID || got.ID != want.ActivityID || store.query != want {
 		t.Fatalf("activity lookup = %+v, query %+v; want %+v", got, store.query, want)
+	}
+}
+
+func TestActivityNameLookupKeepsWorkspaceAndNameTogether(t *testing.T) {
+	store := &activityLookupStub{}
+	service := &Service{activities: store}
+	query := appmodel.ActivityNameQuery{TeamID: 4, Name: "  Writing  "}
+	got, err := service.FindActivity(context.Background(), query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := appmodel.ActivityNameQuery{TeamID: 4, Name: "Writing"}
+	if got.TeamID != want.TeamID || got.Name != want.Name || store.nameQuery != want {
+		t.Fatalf("activity name lookup = %+v, query %+v; want %+v", got, store.nameQuery, want)
 	}
 }
 

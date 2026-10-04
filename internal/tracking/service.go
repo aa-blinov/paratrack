@@ -57,7 +57,7 @@ type SessionQueryStore interface {
 // ActivityStore provides activity lookup and lifecycle operations.
 type ActivityStore interface {
 	GetOrCreateActivityForMember(context.Context, appmodel.ActivityResolveRequest) (model.Activity, error)
-	FindActivityByName(context.Context, int64, string) (model.Activity, error)
+	FindActivityByName(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
 	ListActivities(context.Context, int64, bool) ([]model.Activity, error)
 	GetActivity(context.Context, appmodel.ActivityLookupQuery) (model.Activity, error)
 }
@@ -123,12 +123,12 @@ func (s *Service) ResolveActivityForMember(ctx context.Context, request appmodel
 
 // FindActivity looks up an existing activity without creating one. Focus in
 // the HTTP UI uses this behavior so a miss remains a not-found response.
-func (s *Service) FindActivity(ctx context.Context, teamID int64, name string) (model.Activity, error) {
-	name = strings.TrimSpace(name)
-	if teamID <= 0 || name == "" {
+func (s *Service) FindActivity(ctx context.Context, query appmodel.ActivityNameQuery) (model.Activity, error) {
+	query.Name = strings.TrimSpace(query.Name)
+	if query.TeamID <= 0 || query.Name == "" {
 		return model.Activity{}, ErrInvalidStart
 	}
-	activity, err := s.activities.FindActivityByName(ctx, teamID, name)
+	activity, err := s.activities.FindActivityByName(ctx, query)
 	if err != nil {
 		return model.Activity{}, fmt.Errorf("find activity: %w", err)
 	}
