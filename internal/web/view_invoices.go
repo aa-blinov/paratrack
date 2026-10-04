@@ -50,24 +50,21 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			data.DefStart = from
 		}
 	}
-	projects, err := s.services.Projects.Queries.List(r.Context(), teamID(r), false)
+	options, err := s.services.Invoicing.Queries.DraftOptions(r.Context(), teamID(r))
 	if err != nil {
-		return invoicesPage{}, fmt.Errorf("list invoice projects: %w", err)
+		return invoicesPage{}, fmt.Errorf("load invoice draft options: %w", err)
 	}
-	clientDefaults, err := s.services.Projects.Queries.ClientDefaults(r.Context(), teamID(r))
-	if err != nil {
-		return invoicesPage{}, fmt.Errorf("load invoice client defaults: %w", err)
-	}
-	for _, project := range projects {
-		if project.Billable && project.BillableRateCents != nil && *project.BillableRateCents > 0 {
-			data.Billable = true
-		}
+	data.Billable = options.HasBillable
+	for _, projectOption := range options.Projects {
+		project := projectOption.Project
 		option := invoiceProjectOpt{
 			ID: project.ID, Name: project.Name, Selected: project.ID == want,
-			Eligible: !project.Archived && project.Billable && project.BillableRateCents != nil && *project.BillableRateCents > 0,
+			Eligible: projectOption.Eligible,
 		}
-		if client, ok := clientDefaults[project.ID]; ok {
-			option.ClientName, option.ClientDetails, option.ClientEmail = client.Name, client.Details, client.Email
+		if projectOption.HasClient {
+			option.ClientName = projectOption.Client.Name
+			option.ClientDetails = projectOption.Client.Details
+			option.ClientEmail = projectOption.Client.Email
 		}
 		if option.Selected {
 			data.Prefill = option

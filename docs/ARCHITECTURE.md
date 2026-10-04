@@ -540,6 +540,9 @@ stamps, issuer/client snapshots and project client defaults in one DB
 transaction. Creation and draft rebuild lock their billable source sessions
 and related activity/project rows before building the snapshot. Invoice list
 and detail reads fetch the header and frozen lines in one team-scoped query.
+The invoicing workflow also builds draft project options, applying billable,
+rate and archive eligibility and joining saved client defaults before the HTTP
+adapter formats them for the invoice form.
 Invoice numbers are allocated while holding the workspace row lock, preventing
 parallel requests from choosing the same next number. Draft
 creation and payment transitions capture one clock instant for the document,
@@ -582,9 +585,9 @@ with its initial rate and currency in one transaction. A named
 CLI, HTTP, workflow and persistence boundaries. Project edits update
 the descriptive fields, estimate, rate, billable flag and currency atomically
 as well. Standalone billable-rate edits use the same service boundary and
-validate before issuing one scoped update. The service also exposes saved
-invoice client defaults as one team-scoped lookup for invoice form rendering.
-A failed write cannot leave only part of the submitted project change applied.
+validate before issuing one scoped update. Invoice draft options load saved
+client defaults through the invoicing workflow. A failed write cannot leave
+only part of the submitted project change applied.
 Project creation, edits, deletion and billable-rate changes recheck the current
 manager role while holding the workspace lock, serializing them with ownership,
 role changes and member removal. The HTTP adapter passes the authenticated actor;

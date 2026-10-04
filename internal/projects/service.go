@@ -36,7 +36,6 @@ type ProjectUsageStore interface {
 
 // ProjectBillingStore provides billing defaults and project currencies.
 type ProjectBillingStore interface {
-	ListProjectClients(context.Context, int64) (map[int64]model.ProjectClient, error)
 	ProjectCurrency(context.Context, int64, int64) (string, error)
 	ProjectCurrencies(context.Context, int64) (map[int64]string, error)
 }
@@ -202,19 +201,6 @@ func (s *Service) Currencies(ctx context.Context, teamID int64) (map[int64]strin
 		return nil, fmt.Errorf("load project currencies: %w", err)
 	}
 	return currencies, nil
-}
-
-// ClientDefaults returns the saved invoice recipient details for every
-// active project in one storage call.
-func (s *Service) ClientDefaults(ctx context.Context, teamID int64) (map[int64]model.ProjectClient, error) {
-	if teamID <= 0 {
-		return nil, model.ErrNotFound
-	}
-	clients, err := s.billing.ListProjectClients(ctx, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("list project client defaults: %w", err)
-	}
-	return clients, nil
 }
 
 func (s *Service) Activities(ctx context.Context, teamID, projectID int64, includeArchived bool) ([]model.Activity, error) {
