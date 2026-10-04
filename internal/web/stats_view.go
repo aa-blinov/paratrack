@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -48,7 +47,7 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	if stats.Project.ID == 0 {
 		projectFilter = ""
 	}
-	rows, activities, projects := s.statsPresentation(r, ctx, teamID(r), period, now, names, stats)
+	rows, activities, projects := s.statsPresentation(r, period, now, names, stats)
 	shown := rows
 	logCap := statsLogRows
 	if r.URL.Query().Get("log") == "all" {
@@ -124,8 +123,6 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 // this presentation function.
 func (s *Server) statsPresentation(
 	r *http.Request,
-	ctx context.Context,
-	teamID int64,
 	period timeparse.Period,
 	now time.Time,
 	personNames map[int64]string,
@@ -142,7 +139,7 @@ func (s *Server) statsPresentation(
 		}
 		rows = append(rows, row)
 	}
-	hydrateSessionProjects(ctx, s.services.Projects.Queries, teamID, rows, s.logger)
+	attachSessionProjects(rows, stats.ProjectsByID)
 
 	activities, projects := statsAggregateViews(r, stats.Summary)
 	return rows, activities, projects

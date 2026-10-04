@@ -2,6 +2,8 @@ package reports
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -37,7 +39,10 @@ func (s *graphTagsStub) TagsForSessions(context.Context, int64, []int64) (map[in
 	return s.bySession, nil
 }
 
-type graphProjectsStub struct{ project model.Project }
+type graphProjectsStub struct {
+	project    model.Project
+	summaryErr error
+}
 
 func (s graphProjectsStub) List(context.Context, int64, bool) ([]model.Project, error) {
 	return []model.Project{s.project}, nil
@@ -49,6 +54,9 @@ func (graphProjectsStub) Currencies(context.Context, int64) (map[int64]string, e
 	return nil, nil
 }
 func (s graphProjectsStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
+	if s.summaryErr != nil {
+		return nil, s.summaryErr
+	}
 	result := make(map[int64]model.ProjectSummary)
 	for _, id := range ids {
 		if id == s.project.ID {
@@ -56,6 +64,12 @@ func (s graphProjectsStub) Summaries(_ context.Context, _ int64, ids []int64) (m
 		}
 	}
 	return result, nil
+}
+
+type reportLoggerStub struct{ messages []string }
+
+func (stub *reportLoggerStub) Printf(format string, args ...any) {
+	stub.messages = append(stub.messages, fmt.Sprintf(format, args...))
 }
 
 func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
@@ -130,8 +144,34 @@ func TestBuildStatsFiltersTaggedSessionsBeforeAggregation(t *testing.T) {
 	if len(result.Sessions) != 1 || result.Sessions[0].Session.ID != 1 {
 		t.Fatalf("filtered stats sessions = %#v, want only session 1", result.Sessions)
 	}
+	if result.ProjectsByID[7].Name != "Project" {
+		t.Fatalf("stats session project summaries = %#v, want project 7", result.ProjectsByID)
+	}
 	if result.Summary.TotalSeconds != 60*60 || len(result.Summary.Activities) != 1 || result.Summary.Activities[0].Name != "Design" {
 		t.Fatalf("tag filter was not applied before aggregation: %+v", result.Summary)
+	}
+}
+
+func TestBuildStatsKeepsReportAvailableWhenProjectDecorationFails(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := from.Add(time.Hour)
+	reader := &graphSessionsStub{all: []model.ActiveSession{{
+		Session:  model.Session{ID: 1, StartAt: from, EndAt: &to, AccumulatedSeconds: 3600},
+		Activity: model.Activity{Name: "Focus", ProjectID: 7},
+	}}}
+	logger := &reportLoggerStub{}
+	builder := &Builder{
+		sessions: reader, projects: graphProjectsStub{project: model.Project{ID: 7}, summaryErr: errors.New("summary store unavailable")},
+		tags: &graphTagsStub{}, logger: logger,
+	}
+	result, err := builder.BuildStats(context.Background(), StatsQuery{
+		TeamID: 4, From: from, To: to, Now: to, Uncategorized: "Uncategorized",
+	})
+	if err != nil {
+		t.Fatalf("build stats with optional project decoration failure: %v", err)
+	}
+	if result.Summary.TotalSeconds != 3600 || len(result.ProjectsByID) != 0 || len(logger.messages) != 1 {
+		t.Fatalf("stats fallback = %+v, logs = %v", result, logger.messages)
 	}
 }
 
