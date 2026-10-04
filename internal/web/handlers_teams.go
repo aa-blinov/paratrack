@@ -136,7 +136,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
-	members, err := s.services.Teams.Directory.Members(r.Context(), team.ID)
+	snapshot, err := s.services.MemberAdmin.Management(r.Context(), team.ID)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -146,16 +146,11 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Active:  "settings-members",
 		Team:    teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
 		User:    userViewOf(user),
-		Members: memberViews(members),
+		Members: memberViews(snapshot.Members),
 		IsOwner: RoleFrom(r.Context()) == model.TeamRoleOwner,
 		Pay:     map[int64]memberPayView{},
 	}
-	paySettings, err := s.services.Payroll.MemberSettings(r.Context(), team.ID)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	for _, settings := range paySettings {
+	for _, settings := range snapshot.PaySettings {
 		view := memberPayView{Capacity: settings.CapacityMinutes}
 		if settings.PayCents > 0 {
 			view.Rate = formatMoneyInput(resolveLang(r), settings.PayCents)
