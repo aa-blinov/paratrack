@@ -88,6 +88,13 @@ type ProjectActivityQuery struct {
 	Through   time.Time
 }
 
+// ProjectActivityCatalogQuery filters activities belonging to a project.
+type ProjectActivityCatalogQuery struct {
+	TeamID          int64
+	ProjectID       int64
+	IncludeArchived bool
+}
+
 // ProjectUsageQuery combines the catalog selection with the usage window.
 type ProjectUsageQuery struct {
 	Catalog    ProjectCatalogQuery

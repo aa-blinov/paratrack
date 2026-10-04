@@ -15,6 +15,7 @@ type detailCatalogStub struct {
 	ProjectCatalogStore
 	project         model.Project
 	activities      []model.Activity
+	activityQuery   appmodel.ProjectActivityCatalogQuery
 	includeArchived bool
 }
 
@@ -25,11 +26,11 @@ func (stub *detailCatalogStub) GetProjectBySlug(_ context.Context, query appmode
 	return stub.project, nil
 }
 
-func (stub *detailCatalogStub) ListActivitiesForProject(_ context.Context, teamID, projectID int64, includeArchived bool) ([]model.Activity, error) {
-	if teamID != stub.project.TeamID || projectID != stub.project.ID {
+func (stub *detailCatalogStub) ListActivitiesForProject(_ context.Context, query appmodel.ProjectActivityCatalogQuery) ([]model.Activity, error) {
+	if query.TeamID != stub.project.TeamID || query.ProjectID != stub.project.ID {
 		return nil, model.ErrNotFound
 	}
-	stub.includeArchived = includeArchived
+	stub.activityQuery, stub.includeArchived = query, query.IncludeArchived
 	return stub.activities, nil
 }
 
@@ -275,7 +276,7 @@ func TestDetailLoadsScopedProjectPageData(t *testing.T) {
 	if got.Project != project || len(got.Activities) != 1 || got.Activities[0] != activity {
 		t.Fatalf("Detail() project/activity = %#v / %#v", got.Project, got.Activities)
 	}
-	if !catalog.includeArchived {
+	if !catalog.includeArchived || catalog.activityQuery.TeamID != 3 || catalog.activityQuery.ProjectID != 7 {
 		t.Fatal("Detail() did not pass through the archived-activity option")
 	}
 	if got.Activity.RecentSeconds != 1800 || got.Activity.TotalSeconds != 7200 || got.Currency != "USD" || got.EstimatePercent != 100 {
