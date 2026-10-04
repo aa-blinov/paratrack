@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -21,6 +22,7 @@ type draftReaderStub struct {
 	getCalls      int
 	lookup        appmodel.InvoiceLookupQuery
 	overlapLabels []string
+	overlapQuery  appmodel.InvoiceOverlapQuery
 	overlapErr    error
 	unbilled      []model.UnbilledProject
 	unbilledQuery appmodel.UnbilledProjectQuery
@@ -46,8 +48,9 @@ func (s *draftReaderStub) GetInvoiceDetails(_ context.Context, query appmodel.In
 	return s.details, nil
 }
 
-func (s *draftReaderStub) OverlappingInvoices(_ context.Context, _, _ int64, _, _ time.Time, labels []string) ([]string, error) {
-	s.overlapLabels = append([]string(nil), labels...)
+func (s *draftReaderStub) OverlappingInvoices(_ context.Context, query appmodel.InvoiceOverlapQuery) ([]string, error) {
+	s.overlapQuery = query
+	s.overlapLabels = append([]string(nil), query.Labels...)
 	return []string{"INV-OLD"}, s.overlapErr
 }
 
@@ -523,6 +526,15 @@ func TestCreateDraftWithOverlapCheckKeepsAdvisoryFailureNonBlocking(t *testing.T
 	}
 	if len(reader.overlapLabels) != 2 || reader.overlapLabels[0] != "Design" || reader.overlapLabels[1] != "Engineering" {
 		t.Fatalf("overlap labels = %v", reader.overlapLabels)
+	}
+	wantQuery := appmodel.InvoiceOverlapQuery{
+		TeamID: 3, ExcludeInvoiceID: 12, Start: start, End: start.AddDate(0, 0, 1),
+		Labels: []string{"Design", "Engineering"},
+	}
+	if reader.overlapQuery.TeamID != wantQuery.TeamID || reader.overlapQuery.ExcludeInvoiceID != wantQuery.ExcludeInvoiceID ||
+		!reader.overlapQuery.Start.Equal(wantQuery.Start) || !reader.overlapQuery.End.Equal(wantQuery.End) ||
+		!reflect.DeepEqual(reader.overlapQuery.Labels, wantQuery.Labels) {
+		t.Fatalf("overlap query = %+v, want %+v", reader.overlapQuery, wantQuery)
 	}
 }
 
