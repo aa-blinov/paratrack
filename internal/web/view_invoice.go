@@ -175,7 +175,12 @@ func (s *Server) sellerName(r *http.Request) string {
 		return "paratrack"
 	}
 	if strings.HasPrefix(t.Slug, fmt.Sprintf("personal-%d-", t.OwnerID)) {
-		if user, err := s.services.Auth.Identity.IdentityByID(r.Context(), t.OwnerID); err == nil && strings.TrimSpace(user.Name) != "" {
+		user, err := s.services.Auth.Identity.IdentityByID(r.Context(), t.OwnerID)
+		if err != nil {
+			if s.logger != nil {
+				s.logger.Printf("web: load invoice issuer name for user %d: %v", t.OwnerID, err)
+			}
+		} else if strings.TrimSpace(user.Name) != "" {
 			return user.Name
 		}
 	}
