@@ -153,6 +153,9 @@ the persisted JSON column. `IntegrationLookupQuery` and
 `ExternalTaskLookupQuery` carry workspace scope with integration and imported
 task reads across the integration and integration-tracking workflows.
 `WebhookLookupQuery` scopes endpoint reads to the owning workspace.
+`WebhookManagementQuery` carries the workspace and per-endpoint history bound
+from the settings handler through the workflow; separate typed list and history
+queries preserve those values at the database port.
 The architecture guard checks that auth, activity, import, invoice, payroll,
 preference, tag, timer, team invite and webhook state-changing database
 operations accept typed application commands rather than positional argument

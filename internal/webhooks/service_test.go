@@ -104,10 +104,10 @@ func (d *capturingDeliverer) Deliver(_ context.Context, req DeliveryRequest) (in
 	return 204, nil
 }
 
-func (oversizedStore) ListWebhookSummaries(context.Context, int64) ([]webhookport.WebhookSummary, error) {
+func (oversizedStore) ListWebhookSummaries(context.Context, appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error) {
 	return nil, nil
 }
-func (oversizedStore) ListWebhooks(context.Context, int64) ([]webhookport.Webhook, error) {
+func (oversizedStore) ListWebhooks(context.Context, appmodel.WebhookListQuery) ([]webhookport.Webhook, error) {
 	hooks := make([]webhookport.Webhook, 257)
 	for i := range hooks {
 		hooks[i] = webhookport.Webhook{ID: int64(i + 1), URL: "https://example.test/hook", Events: "*", Active: true}
@@ -119,23 +119,23 @@ func (lifecycleStore) CreateWebhook(_ context.Context, request appmodel.WebhookR
 	return webhookport.WebhookSummary{ID: 3, TeamID: request.TeamID, URL: request.URL, Events: request.Events, Active: true}, nil
 }
 func (lifecycleStore) DeleteWebhook(context.Context, appmodel.WebhookDeleteRequest) error { return nil }
-func (lifecycleStore) ListWebhookSummaries(context.Context, int64) ([]webhookport.WebhookSummary, error) {
+func (lifecycleStore) ListWebhookSummaries(context.Context, appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error) {
 	return []webhookport.WebhookSummary{{ID: 1, URL: "https://example.test/hook", Events: "*", Active: true}}, nil
 }
-func (lifecycleStore) ListWebhooks(context.Context, int64) ([]webhookport.Webhook, error) {
+func (lifecycleStore) ListWebhooks(context.Context, appmodel.WebhookListQuery) ([]webhookport.Webhook, error) {
 	return []webhookport.Webhook{{ID: 1, URL: "https://example.test/hook", Secret: "secret", Events: "*", Active: true}}, nil
 }
-func (lifecycleStore) ListRecentWebhookDeliveries(context.Context, int64, int) (map[int64][]webhookport.WebhookDeliverySummary, error) {
+func (lifecycleStore) ListRecentWebhookDeliveries(context.Context, appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error) {
 	return map[int64][]webhookport.WebhookDeliverySummary{}, nil
 }
 
-func (s *webhookManagementStore) ListWebhookSummaries(_ context.Context, teamID int64) ([]webhookport.WebhookSummary, error) {
-	s.listTeamID = teamID
-	return []webhookport.WebhookSummary{{ID: 3, TeamID: teamID, URL: "https://example.test/hook", Events: "*", Active: true}}, nil
+func (s *webhookManagementStore) ListWebhookSummaries(_ context.Context, query appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error) {
+	s.listTeamID = query.TeamID
+	return []webhookport.WebhookSummary{{ID: 3, TeamID: query.TeamID, URL: "https://example.test/hook", Events: "*", Active: true}}, nil
 }
 
-func (s *webhookManagementStore) ListRecentWebhookDeliveries(_ context.Context, teamID int64, limit int) (map[int64][]webhookport.WebhookDeliverySummary, error) {
-	s.deliveryTeamID, s.deliveryLimit = teamID, limit
+func (s *webhookManagementStore) ListRecentWebhookDeliveries(_ context.Context, query appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error) {
+	s.deliveryTeamID, s.deliveryLimit = query.TeamID, query.Limit
 	return map[int64][]webhookport.WebhookDeliverySummary{
 		3: {{CreatedAt: time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC), Event: "session.stopped", Status: 204}},
 	}, nil
@@ -270,7 +270,7 @@ func TestManagementMethodsReturnCredentialFreeSummaries(t *testing.T) {
 		t.Fatalf("created summary = %+v", created)
 	}
 
-	listed, err := service.List(context.Background(), 7)
+	listed, err := service.List(context.Background(), appmodel.WebhookListQuery{TeamID: 7})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +285,7 @@ func TestWebhookManagementAssemblesScopedPageSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := service.Management(context.Background(), 17)
+	snapshot, err := service.Management(context.Background(), appmodel.WebhookManagementQuery{TeamID: 17, DeliveriesPerEndpoint: 5})
 	if err != nil {
 		t.Fatalf("load webhook management snapshot: %v", err)
 	}

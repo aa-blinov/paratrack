@@ -58,10 +58,13 @@ func (d *DB) CreateWebhook(ctx context.Context, request appmodel.WebhookRegistra
 }
 
 // ListWebhooks returns the team's endpoints.
-func (d *DB) ListWebhooks(ctx context.Context, teamID int64) ([]Webhook, error) {
+func (d *DB) ListWebhooks(ctx context.Context, query appmodel.WebhookListQuery) ([]Webhook, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT id, team_id, url, secret, events, active, created_at
-		 FROM webhooks WHERE team_id = ? ORDER BY id`, teamID)
+		 FROM webhooks WHERE team_id = ? ORDER BY id`, query.TeamID)
 	if err != nil {
 		return nil, err
 	}
@@ -78,10 +81,13 @@ func (d *DB) ListWebhooks(ctx context.Context, teamID int64) ([]Webhook, error) 
 }
 
 // ListWebhookSummaries returns endpoint settings without loading signing secrets.
-func (d *DB) ListWebhookSummaries(ctx context.Context, teamID int64) ([]webhookport.WebhookSummary, error) {
+func (d *DB) ListWebhookSummaries(ctx context.Context, query appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT id, team_id, url, events, active, created_at
-		 FROM webhooks WHERE team_id = ? ORDER BY id`, teamID)
+		 FROM webhooks WHERE team_id = ? ORDER BY id`, query.TeamID)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +188,10 @@ func (d *DB) ListWebhookDeliveries(ctx context.Context, teamID, webhookID int64)
 
 // ListRecentWebhookDeliveries returns at most limit newest attempts for each
 // endpoint in one workspace-scoped query.
-func (d *DB) ListRecentWebhookDeliveries(ctx context.Context, teamID int64, limit int) (map[int64][]webhookport.WebhookDeliverySummary, error) {
+func (d *DB) ListRecentWebhookDeliveries(ctx context.Context, query appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error) {
+	if query.TeamID <= 0 || query.Limit <= 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`WITH ranked AS (
 			SELECT wd.id, wd.webhook_id, wd.event, wd.status, wd.error, wd.created_at,
@@ -193,7 +202,7 @@ func (d *DB) ListRecentWebhookDeliveries(ctx context.Context, teamID int64, limi
 		)
 		SELECT id, webhook_id, event, status, error, created_at
 		FROM ranked WHERE position <= ?
-		ORDER BY webhook_id, id DESC`, teamID, limit)
+		ORDER BY webhook_id, id DESC`, query.TeamID, query.Limit)
 	if err != nil {
 		return nil, err
 	}
