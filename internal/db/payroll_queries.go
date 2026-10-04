@@ -113,8 +113,11 @@ func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRun
 }
 
 // GetPayrollRun fetches one run.
-func (d *DB) GetPayrollRun(ctx context.Context, teamID, id int64) (PayrollRun, error) {
-	return getPayrollRun(ctx, d.sql, teamID, id, false)
+func (d *DB) GetPayrollRun(ctx context.Context, query appmodel.PayrollRunLookupQuery) (PayrollRun, error) {
+	if query.TeamID <= 0 || query.RunID <= 0 {
+		return PayrollRun{}, ErrNotFound
+	}
+	return getPayrollRun(ctx, d.sql, query.TeamID, query.RunID, false)
 }
 
 func getPayrollRun(ctx context.Context, queryer queryRower, teamID, id int64, lock bool) (PayrollRun, error) {

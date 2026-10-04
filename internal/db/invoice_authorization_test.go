@@ -90,7 +90,7 @@ func TestInvoiceWrites_RecheckManagerRole(t *testing.T) {
 		})
 	}
 
-	got, err := d.GetInvoice(ctx, teamID, invoice.ID)
+	got, err := d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoice.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

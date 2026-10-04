@@ -118,8 +118,11 @@ func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) 
 }
 
 // GetInvoice fetches one invoice inside a team.
-func (d *DB) GetInvoice(ctx context.Context, teamID, id int64) (Invoice, error) {
-	return getInvoice(ctx, d.sql, teamID, id, false)
+func (d *DB) GetInvoice(ctx context.Context, query appmodel.InvoiceLookupQuery) (Invoice, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return Invoice{}, ErrNotFound
+	}
+	return getInvoice(ctx, d.sql, query.TeamID, query.InvoiceID, false)
 }
 
 func getInvoice(ctx context.Context, queryer invoiceQueryer, teamID, id int64, lock bool) (Invoice, error) {
