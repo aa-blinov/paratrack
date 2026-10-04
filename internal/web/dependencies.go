@@ -125,6 +125,7 @@ type ReportBuilding interface {
 	Build(context.Context, appmodel.ReportBuildQuery) (appmodel.ReportAggregateResult, error)
 	BuildStats(context.Context, appmodel.ReportStatsQuery) (appmodel.ReportStatsResult, error)
 	BuildGraph(context.Context, appmodel.ReportGraphQuery) (appmodel.ReportGraphResult, error)
+	BuildExport(context.Context, appmodel.ExportBuildQuery) (appmodel.ExportSnapshot, error)
 }
 
 // GoalWorkflow is the manager and display surface for team goals.

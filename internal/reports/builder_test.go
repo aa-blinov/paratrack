@@ -5,15 +5,20 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 type graphSessionsStub struct {
 	all       []model.ActiveSession
 	projectID int64
+	teamID    int64
+	from      time.Time
+	to        time.Time
 }
 
-func (s *graphSessionsStub) ClosedSessions(context.Context, int64, time.Time, time.Time, *int64) ([]model.ActiveSession, error) {
+func (s *graphSessionsStub) ClosedSessions(_ context.Context, teamID int64, from, to time.Time, _ *int64) ([]model.ActiveSession, error) {
+	s.teamID, s.from, s.to = teamID, from, to
 	return s.all, nil
 }
 func (s *graphSessionsStub) ClosedSessionsForProject(_ context.Context, _ int64, _, _ time.Time, projectID int64) ([]model.ActiveSession, error) {
@@ -42,6 +47,15 @@ func (s graphProjectsStub) GetBySlug(context.Context, int64, string) (model.Proj
 }
 func (graphProjectsStub) Currencies(context.Context, int64) (map[int64]string, error) {
 	return nil, nil
+}
+func (s graphProjectsStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
+	result := make(map[int64]model.ProjectSummary)
+	for _, id := range ids {
+		if id == s.project.ID {
+			result[id] = model.ProjectSummary{ID: id, Name: s.project.Name}
+		}
+	}
+	return result, nil
 }
 
 func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
@@ -118,5 +132,37 @@ func TestBuildStatsFiltersTaggedSessionsBeforeAggregation(t *testing.T) {
 	}
 	if result.Summary.TotalSeconds != 60*60 || len(result.Summary.Activities) != 1 || result.Summary.Activities[0].Name != "Design" {
 		t.Fatalf("tag filter was not applied before aggregation: %+v", result.Summary)
+	}
+}
+
+func TestBuildExportFiltersAndBatchesProjectNames(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := from.AddDate(0, 0, 2)
+	end := from.Add(time.Hour)
+	note := "customer work"
+	reader := &graphSessionsStub{all: []model.ActiveSession{
+		{Session: model.Session{ID: 1, StartAt: from, EndAt: &end, Note: &note}, Activity: model.Activity{Name: "Design", ProjectID: 7}},
+		{Session: model.Session{ID: 2, StartAt: from.Add(time.Hour), EndAt: &end}, Activity: model.Activity{Name: "Admin", ProjectID: 0}},
+		{Session: model.Session{ID: 3, StartAt: from.AddDate(0, 0, 2), EndAt: &end}, Activity: model.Activity{Name: "Outside", ProjectID: 7}},
+	}}
+	project := model.Project{ID: 7, Name: "Website"}
+	builder := &Builder{sessions: reader, projects: graphProjectsStub{project: project}}
+	snapshot, err := builder.BuildExport(context.Background(), appmodel.ExportBuildQuery{
+		TeamID: 9, Start: from, End: to, Now: to, HasFrom: true, HasTo: true,
+	})
+	if err != nil {
+		t.Fatalf("build CSV export: %v", err)
+	}
+	if reader.teamID != 9 || !reader.from.Equal(from) || !reader.to.Equal(to) {
+		t.Fatalf("session query team=%d from=%s to=%s", reader.teamID, reader.from, reader.to)
+	}
+	if len(snapshot.Rows) != 2 {
+		t.Fatalf("export row count = %d, want 2: %+v", len(snapshot.Rows), snapshot.Rows)
+	}
+	if snapshot.Rows[0].ProjectName != "Website" || snapshot.Rows[0].ActivityName != "Design" || snapshot.Rows[0].DurationSeconds != 3600 || snapshot.Rows[0].Note != note {
+		t.Fatalf("first export row = %+v", snapshot.Rows[0])
+	}
+	if snapshot.Rows[1].ProjectName != "" || snapshot.Rows[1].ActivityName != "Admin" {
+		t.Fatalf("uncategorized export row = %+v", snapshot.Rows[1])
 	}
 }
