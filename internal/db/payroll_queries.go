@@ -34,7 +34,7 @@ func (d *DB) ListPayrollRuns(ctx context.Context, query appmodel.PayrollRunListQ
 }
 
 // ListPayrollRunDetails loads a team's runs and immutable lines in one query.
-func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRunListQuery) ([]model.PayrollRunDetails, error) {
+func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunDetails, error) {
 	if query.TeamID <= 0 {
 		return nil, ErrNotFound
 	}
@@ -53,9 +53,9 @@ func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRu
 	return scanPayrollRunDetails(rows)
 }
 
-func scanPayrollRunDetails(rows *sql.Rows) ([]model.PayrollRunDetails, error) {
+func scanPayrollRunDetails(rows *sql.Rows) ([]appmodel.PayrollRunDetails, error) {
 	byID := make(map[int64]int)
-	var out []model.PayrollRunDetails
+	var out []appmodel.PayrollRunDetails
 	for rows.Next() {
 		var run model.PayrollRun
 		var periodStart, periodEnd, createdAt string
@@ -78,7 +78,7 @@ func scanPayrollRunDetails(rows *sql.Rows) ([]model.PayrollRunDetails, error) {
 				return nil, fmt.Errorf("parse payroll creation time for run %d: %w", run.ID, parseErr)
 			}
 			byID[run.ID] = len(out)
-			out = append(out, model.PayrollRunDetails{Run: run})
+			out = append(out, appmodel.PayrollRunDetails{Run: run})
 		}
 		if lineID.Valid {
 			item := byID[run.ID]
@@ -92,9 +92,9 @@ func scanPayrollRunDetails(rows *sql.Rows) ([]model.PayrollRunDetails, error) {
 }
 
 // GetPayrollRunDetails returns the run and lines from one statement snapshot.
-func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error) {
+func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRunLookupQuery) (appmodel.PayrollRunDetails, error) {
 	if query.TeamID <= 0 || query.RunID <= 0 {
-		return model.PayrollRunDetails{}, ErrNotFound
+		return appmodel.PayrollRunDetails{}, ErrNotFound
 	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT r.id, r.team_id, r.number, r.period_start, r.period_end, r.status, r.notes,
@@ -105,15 +105,15 @@ func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRun
 		 WHERE r.team_id = ? AND r.id = ?
 		 ORDER BY l.id`, query.TeamID, query.RunID)
 	if err != nil {
-		return model.PayrollRunDetails{}, err
+		return appmodel.PayrollRunDetails{}, err
 	}
 	defer rows.Close()
 	details, err := scanPayrollRunDetails(rows)
 	if err != nil {
-		return model.PayrollRunDetails{}, err
+		return appmodel.PayrollRunDetails{}, err
 	}
 	if len(details) == 0 {
-		return model.PayrollRunDetails{}, ErrNotFound
+		return appmodel.PayrollRunDetails{}, ErrNotFound
 	}
 	return details[0], nil
 }

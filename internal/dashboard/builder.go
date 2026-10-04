@@ -34,7 +34,7 @@ type SessionDecorationBuilder interface {
 }
 
 type InvoiceReader interface {
-	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
+	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 }
 
 type Logger interface {

@@ -1,6 +1,10 @@
 package appmodel
 
-import "github.com/aa-blinov/paratrack/internal/model"
+import (
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/model"
+)
 
 type InvoiceDraftOptions struct {
 	Projects    []InvoiceProjectOption
@@ -12,6 +16,30 @@ type InvoiceProjectOption struct {
 	Client    model.ProjectClient
 	HasClient bool
 	Eligible  bool
+}
+
+// InvoiceDetails joins an invoice with its immutable line snapshot for reads.
+type InvoiceDetails struct {
+	Invoice model.Invoice
+	Lines   []model.InvoiceLine
+}
+
+// UnbilledProject is billable project time not yet assigned to an invoice.
+type UnbilledProject struct {
+	ProjectID   int64
+	ProjectName string
+	ProjectSlug string
+	Currency    string
+	Hundredths  int
+	AmountCents int
+	Since       time.Time
+}
+
+// UnassignedActivity has completed, not-yet-billed history without a project.
+type UnassignedActivity struct {
+	ID, Sessions int64
+	Name         string
+	Billed       bool
 }
 
 type InvoiceStripePaymentLink struct {
@@ -61,8 +89,8 @@ type InvoiceSummaryResult struct {
 type InvoiceIndexSnapshot struct {
 	Invoices     []InvoiceSummaryResult
 	DraftOptions InvoiceDraftOptions
-	Unbilled     []model.UnbilledProject
-	Unassigned   []model.UnassignedActivity
+	Unbilled     []UnbilledProject
+	Unassigned   []UnassignedActivity
 }
 
 // WebhookManagementSnapshot contains the credential-free data needed by the

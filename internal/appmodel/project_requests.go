@@ -129,5 +129,5 @@ type ProjectPageSnapshot struct {
 	TeamCurrency  string
 	TagsBySession map[int64][]model.Tag
 	ProjectsByID  map[int64]ProjectSummary
-	Unbilled      []model.UnbilledProject
+	Unbilled      []UnbilledProject
 }

@@ -125,7 +125,7 @@ func (d *DB) AssignFirstActivityProject(ctx context.Context, request appmodel.As
 	return ErrAlreadyBilled
 }
 
-func (d *DB) UnassignedActivities(ctx context.Context, teamID int64) ([]model.UnassignedActivity, error) {
+func (d *DB) UnassignedActivities(ctx context.Context, teamID int64) ([]appmodel.UnassignedActivity, error) {
 	rows, err := d.sql.QueryContext(ctx, `
 		SELECT a.id, a.name, COUNT(s.id) FILTER (WHERE s.invoice_id IS NULL),
 		       COUNT(s.id) FILTER (WHERE s.invoice_id IS NOT NULL)
@@ -138,9 +138,9 @@ func (d *DB) UnassignedActivities(ctx context.Context, teamID int64) ([]model.Un
 		return nil, err
 	}
 	defer rows.Close()
-	var out []model.UnassignedActivity
+	var out []appmodel.UnassignedActivity
 	for rows.Next() {
-		var a model.UnassignedActivity
+		var a appmodel.UnassignedActivity
 		var billed int64
 		if err := rows.Scan(&a.ID, &a.Name, &a.Sessions, &billed); err != nil {
 			return nil, err
