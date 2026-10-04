@@ -91,7 +91,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 // handleReports lists the template gallery.
 func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
-	data := reportsPage{pageData: pageData{Title: "Reports", Active: "reports", Lang: lang}}
+	data := reportsPage{pageData: pageData{Title: "Reports", Active: "reports", Lang: lang, ReactApp: true}, ReportsReact: true}
 	for _, t := range catalog.ReportTemplates() {
 		data.Templates = append(data.Templates, reportCard{
 			ID: t.ID, Name: t.Name, Blurb: t.Blurb, Icon: t.Icon,
@@ -112,14 +112,16 @@ type reportCard struct {
 
 type reportsPage struct {
 	pageData
-	Templates []reportCard
-	DefFrom   string
-	DefTo     string
-	Flash     string
-	FlashOK   bool
+	ReportsReact bool
+	Templates    []reportCard
+	DefFrom      string
+	DefTo        string
+	Flash        string
+	FlashOK      bool
 }
 
-func (p *reportsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *reportsPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
+func (p reportsPage) usesReactApp() bool { return true }
 
 // handleReportRun renders one report. Query: id, from, to, format=html|csv.
 func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
@@ -163,16 +165,18 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := string(resolveLang(r))
-	data := reportRunPage{pageData: pageData{Title: tpl.Name, Active: "reports", Lang: lang}, VM: vm}
+	data := reportRunPage{pageData: pageData{Title: tpl.Name, Active: "reports", Lang: lang, ReactApp: true}, VM: vm, ReportRunReact: true}
 	s.renderPageForRequest(w, r, tpl.Name, "reports", "report-run", &data)
 }
 
 type reportRunPage struct {
 	pageData
-	VM reportVM
+	ReportRunReact bool
+	VM             reportVM
 }
 
-func (p *reportRunPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *reportRunPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
+func (p reportRunPage) usesReactApp() bool { return true }
 
 // handleMarketplace renders the integration gallery.
 func (s *Server) handleMarketplace(w http.ResponseWriter, r *http.Request) {
