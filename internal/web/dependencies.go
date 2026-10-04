@@ -398,6 +398,7 @@ type TeamOperations interface {
 // DashboardBuilding is the dashboard query surface used by the HTTP adapter.
 type DashboardBuilding interface {
 	Build(context.Context, appmodel.DashboardQuery) (appmodel.DashboardSnapshot, error)
+	BuildActiveList(context.Context, int64) (appmodel.ActiveListSnapshot, error)
 }
 
 // Validate reports missing required workflows before an adapter starts
