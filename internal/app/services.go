@@ -99,7 +99,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	trackingService := shared.Tracking
 	taggingService := shared.Tagging
 	sessionDecorationBuilder, err := sessiondecorations.New(sessiondecorations.Dependencies{
-		Tags: taggingService, Projects: projectService, Logger: logger,
+		Sessions: taggingService, Tags: taggingService, Projects: projectService, Logger: logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct session decoration builder: %w", err)

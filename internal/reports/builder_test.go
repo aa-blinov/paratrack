@@ -35,6 +35,12 @@ func (s *graphSessionsStub) ClosedSessionsForProject(ctx context.Context, _ int6
 
 type reportTeamsStub struct{ members []model.TeamMember }
 
+type sessionReaderStub struct{}
+
+func (sessionReaderStub) SessionActivity(context.Context, int64, int64) (model.Session, model.Activity, error) {
+	return model.Session{}, model.Activity{}, nil
+}
+
 func (s reportTeamsStub) Members(context.Context, int64) ([]model.TeamMember, error) {
 	return s.members, nil
 }
@@ -86,7 +92,7 @@ func (stub *reportLoggerStub) Printf(format string, args ...any) {
 
 func decorationsForTest(t *testing.T, projects ProjectReader, tags TagReader, logger *reportLoggerStub) SessionDecorationBuilder {
 	t.Helper()
-	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Tags: tags, Projects: projects, Logger: logger})
+	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Sessions: sessionReaderStub{}, Tags: tags, Projects: projects, Logger: logger})
 	if err != nil {
 		t.Fatal(err)
 	}
