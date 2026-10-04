@@ -433,11 +433,13 @@ def main() -> int:
         proj_slug = f"eora-rag-{int(_now())}"
         proj_name = f"EORA RAG {proj_slug}"
         page.goto(BASE + "/projects/new")
+        check("project create page mounts React/shadcn form",
+              page.locator('#paratrack-react-root form[action="/projects/new"] [data-slot="input"]').count() >= 3)
         page.fill('input[name="name"]', proj_name)
         page.fill('input[name="slug"]', proj_slug)
         # Slug blank → auto. Color picker value is the hex text input.
         page.fill('input[name="color"][pattern]', "#7c3aed")
-        page.click('button.btn-neutral:has-text("Create")')
+        page.get_by_role("button", name="Create").click()
         page.wait_for_url(f"**/projects/{proj_slug}")
         check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
 
