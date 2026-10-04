@@ -556,6 +556,9 @@ def main() -> int:
         for width in (320, 1024):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/timesheet")
+            check(f"timesheet uses the React/shadcn mount at {width}px",
+                  page.locator('#paratrack-react-root h1').count() == 1
+                  and page.locator('#paratrack-react-root .week-grid').count() == 1)
             check(f"timesheet keeps a readable first column at {width}px",
                   page.locator('.week-grid th').first.evaluate(
                       "el => el.getBoundingClientRect().width >= 160")

@@ -215,7 +215,56 @@ export interface GraphData {
   PersonName: string
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData
+export interface TimesheetCell {
+  Index: number
+  ISO: string
+  Secs: number
+  Min: number
+  Total: string
+  IsToday: boolean
+}
+
+export interface TimesheetRow {
+  ActivityID: number
+  ActivityName: string
+  Color: string
+  Cells: TimesheetCell[]
+  RowTotal: number
+  RowTotalLabel: string
+}
+
+export interface TimesheetDay {
+  Index: number
+  Label: string
+  Date: string
+  ISO: string
+  Secs: number
+  Min: number
+  Total: string
+  IsToday: boolean
+}
+
+export interface TimesheetData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  TimesheetReact: boolean
+  Lang: string
+  CSRFToken: string
+  Days: TimesheetDay[]
+  Rows: TimesheetRow[]
+  DayTotalLabels: string[]
+  GrandTotal: number
+  GrandTotalLabel: string
+  Others: Activity[]
+  Added: number[]
+  DateISO: string
+  PrevWeek: string
+  NextWeek: string
+  WeekLabel: string
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
