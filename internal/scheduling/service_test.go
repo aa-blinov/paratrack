@@ -12,14 +12,15 @@ import (
 )
 
 type scheduleStoreStub struct {
-	rows []model.ScheduleRow
+	rows  []model.ScheduleRow
+	query appmodel.ScheduleQuery
 }
 
 type scheduleCellStoreStub struct {
 	request appmodel.ScheduleCellRequest
 }
 
-func (scheduleCellStoreStub) ListSchedule(context.Context, int64, time.Time) ([]model.ScheduleRow, map[int64]string, error) {
+func (scheduleCellStoreStub) ListSchedule(context.Context, appmodel.ScheduleQuery) ([]model.ScheduleRow, map[int64]string, error) {
 	return nil, nil, nil
 }
 
@@ -39,7 +40,8 @@ func (s *scheduleProjectCatalogStub) List(_ context.Context, query appmodel.Proj
 	return s.projects, nil
 }
 
-func (s scheduleStoreStub) ListSchedule(context.Context, int64, time.Time) ([]model.ScheduleRow, map[int64]string, error) {
+func (s *scheduleStoreStub) ListSchedule(_ context.Context, query appmodel.ScheduleQuery) ([]model.ScheduleRow, map[int64]string, error) {
+	s.query = query
 	return s.rows, nil, nil
 }
 func (scheduleStoreStub) UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error {
@@ -48,19 +50,24 @@ func (scheduleStoreStub) UpsertScheduleEntry(context.Context, appmodel.ScheduleC
 
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	projects := &scheduleProjectCatalogStub{projects: []model.Project{{ID: 9, Name: "Alpha"}}}
-	service, err := New(Dependencies{Store: scheduleStoreStub{rows: []model.ScheduleRow{
+	store := &scheduleStoreStub{rows: []model.ScheduleRow{
 		{UserID: 1, Capacity: 60, Total: 150},
 		{UserID: 2, Capacity: 0, Total: 90},
-	}}, Projects: projects})
+	}}
+	service, err := New(Dependencies{Store: store, Projects: projects})
 	if err != nil {
 		t.Fatalf("construct scheduling service: %v", err)
 	}
-	snapshot, err := service.List(context.Background(), 7, time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
+	query := appmodel.ScheduleQuery{TeamID: 7, WeekStart: time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)}
+	snapshot, err := service.List(context.Background(), query)
 	if err != nil {
 		t.Fatalf("list schedule: %v", err)
 	}
 	if snapshot.Rows[0].LoadPercent != 50 {
 		t.Fatalf("weekly load = %d%%, want 50%%", snapshot.Rows[0].LoadPercent)
+	}
+	if store.query.TeamID != query.TeamID || !store.query.WeekStart.Equal(query.WeekStart) {
+		t.Fatalf("store schedule query = %+v, want %+v", store.query, query)
 	}
 	if snapshot.Rows[1].LoadPercent != 0 {
 		t.Fatalf("load with no configured capacity = %d%%, want 0%%", snapshot.Rows[1].LoadPercent)
@@ -75,11 +82,11 @@ func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 
 func TestListRejectsOverflowInTeamTotal(t *testing.T) {
 	maxInt := int(^uint(0) >> 1)
-	service, err := New(Dependencies{Store: scheduleStoreStub{rows: []model.ScheduleRow{{Total: maxInt}, {Total: 1}}}, Projects: &scheduleProjectCatalogStub{}})
+	service, err := New(Dependencies{Store: &scheduleStoreStub{rows: []model.ScheduleRow{{Total: maxInt}, {Total: 1}}}, Projects: &scheduleProjectCatalogStub{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = service.List(context.Background(), 7, time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
+	_, err = service.List(context.Background(), appmodel.ScheduleQuery{TeamID: 7, WeekStart: time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC)})
 	if !errors.Is(err, money.ErrOverflow) {
 		t.Fatalf("List() overflow error = %v, want %v", err, money.ErrOverflow)
 	}

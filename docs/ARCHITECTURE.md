@@ -133,7 +133,7 @@ sentinel, for invoice, dashboard and project-page reads.
 `InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace
 through the advisory duplicate-document check.
 `GoalListQuery` scopes configured goals and optional activity filtering to one
-workspace. Goal progress reads carry a typed query with the workspace and
+workspace. `ScheduleQuery` carries workspace and week together from HTTP to persistence. Goal progress reads carry a typed query with the workspace and
 snapshot instant across CLI, HTTP, dashboard, workflow and persistence ports.
 Manager goal writes preserve caller and workspace scope through the workflow;
 persistence applies multiple targets in one transaction and rechecks the

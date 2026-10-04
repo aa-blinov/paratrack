@@ -90,18 +90,18 @@ func (d *DB) UpsertScheduleEntry(ctx context.Context, request appmodel.ScheduleC
 
 // ListSchedule returns the plan for a week plus a project breakdown.
 // weekStart is the first day selected by the user's workspace preference.
-func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time) ([]ScheduleRow, map[int64]string, error) {
-	if teamID <= 0 || weekStart.IsZero() {
+func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]ScheduleRow, map[int64]string, error) {
+	if query.TeamID <= 0 || query.WeekStart.IsZero() {
 		return nil, nil, ErrNotFound
 	}
-	weekEnd := weekStart.AddDate(0, 0, 7)
+	weekEnd := query.WeekStart.AddDate(0, 0, 7)
 	dayStr := func(t time.Time) string { return t.Format("2006-01-02") }
 
 	// users in the team
 	urows, err := d.sql.QueryContext(ctx,
 		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0)
 		 FROM memberships m JOIN users u ON u.id = m.user_id
-		 WHERE m.team_id = ? ORDER BY u.name`, teamID)
+		 WHERE m.team_id = ? ORDER BY u.name`, query.TeamID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -135,7 +135,7 @@ func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time
 
 	// project names
 	pnames := map[int64]string{}
-	prows, err := d.sql.QueryContext(ctx, `SELECT id, name FROM projects WHERE team_id = ?`, teamID)
+	prows, err := d.sql.QueryContext(ctx, `SELECT id, name FROM projects WHERE team_id = ?`, query.TeamID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,7 +158,7 @@ func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time
 	// entries in window
 	q := `SELECT user_id, project_id, day, minutes FROM schedule_entries
 	      WHERE team_id = ? AND day >= ? AND day < ?`
-	erows, err := d.sql.QueryContext(ctx, q, teamID, dayStr(weekStart), dayStr(weekEnd))
+	erows, err := d.sql.QueryContext(ctx, q, query.TeamID, dayStr(query.WeekStart), dayStr(weekEnd))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -194,7 +194,7 @@ func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time
 	for _, u := range users {
 		row := ScheduleRow{UserID: u.id, UserName: u.name, Capacity: u.cap, ByProject: map[int64][7]int{}}
 		for i := 0; i < 7; i++ {
-			day := dayStr(weekStart.AddDate(0, 0, i))
+			day := dayStr(query.WeekStart.AddDate(0, 0, i))
 			row.Minutes[i] = entry[key{u.id, day}]
 			row.Total += row.Minutes[i]
 		}
@@ -203,7 +203,7 @@ func (d *DB) ListSchedule(ctx context.Context, teamID int64, weekStart time.Time
 				continue
 			}
 			for i := 0; i < 7; i++ {
-				if dayStr(weekStart.AddDate(0, 0, i)) == k.day {
+				if dayStr(query.WeekStart.AddDate(0, 0, i)) == k.day {
 					w := row.ByProject[k.pid]
 					w[i] += m
 					row.ByProject[k.pid] = w

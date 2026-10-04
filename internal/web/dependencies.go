@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
@@ -155,7 +154,7 @@ type PreferenceWorkflow interface {
 
 // SchedulingWorkflow exposes schedule reads and cell updates to HTTP routes.
 type SchedulingWorkflow interface {
-	List(context.Context, int64, time.Time) (appmodel.ScheduleSnapshot, error)
+	List(context.Context, appmodel.ScheduleQuery) (appmodel.ScheduleSnapshot, error)
 	SetCell(context.Context, appmodel.ScheduleCellRequest) error
 }
 

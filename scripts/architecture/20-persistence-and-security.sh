@@ -532,6 +532,17 @@ done
 
 # Progress summaries and timesheet invoice guards use batch reads. A query in
 # these entity loops would reintroduce per-goal or per-invoice N+1 behavior.
+schedule_query=$(sed -n '/^func (d \*DB) ListSchedule(/,/^}/p' internal/db/scheduling.go)
+schedule_service_list=$(sed -n '/^func (s \*Service) List(/,/^}/p' internal/scheduling/service.go)
+schedule_workflow_port=$(sed -n '/^type SchedulingWorkflow interface {/,/^}/p' internal/web/dependencies.go)
+if ! printf '%s\n' "$schedule_query" | grep -Fq 'query appmodel.ScheduleQuery' ||
+	! printf '%s\n' "$schedule_query" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$schedule_query" | grep -Fq 'query.WeekStart' ||
+	! printf '%s\n' "$schedule_service_list" | grep -Fq 'ListSchedule(ctx, query)' ||
+	! printf '%s\n' "$schedule_workflow_port" | grep -Fq 'List(context.Context, appmodel.ScheduleQuery)'; then
+	echo "architecture check: schedule reads must carry workspace and week together through HTTP and persistence" >&2
+	exit 1
+fi
 goal_list_query=$(sed -n '/^func (d \*DB) ListGoals(/,/^}/p' internal/db/goals.go)
 goal_service_list=$(sed -n '/^func (s \*Service) List(/,/^}/p' internal/goals/service.go)
 goal_workflow_port=$(sed -n '/^type GoalWorkflow interface {/,/^}/p' internal/web/dependencies.go)

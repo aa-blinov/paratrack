@@ -127,7 +127,7 @@ type scheduleRowsView struct {
 }
 
 func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, project string) (scheduleRowsView, error) {
-	snapshot, err := s.services.Scheduling.List(r.Context(), teamID(r), weekStart)
+	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart})
 	if err != nil {
 		return scheduleRowsView{}, err
 	}
