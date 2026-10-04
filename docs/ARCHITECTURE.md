@@ -126,8 +126,9 @@ reports and tagging workflows. `SessionLookupQuery` also carries session identit
 and workspace through tagged row decoration. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects,
 project pages, HTTP and invoicing. `InvoiceLookupQuery` scopes invoice reads through HTTP and document workflows,
-details and frozen lines; `PayrollRunLookupQuery` scopes payroll run reads and
-details. `WebhookLookupQuery` scopes webhook endpoint reads to their workspace.
+details and frozen lines; `PayrollRunLookupQuery` scopes individual payroll run
+reads and details, while `PayrollRunListQuery` carries workspace scope through
+the payroll run list. `WebhookLookupQuery` scopes webhook endpoint reads to their workspace.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
 sentinel, for invoice, dashboard and project-page reads.
 `InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace

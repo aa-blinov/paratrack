@@ -11,10 +11,13 @@ import (
 )
 
 // ListPayrollRuns returns the team's pay runs, newest first.
-func (d *DB) ListPayrollRuns(ctx context.Context, teamID int64) ([]PayrollRun, error) {
+func (d *DB) ListPayrollRuns(ctx context.Context, query appmodel.PayrollRunListQuery) ([]PayrollRun, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
-		 FROM payroll_runs WHERE team_id = ? ORDER BY created_at DESC`, teamID)
+		 FROM payroll_runs WHERE team_id = ? ORDER BY created_at DESC`, query.TeamID)
 	if err != nil {
 		return nil, err
 	}
@@ -31,7 +34,10 @@ func (d *DB) ListPayrollRuns(ctx context.Context, teamID int64) ([]PayrollRun, e
 }
 
 // ListPayrollRunDetails loads a team's runs and immutable lines in one query.
-func (d *DB) ListPayrollRunDetails(ctx context.Context, teamID int64) ([]model.PayrollRunDetails, error) {
+func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRunListQuery) ([]model.PayrollRunDetails, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT r.id, r.team_id, r.number, r.period_start, r.period_end, r.status, r.notes,
 		        COALESCE(NULLIF(r.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = r.team_id), 'RUB'), r.created_at,
@@ -39,7 +45,7 @@ func (d *DB) ListPayrollRunDetails(ctx context.Context, teamID int64) ([]model.P
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ?
-		 ORDER BY r.created_at DESC, r.id DESC, l.id`, teamID)
+		 ORDER BY r.created_at DESC, r.id DESC, l.id`, query.TeamID)
 	if err != nil {
 		return nil, err
 	}
