@@ -450,7 +450,32 @@ export interface StatsData {
   SavedReports: Array<{ ID: number; Name: string; Period: string; ProjectSlug: string; Tag: string; CreatedBy: number }>
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData
+export interface ReportsData {
+  Active: string
+  Lang: string
+  ReportsReact: boolean
+  Templates: Array<{ ID: string; Name: string; Blurb: string; Icon: string }>
+  DefFrom: string
+  DefTo: string
+}
+
+export interface ReportRunData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  ReportRunReact: boolean
+  VM: {
+    Template: { id: string; name: string; billable: boolean }
+    PeriodLabel: string
+    From: string
+    To: string
+    Rows: Array<{ Key: string; Hours: string; Rate: string; Amount: string; Share: number }>
+    Total: string
+    TotalAmount: string
+  }
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
