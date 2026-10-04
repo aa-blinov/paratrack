@@ -3,7 +3,7 @@
 paratrack is a modular Go application shipped as one binary. It has two
 entrypoints into the same product: a command-line interface and an HTTP
 application. PostgreSQL is the durable store. The UI migration to React and
-shadcn is in progress: the dashboard, goals, graph, payroll, tags, timesheet,
+shadcn is in progress: the dashboard, goals, graph, payroll, schedule, tags, timesheet,
 project list, project creation form and project detail mount React screens on Go-rendered pages,
 and the remaining routes still use Go
 templates, HTMX and Alpine.js.
@@ -22,7 +22,7 @@ response.
 The graph page bootstraps the chart view model and keeps the established
 ECharts runtime for canvas rendering and legend interactions; its React
 component owns the chart container and screen controls.
-The timesheet uses the existing week-grid model and cell update endpoint. React
+The timesheet and schedule use the existing week-grid models and cell update endpoints. React
 clients request a JSON row-and-totals response after edits so the grid stays
 in sync without a full-page refresh; other callers still get the HTML fragment.
 Payroll list and detail screens keep their existing POST workflows for run
