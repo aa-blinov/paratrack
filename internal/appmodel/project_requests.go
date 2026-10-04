@@ -80,7 +80,9 @@ type ProjectPageRequest struct {
 // ProjectPageSnapshot contains the workflow data needed to render project
 // details without making the transport coordinate other read workflows.
 type ProjectPageSnapshot struct {
-	Detail       model.ProjectDetail
-	TeamCurrency string
-	Unbilled     []model.UnbilledProject
+	Detail        model.ProjectDetail
+	TeamCurrency  string
+	TagsBySession map[int64][]model.Tag
+	ProjectsByID  map[int64]model.ProjectSummary
+	Unbilled      []model.UnbilledProject
 }
