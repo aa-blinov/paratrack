@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"strconv"
 	"time"
-
-	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
@@ -19,23 +17,11 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		pageData: pageData{Title: "Invoices", Active: "invoices", Lang: lang},
 	}
 	for _, item := range list {
-		inv, lines := item.Invoice, item.Lines
-		total := 0
-		secs := 0
-		for _, line := range lines {
-			total, err = money.AddCents(total, line.AmountCents)
-			if err != nil {
-				return invoicesPage{}, fmt.Errorf("sum invoice %d amounts: %w", inv.ID, err)
-			}
-			secs, err = money.AddInt(secs, money.HoursHundredths(line.Seconds))
-			if err != nil {
-				return invoicesPage{}, fmt.Errorf("sum invoice %d hours: %w", inv.ID, err)
-			}
-		}
+		inv := item.Invoice
 		data.Items = append(data.Items, invoiceSummary{
 			ID: inv.ID, Number: inv.Number, Client: inv.ClientName, Status: inv.Status,
-			Total: moneyL(resolveLang(r), total, inv.Currency),
-			Hours: fmtHoursL(resolveLang(r), secs),
+			Total: moneyL(resolveLang(r), item.TotalCents, inv.Currency),
+			Hours: fmtHoursL(resolveLang(r), item.TotalHoursHundredths),
 			Period: fmtDay(resolveLang(r), inv.PeriodStart) + " – " +
 				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
 		})
