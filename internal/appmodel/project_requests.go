@@ -56,6 +56,12 @@ type ProjectDetailRequest struct {
 	Through         time.Time
 }
 
+// ProjectCatalogQuery scopes a project catalog read and selects archived rows.
+type ProjectCatalogQuery struct {
+	TeamID          int64
+	IncludeArchived bool
+}
+
 // ProjectListQuery carries the date window used for project usage totals.
 type ProjectListQuery struct {
 	TeamID          int64

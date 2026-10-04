@@ -34,8 +34,8 @@ type scheduleProjectCatalogStub struct {
 	includeArchived bool
 }
 
-func (s *scheduleProjectCatalogStub) List(_ context.Context, teamID int64, includeArchived bool) ([]model.Project, error) {
-	s.teamID, s.includeArchived = teamID, includeArchived
+func (s *scheduleProjectCatalogStub) List(_ context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
+	s.teamID, s.includeArchived = query.TeamID, query.IncludeArchived
 	return s.projects, nil
 }
 

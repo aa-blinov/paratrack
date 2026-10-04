@@ -30,7 +30,7 @@ type Reader interface {
 // ProjectBillingReader provides the project catalog data needed to prepare
 // invoice draft choices without making the transport coordinate project reads.
 type ProjectBillingReader interface {
-	ListProjects(context.Context, int64, bool) ([]model.Project, error)
+	ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	ListProjectClients(context.Context, int64) (map[int64]model.ProjectClient, error)
 }
 
@@ -236,7 +236,7 @@ func (s *Service) DraftOptions(ctx context.Context, teamID int64) (appmodel.Invo
 	if teamID <= 0 {
 		return appmodel.InvoiceDraftOptions{}, ErrInvalidTeam
 	}
-	projects, err := s.projects.ListProjects(ctx, teamID, false)
+	projects, err := s.projects.ListProjects(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID})
 	if err != nil {
 		return appmodel.InvoiceDraftOptions{}, fmt.Errorf("list invoice projects: %w", err)
 	}

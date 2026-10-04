@@ -73,7 +73,7 @@ type projectBillingStub struct {
 	clients  map[int64]model.ProjectClient
 }
 
-func (s projectBillingStub) ListProjects(context.Context, int64, bool) ([]model.Project, error) {
+func (s projectBillingStub) ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	return s.projects, nil
 }
 

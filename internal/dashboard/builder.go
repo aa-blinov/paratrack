@@ -26,7 +26,7 @@ type TrackingReader interface {
 }
 
 type ProjectReader interface {
-	List(context.Context, int64, bool) ([]model.Project, error)
+	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 }
 
 type SessionDecorationBuilder interface {
@@ -118,7 +118,7 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	if err != nil {
 		return Snapshot{}, err
 	}
-	if snapshot.Projects, err = b.projects.List(ctx, query.TeamID, false); err != nil {
+	if snapshot.Projects, err = b.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID}); err != nil {
 		return Snapshot{}, fmt.Errorf("load dashboard projects: %w", err)
 	}
 	decorations, err := b.decorations.Build(ctx, appmodel.SessionDecorationRequest{
@@ -188,7 +188,7 @@ func (b *Builder) BuildActiveList(ctx context.Context, teamID int64) (appmodel.A
 	if err != nil {
 		return appmodel.ActiveListSnapshot{}, fmt.Errorf("load active sessions: %w", err)
 	}
-	projects, err := b.projects.List(ctx, teamID, false)
+	projects, err := b.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID})
 	if err != nil {
 		return appmodel.ActiveListSnapshot{}, fmt.Errorf("load active-list projects: %w", err)
 	}

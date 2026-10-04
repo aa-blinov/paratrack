@@ -109,7 +109,7 @@ func runProjectList(rt *Runtime, args []string) error {
 		}
 		*team = t
 	}
-	snapshot, err := service.ListWithActivityCounts(ctx, *team, *archived)
+	snapshot, err := service.ListWithActivityCounts(ctx, appmodel.ProjectCatalogQuery{TeamID: *team, IncludeArchived: *archived})
 	if err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	}

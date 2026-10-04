@@ -62,7 +62,7 @@ type graphProjectsStub struct {
 	summaryErr error
 }
 
-func (s graphProjectsStub) List(context.Context, int64, bool) ([]model.Project, error) {
+func (s graphProjectsStub) List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	return []model.Project{s.project}, nil
 }
 func (s graphProjectsStub) GetBySlug(context.Context, int64, string) (model.Project, error) {

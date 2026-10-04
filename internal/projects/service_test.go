@@ -54,11 +54,12 @@ type detailBillingStub struct {
 type projectListCatalogStub struct {
 	ProjectCatalogStore
 	projects        []model.Project
+	teamID          int64
 	includeArchived bool
 }
 
-func (stub *projectListCatalogStub) ListProjects(_ context.Context, _ int64, includeArchived bool) ([]model.Project, error) {
-	stub.includeArchived = includeArchived
+func (stub *projectListCatalogStub) ListProjects(_ context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
+	stub.teamID, stub.includeArchived = query.TeamID, query.IncludeArchived
 	return stub.projects, nil
 }
 
@@ -98,7 +99,7 @@ func (stub detailBillingStub) ProjectCurrency(context.Context, int64, int64) (st
 
 func TestListRejectsUnscopedWorkspace(t *testing.T) {
 	service := &Service{}
-	if _, err := service.List(context.Background(), 0, false); !errors.Is(err, ErrInvalidTeam) {
+	if _, err := service.List(context.Background(), appmodel.ProjectCatalogQuery{}); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("List with no workspace error = %v, want %v", err, ErrInvalidTeam)
 	}
 }
@@ -119,12 +120,15 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 			}}},
 		},
 	}
-	catalogSnapshot, err := service.ListWithActivityCounts(context.Background(), 3, true)
+	catalogSnapshot, err := service.ListWithActivityCounts(context.Background(), appmodel.ProjectCatalogQuery{TeamID: 3, IncludeArchived: true})
 	if err != nil {
 		t.Fatalf("ListWithActivityCounts: %v", err)
 	}
 	if len(catalogSnapshot.Projects) != 1 || catalogSnapshot.Projects[0] != project || catalogSnapshot.ActivityCounts[7] != 2 {
 		t.Fatalf("catalog snapshot = %+v, want project and activity count", catalogSnapshot)
+	}
+	if catalog.teamID != 3 || !catalog.includeArchived {
+		t.Fatalf("catalog request scope = team %d archived %v, want team 3 archived true", catalog.teamID, catalog.includeArchived)
 	}
 
 	snapshot, err := service.ListWithUsage(context.Background(), appmodel.ProjectListQuery{
