@@ -54,6 +54,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C13. React integrations | provider-specific credential hints; connect and delete forms; marketplace availability/connected states; task sync and timer start actions |
 | C14. React API tokens | expiry and read-only creation options; raw token shown once with copy action; existing-token metadata and delete actions |
 | C15. React profile settings | profile name and password forms retain their existing endpoints and validation; disabled email; success and error flashes |
+| C16. React personal preferences | duration, week start, time zone, default project, dashboard blocks, section visibility and four-tab limit save through the existing preferences endpoint |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |
