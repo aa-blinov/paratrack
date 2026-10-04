@@ -144,7 +144,7 @@ type PreferenceWorkflow interface {
 
 // SchedulingWorkflow exposes schedule reads and cell updates to HTTP routes.
 type SchedulingWorkflow interface {
-	List(context.Context, int64, time.Time) ([]appmodel.ScheduleViewRow, map[int64]string, error)
+	List(context.Context, int64, time.Time) (appmodel.ScheduleSnapshot, error)
 	SetCell(context.Context, appmodel.ScheduleCellRequest) error
 }
 

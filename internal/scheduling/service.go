@@ -10,6 +10,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 type Store interface {
@@ -33,23 +34,28 @@ func New(store Store) (*Service, error) {
 
 var ErrInvalidScheduleCell = appmodel.ErrInvalidScheduleCell
 
-func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) ([]Row, map[int64]string, error) {
+func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (appmodel.ScheduleSnapshot, error) {
 	if teamID <= 0 || weekStart.IsZero() {
-		return nil, nil, ErrInvalidScheduleCell
+		return appmodel.ScheduleSnapshot{}, ErrInvalidScheduleCell
 	}
 	storedRows, names, err := s.store.ListSchedule(ctx, teamID, weekStart)
 	if err != nil {
-		return nil, nil, fmt.Errorf("list weekly schedule: %w", err)
+		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list weekly schedule: %w", err)
 	}
 	rows := make([]Row, 0, len(storedRows))
+	totalMinutes := 0
 	for _, stored := range storedRows {
+		totalMinutes, err = money.AddInt(totalMinutes, stored.Total)
+		if err != nil {
+			return appmodel.ScheduleSnapshot{}, fmt.Errorf("sum weekly schedule minutes: %w", err)
+		}
 		row := Row{ScheduleRow: stored}
 		if stored.Capacity > 0 {
 			row.LoadPercent = int(int64(stored.Total) * 100 / (int64(stored.Capacity) * 5))
 		}
 		rows = append(rows, row)
 	}
-	return rows, names, nil
+	return appmodel.ScheduleSnapshot{Rows: rows, ProjectNames: names, TotalMinutes: totalMinutes}, nil
 }
 
 func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequest) error {

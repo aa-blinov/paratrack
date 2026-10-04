@@ -752,8 +752,8 @@ creation. A stale preflight check therefore cannot let two concurrent,
 unconfirmed requests create overlapping runs; confirmed overlap remains an
 explicit user decision.
 
-`internal/scheduling` owns the team planning grid, weekly load calculation,
-and schedule-cell writes. `appmodel.ScheduleCellRequest` carries the manager,
+`internal/scheduling` owns weekly row load and team total calculations, plus
+schedule-cell writes. `appmodel.ScheduleCellRequest` carries the manager,
 target member, project, date and minutes by name through the HTTP, workflow
 and persistence boundaries. The HTTP adapter formats the workflow's load
 percentage into the grid. The DB adapter serializes cell writes with member

@@ -173,6 +173,12 @@ type ScheduleViewRow struct {
 	LoadPercent int
 }
 
+type ScheduleSnapshot struct {
+	Rows         []ScheduleViewRow
+	ProjectNames map[int64]string
+	TotalMinutes int
+}
+
 type IntegrationConnectResult struct {
 	Integration model.IntegrationSummary
 	Imported    int
