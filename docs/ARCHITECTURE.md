@@ -428,8 +428,9 @@ Bulk pause and stop lock the actor, recheck membership for team-scoped requests,
 and update all affected sessions in one transaction.
 Tracking owns activity-name resolution; `trackingops.StartActivity` composes
 that operation with optional project assignment and the audited session start.
-Lookups that must not create a new activity use a separate operation for HTTP
-focus.
+`trackingops.FocusActivity` resolves an existing activity by name and performs
+the focus transition through the same coordinator, so lookup, timer mutation
+and audit handling are one application use case for HTTP.
 Workspace activity resolution rechecks current membership under the workspace
 lock before creating an activity. The CLI resolves the default workspace
 owner into its actor and personal session scope, then uses the same
@@ -785,6 +786,14 @@ percentage into the grid. The DB adapter serializes cell writes with member
 removal, verifies current
 membership and project ownership under locks, and reports read/scan failures
 instead of returning partially populated plans.
+
+Cross-workflow page snapshots have explicit coordinators when a page needs
+data from more than one feature. `internal/projectpages` combines project
+details, workspace currency, session decorations and optional invoice history;
+`internal/sessiondecorations` builds reusable row and list decorations; and
+`internal/tokenadmin` joins a user's API tokens with workspace names in one
+bounded batch read. The HTTP adapter turns these snapshots into localized
+presentation models without sequencing the underlying feature reads.
 
 The `internal/memberadmin` read workflow assembles the workspace member
 directory with payroll settings through separate narrow ports. The HTTP adapter
