@@ -17,7 +17,7 @@ type TagReader interface {
 }
 
 type ProjectReader interface {
-	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
+	Summaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
 }
 
 type SessionReader interface {
@@ -96,7 +96,7 @@ func (b *Builder) Build(ctx context.Context, request appmodel.SessionDecorationR
 		}
 	}
 	if request.IncludeProjects && len(projectIDs) > 0 {
-		projects, err := b.projects.Summaries(ctx, request.TeamID, projectIDs)
+		projects, err := b.projects.Summaries(ctx, appmodel.ProjectSummariesQuery{TeamID: request.TeamID, ProjectIDs: projectIDs})
 		if err != nil {
 			b.logger.Printf("sessiondecorations: load project summaries for team %d: %v", request.TeamID, err)
 		} else {

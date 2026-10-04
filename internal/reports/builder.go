@@ -35,7 +35,7 @@ type ProjectReader interface {
 	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	GetBySlug(context.Context, int64, string) (model.Project, error)
 	Currencies(context.Context, int64) (map[int64]string, error)
-	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
+	Summaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
 }
 
 type SessionDecorationBuilder interface {
@@ -374,7 +374,7 @@ func (b *Builder) BuildExport(ctx context.Context, query appmodel.ExportBuildQue
 	}
 	projectNames := make(map[int64]model.ProjectSummary)
 	if len(projectIDs) > 0 {
-		projectNames, err = b.projects.Summaries(ctx, query.TeamID, projectIDs)
+		projectNames, err = b.projects.Summaries(ctx, appmodel.ProjectSummariesQuery{TeamID: query.TeamID, ProjectIDs: projectIDs})
 		if err != nil {
 			return appmodel.ExportSnapshot{}, fmt.Errorf("load export project names: %w", err)
 		}

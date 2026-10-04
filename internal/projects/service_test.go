@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -67,6 +68,16 @@ type projectListUsageStub struct {
 	ProjectUsageStore
 	counts map[int64]int
 	spans  []model.ProjectSessionSpan
+}
+
+type projectSummariesUsageStub struct {
+	ProjectUsageStore
+	query appmodel.ProjectSummariesQuery
+}
+
+func (stub *projectSummariesUsageStub) ProjectSummaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+	stub.query = query
+	return map[int64]model.ProjectSummary{7: {ID: 7, Name: "Alpha"}}, nil
 }
 
 type projectMutationWriterStub struct {
@@ -143,6 +154,19 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 	}
 	if got := snapshot.Usage[7]; got.ActivityCount != 2 || got.TodaySeconds != 7200 || got.MonthSeconds != 7200 {
 		t.Fatalf("project usage = %+v, want count 2 and 7200 seconds", got)
+	}
+}
+
+func TestSummariesForwardsWorkspaceAndProjectIDs(t *testing.T) {
+	store := &projectSummariesUsageStub{}
+	service := &Service{usage: store}
+	query := appmodel.ProjectSummariesQuery{TeamID: 3, ProjectIDs: []int64{7, 8}}
+	got, err := service.Summaries(context.Background(), query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[7].Name != "Alpha" || store.query.TeamID != query.TeamID || !reflect.DeepEqual(store.query.ProjectIDs, query.ProjectIDs) {
+		t.Fatalf("summary query/result = %+v / %+v", store.query, got)
 	}
 }
 

@@ -62,6 +62,12 @@ type ProjectCatalogQuery struct {
 	IncludeArchived bool
 }
 
+// ProjectSummariesQuery scopes a batch of project summaries to one workspace.
+type ProjectSummariesQuery struct {
+	TeamID     int64
+	ProjectIDs []int64
+}
+
 // ProjectUsageQuery combines the catalog selection with the usage window.
 type ProjectUsageQuery struct {
 	Catalog    ProjectCatalogQuery

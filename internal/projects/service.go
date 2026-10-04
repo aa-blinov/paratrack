@@ -29,7 +29,7 @@ type ProjectCatalogStore interface {
 type ProjectUsageStore interface {
 	ProjectActivityCounts(context.Context, int64) (map[int64]int, error)
 	ProjectSpans(context.Context, int64, time.Time, time.Time) ([]model.ProjectSessionSpan, error)
-	ProjectSummaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
+	ProjectSummaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
 	ProjectSessions(context.Context, int64, int64, time.Time, time.Time) ([]model.ActiveSession, error)
 	ProjectTrackedTotal(context.Context, int64, int64) (int, error)
 }
@@ -176,16 +176,16 @@ func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, toda
 	return usage, nil
 }
 
-func (s *Service) Summaries(ctx context.Context, teamID int64, projectIDs []int64) (map[int64]model.ProjectSummary, error) {
-	if teamID <= 0 {
+func (s *Service) Summaries(ctx context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+	if query.TeamID <= 0 {
 		return nil, model.ErrNotFound
 	}
-	for _, id := range projectIDs {
+	for _, id := range query.ProjectIDs {
 		if id <= 0 {
 			return nil, model.ErrNotFound
 		}
 	}
-	summaries, err := s.usage.ProjectSummaries(ctx, teamID, projectIDs)
+	summaries, err := s.usage.ProjectSummaries(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("load project summaries: %w", err)
 	}
