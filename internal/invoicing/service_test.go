@@ -17,9 +17,14 @@ import (
 type draftReaderStub struct {
 	Reader
 	details       model.InvoiceDetails
+	listDetails   []model.InvoiceDetails
 	getCalls      int
 	overlapLabels []string
 	overlapErr    error
+}
+
+func (s *draftReaderStub) ListInvoiceDetails(context.Context, int64) ([]model.InvoiceDetails, error) {
+	return s.listDetails, nil
 }
 
 func (s *draftReaderStub) GetInvoiceDetails(context.Context, int64, int64) (model.InvoiceDetails, error) {
@@ -259,6 +264,28 @@ func TestGetCalculatesInvoiceTotals(t *testing.T) {
 	}
 	if got.TotalCents != 5000 || got.TotalHoursHundredths != 200 {
 		t.Fatalf("Get() totals = %d cents, %d hundredths; want 5000 and 200", got.TotalCents, got.TotalHoursHundredths)
+	}
+}
+
+func TestListCalculatesInvoiceSummaryTotals(t *testing.T) {
+	reader := &draftReaderStub{listDetails: []model.InvoiceDetails{{
+		Invoice: model.Invoice{ID: 13, TeamID: 4, Number: "INV-13"},
+		Lines: []model.InvoiceLine{
+			{Seconds: 1800, AmountCents: 1250},
+			{Seconds: 5400, AmountCents: 3750},
+		},
+	}}}
+	service, err := NewService(testDependencies(reader, &draftWriterStub{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := service.List(context.Background(), 4)
+	if err != nil {
+		t.Fatalf("List() error = %v", err)
+	}
+	if len(got) != 1 || got[0].Invoice.Number != "INV-13" || got[0].TotalCents != 5000 || got[0].TotalHoursHundredths != 200 {
+		t.Fatalf("List() summaries = %+v", got)
 	}
 }
 
