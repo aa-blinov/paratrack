@@ -214,7 +214,7 @@ func (s *Server) handleInvoiceReceipt(w http.ResponseWriter, r *http.Request) {
 // moves the invoice to sending now and marks it sent only after delivery.
 
 func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
-	inv, vm, err := s.loadInvoiceVM(r)
+	inv, vm, _, err := s.loadInvoiceVM(r, false)
 	if err != nil {
 		s.invoiceLoadError(w, r, err)
 		return

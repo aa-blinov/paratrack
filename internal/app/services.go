@@ -17,6 +17,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/importproviders"
 	"github.com/aa-blinov/paratrack/internal/integrations"
 	"github.com/aa-blinov/paratrack/internal/integrations/providers"
+	"github.com/aa-blinov/paratrack/internal/invoicedocuments"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mailqueue"
 	"github.com/aa-blinov/paratrack/internal/memberadmin"
@@ -127,6 +128,12 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct invoicing service: %w", err)
 	}
+	invoiceDocuments, err := invoicedocuments.New(invoicedocuments.Dependencies{
+		Invoices: invoiceService, Teams: teamService, Logger: logger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("construct invoice document builder: %w", err)
+	}
 	projectPageBuilder, err := projectpages.New(projectpages.Dependencies{
 		Projects: projectService, Teams: teamService, Memberships: teamService, Invoicing: invoiceService,
 		Tags: taggingService, Logger: logger,
@@ -227,31 +234,32 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		return nil, fmt.Errorf("construct dashboard builder: %w", err)
 	}
 	return &Services{
-		Billing:       billingService,
-		Auth:          authService,
-		AuditLog:      auditService,
-		Teams:         teamService,
-		TeamOps:       teamOpsService,
-		Tracking:      trackingService,
-		TrackingOps:   trackingOpsService,
-		Imports:       importService,
-		Integrations:  integrationService,
-		Invoicing:     invoiceService,
-		Payroll:       payrollService,
-		PayrollPaid:   payrollPaidService,
-		Preferences:   preferenceService,
-		Scheduling:    schedulingService,
-		Projects:      projectService,
-		ProjectPages:  projectPageBuilder,
-		Reports:       reportService,
-		ReportBuilder: reportBuilder,
-		Dashboard:     dashboardBuilder,
-		MemberAdmin:   memberAdminService,
-		Push:          pushService,
-		Tagging:       taggingService,
-		Goals:         goalService,
-		Webhooks:      webhookService,
-		MailQueue:     mailQueueService,
-		Resources:     resources,
+		Billing:          billingService,
+		Auth:             authService,
+		AuditLog:         auditService,
+		Teams:            teamService,
+		TeamOps:          teamOpsService,
+		Tracking:         trackingService,
+		TrackingOps:      trackingOpsService,
+		Imports:          importService,
+		Integrations:     integrationService,
+		Invoicing:        invoiceService,
+		InvoiceDocuments: invoiceDocuments,
+		Payroll:          payrollService,
+		PayrollPaid:      payrollPaidService,
+		Preferences:      preferenceService,
+		Scheduling:       schedulingService,
+		Projects:         projectService,
+		ProjectPages:     projectPageBuilder,
+		Reports:          reportService,
+		ReportBuilder:    reportBuilder,
+		Dashboard:        dashboardBuilder,
+		MemberAdmin:      memberAdminService,
+		Push:             pushService,
+		Tagging:          taggingService,
+		Goals:            goalService,
+		Webhooks:         webhookService,
+		MailQueue:        mailQueueService,
+		Resources:        resources,
 	}, nil
 }
