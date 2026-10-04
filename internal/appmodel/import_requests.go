@@ -2,6 +2,14 @@ package appmodel
 
 import "github.com/aa-blinov/paratrack/internal/importport"
 
+// ProviderImportPreviewRequest carries workspace authorization scope for a
+// credential-bearing provider preview.
+type ProviderImportPreviewRequest struct {
+	TeamID   int64
+	CallerID int64
+	Provider importport.ProviderRequest
+}
+
 // ProviderImportRunRequest carries actor scope and credentials for one provider import.
 type ProviderImportRunRequest struct {
 	TeamID   int64

@@ -47,6 +47,20 @@ type importLogger struct{}
 
 func (importLogger) Printf(string, ...any) {}
 
+type importAuthorizer struct {
+	role   model.TeamRole
+	member bool
+	err    error
+}
+
+func (a importAuthorizer) TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error) {
+	return a.role, a.member, a.err
+}
+
+func allowImport() importAuthorizer {
+	return importAuthorizer{role: model.TeamRoleOwner, member: true}
+}
+
 func (f providerFetcherFunc) Fetch(ctx context.Context, request importport.ProviderRequest) ([]importport.ImportedEntry, error) {
 	return f(ctx, request)
 }
@@ -61,7 +75,7 @@ func TestRunFromProviderFetchesThenAppliesValidatedBatch(t *testing.T) {
 			t.Fatalf("provider request = %+v", request)
 		}
 		return want, nil
-	}), audit, importLogger{})
+	}), allowImport(), audit, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -86,7 +100,7 @@ func TestRunFromProviderDoesNotWriteAfterFetchFailure(t *testing.T) {
 	audit := &importAudit{}
 	service, err := New(store, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
 		return nil, fetchErr
-	}), audit, importLogger{})
+	}), allowImport(), audit, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -106,11 +120,11 @@ func TestPreviewRejectsInvalidProviderEntries(t *testing.T) {
 	tooLong := start.Add(time.Duration(model.MaxSessionDurationSeconds)*time.Second + time.Nanosecond)
 	service, err := New(&importStore{}, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
 		return []importport.ImportedEntry{{Activity: "Design", Start: start, End: tooLong}}, nil
-	}), &importAudit{}, importLogger{})
+	}), allowImport(), &importAudit{}, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	if _, err := service.Preview(context.Background(), importport.ProviderRequest{Provider: "provider"}); !errors.Is(err, ErrInvalidEntry) {
+	if _, err := service.Preview(context.Background(), appmodel.ProviderImportPreviewRequest{TeamID: 1, CallerID: 1, Provider: importport.ProviderRequest{Provider: "provider"}}); !errors.Is(err, ErrInvalidEntry) {
 		t.Fatalf("Preview error = %v, want ErrInvalidEntry", err)
 	}
 }
@@ -119,7 +133,7 @@ func TestRunRejectsImportBatchOverEntryLimit(t *testing.T) {
 	store := &importStore{}
 	service, err := New(store, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
 		return nil, nil
-	}), &importAudit{}, importLogger{})
+	}), allowImport(), &importAudit{}, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -136,7 +150,7 @@ func TestRunRejectsSessionsLongerThanRepresentableDuration(t *testing.T) {
 	store := &importStore{}
 	service, err := New(store, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
 		return nil, nil
-	}), &importAudit{}, importLogger{})
+	}), allowImport(), &importAudit{}, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -148,5 +162,28 @@ func TestRunRejectsSessionsLongerThanRepresentableDuration(t *testing.T) {
 	}
 	if store.calls != 0 {
 		t.Fatalf("store calls = %d, want 0", store.calls)
+	}
+}
+
+func TestImportAuthorizationPrecedesProviderFetch(t *testing.T) {
+	store := &importStore{}
+	fetches := 0
+	authorizer := importAuthorizer{role: model.TeamRoleMember, member: true}
+	service, err := New(store, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
+		fetches++
+		return nil, nil
+	}), authorizer, &importAudit{}, importLogger{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	request := importport.ProviderRequest{Provider: "toggl", Secret: "credential"}
+	if _, err := service.Preview(context.Background(), appmodel.ProviderImportPreviewRequest{TeamID: 7, CallerID: 11, Provider: request}); !errors.Is(err, model.ErrForbidden) {
+		t.Fatalf("Preview error = %v, want forbidden", err)
+	}
+	if _, err := service.RunFromProvider(context.Background(), appmodel.ProviderImportRunRequest{TeamID: 7, CallerID: 11, Provider: request}); !errors.Is(err, model.ErrForbidden) {
+		t.Fatalf("RunFromProvider error = %v, want forbidden", err)
+	}
+	if fetches != 0 || store.calls != 0 {
+		t.Fatalf("unauthorized import made %d provider fetches and %d writes", fetches, store.calls)
 	}
 }

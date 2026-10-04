@@ -44,7 +44,7 @@ func TestImportPageAndRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	importService, err := importing.New(e.db, importer, e.srv.services.AuditLog, log.Default())
+	importService, err := importing.New(e.db, importer, e.db, e.srv.services.AuditLog, log.Default())
 	if err != nil {
 		t.Fatal(err)
 	}

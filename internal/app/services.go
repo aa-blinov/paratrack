@@ -161,7 +161,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct import providers: %w", err)
 	}
-	importService, err := importing.New(database, importProviderService, auditService, logger)
+	importService, err := importing.New(database, importProviderService, database, auditService, logger)
 	if err != nil {
 		return nil, fmt.Errorf("construct importing service: %w", err)
 	}
