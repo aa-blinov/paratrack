@@ -39,9 +39,23 @@ func checkSelfScopedPersistenceWrites(fset *token.FileSet) error {
 		if function == nil {
 			return fmt.Errorf("%s is missing owner-scoped persistence method %s", method.source, method.name)
 		}
+		if !hasOwnerAuthorizationGuard(fset, function.Body) {
+			return fmt.Errorf("%s %s must return model.ErrForbidden when caller or target differs from the authenticated owner", method.source, method.name)
+		}
+	}
+	return nil
+}
+
+func hasOwnerAuthorizationGuard(fset *token.FileSet, body *ast.BlockStmt) bool {
+	guarded := false
+	ast.Inspect(body, func(node ast.Node) bool {
+		statement, ok := node.(*ast.IfStmt)
+		if !ok || statement.Body == nil {
+			return true
+		}
 		comparisons := make(map[string]bool)
-		ast.Inspect(function.Body, func(node ast.Node) bool {
-			comparison, ok := node.(*ast.BinaryExpr)
+		ast.Inspect(statement.Cond, func(conditionNode ast.Node) bool {
+			comparison, ok := conditionNode.(*ast.BinaryExpr)
 			if !ok || comparison.Op != token.NEQ {
 				return true
 			}
@@ -50,16 +64,24 @@ func checkSelfScopedPersistenceWrites(fset *token.FileSet) error {
 			comparisons[left+" != "+right] = true
 			return true
 		})
-		for _, required := range []string{
-			"request.CallerID != actorID(ctx)",
-			"request.UserID != request.CallerID",
-		} {
-			if !comparisons[required] {
-				return fmt.Errorf("%s %s must reject a caller who does not match the authenticated resource owner (%s)", method.source, method.name, required)
-			}
+		if !comparisons["request.CallerID != actorID(ctx)"] || !comparisons["request.UserID != request.CallerID"] {
+			return true
 		}
-	}
-	return nil
+		ast.Inspect(statement.Body, func(branchNode ast.Node) bool {
+			returnStatement, ok := branchNode.(*ast.ReturnStmt)
+			if !ok {
+				return true
+			}
+			for _, result := range returnStatement.Results {
+				if formatExpression(fset, result) == "model.ErrForbidden" {
+					guarded = true
+				}
+			}
+			return true
+		})
+		return true
+	})
+	return guarded
 }
 
 func parserParseFile(fset *token.FileSet, source string) (*ast.File, error) {
