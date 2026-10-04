@@ -64,7 +64,7 @@ func TestProjectUsageQueriesIgnoreCrossWorkspaceRelationships(t *testing.T) {
 	if _, ok := counts[project.ID]; ok {
 		t.Fatalf("ProjectActivityCounts included foreign project %d", project.ID)
 	}
-	unbilled, err := d.Unbilled(ctx, teamB, 0)
+	unbilled, err := d.Unbilled(ctx, appmodel.UnbilledProjectQuery{TeamID: teamB})
 	if err != nil {
 		t.Fatal(err)
 	}

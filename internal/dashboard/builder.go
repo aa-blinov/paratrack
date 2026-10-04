@@ -34,7 +34,7 @@ type SessionDecorationBuilder interface {
 }
 
 type InvoiceReader interface {
-	UnbilledProjectTime(context.Context, int64, int64) ([]model.UnbilledProject, error)
+	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
 }
 
 type Logger interface {
@@ -143,7 +143,7 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 		snapshot.Goals = nil
 	}
 	if query.IncludeBilling && len(snapshot.Projects) > 0 {
-		snapshot.Unbilled, err = b.invoices.UnbilledProjectTime(ctx, query.TeamID, 0)
+		snapshot.Unbilled, err = b.invoices.UnbilledProjectTime(ctx, appmodel.UnbilledProjectQuery{TeamID: query.TeamID})
 		if err != nil {
 			return Snapshot{}, fmt.Errorf("load dashboard unbilled time: %w", err)
 		}

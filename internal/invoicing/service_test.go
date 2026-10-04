@@ -23,6 +23,7 @@ type draftReaderStub struct {
 	overlapLabels []string
 	overlapErr    error
 	unbilled      []model.UnbilledProject
+	unbilledQuery appmodel.UnbilledProjectQuery
 	unassigned    []model.UnassignedActivity
 }
 
@@ -30,7 +31,8 @@ func (s *draftReaderStub) ListInvoiceDetails(context.Context, int64) ([]model.In
 	return s.listDetails, nil
 }
 
-func (s *draftReaderStub) Unbilled(context.Context, int64, int64) ([]model.UnbilledProject, error) {
+func (s *draftReaderStub) Unbilled(_ context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+	s.unbilledQuery = query
 	return s.unbilled, nil
 }
 
@@ -160,6 +162,9 @@ func TestBuildIndexAssemblesInvoiceListAndDraftHistory(t *testing.T) {
 	}
 	if len(snapshot.Unbilled) != 1 || snapshot.Unbilled[0].ProjectID != 3 || len(snapshot.Unassigned) != 1 || snapshot.Unassigned[0].ID != 9 {
 		t.Fatalf("invoice history = unbilled %+v, unassigned %+v", snapshot.Unbilled, snapshot.Unassigned)
+	}
+	if want := (appmodel.UnbilledProjectQuery{TeamID: 7}); reader.unbilledQuery.TeamID != want.TeamID || reader.unbilledQuery.ProjectID != nil {
+		t.Fatalf("invoice index unbilled query = %+v, want all projects in workspace %d", reader.unbilledQuery, want.TeamID)
 	}
 }
 

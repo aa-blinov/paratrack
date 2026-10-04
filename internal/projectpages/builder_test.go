@@ -48,9 +48,10 @@ func (stub teamMembershipReaderStub) IsMember(context.Context, int64, int64) (mo
 }
 
 type invoiceHistoryReaderStub struct {
-	teamID, projectID int64
-	rows              []model.UnbilledProject
-	err               error
+	query appmodel.UnbilledProjectQuery
+	rows  []model.UnbilledProject
+	err   error
+	calls int
 }
 
 type sessionTagReaderStub struct {
@@ -85,8 +86,9 @@ func decorationsForTest(t *testing.T, projects *projectReaderStub, tags *session
 	return builder
 }
 
-func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, teamID, projectID int64) ([]model.UnbilledProject, error) {
-	stub.teamID, stub.projectID = teamID, projectID
+func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+	stub.query = query
+	stub.calls++
 	return stub.rows, stub.err
 }
 
@@ -126,8 +128,8 @@ func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 	if len(projects.summaryIDs) != 1 || projects.summaryIDs[0] != 12 {
 		t.Fatalf("project summary IDs = %v", projects.summaryIDs)
 	}
-	if invoices.teamID != 4 || invoices.projectID != 18 {
-		t.Fatalf("invoice history scope = team %d project %d", invoices.teamID, invoices.projectID)
+	if invoices.calls != 1 || invoices.query.TeamID != 4 || invoices.query.ProjectID == nil || *invoices.query.ProjectID != 18 {
+		t.Fatalf("invoice history query = %+v, calls %d", invoices.query, invoices.calls)
 	}
 }
 
@@ -146,7 +148,7 @@ func TestBuildSkipsInvoiceHistoryWhenNotRequested(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if invoices.teamID != 0 || invoices.projectID != 0 {
+	if invoices.calls != 0 {
 		t.Fatalf("optional invoice history was queried: %+v", invoices)
 	}
 }
@@ -186,7 +188,7 @@ func TestBuildDoesNotReadInvoiceHistoryForNonManager(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if len(snapshot.Unbilled) != 0 || invoices.teamID != 0 || invoices.projectID != 0 {
+	if len(snapshot.Unbilled) != 0 || invoices.calls != 0 {
 		t.Fatalf("non-manager received invoice history: snapshot=%+v invoice query=%+v", snapshot, invoices)
 	}
 }

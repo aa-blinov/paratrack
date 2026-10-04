@@ -94,10 +94,14 @@ func decorationsForTest(t *testing.T, projects *projectsStub, tags *tagsStub, lo
 	return builder
 }
 
-type invoicesStub struct{ calls int }
+type invoicesStub struct {
+	calls int
+	query appmodel.UnbilledProjectQuery
+}
 
-func (s *invoicesStub) UnbilledProjectTime(context.Context, int64, int64) ([]model.UnbilledProject, error) {
+func (s *invoicesStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
 	s.calls++
+	s.query = query
 	return nil, nil
 }
 
@@ -143,6 +147,9 @@ func TestBuildUsesDashboardWindowsAndOptionalBilling(t *testing.T) {
 	}
 	if invoices.calls != 1 {
 		t.Fatalf("unbilled-time lookup called %d times, want 1", invoices.calls)
+	}
+	if invoices.query.TeamID != 7 || invoices.query.ProjectID != nil {
+		t.Fatalf("dashboard unbilled query = %+v, want all projects in team 7", invoices.query)
 	}
 	if len(snapshot.Goals) != 0 {
 		t.Fatalf("failed optional goal widget returned %d rows", len(snapshot.Goals))

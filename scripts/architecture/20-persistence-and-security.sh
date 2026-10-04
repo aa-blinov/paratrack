@@ -250,7 +250,7 @@ if ! printf '%s\n' "$invoice_line_builder" | grep -Fq 'if options.lockRows' ||
 	exit 1
 fi
 unbilled_builder=$(sed -n '/^func (d \*DB) Unbilled(/,/^}/p' internal/db/invoice_lines.go)
-if ! printf '%s\n' "$unbilled_builder" | grep -Fq 'teamID <= 0' ||
+if ! printf '%s\n' "$unbilled_builder" | grep -Fq 'query.TeamID <= 0' ||
 	! printf '%s\n' "$unbilled_builder" | grep -Fq 'a.team_id = ?' ||
 	! printf '%s\n' "$unbilled_builder" | grep -Fq 'p.team_id = ?'; then
 	echo "architecture check: unbilled invoice totals must require scope and join tenant-owned activities and projects" >&2
@@ -313,6 +313,14 @@ if ! printf '%s\n' "$invoice_lookup" | grep -Fq 'query appmodel.InvoiceLookupQue
 	! printf '%s\n' "$invoice_lookup" | grep -Fq 'query.TeamID <= 0' ||
 	! printf '%s\n' "$invoice_lookup" | grep -Fq 'query.InvoiceID <= 0'; then
 	echo "architecture check: invoice details must validate explicit workspace and invoice scope" >&2
+	exit 1
+fi
+unbilled_query=$(sed -n '/^func (d \*DB) Unbilled(/,/^}/p' internal/db/invoice_lines.go)
+if ! printf '%s\n' "$unbilled_query" | grep -Fq 'query appmodel.UnbilledProjectQuery' ||
+	! printf '%s\n' "$unbilled_query" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$unbilled_query" | grep -Fq 'query.ProjectID != nil' ||
+	! printf '%s\n' "$unbilled_query" | grep -Fq 'if query.ProjectID != nil'; then
+	echo "architecture check: unbilled time reads must use explicit workspace scope and optional project filtering" >&2
 	exit 1
 fi
 for method in ListTags ListAllTagsWithCounts; do

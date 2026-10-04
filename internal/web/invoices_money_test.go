@@ -287,7 +287,7 @@ func TestUnbilledMatchesInvoice(t *testing.T) {
 			}
 		}
 	}
-	got, err := d.Unbilled(ctx, 1, 0)
+	got, err := d.Unbilled(ctx, appmodel.UnbilledProjectQuery{TeamID: 1})
 	if err != nil || len(got) != 3 {
 		t.Fatalf("unbilled: %v, %d projects", err, len(got))
 	}
