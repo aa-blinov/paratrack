@@ -21,7 +21,7 @@ type TagStore interface {
 	DetachTagForMember(context.Context, appmodel.SessionTagRequest) error
 	ListTags(context.Context, int64) ([]model.Tag, error)
 	ListAllTagsWithCounts(context.Context, int64) ([]model.TagWithCount, error)
-	TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error)
+	TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error)
 }
 
 // SessionActivityReader provides the scoped lookup needed to refresh a tagged row.
@@ -103,16 +103,16 @@ func (s *Service) ListWithCounts(ctx context.Context, teamID int64) ([]model.Tag
 	return tags, nil
 }
 
-func (s *Service) TagsForSessions(ctx context.Context, teamID int64, sessionIDs []int64) (map[int64][]model.Tag, error) {
-	if teamID <= 0 {
+func (s *Service) TagsForSessions(ctx context.Context, query appmodel.SessionTagsQuery) (map[int64][]model.Tag, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
-	for _, id := range sessionIDs {
+	for _, id := range query.SessionIDs {
 		if id <= 0 {
 			return nil, ErrInvalidSession
 		}
 	}
-	tags, err := s.tags.TagsForSessions(ctx, teamID, sessionIDs)
+	tags, err := s.tags.TagsForSessions(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("load tags for sessions: %w", err)
 	}

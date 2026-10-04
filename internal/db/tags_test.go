@@ -172,7 +172,7 @@ func TestTagsForSessions_BatchedAcrossMany(t *testing.T) {
 	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: sids[2], Name: "a"})
 	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: sids[2], Name: "b"})
 
-	got, err := d.TagsForSessions(ctx, 0, sids)
+	got, err := d.TagsForSessions(ctx, appmodel.SessionTagsQuery{TeamID: 0, SessionIDs: sids})
 	if err != nil {
 		t.Fatal(err)
 	}
