@@ -343,7 +343,7 @@ type ProfileWorkflow interface {
 type APITokenWorkflow interface {
 	CreateAPIToken(context.Context, appmodel.APITokenCreateRequest) (string, model.APIToken, error)
 	DeleteAPIToken(context.Context, appmodel.APITokenDeleteRequest) error
-	ListAPITokens(context.Context, int64) ([]model.APIToken, error)
+	ListAPITokens(context.Context, appmodel.APITokenListRequest) ([]model.APIToken, error)
 }
 
 // TeamDirectory is the workspace and membership query surface consumed by

@@ -39,6 +39,9 @@ func (d *DB) CreateAPIToken(ctx context.Context, request appmodel.APITokenCreate
 	if request.UserID <= 0 {
 		return "", APIToken{}, model.ErrForbidden
 	}
+	if request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return "", APIToken{}, model.ErrForbidden
+	}
 	o := request.Options
 	if o.TeamID < 0 {
 		return "", APIToken{}, model.ErrForbidden
@@ -109,10 +112,13 @@ func (d *DB) CreateAPIToken(ctx context.Context, request appmodel.APITokenCreate
 }
 
 // ListAPITokens returns the user's tokens (never the raw secrets).
-func (d *DB) ListAPITokens(ctx context.Context, userID int64) ([]APIToken, error) {
+func (d *DB) ListAPITokens(ctx context.Context, request appmodel.APITokenListRequest) ([]APIToken, error) {
+	if request.UserID <= 0 || request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return nil, model.ErrForbidden
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT id, user_id, name, prefix, created_at, last_used_at, COALESCE(team_id, 0), expires_at, read_only
-		 FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC`, userID)
+		 FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC`, request.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,6 +163,9 @@ func (d *DB) ListAPITokens(ctx context.Context, userID int64) ([]APIToken, error
 
 // DeleteAPIToken removes one token.
 func (d *DB) DeleteAPIToken(ctx context.Context, request appmodel.APITokenDeleteRequest) error {
+	if request.UserID <= 0 || request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return model.ErrForbidden
+	}
 	res, err := d.sql.ExecContext(ctx,
 		`DELETE FROM api_tokens WHERE id = ? AND user_id = ?`, request.TokenID, request.UserID)
 	if err != nil {

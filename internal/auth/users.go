@@ -52,7 +52,7 @@ type PasswordResetStore interface {
 // APITokenStore provides API-token lifecycle operations.
 type APITokenStore interface {
 	CreateAPIToken(context.Context, appmodel.APITokenCreateRequest) (string, model.APIToken, error)
-	ListAPITokens(context.Context, int64) ([]model.APIToken, error)
+	ListAPITokens(context.Context, appmodel.APITokenListRequest) ([]model.APIToken, error)
 	DeleteAPIToken(context.Context, appmodel.APITokenDeleteRequest) error
 	APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (model.APIToken, error)
 }

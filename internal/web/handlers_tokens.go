@@ -20,7 +20,7 @@ func (s *Server) handleSettingsTokens(w http.ResponseWriter, r *http.Request) {
 // token minted by this very request, shown once and never put in a URL.
 func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreated string) {
 	u, _ := UserFrom(r.Context())
-	list, err := s.services.Auth.APITokens.ListAPITokens(r.Context(), u.ID)
+	list, err := s.services.Auth.APITokens.ListAPITokens(r.Context(), appmodel.APITokenListRequest{UserID: u.ID, CallerID: u.ID})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -100,7 +100,7 @@ func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 		t := userNow(r).AddDate(0, 0, days)
 		opts.ExpiresAt = &t
 	}
-	raw, _, err := s.services.Auth.APITokens.CreateAPIToken(operationContext(r), appmodel.APITokenCreateRequest{UserID: u.ID, Name: name, Options: opts})
+	raw, _, err := s.services.Auth.APITokens.CreateAPIToken(operationContext(r), appmodel.APITokenCreateRequest{UserID: u.ID, CallerID: u.ID, Name: name, Options: opts})
 	if err != nil {
 		http.Redirect(w, r, "/settings/tokens?flash="+encodeFlash(false, s.tokenErrorMessage(r, err)), http.StatusSeeOther)
 		return
@@ -115,7 +115,7 @@ func (s *Server) handleAPITokenDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, _ := UserFrom(r.Context())
-	if err := s.services.Auth.APITokens.DeleteAPIToken(operationContext(r), appmodel.APITokenDeleteRequest{UserID: u.ID, TokenID: id}); err != nil {
+	if err := s.services.Auth.APITokens.DeleteAPIToken(operationContext(r), appmodel.APITokenDeleteRequest{UserID: u.ID, CallerID: u.ID, TokenID: id}); err != nil {
 		msg := s.tokenErrorMessage(r, err)
 		http.Redirect(w, r, "/settings/tokens?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
