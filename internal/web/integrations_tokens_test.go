@@ -14,6 +14,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/netclients"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestAPITokensLifecycle(t *testing.T) {
@@ -26,7 +27,8 @@ func TestAPITokensLifecycle(t *testing.T) {
 		`INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`); err != nil {
 		t.Fatal(err)
 	}
-	raw, tok, err := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: 1, Name: "ext"})
+	ctx = requestctx.WithActor(ctx, 1)
+	raw, tok, err := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: 1, CallerID: 1, Name: "ext"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +42,7 @@ func TestAPITokensLifecycle(t *testing.T) {
 	if _, err := d.APITokenByRaw(ctx, appmodel.APITokenLookupRequest{Raw: "pt_nope"}); err == nil {
 		t.Fatal("bad token accepted")
 	}
-	if err := d.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: 1, TokenID: tok.ID}); err != nil {
+	if err := d.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: 1, CallerID: 1, TokenID: tok.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := d.APITokenByRaw(ctx, appmodel.APITokenLookupRequest{Raw: raw}); err == nil {
@@ -187,6 +189,7 @@ func TestAPITokenScopes(t *testing.T) {
 	ctx := t.Context()
 	var uid int64
 	d.TestSQL().QueryRowContext(ctx, `SELECT id FROM users WHERE email = 'scopes@x.test'`).Scan(&uid)
+	ctx = requestctx.WithActor(ctx, uid)
 	call := func(method, path, tok string) int {
 		req, _ := http.NewRequest(method, e.ts.URL+path, strings.NewReader("activity=x"))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -198,7 +201,7 @@ func TestAPITokenScopes(t *testing.T) {
 		resp.Body.Close()
 		return resp.StatusCode
 	}
-	ro, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, Name: "ro", Options: db.TokenOptions{ReadOnly: true}})
+	ro, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, CallerID: uid, Name: "ro", Options: db.TokenOptions{ReadOnly: true}})
 	if c := call("GET", "/api/me", ro); c != 200 {
 		t.Errorf("read-only GET: %d", c)
 	}
@@ -215,11 +218,11 @@ func TestAPITokenScopes(t *testing.T) {
 	}
 	mixed.Body.Close()
 	past := time.Now().Add(-time.Hour)
-	old, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, Name: "old", Options: db.TokenOptions{ExpiresAt: &past}})
+	old, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, CallerID: uid, Name: "old", Options: db.TokenOptions{ExpiresAt: &past}})
 	if c := call("GET", "/api/me", old); c != 401 {
 		t.Errorf("expired token: %d, want 401", c)
 	}
-	rw, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, Name: "rw"})
+	rw, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, CallerID: uid, Name: "rw"})
 	if c := call("POST", "/api/start", rw); c != 200 {
 		t.Errorf("read-write POST: %d", c)
 	}
