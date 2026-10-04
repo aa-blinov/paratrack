@@ -184,6 +184,15 @@ if printf '%s\n' "$focus_handler" | grep -q 'Tracking\.Queries\.FindActivity' ||
 	exit 1
 fi
 
+# Starting from an imported task coordinates the integration lookup and timer
+# start in an application workflow, not in the HTTP adapter.
+integration_start_handler=$(sed -n '/^func (s \*Server) handleIntegrationStart(/,/^}/p' internal/web/handlers_integrations.go)
+if printf '%s\n' "$integration_start_handler" | grep -q 'Integrations\.Queries\.Task' ||
+	! printf '%s\n' "$integration_start_handler" | grep -q 'ImportedTaskTracking\.Start'; then
+	echo "architecture check: imported-task timer start must use its coordinating workflow" >&2
+	exit 1
+fi
+
 # Workspace section settings must be read through the request-scoped cache so
 # route guards and page navigation share one consistent snapshot.
 module_settings_reads=$(grep -Rho 'Settings\.SectionModules[[:space:]]*(' internal/web --include='*.go' --exclude='*_test.go' | wc -l | tr -d ' ')

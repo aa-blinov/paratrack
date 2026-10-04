@@ -505,6 +505,10 @@ page without taking over orchestration.
 Integration management reads assemble credential-free connection summaries
 with imported-task counts, and detail reads return the connection with its
 tasks. The HTTP adapter formats those results without grouping task records.
+`internal/integrationtracking` composes a workspace-scoped imported-task lookup
+with the tracking coordinator's named start operation. This keeps the task to
+activity mapping in an application use case instead of sequencing integration
+and tracking workflows in the HTTP handler.
 The `internal/integrations/providers` adapter implements the shared
 `internal/integrationport` provider contract, owns provider HTTP parsing and
 pagination, and receives its HTTP client and Jira/GitLab default sites from
