@@ -89,7 +89,9 @@ func NewCLIServices(database *db.DB, config CLIConfig) (*cliport.Services, io.Cl
 		TimerOperations: trackingOpsService,
 		ActivityCatalog: shared.Tracking,
 		SessionHistory:  shared.Tracking,
-		Tagging:         shared.Tagging,
-		Goals:           shared.Goals,
+		TagQueries:      shared.Tagging,
+		TagCommands:     shared.Tagging,
+		GoalQueries:     shared.Goals,
+		GoalCommands:    shared.Goals,
 	}, resources, nil
 }

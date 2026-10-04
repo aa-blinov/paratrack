@@ -24,15 +24,18 @@ type Services struct {
 	ProjectLookup   ProjectLookup
 	ProjectQueries  ProjectQueries
 	ProjectCommands ProjectCommands
-	Tagging         Tagging
-	Goals           Goals
+	TagQueries      TagQueries
+	TagCommands     TagCommands
+	GoalQueries     GoalQueries
+	GoalCommands    GoalCommands
 }
 
 func (s *Services) Validate() error {
 	if s == nil || depcheck.IsNil(s.TimerQueries) || depcheck.IsNil(s.TimerCommands) || depcheck.IsNil(s.TimerOperations) || depcheck.IsNil(s.ActivityCatalog) ||
 		depcheck.IsNil(s.SessionHistory) || depcheck.IsNil(s.Workspace) || depcheck.IsNil(s.ProjectLookup) ||
 		depcheck.IsNil(s.ProjectQueries) || depcheck.IsNil(s.ProjectCommands) ||
-		depcheck.IsNil(s.Tagging) || depcheck.IsNil(s.Goals) {
+		depcheck.IsNil(s.TagQueries) || depcheck.IsNil(s.TagCommands) ||
+		depcheck.IsNil(s.GoalQueries) || depcheck.IsNil(s.GoalCommands) {
 		return ErrIncompleteServices
 	}
 	return nil
@@ -102,15 +105,25 @@ type ProjectCommands interface {
 	Delete(context.Context, appmodel.ProjectMutationRequest) error
 }
 
-type Tagging interface {
-	CreateForMember(context.Context, appmodel.TagCreateRequest) (model.Tag, error)
+// TagQueries supplies tag catalogs for CLI output.
+type TagQueries interface {
 	ListWithCounts(context.Context, int64) ([]model.TagWithCount, error)
+}
+
+// TagCommands creates tags and changes session assignments.
+type TagCommands interface {
+	CreateForMember(context.Context, appmodel.TagCreateRequest) (model.Tag, error)
 	AttachForMember(context.Context, appmodel.SessionTagRequest) error
 	DetachForMember(context.Context, appmodel.SessionTagRequest) error
 }
 
-type Goals interface {
-	UpsertForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
+// GoalQueries supplies current goal progress for CLI output.
+type GoalQueries interface {
 	Progress(context.Context, int64, time.Time) ([]model.GoalProgress, error)
+}
+
+// GoalCommands creates and removes manager-owned goal targets.
+type GoalCommands interface {
+	UpsertForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
 	DeleteForManager(context.Context, appmodel.GoalDeleteRequest) error
 }
