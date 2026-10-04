@@ -179,7 +179,6 @@ type SessionTagReader interface {
 type ProjectQueries interface {
 	Activities(context.Context, int64, int64, bool) ([]model.Activity, error)
 	Activity(context.Context, int64, int64, time.Time, time.Time) (model.ProjectActivitySummary, error)
-	ClientDefaults(context.Context, int64) (map[int64]model.ProjectClient, error)
 	Currency(context.Context, int64, int64) (string, error)
 	GetBySlug(context.Context, int64, string) (model.Project, error)
 	List(context.Context, int64, bool) ([]model.Project, error)
@@ -223,6 +222,7 @@ type InvoiceDependencies struct {
 // InvoiceQueries provides the read capabilities used by invoice pages and
 // payment handlers.
 type InvoiceQueries interface {
+	DraftOptions(context.Context, int64) (appmodel.InvoiceDraftOptions, error)
 	Get(context.Context, int64, int64) (model.InvoiceDetails, error)
 	List(context.Context, int64) ([]model.InvoiceDetails, error)
 	StripeReady(context.Context, int64) (bool, error)
