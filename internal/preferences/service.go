@@ -92,8 +92,11 @@ func (s *Service) Load(ctx context.Context, userID int64) (Prefs, error) {
 }
 
 func (s *Service) Save(ctx context.Context, request appmodel.PreferencesSaveRequest) error {
-	if request.UserID <= 0 || request.TeamID <= 0 {
+	if request.UserID <= 0 || request.CallerID <= 0 || request.TeamID <= 0 {
 		return model.ErrNotFound
+	}
+	if request.UserID != request.CallerID {
+		return model.ErrForbidden
 	}
 	userID, teamID, prefs := request.UserID, request.TeamID, request.Preferences
 	if projectID := prefs.DefaultProject[fmt.Sprint(teamID)]; projectID > 0 {
@@ -115,7 +118,7 @@ func (s *Service) Save(ctx context.Context, request appmodel.PreferencesSaveRequ
 	if len(raw) > 16*1024 {
 		return ErrInvalidPreferences
 	}
-	if err := s.store.SetUserPrefs(ctx, appmodel.UserPrefsSaveCommand{UserID: userID, JSON: string(raw)}); err != nil {
+	if err := s.store.SetUserPrefs(ctx, appmodel.UserPrefsSaveCommand{UserID: userID, CallerID: request.CallerID, JSON: string(raw)}); err != nil {
 		return fmt.Errorf("save user preferences: %w", err)
 	}
 	return nil

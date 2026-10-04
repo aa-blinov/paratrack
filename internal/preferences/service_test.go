@@ -47,7 +47,7 @@ func TestSaveRejectsDefaultProjectFromAnotherWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, TeamID: 7, Preferences: Prefs{
+	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, CallerID: 5, TeamID: 7, Preferences: Prefs{
 		DefaultProject: map[string]int64{"7": 42},
 	}})
 	if !errors.Is(err, ErrInvalidDefaultProject) {
@@ -55,6 +55,21 @@ func TestSaveRejectsDefaultProjectFromAnotherWorkspace(t *testing.T) {
 	}
 	if projects.calls != 1 || projects.teamID != 7 || projects.projectID != 42 {
 		t.Fatalf("project lookup = (%d, %d, calls %d), want (7, 42, 1)", projects.teamID, projects.projectID, projects.calls)
+	}
+	if store.saveCall != 0 {
+		t.Fatalf("preference store writes = %d, want 0", store.saveCall)
+	}
+}
+
+func TestSaveRejectsPreferencesForAnotherUser(t *testing.T) {
+	store := &preferenceStoreStub{}
+	service, err := New(store, &projectLookupStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 10, CallerID: 5, TeamID: 7})
+	if !errors.Is(err, model.ErrForbidden) {
+		t.Fatalf("Save error = %v, want request rejected", err)
 	}
 	if store.saveCall != 0 {
 		t.Fatalf("preference store writes = %d, want 0", store.saveCall)
@@ -69,7 +84,7 @@ func TestSaveIgnoresDefaultsForOtherWorkspaces(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, TeamID: 7, Preferences: Prefs{
+	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, CallerID: 5, TeamID: 7, Preferences: Prefs{
 		DefaultProject: map[string]int64{"9": 42},
 	}})
 	if err != nil {
@@ -94,7 +109,7 @@ func TestPreferencesKeepPersistedJSONShape(t *testing.T) {
 		WeekStart:      "monday",
 		DefaultProject: map[string]int64{"7": 42},
 	}
-	if err := service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, TeamID: 7, Preferences: want}); err != nil {
+	if err := service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, CallerID: 5, TeamID: 7, Preferences: want}); err != nil {
 		t.Fatalf("Save error = %v", err)
 	}
 	if store.stored != `{"hidden":["reports"],"week_start":"monday","default_project":{"7":42}}` {
@@ -116,7 +131,7 @@ func TestSaveRejectsOversizedPreferencesBeforeWriting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, TeamID: 7, Preferences: Prefs{
+	err = service.Save(context.Background(), appmodel.PreferencesSaveRequest{UserID: 5, CallerID: 5, TeamID: 7, Preferences: Prefs{
 		HiddenSections: []string{strings.Repeat("x", 16*1024)},
 	}})
 	if !errors.Is(err, ErrInvalidPreferences) {
