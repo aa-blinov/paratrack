@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ExportData, GoalsData, GraphData, InvoiceDetailData, InvoicesData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData } from "@/dashboard/types"
+import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -30,6 +30,9 @@ const StatsPage = lazy(() => import("@/stats/stats-page").then(module => ({ defa
 const ReportsPage = lazy(() => import("@/reports/reports-page").then(module => ({ default: module.ReportsPage })))
 const ReportRunPage = lazy(() => import("@/reports/reports-page").then(module => ({ default: module.ReportRunPage })))
 const ExportPage = lazy(() => import("@/export/export-page").then(module => ({ default: module.ExportPage })))
+const IntegrationsPage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.IntegrationsPage })))
+const IntegrationDetailPage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.IntegrationDetailPage })))
+const MarketplacePage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.MarketplacePage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -237,6 +240,12 @@ if (root && payload) {
             ? <ReportsPage data={initial.data as ReportsData} />
             : "ReportsEnabled" in initial.data
             ? <ExportPage data={initial.data as ExportData} />
+            : "MarketReact" in initial.data && initial.data.MarketReact
+            ? <MarketplacePage data={initial.data as MarketplaceData} />
+            : "IntegrationReact" in initial.data && initial.data.IntegrationReact
+            ? <IntegrationDetailPage data={initial.data as IntegrationDetailData} />
+            : "IntegrationsReact" in initial.data && initial.data.IntegrationsReact
+            ? <IntegrationsPage data={initial.data as IntegrationsData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

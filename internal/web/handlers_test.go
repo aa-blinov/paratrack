@@ -239,6 +239,30 @@ func TestExportPageBootstrapsReact(t *testing.T) {
 	}
 }
 
+func TestIntegrationPagesBootstrapReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	for _, tc := range []struct {
+		path   string
+		marker string
+	}{
+		{path: "/integrations", marker: `"IntegrationsReact":true`},
+		{path: "/integrations/marketplace", marker: `"MarketReact":true`},
+	} {
+		req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+		req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+		response := httptest.NewRecorder()
+		srv.routes().ServeHTTP(response, req)
+		if response.Code != http.StatusOK {
+			t.Fatalf("GET %s status=%d body=%q", tc.path, response.Code, response.Body.String())
+		}
+		for _, marker := range []string{`id="react-page-data"`, `id="paratrack-react-root"`, tc.marker} {
+			if !strings.Contains(response.Body.String(), marker) {
+				t.Errorf("GET %s missing React bootstrap marker %q", tc.path, marker)
+			}
+		}
+	}
+}
+
 func TestTimesheetPageBootstrapsReact(t *testing.T) {
 	srv, token := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/timesheet", nil)

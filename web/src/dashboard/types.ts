@@ -482,7 +482,35 @@ export interface ExportData {
   ReportsEnabled: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData
+export interface IntegrationsData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  IntegrationsReact: boolean
+  Items: Array<{ ID: number; Provider: string; Name: string; TaskCount: number }>
+  Flash: string
+  FlashOK: boolean
+}
+
+export interface IntegrationDetailData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  IntegrationReact: boolean
+  Integration: { ID: number; Provider: string; Name: string; TaskCount: number }
+  Tasks: Array<{ ID: number; Title: string; URL: string; Status: string; ExternalID: string }>
+  Flash: string
+  FlashOK: boolean
+}
+
+export interface MarketplaceData {
+  Active: string
+  Lang: string
+  MarketReact: boolean
+  Items: Array<{ ID: string; Name: string; Category: string; Icon: string; Blurb: string; Available: boolean; Connected: boolean; SecretHint: string; TargetHint: string }>
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
