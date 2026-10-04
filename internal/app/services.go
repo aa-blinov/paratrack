@@ -19,6 +19,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/integrations/providers"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mailqueue"
+	"github.com/aa-blinov/paratrack/internal/memberadmin"
 	"github.com/aa-blinov/paratrack/internal/netclients"
 	"github.com/aa-blinov/paratrack/internal/payroll"
 	"github.com/aa-blinov/paratrack/internal/payrollops"
@@ -140,6 +141,10 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct payroll service: %w", err)
 	}
+	memberAdminService, err := memberadmin.New(memberadmin.Dependencies{Members: teamService, Payroll: payrollService})
+	if err != nil {
+		return nil, fmt.Errorf("construct member administration service: %w", err)
+	}
 	schedulingService, err := scheduling.New(scheduling.Dependencies{Store: database, Projects: projectService})
 	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)
@@ -232,6 +237,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Reports:       reportService,
 		ReportBuilder: reportBuilder,
 		Dashboard:     dashboardBuilder,
+		MemberAdmin:   memberAdminService,
 		Push:          pushService,
 		Tagging:       taggingService,
 		Goals:         goalService,

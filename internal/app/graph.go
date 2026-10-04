@@ -13,6 +13,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/integrations"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mailqueue"
+	"github.com/aa-blinov/paratrack/internal/memberadmin"
 	"github.com/aa-blinov/paratrack/internal/payroll"
 	"github.com/aa-blinov/paratrack/internal/payrollops"
 	"github.com/aa-blinov/paratrack/internal/preferences"
@@ -50,6 +51,7 @@ type Services struct {
 	Reports       *savedreports.Service
 	ReportBuilder *savedreports.Builder
 	Dashboard     *dashboard.Builder
+	MemberAdmin   *memberadmin.Service
 	Push          *push.Service
 	Tagging       *tagging.Service
 	Goals         *goals.Service

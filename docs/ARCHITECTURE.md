@@ -776,6 +776,11 @@ removal, verifies current
 membership and project ownership under locks, and reports read/scan failures
 instead of returning partially populated plans.
 
+The `internal/memberadmin` read workflow assembles the workspace member
+directory with payroll settings through separate narrow ports. The HTTP adapter
+formats rates for the active locale; teams and payroll retain ownership of
+their membership and compensation rules.
+
 `internal/billing` coordinates both manual and Stripe payment transitions with
 the same `invoice.paid` event. The manual transition runs its scoped invoice
 read and idempotent manager-authorized write through invoicing before billing

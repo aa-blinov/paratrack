@@ -270,6 +270,13 @@ type WebhookDeliveryView struct {
 	Error     string
 }
 
+// TeamMemberManagementSnapshot contains the member directory and payroll
+// settings needed by the team members page.
+type TeamMemberManagementSnapshot struct {
+	Members     []model.TeamMember
+	PaySettings []model.MemberPayrollSettings
+}
+
 type PayrollRunSummary struct {
 	Run                  model.PayrollRun
 	TotalCents           int
