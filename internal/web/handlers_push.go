@@ -78,7 +78,7 @@ func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 // handleNotificationsPage renders the push settings card.
 func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
-	data := notifyPage{pageData: pageData{Title: "Notifications", Active: "settings-notify", Lang: lang}}
+	data := notifyPage{pageData: pageData{Title: "Notifications", Active: "settings-notify", Lang: lang, ReactApp: true}, NotificationsReact: true}
 	deviceCount, err := s.services.Push.SubscriptionCount(r.Context(), teamID(r))
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -90,9 +90,10 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 
 type notifyPage struct {
 	pageData
-	DeviceCount int
-	Flash       string
-	FlashOK     bool
+	NotificationsReact bool
+	DeviceCount        int
+	Flash              string
+	FlashOK            bool
 }
 
 func (p *notifyPage) setCSRF(t string) { p.pageData.setCSRF(t) }
