@@ -142,7 +142,7 @@ type GoalWorkflow interface {
 	Management(context.Context, appmodel.GoalProgressQuery) (appmodel.GoalManagementSnapshot, error)
 	DeleteForManager(context.Context, appmodel.GoalDeleteRequest) error
 	List(context.Context, appmodel.GoalListQuery) ([]model.Goal, error)
-	Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
+	Progress(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error)
 	UpsertForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
 }
 

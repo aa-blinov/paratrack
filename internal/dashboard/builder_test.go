@@ -28,7 +28,7 @@ func (sessionReaderStub) SessionActivity(context.Context, appmodel.SessionLookup
 }
 
 func (goalsStub) Activities(context.Context, int64) ([]model.Activity, error) { return nil, nil }
-func (goalsStub) Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
+func (goalsStub) Progress(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error) {
 	return nil, errors.New("optional widget unavailable")
 }
 

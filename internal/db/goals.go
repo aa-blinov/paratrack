@@ -184,7 +184,7 @@ func (d *DB) ListGoals(ctx context.Context, query appmodel.GoalListQuery) ([]mod
 
 // GoalProgress is kept as an adapter alias for callers that used the older
 // db package type name.
-type GoalProgress = model.GoalProgress
+type GoalProgress = appmodel.GoalProgress
 
 // ProgressForGoals joins the configured goals (in teamID) with the
 // actual minutes tracked in each goal's current period. Active
