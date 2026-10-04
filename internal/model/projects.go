@@ -24,10 +24,11 @@ type ProjectActivitySummary struct {
 
 // ProjectDetail groups the team-scoped reads needed to render a project page.
 type ProjectDetail struct {
-	Project    Project
-	Activities []Activity
-	Activity   ProjectActivitySummary
-	Currency   string
+	Project         Project
+	Activities      []Activity
+	Activity        ProjectActivitySummary
+	Currency        string
+	EstimatePercent int
 }
 
 // ProjectSummary is the public subset used by session rows and exports.

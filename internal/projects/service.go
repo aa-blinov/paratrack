@@ -261,7 +261,14 @@ func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequ
 	if err != nil {
 		return model.ProjectDetail{}, fmt.Errorf("load project currency: %w", err)
 	}
-	return model.ProjectDetail{Project: project, Activities: activities, Activity: activity, Currency: currency}, nil
+	estimatePercent := 0
+	if project.EstimateMinutes != nil && *project.EstimateMinutes > 0 {
+		estimatePercent = money.PercentRatio(activity.TotalSeconds, *project.EstimateMinutes, 5, 3)
+	}
+	return model.ProjectDetail{
+		Project: project, Activities: activities, Activity: activity,
+		Currency: currency, EstimatePercent: estimatePercent,
+	}, nil
 }
 
 var ErrRebindForbidden = model.ErrProjectRebindForbidden
