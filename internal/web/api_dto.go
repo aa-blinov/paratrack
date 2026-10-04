@@ -144,10 +144,11 @@ func goalProgressFor(progress []appmodel.GoalProgress) []goalProgressResponse {
 }
 
 type tagResponse struct {
-	ID        int64     `json:"id"`
-	Name      string    `json:"name"`
-	TeamID    int64     `json:"team_id"`
-	CreatedAt time.Time `json:"created_at"`
+	ID           int64     `json:"id"`
+	Name         string    `json:"name"`
+	TeamID       int64     `json:"team_id"`
+	CreatedAt    time.Time `json:"created_at"`
+	SessionCount int       `json:"session_count"`
 }
 
 func (tagResponse) isJSONResponse() {}
@@ -269,16 +270,6 @@ type externalTasksResponse struct {
 }
 
 func (externalTasksResponse) isJSONResponse() {}
-
-func tagsFor(tags []model.Tag) []tagResponse {
-	responses := make([]tagResponse, 0, len(tags))
-	for _, tag := range tags {
-		responses = append(responses, tagResponse{
-			ID: tag.ID, Name: tag.Name, TeamID: tag.TeamID, CreatedAt: tag.CreatedAt,
-		})
-	}
-	return responses
-}
 
 func tagFor(tag model.Tag) tagResponse {
 	return tagResponse{ID: tag.ID, Name: tag.Name, TeamID: tag.TeamID, CreatedAt: tag.CreatedAt}

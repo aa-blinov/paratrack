@@ -848,6 +848,19 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 13
         print("\n== 13. Tags — page, attach/detach, filter")
+        page.goto(BASE + "/tags")
+        check("tags page mounts React/shadcn controls",
+              page.locator('#paratrack-react-root form [data-slot="input"]').count() == 1)
+        react_tag = f"react-ui-{int(time.time())}"
+        page.fill("#new-tag-name", react_tag)
+        page.get_by_role("button", name="Add").click()
+        react_tag_chip = page.get_by_text(f"#{react_tag}", exact=True)
+        expect(react_tag_chip).to_be_visible()
+        check("tags form creates a chip", react_tag_chip.count() == 1)
+        page.once("dialog", lambda dialog: dialog.accept())
+        page.get_by_role("button", name=f"Delete tag: {react_tag}").click()
+        expect(react_tag_chip).to_have_count(0)
+
         # Seed a tag + attach it to the first session in /stats.
         created = api(page, 'post', 
             BASE + "/api/tags",
@@ -859,6 +872,8 @@ def main() -> int:
         body = tags_list.json()
         names = [t["name"] for t in body["tags"]]
         check("tag list contains e2e-test", "e2e-test" in names)
+        check("tag API includes session usage counts",
+              all("session_count" in tag for tag in body["tags"]))
 
         # Attach to first closed session via API.
         all_sessions = page.request.get(BASE + "/api/active")

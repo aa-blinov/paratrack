@@ -178,7 +178,26 @@ export interface GoalsData {
   Goals: GoalView[]
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData
+export interface TagView {
+  ID: number
+  Name: string
+  SessionCount: number
+  Lang: string
+}
+
+export interface TagsData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  ReactTags: boolean
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  Tags: TagView[]
+  AllTagNames: string[]
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
