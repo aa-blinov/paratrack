@@ -19,26 +19,15 @@ func (s *Server) buildActiveListVM(r *http.Request) (activeListVM, error) {
 	if err != nil {
 		return activeListVM{}, fmt.Errorf("resolve active-list day period: %w", err)
 	}
-	active, err := s.services.Tracking.Queries.ActiveSessions(ctx, team)
+	snapshot, err := s.services.Dashboard.BuildActiveList(ctx, team)
 	if err != nil {
 		return activeListVM{}, err
 	}
-	views := activeSessionViews(active, today.Start, today.End, now, resolveLang(r), durFmtOf(r))
-	hydrateSessionTags(ctx, s.services.SessionTags, team, views, s.logger)
-	hydrateSessionProjects(ctx, s.services.Projects.Queries, team, views, s.logger)
+	views := activeSessionViews(snapshot.ActiveSessions, today.Start, today.End, now, resolveLang(r), durFmtOf(r))
+	attachSessionTags(views, snapshot.TagsBySession)
+	attachSessionProjects(views, snapshot.ProjectsByID)
 	vm := activeListVM{Lang: string(resolveLang(r)), Items: views, Running: countRunning(views)}
-	projects, err := s.services.Projects.Queries.List(ctx, team, false)
-	if err != nil {
-		return activeListVM{}, err
-	}
-	vm.Projects = projectViews(projects)
-	if len(views) == 0 {
-		seen, err := s.services.Tracking.Queries.HasAnySession(ctx, team)
-		if err != nil {
-			return activeListVM{}, err
-		}
-		vm.FirstRun = !seen
-	}
+	vm.Projects, vm.FirstRun = projectViews(snapshot.Projects), snapshot.FirstRun
 	return vm, nil
 }
 

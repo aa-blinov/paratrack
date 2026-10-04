@@ -117,41 +117,8 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	if snapshot.Projects, err = b.projects.List(ctx, query.TeamID, false); err != nil {
 		return Snapshot{}, fmt.Errorf("load dashboard projects: %w", err)
 	}
-	sessionIDs := make([]int64, 0, len(snapshot.ActiveSessions)+len(snapshot.TodaySessions)+len(snapshot.RecentSessions))
-	projectIDs := make([]int64, 0)
-	seenSessions, seenProjects := map[int64]bool{}, map[int64]bool{}
-	for _, sessions := range [][]model.ActiveSession{snapshot.ActiveSessions, snapshot.TodaySessions, snapshot.RecentSessions} {
-		for _, item := range sessions {
-			if !seenSessions[item.Session.ID] {
-				seenSessions[item.Session.ID] = true
-				sessionIDs = append(sessionIDs, item.Session.ID)
-			}
-			projectID := item.Activity.ProjectID
-			if projectID > 0 && !seenProjects[projectID] {
-				seenProjects[projectID] = true
-				projectIDs = append(projectIDs, projectID)
-			}
-		}
-	}
-	// These are display enrichments. Failed optional lookups should not hide
-	// the dashboard, matching the adapter's former best-effort behavior. Log
-	// failures so an incomplete snapshot remains diagnosable.
-	if len(sessionIDs) > 0 {
-		tags, err := b.tags.TagsForSessions(ctx, query.TeamID, sessionIDs)
-		if err != nil {
-			b.logger.Printf("dashboard: load session tags for team %d: %v", query.TeamID, err)
-		} else {
-			snapshot.TagsBySession = tags
-		}
-	}
-	if len(projectIDs) > 0 {
-		summaries, err := b.projects.Summaries(ctx, query.TeamID, projectIDs)
-		if err != nil {
-			b.logger.Printf("dashboard: load project summaries for team %d: %v", query.TeamID, err)
-		} else {
-			snapshot.ProjectsByID = summaries
-		}
-	}
+	sessionIDs, projectIDs := collectSessionReferences(snapshot.ActiveSessions, snapshot.TodaySessions, snapshot.RecentSessions)
+	snapshot.TagsBySession, snapshot.ProjectsByID = b.enrichSessions(ctx, query.TeamID, sessionIDs, projectIDs)
 	snapshot.HasSession = len(snapshot.ActiveSessions) > 0 || len(snapshot.RecentSessions) > 0
 	if !snapshot.HasSession {
 		snapshot.HasSession, err = b.tracking.HasAnySession(ctx, query.TeamID)
@@ -172,4 +139,78 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 		}
 	}
 	return snapshot, nil
+}
+
+// BuildActiveList coordinates the read model used by the active-session
+// fragment. Store access remains in the owning workflows; first-run state and
+// optional row enrichments are assembled here rather than in the HTTP adapter.
+func (b *Builder) BuildActiveList(ctx context.Context, teamID int64) (appmodel.ActiveListSnapshot, error) {
+	if teamID <= 0 {
+		return appmodel.ActiveListSnapshot{}, ErrInvalidQuery
+	}
+	active, err := b.tracking.ActiveSessions(ctx, teamID)
+	if err != nil {
+		return appmodel.ActiveListSnapshot{}, fmt.Errorf("load active sessions: %w", err)
+	}
+	projects, err := b.projects.List(ctx, teamID, false)
+	if err != nil {
+		return appmodel.ActiveListSnapshot{}, fmt.Errorf("load active-list projects: %w", err)
+	}
+	ids, projectIDs := collectSessionReferences(active)
+	tags, summaries := b.enrichSessions(ctx, teamID, ids, projectIDs)
+	firstRun := false
+	if len(active) == 0 {
+		hasSession, err := b.tracking.HasAnySession(ctx, teamID)
+		if err != nil {
+			return appmodel.ActiveListSnapshot{}, fmt.Errorf("check active-list first run: %w", err)
+		}
+		firstRun = !hasSession
+	}
+	return appmodel.ActiveListSnapshot{
+		ActiveSessions: active, Projects: projects, TagsBySession: tags,
+		ProjectsByID: summaries, FirstRun: firstRun,
+	}, nil
+}
+
+func collectSessionReferences(sessionGroups ...[]model.ActiveSession) ([]int64, []int64) {
+	var sessionIDs, projectIDs []int64
+	seenSessions, seenProjects := map[int64]bool{}, map[int64]bool{}
+	for _, sessions := range sessionGroups {
+		for _, item := range sessions {
+			if !seenSessions[item.Session.ID] {
+				seenSessions[item.Session.ID] = true
+				sessionIDs = append(sessionIDs, item.Session.ID)
+			}
+			projectID := item.Activity.ProjectID
+			if projectID > 0 && !seenProjects[projectID] {
+				seenProjects[projectID] = true
+				projectIDs = append(projectIDs, projectID)
+			}
+		}
+	}
+	return sessionIDs, projectIDs
+}
+
+func (b *Builder) enrichSessions(ctx context.Context, teamID int64, sessionIDs, projectIDs []int64) (map[int64][]model.Tag, map[int64]model.ProjectSummary) {
+	var tagsBySession map[int64][]model.Tag
+	var projectsByID map[int64]model.ProjectSummary
+	// Row decorations are best-effort so a tags or project lookup failure does
+	// not make the active timer list unavailable.
+	if len(sessionIDs) > 0 {
+		tags, err := b.tags.TagsForSessions(ctx, teamID, sessionIDs)
+		if err != nil {
+			b.logger.Printf("dashboard: load session tags for team %d: %v", teamID, err)
+		} else {
+			tagsBySession = tags
+		}
+	}
+	if len(projectIDs) > 0 {
+		summaries, err := b.projects.Summaries(ctx, teamID, projectIDs)
+		if err != nil {
+			b.logger.Printf("dashboard: load project summaries for team %d: %v", teamID, err)
+		} else {
+			projectsByID = summaries
+		}
+	}
+	return tagsBySession, projectsByID
 }
