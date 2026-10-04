@@ -37,8 +37,10 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := invoiceDetailPage{
-		pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))},
-		Inv:      vm,
+		pageData:      pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r)), ReactApp: true},
+		InvoiceReact:  true,
+		InvoiceDetail: true,
+		Inv:           vm,
 	}
 	data.Seller = s.sellerName(r)
 	data.StripeReady = stripeReady
