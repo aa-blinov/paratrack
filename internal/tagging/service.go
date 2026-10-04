@@ -26,7 +26,7 @@ type TagStore interface {
 
 // SessionActivityReader provides the scoped lookup needed to refresh a tagged row.
 type SessionActivityReader interface {
-	GetSession(context.Context, int64, int64) (model.Session, error)
+	GetSession(context.Context, appmodel.SessionLookupQuery) (model.Session, error)
 	GetActivity(context.Context, appmodel.ActivityLookupQuery) (model.Activity, error)
 }
 
@@ -125,7 +125,7 @@ func (s *Service) SessionActivity(ctx context.Context, teamID, sessionID int64) 
 	if teamID <= 0 || sessionID <= 0 {
 		return model.Session{}, model.Activity{}, ErrInvalidSession
 	}
-	session, err := s.sessionActivities.GetSession(ctx, teamID, sessionID)
+	session, err := s.sessionActivities.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: sessionID})
 	if err != nil {
 		return model.Session{}, model.Activity{}, fmt.Errorf("load tagged session: %w", err)
 	}

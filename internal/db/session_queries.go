@@ -7,12 +7,17 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-// GetSession fetches a session by id. Pass teamID > 0 to require the
-// session to belong to that workspace (0 = legacy / test-only).
-func (d *DB) GetSession(ctx context.Context, teamID, id int64) (model.Session, error) {
+// GetSession fetches a session by id. A positive team ID constrains the read
+// to that workspace; zero is reserved for legacy and actor-scoped tests.
+func (d *DB) GetSession(ctx context.Context, query appmodel.SessionLookupQuery) (model.Session, error) {
+	teamID, id := query.TeamID, query.SessionID
+	if id <= 0 {
+		return model.Session{}, ErrNotFound
+	}
 	q := sessionSelect + ` WHERE s.id = ?`
 	args := []any{id}
 	var sc string

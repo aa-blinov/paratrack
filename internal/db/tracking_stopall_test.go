@@ -37,7 +37,7 @@ func TestStopActiveSessionsReturnsCommittedTransitionSnapshots(t *testing.T) {
 		!got.StartAt.Equal(start) || got.EndAt == nil || !got.EndAt.Equal(end) || got.AccumulatedSeconds != 35*60 {
 		t.Fatalf("stopped session snapshot = %+v", got)
 	}
-	stored, err := d.GetSession(ctx, teamID, session.ID)
+	stored, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: session.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

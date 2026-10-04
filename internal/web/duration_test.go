@@ -195,7 +195,7 @@ func TestSessionMutationsScopedByTeam(t *testing.T) {
 	}
 
 	// Team 2 must not see or mutate team 1's session.
-	if _, err := d.GetSession(ctx, 2, sess.ID); err == nil {
+	if _, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: 2, SessionID: sess.ID}); err == nil {
 		t.Fatal("team 2 could read team 1 session")
 	}
 	if err := d.DeleteSession(ctx, appmodel.SessionDeleteRequest{TeamID: 2, CallerID: 1, SessionID: sess.ID}); err == nil {
@@ -208,7 +208,7 @@ func TestSessionMutationsScopedByTeam(t *testing.T) {
 		t.Fatal("team 2 could tag team 1 session")
 	}
 	// Owner team still works.
-	if _, err := d.GetSession(ctx, 1, sess.ID); err != nil {
+	if _, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: 1, SessionID: sess.ID}); err != nil {
 		t.Fatalf("team 1 lost access: %v", err)
 	}
 }
