@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, GoalsData, GraphData, InvoiceDetailData, InvoicesData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ScheduleData, Session, TagsData, TimesheetData } from "@/dashboard/types"
+import type { DashboardData, GoalsData, GraphData, InvoiceDetailData, InvoicesData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ScheduleData, Session, StatsData, TagsData, TimesheetData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -26,6 +26,7 @@ const PayrollDetail = lazy(() => import("@/payroll/payroll-page").then(module =>
 const SchedulePage = lazy(() => import("@/schedule/schedule-page").then(module => ({ default: module.SchedulePage })))
 const InvoicesPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoicesPage })))
 const InvoiceDetailPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoiceDetailPage })))
+const StatsPage = lazy(() => import("@/stats/stats-page").then(module => ({ default: module.StatsPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -225,6 +226,8 @@ if (root && payload) {
             ? <InvoicesPage data={initial.data as InvoicesData} />
             : "InvoiceReact" in initial.data && initial.data.InvoiceReact
             ? <InvoiceDetailPage data={initial.data as InvoiceDetailData} />
+            : "ByProject" in initial.data && "Sessions" in initial.data && initial.data.Active === "stats"
+            ? <StatsPage data={initial.data as StatsData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

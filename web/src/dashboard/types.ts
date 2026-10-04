@@ -24,12 +24,15 @@ export interface Session {
   ID: number
   ActivityID: number
   ActivityName: string
+  PersonName?: string
   Color: string
   ProjectID: number
   ProjectName: string
   ProjectColor: string
   ProjectSlug: string
   StartISO: string
+  StartInput?: string
+  EndInput?: string
   ResumeISO: string
   Clock: string
   StartLocal: string
@@ -422,7 +425,32 @@ export interface InvoiceDetailData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData
+export interface StatsData {
+  Title: string
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  Mods: Record<string, boolean>
+  Period: { Start: string; End: string; Label: string }
+  Aggregated: Array<{ ActivityName: string; Color: string; Duration: string; Share: number }>
+  ByProject: Array<{ ProjectID: number; ProjectName: string; Slug: string; Color: string; Duration: string; Share: number; Activities: Array<{ ActivityName: string; Color: string; Duration: string; Share: number }> }>
+  Projects: Project[]
+  ProjectFilter: string
+  People: Array<{ ID: number; Name: string; Selected: boolean }>
+  PersonFilter: number
+  Sessions: Session[]
+  Total: string
+  SessionCount: number
+  SessionsCut: boolean
+  MeID: number
+  ShowAllURL: string
+  TagFilter: string
+  AllTagNames: string[]
+  SavedReports: Array<{ ID: number; Name: string; Period: string; ProjectSlug: string; Tag: string; CreatedBy: number }>
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

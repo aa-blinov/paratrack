@@ -61,7 +61,7 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 		MeID:          user.ID,
 		People:        people,
 		PersonFilter:  stats.PersonFilter,
-		pageData:      pageData{Title: "Stats", Active: "stats"},
+		pageData:      pageData{Title: "Stats", Active: "stats", Lang: string(resolveLang(r)), ReactApp: true},
 		Period:        period,
 		Aggregated:    activities,
 		ByProject:     projects,
