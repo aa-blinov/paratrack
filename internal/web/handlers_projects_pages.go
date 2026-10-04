@@ -276,7 +276,7 @@ func (s *Server) handleProjectRate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slug := strings.TrimSpace(r.PostForm.Get("slug"))
-	p, err := s.services.Projects.Queries.GetBySlug(r.Context(), teamID(r), slug)
+	p, err := s.services.Projects.Queries.GetBySlug(r.Context(), appmodel.ProjectSlugQuery{TeamID: teamID(r), Slug: slug})
 	if err != nil {
 		http.NotFound(w, r)
 		return

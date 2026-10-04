@@ -110,13 +110,14 @@ Application commands, edit fields and options that carry actor, workspace and
 operation inputs live in `appmodel`, keeping use-case data out of the shared
 domain package. Typed request-validation errors shared across workflows,
 persistence ports and adapters live there too; `model` retains domain-state
-conflicts and invariants. `ProjectCatalogQuery` carries workspace scope and
-archived-row selection across project reads in CLI, HTTP, dashboard, reports,
-scheduling, invoicing, workflows and persistence. Goal progress reads carry a
-typed query with the workspace and snapshot instant across CLI, HTTP,
-dashboard, workflow and persistence ports. `ProjectSummariesQuery` keeps a
-batch of project IDs scoped to its workspace across report and session
-decoration workflows. Manager goal writes preserve caller and workspace scope
+conflicts and invariants. `ProjectCatalogQuery` and `ProjectSlugQuery` carry
+workspace scope across project reads in CLI, HTTP, dashboard, reports,
+scheduling, invoicing, workflows and persistence; catalog queries also carry
+archived-row selection. `ProjectSummariesQuery` keeps a batch of project IDs
+scoped to its workspace across report and session decoration workflows. Goal
+progress reads carry a typed query with the workspace and snapshot instant
+across CLI, HTTP, dashboard, workflow and persistence ports. Manager goal
+writes preserve caller and workspace scope
 through the workflow; persistence applies one or more targets in a single
 transaction and rechecks the manager role while holding the workspace lock.
 Provider-produced import entries and task snapshots live in `importport` and

@@ -65,7 +65,7 @@ type graphProjectsStub struct {
 func (s graphProjectsStub) List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	return []model.Project{s.project}, nil
 }
-func (s graphProjectsStub) GetBySlug(context.Context, int64, string) (model.Project, error) {
+func (s graphProjectsStub) GetBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error) {
 	return s.project, nil
 }
 func (graphProjectsStub) Currencies(context.Context, int64) (map[int64]string, error) {
