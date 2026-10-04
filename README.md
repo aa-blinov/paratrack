@@ -112,7 +112,7 @@ CI на GitHub Actions прогоняет юнит-тесты на Postgres, с�
 
 ## Стек
 
-Go 1.27 · PostgreSQL 17 (pgx) · net/http · React 19 + shadcn/ui (dashboard and project list; migration in progress) · html/template · HTMX 2 · Alpine.js 3 · ECharts 5 · Tailwind v4 + DaisyUI v5
+Go 1.27 · PostgreSQL 17 (pgx) · net/http · React 19 + shadcn/ui (dashboard and project pages; migration in progress) · html/template · HTMX 2 · Alpine.js 3 · ECharts 5 · Tailwind v4 + DaisyUI v5
 
 ## Лицензия
 

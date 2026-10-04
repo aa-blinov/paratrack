@@ -40,7 +40,7 @@ Start the local service with `make e2e-up` before running them. Set
 | A. Auth | register, login, logout, forgot-password reachable, lang switch on public pages |
 | B. Timer | start, pause, resume, stop, backfill, dashboard refresh |
 | C. Dashboard | active sessions, focus button, duration readout |
-| C2. React projects | project cards use shadcn primitives; archive filter preserves the React list |
+| C2. React projects | project list cards/archive filter; detail history and edit form submit through existing handlers |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

@@ -22,6 +22,10 @@ export default defineConfig({
         entryFileNames: "app.js",
         chunkFileNames: "chunks/[name]-[hash].js",
         assetFileNames: "app[extname]",
+        manualChunks(id) {
+          if (id.includes("/node_modules/")) return "vendor"
+          if (id.includes("/src/components/ui/") || id.endsWith("/src/lib/utils.ts") || id.endsWith("/src/i18n.ts")) return "ui"
+        },
       },
     },
   },
