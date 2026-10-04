@@ -280,7 +280,7 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	entries, err := d.ListAudit(ctx, teamID, 100)
+	entries, err := d.ListAudit(ctx, appmodel.AuditListQuery{TeamID: teamID, Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -290,7 +290,7 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	if err := svc.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: userID, CallerID: userID, TokenID: token.ID}); err != nil {
 		t.Fatal(err)
 	}
-	entries, err = d.ListAudit(ctx, teamID, 100)
+	entries, err = d.ListAudit(ctx, appmodel.AuditListQuery{TeamID: teamID, Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -312,7 +312,7 @@ func TestRegisterAndStartSessionAuditsTheCreatedWorkspace(t *testing.T) {
 	if session.Token == "" || teamID <= 0 {
 		t.Fatalf("registration result session=%+v team=%d", session, teamID)
 	}
-	entries, err := d.ListAudit(ctx, teamID, 100)
+	entries, err := d.ListAudit(ctx, appmodel.AuditListQuery{TeamID: teamID, Limit: 100})
 	if err != nil {
 		t.Fatal(err)
 	}

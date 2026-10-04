@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -23,13 +24,16 @@ func (d *DB) Audit(ctx context.Context, record model.AuditRecord) error {
 }
 
 // ListAudit returns the team's audit trail, newest first.
-func (d *DB) ListAudit(ctx context.Context, teamID int64, limit int) ([]AuditEntry, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 100
+func (d *DB) ListAudit(ctx context.Context, query appmodel.AuditListQuery) ([]AuditEntry, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrNotFound
+	}
+	if query.Limit <= 0 || query.Limit > 500 {
+		query.Limit = 100
 	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT id, team_id, user_id, action, target, meta, ip, created_at
-		 FROM audit_log WHERE team_id = ? ORDER BY id DESC LIMIT ?`, teamID, limit)
+		 FROM audit_log WHERE team_id = ? ORDER BY id DESC LIMIT ?`, query.TeamID, query.Limit)
 	if err != nil {
 		return nil, err
 	}

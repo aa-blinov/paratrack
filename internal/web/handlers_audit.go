@@ -2,10 +2,12 @@ package web
 
 import (
 	"net/http"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
 func (s *Server) handleAuditPage(w http.ResponseWriter, r *http.Request) {
-	list, err := s.services.AuditLog.List(r.Context(), teamID(r), 100)
+	list, err := s.services.AuditLog.List(r.Context(), appmodel.AuditListQuery{TeamID: teamID(r), Limit: 100})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

@@ -74,7 +74,7 @@ type ProjectDependencies struct {
 
 // AuditWorkflow is the audit query and recording surface used by HTTP routes.
 type AuditWorkflow interface {
-	List(context.Context, int64, int) ([]model.AuditEntry, error)
+	List(context.Context, appmodel.AuditListQuery) ([]model.AuditEntry, error)
 	Record(context.Context, model.AuditRecord) error
 }
 

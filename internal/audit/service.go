@@ -6,13 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 type Store interface {
 	Audit(context.Context, model.AuditRecord) error
-	ListAudit(context.Context, int64, int) ([]model.AuditEntry, error)
+	ListAudit(context.Context, appmodel.AuditListQuery) ([]model.AuditEntry, error)
 }
 
 type Service struct{ store Store }
@@ -59,14 +60,14 @@ func (s *Service) RecordGlobal(ctx context.Context, record model.AuditRecord) er
 	return nil
 }
 
-func (s *Service) List(ctx context.Context, teamID int64, limit int) ([]model.AuditEntry, error) {
-	if teamID <= 0 {
+func (s *Service) List(ctx context.Context, query appmodel.AuditListQuery) ([]model.AuditEntry, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidScope
 	}
-	if limit <= 0 || limit > 500 {
-		limit = 100
+	if query.Limit <= 0 || query.Limit > 500 {
+		query.Limit = 100
 	}
-	items, err := s.store.ListAudit(ctx, teamID, limit)
+	items, err := s.store.ListAudit(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list audit events: %w", err)
 	}
