@@ -186,3 +186,16 @@ type InvoiceDetailResult struct {
 	TotalCents           int
 	TotalHoursHundredths int
 }
+
+type PayrollRunSummary struct {
+	Run                  model.PayrollRun
+	TotalCents           int
+	TotalHoursHundredths int
+}
+
+type PayrollRunDetail struct {
+	Run                  model.PayrollRun
+	Lines                []model.PayrollLine
+	TotalCents           int
+	TotalHoursHundredths int
+}

@@ -2,18 +2,22 @@ package payroll
 
 import (
 	"context"
-	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"errors"
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 type payrollClockStore struct {
 	Store
-	at  time.Time
-	run model.PayrollRun
+	at      time.Time
+	run     model.PayrollRun
+	details model.PayrollRunDetails
+	runs    []model.PayrollRunDetails
 }
 
 type payrollAuditNoop struct{}
@@ -41,6 +45,14 @@ func (s *payrollAuditSpy) Record(_ context.Context, record model.AuditRecord) er
 func (s *payrollClockStore) CreatePayrollDraft(_ context.Context, request appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error) {
 	s.at = request.CreatedAt
 	return s.run, nil, nil
+}
+
+func (s *payrollClockStore) ListPayrollRunDetails(context.Context, int64) ([]model.PayrollRunDetails, error) {
+	return s.runs, nil
+}
+
+func (s *payrollClockStore) GetPayrollRunDetails(context.Context, int64, int64) (model.PayrollRunDetails, error) {
+	return s.details, nil
 }
 
 func TestCreateRunRecordsAuditOnlyWhenDraftWasCreated(t *testing.T) {
@@ -96,5 +108,41 @@ func TestCreateRunPassesOneUTCClockInstantToStore(t *testing.T) {
 	}
 	if clockCalls != 1 {
 		t.Fatalf("clock called %d times, want once", clockCalls)
+	}
+}
+
+func TestPayrollReadResultsIncludeTotals(t *testing.T) {
+	lines := []model.PayrollLine{{Seconds: 1800, AmountCents: 1250}, {Seconds: 5400, AmountCents: 3750}}
+	run := model.PayrollRun{ID: 5, Number: "PAY-5"}
+	store := &payrollClockStore{
+		runs:    []model.PayrollRunDetails{{Run: run, Lines: lines}},
+		details: model.PayrollRunDetails{Run: run, Lines: lines},
+	}
+	service, err := NewServiceWithClock(store, time.Now, payrollAuditNoop{}, payrollLoggerNoop{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	summaries, err := service.ListRuns(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("ListRuns() error = %v", err)
+	}
+	detail, err := service.GetRun(context.Background(), 2, run.ID)
+	if err != nil {
+		t.Fatalf("GetRun() error = %v", err)
+	}
+	if len(summaries) != 1 || summaries[0].TotalCents != 5000 || summaries[0].TotalHoursHundredths != 200 {
+		t.Fatalf("ListRuns() summary = %+v", summaries)
+	}
+	if detail.TotalCents != 5000 || detail.TotalHoursHundredths != 200 || len(detail.Lines) != 2 {
+		t.Fatalf("GetRun() detail = %+v", detail)
+	}
+}
+
+func TestPayrollLineTotalsRejectOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	_, _, err := payrollLineTotals([]model.PayrollLine{{AmountCents: maxInt}, {AmountCents: 1}})
+	if !errors.Is(err, money.ErrOverflow) {
+		t.Fatalf("payrollLineTotals() error = %v, want %v", err, money.ErrOverflow)
 	}
 }

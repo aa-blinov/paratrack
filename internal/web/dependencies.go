@@ -197,8 +197,8 @@ type ProjectCommands interface {
 type PayrollWorkflow interface {
 	CreateRun(context.Context, appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error)
 	DeleteDraft(context.Context, appmodel.PayrollMutationRequest) error
-	GetRun(context.Context, int64, int64) (model.PayrollRunDetails, error)
-	ListRuns(context.Context, int64) ([]model.PayrollRunDetails, error)
+	GetRun(context.Context, int64, int64) (appmodel.PayrollRunDetail, error)
+	ListRuns(context.Context, int64) ([]appmodel.PayrollRunSummary, error)
 	MemberSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UpdateMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 }

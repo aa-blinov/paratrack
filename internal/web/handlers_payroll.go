@@ -41,22 +41,9 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	data := payrollPage{pageData: pageData{Title: "Payroll", Active: "payroll", Lang: lang}}
 	for _, item := range list {
 		run := item.Run
-		total, secs := 0, 0
-		for _, l := range item.Lines {
-			total, err = money.AddCents(total, l.AmountCents)
-			if err != nil {
-				s.writeInternalError(w, err)
-				return
-			}
-			secs, err = money.AddInt(secs, money.HoursHundredths(l.Seconds))
-			if err != nil {
-				s.writeInternalError(w, err)
-				return
-			}
-		}
 		data.Items = append(data.Items, payrollSummary{
 			ID: run.ID, Number: run.Number, Status: run.Status,
-			Total: moneyL(resolveLang(r), total, run.Currency), Hours: fmtHoursL(resolveLang(r), secs),
+			Total: moneyL(resolveLang(r), item.TotalCents, run.Currency), Hours: fmtHoursL(resolveLang(r), item.TotalHoursHundredths),
 			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
 		})
 	}
@@ -153,19 +140,8 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	run, lines := details.Run, details.Lines
 	lang := string(resolveLang(r))
-	total, secs := 0, 0
 	vms := make([]payrollLineVM, 0, len(lines))
 	for _, l := range lines {
-		total, err = money.AddCents(total, l.AmountCents)
-		if err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
-		secs, err = money.AddInt(secs, money.HoursHundredths(l.Seconds))
-		if err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
 		vms = append(vms, payrollLineVM{
 			Label: l.Label, Hours: fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds)),
 			Rate: moneyL(resolveLang(r), l.RateCents, run.Currency), Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
@@ -176,7 +152,8 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
 			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
-			Lines:       vms, Total: moneyL(resolveLang(r), total, run.Currency), TotalCents: total, Hours: fmtHoursL(resolveLang(r), secs),
+			Lines:       vms, Total: moneyL(resolveLang(r), details.TotalCents, run.Currency), TotalCents: details.TotalCents,
+			Hours: fmtHoursL(resolveLang(r), details.TotalHoursHundredths),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {

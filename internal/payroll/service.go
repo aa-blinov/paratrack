@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/postcommit"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
@@ -73,7 +74,7 @@ type RunDetails = model.PayrollRunDetails
 
 type PaidResult = appmodel.PayrollPaidResult
 
-func (s *Service) ListRuns(ctx context.Context, teamID int64) ([]RunDetails, error) {
+func (s *Service) ListRuns(ctx context.Context, teamID int64) ([]appmodel.PayrollRunSummary, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -81,18 +82,51 @@ func (s *Service) ListRuns(ctx context.Context, teamID int64) ([]RunDetails, err
 	if err != nil {
 		return nil, fmt.Errorf("list payroll run details: %w", err)
 	}
-	return runs, nil
+	summaries := make([]appmodel.PayrollRunSummary, 0, len(runs))
+	for _, details := range runs {
+		totalCents, totalHours, err := payrollLineTotals(details.Lines)
+		if err != nil {
+			return nil, fmt.Errorf("summarize payroll run %d: %w", details.Run.ID, err)
+		}
+		summaries = append(summaries, appmodel.PayrollRunSummary{
+			Run: details.Run, TotalCents: totalCents, TotalHoursHundredths: totalHours,
+		})
+	}
+	return summaries, nil
 }
 
-func (s *Service) GetRun(ctx context.Context, teamID, runID int64) (RunDetails, error) {
+func (s *Service) GetRun(ctx context.Context, teamID, runID int64) (appmodel.PayrollRunDetail, error) {
 	if teamID <= 0 || runID <= 0 {
-		return RunDetails{}, ErrInvalidTeam
+		return appmodel.PayrollRunDetail{}, ErrInvalidTeam
 	}
 	details, err := s.store.GetPayrollRunDetails(ctx, teamID, runID)
 	if err != nil {
-		return RunDetails{}, fmt.Errorf("get payroll run: %w", err)
+		return appmodel.PayrollRunDetail{}, fmt.Errorf("get payroll run: %w", err)
 	}
-	return details, nil
+	totalCents, totalHours, err := payrollLineTotals(details.Lines)
+	if err != nil {
+		return appmodel.PayrollRunDetail{}, fmt.Errorf("summarize payroll run %d: %w", details.Run.ID, err)
+	}
+	return appmodel.PayrollRunDetail{
+		Run: details.Run, Lines: details.Lines,
+		TotalCents: totalCents, TotalHoursHundredths: totalHours,
+	}, nil
+}
+
+func payrollLineTotals(lines []model.PayrollLine) (int, int, error) {
+	totalCents, totalHours := 0, 0
+	for _, line := range lines {
+		var err error
+		totalCents, err = money.AddCents(totalCents, line.AmountCents)
+		if err != nil {
+			return 0, 0, err
+		}
+		totalHours, err = money.AddInt(totalHours, money.HoursHundredths(line.Seconds))
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return totalCents, totalHours, nil
 }
 
 func (s *Service) MarkPaid(ctx context.Context, request appmodel.PayrollMutationRequest) (PaidResult, error) {
