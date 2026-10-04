@@ -9,6 +9,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 type graphSessionsStub struct {
@@ -17,16 +18,26 @@ type graphSessionsStub struct {
 	teamID    int64
 	from      time.Time
 	to        time.Time
+	scopedID  int64
 }
 
-func (s *graphSessionsStub) ClosedSessions(_ context.Context, teamID int64, from, to time.Time, _ *int64) ([]model.ActiveSession, error) {
+func (s *graphSessionsStub) ClosedSessions(ctx context.Context, teamID int64, from, to time.Time, _ *int64) ([]model.ActiveSession, error) {
 	s.teamID, s.from, s.to = teamID, from, to
+	s.scopedID = requestctx.ScopedUserID(ctx)
 	return s.all, nil
 }
-func (s *graphSessionsStub) ClosedSessionsForProject(_ context.Context, _ int64, _, _ time.Time, projectID int64) ([]model.ActiveSession, error) {
+func (s *graphSessionsStub) ClosedSessionsForProject(ctx context.Context, _ int64, _, _ time.Time, projectID int64) ([]model.ActiveSession, error) {
 	s.projectID = projectID
+	s.scopedID = requestctx.ScopedUserID(ctx)
 	return s.all, nil
 }
+
+type reportTeamsStub struct{ members []model.TeamMember }
+
+func (s reportTeamsStub) Members(context.Context, int64) ([]model.TeamMember, error) {
+	return s.members, nil
+}
+func (reportTeamsStub) Currency(context.Context, int64) (string, error) { return "RUB", nil }
 
 type graphTagsStub struct {
 	calls     int
@@ -116,6 +127,51 @@ func TestBuildGraphSkipsTagReadWithoutTagFilter(t *testing.T) {
 	}
 	if len(got.Graph.Series) != 1 || tags.calls != 0 {
 		t.Fatalf("series=%d tag reads=%d; want one series and no tag read", len(got.Graph.Series), tags.calls)
+	}
+}
+
+func TestBuildGraphScopesOnlyToNamedMemberOfTheWorkspace(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := from.Add(time.Hour)
+	reader := &graphSessionsStub{}
+	builder := &Builder{
+		sessions: reader, teams: reportTeamsStub{members: []model.TeamMember{
+			{UserID: 5, Email: "five@example.test"}, {UserID: 6},
+		}},
+	}
+	result, err := builder.BuildGraph(context.Background(), GraphQuery{TeamID: 4, From: from, To: to, Now: to, PersonID: 5})
+	if err != nil {
+		t.Fatalf("build graph: %v", err)
+	}
+	if result.PersonFilter != 5 || result.PersonName != "five@example.test" || reader.scopedID != 5 {
+		t.Fatalf("member report scope = result(%d, %q), query scope %d", result.PersonFilter, result.PersonName, reader.scopedID)
+	}
+	reader.scopedID = 0
+	result, err = builder.BuildGraph(context.Background(), GraphQuery{TeamID: 4, From: from, To: to, Now: to, PersonID: 6})
+	if err != nil {
+		t.Fatalf("build graph for unnamed member: %v", err)
+	}
+	if result.PersonFilter != 0 || reader.scopedID != 0 {
+		t.Fatalf("unnamed member received a report scope: result=%d query=%d", result.PersonFilter, reader.scopedID)
+	}
+}
+
+func TestBuildStatsReturnsMemberOptionsAndSelectedScope(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	to := from.Add(time.Hour)
+	reader := &graphSessionsStub{}
+	builder := &Builder{sessions: reader, projects: graphProjectsStub{}, teams: reportTeamsStub{members: []model.TeamMember{
+		{UserID: 5, Email: "five@example.test"}, {UserID: 6, Name: "Six"}, {UserID: 7},
+	}}, tags: &graphTagsStub{}}
+	result, err := builder.BuildStats(context.Background(), StatsQuery{
+		TeamID: 4, From: from, To: to, Now: to, PersonID: 6, IncludePeople: true, Uncategorized: "Uncategorized",
+	})
+	if err != nil {
+		t.Fatalf("build stats: %v", err)
+	}
+	if result.PersonFilter != 6 || reader.scopedID != 6 || len(result.People) != 2 ||
+		result.People[0].Name != "five@example.test" || !result.People[1].Selected {
+		t.Fatalf("stats member selection = filter %d, scope %d, options %+v", result.PersonFilter, reader.scopedID, result.People)
 	}
 }
 
