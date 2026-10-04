@@ -190,7 +190,7 @@ func (s *Server) handleMarketplace(w http.ResponseWriter, r *http.Request) {
 	for _, it := range list {
 		connected[it.Provider] = true
 	}
-	data := marketPage{pageData: pageData{Title: "Marketplace", Active: "marketplace", Lang: lang}}
+	data := marketPage{pageData: pageData{Title: "Marketplace", Active: "marketplace", Lang: lang, ReactApp: true}, MarketReact: true}
 	for _, it := range catalog.Integrations() {
 		data.Items = append(data.Items, marketCard{
 			ID: it.ID, Name: it.Name, Category: it.Category, Icon: it.Icon,
@@ -215,10 +215,12 @@ type marketCard struct {
 
 type marketPage struct {
 	pageData
-	Items []marketCard
+	MarketReact bool
+	Items       []marketCard
 }
 
-func (p *marketPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *marketPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
+func (p marketPage) usesReactApp() bool { return p.MarketReact }
 
 // reportHours: billable reports show decimal hours (what the money is
 // priced from); the rest keep the "1 h 30 m" label.

@@ -51,6 +51,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C10. React stats | period/person/project/tag filters preserve scope; saved reports; project/activity totals; inline session edits, tag changes and delete refresh the filtered view |
 | C11. React reports | report template gallery; date range form; result totals and billable columns; CSV export and print actions |
 | C12. React export | session CSV date-range validation; summary report navigation respects permissions and workspace modules |
+| C13. React integrations | provider-specific credential hints; connect and delete forms; marketplace availability/connected states; task sync and timer start actions |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

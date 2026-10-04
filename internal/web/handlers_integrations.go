@@ -26,7 +26,8 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
 	}
 	lang := string(resolveLang(r))
 	data := integrationsPage{
-		pageData: pageData{Title: "Integrations", Active: "integrations", Lang: lang},
+		pageData:          pageData{Title: "Integrations", Active: "integrations", Lang: lang, ReactApp: true},
+		IntegrationsReact: true,
 	}
 	for _, item := range snapshot.Items {
 		it := item.Integration
@@ -51,12 +52,14 @@ type integrationRow struct {
 // integrationsPage is the /integrations envelope.
 type integrationsPage struct {
 	pageData
-	Items   []integrationRow
-	Flash   string
-	FlashOK bool
+	IntegrationsReact bool
+	Items             []integrationRow
+	Flash             string
+	FlashOK           bool
 }
 
-func (p *integrationsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *integrationsPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
+func (p integrationsPage) usesReactApp() bool { return p.IntegrationsReact }
 
 // handleIntegrationDetail lists imported tasks with a one-click Start.
 func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request) {
@@ -73,8 +76,9 @@ func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request)
 	it, tasks := snapshot.Integration, snapshot.Tasks
 	lang := string(resolveLang(r))
 	data := integrationDetailPage{
-		pageData:    pageData{Title: it.Name, Active: "integrations", Lang: lang},
-		Integration: integrationRow{ID: it.ID, Provider: it.Provider, Name: it.Name, TaskCount: len(tasks)},
+		pageData:         pageData{Title: it.Name, Active: "integrations", Lang: lang, ReactApp: true},
+		IntegrationReact: true,
+		Integration:      integrationRow{ID: it.ID, Provider: it.Provider, Name: it.Name, TaskCount: len(tasks)},
 	}
 	for _, t := range tasks {
 		data.Tasks = append(data.Tasks, integrationTaskRow{
@@ -98,13 +102,15 @@ type integrationTaskRow struct {
 // integrationDetailPage is the /integrations/{id} envelope.
 type integrationDetailPage struct {
 	pageData
-	Integration integrationRow
-	Tasks       []integrationTaskRow
-	Flash       string
-	FlashOK     bool
+	IntegrationReact bool
+	Integration      integrationRow
+	Tasks            []integrationTaskRow
+	Flash            string
+	FlashOK          bool
 }
 
-func (p *integrationDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *integrationDetailPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
+func (p integrationDetailPage) usesReactApp() bool { return p.IntegrationReact }
 
 // handleIntegrationConnect stores a credential and imports items.
 //
