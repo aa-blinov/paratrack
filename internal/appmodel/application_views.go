@@ -115,6 +115,7 @@ type ReportStatsQuery struct {
 type ReportStatsResult struct {
 	Sessions      []model.ActiveSession
 	TagsBySession map[int64][]model.Tag
+	ProjectsByID  map[int64]model.ProjectSummary
 	Projects      []model.Project
 	Project       model.Project
 	Tags          []model.Tag
