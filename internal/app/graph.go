@@ -17,6 +17,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/payroll"
 	"github.com/aa-blinov/paratrack/internal/payrollops"
 	"github.com/aa-blinov/paratrack/internal/preferences"
+	"github.com/aa-blinov/paratrack/internal/projectpages"
 	"github.com/aa-blinov/paratrack/internal/projects"
 	"github.com/aa-blinov/paratrack/internal/push"
 	savedreports "github.com/aa-blinov/paratrack/internal/reports"
@@ -48,6 +49,7 @@ type Services struct {
 	Preferences   *preferences.Service
 	Scheduling    *scheduling.Service
 	Projects      *projects.Service
+	ProjectPages  *projectpages.Builder
 	Reports       *savedreports.Service
 	ReportBuilder *savedreports.Builder
 	Dashboard     *dashboard.Builder

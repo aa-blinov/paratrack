@@ -34,6 +34,7 @@ type Dependencies struct {
 	Preferences   PreferenceWorkflow
 	Scheduling    SchedulingWorkflow
 	Projects      ProjectDependencies
+	ProjectPages  ProjectPageBuilding
 	Reports       SavedReportWorkflow
 	ReportBuilder ReportBuilding
 	Dashboard     DashboardBuilding
@@ -194,6 +195,11 @@ type ProjectCommands interface {
 	Update(context.Context, appmodel.ProjectUpdateRequest) (model.Project, error)
 	UpdateBySlug(context.Context, appmodel.ProjectSlugUpdateRequest) (model.Project, error)
 	UpdateRate(context.Context, appmodel.ProjectRateRequest) error
+}
+
+// ProjectPageBuilding assembles cross-workflow data for project detail views.
+type ProjectPageBuilding interface {
+	Build(context.Context, appmodel.ProjectPageRequest) (appmodel.ProjectPageSnapshot, error)
 }
 
 // PayrollWorkflow is the payroll operation set consumed by HTTP routes.
@@ -440,6 +446,7 @@ func (s Dependencies) Validate() error {
 		dependency{"scheduling", depcheck.IsNil(s.Scheduling)},
 		dependency{"project queries", depcheck.IsNil(s.Projects.Queries)},
 		dependency{"project commands", depcheck.IsNil(s.Projects.Commands)},
+		dependency{"project page builder", depcheck.IsNil(s.ProjectPages)},
 		dependency{"reports", depcheck.IsNil(s.Reports)},
 		dependency{"report builder", depcheck.IsNil(s.ReportBuilder)},
 		dependency{"dashboard builder", depcheck.IsNil(s.Dashboard)},
