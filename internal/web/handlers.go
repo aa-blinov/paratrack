@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -25,6 +26,10 @@ type pageTemplateData interface {
 type fragmentTemplateData interface {
 	templateData
 	isFragmentTemplateData()
+}
+
+type reactPageCarrier interface {
+	usesReactApp() bool
 }
 
 // renderPage is the canonical two-step page renderer:
@@ -88,6 +93,21 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 	if wc, ok := data.(widgetsCarrier); ok && authenticated {
 		wc.setWidgets(prefsOf(r).HiddenWidgets)
 	}
+	useReact := false
+	var reactPayload template.HTML
+	if carrier, ok := data.(reactPageCarrier); ok && carrier.usesReactApp() {
+		payload, err := json.Marshal(struct {
+			Data any `json:"data"`
+		}{Data: data})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		useReact = true
+		// json.Marshal escapes HTML-sensitive characters, so these bytes are
+		// safe to place in a text container and parse as JSON in the client.
+		reactPayload = template.HTML(payload)
+	}
 	content, err := s.executeTemplate(contentTpl, data)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -102,7 +122,9 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 		RequestPath: r.URL.Path,
 		CSRFToken:   token,
 		Lang:        string(lang),
+		ReactApp:    useReact,
 	}
+	wrapper.ReactPayload = reactPayload
 	if authenticated {
 		wrapper.DurFmt = durFmtOf(r)
 		wrapper.Tabs = s.tabsFor(r, mods)

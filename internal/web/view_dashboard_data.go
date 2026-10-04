@@ -39,7 +39,8 @@ func buildDashboardData(r *http.Request, now time.Time, snapshot appmodel.Dashbo
 	runningCount := countRunning(activeViews)
 	projects := snapshot.Projects
 	data := dashboardData{
-		pageData:       pageData{Title: "Dashboard", Active: "dashboard", Lang: lang},
+		pageData:       pageData{Title: "Dashboard", Active: "dashboard", Lang: lang, ReactApp: true},
+		Widgets:        map[string]bool{"recent": !has(prefsOf(r).HiddenWidgets, "recent"), "goals": !has(prefsOf(r).HiddenWidgets, "goals"), "backfill": !has(prefsOf(r).HiddenWidgets, "backfill"), "unbilled": !has(prefsOf(r).HiddenWidgets, "unbilled")},
 		Activities:     activityViews(snapshot.Activities, lang),
 		Projects:       projectViews(projects),
 		ActiveSessions: activeViews,

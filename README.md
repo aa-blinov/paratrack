@@ -46,7 +46,7 @@ docker compose up -d --build
 ```bash
 export PARATRACK_DATABASE_URL='postgres://postgres:dev@127.0.0.1:5432/postgres?sslmode=disable'
 export PARATRACK_ENV=development PARATRACK_PUBLIC_URL=http://127.0.0.1:8000
-make build    # заодно соберёт CSS (npm install + Tailwind)
+make build    # соберёт CSS и React bundle (npm ci + Tailwind + Vite)
 ./paratrack web --addr 127.0.0.1:8000
 ```
 
@@ -56,7 +56,7 @@ CLI работает с той же базой и использует workspace
 
 ### Устройство
 
-Один Go-бинарник без CGO. Страницы рендерятся на `html/template`, HTMX делает точечные подмены, Alpine.js держит живые значения и тему, ECharts рисует график по часам. Стили собираются из Tailwind v4 и DaisyUI v5 в один файл, около 25 КБ в gzip. Всё лежит в репозитории и встраивается через `go:embed`, внешних CDN нет.
+Один Go-бинарник без CGO. Переход на React и shadcn/ui идёт поэтапно: dashboard уже использует React, остальные страницы пока рендерятся через `html/template`, HTMX и Alpine.js. Оба интерфейса и их стили встраиваются в бинарник через `go:embed`; внешних CDN нет.
 
 ```
 paratrack/
@@ -112,7 +112,7 @@ CI на GitHub Actions прогоняет юнит-тесты на Postgres, с�
 
 ## Стек
 
-Go 1.27 · PostgreSQL 17 (pgx) · net/http · html/template · HTMX 2 · Alpine.js 3 · ECharts 5 · Tailwind v4 + DaisyUI v5
+Go 1.27 · PostgreSQL 17 (pgx) · net/http · React 19 + shadcn/ui (migration in progress) · html/template · HTMX 2 · Alpine.js 3 · ECharts 5 · Tailwind v4 + DaisyUI v5
 
 ## Лицензия
 

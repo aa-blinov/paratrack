@@ -51,6 +51,7 @@ func (v sessionView) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key
 // dashboardData feeds dashboard.html.
 type dashboardData struct {
 	pageData
+	Widgets        map[string]bool
 	Activities     []activityView
 	Projects       []projectView // for the project picker on the start form
 	ActiveSessions []sessionView

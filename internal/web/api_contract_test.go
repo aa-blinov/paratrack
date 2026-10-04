@@ -166,9 +166,15 @@ func TestAPISessionLifecyclePauseExcludedFromTracked(t *testing.T) {
 	// Pause → resume → stop, then duration_seconds in CSV must be > 0
 	// and reflect tracked time (not left at 0 like the old stop path).
 	resp = e.do("POST", "/api/sessions/"+id+"/pause", nil, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("pause: status %d: %s", resp.StatusCode, readBody(t, resp))
+	}
 	resp.Body.Close()
 	time.Sleep(1100 * time.Millisecond)
 	resp = e.do("POST", "/api/sessions/"+id+"/resume", nil, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("resume: status %d: %s", resp.StatusCode, readBody(t, resp))
+	}
 	resp.Body.Close()
 	time.Sleep(200 * time.Millisecond)
 	resp = e.do("POST", "/api/sessions/"+id+"/stop", nil, nil)
