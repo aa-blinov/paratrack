@@ -44,6 +44,7 @@ func (timesheetRow) isFragmentTemplateData() {}
 
 type timesheetData struct {
 	pageData
+	TimesheetReact  bool
 	WeekStart       time.Time
 	WeekEnd         time.Time
 	PrevWeek        string // link query
@@ -58,6 +59,10 @@ type timesheetData struct {
 	Others          []activityView // big workspace: activities not on the sheet
 	Added           []int64        // rows added by hand this visit
 	DateISO         string
+}
+
+func wantsJSON(r *http.Request) bool {
+	return strings.Contains(r.Header.Get("Accept"), "application/json")
 }
 
 // handleTimesheet renders the weekly grid. ?date= any day inside the
@@ -132,8 +137,9 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 
 	data := timesheetData{
 		pageData: pageData{
-			Title: "Timesheet", Active: "timesheet", Lang: lang,
+			Title: "Timesheet", Active: "timesheet", Lang: lang, ReactApp: true,
 		},
+		TimesheetReact:  true,
 		WeekStart:       weekStart,
 		WeekEnd:         weekEnd,
 		WeekLabel:       fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekEnd),
@@ -182,13 +188,24 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 		var lockErr *model.SessionInvoiceLockError
 		if errors.As(err, &lockErr) {
 			// Put the cell back to what the invoice billed.
-			s.toast(w, fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber), "error")
-			s.respondTimesheetRow(w, r, actID, day)
+			message := fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber)
+			if !wantsJSON(r) {
+				s.toast(w, message, "error")
+			}
+			s.respondTimesheetRow(w, r, actID, day, message)
 			return
 		}
 		if errors.Is(err, appmodel.ErrInvalidSessionEdit) {
+			if wantsJSON(r) {
+				http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
+				return
+			}
 			s.toastL(w, r, "err.invalidInput", "", "error")
 		} else {
+			if wantsJSON(r) {
+				s.writeInternalError(w, err)
+				return
+			}
 			s.logInternalError(err)
 			s.toastL(w, r, "err.internal", "", "error")
 		}
@@ -200,7 +217,34 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 	s.respondTimesheetRow(w, r, actID, day)
 }
 
-func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, actID int64, day time.Time) {
+type timesheetCellJSON struct {
+	ISO   string `json:"iso"`
+	Secs  int    `json:"secs"`
+	Min   int    `json:"min"`
+	Total string `json:"total"`
+}
+
+type timesheetDayTotalJSON struct {
+	Secs  int    `json:"secs"`
+	Total string `json:"total"`
+}
+
+type timesheetRowJSON struct {
+	ActivityID      int64                   `json:"activityId"`
+	ActivityName    string                  `json:"activityName"`
+	Color           string                  `json:"color"`
+	Cells           []timesheetCellJSON     `json:"cells"`
+	RowTotal        int                     `json:"rowTotal"`
+	RowTotalLabel   string                  `json:"rowTotalLabel"`
+	DayTotals       []timesheetDayTotalJSON `json:"dayTotals"`
+	GrandTotal      int                     `json:"grandTotal"`
+	GrandTotalLabel string                  `json:"grandTotalLabel"`
+	Error           string                  `json:"error,omitempty"`
+}
+
+func (timesheetRowJSON) isJSONResponse() {}
+
+func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, actID int64, day time.Time, failure ...string) {
 	weekStart := startOfWeek(r, day)
 	now := userNow(r)
 	grid, err := s.services.Tracking.Queries.Timesheet(r.Context(), appmodel.TimesheetRequest{
@@ -226,6 +270,23 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 				Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i]),
 				IsToday: sameDay(d, now),
 			}
+		}
+		if wantsJSON(r) {
+			response := timesheetRowJSON{
+				ActivityID: rc.ActivityID, ActivityName: rc.ActivityName, Color: colorFor(rc.ActivityName),
+				Cells: make([]timesheetCellJSON, 0, 7), RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
+				DayTotals: make([]timesheetDayTotalJSON, 0, 7), GrandTotal: grid.GrandTotal, GrandTotalLabel: fmtDur(r, grid.GrandTotal),
+			}
+			for i := 0; i < 7; i++ {
+				d := weekStart.AddDate(0, 0, i)
+				response.Cells = append(response.Cells, timesheetCellJSON{ISO: d.Format("2006-01-02"), Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i])})
+				response.DayTotals = append(response.DayTotals, timesheetDayTotalJSON{Secs: grid.DayTotals[i], Total: fmtDur(r, grid.DayTotals[i])})
+			}
+			if len(failure) > 0 {
+				response.Error = failure[0]
+			}
+			s.writeJSON(w, response)
+			return
 		}
 		s.renderFragment(w, "timesheet-row", row)
 		return

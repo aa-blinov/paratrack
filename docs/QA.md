@@ -44,6 +44,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C3. React goals | create and delete through existing API; progress refreshes from the progress endpoint |
 | C4. React tags | create/delete controls; tag list returns session usage counts |
 | C5. React graph | ECharts canvas, scoped period links, responsive legend toggle and theme redraw |
+| C6. React timesheet | week navigation, responsive grid and cell updates refresh row/day/week totals |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

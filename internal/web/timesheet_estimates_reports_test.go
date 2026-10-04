@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -199,6 +200,54 @@ func TestTimesheetCellShowsMinutes(t *testing.T) {
 	body := readBody(t, e.do("GET", "/timesheet?date=2026-09-22", nil, nil))
 	if !strings.Contains(body, `value="90"`) {
 		t.Errorf("timesheet cell should hold 90 minutes")
+	}
+}
+
+func TestTimesheetCellJSONReturnsUpdatedRowAndTotals(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("ts-json@x.test")
+	day := time.Now().AddDate(0, 0, -2).Format("2006-01-02")
+	resp := e.do("POST", "/api/sessions/backfill", url.Values{
+		"activity": {"react-grid-work"}, "start": {day + " 09:00"}, "end": {day + " 10:00"},
+	}, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("seed session: status %d body=%q", resp.StatusCode, readBody(t, resp))
+	}
+	resp.Body.Close()
+	var activityID int64
+	if err := e.db.TestSQL().QueryRowContext(context.Background(), `SELECT id FROM activities WHERE name = 'react-grid-work'`).Scan(&activityID); err != nil {
+		t.Fatal(err)
+	}
+	resp = e.do("POST", "/api/timesheet/cell", url.Values{
+		"activity_id": {strconv.FormatInt(activityID, 10)}, "date": {day}, "minutes": {"90"},
+	}, map[string]string{"Accept": "application/json"})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("update timesheet cell: status %d body=%q", resp.StatusCode, readBody(t, resp))
+	}
+	var result struct {
+		Cells []struct {
+			Min int `json:"min"`
+		} `json:"cells"`
+		RowTotal   int `json:"rowTotal"`
+		GrandTotal int `json:"grandTotal"`
+		DayTotals  []struct {
+			Secs int `json:"secs"`
+		} `json:"dayTotals"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		resp.Body.Close()
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if result.RowTotal != 90*60 || result.GrandTotal != 90*60 || len(result.DayTotals) != 7 || len(result.Cells) != 7 {
+		t.Fatalf("timesheet totals = %+v, want one 90 minute cell", result)
+	}
+	cellFound := false
+	for _, cell := range result.Cells {
+		cellFound = cellFound || cell.Min == 90
+	}
+	if !cellFound {
+		t.Fatalf("updated 90 minute cell missing: %+v", result.Cells)
 	}
 }
 
