@@ -68,6 +68,7 @@ type GoalManagementSnapshot struct {
 type TimerStopResult struct {
 	Session         model.Session
 	DurationSeconds int
+	ActivityName    string
 }
 
 // InvoiceDraftOptions combines workspace projects with their saved client
