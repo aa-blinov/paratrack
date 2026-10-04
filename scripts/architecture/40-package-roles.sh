@@ -288,12 +288,16 @@ if grep -Eq 'services\.(TimerOperations|TrackingOps)\.Start\(' internal/cli/*.go
 	echo "architecture check: named timer starts must use the shared StartActivity operation" >&2
 	exit 1
 fi
-for operation in Focus Stop StopAll; do
+for operation in Stop StopAll; do
 	if ! grep -Eq "services\\.TimerOperations\\.$operation\\(" internal/cli/*.go; then
 		echo "architecture check: CLI must route $operation through TimerOperations" >&2
 		exit 1
 	fi
 done
+if ! grep -Eq 'services\.TimerOperations\.FocusActivityForMember\(' internal/cli/*.go; then
+	echo "architecture check: CLI named focus must resolve and focus through TimerOperations" >&2
+	exit 1
+fi
 if ! grep -Eq 'services\.TimerOperations\.StartActivity\(' internal/cli/*.go; then
 	echo "architecture check: CLI must route named activity starts through TimerOperations" >&2
 	exit 1

@@ -232,12 +232,10 @@ func runFocus(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	act, err := services.ActivityCatalog.ResolveActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), Name: target})
-	if err != nil {
-		return fmt.Errorf("resolve activity: %w", err)
-	}
 	now := rt.now()
-	result, err := services.TimerOperations.Focus(ctx, appmodel.TimerFocusRequest{TeamID: teamID, ActivityID: act.ID, At: now})
+	act, result, err := services.TimerOperations.FocusActivityForMember(ctx, appmodel.TimerFocusForMemberRequest{
+		TeamID: teamID, CallerID: requestctx.ActorID(ctx), ActivityName: target, At: now,
+	})
 	if err != nil {
 		return fmt.Errorf("focus: %w", err)
 	}
