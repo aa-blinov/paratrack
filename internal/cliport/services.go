@@ -119,7 +119,7 @@ type TagCommands interface {
 
 // GoalQueries supplies current goal progress for CLI output.
 type GoalQueries interface {
-	Progress(context.Context, int64, time.Time) ([]model.GoalProgress, error)
+	Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
 }
 
 // GoalCommands creates and removes manager-owned goal targets.

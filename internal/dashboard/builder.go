@@ -16,7 +16,7 @@ import (
 
 type GoalReader interface {
 	Activities(context.Context, int64) ([]model.Activity, error)
-	Progress(context.Context, int64, time.Time) ([]model.GoalProgress, error)
+	Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
 }
 
 type TrackingReader interface {
@@ -138,7 +138,7 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	}
 	// Goal progress is an optional dashboard widget; a failed read hides it
 	// without making the rest of the page unavailable.
-	if snapshot.Goals, err = b.goals.Progress(ctx, query.TeamID, now); err != nil {
+	if snapshot.Goals, err = b.goals.Progress(ctx, appmodel.GoalProgressQuery{TeamID: query.TeamID, Now: now}); err != nil {
 		b.logger.Printf("dashboard: load goal progress for team %d: %v", query.TeamID, err)
 		snapshot.Goals = nil
 	}

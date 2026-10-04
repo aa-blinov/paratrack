@@ -140,10 +140,10 @@ type ReportBuilding interface {
 
 // GoalWorkflow is the manager and display surface for team goals.
 type GoalWorkflow interface {
-	Management(context.Context, appmodel.GoalManagementQuery) (appmodel.GoalManagementSnapshot, error)
+	Management(context.Context, appmodel.GoalProgressQuery) (appmodel.GoalManagementSnapshot, error)
 	DeleteForManager(context.Context, appmodel.GoalDeleteRequest) error
 	List(context.Context, int64) ([]model.Goal, error)
-	Progress(context.Context, int64, time.Time) ([]model.GoalProgress, error)
+	Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
 	UpsertForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
 }
 

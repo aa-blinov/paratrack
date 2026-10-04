@@ -193,8 +193,8 @@ type GoalProgress = model.GoalProgress
 //
 // period times are computed against `now` so the caller can pin time
 // for tests by passing a fixed value.
-func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) ([]GoalProgress, error) {
-	goals, err := d.ListGoals(ctx, teamID, nil)
+func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQuery) ([]GoalProgress, error) {
+	goals, err := d.ListGoals(ctx, query.TeamID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -207,7 +207,7 @@ func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) 
 	windows := make(map[int64][2]time.Time, len(goals))
 	var rangeStart, rangeEnd time.Time
 	for _, goal := range goals {
-		start, end := goalPeriodRange(goal.Period, now)
+		start, end := goalPeriodRange(goal.Period, query.Now)
 		windows[goal.ID] = [2]time.Time{start, end}
 		if rangeStart.IsZero() || start.Before(rangeStart) {
 			rangeStart = start
@@ -223,7 +223,7 @@ func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) 
 
 	activityNames := make(map[int64]string, len(activityIDs))
 	activityRows, err := d.sql.QueryContext(ctx,
-		`SELECT id, name FROM activities WHERE team_id = ? AND id = ANY(?)`, teamID, activityIDs)
+		`SELECT id, name FROM activities WHERE team_id = ? AND id = ANY(?)`, query.TeamID, activityIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +245,7 @@ func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) 
 		return nil, err
 	}
 
-	sessionsByActivity, err := d.goalSessionsForActivities(ctx, teamID, activityIDs, rangeStart, rangeEnd)
+	sessionsByActivity, err := d.goalSessionsForActivities(ctx, query.TeamID, activityIDs, rangeStart, rangeEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) 
 		window := windows[goal.ID]
 		var totalSeconds int
 		for _, session := range sessionsByActivity[goal.ActivityID] {
-			seconds := session.TrackedSecondsInWindow(window[0], window[1], now)
+			seconds := session.TrackedSecondsInWindow(window[0], window[1], query.Now)
 			totalSeconds, err = money.AddInt(totalSeconds, seconds)
 			if err != nil {
 				return nil, fmt.Errorf("sum tracked time for goal %d: %w", goal.ID, err)
