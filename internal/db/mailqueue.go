@@ -136,7 +136,7 @@ func (d *DB) CompleteInvoiceEmail(ctx context.Context, job mailport.InvoiceEmail
 // RetryInvoiceEmail reschedules failed delivery with backoff. After the
 // attempt limit, the draft is unlocked for a new user initiated send.
 
-func (d *DB) RetryInvoiceEmail(ctx context.Context, request appmodel.InvoiceEmailRetryRequest) error {
+func (d *DB) RetryInvoiceEmail(ctx context.Context, request mailport.InvoiceEmailRetryRequest) error {
 	job, message, availableAt, maxAttempts := request.Job, request.Message, request.AvailableAt, request.MaxAttempts
 	message = truncateUTF8(message, 2000)
 	tx, err := d.sql.BeginTx(ctx, nil)

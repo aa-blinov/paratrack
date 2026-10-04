@@ -33,7 +33,7 @@ type Store interface {
 	EnqueueInvoiceEmail(context.Context, appmodel.InvoiceEmailEnqueueRequest) error
 	ClaimInvoiceEmail(context.Context) (mailport.InvoiceEmailJob, bool, error)
 	CompleteInvoiceEmail(context.Context, mailport.InvoiceEmailJob) error
-	RetryInvoiceEmail(context.Context, appmodel.InvoiceEmailRetryRequest) error
+	RetryInvoiceEmail(context.Context, mailport.InvoiceEmailRetryRequest) error
 }
 
 // Logger is the minimal process logging capability used by the queue worker.
@@ -133,7 +133,7 @@ func (s *Service) drain(ctx context.Context, deliver func(context.Context, mailp
 				delay = 30 * time.Minute
 			}
 			persistCtx, cancel := postcommit.NewContextWithTimeout(ctx, 5*time.Second)
-			retryErr := s.store.RetryInvoiceEmail(persistCtx, appmodel.InvoiceEmailRetryRequest{
+			retryErr := s.store.RetryInvoiceEmail(persistCtx, mailport.InvoiceEmailRetryRequest{
 				Job: job, Message: err.Error(), AvailableAt: s.now().UTC().Add(delay), MaxAttempts: 10,
 			})
 			cancel()

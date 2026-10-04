@@ -133,12 +133,12 @@ func isCommandValueType(expression ast.Expr) bool {
 	typeName := selector.Sel.Name
 	switch packageName.Name {
 	case "mailport":
-		return typeName == "InvoiceEmailJob"
+		return typeName == "InvoiceEmailJob" || typeName == "InvoiceEmailRetryRequest"
 	case "appmodel":
 		return strings.HasSuffix(typeName, "Request") || strings.HasSuffix(typeName, "Command")
 	case "webhookport":
 		switch typeName {
-		case "DeliveryJob", "CommittedEvent":
+		case "DeliveryJob", "CommittedEvent", "DeliveryRetryRequest", "EventRetryRequest":
 			return true
 		}
 		return false
@@ -184,9 +184,9 @@ func checkTypedPersistenceCommands(fset *token.FileSet, parsed map[string]*ast.F
 		{"internal/db/goals.go", "DeleteGoalForManager", "GoalDeleteRequest"},
 		{"internal/db/webhooks.go", "CreateWebhook", "WebhookRegistrationCommand"},
 		{"internal/db/webhooks.go", "LogWebhookDelivery", "WebhookDeliveryLogRequest"},
-		{"internal/db/mailqueue.go", "RetryInvoiceEmail", "InvoiceEmailRetryRequest"},
-		{"internal/db/webhook_queue.go", "RetryWebhookDelivery", "WebhookDeliveryRetryRequest"},
-		{"internal/db/webhook_events.go", "RetryWebhookEvent", "WebhookEventRetryRequest"},
+		{"internal/db/mailqueue.go", "RetryInvoiceEmail", "mailport.InvoiceEmailRetryRequest"},
+		{"internal/db/webhook_queue.go", "RetryWebhookDelivery", "webhookport.DeliveryRetryRequest"},
+		{"internal/db/webhook_events.go", "RetryWebhookEvent", "webhookport.EventRetryRequest"},
 		{"internal/db/webhook_queue.go", "EnqueueWebhookDeliveries", "WebhookDeliveryBatchRequest"},
 		{"internal/db/preferences.go", "SetUserPrefs", "UserPrefsSaveCommand"},
 		{"internal/db/integration_sync.go", "SyncExternalTasks", "IntegrationTaskSyncRequest"},
@@ -217,7 +217,7 @@ func checkTypedPersistenceCommands(fset *token.FileSet, parsed map[string]*ast.F
 			parsed[command.source] = file
 		}
 		if !hasTypedCommandParameter(file, command.method, command.request) {
-			return fmt.Errorf("%s %s must accept context.Context and appmodel.%s", command.source, command.method, command.request)
+			return fmt.Errorf("%s %s must accept context.Context and %s", command.source, command.method, command.request)
 		}
 	}
 	return nil
@@ -232,6 +232,10 @@ func hasTypedCommandParameter(file *ast.File, method, request string) bool {
 		parameters := function.Type.Params.List
 		if len(parameters) != 2 || hasMultipleNames(parameters) || !isQualifiedType(parameters[0].Type, "context", "Context") {
 			return false
+		}
+		parts := strings.SplitN(request, ".", 2)
+		if len(parts) == 2 {
+			return isQualifiedType(parameters[1].Type, parts[0], parts[1])
 		}
 		return isQualifiedType(parameters[1].Type, "appmodel", request)
 	}
