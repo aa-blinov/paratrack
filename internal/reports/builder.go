@@ -47,6 +47,11 @@ type BuilderDependencies struct {
 	Projects ProjectReader
 	Users    UserReader
 	Tags     TagReader
+	Logger   Logger
+}
+
+type Logger interface {
+	Printf(string, ...any)
 }
 
 type ReportLabels = appmodel.ReportLabels
@@ -59,6 +64,7 @@ type Builder struct {
 	projects ProjectReader
 	users    UserReader
 	tags     TagReader
+	logger   Logger
 }
 
 func NewBuilder(deps BuilderDependencies) (*Builder, error) {
@@ -67,7 +73,7 @@ func NewBuilder(deps BuilderDependencies) (*Builder, error) {
 		port any
 	}{
 		{"sessions", deps.Sessions}, {"teams", deps.Teams},
-		{"projects", deps.Projects}, {"users", deps.Users}, {"tags", deps.Tags},
+		{"projects", deps.Projects}, {"users", deps.Users}, {"tags", deps.Tags}, {"logger", deps.Logger},
 	}
 	for _, dependency := range missing {
 		if depcheck.IsNil(dependency.port) {
@@ -77,6 +83,7 @@ func NewBuilder(deps BuilderDependencies) (*Builder, error) {
 	return &Builder{
 		sessions: deps.Sessions, teams: deps.Teams,
 		projects: deps.Projects, users: deps.Users, tags: deps.Tags,
+		logger: deps.Logger,
 	}, nil
 }
 
@@ -169,12 +176,38 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 		}
 		sessions = filtered
 	}
+	projectIDs := sessionProjectIDs(sessions)
+	projectsByID := make(map[int64]model.ProjectSummary)
+	if len(projectIDs) > 0 {
+		projectsByID, err = b.projects.Summaries(ctx, query.TeamID, projectIDs)
+		if err != nil {
+			b.logger.Printf("reports: load stats session project summaries for team %d: %v", query.TeamID, err)
+			projectsByID = make(map[int64]model.ProjectSummary)
+		}
+	}
 	summary, err := SummarizeStats(sessions, projectByID, query.From, query.To, query.Now, query.Uncategorized)
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("summarize stats: %w", err)
 	}
-	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, Projects: projects, Project: project, Tags: tags,
+	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, ProjectsByID: projectsByID, Projects: projects, Project: project, Tags: tags,
 		Summary: summary}, nil
+}
+
+func sessionProjectIDs(sessions []model.ActiveSession) []int64 {
+	seen := make(map[int64]struct{}, len(sessions))
+	ids := make([]int64, 0, len(sessions))
+	for _, session := range sessions {
+		id := session.Activity.ProjectID
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids
 }
 
 // loadProjectSessions resolves an optional slug and applies its workspace
