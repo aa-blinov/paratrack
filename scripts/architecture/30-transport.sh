@@ -175,6 +175,15 @@ if printf '%s\n' "$token_page" | grep -q 'Teams\.Directory\.FindByIDs' ||
 	exit 1
 fi
 
+# Focusing an activity by its UI name is one tracking use case, including
+# lookup and the audited transition; the handler must not sequence two ports.
+focus_handler=$(sed -n '/^func (s \*Server) handleFocus(/,/^}/p' internal/web/handlers_timers.go)
+if printf '%s\n' "$focus_handler" | grep -q 'Tracking\.Queries\.FindActivity' ||
+	! printf '%s\n' "$focus_handler" | grep -q 'TrackingOps\.FocusActivity'; then
+	echo "architecture check: activity focus must use the coordinated tracking operation" >&2
+	exit 1
+fi
+
 # Shared HTML layout data must use narrow view models instead of auth/domain
 # records, which may contain fields that templates should never receive. Check
 # the positive shape too, so renaming a domain type cannot bypass this rule.
