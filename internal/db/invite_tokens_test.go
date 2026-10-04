@@ -50,6 +50,10 @@ func TestTeamInviteTokenIsHashedAtRestAndReadableByManager(t *testing.T) {
 	if err != nil || len(invites) != 1 || invites[0].Token != rawToken {
 		t.Fatalf("list invites = (%+v, %v), want manager-visible token", invites, err)
 	}
+	d.secrets = newSecretCodec("wrong-invite-token-key")
+	if err := d.sealExistingSecretsContext(ctx); err == nil {
+		t.Fatal("startup secret validation accepted an encrypted invite token with a wrong key")
+	}
 }
 
 func TestLegacyTeamInviteTokensAreMigratedWithoutChangingInviteLinks(t *testing.T) {
