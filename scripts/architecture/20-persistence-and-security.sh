@@ -292,6 +292,15 @@ if ! printf '%s\n' "$session_lookup" | grep -Fq 'query appmodel.SessionLookupQue
 	echo "architecture check: session reads must carry session identity and workspace scope in one query" >&2
 	exit 1
 fi
+for method in FindMembershipForUser TeamMemberRole; do
+	team_membership_query=$(sed -n "/^func (d \\*DB) $method(/,/^}/p" internal/db/teams.go)
+	if ! printf '%s\n' "$team_membership_query" | grep -Fq 'query appmodel.TeamMembershipQuery' ||
+		! printf '%s\n' "$team_membership_query" | grep -Fq 'query.TeamID <= 0' ||
+		! printf '%s\n' "$team_membership_query" | grep -Fq 'query.UserID <= 0'; then
+		echo "architecture check: membership reads must validate explicit workspace and user scope ($method)" >&2
+		exit 1
+	fi
+done
 for method in ListTags ListAllTagsWithCounts; do
 	tag_query=$(sed -n "/^func (d \*DB) $method(/,/^}/p" internal/db/tags.go)
 	if ! printf '%s\n' "$tag_query" | grep -Fq 'teamID <= 0'; then

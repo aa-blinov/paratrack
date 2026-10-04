@@ -59,7 +59,7 @@ type APITokenStore interface {
 
 // MembershipReader provides the membership check required to scope tokens.
 type MembershipReader interface {
-	FindMembershipForUser(context.Context, int64, int64) (model.TeamMembership, bool, error)
+	FindMembershipForUser(context.Context, appmodel.TeamMembershipQuery) (model.TeamMembership, bool, error)
 }
 
 // Dependencies binds each authentication workflow to a narrow persistence port.

@@ -24,7 +24,7 @@ func (s *Service) CreateAPIToken(ctx context.Context, request appmodel.APITokenC
 		return "", appmodel.APITokenSummary{}, fmt.Errorf("%w: token expiry must be in the future", ErrValidation)
 	}
 	if request.Options.TeamID > 0 {
-		_, member, err := s.memberships.FindMembershipForUser(ctx, request.Options.TeamID, request.UserID)
+		_, member, err := s.memberships.FindMembershipForUser(ctx, appmodel.TeamMembershipQuery{TeamID: request.Options.TeamID, UserID: request.UserID})
 		if err != nil {
 			return "", appmodel.APITokenSummary{}, fmt.Errorf("check token team membership: %w", err)
 		}

@@ -116,13 +116,16 @@ func (d *DB) ListMembershipsForUser(ctx context.Context, userID int64) ([]model.
 	return memberships, rows.Err()
 }
 
-func (d *DB) FindMembershipForUser(ctx context.Context, teamID, userID int64) (model.TeamMembership, bool, error) {
+func (d *DB) FindMembershipForUser(ctx context.Context, query appmodel.TeamMembershipQuery) (model.TeamMembership, bool, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
+		return model.TeamMembership{}, false, nil
+	}
 	var membership model.TeamMembership
 	var createdAt, joinedAt, role string
 	err := d.sql.QueryRowContext(ctx, `
 		SELECT t.id, t.slug, t.name, t.owner_id, t.created_at, m.role, m.joined_at
 		FROM teams t JOIN memberships m ON m.team_id = t.id
-		WHERE m.team_id = ? AND m.user_id = ?`, teamID, userID).
+		WHERE m.team_id = ? AND m.user_id = ?`, query.TeamID, query.UserID).
 		Scan(&membership.Team.ID, &membership.Team.Slug, &membership.Team.Name,
 			&membership.Team.OwnerID, &createdAt, &role, &joinedAt)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -198,10 +201,13 @@ func deleteTeamTx(ctx context.Context, tx *Tx, teamID, callerID int64) error {
 	return nil
 }
 
-func (d *DB) TeamMemberRole(ctx context.Context, teamID, userID int64) (model.TeamRole, bool, error) {
+func (d *DB) TeamMemberRole(ctx context.Context, query appmodel.TeamMembershipQuery) (model.TeamRole, bool, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
+		return "", false, nil
+	}
 	var role string
 	err := d.sql.QueryRowContext(ctx,
-		`SELECT role FROM memberships WHERE team_id = ? AND user_id = ?`, teamID, userID).Scan(&role)
+		`SELECT role FROM memberships WHERE team_id = ? AND user_id = ?`, query.TeamID, query.UserID).Scan(&role)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}

@@ -58,7 +58,7 @@ type StripeCredentials interface {
 // ManagerAuthorizer rechecks the actor's current workspace role before
 // creating an external payment session.
 type ManagerAuthorizer interface {
-	TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error)
+	TeamMemberRole(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error)
 }
 
 // StripeGateway contains the provider protocol operations used by invoicing.
