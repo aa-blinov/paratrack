@@ -65,7 +65,7 @@ type ActivityStore interface {
 // TimesheetStore provides grid reads and atomic daily-total replacement.
 type TimesheetStore interface {
 	UpsertDayTotal(context.Context, appmodel.TimesheetCellUpdateRequest) error
-	ListTimesheet(context.Context, int64, time.Time, time.Time, ...int64) (model.TimesheetWeek, error)
+	ListTimesheet(context.Context, appmodel.TimesheetRequest) (model.TimesheetWeek, error)
 }
 
 // Dependencies keeps query, command, activity and timesheet concerns on
@@ -182,14 +182,15 @@ func (s *Service) SetDayTotal(ctx context.Context, request appmodel.TimesheetCel
 // Timesheet loads a team's weekly grid, including requested extra activity
 // rows that are not otherwise present in the week.
 func (s *Service) Timesheet(ctx context.Context, request appmodel.TimesheetRequest) (model.TimesheetWeek, error) {
-	if request.TeamID <= 0 {
+	if request.TeamID <= 0 || request.WeekStart.IsZero() || request.Now.IsZero() {
 		return model.TimesheetWeek{}, ErrInvalidEdit
 	}
-	teamID, weekStart, now, extra := request.TeamID, request.WeekStart, request.Now, request.ExtraActivityIDs
-	if weekStart.IsZero() || now.IsZero() {
-		return model.TimesheetWeek{}, ErrInvalidEdit
+	for _, activityID := range request.ExtraActivityIDs {
+		if activityID <= 0 {
+			return model.TimesheetWeek{}, ErrInvalidEdit
+		}
 	}
-	grid, err := s.timesheets.ListTimesheet(ctx, teamID, weekStart, now, extra...)
+	grid, err := s.timesheets.ListTimesheet(ctx, request)
 	if err != nil {
 		return model.TimesheetWeek{}, fmt.Errorf("load timesheet grid: %w", err)
 	}
