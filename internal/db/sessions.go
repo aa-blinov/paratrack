@@ -235,7 +235,7 @@ type sessionEditState struct {
 	wasOpen    bool
 }
 
-// resolveLockedSessionUpdate derives interval fields from the values read
+// resolveLockedSessionUpdate supplies the domain resolver with values read
 // under the edit transaction's row lock, preventing a stale preflight read
 // from overwriting a concurrent session edit.
 func resolveLockedSessionUpdate(state sessionEditState, request appmodel.SessionUpdateRequest) (appmodel.SessionUpdate, error) {
@@ -243,9 +243,6 @@ func resolveLockedSessionUpdate(state sessionEditState, request appmodel.Session
 	start, err := ScanTime(state.startAt)
 	if err != nil {
 		return appmodel.SessionUpdate{}, fmt.Errorf("parse locked session start: %w", err)
-	}
-	if update.StartAt != nil {
-		start = *update.StartAt
 	}
 	var end *time.Time
 	if state.endAt.Valid {
@@ -255,41 +252,16 @@ func resolveLockedSessionUpdate(state sessionEditState, request appmodel.Session
 		}
 		end = &parsed
 	}
-	if update.EndAt != nil {
-		end = update.EndAt
+	resolved, err := model.ResolveSessionIntervalEdit(start, end, model.SessionIntervalEdit{
+		StartAt: update.StartAt, EndAt: update.EndAt,
+		AccumulatedSeconds: update.AccumulatedSeconds,
+		DurationSeconds:    request.DurationSeconds, RecomputeDuration: request.RecomputeDuration,
+	})
+	if err != nil {
+		return appmodel.SessionUpdate{}, err
 	}
-	if request.DurationSeconds != nil {
-		seconds := *request.DurationSeconds
-		if seconds < 0 {
-			return appmodel.SessionUpdate{}, appmodel.ErrInvalidSessionLength
-		}
-		if int64(seconds) > model.MaxSessionDurationSeconds {
-			return appmodel.SessionUpdate{}, model.ErrSessionDurationOverflow
-		}
-		resolvedEnd := start.Add(time.Duration(seconds) * time.Second)
-		update.EndAt = &resolvedEnd
-		update.AccumulatedSeconds = &seconds
-		end = update.EndAt
-	} else if request.RecomputeDuration && end != nil {
-		seconds := int(end.Sub(start).Seconds())
-		update.AccumulatedSeconds = &seconds
-	}
-	if (update.StartAt != nil || update.EndAt != nil) && end != nil {
-		if !end.After(start) {
-			return appmodel.SessionUpdate{}, appmodel.ErrInvalidSessionPeriod
-		}
-		if end.Sub(start) > time.Duration(model.MaxSessionDurationSeconds)*time.Second {
-			return appmodel.SessionUpdate{}, model.ErrSessionDurationOverflow
-		}
-	}
-	if update.AccumulatedSeconds != nil {
-		if *update.AccumulatedSeconds < 0 {
-			return appmodel.SessionUpdate{}, appmodel.ErrInvalidSessionLength
-		}
-		if int64(*update.AccumulatedSeconds) > model.MaxSessionDurationSeconds {
-			return appmodel.SessionUpdate{}, model.ErrSessionDurationOverflow
-		}
-	}
+	update.StartAt, update.EndAt = resolved.StartAt, resolved.EndAt
+	update.AccumulatedSeconds = resolved.AccumulatedSeconds
 	return update, nil
 }
 

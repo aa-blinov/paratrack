@@ -46,8 +46,8 @@ var (
 	ErrInvalidSessionStart       = errors.New("invalid timer start")
 	ErrInvalidSessionEdit        = errors.New("invalid session edit request")
 	ErrInvalidSessionDelete      = errors.New("invalid session delete request")
-	ErrInvalidSessionPeriod      = errors.New("session end must be after its start")
-	ErrInvalidSessionLength      = errors.New("session duration cannot be negative")
+	ErrInvalidSessionPeriod      = model.ErrSessionPeriodInvalid
+	ErrInvalidSessionLength      = model.ErrSessionLengthInvalid
 	ErrInvalidTeamBilling        = errors.New("invalid team billing settings")
 	ErrInvalidTeamSettings       = errors.New("invalid team settings")
 	ErrAuthInvalidEmail          = errors.New("invalid email")
