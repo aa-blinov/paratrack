@@ -1,14 +1,12 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
-	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // buildDashboardData adapts the dashboard workflow snapshot into template
@@ -77,28 +75,9 @@ func buildDashboardData(r *http.Request, now time.Time, snapshot appmodel.Dashbo
 		data.Unbilled = unbilledViewsFrom(snapshot.Unbilled, r)
 	}
 
-	activityTotals := make(map[string]int)
-	total := 0
-	for _, session := range append(todayViews, activeViews...) {
-		updated, err := money.AddInt(activityTotals[session.ActivityName], session.DurationSecs)
-		if err != nil {
-			return dashboardData{}, fmt.Errorf("sum dashboard activity time: %w", err)
-		}
-		activityTotals[session.ActivityName] = updated
-		total, err = money.AddInt(total, session.DurationSecs)
-		if err != nil {
-			return dashboardData{}, fmt.Errorf("sum dashboard time: %w", err)
-		}
-	}
-	data.TodayTotal = fmtDur(r, total)
-	data.TodaySecs = total
-	topName, topSeconds := "", 0
-	for name, seconds := range activityTotals {
-		if seconds > topSeconds {
-			topName, topSeconds = name, seconds
-		}
-	}
-	data.TopToday = shortSummary(topName)
+	data.TodayTotal = fmtDur(r, snapshot.TodayTotalSeconds)
+	data.TodaySecs = snapshot.TodayTotalSeconds
+	data.TopToday = shortSummary(snapshot.TopActivityName)
 
 	// Goal progress is optional dashboard decoration; failed goal reads have
 	// already been represented by an empty Goals slice in the workflow result.

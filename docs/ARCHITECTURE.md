@@ -178,8 +178,9 @@ links also use separate ports. Payroll payment uses a separate coordinator,
 which keeps its idempotent transition, audit record and notification together.
 The dashboard builder assembles the active-list snapshot across tracking and
 project reads, including best-effort tag/project decorations and first-run
-state. HTTP converts this snapshot to session and project view models instead
-of coordinating those workflow calls in the adapter.
+state. It also calculates today's tracked-time total and top activity, with a
+stable name tie-break. HTTP converts the snapshot to session and project view
+models instead of aggregating business totals in the adapter.
 `internal/trackingops` coordinates
 timer start, focus-created sessions, stop, reopen, and delete transitions with
 their audit effects. It checks goal progress after a stop and queues
