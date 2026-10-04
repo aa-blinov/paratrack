@@ -16,6 +16,8 @@ type settingsPageData struct {
 	Title             string
 	Active            string
 	TeamSettingsReact bool
+	MembersReact      bool
+	InvitesReact      bool
 	Team              teamView
 	User              userView
 	// Members + invites populated by their respective handlers.
@@ -40,7 +42,9 @@ type settingsPageData struct {
 
 func (settingsPageData) isTemplateData() {}
 
-func (p settingsPageData) usesReactApp() bool { return p.TeamSettingsReact }
+func (p settingsPageData) usesReactApp() bool {
+	return p.TeamSettingsReact || p.MembersReact || p.InvitesReact
+}
 
 func (p *settingsPageData) setCSRF(t string) { p.CSRFToken = t }
 func (p *settingsPageData) setLang(l string) { p.Lang = l }
@@ -146,13 +150,14 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := settingsPageData{
-		Title:   "Members",
-		Active:  "settings-members",
-		Team:    teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
-		User:    userViewOf(user),
-		Members: memberViews(snapshot.Members),
-		IsOwner: RoleFrom(r.Context()) == model.TeamRoleOwner,
-		Pay:     map[int64]memberPayView{},
+		Title:        "Members",
+		Active:       "settings-members",
+		MembersReact: true,
+		Team:         teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
+		User:         userViewOf(user),
+		Members:      memberViews(snapshot.Members),
+		IsOwner:      RoleFrom(r.Context()) == model.TeamRoleOwner,
+		Pay:          map[int64]memberPayView{},
 	}
 	for _, settings := range snapshot.PaySettings {
 		view := memberPayView{Capacity: settings.CapacityMinutes}
@@ -176,11 +181,12 @@ func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := settingsPageData{
-		Title:   "Invites",
-		Active:  "settings-invites",
-		Team:    teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
-		User:    userViewOf(user),
-		Invites: inviteViews(invites, userNow(r)),
+		Title:        "Invites",
+		Active:       "settings-invites",
+		InvitesReact: true,
+		Team:         teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
+		User:         userViewOf(user),
+		Invites:      inviteViews(invites, userNow(r)),
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
