@@ -42,7 +42,7 @@ func (s *Server) handleInvoiceAct(w http.ResponseWriter, r *http.Request) {
 		s.invoiceLoadError(w, r, err)
 		return
 	}
-	data := invoiceDetailPage{pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))}, Inv: vm}
+	data := invoiceDetailPage{pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))}, InvoiceActReact: true, Inv: vm}
 	data.Seller = s.sellerName(r)
 	s.renderPageForRequest(w, r, inv.Number, "invoices", "invoice-act", &data)
 }

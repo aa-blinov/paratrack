@@ -197,3 +197,19 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
     </CardContent></Card>
   </main>
 }
+
+export function InvoiceActPage({ data }: { data: InvoiceDetailData }) {
+  const { Inv: invoice, Seller: seller, Lang: lang = "en" } = data
+  return <main className="mx-auto grid w-full max-w-4xl gap-4">
+    <div className="no-print flex flex-wrap items-center gap-2"><a href={`/invoices/${invoice.ID}`} className="text-sm text-muted-foreground underline underline-offset-4">{t(lang, "inv.invoice")} {invoice.Number}</a><a href={`/invoices/${invoice.ID}/act.pdf`} className="ms-auto inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"><Download aria-hidden="true" />PDF</a><Button type="button" size="sm" variant="ghost" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button></div>
+    <Card className="print:border-0"><CardContent className="grid gap-4 p-6">
+      {invoice.Logo && <img src={invoice.Logo} alt="" className="h-12 max-w-48 self-start object-contain" />}
+      <h1 className="text-2xl font-semibold">{t(lang, "act.heading")} <span className="font-mono">{invoice.Number}</span></h1>
+      <p className="text-sm text-muted-foreground">{t(lang, "pdf.issued")} {invoice.IssuedLabel}, {t(lang, "inv.period")}: {invoice.PeriodLabel}</p>
+      <dl className="grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.from")}</dt><dd className="font-medium">{seller}</dd>{invoice.SellerDetails && <dd className="mt-1 whitespace-pre-line">{invoice.SellerDetails}</dd>}</div><div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.billedTo")}</dt><dd className="font-medium">{invoice.ClientName}</dd>{invoice.ClientDetails && <dd className="mt-1 whitespace-pre-line">{invoice.ClientDetails}</dd>}</div></dl>
+      <div className="overflow-x-auto"><Table className="doc-table"><TableHeader><TableRow><TableHead>{t(lang, "pdf.work")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "inv.rate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader><TableBody>{invoice.Lines.map((line, index) => <TableRow key={`${line.Label}-${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Amount}</TableCell></TableRow>)}</TableBody><tfoot><TableRow className="border-t-2 font-semibold"><td>{t(lang, "pdf.total")}</td><td className="text-right font-mono">{invoice.Hours}</td><td></td><td className="text-right font-mono">{invoice.Total}</td></TableRow></tfoot></Table></div>
+      {invoice.VATNote && <p className="text-sm">{invoice.VATNote}</p>}{invoice.Receipt && <p className="break-all text-sm"><span className="text-muted-foreground">{t(lang, "inv.receipt")}:</span> {invoice.Receipt}</p>}
+      <p className="text-sm">{t(lang, "act.statement")}</p><div className="grid grid-cols-2 gap-8 pt-6 text-sm"><div><div className="text-xs text-muted-foreground">{t(lang, "pdf.from")}</div><div className="h-8 border-b border-foreground/40"></div></div><div><div className="text-xs text-muted-foreground">{t(lang, "pdf.billedTo")}</div><div className="h-8 border-b border-foreground/40"></div></div></div>
+    </CardContent></Card>
+  </main>
+}

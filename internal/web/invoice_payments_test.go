@@ -188,6 +188,9 @@ func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 		t.Fatalf("invoice page did not render the personal workspace owner's name: %q", issuer)
 	}
 	act := readBody(t, e.do("GET", loc+"/act", nil, nil))
+	if !strings.Contains(act, `"InvoiceActReact":true`) {
+		t.Error("act page did not bootstrap its React view")
+	}
 	if !strings.Contains(act, "Акт выполненных работ") {
 		t.Error("act page missing heading")
 	}
