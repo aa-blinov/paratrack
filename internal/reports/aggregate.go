@@ -20,7 +20,7 @@ type AggregateInput struct {
 	TeamCurrency      string
 	Uncategorized     string
 	UnassignedUser    string
-	GroupBy           string
+	GroupBy           appmodel.ReportGroup
 	Billable          bool
 	From              time.Time
 	To                time.Time
@@ -51,6 +51,9 @@ type bucket struct {
 // Aggregate applies report grouping, tracked-time allocation, and billing
 // arithmetic without depending on HTTP, templates, or localized formatting.
 func Aggregate(input AggregateInput) (AggregateResult, error) {
+	if !input.GroupBy.Valid() {
+		return AggregateResult{}, ErrInvalidReportQuery
+	}
 	teamCurrency := input.TeamCurrency
 	if teamCurrency == "" {
 		teamCurrency = "RUB"
@@ -71,7 +74,7 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		var day time.Time
 		identityDay := ""
 		switch input.GroupBy {
-		case "project":
+		case appmodel.ReportGroupProject:
 			if session.Activity.ProjectID == 0 {
 				label = input.Uncategorized
 			} else if project, ok := input.Projects[session.Activity.ProjectID]; ok {
@@ -79,13 +82,13 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			} else {
 				label = input.Uncategorized
 			}
-		case "activity":
+		case appmodel.ReportGroupActivity:
 			label = session.Activity.Name
-		case "day":
+		case appmodel.ReportGroupDay:
 			day = session.Session.StartAt.In(location)
 			identityDay = day.Format("2006-01-02")
 			label = identityDay
-		case "user":
+		case appmodel.ReportGroupUser:
 			userID := session.Session.UserID
 			if userID == 0 {
 				label = input.UnassignedUser

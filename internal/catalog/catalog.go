@@ -3,6 +3,8 @@
 // providers without a migration.
 package catalog
 
+import "github.com/aa-blinov/paratrack/internal/appmodel"
+
 // Integration describes one marketplace entry.
 type Integration struct {
 	ID         string `json:"id"` // github, trello, …
@@ -54,22 +56,22 @@ func Integrations() []Integration {
 // ReportTemplate is a named report preset: what it groups by and what
 // columns it shows.
 type ReportTemplate struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Blurb    string `json:"blurb"`
-	Icon     string `json:"icon"`
-	GroupBy  string `json:"group_by"` // project | activity | user | day
-	Billable bool   `json:"billable"` // include rate/amount columns
+	ID       string               `json:"id"`
+	Name     string               `json:"name"`
+	Blurb    string               `json:"blurb"`
+	Icon     string               `json:"icon"`
+	GroupBy  appmodel.ReportGroup `json:"group_by"`
+	Billable bool                 `json:"billable"` // include rate/amount columns
 }
 
 // ReportTemplates lists the built-in report presets.
 func ReportTemplates() []ReportTemplate {
 	return []ReportTemplate{
-		{ID: "by-project", Name: "Hours by project", Blurb: "Tracked time grouped per project.", Icon: "folder", GroupBy: "project", Billable: true},
-		{ID: "by-activity", Name: "Hours by activity", Blurb: "Tracked time grouped per activity.", Icon: "activity", GroupBy: "activity", Billable: true},
-		{ID: "by-day", Name: "Hours by day", Blurb: "Daily totals across the period.", Icon: "calendar", GroupBy: "day"},
-		{ID: "billable", Name: "Billable summary", Blurb: "Billable hours × project rate → revenue.", Icon: "zap", GroupBy: "project", Billable: true},
-		{ID: "utilization", Name: "Team utilization", Blurb: "Planned schedule vs actual tracked per person.", Icon: "users", GroupBy: "user"},
+		{ID: "by-project", Name: "Hours by project", Blurb: "Tracked time grouped per project.", Icon: "folder", GroupBy: appmodel.ReportGroupProject, Billable: true},
+		{ID: "by-activity", Name: "Hours by activity", Blurb: "Tracked time grouped per activity.", Icon: "activity", GroupBy: appmodel.ReportGroupActivity, Billable: true},
+		{ID: "by-day", Name: "Hours by day", Blurb: "Daily totals across the period.", Icon: "calendar", GroupBy: appmodel.ReportGroupDay},
+		{ID: "billable", Name: "Billable summary", Blurb: "Billable hours × project rate → revenue.", Icon: "zap", GroupBy: appmodel.ReportGroupProject, Billable: true},
+		{ID: "utilization", Name: "Team utilization", Blurb: "Planned schedule vs actual tracked per person.", Icon: "users", GroupBy: appmodel.ReportGroupUser},
 	}
 }
 

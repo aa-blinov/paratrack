@@ -146,7 +146,7 @@ func (s *Server) handleAPIv1Report(w http.ResponseWriter, r *http.Request) {
 	from, to := rangeFromQuery(r)
 	result, err := s.services.ReportBuilder.Build(r.Context(), appmodel.ReportBuildQuery{
 		TeamID: teamID(r), From: from, To: to, Now: userNow(r),
-		GroupBy: "activity", Labels: appmodel.ReportLabels{
+		GroupBy: appmodel.ReportGroupActivity, Labels: appmodel.ReportLabels{
 			Uncategorized: i18n.T(resolveLang(r), "dash.uncategorized"),
 		},
 	})

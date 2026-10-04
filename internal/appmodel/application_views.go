@@ -118,7 +118,7 @@ type ReportBuildQuery struct {
 	To       time.Time
 	Now      time.Time
 	Location *time.Location
-	GroupBy  string
+	GroupBy  ReportGroup
 	Billable bool
 	Labels   ReportLabels
 }
