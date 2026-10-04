@@ -217,11 +217,57 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 			}
 		}
 	}
+	var sealedInviteCount int
+	for {
+		rows, err := tx.QueryContext(ctx, `SELECT token, sealed_token FROM invites WHERE sealed_token <> '' AND sealed_token NOT LIKE ? ORDER BY token LIMIT ?`, sealedPrefix+"%", migrationBatchSize)
+		if err != nil {
+			return fmt.Errorf("read plaintext invite tokens: %w", err)
+		}
+		type pendingInvite struct{ hash, token string }
+		batch := make([]pendingInvite, 0, migrationBatchSize)
+		for rows.Next() {
+			var item pendingInvite
+			if err := rows.Scan(&item.hash, &item.token); err != nil {
+				_ = rows.Close()
+				return fmt.Errorf("scan plaintext invite token: %w", err)
+			}
+			batch = append(batch, item)
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return fmt.Errorf("iterate plaintext invite tokens: %w", err)
+		}
+		if err := rows.Close(); err != nil {
+			return fmt.Errorf("close plaintext invite tokens: %w", err)
+		}
+		if len(batch) == 0 {
+			break
+		}
+		for _, item := range batch {
+			sealed, err := d.sealSecret(item.token)
+			if err != nil {
+				return fmt.Errorf("seal plaintext invite token: %w", err)
+			}
+			result, err := tx.ExecContext(ctx,
+				`UPDATE invites SET sealed_token = ? WHERE token = ? AND sealed_token = ?`, sealed, item.hash, item.token)
+			if err != nil {
+				return fmt.Errorf("write sealed invite token: %w", err)
+			}
+			updated, err := result.RowsAffected()
+			if err != nil {
+				return fmt.Errorf("count sealed invite token updates: %w", err)
+			}
+			sealedInviteCount += int(updated)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit secret migration: %w", err)
 	}
 	for column, count := range sealedCounts {
 		d.logger.Printf("secrets: sealed %d %s values", count, column)
+	}
+	if sealedInviteCount > 0 {
+		d.logger.Printf("secrets: sealed %d invites.sealed_token values", sealedInviteCount)
 	}
 	return nil
 }
