@@ -193,13 +193,19 @@ if printf '%s\n' "$integration_start_handler" | grep -q 'Integrations\.Queries\.
 	exit 1
 fi
 
-# Session-edit interval arithmetic depends on the stored session and belongs in
-# tracking, where the current state is already loaded for validation.
+# Session-edit interval arithmetic depends on the stored session and must use
+# the state protected by the persistence transaction's row lock.
 session_edit=$(sed -n '/^func (s \*Server) applySessionUpdateRequest(/,/^}/p' internal/web/handlers_session_edits.go)
 if printf '%s\n' "$session_edit" | grep -q 'Tracking\.Queries\.Session' ||
 	! printf '%s\n' "$session_edit" | grep -q 'DurationSeconds' ||
 	! printf '%s\n' "$session_edit" | grep -q 'RecomputeDuration'; then
 	echo "architecture check: session-edit intent must be resolved by the tracking workflow" >&2
+	exit 1
+fi
+session_edit_transition=$(sed -n '/^func (d \*DB) UpdateSessionFields(/,/^}/p' internal/db/sessions.go)
+if ! printf '%s\n' "$session_edit_transition" | grep -q 'lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID)' ||
+	! printf '%s\n' "$session_edit_transition" | grep -q 'resolveLockedSessionUpdate(lockedSession, request)'; then
+	echo "architecture check: session-edit interval resolution must use the locked persistence state" >&2
 	exit 1
 fi
 
