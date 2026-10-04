@@ -100,12 +100,14 @@ and compile-time checked instead of silently optional.
 The JSON response helpers accept only named adapter DTOs that implement the
 HTTP package's sealed response interface, preventing raw domain records and
 ad-hoc maps from becoming endpoint contracts.
-Consumer ports use `model` for domain values and reusable query results, such
-as paginated session history and project activity summaries. Results that carry
-workflow-specific outcomes stay with their owning workflow; for example,
-integration connection returns the persisted integration together with the
-initial sync error. This keeps shared data neutral without moving use-case
-semantics into a catch-all model package.
+Consumer ports use `model` for domain values such as sessions, activities and
+projects. Workflow-facing read contracts and projections live in `appmodel`,
+including paginated session history, active-session/activity pairs, project
+activity summaries and schedule rows. Results that carry workflow-specific
+outcomes stay with their owning workflow; for example, integration connection
+returns the persisted integration together with the initial sync error. This
+keeps domain entities separate from application read shapes and use-case
+semantics.
 Application commands, edit fields and options that carry actor, workspace and
 operation inputs live in `appmodel`, keeping use-case data out of the shared
 domain package. Typed request-validation errors shared across workflows,
