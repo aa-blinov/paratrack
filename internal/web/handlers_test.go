@@ -150,3 +150,19 @@ func TestGoalsPageBootstrapsReact(t *testing.T) {
 		}
 	}
 }
+
+func TestTagsPageBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/tags", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /tags status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, marker := range []string{"id=\"react-page-data\"", "id=\"paratrack-react-root\"", `"ReactTags":true`} {
+		if !strings.Contains(response.Body.String(), marker) {
+			t.Errorf("GET /tags missing React bootstrap marker %q", marker)
+		}
+	}
+}

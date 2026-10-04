@@ -14,15 +14,19 @@ import (
 
 // handleTagsList returns every tag as JSON.
 func (s *Server) handleTagsList(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.List(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
+	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
 	if tags == nil {
-		tags = []model.Tag{}
+		tags = []appmodel.TagWithCount{}
 	}
-	s.writeJSON(w, tagListResponse{Tags: tagsFor(tags)})
+	responses := make([]tagResponse, 0, len(tags))
+	for _, tag := range tags {
+		responses = append(responses, tagResponse{ID: tag.ID, Name: tag.Name, TeamID: tag.TeamID, CreatedAt: tag.CreatedAt, SessionCount: tag.SessionCount})
+	}
+	s.writeJSON(w, tagListResponse{Tags: responses})
 }
 
 // handleTagsCreate adds a tag (or returns the existing one if the
@@ -208,11 +212,14 @@ func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 		})
 		names = append(names, t.Name)
 	}
-	s.render(w, r, "tags-content", &tagsData{
+	data := &tagsData{
 		pageData:    pageData{Title: "Tags", Active: "tags"},
 		Tags:        views,
 		AllTagNames: names,
-	})
+		ReactTags:   true,
+	}
+	data.ReactApp = true
+	s.renderPageForRequest(w, r, data.Title, data.Active, "tags-content", data)
 }
 
 // handleTagsFragment returns the inner `tags-list` template so HTMX
