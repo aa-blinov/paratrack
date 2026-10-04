@@ -316,6 +316,8 @@
   "tokens.title": "API tokens",
   "tokens.blurb": "Long-lived tokens for the browser extension and the API. Treat them like passwords.",
   "tokens.namePh": "e.g. laptop extension",
+  "tokens.copy": "Copy",
+  "tokens.copied": "Copied",
   "tokens.create": "Create token",
   "tokens.name": "Name",
   "tokens.once": "Copy this token now, it is shown only once.",

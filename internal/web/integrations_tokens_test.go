@@ -104,7 +104,14 @@ func TestBearerTokenAuth(t *testing.T) {
 		t.Fatalf("create token: %d loc %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
 	page := readBody(t, resp)
-	raw := regexp.MustCompile(`pt_[A-Za-z0-9_-]+`).FindString(page)
+	// React bootstrap data lists each token prefix before the one-time secret;
+	// choose the complete token rather than the first (short) list prefix.
+	var raw string
+	for _, candidate := range regexp.MustCompile(`pt_[A-Za-z0-9_-]+`).FindAllString(page, -1) {
+		if len(candidate) > len(raw) {
+			raw = candidate
+		}
+	}
 	if raw == "" {
 		t.Fatal("raw token not shown on the page")
 	}

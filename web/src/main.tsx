@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData } from "@/dashboard/types"
+import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData, TokensData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -33,6 +33,7 @@ const ExportPage = lazy(() => import("@/export/export-page").then(module => ({ d
 const IntegrationsPage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.IntegrationsPage })))
 const IntegrationDetailPage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.IntegrationDetailPage })))
 const MarketplacePage = lazy(() => import("@/integrations/integrations-page").then(module => ({ default: module.MarketplacePage })))
+const TokensPage = lazy(() => import("@/settings/tokens-page").then(module => ({ default: module.TokensPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -246,6 +247,8 @@ if (root && payload) {
             ? <IntegrationDetailPage data={initial.data as IntegrationDetailData} />
             : "IntegrationsReact" in initial.data && initial.data.IntegrationsReact
             ? <IntegrationsPage data={initial.data as IntegrationsData} />
+            : "TokensReact" in initial.data && initial.data.TokensReact
+            ? <TokensPage data={initial.data as TokensData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
