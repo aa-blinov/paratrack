@@ -85,7 +85,7 @@ func TestIntegrationsCRUD(t *testing.T) {
 	if err := d.SyncExternalTasks(ctx, appmodel.IntegrationTaskSyncRequest{TeamID: 1, IntegrationID: it.ID, CallerID: 1, Generation: syncTwo.Generation, Tasks: []integrationport.ProviderTask{{ExternalID: "gh-1", Title: "Fix login v2", URL: "https://x", Status: "closed"}}}); err != nil {
 		t.Fatal(err)
 	}
-	ts, err := d.ListExternalTasks(ctx, 1, it.ID)
+	ts, err := d.ListExternalTasks(ctx, appmodel.IntegrationLookupQuery{TeamID: 1, IntegrationID: it.ID})
 	if err != nil || len(ts) != 1 || ts[0].Title != "Fix login v2" {
 		t.Fatalf("tasks=%+v err=%v", ts, err)
 	}

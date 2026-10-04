@@ -146,7 +146,7 @@ func TestSyncExternalTasksUpsertsSnapshotAndClosesMissingTasks(t *testing.T) {
 	if err := d.SyncExternalTasks(ctx, appmodel.IntegrationTaskSyncRequest{TeamID: teamID, IntegrationID: integration.ID, CallerID: ownerID, Generation: firstSync.Generation, Tasks: first}); err != nil {
 		t.Fatalf("sync initial snapshot: %v", err)
 	}
-	tasks, err := d.ListExternalTasks(ctx, teamID, integration.ID)
+	tasks, err := d.ListExternalTasks(ctx, appmodel.IntegrationLookupQuery{TeamID: teamID, IntegrationID: integration.ID})
 	if err != nil {
 		t.Fatalf("list initial snapshot: %v", err)
 	}
@@ -168,7 +168,7 @@ func TestSyncExternalTasksUpsertsSnapshotAndClosesMissingTasks(t *testing.T) {
 	if err := d.SyncExternalTasks(ctx, appmodel.IntegrationTaskSyncRequest{TeamID: teamID, IntegrationID: integration.ID, CallerID: ownerID, Generation: firstSync.Generation, Tasks: first}); !errors.Is(err, appmodel.ErrIntegrationSyncSuperseded) {
 		t.Fatalf("stale snapshot error = %v, want superseded", err)
 	}
-	tasks, err = d.ListExternalTasks(ctx, teamID, integration.ID)
+	tasks, err = d.ListExternalTasks(ctx, appmodel.IntegrationLookupQuery{TeamID: teamID, IntegrationID: integration.ID})
 	if err != nil {
 		t.Fatalf("list reduced snapshot: %v", err)
 	}

@@ -269,11 +269,11 @@ type IntegrationDependencies struct {
 // IntegrationQueries serves integration and imported-task views.
 type IntegrationQueries interface {
 	Management(context.Context, int64) (appmodel.IntegrationManagementSnapshot, error)
-	Detail(context.Context, int64, int64) (appmodel.IntegrationDetailSnapshot, error)
+	Detail(context.Context, appmodel.IntegrationLookupQuery) (appmodel.IntegrationDetailSnapshot, error)
 	List(context.Context, int64) ([]model.IntegrationSummary, error)
-	Summary(context.Context, int64, int64) (model.IntegrationSummary, error)
-	Task(context.Context, int64, int64) (model.ExternalTask, error)
-	Tasks(context.Context, int64, int64) ([]model.ExternalTask, error)
+	Summary(context.Context, appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error)
+	Task(context.Context, appmodel.ExternalTaskLookupQuery) (model.ExternalTask, error)
+	Tasks(context.Context, appmodel.IntegrationLookupQuery) ([]model.ExternalTask, error)
 	TasksForTeam(context.Context, int64) ([]model.ExternalTaskWithProvider, error)
 }
 

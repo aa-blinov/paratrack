@@ -169,6 +169,22 @@ if ! printf '%s\n' "$sync_reservation" | grep -Fq 'sync_generation = sync_genera
 	echo "architecture check: integration snapshot writes must reject stale provider fetches by generation" >&2
 	exit 1
 fi
+for method in GetIntegrationSummary ListExternalTasks; do
+	integration_lookup=$(sed -n "/^func (d \\*DB) $method(/,/^}/p" internal/db/integrations.go)
+	if ! printf '%s\n' "$integration_lookup" | grep -Fq 'query appmodel.IntegrationLookupQuery' ||
+		! printf '%s\n' "$integration_lookup" | grep -Fq 'query.TeamID <= 0' ||
+		! printf '%s\n' "$integration_lookup" | grep -Fq 'query.IntegrationID <= 0'; then
+		echo "architecture check: integration read $method must validate workspace and integration scope" >&2
+		exit 1
+	fi
+done
+external_task_lookup=$(sed -n '/^func (d \*DB) GetExternalTask(/,/^}/p' internal/db/integrations.go)
+if ! printf '%s\n' "$external_task_lookup" | grep -Fq 'query appmodel.ExternalTaskLookupQuery' ||
+	! printf '%s\n' "$external_task_lookup" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$external_task_lookup" | grep -Fq 'query.TaskID <= 0'; then
+	echo "architecture check: imported task lookup must validate workspace and task scope" >&2
+	exit 1
+fi
 if grep -R -q --include='*.go' --exclude='*_test.go' -E '\.CreateSession\(' internal; then
 	echo "architecture check: production session creation must use the explicit tracking workflow operations" >&2
 	exit 1
