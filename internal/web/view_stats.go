@@ -31,6 +31,8 @@ type statsData struct {
 	SavedReports  []savedReportView
 }
 
+func (statsData) usesReactApp() bool { return true }
+
 type aggRow struct {
 	ActivityName string
 	Color        string

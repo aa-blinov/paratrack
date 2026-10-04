@@ -48,6 +48,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C7. React payroll | pay-run form/overlap confirmation; detail status, print and delete actions |
 | C8. React schedule | week navigation and project selection; role-aware editable cells autosave and refresh row totals; no-project and member empty states |
 | C9. React invoices | unbilled and unassigned activity; project selection prefills client details; invoice generation; detail status, PDF, print, email and receipt actions |
+| C10. React stats | period/person/project/tag filters preserve scope; saved reports; project/activity totals; inline session edits, tag changes and delete refresh the filtered view |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |
