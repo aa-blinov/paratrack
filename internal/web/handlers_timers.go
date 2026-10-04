@@ -256,16 +256,10 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "name is required", 400)
 		return
 	}
-	act, err := s.services.Tracking.Queries.FindActivity(r.Context(), teamID(r), name)
+	act, _, err := s.services.TrackingOps.FocusActivity(operationContext(r), appmodel.TimerFocusByNameRequest{
+		TeamID: teamID(r), ActivityName: name, At: actionTime(r),
+	})
 	if err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			http.Error(w, "activity not found", http.StatusNotFound)
-			return
-		}
-		s.writeInternalError(w, err)
-		return
-	}
-	if _, err := s.services.TrackingOps.Focus(operationContext(r), appmodel.TimerFocusRequest{TeamID: teamID(r), ActivityID: act.ID, At: actionTime(r)}); err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			http.Error(w, "activity not found", http.StatusNotFound)
 			return

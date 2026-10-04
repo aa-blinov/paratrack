@@ -34,6 +34,10 @@ func (*sessionStarterStub) Activity(_ context.Context, _ int64, activityID int64
 	return model.Activity{ID: activityID, Name: "Deep work"}, nil
 }
 
+func (*sessionStarterStub) FindActivity(_ context.Context, _ int64, name string) (model.Activity, error) {
+	return model.Activity{ID: 7, Name: name}, nil
+}
+
 func (s *sessionStarterStub) ResolveActivityForMember(_ context.Context, request appmodel.ActivityResolveRequest) (model.Activity, error) {
 	s.resolved = model.Activity{ID: 7, Name: request.Name}
 	return s.resolved, s.err
@@ -124,6 +128,28 @@ func TestStartActivityResolvesAssignsAndStartsThroughOneOperation(t *testing.T) 
 	}
 	if audit.calls != 1 || audit.action != "session.start" {
 		t.Fatalf("start audit = %+v", audit)
+	}
+}
+
+func TestFocusActivityResolvesExistingNameAndAuditsFocus(t *testing.T) {
+	sessions := &sessionStarterStub{focus: appmodel.FocusResult{Started: true, StartedSessionID: 83}}
+	audit := &auditRecorderStub{}
+	service, err := New(dependencies(sessions, audit))
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	activity, result, err := service.FocusActivity(requestctx.WithActor(context.Background(), 12), appmodel.TimerFocusByNameRequest{
+		TeamID: 4, ActivityName: " Deep work ", At: at,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activity.ID != 7 || activity.Name != "Deep work" || !result.Started {
+		t.Fatalf("focus activity result = activity %+v, result %+v", activity, result)
+	}
+	if audit.calls != 1 || audit.action != "session.start" || audit.target != "83" || audit.meta != "Deep work" {
+		t.Fatalf("focus audit = %+v", audit)
 	}
 }
 

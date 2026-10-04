@@ -34,6 +34,7 @@ type AuditRecorder interface {
 
 type ActivityReader interface {
 	Activity(context.Context, int64, int64) (model.Activity, error)
+	FindActivity(context.Context, int64, string) (model.Activity, error)
 }
 
 type ActivityResolver interface {
@@ -280,6 +281,26 @@ func (s *Service) Focus(ctx context.Context, request appmodel.TimerFocusRequest)
 		s.logger.Printf("tracking: record focused session audit for session %s: %v", target, err)
 	}
 	return result, nil
+}
+
+// FocusActivity resolves an existing workspace activity by name and focuses
+// it through the same audited transition used by other timer callers.
+func (s *Service) FocusActivity(ctx context.Context, request appmodel.TimerFocusByNameRequest) (model.Activity, appmodel.FocusResult, error) {
+	name := strings.TrimSpace(request.ActivityName)
+	if request.TeamID <= 0 || name == "" || request.At.IsZero() {
+		return model.Activity{}, appmodel.FocusResult{}, appmodel.ErrInvalidSessionStart
+	}
+	activity, err := s.activities.FindActivity(ctx, request.TeamID, name)
+	if err != nil {
+		return model.Activity{}, appmodel.FocusResult{}, err
+	}
+	result, err := s.Focus(ctx, appmodel.TimerFocusRequest{
+		TeamID: request.TeamID, ActivityID: activity.ID, At: request.At,
+	})
+	if err != nil {
+		return activity, appmodel.FocusResult{}, err
+	}
+	return activity, result, nil
 }
 
 // Stop ends one session, then records audit and notification effects.
