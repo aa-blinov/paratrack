@@ -61,7 +61,7 @@ func (s *trackingStub) HasAnySession(context.Context, int64) (bool, error) {
 
 type projectsStub struct{ summaryIDs []int64 }
 
-func (*projectsStub) List(context.Context, int64, bool) ([]model.Project, error) {
+func (*projectsStub) List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	return []model.Project{{ID: 1}}, nil
 }
 

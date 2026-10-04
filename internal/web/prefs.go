@@ -154,7 +154,7 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 	for _, k := range widgetKeys {
 		data.Widgets = append(data.Widgets, prefCheck{k, "", "widget." + k, widgetOn(r, k)})
 	}
-	projects, err := s.services.Projects.Queries.List(r.Context(), teamID(r), false)
+	projects, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

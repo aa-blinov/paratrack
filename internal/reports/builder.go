@@ -32,7 +32,7 @@ type TeamReader interface {
 }
 
 type ProjectReader interface {
-	List(context.Context, int64, bool) ([]model.Project, error)
+	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	GetBySlug(context.Context, int64, string) (model.Project, error)
 	Currencies(context.Context, int64) (map[int64]string, error)
 	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
@@ -156,7 +156,7 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("load stats sessions: %w", err)
 	}
-	projects, err := b.projects.List(ctx, query.TeamID, false)
+	projects, err := b.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID})
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("load stats projects: %w", err)
 	}
@@ -286,7 +286,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report currency: %w", err)
 	}
-	projects, err := b.projects.List(ctx, query.TeamID, true)
+	projects, err := b.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID, IncludeArchived: true})
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report projects: %w", err)
 	}

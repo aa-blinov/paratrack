@@ -94,7 +94,7 @@ type ProjectLookup interface {
 
 // ProjectQueries supplies workspace-scoped project catalog reads.
 type ProjectQueries interface {
-	ListWithActivityCounts(context.Context, int64, bool) (appmodel.ProjectCatalogSnapshot, error)
+	ListWithActivityCounts(context.Context, appmodel.ProjectCatalogQuery) (appmodel.ProjectCatalogSnapshot, error)
 	Activities(context.Context, int64, int64, bool) ([]model.Activity, error)
 }
 

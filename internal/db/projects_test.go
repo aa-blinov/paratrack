@@ -112,7 +112,7 @@ func TestListProjects_HidesArchived(t *testing.T) {
 	}
 
 	// Default: archived hidden.
-	list, err := d.ListProjects(ctx, teamID, false)
+	list, err := d.ListProjects(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +121,7 @@ func TestListProjects_HidesArchived(t *testing.T) {
 	}
 
 	// includeArchived: both visible, archived last.
-	all, err := d.ListProjects(ctx, teamID, true)
+	all, err := d.ListProjects(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID, IncludeArchived: true})
 	if err != nil {
 		t.Fatal(err)
 	}

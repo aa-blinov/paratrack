@@ -189,7 +189,7 @@ type SessionDecorationBuilding interface {
 type ProjectQueries interface {
 	Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error)
 	GetBySlug(context.Context, int64, string) (model.Project, error)
-	List(context.Context, int64, bool) ([]model.Project, error)
+	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	ListWithUsage(context.Context, appmodel.ProjectListQuery) (appmodel.ProjectListSnapshot, error)
 }
 
