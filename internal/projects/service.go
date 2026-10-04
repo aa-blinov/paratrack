@@ -150,6 +150,23 @@ func (s *Service) UsageSummary(ctx context.Context, teamID int64, todayStart, mo
 	return usage, nil
 }
 
+// ListWithUsage assembles the project list and its time-window summaries for
+// one adapter read, keeping list composition in the project workflow.
+func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectListQuery) (appmodel.ProjectListSnapshot, error) {
+	if query.TeamID <= 0 {
+		return appmodel.ProjectListSnapshot{}, ErrInvalidTeam
+	}
+	items, err := s.catalog.ListProjects(ctx, query.TeamID, query.IncludeArchived)
+	if err != nil {
+		return appmodel.ProjectListSnapshot{}, fmt.Errorf("list projects: %w", err)
+	}
+	usage, err := s.UsageSummary(ctx, query.TeamID, query.TodayStart, query.MonthStart, query.Now)
+	if err != nil {
+		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project usage summary: %w", err)
+	}
+	return appmodel.ProjectListSnapshot{Projects: items, Usage: usage}, nil
+}
+
 func (s *Service) Summaries(ctx context.Context, teamID int64, projectIDs []int64) (map[int64]model.ProjectSummary, error) {
 	if teamID <= 0 {
 		return nil, model.ErrNotFound

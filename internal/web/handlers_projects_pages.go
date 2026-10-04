@@ -49,25 +49,21 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	tid := teamID(r)
 	showArchived := r.URL.Query().Get("archived") == "1"
 
-	projects, err := s.services.Projects.Queries.List(r.Context(), tid, showArchived)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-
 	now := userNow(r)
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	monthFrom := now.Add(-30 * 24 * time.Hour)
-	usage, err := s.services.Projects.Queries.UsageSummary(r.Context(), tid, dayStart, monthFrom, now)
+	snapshot, err := s.services.Projects.Queries.ListWithUsage(r.Context(), appmodel.ProjectListQuery{
+		TeamID: tid, IncludeArchived: showArchived, TodayStart: dayStart, MonthStart: monthFrom, Now: now,
+	})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
-	rows := make([]projectListRow, 0, len(projects))
-	for _, p := range projects {
+	rows := make([]projectListRow, 0, len(snapshot.Projects))
+	for _, p := range snapshot.Projects {
 		row := projectListRow{
 			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
-			Activities: usage[p.ID].ActivityCount, TodaySecs: usage[p.ID].TodaySeconds, MonthSecs: usage[p.ID].MonthSeconds,
+			Activities: snapshot.Usage[p.ID].ActivityCount, TodaySecs: snapshot.Usage[p.ID].TodaySeconds, MonthSecs: snapshot.Usage[p.ID].MonthSeconds,
 		}
 		row.TodayLabel, row.MonthLabel = fmtDur(r, row.TodaySecs), fmtDur(r, row.MonthSecs)
 		rows = append(rows, row)

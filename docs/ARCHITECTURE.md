@@ -605,8 +605,9 @@ authorization port; HTTP does not pass a `canManage` decision into the
 workflow. Persistence repeats the role or membership check under the workspace
 lock before assignment.
 Project-list usage (activity count, today's tracked time and rolling-month
-time) is aggregated by the projects service from team-scoped persistence reads;
-the HTTP adapter only supplies the user's date boundaries and formats labels.
+time) and the project rows are returned together by the projects service from
+team-scoped persistence reads. The HTTP adapter passes the user's date
+boundaries and formats labels.
 Project summaries used to decorate session rows and exports are also loaded
 through the service with a workspace constraint on the batch lookup.
 Project detail project, activity, recent-session, tracked-time and currency
