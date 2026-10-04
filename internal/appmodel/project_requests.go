@@ -68,6 +68,12 @@ type ProjectSummariesQuery struct {
 	ProjectIDs []int64
 }
 
+// ProjectSlugQuery resolves a project slug within one workspace.
+type ProjectSlugQuery struct {
+	TeamID int64
+	Slug   string
+}
+
 // ProjectUsageQuery combines the catalog selection with the usage window.
 type ProjectUsageQuery struct {
 	Catalog    ProjectCatalogQuery

@@ -33,7 +33,7 @@ type TeamReader interface {
 
 type ProjectReader interface {
 	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
-	GetBySlug(context.Context, int64, string) (model.Project, error)
+	GetBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
 	Currencies(context.Context, int64) (map[int64]string, error)
 	Summaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
 }
@@ -264,7 +264,7 @@ func (b *Builder) resolveProjectSlug(ctx context.Context, teamID int64, slug str
 	if slug == "" {
 		return model.Project{}, nil
 	}
-	project, err := b.projects.GetBySlug(ctx, teamID, slug)
+	project, err := b.projects.GetBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: teamID, Slug: slug})
 	if errors.Is(err, model.ErrNotFound) {
 		return model.Project{}, nil
 	}

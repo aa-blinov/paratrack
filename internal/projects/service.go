@@ -21,7 +21,7 @@ type ProjectCatalogStore interface {
 	ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	ListActivitiesForProject(context.Context, int64, int64, bool) ([]model.Activity, error)
 	GetProjectInTeam(context.Context, int64, int64) (model.Project, error)
-	GetProjectBySlug(context.Context, int64, string) (model.Project, error)
+	GetProjectBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
 	GetActivity(context.Context, int64, int64) (model.Activity, error)
 }
 
@@ -259,11 +259,12 @@ func (s *Service) GetInTeam(ctx context.Context, teamID, projectID int64) (model
 	return s.catalog.GetProjectInTeam(ctx, teamID, projectID)
 }
 
-func (s *Service) GetBySlug(ctx context.Context, teamID int64, slug string) (model.Project, error) {
-	if teamID <= 0 || strings.TrimSpace(slug) == "" {
+func (s *Service) GetBySlug(ctx context.Context, query appmodel.ProjectSlugQuery) (model.Project, error) {
+	query.Slug = strings.TrimSpace(query.Slug)
+	if query.TeamID <= 0 || query.Slug == "" {
 		return model.Project{}, model.ErrNotFound
 	}
-	return s.catalog.GetProjectBySlug(ctx, teamID, strings.TrimSpace(slug))
+	return s.catalog.GetProjectBySlug(ctx, query)
 }
 
 // Detail loads the scoped project page data through the owning project workflow.
@@ -271,7 +272,7 @@ func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequ
 	if request.TeamID <= 0 || strings.TrimSpace(request.Slug) == "" || request.From.IsZero() || request.Through.IsZero() || request.Through.Before(request.From) {
 		return model.ProjectDetail{}, model.ErrNotFound
 	}
-	project, err := s.catalog.GetProjectBySlug(ctx, request.TeamID, strings.TrimSpace(request.Slug))
+	project, err := s.catalog.GetProjectBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: request.TeamID, Slug: strings.TrimSpace(request.Slug)})
 	if err != nil {
 		return model.ProjectDetail{}, err
 	}
@@ -356,7 +357,7 @@ func (s *Service) DeleteBySlug(ctx context.Context, request appmodel.ProjectSlug
 	if request.TeamID <= 0 || request.CallerID <= 0 || strings.TrimSpace(request.Slug) == "" {
 		return model.ErrNotFound
 	}
-	project, err := s.GetBySlug(ctx, request.TeamID, request.Slug)
+	project, err := s.GetBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: request.TeamID, Slug: request.Slug})
 	if err != nil {
 		return err
 	}
@@ -492,7 +493,7 @@ func (s *Service) UpdateBySlug(ctx context.Context, request appmodel.ProjectSlug
 	if request.TeamID <= 0 || request.CallerID <= 0 || strings.TrimSpace(request.Slug) == "" {
 		return model.Project{}, model.ErrNotFound
 	}
-	project, err := s.GetBySlug(ctx, request.TeamID, request.Slug)
+	project, err := s.GetBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: request.TeamID, Slug: request.Slug})
 	if err != nil {
 		return model.Project{}, err
 	}

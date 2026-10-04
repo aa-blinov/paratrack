@@ -91,7 +91,7 @@ func TestGetProjectBySlug(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := d.GetProjectBySlug(ctx, teamID, "EORA-RAG") // case-insensitive
+	got, err := d.GetProjectBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: teamID, Slug: "EORA-RAG"}) // case-insensitive
 	if err != nil {
 		t.Fatalf("lookup failed: %v", err)
 	}
@@ -386,7 +386,7 @@ func TestProjectWrites_RecheckManagerRole(t *testing.T) {
 	if got.Name != "P" {
 		t.Errorf("unauthorized writes changed project name to %q", got.Name)
 	}
-	if _, err := d.GetProjectBySlug(ctx, teamID, "unauthorized"); !errors.Is(err, ErrNotFound) {
+	if _, err := d.GetProjectBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: teamID, Slug: "unauthorized"}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("unauthorized create left a project behind: %v", err)
 	}
 }
