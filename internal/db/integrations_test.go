@@ -8,6 +8,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/integrationport"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestIntegrationWritesAndSecretReads_RecheckManagerRole(t *testing.T) {
@@ -100,18 +101,19 @@ func TestCreateScopedAPIToken_RechecksMembershipInPersistence(t *testing.T) {
 	ctx := t.Context()
 	teamID := seedTeam(t, d, "Scoped token", "scoped-token")
 	memberID := seedProjectTestUser(t, d, "scoped-token-member")
+	ctx = requestctx.WithActor(ctx, memberID)
 	if _, err := d.TestSQL().ExecContext(ctx,
 		`INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)`,
 		teamID, memberID, FormatTime(time.Now().UTC())); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: memberID, Name: "before removal", Options: TokenOptions{TeamID: teamID}}); err != nil {
+	if _, _, err := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: memberID, CallerID: memberID, Name: "before removal", Options: TokenOptions{TeamID: teamID}}); err != nil {
 		t.Fatalf("create token for current member: %v", err)
 	}
 	if _, err := d.TestSQL().ExecContext(ctx, `DELETE FROM memberships WHERE team_id = ? AND user_id = ?`, teamID, memberID); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: memberID, Name: "after removal", Options: TokenOptions{TeamID: teamID}}); !errors.Is(err, model.ErrForbidden) {
+	if _, _, err := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: memberID, CallerID: memberID, Name: "after removal", Options: TokenOptions{TeamID: teamID}}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("create token after membership removal error = %v, want forbidden", err)
 	}
 	var count int

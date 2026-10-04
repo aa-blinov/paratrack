@@ -17,7 +17,7 @@ var ErrTokenInvalid = appmodel.ErrAuthTokenInvalid
 // team-scoped credential cannot be minted for a workspace they do not belong
 // to. The raw value is returned once for display by the adapter.
 func (s *Service) CreateAPIToken(ctx context.Context, request appmodel.APITokenCreateRequest) (string, model.APIToken, error) {
-	if request.UserID <= 0 || request.Options.TeamID < 0 {
+	if request.UserID <= 0 || request.CallerID <= 0 || request.UserID != request.CallerID || request.Options.TeamID < 0 {
 		return "", model.APIToken{}, fmt.Errorf("%w: invalid token owner or scope", ErrValidation)
 	}
 	if request.Options.ExpiresAt != nil && expiredAt(*request.Options.ExpiresAt, s.now().UTC()) {
@@ -41,11 +41,14 @@ func (s *Service) CreateAPIToken(ctx context.Context, request appmodel.APITokenC
 	return raw, token, nil
 }
 
-func (s *Service) ListAPITokens(ctx context.Context, userID int64) ([]model.APIToken, error) {
-	if userID <= 0 {
+func (s *Service) ListAPITokens(ctx context.Context, request appmodel.APITokenListRequest) ([]model.APIToken, error) {
+	if request.UserID <= 0 || request.CallerID <= 0 {
 		return nil, ErrNotFound
 	}
-	tokens, err := s.tokens.ListAPITokens(ctx, userID)
+	if request.UserID != request.CallerID {
+		return nil, ErrForbidden
+	}
+	tokens, err := s.tokens.ListAPITokens(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("list API tokens: %w", err)
 	}
@@ -53,8 +56,11 @@ func (s *Service) ListAPITokens(ctx context.Context, userID int64) ([]model.APIT
 }
 
 func (s *Service) DeleteAPIToken(ctx context.Context, request appmodel.APITokenDeleteRequest) error {
-	if request.UserID <= 0 || request.TokenID <= 0 {
+	if request.UserID <= 0 || request.CallerID <= 0 || request.TokenID <= 0 {
 		return ErrNotFound
+	}
+	if request.UserID != request.CallerID {
+		return ErrForbidden
 	}
 	if err := s.tokens.DeleteAPIToken(ctx, request); err != nil {
 		if errors.Is(err, model.ErrNotFound) {

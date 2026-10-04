@@ -275,7 +275,8 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, token, err := svc.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: userID, Name: "automation", Options: appmodel.TokenOptions{TeamID: teamID}})
+	ctx = requestctx.WithActor(ctx, userID)
+	raw, token, err := svc.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: userID, CallerID: userID, Name: "automation", Options: appmodel.TokenOptions{TeamID: teamID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +287,7 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	if len(entries) != 1 || entries[0].Action != "auth.api_token_create" || entries[0].Target != fmt.Sprint(token.ID) || entries[0].Meta != "automation" || strings.Contains(entries[0].Meta, raw) {
 		t.Fatalf("token creation audit = %+v", entries)
 	}
-	if err := svc.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: userID, TokenID: token.ID}); err != nil {
+	if err := svc.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: userID, CallerID: userID, TokenID: token.ID}); err != nil {
 		t.Fatal(err)
 	}
 	entries, err = d.ListAudit(ctx, teamID, 100)

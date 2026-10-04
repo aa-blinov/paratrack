@@ -31,14 +31,21 @@ type PasswordResetConsumeRequest struct {
 }
 
 type APITokenCreateRequest struct {
-	UserID  int64
-	Name    string
-	Options TokenOptions
+	UserID   int64
+	CallerID int64
+	Name     string
+	Options  TokenOptions
 }
 
 type APITokenDeleteRequest struct {
-	UserID  int64
-	TokenID int64
+	UserID   int64
+	CallerID int64
+	TokenID  int64
+}
+
+type APITokenListRequest struct {
+	UserID   int64
+	CallerID int64
 }
 
 // APITokenLookupRequest carries a bearer secret to the token lookup that also
