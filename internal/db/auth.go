@@ -91,10 +91,16 @@ func (d *DB) UpdateUserName(ctx context.Context, request appmodel.ProfileNameReq
 	if request.UserID <= 0 {
 		return model.ErrNotFound
 	}
+	if request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return model.ErrForbidden
+	}
 	return execRequireRows(ctx, d.sql, `UPDATE users SET name = ?, updated_at = ? WHERE id = ?`, request.Name, FormatTime(d.currentTime().UTC()), request.UserID)
 }
 
 func (d *DB) UpdateUserPasswordIfHashMatches(ctx context.Context, request appmodel.PasswordHashUpdateRequest) (bool, error) {
+	if request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return false, model.ErrForbidden
+	}
 	result, err := d.sql.ExecContext(ctx,
 		`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND password_hash = ?`,
 		request.PasswordHash, FormatTime(d.currentTime().UTC()), request.UserID, request.ExpectedHash,
