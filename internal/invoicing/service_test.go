@@ -308,7 +308,7 @@ func TestGetCalculatesInvoiceTotals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := service.Get(context.Background(), 4, 12)
+	got, err := service.Get(context.Background(), appmodel.InvoiceLookupQuery{TeamID: 4, InvoiceID: 12})
 	if err != nil {
 		t.Fatalf("Get() error = %v", err)
 	}
@@ -352,7 +352,7 @@ func TestGetRejectsInvoiceTotalOverflow(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Get(context.Background(), 4, 12); !errors.Is(err, money.ErrOverflow) {
+	if _, err := service.Get(context.Background(), appmodel.InvoiceLookupQuery{TeamID: 4, InvoiceID: 12}); !errors.Is(err, money.ErrOverflow) {
 		t.Fatalf("Get() overflow error = %v, want %v", err, money.ErrOverflow)
 	}
 }

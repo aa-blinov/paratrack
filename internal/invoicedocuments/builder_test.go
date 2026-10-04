@@ -19,8 +19,8 @@ type invoiceReaderStub struct {
 	invoiceID int64
 }
 
-func (stub *invoiceReaderStub) Get(_ context.Context, teamID, invoiceID int64) (appmodel.InvoiceDetailResult, error) {
-	stub.teamID, stub.invoiceID = teamID, invoiceID
+func (stub *invoiceReaderStub) Get(_ context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error) {
+	stub.teamID, stub.invoiceID = query.TeamID, query.InvoiceID
 	return stub.details, stub.getErr
 }
 
