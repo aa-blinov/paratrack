@@ -119,7 +119,7 @@ func TestDashboardBootstrapsReactFromEmbeddedAssets(t *testing.T) {
 func TestProjectsListBootstrapsReact(t *testing.T) {
 	srv, token := newTestServer(t)
 	handler := srv.routes()
-	for _, path := range []string{"/projects", "/projects?archived=1"} {
+	for _, path := range []string{"/projects", "/projects?archived=1", "/projects/new"} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 		response := httptest.NewRecorder()

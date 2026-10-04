@@ -10,12 +10,13 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
+import type { DashboardData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
 const ProjectList = lazy(() => import("@/projects/project-list").then(module => ({ default: module.ProjectList })))
 const ProjectDetail = lazy(() => import("@/projects/project-detail").then(module => ({ default: module.ProjectDetail })))
+const ProjectCreate = lazy(() => import("@/projects/project-create").then(module => ({ default: module.ProjectCreate })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -195,7 +196,9 @@ if (root && payload) {
     createRoot(root).render(
       <StrictMode>
         <Suspense fallback={<div className="min-h-32 animate-pulse rounded-lg bg-muted" aria-hidden="true" />}>
-          {"Sessions" in initial.data
+          {"NewProject" in initial.data && initial.data.NewProject
+            ? <ProjectCreate data={initial.data as ProjectCreateData} />
+            : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
             ? <ProjectList data={initial.data as ProjectListData} />
