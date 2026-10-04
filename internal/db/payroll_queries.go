@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -85,7 +86,10 @@ func scanPayrollRunDetails(rows *sql.Rows) ([]model.PayrollRunDetails, error) {
 }
 
 // GetPayrollRunDetails returns the run and lines from one statement snapshot.
-func (d *DB) GetPayrollRunDetails(ctx context.Context, teamID, runID int64) (model.PayrollRunDetails, error) {
+func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error) {
+	if query.TeamID <= 0 || query.RunID <= 0 {
+		return model.PayrollRunDetails{}, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT r.id, r.team_id, r.number, r.period_start, r.period_end, r.status, r.notes,
 	        COALESCE(NULLIF(r.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = r.team_id), 'RUB'), r.created_at,
@@ -93,7 +97,7 @@ func (d *DB) GetPayrollRunDetails(ctx context.Context, teamID, runID int64) (mod
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ? AND r.id = ?
-		 ORDER BY l.id`, teamID, runID)
+		 ORDER BY l.id`, query.TeamID, query.RunID)
 	if err != nil {
 		return model.PayrollRunDetails{}, err
 	}

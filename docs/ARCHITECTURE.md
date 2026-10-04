@@ -122,7 +122,8 @@ ports. `ProjectSpansQuery` scopes time aggregation, while
 `ActivityLookupQuery` and `SessionLookupQuery` scope activity and session reads
 across project, tracking and tagging workflows. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects and
-invoicing. Goal progress reads carry a typed query with the workspace and
+invoicing. `PayrollRunLookupQuery` scopes run details to the requested workspace.
+Goal progress reads carry a typed query with the workspace and
 snapshot instant across CLI, HTTP, dashboard, workflow and persistence ports.
 Manager goal writes preserve caller and workspace scope through the workflow;
 persistence applies multiple targets in one transaction and rechecks the

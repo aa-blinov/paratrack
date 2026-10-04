@@ -22,7 +22,7 @@ import (
 type Store interface {
 	CreatePayrollDraft(context.Context, appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error)
 	ListPayrollRunDetails(context.Context, int64) ([]model.PayrollRunDetails, error)
-	GetPayrollRunDetails(context.Context, int64, int64) (model.PayrollRunDetails, error)
+	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error)
 	MarkPayrollPaidWithRecipients(context.Context, appmodel.PayrollMutationRequest) (bool, []int64, error)
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
@@ -99,7 +99,7 @@ func (s *Service) GetRun(ctx context.Context, teamID, runID int64) (appmodel.Pay
 	if teamID <= 0 || runID <= 0 {
 		return appmodel.PayrollRunDetail{}, ErrInvalidTeam
 	}
-	details, err := s.store.GetPayrollRunDetails(ctx, teamID, runID)
+	details, err := s.store.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: runID})
 	if err != nil {
 		return appmodel.PayrollRunDetail{}, fmt.Errorf("get payroll run: %w", err)
 	}
