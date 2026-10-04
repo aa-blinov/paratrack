@@ -305,7 +305,7 @@ type TrackingOperations interface {
 	Delete(context.Context, appmodel.SessionDeleteRequest) error
 	Reopen(context.Context, appmodel.TimerReopenRequest) (model.Session, error)
 	StartActivity(context.Context, appmodel.TimerStartByNameRequest) (model.Activity, model.Session, error)
-	Stop(context.Context, appmodel.TimerStopRequest) (model.Session, error)
+	Stop(context.Context, appmodel.TimerStopRequest) (appmodel.TimerStopResult, error)
 	StopAll(context.Context, appmodel.TimerStopAllRequest) ([]int64, error)
 }
 

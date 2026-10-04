@@ -285,15 +285,16 @@ func (s *Service) Focus(ctx context.Context, request appmodel.TimerFocusRequest)
 }
 
 // Stop ends one session, then records audit and notification effects.
-func (s *Service) Stop(ctx context.Context, request appmodel.TimerStopRequest) (model.Session, error) {
+func (s *Service) Stop(ctx context.Context, request appmodel.TimerStopRequest) (appmodel.TimerStopResult, error) {
 	if request.TeamID <= 0 || request.SessionID <= 0 {
-		return model.Session{}, model.ErrNotFound
+		return appmodel.TimerStopResult{}, model.ErrNotFound
 	}
 	teamID, sessionID, at := request.TeamID, request.SessionID, request.At
 	session, err := s.sessions.Stop(ctx, request)
 	if err != nil {
-		return model.Session{}, err
+		return appmodel.TimerStopResult{}, err
 	}
+	duration := session.DurationSeconds(at)
 	effectCtx, cancel := postcommit.NewContext(ctx)
 	defer cancel()
 	target := strconv.FormatInt(sessionID, 10)
@@ -311,8 +312,8 @@ func (s *Service) Stop(ctx context.Context, request appmodel.TimerStopRequest) (
 	}); err != nil {
 		s.logger.Printf("tracking: enqueue stopped notification for session %d: %v", sessionID, err)
 	}
-	s.notifyGoalsAfterSessions(effectCtx, teamID, map[int64]int{session.ActivityID: session.DurationSeconds(at)}, at, strconv.FormatInt(sessionID, 10))
-	return session, nil
+	s.notifyGoalsAfterSessions(effectCtx, teamID, map[int64]int{session.ActivityID: duration}, at, strconv.FormatInt(sessionID, 10))
+	return appmodel.TimerStopResult{Session: session, DurationSeconds: duration}, nil
 }
 
 // StopAll ends every active session at one instant and records its audit

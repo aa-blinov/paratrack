@@ -339,8 +339,12 @@ func TestStopCoordinatesGoalAndSessionNotifications(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := requestctx.WithActor(context.Background(), 12)
-	if _, err := service.Stop(ctx, appmodel.TimerStopRequest{TeamID: 4, SessionID: 91, At: at}); err != nil {
+	result, err := service.Stop(ctx, appmodel.TimerStopRequest{TeamID: 4, SessionID: 91, At: at})
+	if err != nil {
 		t.Fatal(err)
+	}
+	if result.Session.ID != 91 || result.DurationSeconds != 3600 {
+		t.Fatalf("stop result = %+v, want session 91 and duration 3600", result)
 	}
 	if notifications.stopped != 1 || notifications.achieved != 1 {
 		t.Fatalf("notifications = %+v, want stopped and goal-achieved notifications", notifications)
