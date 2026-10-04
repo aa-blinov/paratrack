@@ -33,7 +33,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		page, err := s.services.Tracking.Queries.SessionHistoryPage(r.Context(), teamID(r), from, to, after, limit)
+		page, err := s.services.Tracking.Queries.SessionHistoryPage(r.Context(), appmodel.SessionHistoryPageQuery{TeamID: teamID(r), From: from, To: to, After: after, Limit: limit})
 		if err != nil {
 			s.writeInternalJSONError(w, err)
 			return

@@ -21,7 +21,7 @@ type GoalReader interface {
 
 type TrackingReader interface {
 	ActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
-	ClosedSessions(context.Context, int64, time.Time, time.Time, *int64) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
 	HasAnySession(context.Context, int64) (bool, error)
 }
 
@@ -108,10 +108,10 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	if snapshot.ActiveSessions, err = b.tracking.ActiveSessions(ctx, query.TeamID); err != nil {
 		return Snapshot{}, fmt.Errorf("load active dashboard sessions: %w", err)
 	}
-	if snapshot.TodaySessions, err = b.tracking.ClosedSessions(ctx, query.TeamID, todayStart, todayQueryEnd, nil); err != nil {
+	if snapshot.TodaySessions, err = b.tracking.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: query.TeamID, Start: todayStart, End: todayQueryEnd}); err != nil {
 		return Snapshot{}, fmt.Errorf("load today's dashboard sessions: %w", err)
 	}
-	if snapshot.RecentSessions, err = b.tracking.ClosedSessions(ctx, query.TeamID, recentStart, recentEnd, nil); err != nil {
+	if snapshot.RecentSessions, err = b.tracking.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: query.TeamID, Start: recentStart, End: recentEnd}); err != nil {
 		return Snapshot{}, fmt.Errorf("load recent dashboard sessions: %w", err)
 	}
 	snapshot.TodayTotalSeconds, snapshot.TopActivityName, err = summarizeToday(snapshot.TodaySessions, snapshot.ActiveSessions, todayStart, todayEnd, now)

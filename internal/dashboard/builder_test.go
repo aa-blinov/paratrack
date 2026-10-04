@@ -46,8 +46,8 @@ func (s *trackingStub) ActiveSessions(context.Context, int64) ([]model.ActiveSes
 	return []model.ActiveSession{{Session: model.Session{ID: 3}, Activity: model.Activity{ProjectID: 9}}}, nil
 }
 
-func (s *trackingStub) ClosedSessions(_ context.Context, _ int64, from, to time.Time, _ *int64) ([]model.ActiveSession, error) {
-	s.closedRanges = append(s.closedRanges, [2]time.Time{from, to})
+func (s *trackingStub) ClosedSessions(_ context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+	s.closedRanges = append(s.closedRanges, [2]time.Time{query.Start, query.End})
 	if !s.withSessions {
 		return nil, nil
 	}
