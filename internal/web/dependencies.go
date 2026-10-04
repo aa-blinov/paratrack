@@ -295,11 +295,11 @@ type TrackingDependencies struct {
 type TrackingQueries interface {
 	ActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
 	Activity(context.Context, int64, int64) (model.Activity, error)
-	ClosedSessions(context.Context, int64, time.Time, time.Time, *int64) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
 	FindActivity(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
 	HasAnySession(context.Context, int64) (bool, error)
 	Session(context.Context, int64, int64) (model.Session, error)
-	SessionHistoryPage(context.Context, int64, time.Time, time.Time, *model.SessionCursor, int) (model.SessionPage, error)
+	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (model.SessionPage, error)
 	Timesheet(context.Context, appmodel.TimesheetRequest) (model.TimesheetWeek, error)
 }
 

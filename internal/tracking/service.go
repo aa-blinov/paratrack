@@ -49,9 +49,9 @@ type SessionStore interface {
 type SessionQueryStore interface {
 	GetSession(context.Context, appmodel.SessionLookupQuery) (model.Session, error)
 	ListActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
-	ListClosedSessions(context.Context, int64, time.Time, time.Time, *int64, *int64) ([]model.ActiveSession, error)
+	ListClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
 	HasAnySession(context.Context, int64) (bool, error)
-	ListSessionsPage(context.Context, int64, time.Time, time.Time, *model.SessionCursor, int) ([]model.ActiveSession, bool, error)
+	ListSessionsPage(context.Context, appmodel.SessionHistoryPageQuery) ([]model.ActiveSession, bool, error)
 }
 
 // ActivityStore provides activity lookup and lifecycle operations.
@@ -207,25 +207,14 @@ func (s *Service) ActiveSessions(ctx context.Context, teamID int64) ([]model.Act
 	return sessions, nil
 }
 
-func (s *Service) ClosedSessions(ctx context.Context, teamID int64, start, end time.Time, activityID *int64) ([]model.ActiveSession, error) {
-	if teamID <= 0 || start.IsZero() || end.Before(start) || (activityID != nil && *activityID <= 0) {
+func (s *Service) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+	if query.TeamID <= 0 || query.Start.IsZero() || query.End.Before(query.Start) ||
+		(query.ActivityID != nil && *query.ActivityID <= 0) || (query.ProjectID != nil && *query.ProjectID <= 0) {
 		return nil, ErrInvalidInterval
 	}
-	sessions, err := s.queries.ListClosedSessions(ctx, teamID, start, end, activityID, nil)
+	sessions, err := s.queries.ListClosedSessions(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list closed sessions: %w", err)
-	}
-	return sessions, nil
-}
-
-// ClosedSessionsForProject returns closed sessions in one project's period.
-func (s *Service) ClosedSessionsForProject(ctx context.Context, teamID int64, start, end time.Time, projectID int64) ([]model.ActiveSession, error) {
-	if teamID <= 0 || projectID <= 0 || start.IsZero() || end.Before(start) {
-		return nil, ErrInvalidInterval
-	}
-	sessions, err := s.queries.ListClosedSessions(ctx, teamID, start, end, nil, &projectID)
-	if err != nil {
-		return nil, fmt.Errorf("list closed sessions for project: %w", err)
 	}
 	return sessions, nil
 }
@@ -263,25 +252,25 @@ func (s *Service) Session(ctx context.Context, teamID, sessionID int64) (model.S
 	return session, nil
 }
 
-func (s *Service) SessionHistoryPage(ctx context.Context, teamID int64, from, to time.Time, after *model.SessionCursor, limit int) (model.SessionPage, error) {
-	if teamID <= 0 || from.IsZero() || to.IsZero() || to.Before(from) {
+func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (model.SessionPage, error) {
+	if query.TeamID <= 0 || query.From.IsZero() || query.To.IsZero() || query.To.Before(query.From) {
 		return model.SessionPage{}, ErrInvalidInterval
 	}
-	if limit <= 0 {
-		limit = 100
+	if query.Limit <= 0 {
+		query.Limit = 100
 	}
-	if limit > 500 {
-		limit = 500
+	if query.Limit > 500 {
+		query.Limit = 500
 	}
-	if after != nil {
-		start, err := time.Parse(time.RFC3339Nano, after.Start)
-		if err != nil || after.ID <= 0 {
+	if query.After != nil {
+		start, err := time.Parse(time.RFC3339Nano, query.After.Start)
+		if err != nil || query.After.ID <= 0 {
 			return model.SessionPage{}, fmt.Errorf("invalid session cursor")
 		}
 		canonical := start.UTC().Format(time.RFC3339Nano)
-		after = &model.SessionCursor{Start: canonical, ID: after.ID}
+		query.After = &model.SessionCursor{Start: canonical, ID: query.After.ID}
 	}
-	items, more, err := s.queries.ListSessionsPage(ctx, teamID, from, to, after, limit)
+	items, more, err := s.queries.ListSessionsPage(ctx, query)
 	if err != nil {
 		return model.SessionPage{}, fmt.Errorf("list paginated session history: %w", err)
 	}

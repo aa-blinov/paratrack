@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -18,6 +19,22 @@ type activityLookupStub struct {
 type sessionLookupStub struct {
 	SessionQueryStore
 	query appmodel.SessionLookupQuery
+}
+
+type sessionQueryStub struct {
+	SessionQueryStore
+	closed appmodel.ClosedSessionsQuery
+	page   appmodel.SessionHistoryPageQuery
+}
+
+func (stub *sessionQueryStub) ListClosedSessions(_ context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+	stub.closed = query
+	return nil, nil
+}
+
+func (stub *sessionQueryStub) ListSessionsPage(_ context.Context, query appmodel.SessionHistoryPageQuery) ([]model.ActiveSession, bool, error) {
+	stub.page = query
+	return nil, false, nil
 }
 
 func (stub *sessionLookupStub) GetSession(_ context.Context, query appmodel.SessionLookupQuery) (model.Session, error) {
@@ -82,5 +99,38 @@ func TestSessionLookupKeepsWorkspaceAndSessionTogether(t *testing.T) {
 	want := appmodel.SessionLookupQuery{TeamID: 4, SessionID: 9}
 	if got.TeamID != want.TeamID || got.ID != want.SessionID || store.query != want {
 		t.Fatalf("session lookup = %+v, query %+v; want %+v", got, store.query, want)
+	}
+}
+
+func TestClosedSessionQueryKeepsFiltersAndWorkspaceTogether(t *testing.T) {
+	activityID, projectID := int64(8), int64(9)
+	query := appmodel.ClosedSessionsQuery{
+		TeamID: 4, Start: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		End: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC), ActivityID: &activityID, ProjectID: &projectID,
+	}
+	store := &sessionQueryStub{}
+	service := &Service{queries: store}
+	if _, err := service.ClosedSessions(context.Background(), query); err != nil {
+		t.Fatal(err)
+	}
+	if store.closed.TeamID != query.TeamID || store.closed.Start != query.Start || store.closed.End != query.End ||
+		store.closed.ActivityID != query.ActivityID || store.closed.ProjectID != query.ProjectID {
+		t.Fatalf("closed session query = %+v, want %+v", store.closed, query)
+	}
+}
+
+func TestSessionHistoryPageNormalizesLimitAndCursorInQuery(t *testing.T) {
+	store := &sessionQueryStub{}
+	service := &Service{queries: store}
+	query := appmodel.SessionHistoryPageQuery{
+		TeamID: 4, From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+		To:    time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
+		After: &model.SessionCursor{Start: "2026-01-01T01:00:00+01:00", ID: 11}, Limit: 700,
+	}
+	if _, err := service.SessionHistoryPage(context.Background(), query); err != nil {
+		t.Fatal(err)
+	}
+	if store.page.Limit != 500 || store.page.After == nil || store.page.After.Start != "2026-01-01T00:00:00Z" || store.page.TeamID != query.TeamID {
+		t.Fatalf("session history query = %+v, want capped limit, canonical cursor and workspace", store.page)
 	}
 }

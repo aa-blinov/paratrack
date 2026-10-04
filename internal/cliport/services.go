@@ -4,7 +4,6 @@ package cliport
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
@@ -54,7 +53,7 @@ type TimerOperations interface {
 
 // SessionHistory is the read-only tracking capability used by CLI reports.
 type SessionHistory interface {
-	ClosedSessions(context.Context, int64, time.Time, time.Time, *int64) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
 }
 
 // ActivityCatalog supplies the activity selection and creation operations

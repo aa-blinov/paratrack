@@ -22,13 +22,11 @@ type graphSessionsStub struct {
 	scopedID  int64
 }
 
-func (s *graphSessionsStub) ClosedSessions(ctx context.Context, teamID int64, from, to time.Time, _ *int64) ([]model.ActiveSession, error) {
-	s.teamID, s.from, s.to = teamID, from, to
-	s.scopedID = requestctx.ScopedUserID(ctx)
-	return s.all, nil
-}
-func (s *graphSessionsStub) ClosedSessionsForProject(ctx context.Context, _ int64, _, _ time.Time, projectID int64) ([]model.ActiveSession, error) {
-	s.projectID = projectID
+func (s *graphSessionsStub) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+	s.teamID, s.from, s.to = query.TeamID, query.Start, query.End
+	if query.ProjectID != nil {
+		s.projectID = *query.ProjectID
+	}
 	s.scopedID = requestctx.ScopedUserID(ctx)
 	return s.all, nil
 }
