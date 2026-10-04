@@ -19,28 +19,20 @@ import (
 
 // handleIntegrations lists connected providers and the connect form.
 func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
-	list, err := s.services.Integrations.Queries.List(r.Context(), teamID(r))
+	snapshot, err := s.services.Integrations.Queries.Management(r.Context(), teamID(r))
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
-	}
-	tasks, err := s.services.Integrations.Queries.TasksForTeam(r.Context(), teamID(r))
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	counts := make(map[int64]int, len(list))
-	for _, task := range tasks {
-		counts[task.IntegrationID]++
 	}
 	lang := string(resolveLang(r))
 	data := integrationsPage{
 		pageData: pageData{Title: "Integrations", Active: "integrations", Lang: lang},
 	}
-	for _, it := range list {
+	for _, item := range snapshot.Items {
+		it := item.Integration
 		data.Items = append(data.Items, integrationRow{
 			ID: it.ID, Provider: it.Provider, Name: it.Name,
-			TaskCount: counts[it.ID],
+			TaskCount: item.TaskCount,
 		})
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -73,16 +65,12 @@ func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request)
 		http.NotFound(w, r)
 		return
 	}
-	it, err := s.services.Integrations.Queries.Summary(r.Context(), teamID(r), id)
+	snapshot, err := s.services.Integrations.Queries.Detail(r.Context(), teamID(r), id)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	tasks, err := s.services.Integrations.Queries.Tasks(r.Context(), teamID(r), it.ID)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
+	it, tasks := snapshot.Integration, snapshot.Tasks
 	lang := string(resolveLang(r))
 	data := integrationDetailPage{
 		pageData:    pageData{Title: it.Name, Active: "integrations", Lang: lang},

@@ -156,6 +156,32 @@ func (s *Service) List(ctx context.Context, teamID int64) ([]model.IntegrationSu
 	return integrations, nil
 }
 
+// Management assembles each integration with its imported-task count.
+func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.IntegrationManagementSnapshot, error) {
+	if teamID <= 0 {
+		return appmodel.IntegrationManagementSnapshot{}, ErrInvalidIntegration
+	}
+	integrations, err := s.List(ctx, teamID)
+	if err != nil {
+		return appmodel.IntegrationManagementSnapshot{}, err
+	}
+	tasks, err := s.TasksForTeam(ctx, teamID)
+	if err != nil {
+		return appmodel.IntegrationManagementSnapshot{}, err
+	}
+	counts := make(map[int64]int, len(integrations))
+	for _, task := range tasks {
+		counts[task.IntegrationID]++
+	}
+	snapshot := appmodel.IntegrationManagementSnapshot{Items: make([]appmodel.IntegrationManagementItem, 0, len(integrations))}
+	for _, integration := range integrations {
+		snapshot.Items = append(snapshot.Items, appmodel.IntegrationManagementItem{
+			Integration: integration, TaskCount: counts[integration.ID],
+		})
+	}
+	return snapshot, nil
+}
+
 // Summary returns display data for one connection without exposing credentials.
 func (s *Service) Summary(ctx context.Context, teamID, integrationID int64) (model.IntegrationSummary, error) {
 	if teamID <= 0 || integrationID <= 0 {
@@ -202,6 +228,23 @@ func (s *Service) Tasks(ctx context.Context, teamID, integrationID int64) ([]mod
 		return nil, fmt.Errorf("list integration tasks: %w", err)
 	}
 	return tasks, nil
+}
+
+// Detail assembles a credential-free integration summary and its imported
+// tasks for the integration detail page.
+func (s *Service) Detail(ctx context.Context, teamID, integrationID int64) (appmodel.IntegrationDetailSnapshot, error) {
+	if teamID <= 0 || integrationID <= 0 {
+		return appmodel.IntegrationDetailSnapshot{}, ErrInvalidIntegration
+	}
+	integration, err := s.Summary(ctx, teamID, integrationID)
+	if err != nil {
+		return appmodel.IntegrationDetailSnapshot{}, err
+	}
+	tasks, err := s.Tasks(ctx, teamID, integrationID)
+	if err != nil {
+		return appmodel.IntegrationDetailSnapshot{}, err
+	}
+	return appmodel.IntegrationDetailSnapshot{Integration: integration, Tasks: tasks}, nil
 }
 
 func (s *Service) Task(ctx context.Context, teamID, taskID int64) (model.ExternalTask, error) {

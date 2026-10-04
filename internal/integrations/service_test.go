@@ -25,6 +25,39 @@ type integrationStoreStub struct {
 	syncRequest appmodel.IntegrationTaskSyncRequest
 }
 
+type integrationManagementStore struct {
+	integrationStoreStub
+	listTeamID, taskTeamID, detailTeamID, detailIntegrationID int64
+	listTasksCalls, detailTasksCalls                          int
+}
+
+func (s *integrationManagementStore) ListIntegrations(_ context.Context, teamID int64) ([]model.IntegrationSummary, error) {
+	s.listTeamID = teamID
+	return []model.IntegrationSummary{
+		{ID: 2, TeamID: teamID, Provider: "github", Name: "Code"},
+		{ID: 3, TeamID: teamID, Provider: "jira", Name: "Issues"},
+	}, nil
+}
+
+func (s *integrationManagementStore) ListExternalTasksForTeam(_ context.Context, teamID int64) ([]model.ExternalTaskWithProvider, error) {
+	s.taskTeamID = teamID
+	s.listTasksCalls++
+	return []model.ExternalTaskWithProvider{
+		{ID: 1, IntegrationID: 2}, {ID: 2, IntegrationID: 2}, {ID: 3, IntegrationID: 3},
+	}, nil
+}
+
+func (s *integrationManagementStore) GetIntegrationSummary(_ context.Context, teamID, integrationID int64) (model.IntegrationSummary, error) {
+	s.detailTeamID, s.detailIntegrationID = teamID, integrationID
+	return model.IntegrationSummary{ID: integrationID, TeamID: teamID, Provider: "github", Name: "Code"}, nil
+}
+
+func (s *integrationManagementStore) ListExternalTasks(_ context.Context, teamID, integrationID int64) ([]model.ExternalTask, error) {
+	s.detailTeamID, s.detailIntegrationID = teamID, integrationID
+	s.detailTasksCalls++
+	return []model.ExternalTask{{ID: 8, IntegrationID: integrationID, Title: "Fix"}}, nil
+}
+
 func (s *integrationStoreStub) CreateIntegration(_ context.Context, request appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error) {
 	s.created = model.IntegrationSummary{ID: 17, TeamID: request.TeamID, Provider: request.Provider, Name: request.Name, CreatedAt: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC)}
 	return s.created, nil
@@ -88,6 +121,50 @@ func TestNewRejectsTypedNilProvider(t *testing.T) {
 	if !errors.Is(err, ErrIncompleteDependencies) {
 		t.Fatalf("New() error = %v, want incomplete dependencies", err)
 	}
+}
+
+func TestManagementAssemblesScopedIntegrationTaskCounts(t *testing.T) {
+	store := &integrationManagementStore{}
+	service, err := testIntegrationService(t, store, providerStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.Management(context.Background(), 14)
+	if err != nil {
+		t.Fatalf("load integration management snapshot: %v", err)
+	}
+	if store.listTeamID != 14 || store.taskTeamID != 14 || store.listTasksCalls != 1 {
+		t.Fatalf("management reads: list team=%d tasks team=%d task calls=%d", store.listTeamID, store.taskTeamID, store.listTasksCalls)
+	}
+	if len(snapshot.Items) != 2 || snapshot.Items[0].Integration.ID != 2 || snapshot.Items[0].TaskCount != 2 || snapshot.Items[1].Integration.ID != 3 || snapshot.Items[1].TaskCount != 1 {
+		t.Fatalf("management snapshot = %+v", snapshot)
+	}
+}
+
+func TestDetailAssemblesScopedIntegrationAndTasks(t *testing.T) {
+	store := &integrationManagementStore{}
+	service, err := testIntegrationService(t, store, providerStub{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.Detail(context.Background(), 14, 2)
+	if err != nil {
+		t.Fatalf("load integration detail snapshot: %v", err)
+	}
+	if store.detailTeamID != 14 || store.detailIntegrationID != 2 || store.detailTasksCalls != 1 {
+		t.Fatalf("detail reads team=%d integration=%d task calls=%d", store.detailTeamID, store.detailIntegrationID, store.detailTasksCalls)
+	}
+	if snapshot.Integration.ID != 2 || len(snapshot.Tasks) != 1 || snapshot.Tasks[0].ID != 8 {
+		t.Fatalf("detail snapshot = %+v", snapshot)
+	}
+}
+
+func testIntegrationService(t *testing.T, store *integrationManagementStore, provider ProviderClient) (*Service, error) {
+	t.Helper()
+	return New(Dependencies{
+		Manager: store, Catalog: store, Tasks: store, SyncStarter: store,
+		Audit: &integrationAuditStub{}, Logger: integrationLoggerStub{},
+	}, provider)
 }
 
 func TestCredentialLifecycleAuditOmitsSecretAndRequiresSuccessfulWrite(t *testing.T) {
