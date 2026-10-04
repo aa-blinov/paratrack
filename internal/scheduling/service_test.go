@@ -15,6 +15,19 @@ type scheduleStoreStub struct {
 	rows []model.ScheduleRow
 }
 
+type scheduleCellStoreStub struct {
+	request appmodel.ScheduleCellRequest
+}
+
+func (scheduleCellStoreStub) ListSchedule(context.Context, int64, time.Time) ([]model.ScheduleRow, map[int64]string, error) {
+	return nil, nil, nil
+}
+
+func (s *scheduleCellStoreStub) UpsertScheduleEntry(_ context.Context, request appmodel.ScheduleCellRequest) error {
+	s.request = request
+	return nil
+}
+
 type scheduleProjectCatalogStub struct {
 	projects        []model.Project
 	teamID          int64
@@ -69,5 +82,40 @@ func TestListRejectsOverflowInTeamTotal(t *testing.T) {
 	_, err = service.List(context.Background(), 7, time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
 	if !errors.Is(err, money.ErrOverflow) {
 		t.Fatalf("List() overflow error = %v, want %v", err, money.ErrOverflow)
+	}
+}
+
+func TestSetCellResolvesDefaultProjectInWorkflow(t *testing.T) {
+	store := &scheduleCellStoreStub{}
+	projects := &scheduleProjectCatalogStub{projects: []model.Project{{ID: 9}, {ID: 10}}}
+	service, err := New(Dependencies{Store: store, Projects: projects})
+	if err != nil {
+		t.Fatal(err)
+	}
+	day := time.Date(2026, 10, 7, 14, 30, 0, 0, time.FixedZone("UTC+3", 3*60*60))
+	err = service.SetCell(context.Background(), appmodel.ScheduleCellRequest{
+		TeamID: 7, ActorID: 8, UserID: 11, Day: day, Minutes: 30,
+	})
+	if err != nil {
+		t.Fatalf("set cell with default project: %v", err)
+	}
+	if store.request.ProjectID != 9 || store.request.Day.Location() != time.UTC || store.request.Day.Hour() != 0 || store.request.Day.Minute() != 0 {
+		t.Fatalf("persisted schedule request = %+v, want first project and UTC midnight", store.request)
+	}
+	if projects.teamID != 7 || projects.includeArchived {
+		t.Fatalf("project lookup team=%d includeArchived=%v", projects.teamID, projects.includeArchived)
+	}
+}
+
+func TestSetCellWithoutProjectsReturnsApplicationOutcome(t *testing.T) {
+	service, err := New(Dependencies{Store: &scheduleCellStoreStub{}, Projects: &scheduleProjectCatalogStub{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = service.SetCell(context.Background(), appmodel.ScheduleCellRequest{
+		TeamID: 7, ActorID: 8, UserID: 11, Day: time.Date(2026, 10, 7, 0, 0, 0, 0, time.UTC), Minutes: 30,
+	})
+	if !errors.Is(err, appmodel.ErrNoScheduleProjects) {
+		t.Fatalf("SetCell() error = %v, want %v", err, appmodel.ErrNoScheduleProjects)
 	}
 }
