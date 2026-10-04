@@ -394,6 +394,7 @@ export interface InvoiceDetailData {
   ReactApp: boolean
   InvoiceReact: boolean
   InvoiceDetail: boolean
+  InvoiceActReact?: boolean
   Lang: string
   CSRFToken: string
   Inv: {

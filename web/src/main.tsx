@@ -26,6 +26,7 @@ const PayrollDetail = lazy(() => import("@/payroll/payroll-page").then(module =>
 const SchedulePage = lazy(() => import("@/schedule/schedule-page").then(module => ({ default: module.SchedulePage })))
 const InvoicesPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoicesPage })))
 const InvoiceDetailPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoiceDetailPage })))
+const InvoiceActPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoiceActPage })))
 const StatsPage = lazy(() => import("@/stats/stats-page").then(module => ({ default: module.StatsPage })))
 const ReportsPage = lazy(() => import("@/reports/reports-page").then(module => ({ default: module.ReportsPage })))
 const ReportRunPage = lazy(() => import("@/reports/reports-page").then(module => ({ default: module.ReportRunPage })))
@@ -244,8 +245,10 @@ if (root && payload) {
             ? <SchedulePage initial={initial.data as ScheduleData} />
             : "InvoicesReact" in initial.data && initial.data.InvoicesReact
             ? <InvoicesPage data={initial.data as InvoicesData} />
-            : "InvoiceReact" in initial.data && initial.data.InvoiceReact
-            ? <InvoiceDetailPage data={initial.data as InvoiceDetailData} />
+            : (("InvoiceReact" in initial.data && initial.data.InvoiceReact) || ("InvoiceActReact" in initial.data && initial.data.InvoiceActReact))
+            ? "InvoiceActReact" in initial.data && initial.data.InvoiceActReact
+              ? <InvoiceActPage data={initial.data as InvoiceDetailData} />
+              : <InvoiceDetailPage data={initial.data as InvoiceDetailData} />
             : "ByProject" in initial.data && "Sessions" in initial.data && initial.data.Active === "stats"
             ? <StatsPage data={initial.data as StatsData} />
             : "ReportRunReact" in initial.data && initial.data.ReportRunReact

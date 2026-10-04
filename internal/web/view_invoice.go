@@ -94,19 +94,20 @@ func (p *invoicesPage) usesReactApp() bool { return p.InvoicesReact }
 
 type invoiceDetailPage struct {
 	pageData
-	InvoiceReact  bool
-	InvoiceDetail bool
-	Inv           invoiceVM
-	Seller        string
-	StripeReady   bool
-	MailReady     bool
-	MailtoURL     string
-	Flash         string
-	FlashOK       bool
+	InvoiceReact    bool
+	InvoiceDetail   bool
+	InvoiceActReact bool
+	Inv             invoiceVM
+	Seller          string
+	StripeReady     bool
+	MailReady       bool
+	MailtoURL       string
+	Flash           string
+	FlashOK         bool
 }
 
 func (p *invoiceDetailPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
-func (p *invoiceDetailPage) usesReactApp() bool { return p.InvoiceReact }
+func (p *invoiceDetailPage) usesReactApp() bool { return p.InvoiceReact || p.InvoiceActReact }
 
 // loadInvoiceVM builds the shared invoice presentation used by the page and documents.
 func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (model.Invoice, invoiceVM, bool, error) {
