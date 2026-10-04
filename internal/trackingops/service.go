@@ -50,7 +50,7 @@ type ClosedSessionCreator interface {
 }
 
 type GoalProgressReader interface {
-	NewlyAchievedAfterSessions(context.Context, int64, map[int64]int, time.Time) ([]model.GoalProgress, error)
+	NewlyAchievedAfterSessions(context.Context, int64, map[int64]int, time.Time) ([]appmodel.GoalProgress, error)
 }
 
 type Notifications interface {

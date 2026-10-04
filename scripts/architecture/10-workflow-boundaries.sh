@@ -41,8 +41,8 @@ if grep -Eq '^type [[:alnum:]_]+(Request|Command|Result) struct|^type (ProjectUp
 	echo "architecture check: application and provider input types belong in internal/appmodel" >&2
 	exit 1
 fi
-if grep -REq '^type (ProjectSessionSpan|ProjectUsage|ProjectActivitySummary|ProjectDetail|ProjectSummary) struct' internal/model --include='*.go'; then
-	echo "architecture check: project workflow projections belong in internal/appmodel" >&2
+if grep -REq '^type (ProjectSessionSpan|ProjectUsage|ProjectActivitySummary|ProjectDetail|ProjectSummary|GoalProgress) struct' internal/model --include='*.go'; then
+	echo "architecture check: workflow projections belong in internal/appmodel" >&2
 	exit 1
 fi
 for dependency in $(package_deps "$module/internal/model"); do

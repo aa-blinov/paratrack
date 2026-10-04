@@ -10,7 +10,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-type progressReaderStub struct{ progress []model.GoalProgress }
+type progressReaderStub struct{ progress []appmodel.GoalProgress }
 
 type goalWriterStub struct {
 	setCalls   int
@@ -42,7 +42,7 @@ func (s *managementActivityReader) ListActivities(_ context.Context, teamID int6
 }
 
 type managementProgressReader struct {
-	progress  []model.GoalProgress
+	progress  []appmodel.GoalProgress
 	teamID    int64
 	now       time.Time
 	listQuery appmodel.GoalListQuery
@@ -53,7 +53,7 @@ func (s *managementProgressReader) ListGoals(_ context.Context, query appmodel.G
 	return nil, nil
 }
 
-func (s *managementProgressReader) ProgressForGoals(_ context.Context, query appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
+func (s *managementProgressReader) ProgressForGoals(_ context.Context, query appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error) {
 	s.teamID, s.now = query.TeamID, query.Now
 	return s.progress, nil
 }
@@ -62,7 +62,7 @@ func (s progressReaderStub) ListGoals(context.Context, appmodel.GoalListQuery) (
 	return nil, nil
 }
 
-func (s progressReaderStub) ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
+func (s progressReaderStub) ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error) {
 	return s.progress, nil
 }
 
@@ -127,9 +127,9 @@ func TestUnsetForManagerUsesSingleBatchWrite(t *testing.T) {
 func TestManagementAssemblesScopedActivityAndProgressSnapshot(t *testing.T) {
 	now := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.UTC)
 	activity := model.Activity{ID: 7, TeamID: 3, Name: "Focus"}
-	goal := model.GoalProgress{ActivityName: "Focus", Goal: model.Goal{ActivityID: 7, Period: "daily"}}
+	goal := appmodel.GoalProgress{ActivityName: "Focus", Goal: model.Goal{ActivityID: 7, Period: "daily"}}
 	activities := &managementActivityReader{activities: []model.Activity{activity}}
-	progress := &managementProgressReader{progress: []model.GoalProgress{goal}}
+	progress := &managementProgressReader{progress: []appmodel.GoalProgress{goal}}
 	service := &Service{deps: Dependencies{Activities: activities, Goals: progress}}
 
 	snapshot, err := service.Management(context.Background(), appmodel.GoalProgressQuery{TeamID: 3, Now: now})
@@ -145,7 +145,7 @@ func TestManagementAssemblesScopedActivityAndProgressSnapshot(t *testing.T) {
 }
 
 func TestNewlyAchievedAfterSessionKeepsThresholdPolicyInWorkflow(t *testing.T) {
-	service := &Service{deps: Dependencies{Goals: progressReaderStub{progress: []model.GoalProgress{
+	service := &Service{deps: Dependencies{Goals: progressReaderStub{progress: []appmodel.GoalProgress{
 		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 60, Period: "daily"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 116},
 		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 40, Period: "weekly"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 175},
 		{Goal: model.Goal{ActivityID: 4, TargetMinutes: 60}, ActivityName: "Other", AchievedMinutes: 100, PercentComplete: 166},
@@ -160,7 +160,7 @@ func TestNewlyAchievedAfterSessionKeepsThresholdPolicyInWorkflow(t *testing.T) {
 }
 
 func TestNewlyAchievedAfterSessionsAggregatesByActivity(t *testing.T) {
-	service := &Service{deps: Dependencies{Goals: progressReaderStub{progress: []model.GoalProgress{
+	service := &Service{deps: Dependencies{Goals: progressReaderStub{progress: []appmodel.GoalProgress{
 		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 60, Period: "daily"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 116},
 		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 55, Period: "weekly"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 127},
 		{Goal: model.Goal{ActivityID: 4, TargetMinutes: 60}, ActivityName: "Other", AchievedMinutes: 100, PercentComplete: 166},
