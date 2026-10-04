@@ -17,8 +17,9 @@ type ProjectUsage struct {
 
 // ProjectActivitySummary contains recent sessions and total time for a project.
 type ProjectActivitySummary struct {
-	Recent       []ActiveSession
-	TotalSeconds int
+	Recent        []ActiveSession
+	RecentSeconds int
+	TotalSeconds  int
 }
 
 // ProjectSummary is the public subset used by session rows and exports.

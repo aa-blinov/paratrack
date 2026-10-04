@@ -59,13 +59,8 @@ func (s *Server) buildProjectDetailPage(r *http.Request, p model.Project) (proje
 		return projectDetailData{}, fmt.Errorf("load project activity summary: %w", err)
 	}
 	sessions := make([]sessionView, 0, min(len(activity.Recent), 50))
-	monthSeconds := 0
 	for _, item := range activity.Recent {
 		view := toSessionView(item.Session, item.Activity, from, now, now, resolveLang(r), durFmtOf(r))
-		monthSeconds, err = money.AddInt(monthSeconds, view.DurationSecs)
-		if err != nil {
-			return projectDetailData{}, fmt.Errorf("sum recent project time: %w", err)
-		}
 		if len(sessions) < 50 {
 			sessions = append(sessions, view)
 		}
@@ -90,7 +85,7 @@ func (s *Server) buildProjectDetailPage(r *http.Request, p model.Project) (proje
 			Archived: p.Archived, Billable: p.Billable,
 		},
 		Activities: activityViews(activities, string(resolveLang(r))), Sessions: sessions,
-		Total: fmtDur(r, totalSeconds), MonthTotal: fmtDur(r, monthSeconds),
+		Total: fmtDur(r, totalSeconds), MonthTotal: fmtDur(r, activity.RecentSeconds),
 		Archived: p.Archived, EstimateLabel: estimateLabel, EstimateInput: estimateInput,
 		RateInput: rateInput, EstimatePercent: estimatePercent, Currencies: currencyOptions(),
 	}

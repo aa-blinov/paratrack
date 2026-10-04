@@ -605,8 +605,10 @@ the HTTP adapter only supplies the user's date boundaries and formats labels.
 Project summaries used to decorate session rows and exports are also loaded
 through the service with a workspace constraint on the batch lookup.
 Project detail reads recent sessions and lifetime tracked time through one
-projects use case; project currency and workspace currency/billing settings
-are read through their owning services. The report builder loads all project
+projects use case, which also returns the tracked-time total for that recent
+window; the HTTP adapter maps sessions and formats the total. Project currency
+and workspace currency/billing settings are read through their owning services.
+The report builder loads all project
 currencies in one scoped query and fails on read errors instead of silently
 pricing a project in the workspace's default currency.
 
