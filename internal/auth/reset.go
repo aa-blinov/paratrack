@@ -83,14 +83,14 @@ func passwordResetTokenHash(token string) string {
 
 // CompletePasswordReset consumes the reset token and starts a fresh session
 // for the account whose previous sessions were revoked by the reset.
-func (s *Service) CompletePasswordReset(ctx context.Context, request appmodel.PasswordResetCompletionRequest) (appmodel.UserIdentity, Session, error) {
+func (s *Service) CompletePasswordReset(ctx context.Context, request appmodel.PasswordResetCompletionRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error) {
 	user, err := s.consumePasswordReset(ctx, request.Token, request.NewPassword)
 	if err != nil {
-		return appmodel.UserIdentity{}, Session{}, err
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, err
 	}
 	session, err := s.newSession(ctx, user.ID)
 	if err != nil {
-		return appmodel.UserIdentity{}, Session{}, fmt.Errorf("create session after password reset: %w", err)
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, fmt.Errorf("create session after password reset: %w", err)
 	}
-	return identityOf(user), session, nil
+	return identityOf(user), appmodel.AuthSessionCredential{Token: session.Token}, nil
 }
