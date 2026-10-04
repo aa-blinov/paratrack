@@ -45,9 +45,9 @@ const (
 type Store interface {
 	CreateWebhook(context.Context, appmodel.WebhookRegistrationCommand) (webhookport.WebhookSummary, error)
 	DeleteWebhook(context.Context, appmodel.WebhookDeleteRequest) error
-	ListWebhookSummaries(context.Context, int64) ([]webhookport.WebhookSummary, error)
-	ListWebhooks(context.Context, int64) ([]webhookport.Webhook, error)
-	ListRecentWebhookDeliveries(context.Context, int64, int) (map[int64][]webhookport.WebhookDeliverySummary, error)
+	ListWebhookSummaries(context.Context, appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error)
+	ListWebhooks(context.Context, appmodel.WebhookListQuery) ([]webhookport.Webhook, error)
+	ListRecentWebhookDeliveries(context.Context, appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error)
 	LogWebhookDelivery(context.Context, appmodel.WebhookDeliveryLogRequest) error
 	EnqueueWebhookDeliveries(context.Context, appmodel.WebhookDeliveryBatchRequest) error
 	ClaimWebhookEvent(context.Context) (webhookport.CommittedEvent, bool, error)
@@ -186,11 +186,11 @@ func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action
 	}
 }
 
-func (s *Service) List(ctx context.Context, teamID int64) ([]webhookport.WebhookSummary, error) {
-	if teamID <= 0 {
+func (s *Service) List(ctx context.Context, query appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidWebhook
 	}
-	hooks, err := s.store.ListWebhookSummaries(ctx, teamID)
+	hooks, err := s.store.ListWebhookSummaries(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list webhooks: %w", err)
 	}
@@ -199,11 +199,11 @@ func (s *Service) List(ctx context.Context, teamID int64) ([]webhookport.Webhook
 
 // RecentDeliveries loads a bounded number of newest attempts for every
 // endpoint in a workspace with one store query.
-func (s *Service) RecentDeliveries(ctx context.Context, teamID int64, perWebhook int) (map[int64][]webhookport.WebhookDeliverySummary, error) {
-	if teamID <= 0 || perWebhook <= 0 {
+func (s *Service) RecentDeliveries(ctx context.Context, query appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error) {
+	if query.TeamID <= 0 || query.Limit <= 0 {
 		return nil, ErrInvalidWebhook
 	}
-	deliveries, err := s.store.ListRecentWebhookDeliveries(ctx, teamID, perWebhook)
+	deliveries, err := s.store.ListRecentWebhookDeliveries(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list recent webhook deliveries: %w", err)
 	}
@@ -212,15 +212,15 @@ func (s *Service) RecentDeliveries(ctx context.Context, teamID int64, perWebhook
 
 // Management assembles the credential-free endpoints and their recent
 // delivery history for the settings page.
-func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.WebhookManagementSnapshot, error) {
-	if teamID <= 0 {
+func (s *Service) Management(ctx context.Context, query appmodel.WebhookManagementQuery) (appmodel.WebhookManagementSnapshot, error) {
+	if query.TeamID <= 0 || query.DeliveriesPerEndpoint <= 0 {
 		return appmodel.WebhookManagementSnapshot{}, ErrInvalidWebhook
 	}
-	endpoints, err := s.List(ctx, teamID)
+	endpoints, err := s.List(ctx, appmodel.WebhookListQuery{TeamID: query.TeamID})
 	if err != nil {
 		return appmodel.WebhookManagementSnapshot{}, err
 	}
-	deliveries, err := s.RecentDeliveries(ctx, teamID, 5)
+	deliveries, err := s.RecentDeliveries(ctx, appmodel.WebhookDeliveryHistoryQuery{TeamID: query.TeamID, Limit: query.DeliveriesPerEndpoint})
 	if err != nil {
 		return appmodel.WebhookManagementSnapshot{}, err
 	}

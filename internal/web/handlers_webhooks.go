@@ -14,7 +14,7 @@ import (
 // Webhook management pages and mutations.
 // handleWebhooksPage renders /settings/webhooks.
 func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
-	snapshot, err := s.services.Webhooks.Management(r.Context(), teamID(r))
+	snapshot, err := s.services.Webhooks.Management(r.Context(), appmodel.WebhookManagementQuery{TeamID: teamID(r), DeliveriesPerEndpoint: 5})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

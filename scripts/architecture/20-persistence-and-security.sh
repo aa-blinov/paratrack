@@ -414,6 +414,15 @@ if ! printf '%s\n' "$webhook_lookup" | grep -Fq 'query appmodel.WebhookLookupQue
 	echo "architecture check: webhook reads must validate explicit workspace and endpoint scope" >&2
 	exit 1
 fi
+webhook_history=$(sed -n '/^func (d \*DB) ListRecentWebhookDeliveries(/,/^}/p' internal/db/webhooks.go)
+webhook_management=$(sed -n '/^func (s \*Service) Management(/,/^}/p' internal/webhooks/service.go)
+if ! printf '%s\n' "$webhook_history" | grep -Fq 'query appmodel.WebhookDeliveryHistoryQuery' ||
+	! printf '%s\n' "$webhook_history" | grep -Fq 'query.TeamID <= 0 || query.Limit <= 0' ||
+	! printf '%s\n' "$webhook_management" | grep -Fq 'query appmodel.WebhookManagementQuery' ||
+	! printf '%s\n' "$webhook_management" | grep -Fq 'WebhookDeliveryHistoryQuery{TeamID: query.TeamID, Limit: query.DeliveriesPerEndpoint}'; then
+	echo "architecture check: webhook management must carry workspace and history bound through workflow and persistence" >&2
+	exit 1
+fi
 invoice_overlap=$(sed -n '/^func (d \*DB) OverlappingInvoices(/,/^}/p' internal/db/invoice_transitions.go)
 if ! printf '%s\n' "$invoice_overlap" | grep -Fq 'query appmodel.InvoiceOverlapQuery' ||
 	! printf '%s\n' "$invoice_overlap" | grep -Fq 'query.TeamID <= 0' ||
