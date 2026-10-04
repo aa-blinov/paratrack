@@ -96,3 +96,48 @@ func TestLegacyTeamInviteTokensAreMigratedWithoutChangingInviteLinks(t *testing.
 		t.Fatalf("legacy plaintext token remains in the lookup column")
 	}
 }
+
+func TestKeylessInviteTokensAreSealedWhenEncryptionIsConfiguredLater(t *testing.T) {
+	t.Setenv("PARATRACK_SECRET_KEY", "")
+	d, err := OpenTest(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	ownerID, teamID, err := d.CreateAccount(ctx, appmodel.AccountCreateRequest{
+		Email: "invite-key-upgrade@example.com", PasswordHash: "hash", Name: "Owner", TeamName: "Workspace",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const rawToken = "invite-created-before-key-configuration"
+	now := time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC)
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO invites (token, team_id, role, created_by, created_at, expires_at) VALUES (?, ?, 'member', ?, ?, ?)`,
+		rawToken, teamID, ownerID, FormatTime(now), FormatTime(now.Add(24*time.Hour))); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`DELETE FROM paratrack_migrations WHERE name = '20261004_hash_invite_tokens'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.migrateInviteTokensContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	d.secrets = newSecretCodec("added-later-secret-key")
+	if err := d.sealExistingSecretsContext(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var stored string
+	if err := d.TestSQL().QueryRowContext(ctx,
+		`SELECT sealed_token FROM invites WHERE token = ?`, teamInviteTokenHash(rawToken)).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(stored, sealedPrefix) {
+		t.Fatalf("invite created before key setup remains unencrypted: %q", stored)
+	}
+	invite, err := d.FindTeamInvite(ctx, rawToken)
+	if err != nil || invite.Token != rawToken {
+		t.Fatalf("invite lookup after key setup = (%q, %v), want existing link preserved", invite.Token, err)
+	}
+}
