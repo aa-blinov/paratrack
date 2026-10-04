@@ -31,7 +31,7 @@ func TestWebhookWrites_RecheckManagerRole(t *testing.T) {
 	if err := d.DeleteWebhook(ctx, appmodel.WebhookDeleteRequest{TeamID: teamID, CallerID: memberID, WebhookID: hook.ID}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("member delete error = %v, want forbidden", err)
 	}
-	hooks, err := d.ListWebhooks(ctx, teamID)
+	hooks, err := d.ListWebhooks(ctx, appmodel.WebhookListQuery{TeamID: teamID})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -41,7 +41,7 @@ func (s *Service) dispatchEvent(ctx context.Context, sourceEventID, teamID int64
 	if stopping {
 		return ErrShuttingDown
 	}
-	hooks, err := s.store.ListWebhooks(ctx, teamID)
+	hooks, err := s.store.ListWebhooks(ctx, appmodel.WebhookListQuery{TeamID: teamID})
 	if err != nil {
 		return fmt.Errorf("list webhook endpoints: %w", err)
 	}
