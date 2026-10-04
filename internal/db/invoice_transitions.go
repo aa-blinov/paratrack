@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -234,16 +233,19 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 // OverlappingInvoices lists other invoices whose period overlaps
 // [start, end) and that bill any of the same lines (project · activity):
 // the same hours may be on two documents.
-func (d *DB) OverlappingInvoices(ctx context.Context, teamID, exceptID int64, start, end time.Time, labels []string) ([]string, error) {
+func (d *DB) OverlappingInvoices(ctx context.Context, query appmodel.InvoiceOverlapQuery) ([]string, error) {
+	if query.TeamID <= 0 || query.ExcludeInvoiceID <= 0 || query.Start.IsZero() || !query.End.After(query.Start) {
+		return nil, ErrInvalidInvoiceQuery
+	}
 	want := map[string]bool{}
-	for _, l := range labels {
+	for _, l := range query.Labels {
 		want[l] = true
 	}
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT DISTINCT i.number, l.label FROM invoices i JOIN invoice_lines l ON l.invoice_id = i.id
 		 WHERE i.team_id = ? AND i.id <> ? AND i.period_start < ? AND i.period_end > ?
 		 ORDER BY i.number`,
-		teamID, exceptID, FormatTime(end), FormatTime(start))
+		query.TeamID, query.ExcludeInvoiceID, FormatTime(query.End), FormatTime(query.Start))
 	if err != nil {
 		return nil, err
 	}
