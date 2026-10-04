@@ -49,7 +49,9 @@ type graphTagsStub struct {
 	bySession map[int64][]model.Tag
 }
 
-func (*graphTagsStub) List(context.Context, int64) ([]model.Tag, error) { return nil, nil }
+func (*graphTagsStub) List(context.Context, appmodel.TagListQuery) ([]model.Tag, error) {
+	return nil, nil
+}
 func (s *graphTagsStub) TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error) {
 	s.calls++
 	return s.bySession, nil

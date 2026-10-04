@@ -7,6 +7,11 @@ type SessionTagsQuery struct {
 	SessionIDs []int64
 }
 
+// TagListQuery scopes workspace tag catalogs and optional usage counts.
+type TagListQuery struct {
+	TeamID int64
+}
+
 type TagCreateRequest struct {
 	TeamID   int64
 	CallerID int64

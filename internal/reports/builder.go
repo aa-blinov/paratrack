@@ -21,7 +21,7 @@ type SessionReader interface {
 }
 
 type TagReader interface {
-	List(context.Context, int64) ([]model.Tag, error)
+	List(context.Context, appmodel.TagListQuery) ([]model.Tag, error)
 	TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error)
 }
 
@@ -163,7 +163,7 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 	for _, project := range projects {
 		projectByID[project.ID] = project
 	}
-	tags, err := b.tags.List(ctx, query.TeamID)
+	tags, err := b.tags.List(ctx, appmodel.TagListQuery{TeamID: query.TeamID})
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("load stats tags: %w", err)
 	}

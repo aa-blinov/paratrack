@@ -48,7 +48,7 @@ func TestWorkspaceWrites_RecheckManagerRole(t *testing.T) {
 	if err := d.DeleteTagForManager(ctx, appmodel.TagDeleteRequest{TeamID: teamID, CallerID: memberID, TagID: tag.ID}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("member tag delete error = %v, want forbidden", err)
 	}
-	tags, err := d.ListTags(ctx, teamID)
+	tags, err := d.ListTags(ctx, appmodel.TagListQuery{TeamID: teamID})
 	if err != nil {
 		t.Fatal(err)
 	}

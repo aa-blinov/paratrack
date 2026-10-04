@@ -44,7 +44,7 @@ func TestTeamTagCountsIgnoreForeignSessionAssociations(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tags, err := d.ListAllTagsWithCounts(ctx, teamA)
+	tags, err := d.ListAllTagsWithCounts(ctx, appmodel.TagListQuery{TeamID: teamA})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,10 +55,10 @@ func TestTeamTagCountsIgnoreForeignSessionAssociations(t *testing.T) {
 
 func TestTeamTagReadsRejectMissingWorkspaceScope(t *testing.T) {
 	var d *DB
-	if _, err := d.ListTags(t.Context(), 0); err != ErrNotFound {
+	if _, err := d.ListTags(t.Context(), appmodel.TagListQuery{}); err != ErrNotFound {
 		t.Fatalf("ListTags error = %v, want not found", err)
 	}
-	if _, err := d.ListAllTagsWithCounts(t.Context(), 0); err != ErrNotFound {
+	if _, err := d.ListAllTagsWithCounts(t.Context(), appmodel.TagListQuery{}); err != ErrNotFound {
 		t.Fatalf("ListAllTagsWithCounts error = %v, want not found", err)
 	}
 }

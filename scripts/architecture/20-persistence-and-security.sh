@@ -441,7 +441,7 @@ if ! printf '%s\n' "$unbilled_query" | grep -Fq 'query appmodel.UnbilledProjectQ
 fi
 for method in ListTags ListAllTagsWithCounts; do
 	tag_query=$(sed -n "/^func (d \*DB) $method(/,/^}/p" internal/db/tags.go)
-	if ! printf '%s\n' "$tag_query" | grep -Fq 'teamID <= 0'; then
+	if ! printf '%s\n' "$tag_query" | grep -Fq 'query.TeamID <= 0'; then
 		echo "architecture check: tag query $method must require one workspace scope" >&2
 		exit 1
 	fi
@@ -455,6 +455,15 @@ for method in ListTags ListAllTagsWithCounts; do
 		exit 1
 	fi
 done
+tag_service_list=$(sed -n '/^func (s \*Service) List(/,/^}/p' internal/tagging/service.go)
+tag_list_query=$(sed -n '/^func (d \*DB) ListTags(/,/^}/p' internal/db/tags.go)
+if ! printf '%s\n' "$tag_service_list" | grep -Fq 'query appmodel.TagListQuery' ||
+	! printf '%s\n' "$tag_service_list" | grep -Fq 's.tags.ListTags(ctx, query)' ||
+	! printf '%s\n' "$tag_list_query" | grep -Fq 'query appmodel.TagListQuery' ||
+	! printf '%s\n' "$tag_list_query" | grep -Fq 'query.TeamID <= 0'; then
+	echo "architecture check: tag catalog reads must carry explicit workspace scope through workflow and persistence" >&2
+	exit 1
+fi
 tag_counts=$(sed -n '/^func (d \*DB) ListAllTagsWithCounts(/,/^}/p' internal/db/tags.go)
 if ! printf '%s\n' "$tag_counts" | grep -Fq 's.team_id = t.team_id' ||
 	! printf '%s\n' "$tag_counts" | grep -Fq 'COUNT(s.id)'; then
