@@ -56,6 +56,13 @@ type ProjectCatalogSnapshot struct {
 	ActivityCounts map[int64]int
 }
 
+// GoalManagementSnapshot combines the activity catalog and current progress
+// used by the goal management page.
+type GoalManagementSnapshot struct {
+	Activities []model.Activity
+	Progress   []model.GoalProgress
+}
+
 // TimerStopResult carries the stopped session and its duration as calculated
 // at the stop request's timestamp.
 type TimerStopResult struct {

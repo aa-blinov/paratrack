@@ -626,7 +626,9 @@ pricing a project in the workspace's default currency.
 
 `internal/goals` owns goal input rules and the activity-name-to-goal workflow.
 Both HTTP and CLI adapters use it; goal progress is a shared model type, and
-the adapters only format it for their respective outputs. Manager-only web and
+the adapters only format it for their respective outputs. The goal management
+page requests its activity catalog and progress together through one workflow
+snapshot. Manager-only web and
 CLI writes pass the actor to persistence; activity creation and goal upsert are
 atomic under the workspace lock, and goal deletion uses the same role recheck.
 The CLI service port exposes only those caller-aware mutations.
