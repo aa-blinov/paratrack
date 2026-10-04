@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,12 +97,22 @@ func TestDashboardBootstrapsReactFromEmbeddedAssets(t *testing.T) {
 	}
 
 	asset := request("/static/ui/app.js")
-	if asset.Code != http.StatusOK || !strings.Contains(asset.Header().Get("Content-Type"), "javascript") || asset.Body.Len() < 100_000 {
+	if asset.Code != http.StatusOK || !strings.Contains(asset.Header().Get("Content-Type"), "javascript") || asset.Body.Len() < 10_000 {
 		t.Fatalf("React bundle status=%d; embedded dashboard bundle missing", asset.Code)
 	}
 	styles := request("/static/ui/app.css")
 	if styles.Code != http.StatusOK || !strings.Contains(styles.Header().Get("Content-Type"), "text/css") || styles.Body.Len() < 1_000 {
 		t.Fatalf("React stylesheet status=%d; embedded dashboard styles missing", styles.Code)
+	}
+	chunks, err := fs.Glob(assets, "static/ui/chunks/*.js")
+	if err != nil || len(chunks) < 5 {
+		t.Fatalf("React screen chunks = %v, err=%v; want route and shared runtime chunks embedded", chunks, err)
+	}
+	for _, chunk := range chunks {
+		response := request("/" + chunk)
+		if response.Code != http.StatusOK || !strings.Contains(response.Header().Get("Content-Type"), "javascript") {
+			t.Errorf("GET %s status=%d content-type=%q", chunk, response.Code, response.Header().Get("Content-Type"))
+		}
 	}
 }
 

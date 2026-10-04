@@ -444,6 +444,18 @@ def main() -> int:
         # Detail page renders the right title.
         expect(page.locator("h1")).to_contain_text(proj_name)
         check("detail page shows project name", proj_name in page.content())
+        check("project detail mounts React/shadcn session and edit cards",
+              page.locator('#paratrack-react-root [data-slot="card"]').count() >= 3
+              and page.locator('#paratrack-react-root form[action^="/projects/"]').count() == 2)
+        updated_project_name = proj_name + " updated"
+        page.fill("#project-name", updated_project_name)
+        page.fill("#project-estimate", "480")
+        page.locator('#paratrack-react-root form[method="POST"][action^="/projects/"] button[type="submit"]').first.click()
+        page.wait_for_url(f"**/projects/{proj_slug}?flash=*")
+        proj_name = updated_project_name
+        expect(page.locator("h1")).to_contain_text(proj_name)
+        check("React project edit form persists name and estimate", proj_name in page.content()
+              and page.locator('#paratrack-react-root [data-slot="progress"]').count() == 1)
 
         # Project cards and archive filtering are rendered by the React app.
         page.goto(BASE + "/projects")
