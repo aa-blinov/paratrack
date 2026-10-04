@@ -292,9 +292,9 @@ type TrackingDependencies struct {
 
 // TrackingQueries provides session, activity and timesheet reads to HTTP views.
 type TrackingQueries interface {
-	ActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
+	ActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error)
 	Activity(context.Context, int64, int64) (model.Activity, error)
-	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 	FindActivity(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
 	HasAnySession(context.Context, int64) (bool, error)
 	Session(context.Context, int64, int64) (model.Session, error)

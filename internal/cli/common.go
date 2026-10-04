@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"text/tabwriter"
 
 	"github.com/aa-blinov/paratrack/internal/cliport"
-	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
@@ -51,7 +51,7 @@ func shortDurSeconds(total int) string {
 
 // printActive renders the active-session table for both `status` and
 // the bare `paratrack` invocation.
-func printActive(rt *Runtime, rows []model.ActiveSession) {
+func printActive(rt *Runtime, rows []appmodel.ActiveSession) {
 	if len(rows) == 0 {
 		fmt.Fprintln(rt.Out, "No active sessions. Start one with: paratrack start <activity>")
 		return

@@ -2,12 +2,12 @@ package web
 
 import (
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"net/http"
 	"sort"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -49,7 +49,7 @@ func (s *Server) buildMiniBarVM(r *http.Request) (activeListVM, error) {
 	return activeListVM{Lang: string(lang), Items: views}, nil
 }
 
-func activeSessionViews(active []model.ActiveSession, periodStart, periodEnd, now time.Time, lang i18n.Lang, durationFormat string) []sessionView {
+func activeSessionViews(active []appmodel.ActiveSession, periodStart, periodEnd, now time.Time, lang i18n.Lang, durationFormat string) []sessionView {
 	views := make([]sessionView, 0, len(active))
 	for _, item := range active {
 		views = append(views, toSessionView(item.Session, item.Activity, periodStart, periodEnd, now, lang, durationFormat))

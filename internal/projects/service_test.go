@@ -38,11 +38,11 @@ type detailUsageStub struct {
 	ProjectUsageStore
 	query  appmodel.ProjectActivityQuery
 	scope  appmodel.ProjectScopeQuery
-	recent []model.ActiveSession
+	recent []appmodel.ActiveSession
 	total  int
 }
 
-func (stub *detailUsageStub) ProjectSessions(_ context.Context, query appmodel.ProjectActivityQuery) ([]model.ActiveSession, error) {
+func (stub *detailUsageStub) ProjectSessions(_ context.Context, query appmodel.ProjectActivityQuery) ([]appmodel.ActiveSession, error) {
 	stub.query = query
 	return stub.recent, nil
 }
@@ -235,7 +235,7 @@ func TestSumRecentProjectTimeUsesRequestedWindowAndExcludesPause(t *testing.T) {
 	from := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	through := from.Add(24 * time.Hour)
 	pausedAt := from.Add(time.Hour)
-	recent := []model.ActiveSession{{Session: model.Session{
+	recent := []appmodel.ActiveSession{{Session: model.Session{
 		StartAt: from, Paused: true, PausedAt: &pausedAt,
 		AccumulatedSeconds: 3600,
 	}}}
@@ -259,7 +259,7 @@ func TestDetailLoadsScopedProjectPageData(t *testing.T) {
 	ended := started.Add(30 * time.Minute)
 	catalog := &detailCatalogStub{project: project, activities: []model.Activity{activity}}
 	usage := &detailUsageStub{
-		recent: []model.ActiveSession{{Session: model.Session{StartAt: started, EndAt: &ended, AccumulatedSeconds: 1800}, Activity: activity}},
+		recent: []appmodel.ActiveSession{{Session: model.Session{StartAt: started, EndAt: &ended, AccumulatedSeconds: 1800}, Activity: activity}},
 		total:  7200,
 	}
 	billing := &detailBillingStub{currency: "USD"}

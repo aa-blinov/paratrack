@@ -39,12 +39,12 @@ func (stub *timesheetQueryStub) ListTimesheet(_ context.Context, query appmodel.
 	return appmodel.TimesheetWeek{}, nil
 }
 
-func (stub *sessionQueryStub) ListClosedSessions(_ context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+func (stub *sessionQueryStub) ListClosedSessions(_ context.Context, query appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error) {
 	stub.closed = query
 	return nil, nil
 }
 
-func (stub *sessionQueryStub) ListSessionsPage(_ context.Context, query appmodel.SessionHistoryPageQuery) ([]model.ActiveSession, bool, error) {
+func (stub *sessionQueryStub) ListSessionsPage(_ context.Context, query appmodel.SessionHistoryPageQuery) ([]appmodel.ActiveSession, bool, error) {
 	stub.page = query
 	return nil, false, nil
 }

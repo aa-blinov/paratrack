@@ -29,7 +29,13 @@ type SessionCursor struct {
 
 // SessionPage is one page of workspace-scoped session history.
 type SessionPage struct {
-	Items      []model.ActiveSession
+	Items      []ActiveSession
 	HasMore    bool
 	NextCursor *SessionCursor
+}
+
+// ActiveSession pairs a session with its activity for application reads.
+type ActiveSession struct {
+	Session  model.Session
+	Activity model.Activity
 }

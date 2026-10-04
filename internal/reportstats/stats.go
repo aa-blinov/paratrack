@@ -20,7 +20,7 @@ type GraphSeries = appmodel.ReportGraphSeries
 
 // Summarize builds activity and project breakdowns from already filtered
 // sessions. Callers retain responsibility for localized labels and formatting.
-func Summarize(sessions []model.ActiveSession, projects map[int64]model.Project, from, to, now time.Time, uncategorized string) (StatsSummary, error) {
+func Summarize(sessions []appmodel.ActiveSession, projects map[int64]model.Project, from, to, now time.Time, uncategorized string) (StatsSummary, error) {
 	type projectBucket struct {
 		seconds    int
 		activities map[string]int
@@ -105,7 +105,7 @@ func Summarize(sessions []model.ActiveSession, projects map[int64]model.Project,
 
 // HourlyGraph allocates tracked minutes into local hour-of-day buckets for a
 // filtered set of report sessions. The returned totals retain exact seconds.
-func HourlyGraph(sessions []model.ActiveSession, from, to, now time.Time) (GraphData, error) {
+func HourlyGraph(sessions []appmodel.ActiveSession, from, to, now time.Time) (GraphData, error) {
 	type activityBuckets struct {
 		minutes [24]int
 		total   int

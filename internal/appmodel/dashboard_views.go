@@ -14,9 +14,9 @@ type DashboardQuery struct {
 
 type DashboardSnapshot struct {
 	Activities        []model.Activity
-	ActiveSessions    []model.ActiveSession
-	TodaySessions     []model.ActiveSession
-	RecentSessions    []model.ActiveSession
+	ActiveSessions    []ActiveSession
+	TodaySessions     []ActiveSession
+	RecentSessions    []ActiveSession
 	Projects          []model.Project
 	TagsBySession     map[int64][]model.Tag
 	ProjectsByID      map[int64]ProjectSummary
@@ -34,7 +34,7 @@ type DashboardSnapshot struct {
 // ActiveListSnapshot combines the tracking and workspace data needed to
 // render the active-session list without exposing presentation types.
 type ActiveListSnapshot struct {
-	ActiveSessions []model.ActiveSession
+	ActiveSessions []ActiveSession
 	Projects       []model.Project
 	TagsBySession  map[int64][]model.Tag
 	ProjectsByID   map[int64]ProjectSummary
@@ -45,7 +45,7 @@ type ActiveListSnapshot struct {
 // for a batch of sessions.
 type SessionDecorationRequest struct {
 	TeamID          int64
-	Sessions        []model.ActiveSession
+	Sessions        []ActiveSession
 	IncludeTags     bool
 	IncludeProjects bool
 }
@@ -58,7 +58,7 @@ type SessionDecorationSnapshot struct {
 }
 
 type SessionDecorationRowSnapshot struct {
-	Session     model.ActiveSession
+	Session     ActiveSession
 	Decorations SessionDecorationSnapshot
 }
 

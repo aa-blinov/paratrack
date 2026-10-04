@@ -20,8 +20,8 @@ type GoalReader interface {
 }
 
 type TrackingReader interface {
-	ActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
-	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
+	ActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 	HasAnySession(context.Context, int64) (bool, error)
 }
 
@@ -151,10 +151,10 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	return snapshot, nil
 }
 
-func summarizeToday(today, active []model.ActiveSession, from, through, now time.Time) (int, string, error) {
+func summarizeToday(today, active []appmodel.ActiveSession, from, through, now time.Time) (int, string, error) {
 	activityTotals := make(map[string]int)
 	total := 0
-	for _, group := range [][]model.ActiveSession{today, active} {
+	for _, group := range [][]appmodel.ActiveSession{today, active} {
 		for _, item := range group {
 			seconds := item.Session.TrackedSecondsInWindow(from, through, now)
 			var err error
@@ -212,8 +212,8 @@ func (b *Builder) BuildActiveList(ctx context.Context, teamID int64) (appmodel.A
 	}, nil
 }
 
-func combineSessions(groups ...[]model.ActiveSession) []model.ActiveSession {
-	var sessions []model.ActiveSession
+func combineSessions(groups ...[]appmodel.ActiveSession) []appmodel.ActiveSession {
+	var sessions []appmodel.ActiveSession
 	for _, group := range groups {
 		sessions = append(sessions, group...)
 	}

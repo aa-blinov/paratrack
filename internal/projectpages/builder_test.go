@@ -95,7 +95,7 @@ func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, que
 func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 	detail := appmodel.ProjectDetail{
 		Project: model.Project{ID: 18, TeamID: 4, Slug: "alpha"},
-		Activity: appmodel.ProjectActivitySummary{Recent: []model.ActiveSession{{
+		Activity: appmodel.ProjectActivitySummary{Recent: []appmodel.ActiveSession{{
 			Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
 		}}},
 	}
@@ -197,7 +197,7 @@ func TestBuildKeepsDetailWhenSessionDecorationReadsFail(t *testing.T) {
 	projects := &projectReaderStub{
 		detail: appmodel.ProjectDetail{
 			Project: model.Project{ID: 18},
-			Activity: appmodel.ProjectActivitySummary{Recent: []model.ActiveSession{{
+			Activity: appmodel.ProjectActivitySummary{Recent: []appmodel.ActiveSession{{
 				Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
 			}}},
 		},

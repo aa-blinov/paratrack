@@ -1,6 +1,7 @@
 package reports
 
 import (
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -14,6 +15,6 @@ type ProjectStats = reportstats.ProjectStats
 type StatsSummary = reportstats.StatsSummary
 
 // SummarizeStats is kept as the report package entrypoint for existing callers.
-func SummarizeStats(sessions []model.ActiveSession, projects map[int64]model.Project, from, to, now time.Time, uncategorized string) (StatsSummary, error) {
+func SummarizeStats(sessions []appmodel.ActiveSession, projects map[int64]model.Project, from, to, now time.Time, uncategorized string) (StatsSummary, error) {
 	return reportstats.Summarize(sessions, projects, from, to, now, uncategorized)
 }

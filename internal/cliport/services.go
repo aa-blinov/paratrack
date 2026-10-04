@@ -53,7 +53,7 @@ type TimerOperations interface {
 
 // SessionHistory is the read-only tracking capability used by CLI reports.
 type SessionHistory interface {
-	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 }
 
 // ActivityCatalog supplies the activity selection and creation operations
@@ -66,7 +66,7 @@ type ActivityCatalog interface {
 
 // TimerQueries exposes the active-session read used by timer commands.
 type TimerQueries interface {
-	ActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
+	ActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error)
 }
 
 // TimerCommands contains pause and resume transitions. Start, focus and stop

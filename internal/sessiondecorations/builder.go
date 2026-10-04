@@ -68,9 +68,9 @@ func (b *Builder) BuildRow(ctx context.Context, query appmodel.SessionLookupQuer
 	if err != nil {
 		return appmodel.SessionDecorationRowSnapshot{}, fmt.Errorf("load session row %d: %w", query.SessionID, err)
 	}
-	active := model.ActiveSession{Session: session, Activity: activity}
+	active := appmodel.ActiveSession{Session: session, Activity: activity}
 	decorations, err := b.Build(ctx, appmodel.SessionDecorationRequest{
-		TeamID: query.TeamID, Sessions: []model.ActiveSession{active}, IncludeTags: true, IncludeProjects: true,
+		TeamID: query.TeamID, Sessions: []appmodel.ActiveSession{active}, IncludeTags: true, IncludeProjects: true,
 	})
 	if err != nil {
 		return appmodel.SessionDecorationRowSnapshot{}, err
@@ -106,7 +106,7 @@ func (b *Builder) Build(ctx context.Context, request appmodel.SessionDecorationR
 	return snapshot, nil
 }
 
-func collectReferences(sessions []model.ActiveSession) ([]int64, []int64) {
+func collectReferences(sessions []appmodel.ActiveSession) ([]int64, []int64) {
 	seenSessions, seenProjects := make(map[int64]struct{}, len(sessions)), make(map[int64]struct{}, len(sessions))
 	sessionIDs, projectIDs := make([]int64, 0, len(sessions)), make([]int64, 0, len(sessions))
 	for _, session := range sessions {

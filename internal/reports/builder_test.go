@@ -14,7 +14,7 @@ import (
 )
 
 type graphSessionsStub struct {
-	all       []model.ActiveSession
+	all       []appmodel.ActiveSession
 	projectID int64
 	teamID    int64
 	from      time.Time
@@ -22,7 +22,7 @@ type graphSessionsStub struct {
 	scopedID  int64
 }
 
-func (s *graphSessionsStub) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+func (s *graphSessionsStub) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error) {
 	s.teamID, s.from, s.to = query.TeamID, query.Start, query.End
 	if query.ProjectID != nil {
 		s.projectID = *query.ProjectID
@@ -114,7 +114,7 @@ func TestBuildRejectsUnknownGroupBeforeReading(t *testing.T) {
 func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
 	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	end := from.Add(time.Hour)
-	reader := &graphSessionsStub{all: []model.ActiveSession{
+	reader := &graphSessionsStub{all: []appmodel.ActiveSession{
 		{Session: model.Session{ID: 1, StartAt: from, EndAt: &end, AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "Design", ProjectID: 7}},
 		{Session: model.Session{ID: 2, StartAt: from, EndAt: &end, AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "Build", ProjectID: 7}},
 	}}
@@ -143,7 +143,7 @@ func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
 func TestBuildGraphSkipsTagReadWithoutTagFilter(t *testing.T) {
 	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	end := from.Add(time.Hour)
-	reader := &graphSessionsStub{all: []model.ActiveSession{{
+	reader := &graphSessionsStub{all: []appmodel.ActiveSession{{
 		Session:  model.Session{ID: 1, StartAt: from, EndAt: &end, AccumulatedSeconds: 3600},
 		Activity: model.Activity{Name: "Focus"},
 	}}}
@@ -212,7 +212,7 @@ func TestBuildStatsFiltersTaggedSessionsBeforeAggregation(t *testing.T) {
 	end := start.Add(3 * time.Hour)
 	sessionEnd := start.Add(time.Hour)
 	secondEnd := start.Add(3 * time.Hour)
-	reader := &graphSessionsStub{all: []model.ActiveSession{
+	reader := &graphSessionsStub{all: []appmodel.ActiveSession{
 		{Session: model.Session{ID: 1, StartAt: start, EndAt: &sessionEnd}, Activity: model.Activity{Name: "Design", ProjectID: 7}},
 		{Session: model.Session{ID: 2, StartAt: start, EndAt: &secondEnd}, Activity: model.Activity{Name: "Build", ProjectID: 7}},
 	}}
@@ -243,7 +243,7 @@ func TestBuildStatsFiltersTaggedSessionsBeforeAggregation(t *testing.T) {
 func TestBuildStatsKeepsReportAvailableWhenProjectDecorationFails(t *testing.T) {
 	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	to := from.Add(time.Hour)
-	reader := &graphSessionsStub{all: []model.ActiveSession{{
+	reader := &graphSessionsStub{all: []appmodel.ActiveSession{{
 		Session:  model.Session{ID: 1, StartAt: from, EndAt: &to, AccumulatedSeconds: 3600},
 		Activity: model.Activity{Name: "Focus", ProjectID: 7},
 	}}}
@@ -270,7 +270,7 @@ func TestBuildExportFiltersAndBatchesProjectNames(t *testing.T) {
 	to := from.AddDate(0, 0, 2)
 	end := from.Add(time.Hour)
 	note := "customer work"
-	reader := &graphSessionsStub{all: []model.ActiveSession{
+	reader := &graphSessionsStub{all: []appmodel.ActiveSession{
 		{Session: model.Session{ID: 1, StartAt: from, EndAt: &end, Note: &note}, Activity: model.Activity{Name: "Design", ProjectID: 7}},
 		{Session: model.Session{ID: 2, StartAt: from.Add(time.Hour), EndAt: &end}, Activity: model.Activity{Name: "Admin", ProjectID: 0}},
 		{Session: model.Session{ID: 3, StartAt: from.AddDate(0, 0, 2), EndAt: &end}, Activity: model.Activity{Name: "Outside", ProjectID: 7}},
