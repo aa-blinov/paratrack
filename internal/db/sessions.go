@@ -150,14 +150,6 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 		return ErrNotFound
 	}
 	teamID, actorID, id, update := request.TeamID, request.CallerID, request.SessionID, request.Update
-	if update.AccumulatedSeconds != nil {
-		if *update.AccumulatedSeconds < 0 {
-			return appmodel.ErrInvalidSessionLength
-		}
-		if int64(*update.AccumulatedSeconds) > model.MaxSessionDurationSeconds {
-			return model.ErrSessionDurationOverflow
-		}
-	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -175,6 +167,10 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 		editScopeUserID = actorID
 	}
 	lockedSession, err := lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID)
+	if err != nil {
+		return err
+	}
+	update, err = resolveLockedSessionUpdate(lockedSession, request)
 	if err != nil {
 		return err
 	}
@@ -235,7 +231,66 @@ type sessionEditState struct {
 	invoiceID  int64
 	activityID int64
 	startAt    string
+	endAt      sql.NullString
 	wasOpen    bool
+}
+
+// resolveLockedSessionUpdate derives interval fields from the values read
+// under the edit transaction's row lock, preventing a stale preflight read
+// from overwriting a concurrent session edit.
+func resolveLockedSessionUpdate(state sessionEditState, request appmodel.SessionUpdateRequest) (appmodel.SessionUpdate, error) {
+	update := request.Update
+	start, err := ScanTime(state.startAt)
+	if err != nil {
+		return appmodel.SessionUpdate{}, fmt.Errorf("parse locked session start: %w", err)
+	}
+	if update.StartAt != nil {
+		start = *update.StartAt
+	}
+	var end *time.Time
+	if state.endAt.Valid {
+		parsed, err := ScanTime(state.endAt.String)
+		if err != nil {
+			return appmodel.SessionUpdate{}, fmt.Errorf("parse locked session end: %w", err)
+		}
+		end = &parsed
+	}
+	if update.EndAt != nil {
+		end = update.EndAt
+	}
+	if request.DurationSeconds != nil {
+		seconds := *request.DurationSeconds
+		if seconds < 0 {
+			return appmodel.SessionUpdate{}, appmodel.ErrInvalidSessionLength
+		}
+		if int64(seconds) > model.MaxSessionDurationSeconds {
+			return appmodel.SessionUpdate{}, model.ErrSessionDurationOverflow
+		}
+		resolvedEnd := start.Add(time.Duration(seconds) * time.Second)
+		update.EndAt = &resolvedEnd
+		update.AccumulatedSeconds = &seconds
+		end = update.EndAt
+	} else if request.RecomputeDuration && end != nil {
+		seconds := int(end.Sub(start).Seconds())
+		update.AccumulatedSeconds = &seconds
+	}
+	if (update.StartAt != nil || update.EndAt != nil) && end != nil {
+		if !end.After(start) {
+			return appmodel.SessionUpdate{}, appmodel.ErrInvalidSessionPeriod
+		}
+		if end.Sub(start) > time.Duration(model.MaxSessionDurationSeconds)*time.Second {
+			return appmodel.SessionUpdate{}, model.ErrSessionDurationOverflow
+		}
+	}
+	if update.AccumulatedSeconds != nil {
+		if *update.AccumulatedSeconds < 0 {
+			return appmodel.SessionUpdate{}, appmodel.ErrInvalidSessionLength
+		}
+		if int64(*update.AccumulatedSeconds) > model.MaxSessionDurationSeconds {
+			return appmodel.SessionUpdate{}, model.ErrSessionDurationOverflow
+		}
+	}
+	return update, nil
 }
 
 // lockSessionForEdit serializes a session edit with invoice status changes.
@@ -261,7 +316,7 @@ func lockSessionForEdit(ctx context.Context, tx *Tx, teamID, id, scopeUserID int
 		}
 		return sessionEditState{}, err
 	}
-	state.startAt = startAt
+	state.startAt, state.endAt = startAt, endAt
 	state.wasOpen = !endAt.Valid
 	if state.invoiceID == 0 {
 		return state, nil
