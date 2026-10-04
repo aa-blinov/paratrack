@@ -151,7 +151,34 @@ export interface ProjectCreateData {
   TeamCurrency: string
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData
+export interface GoalView {
+  ID: number
+  ActivityName: string
+  Color: string
+  Period: string
+  TargetMinutes: number
+  TargetLabel: string
+  AchievedMinutes: number
+  AchievedLabel: string
+  Percent: number
+  PeriodStartLabel: string
+  PeriodEndLabel: string
+  PeriodRangeLabel: string
+}
+
+export interface GoalsData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  GoalsReact: boolean
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  Activities: Activity[]
+  Goals: GoalView[]
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

@@ -28,19 +28,26 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		gv[i].Lang = lang
 		gv[i].PeriodRangeLabel = periodRangeLabel(gv[i].Period, i18n.Lang(lang))
 	}
-	data := struct {
-		pageData
-		Activities []activityView
-		Goals      []goalView
-		GoalsVM    goalsListVM
-	}{
+	data := goalsPageData{
 		pageData:   pageData{Title: "Goals", Active: "goals", Lang: lang},
 		Activities: activityViews(snapshot.Activities, lang),
 		Goals:      gv,
 		GoalsVM:    goalsListVM{Lang: lang, Goals: gv},
 	}
-	s.render(w, r, "goals-content", &data)
+	data.ReactApp = true
+	data.GoalsReact = true
+	s.renderPageForRequest(w, r, data.Title, data.Active, "goals-content", &data)
 }
+
+type goalsPageData struct {
+	pageData
+	GoalsReact bool
+	Activities []activityView
+	Goals      []goalView
+	GoalsVM    goalsListVM
+}
+
+func (goalsPageData) usesReactApp() bool { return true }
 
 // handleGoalsList returns all configured goals as JSON (no progress).
 func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {

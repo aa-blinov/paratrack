@@ -134,3 +134,19 @@ func TestProjectsListBootstrapsReact(t *testing.T) {
 		}
 	}
 }
+
+func TestGoalsPageBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/goals", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /goals status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, marker := range []string{"id=\"react-page-data\"", "id=\"paratrack-react-root\"", `"GoalsReact":true`} {
+		if !strings.Contains(response.Body.String(), marker) {
+			t.Errorf("GET /goals missing React bootstrap marker %q", marker)
+		}
+	}
+}
