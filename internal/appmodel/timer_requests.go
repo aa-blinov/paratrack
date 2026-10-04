@@ -34,6 +34,15 @@ type TimerFocusByNameRequest struct {
 	At           time.Time
 }
 
+// TimerFocusForMemberRequest resolves or creates a member's activity and
+// focuses it as one coordinated timer operation.
+type TimerFocusForMemberRequest struct {
+	TeamID       int64
+	CallerID     int64
+	ActivityName string
+	At           time.Time
+}
+
 // ImportedTaskStartRequest captures starting a timer from a workspace-scoped
 // task supplied by an external integration.
 type ImportedTaskStartRequest struct {

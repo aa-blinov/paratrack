@@ -183,6 +183,12 @@ if printf '%s\n' "$focus_handler" | grep -q 'Tracking\.Queries\.FindActivity' ||
 	echo "architecture check: activity focus must use the coordinated tracking operation" >&2
 	exit 1
 fi
+cli_focus=$(sed -n '/^func runFocus(/,/^}/p' internal/cli/timers.go)
+if printf '%s\n' "$cli_focus" | grep -Eq 'ActivityCatalog\.ResolveActivityForMember|TimerOperations\.Focus\(' ||
+	! printf '%s\n' "$cli_focus" | grep -q 'TimerOperations\.FocusActivityForMember'; then
+	echo "architecture check: CLI activity focus must resolve and focus through one tracking operation" >&2
+	exit 1
+fi
 
 # Starting from an imported task coordinates the integration lookup and timer
 # start in an application workflow, not in the HTTP adapter.

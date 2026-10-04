@@ -303,6 +303,29 @@ func (s *Service) FocusActivity(ctx context.Context, request appmodel.TimerFocus
 	return activity, result, nil
 }
 
+// FocusActivityForMember resolves or creates the member's activity and
+// performs the audited focus transition through one application use case.
+func (s *Service) FocusActivityForMember(ctx context.Context, request appmodel.TimerFocusForMemberRequest) (model.Activity, appmodel.FocusResult, error) {
+	name := strings.TrimSpace(request.ActivityName)
+	if request.TeamID <= 0 || request.CallerID <= 0 || name == "" || request.At.IsZero() {
+		return model.Activity{}, appmodel.FocusResult{}, appmodel.ErrInvalidSessionStart
+	}
+	if request.CallerID != requestctx.ActorID(ctx) {
+		return model.Activity{}, appmodel.FocusResult{}, appmodel.ErrForbidden
+	}
+	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name, 0)
+	if err != nil {
+		return model.Activity{}, appmodel.FocusResult{}, err
+	}
+	result, err := s.Focus(ctx, appmodel.TimerFocusRequest{
+		TeamID: request.TeamID, ActivityID: activity.ID, At: request.At,
+	})
+	if err != nil {
+		return activity, appmodel.FocusResult{}, err
+	}
+	return activity, result, nil
+}
+
 // Stop ends one session, then records audit and notification effects.
 func (s *Service) Stop(ctx context.Context, request appmodel.TimerStopRequest) (appmodel.TimerStopResult, error) {
 	if request.TeamID <= 0 || request.SessionID <= 0 {
