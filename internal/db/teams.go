@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -13,6 +14,41 @@ import (
 func (d *DB) FindTeam(ctx context.Context, id int64) (model.Team, error) {
 	return scanTeam(d.sql.QueryRowContext(ctx,
 		`SELECT id, slug, name, owner_id, created_at FROM teams WHERE id = ?`, id))
+}
+
+// FindTeams returns existing workspaces for a set of IDs in bounded batches.
+func (d *DB) FindTeams(ctx context.Context, ids []int64) (map[int64]model.Team, error) {
+	const batchSize = 500
+	teams := make(map[int64]model.Team, len(ids))
+	for start := 0; start < len(ids); start += batchSize {
+		end := min(start+batchSize, len(ids))
+		batch := ids[start:end]
+		query := `SELECT id, slug, name, owner_id, created_at FROM teams WHERE id IN (` + strings.TrimSuffix(strings.Repeat(`?,`, len(batch)), `,`) + `)`
+		args := make([]any, len(batch))
+		for i, id := range batch {
+			args[i] = id
+		}
+		rows, err := d.sql.QueryContext(ctx, query, args...)
+		if err != nil {
+			return nil, err
+		}
+		for rows.Next() {
+			team, err := scanTeam(rows)
+			if err != nil {
+				rows.Close()
+				return nil, err
+			}
+			teams[team.ID] = team
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if err := rows.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return teams, nil
 }
 
 func (d *DB) FindTeamBySlug(ctx context.Context, slug string) (model.Team, error) {

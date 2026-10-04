@@ -30,6 +30,7 @@ type Invite = appmodel.TeamInviteResult
 type TeamStore interface {
 	CreateOwnedTeam(context.Context, appmodel.TeamCreateRequest) (int64, error)
 	FindTeam(context.Context, int64) (model.Team, error)
+	FindTeams(context.Context, []int64) (map[int64]model.Team, error)
 	FindTeamBySlug(context.Context, string) (model.Team, error)
 	ListTeamsForUser(context.Context, int64) ([]model.Team, error)
 	RenameTeam(context.Context, appmodel.TeamRenameRequest) error
@@ -172,6 +173,30 @@ func (s *Service) FindByID(ctx context.Context, id int64) (Team, error) {
 	}
 	team, err := s.teams.FindTeam(ctx, id)
 	return team, mapStoreError(err)
+}
+
+// FindByIDs loads workspace names for a set of IDs in bounded batch queries.
+func (s *Service) FindByIDs(ctx context.Context, ids []int64) (map[int64]Team, error) {
+	unique := make([]int64, 0, len(ids))
+	seen := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			return nil, ErrNotFound
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+	if len(unique) == 0 {
+		return map[int64]Team{}, nil
+	}
+	teams, err := s.teams.FindTeams(ctx, unique)
+	if err != nil {
+		return nil, fmt.Errorf("find workspaces: %w", err)
+	}
+	return teams, nil
 }
 
 // FindBySlug looks up a team by its URL slug.
