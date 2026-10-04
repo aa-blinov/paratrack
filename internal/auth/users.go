@@ -196,17 +196,17 @@ func (s *Service) createUserWithTeamName(ctx context.Context, request appmodel.R
 // RegisterAndStartSession creates an account with its personal workspace and
 // issues the initial session. Validation and account-creation errors retain
 // their types for adapter-specific responses.
-func (s *Service) RegisterAndStartSession(ctx context.Context, request appmodel.RegistrationRequest) (Session, int64, error) {
+func (s *Service) RegisterAndStartSession(ctx context.Context, request appmodel.RegistrationRequest) (appmodel.AuthSessionCredential, int64, error) {
 	userID, teamID, err := s.createUserWithTeamName(ctx, request)
 	if err != nil {
-		return Session{}, 0, err
+		return appmodel.AuthSessionCredential{}, 0, err
 	}
 	session, err := s.newSession(ctx, userID)
 	if err != nil {
-		return Session{}, 0, fmt.Errorf("create registration session: %w", err)
+		return appmodel.AuthSessionCredential{}, 0, fmt.Errorf("create registration session: %w", err)
 	}
 	s.recordAudit(ctx, teamID, userID, "auth.register", strings.ToLower(strings.TrimSpace(request.Email)), "")
-	return session, teamID, nil
+	return appmodel.AuthSessionCredential{Token: session.Token}, teamID, nil
 }
 
 // findByEmail returns the user with the given email (case-insensitive).
@@ -217,23 +217,23 @@ func (s *Service) findByEmail(ctx context.Context, email string) (User, error) {
 
 // AuthenticatePassword verifies an email/password pair and starts a session.
 // Unknown users and wrong passwords have the same public error.
-func (s *Service) AuthenticatePassword(ctx context.Context, request appmodel.PasswordLoginRequest) (appmodel.UserIdentity, Session, error) {
+func (s *Service) AuthenticatePassword(ctx context.Context, request appmodel.PasswordLoginRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error) {
 	user, err := s.findByEmail(ctx, request.Email)
 	if errors.Is(err, ErrNotFound) {
-		return appmodel.UserIdentity{}, Session{}, ErrCredentialsInvalid
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, ErrCredentialsInvalid
 	}
 	if err != nil {
-		return appmodel.UserIdentity{}, Session{}, fmt.Errorf("find login account: %w", err)
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, fmt.Errorf("find login account: %w", err)
 	}
 	if err := s.verifyPassword(user, request.Password); err != nil {
-		return appmodel.UserIdentity{}, Session{}, ErrCredentialsInvalid
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, ErrCredentialsInvalid
 	}
 	session, err := s.newSession(ctx, user.ID)
 	if err != nil {
-		return appmodel.UserIdentity{}, Session{}, fmt.Errorf("create login session: %w", err)
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, fmt.Errorf("create login session: %w", err)
 	}
 	s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.login", user.Email, "")
-	return identityOf(user), session, nil
+	return identityOf(user), appmodel.AuthSessionCredential{Token: session.Token}, nil
 }
 
 func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action, target, meta string) {
@@ -258,7 +258,7 @@ func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action
 // creating its personal workspace on first use, then issues an auth session.
 // If callbacks race to register the same address, the losing callback reloads
 // and uses the account that won.
-func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthenticationRequest) (identity appmodel.UserIdentity, session Session, created bool, err error) {
+func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthenticationRequest) (identity appmodel.UserIdentity, session appmodel.AuthSessionCredential, created bool, err error) {
 	var user User
 	user, err = s.findByEmail(ctx, request.Email)
 	if errors.Is(err, ErrNotFound) {
@@ -268,7 +268,7 @@ func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthe
 		}
 		passwordBytes := make([]byte, 32)
 		if _, err := rand.Read(passwordBytes); err != nil {
-			return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("generate SSO password: %w", err)
+			return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("generate SSO password: %w", err)
 		}
 		password := hex.EncodeToString(passwordBytes)
 		userID, _, createErr := s.createUserWithTeamName(ctx, appmodel.RegistrationRequest{
@@ -279,22 +279,23 @@ func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthe
 			// Resolve that unique-key race without weakening ordinary registration.
 			user, err = s.findByEmail(ctx, request.Email)
 			if err != nil {
-				return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("create SSO account: %w", createErr)
+				return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("create SSO account: %w", createErr)
 			}
 		} else {
 			user, err = s.findByID(ctx, userID)
 			if err != nil {
-				return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("load created SSO account: %w", err)
+				return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("load created SSO account: %w", err)
 			}
 			created = true
 		}
 	} else if err != nil {
-		return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("find SSO account: %w", err)
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("find SSO account: %w", err)
 	}
-	session, err = s.newSession(ctx, user.ID)
+	createdSession, err := s.newSession(ctx, user.ID)
 	if err != nil {
-		return appmodel.UserIdentity{}, Session{}, false, fmt.Errorf("create SSO session: %w", err)
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("create SSO session: %w", err)
 	}
+	session = appmodel.AuthSessionCredential{Token: createdSession.Token}
 	if created {
 		s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.sso_register", user.Email, request.Subject)
 	}
