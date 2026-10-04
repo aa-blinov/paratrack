@@ -13,10 +13,11 @@ import (
 
 // settingsPageData is the common envelope for /settings/* pages.
 type settingsPageData struct {
-	Title  string
-	Active string
-	Team   teamView
-	User   userView
+	Title             string
+	Active            string
+	TeamSettingsReact bool
+	Team              teamView
+	User              userView
 	// Members + invites populated by their respective handlers.
 	Members []memberView
 	Invites []inviteView
@@ -38,6 +39,8 @@ type settingsPageData struct {
 }
 
 func (settingsPageData) isTemplateData() {}
+
+func (p settingsPageData) usesReactApp() bool { return p.TeamSettingsReact }
 
 func (p *settingsPageData) setCSRF(t string) { p.CSRFToken = t }
 func (p *settingsPageData) setLang(l string) { p.Lang = l }
@@ -106,10 +109,11 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
 	data := settingsPageData{
-		Title:  "Team settings",
-		Active: "settings-team",
-		Team:   teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
-		User:   userViewOf(user),
+		Title:             "Team settings",
+		Active:            "settings-team",
+		TeamSettingsReact: true,
+		Team:              teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
+		User:              userViewOf(user),
 	}
 	settings, err := s.services.Teams.Settings.Settings(r.Context(), team.ID)
 	if err != nil {
