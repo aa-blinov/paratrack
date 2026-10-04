@@ -58,6 +58,11 @@ type SessionDecorationSnapshot struct {
 	ProjectsByID  map[int64]model.ProjectSummary
 }
 
+type SessionDecorationRowSnapshot struct {
+	Session     model.ActiveSession
+	Decorations SessionDecorationSnapshot
+}
+
 // ProjectListSnapshot combines projects with the workflow-calculated usage
 // values displayed beside them.
 type ProjectListSnapshot struct {

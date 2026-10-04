@@ -20,6 +20,12 @@ func (l *loggerStub) Printf(format string, args ...any) {
 
 type goalsStub struct{}
 
+type sessionReaderStub struct{}
+
+func (sessionReaderStub) SessionActivity(context.Context, int64, int64) (model.Session, model.Activity, error) {
+	return model.Session{}, model.Activity{}, nil
+}
+
 func (goalsStub) Activities(context.Context, int64) ([]model.Activity, error) { return nil, nil }
 func (goalsStub) Progress(context.Context, int64, time.Time) ([]model.GoalProgress, error) {
 	return nil, errors.New("optional widget unavailable")
@@ -76,7 +82,7 @@ func (s *tagsStub) TagsForSessions(_ context.Context, _ int64, ids []int64) (map
 
 func decorationsForTest(t *testing.T, projects *projectsStub, tags *tagsStub, logger *loggerStub) SessionDecorationBuilder {
 	t.Helper()
-	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Tags: tags, Projects: projects, Logger: logger})
+	builder, err := sessiondecorations.New(sessiondecorations.Dependencies{Sessions: sessionReaderStub{}, Tags: tags, Projects: projects, Logger: logger})
 	if err != nil {
 		t.Fatal(err)
 	}
