@@ -20,6 +20,7 @@ var ErrIncompleteServices = errors.New("HTTP application dependencies are incomp
 type Dependencies struct {
 	Billing            BillingWorkflow
 	Auth               AuthenticationDependencies
+	TokenAdmin         APITokenManagementBuilding
 	AuditLog           AuditWorkflow
 	Teams              TeamDependencies
 	TeamOps            TeamOperations
@@ -358,11 +359,14 @@ type APITokenWorkflow interface {
 	ListAPITokens(context.Context, appmodel.APITokenListRequest) ([]appmodel.APITokenSummary, error)
 }
 
+type APITokenManagementBuilding interface {
+	Management(context.Context, appmodel.APITokenListRequest) (appmodel.APITokenManagementSnapshot, error)
+}
+
 // TeamDirectory is the workspace and membership query surface consumed by
 // HTTP routes.
 type TeamDirectory interface {
 	FindByID(context.Context, int64) (model.Team, error)
-	FindByIDs(context.Context, []int64) (map[int64]model.Team, error)
 	IsMember(context.Context, int64, int64) (model.TeamRole, bool, error)
 	Members(context.Context, int64) ([]model.TeamMember, error)
 	MembershipForUser(context.Context, int64, int64) (model.TeamMembership, bool, error)
@@ -429,6 +433,7 @@ func (s Dependencies) Validate() error {
 		dependency{"password recovery", depcheck.IsNil(s.Auth.Recovery)},
 		dependency{"profile", depcheck.IsNil(s.Auth.Profile)},
 		dependency{"API tokens", depcheck.IsNil(s.Auth.APITokens)},
+		dependency{"API token management", depcheck.IsNil(s.TokenAdmin)},
 		dependency{"audit", depcheck.IsNil(s.AuditLog)},
 		dependency{"team directory", depcheck.IsNil(s.Teams.Directory)},
 		dependency{"team invitations", depcheck.IsNil(s.Teams.Invitations)},

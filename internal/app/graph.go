@@ -27,6 +27,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/tagging"
 	"github.com/aa-blinov/paratrack/internal/teamops"
 	"github.com/aa-blinov/paratrack/internal/teams"
+	"github.com/aa-blinov/paratrack/internal/tokenadmin"
 	"github.com/aa-blinov/paratrack/internal/tracking"
 	"github.com/aa-blinov/paratrack/internal/trackingops"
 	"github.com/aa-blinov/paratrack/internal/webhooks"
@@ -38,6 +39,7 @@ import (
 type Services struct {
 	Billing            *billing.Service
 	Auth               *auth.Service
+	TokenAdmin         *tokenadmin.Builder
 	AuditLog           *audit.Service
 	Teams              *teams.Service
 	TeamOps            *teamops.Service
