@@ -96,8 +96,8 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 
 	projectFilter := strings.TrimSpace(r.URL.Query().Get("project"))
 	tagFilter := strings.TrimSpace(r.URL.Query().Get("tag"))
-	graph, err := s.services.ReportBuilder.BuildGraphSessions(ctx, appmodel.ReportGraphQuery{
-		TeamID: teamID(r), From: period.Start, To: period.End,
+	graph, err := s.services.ReportBuilder.BuildGraph(ctx, appmodel.ReportGraphQuery{
+		TeamID: teamID(r), From: period.Start, To: period.End, Now: now,
 		ProjectSlug: projectFilter, Tag: tagFilter,
 	})
 	if err != nil {
@@ -106,10 +106,7 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 	if graph.Project.ID == 0 {
 		projectFilter = ""
 	}
-	chart, err := buildChartData(graph.Sessions, period, now, resolveLang(r))
-	if err != nil {
-		return graphData{}, fmt.Errorf("aggregate graph chart: %w", err)
-	}
+	chart := chartDataFromGraph(graph.Graph, period, resolveLang(r))
 	chartJSON, err := json.Marshal(chart)
 	if err != nil {
 		return graphData{}, fmt.Errorf("encode graph chart: %w", err)

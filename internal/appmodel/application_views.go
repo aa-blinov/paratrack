@@ -96,13 +96,25 @@ type ReportGraphQuery struct {
 	TeamID      int64
 	From        time.Time
 	To          time.Time
+	Now         time.Time
 	ProjectSlug string
 	Tag         string
 }
 
+type ReportGraphSeries struct {
+	Name         string
+	HourMinutes  [24]int
+	TotalMinutes int
+}
+
+type ReportGraphData struct {
+	TotalSeconds int
+	Series       []ReportGraphSeries
+}
+
 type ReportGraphResult struct {
-	Sessions []model.ActiveSession
-	Project  model.Project
+	Project model.Project
+	Graph   ReportGraphData
 }
 
 type ReportAggregateRow struct {

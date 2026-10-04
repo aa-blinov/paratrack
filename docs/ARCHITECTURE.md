@@ -631,9 +631,10 @@ ports, and rejects an incomplete dependency set during composition.
 statistics presets. Its builder coordinates session, workspace, project, user
 and tag readers, then aggregates time and billing without HTTP or template
 dependencies. The stats and graph queries apply project and tag filters through
-that workflow; HTTP adapts the result to localized chart and template view
-models. The CLI log and stats commands reuse its tracked-time clipping and
-aggregation. The reports service validates saved preset periods and names, and
+that workflow; `reportstats` allocates graph time to local hour buckets and
+returns transport-neutral totals. HTTP adds localized labels and chart colors.
+The CLI log and stats commands reuse its tracked-time clipping and aggregation.
+The reports service validates saved preset periods and names, and
 passes the actor into one persistence operation for saved-preset deletion. The
 database adapter locks the workspace and current membership before allowing a
 manager to delete any preset or a member to delete only their own; role changes
