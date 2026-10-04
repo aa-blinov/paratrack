@@ -11,13 +11,14 @@ import (
 )
 
 type profilePageData struct {
-	Active    string
-	User      userView
-	CanManage bool
-	Flash     string
-	FlashOK   bool
-	CSRFToken string
-	Lang      string
+	Active       string
+	User         userView
+	CanManage    bool
+	Flash        string
+	FlashOK      bool
+	CSRFToken    string
+	Lang         string
+	ProfileReact bool
 }
 
 func (profilePageData) isTemplateData() {}
@@ -32,11 +33,14 @@ func (p profilePageData) T(key string) string {
 	return i18n.T(i18n.Lang(p.Lang), key)
 }
 
+func (profilePageData) usesReactApp() bool { return true }
+
 func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFrom(r.Context())
 	data := profilePageData{
-		Active: "settings-profile",
-		User:   userViewOf(user),
+		Active:       "settings-profile",
+		User:         userViewOf(user),
+		ProfileReact: true,
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))

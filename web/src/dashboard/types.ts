@@ -522,7 +522,18 @@ export interface TokensData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData
+export interface ProfileData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  ProfileReact: boolean
+  User: { ID: number; Email: string; Name: string }
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

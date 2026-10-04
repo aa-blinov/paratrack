@@ -53,6 +53,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C12. React export | session CSV date-range validation; summary report navigation respects permissions and workspace modules |
 | C13. React integrations | provider-specific credential hints; connect and delete forms; marketplace availability/connected states; task sync and timer start actions |
 | C14. React API tokens | expiry and read-only creation options; raw token shown once with copy action; existing-token metadata and delete actions |
+| C15. React profile settings | profile name and password forms retain their existing endpoints and validation; disabled email; success and error flashes |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |
