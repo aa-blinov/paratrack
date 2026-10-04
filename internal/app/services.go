@@ -129,6 +129,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	}
 	projectPageBuilder, err := projectpages.New(projectpages.Dependencies{
 		Projects: projectService, Teams: teamService, Memberships: teamService, Invoicing: invoiceService,
+		Tags: taggingService, Logger: logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct project page builder: %w", err)

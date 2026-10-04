@@ -44,7 +44,6 @@ func (p projectDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang
 func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.ProjectPageSnapshot) projectDetailData {
 	detail := snapshot.Detail
 	p := detail.Project
-	tid := teamID(r)
 	now := userNow(r)
 	from := now.Add(-30 * 24 * time.Hour)
 	activity := detail.Activity
@@ -56,8 +55,8 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 		}
 	}
 	totalSeconds := activity.TotalSeconds // all history, tracked time with pauses excluded
-	hydrateSessionTags(r.Context(), s.services.SessionTags, tid, sessions, s.logger)
-	hydrateSessionProjects(r.Context(), s.services.Projects.Queries, tid, sessions, s.logger)
+	attachSessionTags(sessions, snapshot.TagsBySession)
+	attachSessionProjects(sessions, snapshot.ProjectsByID)
 
 	estimateLabel, estimateInput, estimatePercent, rateInput := "", "", 0, ""
 	if p.EstimateMinutes != nil && *p.EstimateMinutes > 0 {
