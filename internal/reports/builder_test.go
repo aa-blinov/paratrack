@@ -71,12 +71,12 @@ func (s graphProjectsStub) GetBySlug(context.Context, int64, string) (model.Proj
 func (graphProjectsStub) Currencies(context.Context, int64) (map[int64]string, error) {
 	return nil, nil
 }
-func (s graphProjectsStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
+func (s graphProjectsStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
 	if s.summaryErr != nil {
 		return nil, s.summaryErr
 	}
 	result := make(map[int64]model.ProjectSummary)
-	for _, id := range ids {
+	for _, id := range query.ProjectIDs {
 		if id == s.project.ID {
 			result[id] = model.ProjectSummary{ID: id, Name: s.project.Name}
 		}
