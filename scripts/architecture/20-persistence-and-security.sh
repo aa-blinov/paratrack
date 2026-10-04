@@ -488,6 +488,14 @@ if ! printf '%s\n' "$timesheet_query" | grep -Fq 'request appmodel.TimesheetRequ
 	echo "architecture check: timesheet scope, instant and extra activities must stay together through workflow and persistence" >&2
 	exit 1
 fi
+audit_list=$(sed -n '/^func (d \*DB) ListAudit(/,/^}/p' internal/db/audit.go)
+audit_workflow_list=$(sed -n '/^func (s \*Service) List(/,/^}/p' internal/audit/service.go)
+if ! printf '%s\n' "$audit_list" | grep -Fq 'query appmodel.AuditListQuery' ||
+	! printf '%s\n' "$audit_list" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$audit_workflow_list" | grep -Fq 's.store.ListAudit(ctx, query)'; then
+	echo "architecture check: audit trail reads must preserve workspace and limit through workflow and persistence" >&2
+	exit 1
+fi
 session_select=$(sed -n '/^const sessionSelect =/,/^`/p' internal/db/session_queries.go)
 if ! printf '%s\n' "$session_select" | grep -Fq 'a.team_id IS NOT DISTINCT FROM s.team_id'; then
 	echo "architecture check: shared session reads must exclude cross-workspace activity relationships" >&2

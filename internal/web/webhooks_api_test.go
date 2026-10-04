@@ -25,7 +25,7 @@ func TestAuditAndWebhooks(t *testing.T) {
 
 	d.Audit(ctx, model.AuditRecord{TeamID: 1, UserID: 1, Action: "auth.login", Target: "a@x.t", IP: "127.0.0.1"})
 	d.Audit(ctx, model.AuditRecord{TeamID: 1, UserID: 1, Action: "project.delete", Target: "acme", IP: "127.0.0.1"})
-	list, err := d.ListAudit(ctx, 1, 10)
+	list, err := d.ListAudit(ctx, appmodel.AuditListQuery{TeamID: 1, Limit: 10})
 	if err != nil || len(list) != 2 {
 		t.Fatalf("audit=%+v err=%v", list, err)
 	}
