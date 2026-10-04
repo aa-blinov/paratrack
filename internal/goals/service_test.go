@@ -12,6 +12,30 @@ import (
 
 type progressReaderStub struct{ progress []model.GoalProgress }
 
+type goalWriterStub struct {
+	setCalls   int
+	unsetCalls int
+	setRequest appmodel.GoalSetRequest
+	unsetReq   appmodel.GoalUnsetRequest
+}
+
+func (s *goalWriterStub) UpsertGoalForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error) {
+	panic("single goal API should not be called")
+}
+func (s *goalWriterStub) DeleteGoalForManager(context.Context, appmodel.GoalDeleteRequest) error {
+	panic("single goal API should not be called")
+}
+func (s *goalWriterStub) UpsertGoalsForManager(_ context.Context, request appmodel.GoalSetRequest) ([]model.Goal, error) {
+	s.setCalls++
+	s.setRequest = request
+	return nil, nil
+}
+func (s *goalWriterStub) DeleteGoalsForManager(_ context.Context, request appmodel.GoalUnsetRequest) (int, error) {
+	s.unsetCalls++
+	s.unsetReq = request
+	return 2, nil
+}
+
 type managementActivityReader struct {
 	activities []model.Activity
 	teamID     int64
@@ -50,6 +74,44 @@ func TestProgressRequiresWorkspace(t *testing.T) {
 	service := &Service{}
 	if _, err := service.Progress(context.Background(), 0, time.Now()); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("Progress with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+func TestSetForManagerValidatesWholeBatchBeforeWriting(t *testing.T) {
+	writer := &goalWriterStub{}
+	service := &Service{deps: Dependencies{Writes: writer}}
+	request := appmodel.GoalSetRequest{TeamID: 3, CallerID: 7, ActivityName: "  Focus ", Targets: []appmodel.GoalTarget{{Period: "daily", Minutes: 30}, {Period: "bogus", Minutes: 20}}}
+	if _, err := service.SetForManager(context.Background(), request); !errors.Is(err, ErrInvalidPeriod) {
+		t.Fatalf("SetForManager error = %v, want invalid period", err)
+	}
+	if writer.setCalls != 0 {
+		t.Fatalf("writer called %d times for invalid batch", writer.setCalls)
+	}
+	request.Targets[1].Period = "weekly"
+	if _, err := service.SetForManager(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if writer.setCalls != 1 || writer.setRequest.ActivityName != "Focus" || len(writer.setRequest.Targets) != 2 {
+		t.Fatalf("batch write = calls %d, request %+v", writer.setCalls, writer.setRequest)
+	}
+}
+
+func TestUnsetForManagerUsesSingleBatchWrite(t *testing.T) {
+	writer := &goalWriterStub{}
+	service := &Service{deps: Dependencies{Writes: writer}}
+	request := appmodel.GoalUnsetRequest{TeamID: 3, CallerID: 7, ActivityName: " Focus ", Periods: []string{"daily", "weekly"}}
+	if count, err := service.UnsetForManager(context.Background(), request); err != nil || count != 2 {
+		t.Fatalf("UnsetForManager = %d, %v", count, err)
+	}
+	if writer.unsetCalls != 1 || writer.unsetReq.ActivityName != "Focus" || len(writer.unsetReq.Periods) != 2 {
+		t.Fatalf("batch unset = calls %d, request %+v", writer.unsetCalls, writer.unsetReq)
+	}
+	request.Periods[1] = "yearly"
+	if _, err := service.UnsetForManager(context.Background(), request); !errors.Is(err, ErrInvalidPeriod) {
+		t.Fatalf("invalid UnsetForManager error = %v", err)
+	}
+	if writer.unsetCalls != 1 {
+		t.Fatalf("writer called after invalid unset batch: %d", writer.unsetCalls)
 	}
 }
 

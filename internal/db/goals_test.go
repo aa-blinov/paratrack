@@ -187,6 +187,50 @@ func TestUpsertGoal_ReplacesExistingForSamePeriod(t *testing.T) {
 	}
 }
 
+func TestUpsertGoalsForManagerRollsBackInvalidBatch(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal batch rollback", "goal-batch-rollback")
+	ownerID := teamOwner(t, d, teamID)
+	_, err := d.UpsertGoalsForManager(ctx, appmodel.GoalSetRequest{
+		TeamID: teamID, CallerID: ownerID, ActivityName: "batch-focus",
+		Targets: []appmodel.GoalTarget{{Period: "daily", Minutes: 30}, {Period: "yearly", Minutes: 60}},
+	})
+	if err == nil {
+		t.Fatal("UpsertGoalsForManager with invalid second target succeeded")
+	}
+	var activities, goals int
+	if err := d.sql.QueryRowContext(ctx, `SELECT count(*) FROM activities WHERE team_id = ? AND name_key = ?`, teamID, "batch-focus").Scan(&activities); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.sql.QueryRowContext(ctx, `SELECT count(*) FROM goals WHERE team_id = ?`, teamID).Scan(&goals); err != nil {
+		t.Fatal(err)
+	}
+	if activities != 0 || goals != 0 {
+		t.Fatalf("invalid batch left partial writes: activities=%d goals=%d", activities, goals)
+	}
+}
+
+func TestUpsertAndDeleteGoalsForManagerBatch(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal batch writes", "goal-batch-writes")
+	ownerID := teamOwner(t, d, teamID)
+	request := appmodel.GoalSetRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "batch-focus", Targets: []appmodel.GoalTarget{{Period: "daily", Minutes: 30}, {Period: "weekly", Minutes: 90}}}
+	created, err := d.UpsertGoalsForManager(ctx, request)
+	if err != nil || len(created) != 2 {
+		t.Fatalf("UpsertGoalsForManager = %d goals, %v", len(created), err)
+	}
+	deleted, err := d.DeleteGoalsForManager(ctx, appmodel.GoalUnsetRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "batch-focus", Periods: []string{"daily", "weekly"}})
+	if err != nil || deleted != 2 {
+		t.Fatalf("DeleteGoalsForManager = %d goals, %v", deleted, err)
+	}
+	remaining, err := d.ListGoals(ctx, teamID, nil)
+	if err != nil || len(remaining) != 0 {
+		t.Fatalf("remaining goals = %+v, %v", remaining, err)
+	}
+}
+
 func TestDeleteGoalForManager_MissingGoalReturnsErrGoalNotFound(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()

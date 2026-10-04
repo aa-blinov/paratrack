@@ -9,7 +9,6 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -86,20 +85,23 @@ func runGoalSet(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.GoalCommands
-
+	targets := make([]appmodel.GoalTarget, 0, len(pairs))
 	for _, p := range pairs {
 		secs, err := timeparse.ParseDuration(p.dur)
 		if err != nil {
 			return fmt.Errorf("parse %s duration %q: %w", p.period, p.dur, err)
 		}
-		mins := secs / 60
-		g, err := service.UpsertForManager(ctx, appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), ActivityName: *activityFlag, Period: p.period, Minutes: mins})
-		if err != nil {
-			return fmt.Errorf("upsert %s goal: %w", p.period, err)
-		}
+		targets = append(targets, appmodel.GoalTarget{Period: p.period, Minutes: secs / 60})
+	}
+	goals, err := services.GoalCommands.SetForManager(ctx, appmodel.GoalSetRequest{
+		TeamID: teamID, CallerID: requestctx.ActorID(ctx), ActivityName: *activityFlag, Targets: targets,
+	})
+	if err != nil {
+		return fmt.Errorf("set goals: %w", err)
+	}
+	for _, g := range goals {
 		fmt.Fprintf(rt.Out, "set %s goal for %q: %d min/%s\n",
-			p.period, *activityFlag, g.TargetMinutes, p.period)
+			g.Period, *activityFlag, g.TargetMinutes, g.Period)
 	}
 	return nil
 }
@@ -172,11 +174,10 @@ func runGoalUnset(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.GoalCommands
-	for _, p := range periods {
-		if err := service.DeleteForManager(ctx, appmodel.GoalDeleteRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), ActivityName: *activityFlag, Period: p}); err != nil && !errors.Is(err, model.ErrGoalNotFound) {
-			return fmt.Errorf("unset %s: %w", p, err)
-		}
+	if _, err := services.GoalCommands.UnsetForManager(ctx, appmodel.GoalUnsetRequest{
+		TeamID: teamID, CallerID: requestctx.ActorID(ctx), ActivityName: *activityFlag, Periods: periods,
+	}); err != nil {
+		return fmt.Errorf("unset goals: %w", err)
 	}
 	fmt.Fprintf(rt.Out, "removed %s goals for %q\n", strings.Join(periods, ","), *activityFlag)
 	return nil
