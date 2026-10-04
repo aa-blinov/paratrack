@@ -124,6 +124,8 @@ across project, tracking and tagging workflows. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects and
 invoicing. `PayrollRunLookupQuery` scopes run details to the requested workspace.
 `InvoiceLookupQuery` scopes invoice details and frozen lines the same way.
+`UnbilledProjectQuery` makes the project filter optional without using a zero-ID
+sentinel, for invoice, dashboard and project-page reads.
 Goal progress reads carry a typed query with the workspace and
 snapshot instant across CLI, HTTP, dashboard, workflow and persistence ports.
 Manager goal writes preserve caller and workspace scope through the workflow;

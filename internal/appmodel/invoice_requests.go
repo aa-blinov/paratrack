@@ -6,6 +6,13 @@ type InvoiceLookupQuery struct {
 	InvoiceID int64
 }
 
+// UnbilledProjectQuery scopes billable time to one workspace and optionally a
+// single project. A nil ProjectID requests all projects in the workspace.
+type UnbilledProjectQuery struct {
+	TeamID    int64
+	ProjectID *int64
+}
+
 // InvoiceIndexRequest scopes the combined invoice list and draft-form reads.
 type InvoiceIndexRequest struct {
 	TeamID int64
