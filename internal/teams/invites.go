@@ -55,6 +55,26 @@ func (s *Service) FindInvite(ctx context.Context, token string) (Invite, error) 
 	return inviteResult(invite), nil
 }
 
+// InvitePage assembles public invitation details. Missing invitations or
+// deleted workspaces produce the empty state; operational failures propagate.
+func (s *Service) InvitePage(ctx context.Context, token string) (appmodel.TeamInvitePageSnapshot, error) {
+	invite, err := s.FindInvite(ctx, token)
+	if errors.Is(err, ErrNotFound) {
+		return appmodel.TeamInvitePageSnapshot{}, nil
+	}
+	if err != nil {
+		return appmodel.TeamInvitePageSnapshot{}, fmt.Errorf("find invitation for page: %w", err)
+	}
+	team, err := s.FindByID(ctx, invite.TeamID)
+	if errors.Is(err, ErrNotFound) {
+		return appmodel.TeamInvitePageSnapshot{}, nil
+	}
+	if err != nil {
+		return appmodel.TeamInvitePageSnapshot{}, fmt.Errorf("find invitation workspace: %w", err)
+	}
+	return appmodel.TeamInvitePageSnapshot{Invite: invite, Team: team}, nil
+}
+
 // InvitesForTeam lists every (live or dead) invite for a team.
 func (s *Service) InvitesForTeam(ctx context.Context, teamID int64) ([]Invite, error) {
 	if teamID <= 0 {

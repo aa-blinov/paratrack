@@ -207,6 +207,43 @@ func TestFindByIDsBatchesDistinctWorkspacesAndOmitsMissingIDs(t *testing.T) {
 	}
 }
 
+func TestInvitePageReturnsTeamDetailsAndKeepsUnknownTokenAsEmptyState(t *testing.T) {
+	d := openTestDB(t)
+	svc := newTestService(t, d)
+	ctx := context.Background()
+	owner := newUser(t, d, "invite-page@example.com")
+	team, err := svc.Create(ctx, appmodel.TeamCreateRequest{OwnerID: owner, Name: "Invite workspace"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	invite, err := svc.NewInvite(ctx, appmodel.TeamInviteCreateRequest{TeamID: team.ID, CallerID: owner})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := svc.InvitePage(ctx, invite.Token)
+	if err != nil {
+		t.Fatalf("load invite page: %v", err)
+	}
+	if snapshot.Invite.Token != invite.Token || snapshot.Team.ID != team.ID || snapshot.Team.Name != team.Name {
+		t.Fatalf("invite page snapshot = %+v", snapshot)
+	}
+	empty, err := svc.InvitePage(ctx, "unknown-token")
+	if err != nil || empty.Invite.Token != "" || empty.Team.ID != 0 {
+		t.Fatalf("unknown invite page snapshot = %+v, %v", empty, err)
+	}
+}
+
+func TestInvitePagePropagatesStorageFailures(t *testing.T) {
+	d := openTestDB(t)
+	svc := newTestService(t, d)
+	if err := d.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.InvitePage(context.Background(), "invite-token"); err == nil {
+		t.Fatal("InvitePage() swallowed the closed database error")
+	}
+}
+
 func TestInviteFlow(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestService(t, d)

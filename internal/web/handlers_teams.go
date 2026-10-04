@@ -206,15 +206,16 @@ func (p *invitePage) setLang(lang string)  { p.Lang = lang }
 func (s *Server) handleInviteAcceptPage(w http.ResponseWriter, r *http.Request) {
 	token := strings.TrimPrefix(r.URL.Path, "/invites/")
 	user, authed := UserFrom(r.Context())
-	data := invitePage{
-		Title: "Join team", Token: token, LoggedIn: authed, User: userViewOf(user),
-		CSRFToken: ensureCSRF(w, r), Lang: string(resolveLang(r)),
+	snapshot, err := s.services.Teams.Invitations.InvitePage(r.Context(), token)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
 	}
-	if inv, err := s.services.Teams.Invitations.FindInvite(r.Context(), token); err == nil {
-		data.Invite = inviteViewOf(inv, userNow(r))
-		if t, err := s.services.Teams.Directory.FindByID(r.Context(), inv.TeamID); err == nil {
-			data.Team = teamView{ID: t.ID, Name: t.Name, CreatedAt: t.CreatedAt}
-		}
+	data := invitePage{
+		Title: "Join team", Token: token, Invite: inviteViewOf(snapshot.Invite, userNow(r)),
+		Team:     teamView{ID: snapshot.Team.ID, Name: snapshot.Team.Name, CreatedAt: snapshot.Team.CreatedAt},
+		LoggedIn: authed, User: userViewOf(user),
+		CSRFToken: ensureCSRF(w, r), Lang: string(resolveLang(r)),
 	}
 	s.renderPageForRequest(w, r, "Join team", "", "invite-accept", &data)
 }
