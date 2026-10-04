@@ -178,11 +178,6 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	if i := strings.IndexByte(slug, '/'); i >= 0 {
 		slug = slug[:i]
 	}
-	p, err := s.services.Projects.Queries.GetBySlug(r.Context(), tid, slug)
-	if err != nil {
-		s.writeProjectLookupError(w, r, err)
-		return
-	}
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
 		return
@@ -217,7 +212,13 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 		}
 		update.Currency = &cur
 	}
-	if _, err := s.services.Projects.Commands.Update(r.Context(), appmodel.ProjectUpdateRequest{TeamID: tid, ProjectID: p.ID, CallerID: authenticatedUserID(r), Update: update}); err != nil {
+	if _, err := s.services.Projects.Commands.UpdateBySlug(r.Context(), appmodel.ProjectSlugUpdateRequest{
+		TeamID: tid, Slug: slug, CallerID: authenticatedUserID(r), Update: update,
+	}); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			s.writeProjectLookupError(w, r, err)
+			return
+		}
 		http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, s.projectFlashError(err, "update")), http.StatusSeeOther)
 		return
 	}
@@ -229,12 +230,13 @@ func (s *Server) handleProjectDeleteForm(w http.ResponseWriter, r *http.Request)
 	tid := teamID(r)
 	slug := strings.TrimPrefix(r.URL.Path, "/projects/")
 	slug = strings.TrimSuffix(slug, "/delete")
-	p, err := s.services.Projects.Queries.GetBySlug(r.Context(), tid, slug)
-	if err != nil {
-		s.writeProjectLookupError(w, r, err)
-		return
-	}
-	if err := s.services.Projects.Commands.Delete(r.Context(), appmodel.ProjectMutationRequest{TeamID: tid, ProjectID: p.ID, CallerID: authenticatedUserID(r)}); err != nil {
+	if err := s.services.Projects.Commands.DeleteBySlug(r.Context(), appmodel.ProjectSlugMutationRequest{
+		TeamID: tid, Slug: slug, CallerID: authenticatedUserID(r),
+	}); err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			s.writeProjectLookupError(w, r, err)
+			return
+		}
 		flash := encodeFlash(false, s.projectFlashError(err, "delete"))
 		http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 		return
