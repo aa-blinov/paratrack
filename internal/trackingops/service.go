@@ -34,7 +34,7 @@ type AuditRecorder interface {
 
 type ActivityReader interface {
 	Activity(context.Context, int64, int64) (model.Activity, error)
-	FindActivity(context.Context, int64, string) (model.Activity, error)
+	FindActivity(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
 }
 
 type ActivityResolver interface {
@@ -290,7 +290,7 @@ func (s *Service) FocusActivity(ctx context.Context, request appmodel.TimerFocus
 	if request.TeamID <= 0 || name == "" || request.At.IsZero() {
 		return model.Activity{}, appmodel.FocusResult{}, appmodel.ErrInvalidSessionStart
 	}
-	activity, err := s.activities.FindActivity(ctx, request.TeamID, name)
+	activity, err := s.activities.FindActivity(ctx, appmodel.ActivityNameQuery{TeamID: request.TeamID, Name: name})
 	if err != nil {
 		return model.Activity{}, appmodel.FocusResult{}, err
 	}

@@ -7,6 +7,7 @@ import (
 	"text/tabwriter"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/reportstats"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
@@ -52,7 +53,7 @@ func runLog(rt *Runtime, args []string) error {
 
 	var actID *int64
 	if *activityFlag != "" {
-		a, err := services.ActivityCatalog.FindActivity(ctx, teamID, *activityFlag)
+		a, err := services.ActivityCatalog.FindActivity(ctx, appmodel.ActivityNameQuery{TeamID: teamID, Name: *activityFlag})
 		if err != nil {
 			return fmt.Errorf("activity %q: %w", *activityFlag, err)
 		}
