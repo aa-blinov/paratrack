@@ -19,6 +19,7 @@ type payrollClockStore struct {
 	details model.PayrollRunDetails
 	runs    []model.PayrollRunDetails
 	lookup  appmodel.PayrollRunLookupQuery
+	list    appmodel.PayrollRunListQuery
 }
 
 type payrollAuditNoop struct{}
@@ -48,7 +49,8 @@ func (s *payrollClockStore) CreatePayrollDraft(_ context.Context, request appmod
 	return s.run, nil, nil
 }
 
-func (s *payrollClockStore) ListPayrollRunDetails(context.Context, int64) ([]model.PayrollRunDetails, error) {
+func (s *payrollClockStore) ListPayrollRunDetails(_ context.Context, query appmodel.PayrollRunListQuery) ([]model.PayrollRunDetails, error) {
+	s.list = query
 	return s.runs, nil
 }
 
@@ -125,7 +127,7 @@ func TestPayrollReadResultsIncludeTotals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summaries, err := service.ListRuns(context.Background(), 2)
+	summaries, err := service.ListRuns(context.Background(), appmodel.PayrollRunListQuery{TeamID: 2})
 	if err != nil {
 		t.Fatalf("ListRuns() error = %v", err)
 	}
@@ -141,6 +143,9 @@ func TestPayrollReadResultsIncludeTotals(t *testing.T) {
 	}
 	if want := (appmodel.PayrollRunLookupQuery{TeamID: 2, RunID: run.ID}); store.lookup != want {
 		t.Fatalf("GetPayrollRunDetails query = %+v, want %+v", store.lookup, want)
+	}
+	if want := (appmodel.PayrollRunListQuery{TeamID: 2}); store.list != want {
+		t.Fatalf("ListPayrollRunDetails query = %+v, want %+v", store.list, want)
 	}
 }
 

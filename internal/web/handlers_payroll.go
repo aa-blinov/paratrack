@@ -32,7 +32,7 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 
 // handlePayroll lists runs and offers a generator.
 func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
-	list, err := s.services.Payroll.ListRuns(r.Context(), teamID(r))
+	list, err := s.services.Payroll.ListRuns(r.Context(), appmodel.PayrollRunListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

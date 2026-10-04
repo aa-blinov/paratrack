@@ -423,6 +423,14 @@ if ! printf '%s\n' "$webhook_history" | grep -Fq 'query appmodel.WebhookDelivery
 	echo "architecture check: webhook management must carry workspace and history bound through workflow and persistence" >&2
 	exit 1
 fi
+payroll_list=$(sed -n '/^func (d \*DB) ListPayrollRunDetails(/,/^}/p' internal/db/payroll_queries.go)
+payroll_workflow_list=$(sed -n '/^func (s \*Service) ListRuns(/,/^}/p' internal/payroll/service.go)
+if ! printf '%s\n' "$payroll_list" | grep -Fq 'query appmodel.PayrollRunListQuery' ||
+	! printf '%s\n' "$payroll_list" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$payroll_workflow_list" | grep -Fq 's.store.ListPayrollRunDetails(ctx, query)'; then
+	echo "architecture check: payroll run lists must preserve workspace scope through workflow and persistence" >&2
+	exit 1
+fi
 invoice_overlap=$(sed -n '/^func (d \*DB) OverlappingInvoices(/,/^}/p' internal/db/invoice_transitions.go)
 if ! printf '%s\n' "$invoice_overlap" | grep -Fq 'query appmodel.InvoiceOverlapQuery' ||
 	! printf '%s\n' "$invoice_overlap" | grep -Fq 'query.TeamID <= 0' ||
