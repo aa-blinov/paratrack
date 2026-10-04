@@ -9,6 +9,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/reportstats"
 )
 
 var ErrInvalidReportQuery = errors.New("invalid report query")
@@ -84,35 +85,39 @@ type GraphQuery = appmodel.ReportGraphQuery
 type GraphResult = appmodel.ReportGraphResult
 
 // BuildGraphSessions applies report filters before the HTTP adapter builds its chart view.
-func (b *Builder) BuildGraphSessions(ctx context.Context, query GraphQuery) (GraphResult, error) {
-	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) {
+func (b *Builder) BuildGraph(ctx context.Context, query GraphQuery) (GraphResult, error) {
+	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) || query.Now.IsZero() {
 		return GraphResult{}, ErrInvalidReportQuery
 	}
 	project, sessions, err := b.loadProjectSessions(ctx, query.TeamID, query.From, query.To, query.ProjectSlug)
 	if err != nil {
 		return GraphResult{}, fmt.Errorf("load graph sessions: %w", err)
 	}
-	if query.Tag == "" {
-		return GraphResult{Sessions: sessions, Project: project}, nil
-	}
-	ids := make([]int64, 0, len(sessions))
-	for _, session := range sessions {
-		ids = append(ids, session.Session.ID)
-	}
-	tagsBySession, err := b.tags.TagsForSessions(ctx, query.TeamID, ids)
-	if err != nil {
-		return GraphResult{}, fmt.Errorf("load graph session tags: %w", err)
-	}
-	filtered := make([]model.ActiveSession, 0, len(sessions))
-	for _, session := range sessions {
-		for _, tag := range tagsBySession[session.Session.ID] {
-			if tag.Name == query.Tag {
-				filtered = append(filtered, session)
-				break
+	filtered := sessions
+	if query.Tag != "" {
+		ids := make([]int64, 0, len(sessions))
+		for _, session := range sessions {
+			ids = append(ids, session.Session.ID)
+		}
+		tagsBySession, err := b.tags.TagsForSessions(ctx, query.TeamID, ids)
+		if err != nil {
+			return GraphResult{}, fmt.Errorf("load graph session tags: %w", err)
+		}
+		filtered = make([]model.ActiveSession, 0, len(sessions))
+		for _, session := range sessions {
+			for _, tag := range tagsBySession[session.Session.ID] {
+				if tag.Name == query.Tag {
+					filtered = append(filtered, session)
+					break
+				}
 			}
 		}
 	}
-	return GraphResult{Sessions: filtered, Project: project}, nil
+	graph, err := reportstats.HourlyGraph(filtered, query.From, query.To, query.Now)
+	if err != nil {
+		return GraphResult{}, fmt.Errorf("aggregate hourly graph: %w", err)
+	}
+	return GraphResult{Project: project, Graph: graph}, nil
 }
 
 // BuildStats loads and filters the stats read model before calculating totals.

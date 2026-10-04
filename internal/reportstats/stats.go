@@ -15,6 +15,8 @@ import (
 type StatsBreakdown = appmodel.ReportStatsBreakdown
 type ProjectStats = appmodel.ReportProjectStats
 type StatsSummary = appmodel.ReportStatsSummary
+type GraphData = appmodel.ReportGraphData
+type GraphSeries = appmodel.ReportGraphSeries
 
 // Summarize builds activity and project breakdowns from already filtered
 // sessions. Callers retain responsibility for localized labels and formatting.
@@ -99,6 +101,96 @@ func Summarize(sessions []model.ActiveSession, projects map[int64]model.Project,
 		return summary.Projects[i].Seconds > summary.Projects[j].Seconds
 	})
 	return summary, nil
+}
+
+// HourlyGraph allocates tracked minutes into local hour-of-day buckets for a
+// filtered set of report sessions. The returned totals retain exact seconds.
+func HourlyGraph(sessions []model.ActiveSession, from, to, now time.Time) (GraphData, error) {
+	type activityBuckets struct {
+		minutes [24]int
+		total   int
+	}
+	byActivity := make(map[string]*activityBuckets)
+	result := GraphData{}
+	for _, item := range sessions {
+		if item.Session.EndAt == nil {
+			continue
+		}
+		start, end := item.Session.StartAt, *item.Session.EndAt
+		if end.Before(from) || start.After(to) {
+			continue
+		}
+		if start.Before(from) {
+			start = from
+		}
+		if end.After(to) {
+			end = to
+		}
+		tracked := item.Session.TrackedSecondsInWindow(from, to, now)
+		if !end.After(start) {
+			tracked = item.Session.DurationSeconds(now)
+		}
+		if tracked <= 0 {
+			continue
+		}
+		var err error
+		result.TotalSeconds, err = money.AddInt(result.TotalSeconds, tracked)
+		if err != nil {
+			return GraphData{}, fmt.Errorf("sum chart tracked time: %w", err)
+		}
+		bucket := byActivity[item.Activity.Name]
+		if bucket == nil {
+			bucket = &activityBuckets{}
+			byActivity[item.Activity.Name] = bucket
+		}
+		minutes := tracked / 60
+		if tracked%60 >= 30 {
+			minutes++
+		}
+		minutes = max(1, minutes)
+		bucket.total, err = money.AddInt(bucket.total, minutes)
+		if err != nil {
+			return GraphData{}, fmt.Errorf("sum chart series %q: %w", item.Activity.Name, err)
+		}
+		start, end = start.In(from.Location()), end.In(from.Location())
+		if !end.After(start) {
+			bucket.minutes[start.Hour()], err = money.AddInt(bucket.minutes[start.Hour()], minutes)
+			if err != nil {
+				return GraphData{}, fmt.Errorf("sum chart hour %d for %q: %w", start.Hour(), item.Activity.Name, err)
+			}
+			continue
+		}
+		span := end.Sub(start)
+		cursor, assigned := start, 0
+		for cursor.Before(end) {
+			nextHour := time.Date(cursor.Year(), cursor.Month(), cursor.Day(), cursor.Hour()+1, 0, 0, 0, cursor.Location())
+			if !nextHour.After(cursor) {
+				nextHour = cursor.Add(time.Hour)
+			}
+			if nextHour.After(end) {
+				nextHour = end
+			}
+			allocated := int(float64(minutes)*float64(nextHour.Sub(start))/float64(span) + 0.5)
+			bucket.minutes[cursor.Hour()], err = money.AddInt(bucket.minutes[cursor.Hour()], allocated-assigned)
+			if err != nil {
+				return GraphData{}, fmt.Errorf("sum chart hour %d for %q: %w", cursor.Hour(), item.Activity.Name, err)
+			}
+			assigned = allocated
+			cursor = nextHour
+		}
+	}
+	rows := make([]GraphSeries, 0, len(byActivity))
+	for name, buckets := range byActivity {
+		rows = append(rows, GraphSeries{Name: name, HourMinutes: buckets.minutes, TotalMinutes: buckets.total})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].TotalMinutes == rows[j].TotalMinutes {
+			return rows[i].Name < rows[j].Name
+		}
+		return rows[i].TotalMinutes > rows[j].TotalMinutes
+	})
+	result.Series = rows
+	return result, nil
 }
 
 func shareOf(value, total int) float64 {

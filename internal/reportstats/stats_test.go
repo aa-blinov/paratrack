@@ -65,6 +65,55 @@ func TestSummarizeEmptyInputHasNoBreakdowns(t *testing.T) {
 	}
 }
 
+func TestHourlyGraphSplitsTrackedMinutesAcrossHourBuckets(t *testing.T) {
+	location := time.FixedZone("user", 2*60*60)
+	from := time.Date(2026, time.June, 1, 0, 0, 0, 0, location)
+	start := time.Date(2026, time.June, 1, 10, 30, 0, 0, location)
+	end := time.Date(2026, time.June, 1, 13, 45, 0, 0, location)
+	tracked := int(end.Sub(start).Seconds())
+
+	got, err := HourlyGraph([]model.ActiveSession{
+		sessionForStats("Focus", 0, start, end, tracked),
+	}, from, from.AddDate(0, 0, 1), end)
+	if err != nil {
+		t.Fatalf("HourlyGraph() error = %v", err)
+	}
+	if got.TotalSeconds != tracked || len(got.Series) != 1 {
+		t.Fatalf("HourlyGraph() total/series = %d/%d", got.TotalSeconds, len(got.Series))
+	}
+	series := got.Series[0]
+	if series.Name != "Focus" || series.TotalMinutes != 195 {
+		t.Fatalf("series summary = %#v", series)
+	}
+	for hour, want := range map[int]int{10: 30, 11: 60, 12: 60, 13: 45} {
+		if series.HourMinutes[hour] != want {
+			t.Errorf("hour %d = %d minutes, want %d", hour, series.HourMinutes[hour], want)
+		}
+	}
+}
+
+func TestHourlyGraphUsesLocalHourAndStableSeriesOrder(t *testing.T) {
+	location := time.FixedZone("user", 3*60*60)
+	from := time.Date(2026, time.June, 1, 0, 0, 0, 0, location)
+	start := time.Date(2026, time.June, 1, 14, 0, 0, 0, location)
+	end := start.Add(time.Hour)
+	sessions := []model.ActiveSession{
+		sessionForStats("Zulu", 0, start, end, 3600),
+		sessionForStats("Alpha", 0, start, end, 3600),
+	}
+
+	got, err := HourlyGraph(sessions, from, from.AddDate(0, 0, 1), end)
+	if err != nil {
+		t.Fatalf("HourlyGraph() error = %v", err)
+	}
+	if len(got.Series) != 2 || got.Series[0].Name != "Alpha" || got.Series[1].Name != "Zulu" {
+		t.Fatalf("series ordering = %#v, want Alpha then Zulu", got.Series)
+	}
+	if got.Series[0].HourMinutes[14] != 60 {
+		t.Fatalf("local hour bucket = %d, want 60 minutes at hour 14", got.Series[0].HourMinutes[14])
+	}
+}
+
 func sessionForStats(activity string, projectID int64, start, end time.Time, seconds int) model.ActiveSession {
 	return model.ActiveSession{
 		Session:  model.Session{StartAt: start, EndAt: &end, AccumulatedSeconds: seconds},
