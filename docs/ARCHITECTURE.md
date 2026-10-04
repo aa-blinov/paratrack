@@ -134,6 +134,8 @@ sentinel, for invoice, dashboard and project-page reads.
 through the advisory duplicate-document check.
 `GoalListQuery` scopes configured goals and optional activity filtering to one
 workspace. `ScheduleQuery` carries workspace and week together from HTTP to persistence.
+`TagListQuery` carries workspace scope through HTTP, CLI, reports, tagging and
+persistence for tag catalogs and usage counts.
 `TimesheetRequest` keeps workspace, week, calculation instant and extra activity
 rows together through the tracking workflow and DB adapter. Goal progress reads carry a typed query with the workspace and
 snapshot instant across CLI, HTTP, dashboard, workflow and persistence ports.

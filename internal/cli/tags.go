@@ -73,7 +73,7 @@ func runTagList(rt *Runtime) error {
 	if err != nil {
 		return err
 	}
-	tags, err := services.TagQueries.ListWithCounts(ctx, teamID)
+	tags, err := services.TagQueries.ListWithCounts(ctx, appmodel.TagListQuery{TeamID: teamID})
 	if err != nil {
 		return fmt.Errorf("list tags: %w", err)
 	}
