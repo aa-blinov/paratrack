@@ -21,7 +21,10 @@ import (
 
 // UpsertPushSubscription stores (or refreshes) a browser subscription.
 func (d *DB) UpsertPushSubscription(ctx context.Context, request appmodel.PushSubscribeRequest) error {
-	if request.TeamID <= 0 || request.UserID <= 0 || request.Endpoint == "" || request.PublicKey == "" || request.AuthSecret == "" {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return model.ErrForbidden
+	}
+	if request.Endpoint == "" || request.PublicKey == "" || request.AuthSecret == "" {
 		return errors.New("endpoint, p256dh and auth are required")
 	}
 	tx, err := d.sql.BeginTx(ctx, nil)
@@ -117,6 +120,18 @@ func (d *DB) CountPushSubscriptions(ctx context.Context, teamID int64) (int, err
 // DeletePushSubscription removes one of the caller's endpoints. Endpoint
 // alone is not an authorization boundary.
 func (d *DB) DeletePushSubscription(ctx context.Context, request appmodel.PushUnsubscribeRequest) error {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return model.ErrForbidden
+	}
+	if request.Endpoint == "" {
+		return ErrNotFound
+	}
+	_, err := d.sql.ExecContext(ctx,
+		`DELETE FROM push_subscriptions WHERE team_id = ? AND user_id = ? AND endpoint = ?`, request.TeamID, request.UserID, request.Endpoint)
+	return err
+}
+
+func (d *DB) DeletePushSubscriptionForCleanup(ctx context.Context, request appmodel.PushSubscriptionCleanupRequest) error {
 	if request.TeamID <= 0 || request.UserID <= 0 || request.Endpoint == "" {
 		return ErrNotFound
 	}

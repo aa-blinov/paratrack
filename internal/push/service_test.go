@@ -90,6 +90,11 @@ func (s *pushStoreStub) DeletePushSubscription(_ context.Context, request appmod
 	return s.removeErr
 }
 
+func (s *pushStoreStub) DeletePushSubscriptionForCleanup(_ context.Context, request appmodel.PushSubscriptionCleanupRequest) error {
+	s.removed = append(s.removed, request.Endpoint)
+	return s.removeErr
+}
+
 type pushSenderStub struct {
 	statuses []int
 	payloads [][]byte
@@ -121,20 +126,20 @@ func TestMemberSubscriptionMutationsAuditOnlyUserActions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx := requestctx.WithClientIP(context.Background(), "203.0.113.10")
+	ctx := requestctx.WithClientIP(requestctx.WithActor(context.Background(), 8), "203.0.113.10")
 	publicKey := make([]byte, 65)
 	publicKey[0] = 4
 	authSecret := make([]byte, 16)
 	if err := service.Subscribe(ctx, appmodel.PushSubscribeRequest{
-		TeamID: 5, UserID: 8, Endpoint: "https://push.example/device",
+		TeamID: 5, UserID: 8, CallerID: 8, Endpoint: "https://push.example/device",
 		PublicKey: base64.RawURLEncoding.EncodeToString(publicKey), AuthSecret: base64.RawURLEncoding.EncodeToString(authSecret),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.UnsubscribeForMember(ctx, appmodel.PushUnsubscribeRequest{TeamID: 5, UserID: 8, Endpoint: "https://push.example/device"}); err != nil {
+	if err := service.UnsubscribeForMember(ctx, appmodel.PushUnsubscribeRequest{TeamID: 5, UserID: 8, CallerID: 8, Endpoint: "https://push.example/device"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := service.unsubscribe(ctx, appmodel.PushUnsubscribeRequest{TeamID: 5, UserID: 8, Endpoint: "https://push.example/expired"}); err != nil {
+	if err := service.removeExpired(ctx, appmodel.PushSubscriptionCleanupRequest{TeamID: 5, UserID: 8, Endpoint: "https://push.example/expired"}); err != nil {
 		t.Fatal(err)
 	}
 	if len(audit.records) != 2 {
