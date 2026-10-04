@@ -43,9 +43,7 @@ func (s *Server) handleInvoiceAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := invoiceDetailPage{pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))}, Inv: vm}
-	if t, ok := TeamFrom(r.Context()); ok {
-		data.Seller = t.Name
-	}
+	data.Seller = s.sellerName(r)
 	s.renderPageForRequest(w, r, inv.Number, "invoices", "invoice-act", &data)
 }
 
