@@ -40,8 +40,8 @@ type TeamStore interface {
 // MembershipStore provides workspace membership operations.
 type MembershipStore interface {
 	ListMembershipsForUser(context.Context, int64) ([]model.TeamMembership, error)
-	FindMembershipForUser(context.Context, int64, int64) (model.TeamMembership, bool, error)
-	TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error)
+	FindMembershipForUser(context.Context, appmodel.TeamMembershipQuery) (model.TeamMembership, bool, error)
+	TeamMemberRole(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error)
 	ListTeamMembers(context.Context, int64) ([]model.TeamMember, error)
 	SetTeamMemberRole(context.Context, appmodel.TeamMemberRoleRequest) (bool, error)
 	TransferTeamOwnership(context.Context, appmodel.TeamOwnershipTransferRequest) error
@@ -232,7 +232,7 @@ func (s *Service) MembershipForUser(ctx context.Context, teamID, userID int64) (
 	if teamID <= 0 || userID <= 0 {
 		return model.TeamMembership{}, false, ErrNotFound
 	}
-	return s.memberships.FindMembershipForUser(ctx, teamID, userID)
+	return s.memberships.FindMembershipForUser(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: userID})
 }
 
 // Rename changes the team's display name. Slug stays the same to keep

@@ -41,7 +41,7 @@ type AuditRecorder interface {
 // ImportAuthorizer checks manager access before credentials are sent to an
 // external provider. Persistence rechecks access inside the write transaction.
 type ImportAuthorizer interface {
-	TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error)
+	TeamMemberRole(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error)
 }
 
 type Logger interface {
@@ -121,7 +121,7 @@ func (s *Service) authorize(ctx context.Context, teamID, callerID int64) error {
 	if teamID <= 0 || callerID <= 0 {
 		return fmt.Errorf("%w: team and caller IDs must be positive", ErrInvalidEntry)
 	}
-	role, member, err := s.authorizer.TeamMemberRole(ctx, teamID, callerID)
+	role, member, err := s.authorizer.TeamMemberRole(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: callerID})
 	if err != nil {
 		return fmt.Errorf("authorize provider import: %w", err)
 	}

@@ -205,7 +205,7 @@ type managerAuthorizerStub struct {
 	err    error
 }
 
-func (s managerAuthorizerStub) TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error) {
+func (s managerAuthorizerStub) TeamMemberRole(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error) {
 	return s.role, s.member, s.err
 }
 

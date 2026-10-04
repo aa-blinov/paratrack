@@ -53,7 +53,7 @@ type importAuthorizer struct {
 	err    error
 }
 
-func (a importAuthorizer) TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error) {
+func (a importAuthorizer) TeamMemberRole(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error) {
 	return a.role, a.member, a.err
 }
 
