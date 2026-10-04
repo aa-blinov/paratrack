@@ -240,6 +240,30 @@ func (s *Service) GetBySlug(ctx context.Context, teamID int64, slug string) (mod
 	return s.catalog.GetProjectBySlug(ctx, teamID, strings.TrimSpace(slug))
 }
 
+// Detail loads the scoped project page data through the owning project workflow.
+func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequest) (model.ProjectDetail, error) {
+	if request.TeamID <= 0 || strings.TrimSpace(request.Slug) == "" || request.From.IsZero() || request.Through.IsZero() || request.Through.Before(request.From) {
+		return model.ProjectDetail{}, model.ErrNotFound
+	}
+	project, err := s.catalog.GetProjectBySlug(ctx, request.TeamID, strings.TrimSpace(request.Slug))
+	if err != nil {
+		return model.ProjectDetail{}, err
+	}
+	activities, err := s.catalog.ListActivitiesForProject(ctx, request.TeamID, project.ID, request.IncludeArchived)
+	if err != nil {
+		return model.ProjectDetail{}, fmt.Errorf("list project activities: %w", err)
+	}
+	activity, err := s.Activity(ctx, request.TeamID, project.ID, request.From, request.Through)
+	if err != nil {
+		return model.ProjectDetail{}, fmt.Errorf("load project activity summary: %w", err)
+	}
+	currency, err := s.Currency(ctx, request.TeamID, project.ID)
+	if err != nil {
+		return model.ProjectDetail{}, fmt.Errorf("load project currency: %w", err)
+	}
+	return model.ProjectDetail{Project: project, Activities: activities, Activity: activity, Currency: currency}, nil
+}
+
 var ErrRebindForbidden = model.ErrProjectRebindForbidden
 
 // AssignActivity enforces member and workspace rules before the scoped

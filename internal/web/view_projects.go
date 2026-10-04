@@ -43,21 +43,12 @@ func (p *projectDetailData) setManage(v bool)   { p.CanManage = v }
 func (p *projectDetailData) setLang(l string)   { p.Lang = l }
 func (p projectDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
-func (s *Server) buildProjectDetailPage(r *http.Request, p model.Project) (projectDetailData, error) {
+func (s *Server) buildProjectDetailPage(r *http.Request, detail model.ProjectDetail) (projectDetailData, error) {
+	p := detail.Project
 	tid := teamID(r)
-	includeArchived := r.URL.Query().Get("archived") == "1"
-	activities, err := s.services.Projects.Queries.Activities(r.Context(), tid, p.ID, includeArchived)
-	if err != nil {
-		return projectDetailData{}, fmt.Errorf("list project activities: %w", err)
-	}
-
-	// Recent sessions in this project (last 30 days, capped at 50).
 	now := userNow(r)
 	from := now.Add(-30 * 24 * time.Hour)
-	activity, err := s.services.Projects.Queries.Activity(r.Context(), tid, p.ID, from, now)
-	if err != nil {
-		return projectDetailData{}, fmt.Errorf("load project activity summary: %w", err)
-	}
+	activity := detail.Activity
 	sessions := make([]sessionView, 0, min(len(activity.Recent), 50))
 	for _, item := range activity.Recent {
 		view := toSessionView(item.Session, item.Activity, from, now, now, resolveLang(r), durFmtOf(r))
@@ -84,25 +75,24 @@ func (s *Server) buildProjectDetailPage(r *http.Request, p model.Project) (proje
 			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color,
 			Archived: p.Archived, Billable: p.Billable,
 		},
-		Activities: activityViews(activities, string(resolveLang(r))), Sessions: sessions,
+		Activities: activityViews(detail.Activities, string(resolveLang(r))), Sessions: sessions,
 		Total: fmtDur(r, totalSeconds), MonthTotal: fmtDur(r, activity.RecentSeconds),
 		Archived: p.Archived, EstimateLabel: estimateLabel, EstimateInput: estimateInput,
 		RateInput: rateInput, EstimatePercent: estimatePercent, Currencies: currencyOptions(),
 	}
-	data.Currency, err = s.services.Projects.Queries.Currency(r.Context(), tid, p.ID)
-	if err != nil {
-		return projectDetailData{}, fmt.Errorf("load project currency: %w", err)
-	}
+	data.Currency = detail.Currency
+	var err error
 	if canManage(r) && s.teamModules(r)["invoices"] {
 		data.Unbilled, err = s.unbilledViews(r, p.ID)
 		if err != nil {
 			return projectDetailData{}, fmt.Errorf("load project unbilled time: %w", err)
 		}
 	}
-	data.TeamCurrency, err = s.services.Teams.Settings.Currency(r.Context(), tid)
+	teamCurrency, err := s.services.Teams.Settings.Currency(r.Context(), tid)
 	if err != nil {
 		return projectDetailData{}, fmt.Errorf("load workspace currency: %w", err)
 	}
+	data.TeamCurrency = teamCurrency
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}

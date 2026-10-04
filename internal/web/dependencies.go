@@ -177,9 +177,7 @@ type SessionTagReader interface {
 
 // ProjectQueries provides project and activity data to HTTP views.
 type ProjectQueries interface {
-	Activities(context.Context, int64, int64, bool) ([]model.Activity, error)
-	Activity(context.Context, int64, int64, time.Time, time.Time) (model.ProjectActivitySummary, error)
-	Currency(context.Context, int64, int64) (string, error)
+	Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error)
 	GetBySlug(context.Context, int64, string) (model.Project, error)
 	List(context.Context, int64, bool) ([]model.Project, error)
 	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)

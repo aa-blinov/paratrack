@@ -1,5 +1,7 @@
 package appmodel
 
+import "time"
+
 type AssignActivityProjectRequest struct {
 	TeamID     int64
 	ActivityID int64
@@ -26,4 +28,13 @@ type ProjectRateRequest struct {
 	CallerID  int64
 	RateCents *int
 	Billable  *bool
+}
+
+// ProjectDetailRequest carries the scoped inputs for a project detail read.
+type ProjectDetailRequest struct {
+	TeamID          int64
+	Slug            string
+	IncludeArchived bool
+	From            time.Time
+	Through         time.Time
 }

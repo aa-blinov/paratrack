@@ -604,10 +604,11 @@ time) is aggregated by the projects service from team-scoped persistence reads;
 the HTTP adapter only supplies the user's date boundaries and formats labels.
 Project summaries used to decorate session rows and exports are also loaded
 through the service with a workspace constraint on the batch lookup.
-Project detail reads recent sessions and lifetime tracked time through one
-projects use case, which also returns the tracked-time total for that recent
-window; the HTTP adapter maps sessions and formats the total. Project currency
-and workspace currency/billing settings are read through their owning services.
+Project detail project, activity, recent-session, tracked-time and currency
+reads are assembled by one projects use case from a named, scoped
+`appmodel.ProjectDetailRequest`; it also returns the tracked-time total for the
+recent window. The HTTP adapter maps sessions and formats totals.
+Workspace currency and billing settings are read through their owning services.
 The report builder loads all project
 currencies in one scoped query and fails on read errors instead of silently
 pricing a project in the workspace's default currency.
