@@ -468,9 +468,9 @@ linked invoice rows, serializing writes with member removal and ensuring a
 concurrent send cannot race an edit to a sent or paid invoice's time ledger.
 Tracking validates edit identity and duration bounds, while HTTP passes
 duration intent without reading the session. The DB adapter locks the session
-row, derives end and accumulated values from that locked state, validates the
-resulting interval, and writes it in the same transaction. This prevents a
-concurrent edit from making the duration calculation stale.
+row and supplies its current interval to the pure domain resolver; it writes
+the resolved values in the same transaction. The domain owns interval rules,
+and a concurrent edit cannot make the calculation stale.
 
 `internal/importing` coordinates provider fetches with batch validation and
 application. Preview fetches do not persist entries; a run performs the fetch
