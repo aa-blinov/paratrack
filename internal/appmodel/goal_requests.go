@@ -42,8 +42,8 @@ type GoalUnsetRequest struct {
 	Periods      []string
 }
 
-// GoalManagementQuery scopes the goal page reads to one team and instant.
-type GoalManagementQuery struct {
+// GoalProgressQuery scopes goal progress reads to one team and instant.
+type GoalProgressQuery struct {
 	TeamID int64
 	Now    time.Time
 }

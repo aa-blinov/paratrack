@@ -16,7 +16,7 @@ import (
 // handleGoals serves the /goals management page.
 func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
-	snapshot, err := s.services.Goals.Management(r.Context(), appmodel.GoalManagementQuery{TeamID: teamID(r), Now: now})
+	snapshot, err := s.services.Goals.Management(r.Context(), appmodel.GoalProgressQuery{TeamID: teamID(r), Now: now})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -62,7 +62,7 @@ func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
 // the rendered `goals-list` fragment so it can be swapped into the
 // page directly. Plain GET returns JSON for tooling / scripts.
 func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.services.Goals.Progress(r.Context(), teamID(r), userNow(r))
+	progress, err := s.services.Goals.Progress(r.Context(), appmodel.GoalProgressQuery{TeamID: teamID(r), Now: userNow(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -166,7 +166,7 @@ func isGoalValidationError(err error) bool {
 
 // respondGoalsList renders the `goals-list` fragment for HTMX swaps.
 func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.services.Goals.Progress(r.Context(), teamID(r), userNow(r))
+	progress, err := s.services.Goals.Progress(r.Context(), appmodel.GoalProgressQuery{TeamID: teamID(r), Now: userNow(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

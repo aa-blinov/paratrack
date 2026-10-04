@@ -22,7 +22,7 @@ type ActivityReader interface {
 // GoalReader provides configured goals and their progress.
 type GoalReader interface {
 	ListGoals(context.Context, int64, *int64) ([]model.Goal, error)
-	ProgressForGoals(context.Context, int64, time.Time) ([]model.GoalProgress, error)
+	ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
 }
 
 // GoalWriter provides atomic goal mutations, including manager-authorized
@@ -70,7 +70,7 @@ func (s *Service) Activities(ctx context.Context, teamID int64) ([]model.Activit
 
 // Management combines the activity catalog with current goal progress for
 // the team management page.
-func (s *Service) Management(ctx context.Context, query appmodel.GoalManagementQuery) (appmodel.GoalManagementSnapshot, error) {
+func (s *Service) Management(ctx context.Context, query appmodel.GoalProgressQuery) (appmodel.GoalManagementSnapshot, error) {
 	if query.TeamID <= 0 {
 		return appmodel.GoalManagementSnapshot{}, ErrInvalidTeam
 	}
@@ -81,7 +81,7 @@ func (s *Service) Management(ctx context.Context, query appmodel.GoalManagementQ
 	if err != nil {
 		return appmodel.GoalManagementSnapshot{}, err
 	}
-	progress, err := s.Progress(ctx, query.TeamID, query.Now)
+	progress, err := s.Progress(ctx, query)
 	if err != nil {
 		return appmodel.GoalManagementSnapshot{}, fmt.Errorf("load goal management progress: %w", err)
 	}
@@ -95,11 +95,11 @@ func (s *Service) List(ctx context.Context, teamID int64) ([]model.Goal, error) 
 	return s.deps.Goals.ListGoals(ctx, teamID, nil)
 }
 
-func (s *Service) Progress(ctx context.Context, teamID int64, now time.Time) ([]model.GoalProgress, error) {
-	if teamID <= 0 {
+func (s *Service) Progress(ctx context.Context, query appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
-	return s.deps.Goals.ProgressForGoals(ctx, teamID, now)
+	return s.deps.Goals.ProgressForGoals(ctx, query)
 }
 
 // NewlyAchievedAfterSession returns the first goal for this activity that
@@ -137,7 +137,7 @@ func (s *Service) NewlyAchievedAfterSessions(ctx context.Context, teamID int64, 
 	if len(stoppedSeconds) == 0 {
 		return nil, nil
 	}
-	progress, err := s.Progress(ctx, teamID, now)
+	progress, err := s.Progress(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
 	if err != nil {
 		return nil, fmt.Errorf("load goal progress after stopped sessions: %w", err)
 	}
