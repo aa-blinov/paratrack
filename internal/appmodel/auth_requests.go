@@ -11,6 +11,7 @@ type AccountCreateRequest struct {
 
 type PasswordHashUpdateRequest struct {
 	UserID       int64
+	CallerID     int64
 	ExpectedHash string `json:"-"`
 	PasswordHash string `json:"-"`
 }
@@ -47,13 +48,15 @@ type APITokenLookupRequest struct {
 }
 
 type ProfileNameRequest struct {
-	UserID int64
-	Name   string
+	UserID   int64
+	CallerID int64
+	Name     string
 }
 
 // PasswordChangeRequest contains credentials supplied for one password change.
 type PasswordChangeRequest struct {
 	UserID          int64
+	CallerID        int64
 	CurrentPassword string `json:"-"`
 	NewPassword     string `json:"-"`
 }

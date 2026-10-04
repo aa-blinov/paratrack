@@ -51,7 +51,7 @@ func (s *Server) handleAPIProfileUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	name := strings.TrimSpace(r.PostForm.Get("name"))
-	if err := s.services.Auth.Profile.UpdateName(r.Context(), appmodel.ProfileNameRequest{UserID: user.ID, Name: name}); err != nil {
+	if err := s.services.Auth.Profile.UpdateName(r.Context(), appmodel.ProfileNameRequest{UserID: user.ID, CallerID: user.ID, Name: name}); err != nil {
 		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, s.profileErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
@@ -67,7 +67,7 @@ func (s *Server) handleAPIProfilePassword(w http.ResponseWriter, r *http.Request
 	newPassword := r.PostForm.Get("new_password")
 	currentPassword := r.PostForm.Get("current_password")
 	// A live session alone must not be enough to take over the account.
-	if err := s.services.Auth.Profile.ChangePassword(r.Context(), appmodel.PasswordChangeRequest{UserID: user.ID, CurrentPassword: currentPassword, NewPassword: newPassword}); errors.Is(err, appmodel.ErrAuthBadPassword) {
+	if err := s.services.Auth.Profile.ChangePassword(r.Context(), appmodel.PasswordChangeRequest{UserID: user.ID, CallerID: user.ID, CurrentPassword: currentPassword, NewPassword: newPassword}); errors.Is(err, appmodel.ErrAuthBadPassword) {
 		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "current password is wrong"), http.StatusSeeOther)
 		return
 	} else if err != nil {
