@@ -2,11 +2,11 @@
 
 paratrack is a modular Go application shipped as one binary. It has two
 entrypoints into the same product: a command-line interface and an HTTP
-application. PostgreSQL is the durable store. The UI migration to React and
-shadcn is in progress: the dashboard, stats, reports, export, help, import, integrations, API tokens, login, registration, password recovery, profile, personal preferences, browser notifications, workspace, member, invitation, section, webhook and audit settings, invite acceptance, goals, graph, payroll, schedule, tags, timesheet,
-invoices (list and detail), project list, project creation form and project detail mount React screens on Go-rendered pages,
-and the remaining routes still use Go
-templates, HTMX and Alpine.js.
+application. PostgreSQL is the durable store. All current full-page routes mount
+React screens built from shadcn components. Go still renders the shared HTML
+shell and per-page bootstrap data, and owns route handling, authorization,
+validation, persistence and business workflows. Go templates also serve
+fragments; HTMX and Alpine remain in targeted fragment and browser behaviors.
 
 `web/src/main.tsx` is the current React entrypoint. The dashboard loads data
 from the authenticated `GET /api/dashboard` endpoint; timer mutations reuse the
@@ -44,9 +44,8 @@ Each screen loads its code as a separate bundle chunk.
 `web/src/components/ui` contains the shadcn-generated Radix primitives, styled
 to the existing Honest Ledger design. `make ui` builds both the legacy
 stylesheet and the React bundle into `internal/web/static`, which is embedded
-in the Go binary. Shared navigation, PWA/offline behavior and other screens
-still depend on the legacy browser stack until their React replacements are
-complete.
+in the Go binary. Shared navigation, PWA/offline behavior, and some fragments
+still use the legacy browser stack.
 
 `internal/web/static/js/app.js` is the browser entrypoint. Dedicated modules
 register the live timer/total and invoice-form Alpine components. A small
