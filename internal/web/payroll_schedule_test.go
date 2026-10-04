@@ -2,6 +2,7 @@ package web
 
 import (
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -101,6 +102,10 @@ func TestPayrollAndSchedule(t *testing.T) {
 func TestPayrollAPI(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("payroll@x.test")
+	page := e.do("GET", "/payroll", nil, nil)
+	if page.StatusCode != http.StatusOK || !strings.Contains(readBody(t, page), `"PayrollReact":true`) {
+		t.Fatalf("payroll page did not bootstrap React: %d", page.StatusCode)
+	}
 	// set pay on self via members page is multi-step; just hit the generator
 	// with no paid members → flash error, 303.
 	resp := e.do("POST", "/payroll", url.Values{
@@ -142,8 +147,12 @@ func TestPayrollOverlapWarns(t *testing.T) {
 		resp.Body.Close()
 		return resp.Header.Get("Location")
 	}
-	if loc := create(nil); !strings.HasPrefix(loc, "/payroll/") {
-		t.Fatalf("first run: %q", loc)
+	firstRun := create(nil)
+	if !strings.HasPrefix(firstRun, "/payroll/") {
+		t.Fatalf("first run: %q", firstRun)
+	}
+	if page := readBody(t, e.do("GET", firstRun, nil, nil)); !strings.Contains(page, `"PayrollDetail":true`) || !strings.Contains(page, `id="paratrack-react-root"`) {
+		t.Fatal("payroll detail did not bootstrap React")
 	}
 	loc := create(nil)
 	if !strings.Contains(loc, "overlap=") {

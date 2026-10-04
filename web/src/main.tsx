@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, GoalsData, GraphData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session, TagsData, TimesheetData } from "@/dashboard/types"
+import type { DashboardData, GoalsData, GraphData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session, TagsData, TimesheetData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -21,6 +21,8 @@ const GoalsPage = lazy(() => import("@/goals/goals-page").then(module => ({ defa
 const TagsPage = lazy(() => import("@/tags/tags-page").then(module => ({ default: module.TagsPage })))
 const GraphPage = lazy(() => import("@/graph/graph-page").then(module => ({ default: module.GraphPage })))
 const TimesheetPage = lazy(() => import("@/timesheet/timesheet-page").then(module => ({ default: module.TimesheetPage })))
+const Payroll = lazy(() => import("@/payroll/payroll-page").then(module => ({ default: module.PayrollPage })))
+const PayrollDetail = lazy(() => import("@/payroll/payroll-page").then(module => ({ default: module.PayrollDetail })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -210,6 +212,10 @@ if (root && payload) {
             ? <GraphPage data={initial.data as GraphData} />
             : "TimesheetReact" in initial.data && initial.data.TimesheetReact
             ? <TimesheetPage initial={initial.data as TimesheetData} />
+            : "PayrollReact" in initial.data && initial.data.PayrollReact
+            ? "PayrollDetail" in initial.data && initial.data.PayrollDetail
+              ? <PayrollDetail data={initial.data as PayrollDetailData} />
+              : <Payroll data={initial.data as PayrollData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
