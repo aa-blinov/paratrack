@@ -438,6 +438,30 @@ func TestHelpAndImportPagesBootstrapReact(t *testing.T) {
 	}
 }
 
+func TestAuthPagesBootstrapReact(t *testing.T) {
+	for _, tc := range []struct{ path, marker string }{
+		{"/login", `"AuthReact":"login"`},
+		{"/register", `"AuthReact":"register"`},
+		{"/forgot-password", `"AuthReact":"forgot-password"`},
+		{"/reset-password?token=reset-token", `"AuthReact":"reset-password"`},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			srv, _ := newTestServer(t)
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			response := httptest.NewRecorder()
+			srv.routes().ServeHTTP(response, req)
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s status=%d body=%q", tc.path, response.Code, response.Body.String())
+			}
+			for _, marker := range []string{`id="react-page-data"`, `id="paratrack-react-root"`, tc.marker} {
+				if !strings.Contains(response.Body.String(), marker) {
+					t.Errorf("GET %s missing React bootstrap marker %q", tc.path, marker)
+				}
+			}
+		})
+	}
+}
+
 func TestTimesheetPageBootstrapsReact(t *testing.T) {
 	srv, token := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/timesheet", nil)

@@ -10,7 +10,7 @@ import (
 )
 
 func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
-	data := authPage{Title: "Reset password"}
+	data := authPage{AuthReact: "forgot-password", Title: "Reset password"}
 	if v := r.URL.Query().Get("error"); v != "" {
 		data.ErrorMsg = humaniseAuthError(v, resolveLang(r))
 	}
@@ -29,7 +29,7 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 // a pre-check round-trip.
 
 func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
-	data := authPage{Title: "Choose a new password", Token: r.URL.Query().Get("token")}
+	data := authPage{AuthReact: "reset-password", Title: "Choose a new password", Token: r.URL.Query().Get("token")}
 	if v := r.URL.Query().Get("error"); v != "" {
 		data.ErrorMsg = humaniseAuthError(v, resolveLang(r))
 	}
