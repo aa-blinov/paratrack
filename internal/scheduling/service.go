@@ -14,7 +14,7 @@ import (
 )
 
 type Store interface {
-	ListSchedule(context.Context, int64, time.Time) ([]model.ScheduleRow, map[int64]string, error)
+	ListSchedule(context.Context, appmodel.ScheduleQuery) ([]model.ScheduleRow, map[int64]string, error)
 	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
 }
 
@@ -48,11 +48,11 @@ func New(deps Dependencies) (*Service, error) {
 var ErrInvalidScheduleCell = appmodel.ErrInvalidScheduleCell
 var ErrNoProjects = appmodel.ErrNoScheduleProjects
 
-func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (appmodel.ScheduleSnapshot, error) {
-	if teamID <= 0 || weekStart.IsZero() {
+func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmodel.ScheduleSnapshot, error) {
+	if query.TeamID <= 0 || query.WeekStart.IsZero() {
 		return appmodel.ScheduleSnapshot{}, ErrInvalidScheduleCell
 	}
-	storedRows, names, err := s.store.ListSchedule(ctx, teamID, weekStart)
+	storedRows, names, err := s.store.ListSchedule(ctx, query)
 	if err != nil {
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list weekly schedule: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (
 		}
 		rows = append(rows, row)
 	}
-	projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID})
+	projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID})
 	if err != nil {
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule projects: %w", err)
 	}
