@@ -896,7 +896,9 @@ deletion. Invite acceptance reads the invite role from the locked database row
 inside the acceptance transaction, instead of trusting the earlier lookup
 snapshot. Member removal locks the member row, stops that user's
 open timers, preserves payroll history, clears push subscriptions, rechecks
-the caller's role and then deletes membership in the same transaction. Push
+the caller's role and then deletes membership in the same transaction. The
+teams workflow assembles public invite-page details; unknown invites use the
+normal empty state, while database failures reach HTTP error logging. Push
 subscribe/unsubscribe requests retain workspace, user and endpoint scope through
 the workflow port; persistence deletes only a matching workspace/user/endpoint
 tuple. Timer start/focus hold the same user and membership locks, preventing a request that
