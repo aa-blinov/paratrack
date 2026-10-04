@@ -12,12 +12,6 @@ type Tag struct {
 	CreatedAt time.Time
 }
 
-// TagWithCount is a tag and the number of sessions that use it.
-type TagWithCount struct {
-	Tag
-	SessionCount int
-}
-
 // SessionTag links a session to a tag (many-to-many).
 type SessionTag struct {
 	SessionID int64

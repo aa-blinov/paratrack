@@ -65,7 +65,7 @@ type ActivityStore interface {
 // TimesheetStore provides grid reads and atomic daily-total replacement.
 type TimesheetStore interface {
 	UpsertDayTotal(context.Context, appmodel.TimesheetCellUpdateRequest) error
-	ListTimesheet(context.Context, appmodel.TimesheetRequest) (model.TimesheetWeek, error)
+	ListTimesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 }
 
 // Dependencies keeps query, command, activity and timesheet concerns on
@@ -181,18 +181,18 @@ func (s *Service) SetDayTotal(ctx context.Context, request appmodel.TimesheetCel
 
 // Timesheet loads a team's weekly grid, including requested extra activity
 // rows that are not otherwise present in the week.
-func (s *Service) Timesheet(ctx context.Context, request appmodel.TimesheetRequest) (model.TimesheetWeek, error) {
+func (s *Service) Timesheet(ctx context.Context, request appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error) {
 	if request.TeamID <= 0 || request.WeekStart.IsZero() || request.Now.IsZero() {
-		return model.TimesheetWeek{}, ErrInvalidEdit
+		return appmodel.TimesheetWeek{}, ErrInvalidEdit
 	}
 	for _, activityID := range request.ExtraActivityIDs {
 		if activityID <= 0 {
-			return model.TimesheetWeek{}, ErrInvalidEdit
+			return appmodel.TimesheetWeek{}, ErrInvalidEdit
 		}
 	}
 	grid, err := s.timesheets.ListTimesheet(ctx, request)
 	if err != nil {
-		return model.TimesheetWeek{}, fmt.Errorf("load timesheet grid: %w", err)
+		return appmodel.TimesheetWeek{}, fmt.Errorf("load timesheet grid: %w", err)
 	}
 	return grid, nil
 }
@@ -253,9 +253,9 @@ func (s *Service) Session(ctx context.Context, teamID, sessionID int64) (model.S
 	return session, nil
 }
 
-func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (model.SessionPage, error) {
+func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error) {
 	if query.TeamID <= 0 || query.From.IsZero() || query.To.IsZero() || query.To.Before(query.From) {
-		return model.SessionPage{}, ErrInvalidInterval
+		return appmodel.SessionPage{}, ErrInvalidInterval
 	}
 	if query.Limit <= 0 {
 		query.Limit = 100
@@ -266,19 +266,19 @@ func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.Session
 	if query.After != nil {
 		start, err := time.Parse(time.RFC3339Nano, query.After.Start)
 		if err != nil || query.After.ID <= 0 {
-			return model.SessionPage{}, fmt.Errorf("invalid session cursor")
+			return appmodel.SessionPage{}, fmt.Errorf("invalid session cursor")
 		}
 		canonical := start.UTC().Format(time.RFC3339Nano)
-		query.After = &model.SessionCursor{Start: canonical, ID: query.After.ID}
+		query.After = &appmodel.SessionCursor{Start: canonical, ID: query.After.ID}
 	}
 	items, more, err := s.queries.ListSessionsPage(ctx, query)
 	if err != nil {
-		return model.SessionPage{}, fmt.Errorf("list paginated session history: %w", err)
+		return appmodel.SessionPage{}, fmt.Errorf("list paginated session history: %w", err)
 	}
-	page := model.SessionPage{Items: items, HasMore: more}
+	page := appmodel.SessionPage{Items: items, HasMore: more}
 	if more && len(items) > 0 {
 		last := items[len(items)-1].Session
-		page.NextCursor = &model.SessionCursor{Start: last.StartAt.UTC().Format(time.RFC3339Nano), ID: last.ID}
+		page.NextCursor = &appmodel.SessionCursor{Start: last.StartAt.UTC().Format(time.RFC3339Nano), ID: last.ID}
 	}
 	return page, nil
 }

@@ -22,8 +22,8 @@ import (
 // (activity, day) so the cell value is the source of truth.
 // ---------------------------------------------------------------------------
 
-type DayCell = model.TimesheetCell
-type TimesheetWeek = model.TimesheetWeek
+type DayCell = appmodel.TimesheetCell
+type TimesheetWeek = appmodel.TimesheetWeek
 
 // sheetAllRows: up to this many activities, every one gets a row.
 const sheetAllRows = 30

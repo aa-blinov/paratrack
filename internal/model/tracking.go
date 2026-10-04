@@ -4,36 +4,6 @@ import (
 	"time"
 )
 
-// TimesheetCell is one activity row in a weekly tracked-time grid.
-type TimesheetCell struct {
-	ActivityID   int64
-	ActivityName string
-	ProjectID    int64
-	Secs         [7]int
-	RowTotal     int
-}
-
-// TimesheetWeek is the aggregate grid for a Monday-to-Sunday timesheet.
-type TimesheetWeek struct {
-	Rows       []TimesheetCell
-	DayTotals  [7]int
-	GrandTotal int
-	Others     []Activity
-}
-
-// SessionCursor marks the final session returned in a descending history page.
-type SessionCursor struct {
-	Start string
-	ID    int64
-}
-
-// SessionPage is one page of workspace-scoped session history.
-type SessionPage struct {
-	Items      []ActiveSession
-	HasMore    bool
-	NextCursor *SessionCursor
-}
-
 // MaxSessionDurationSeconds is the largest session duration that can safely
 // convert to time.Duration nanoseconds.
 const MaxSessionDurationSeconds int64 = (1<<63 - 1) / int64(time.Second)
