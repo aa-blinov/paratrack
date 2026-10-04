@@ -129,39 +129,35 @@ func TestPreviewRejectsInvalidProviderEntries(t *testing.T) {
 	}
 }
 
-func TestRunRejectsImportBatchOverEntryLimit(t *testing.T) {
-	store := &importStore{}
-	service, err := New(store, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
-		return nil, nil
+func TestPreviewRejectsImportBatchOverEntryLimit(t *testing.T) {
+	entries := make([]importport.ImportedEntry, importport.MaxEntries+1)
+	start := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
+	for i := range entries {
+		entries[i] = importport.ImportedEntry{Activity: "Design", Start: start, End: start.Add(time.Minute)}
+	}
+	service, err := New(&importStore{}, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
+		return entries, nil
 	}), allowImport(), &importAudit{}, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	entries := make([]importport.ImportedEntry, importport.MaxEntries+1)
-	if _, err := service.runEntries(context.Background(), 7, 11, entries); !errors.Is(err, ErrEntryLimit) {
-		t.Fatalf("Run error = %v, want ErrEntryLimit", err)
-	}
-	if store.calls != 0 {
-		t.Fatalf("store calls = %d, want 0", store.calls)
+	if _, err := service.Preview(context.Background(), appmodel.ProviderImportPreviewRequest{TeamID: 7, CallerID: 11, Provider: importport.ProviderRequest{Provider: "provider"}}); !errors.Is(err, ErrEntryLimit) {
+		t.Fatalf("Preview error = %v, want ErrEntryLimit", err)
 	}
 }
 
-func TestRunRejectsSessionsLongerThanRepresentableDuration(t *testing.T) {
-	store := &importStore{}
-	service, err := New(store, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
-		return nil, nil
+func TestPreviewRejectsSessionsLongerThanRepresentableDuration(t *testing.T) {
+	start := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
+	maxDuration := time.Duration(model.MaxSessionDurationSeconds) * time.Second
+	entries := []importport.ImportedEntry{{Activity: "Design", Start: start, End: start.Add(maxDuration + time.Nanosecond)}}
+	service, err := New(&importStore{}, providerFetcherFunc(func(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error) {
+		return entries, nil
 	}), allowImport(), &importAudit{}, importLogger{})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	start := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
-	maxDuration := time.Duration(model.MaxSessionDurationSeconds) * time.Second
-	entries := []importport.ImportedEntry{{Activity: "Design", Start: start, End: start.Add(maxDuration + time.Nanosecond)}}
-	if _, err := service.runEntries(context.Background(), 7, 11, entries); !errors.Is(err, ErrInvalidEntry) {
-		t.Fatalf("Run error = %v, want ErrInvalidEntry", err)
-	}
-	if store.calls != 0 {
-		t.Fatalf("store calls = %d, want 0", store.calls)
+	if _, err := service.Preview(context.Background(), appmodel.ProviderImportPreviewRequest{TeamID: 7, CallerID: 11, Provider: importport.ProviderRequest{Provider: "provider"}}); !errors.Is(err, ErrInvalidEntry) {
+		t.Fatalf("Preview error = %v, want ErrInvalidEntry", err)
 	}
 }
 

@@ -131,22 +131,6 @@ func (s *Service) authorize(ctx context.Context, teamID, callerID int64) error {
 	return nil
 }
 
-// runEntries validates and applies an already fetched batch.
-func (s *Service) runEntries(ctx context.Context, teamID, callerID int64, entries []importport.ImportedEntry) (appmodel.ImportResult, error) {
-	if teamID <= 0 || callerID <= 0 {
-		return appmodel.ImportResult{}, fmt.Errorf("%w: team and caller IDs must be positive", ErrInvalidEntry)
-	}
-	clean, err := validateEntries(entries)
-	if err != nil {
-		return appmodel.ImportResult{}, err
-	}
-	result, err := s.store.ImportEntries(ctx, appmodel.ImportBatchRequest{TeamID: teamID, CallerID: callerID, Entries: clean})
-	if err != nil {
-		return appmodel.ImportResult{}, fmt.Errorf("%w: %w", ErrApplyFailed, err)
-	}
-	return result, nil
-}
-
 func validateEntries(entries []importport.ImportedEntry) ([]importport.ImportedEntry, error) {
 	if len(entries) > importport.MaxEntries {
 		return nil, ErrEntryLimit
