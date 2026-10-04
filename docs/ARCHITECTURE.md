@@ -547,7 +547,9 @@ The invoicing workflow calculates their totals with overflow checks; the HTTP
 adapter formats those totals and each frozen line for display.
 The invoicing workflow also builds draft project options, applying billable,
 rate and archive eligibility and joining saved client defaults before the HTTP
-adapter formats them for the invoice form.
+adapter formats them for the invoice form. `BuildIndex` composes those options
+with invoice summaries and billable/unassigned history, so the HTTP adapter
+requests one invoice-index snapshot.
 Invoice numbers are allocated while holding the workspace row lock, preventing
 parallel requests from choosing the same next number. Draft
 creation and payment transitions capture one clock instant for the document,
@@ -581,8 +583,8 @@ history assignment locks both its eligible billable project and unassigned
 activity before checking billed sessions and applying the association. Receipt
 updates validate their size in the service, verify the team-scoped row changed,
 and bump the invoice revision so queued document snapshots become stale. The
-invoice form's unbilled-time and unassigned-history reads, plus the post-create
-overlap warning, also use the invoicing boundary; `model` owns their read types.
+post-create overlap warning also uses the invoicing boundary; `model` owns the
+unbilled and unassigned-history read types.
 
 `internal/projects` validates project billing defaults and creates the project
 with its initial rate and currency in one transaction. A named

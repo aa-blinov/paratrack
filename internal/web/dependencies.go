@@ -220,11 +220,9 @@ type InvoiceDependencies struct {
 // InvoiceQueries provides the read capabilities used by invoice pages and
 // payment handlers.
 type InvoiceQueries interface {
-	DraftOptions(context.Context, int64) (appmodel.InvoiceDraftOptions, error)
+	BuildIndex(context.Context, appmodel.InvoiceIndexRequest) (appmodel.InvoiceIndexSnapshot, error)
 	Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error)
-	List(context.Context, int64) ([]appmodel.InvoiceSummaryResult, error)
 	StripeReady(context.Context, int64) (bool, error)
-	UnassignedHistory(context.Context, int64) ([]model.UnassignedActivity, error)
 	UnbilledProjectTime(context.Context, int64, int64) ([]model.UnbilledProject, error)
 }
 
