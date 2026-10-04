@@ -124,6 +124,6 @@ type GoalQueries interface {
 
 // GoalCommands creates and removes manager-owned goal targets.
 type GoalCommands interface {
-	UpsertForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
-	DeleteForManager(context.Context, appmodel.GoalDeleteRequest) error
+	SetForManager(context.Context, appmodel.GoalSetRequest) ([]model.Goal, error)
+	UnsetForManager(context.Context, appmodel.GoalUnsetRequest) (int, error)
 }

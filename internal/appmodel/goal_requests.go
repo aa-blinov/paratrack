@@ -19,6 +19,29 @@ type GoalDeleteRequest struct {
 	Period       string
 }
 
+// GoalTarget selects one period and target when a manager sets several goal
+// periods for the same activity in one operation.
+type GoalTarget struct {
+	Period  string
+	Minutes int
+}
+
+// GoalSetRequest applies multiple period targets atomically for one activity.
+type GoalSetRequest struct {
+	TeamID       int64
+	CallerID     int64
+	ActivityName string
+	Targets      []GoalTarget
+}
+
+// GoalUnsetRequest removes multiple period targets atomically for one activity.
+type GoalUnsetRequest struct {
+	TeamID       int64
+	CallerID     int64
+	ActivityName string
+	Periods      []string
+}
+
 // GoalManagementQuery scopes the goal page reads to one team and instant.
 type GoalManagementQuery struct {
 	TeamID int64
