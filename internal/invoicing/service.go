@@ -182,7 +182,7 @@ var (
 	ErrMissingStripePaymentStatus  = appmodel.ErrMissingStripePaymentStatus
 )
 
-func (s *Service) List(ctx context.Context, teamID int64) ([]appmodel.InvoiceSummaryResult, error) {
+func (s *Service) list(ctx context.Context, teamID int64) ([]appmodel.InvoiceSummaryResult, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -209,11 +209,11 @@ func (s *Service) BuildIndex(ctx context.Context, request appmodel.InvoiceIndexR
 	if request.TeamID <= 0 {
 		return appmodel.InvoiceIndexSnapshot{}, ErrInvalidTeam
 	}
-	invoices, err := s.List(ctx, request.TeamID)
+	invoices, err := s.list(ctx, request.TeamID)
 	if err != nil {
 		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load invoice index: %w", err)
 	}
-	options, err := s.DraftOptions(ctx, request.TeamID)
+	options, err := s.draftOptions(ctx, request.TeamID)
 	if err != nil {
 		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load invoice draft options: %w", err)
 	}
@@ -221,7 +221,7 @@ func (s *Service) BuildIndex(ctx context.Context, request appmodel.InvoiceIndexR
 	if err != nil {
 		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load unbilled invoice history: %w", err)
 	}
-	unassigned, err := s.UnassignedHistory(ctx, request.TeamID)
+	unassigned, err := s.unassignedHistory(ctx, request.TeamID)
 	if err != nil {
 		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load unassigned invoice history: %w", err)
 	}
@@ -230,9 +230,9 @@ func (s *Service) BuildIndex(ctx context.Context, request appmodel.InvoiceIndexR
 	}, nil
 }
 
-// DraftOptions applies invoice eligibility rules and joins saved client details
+// draftOptions applies invoice eligibility rules and joins saved client details
 // to the workspace's active project catalog for the invoice creation flow.
-func (s *Service) DraftOptions(ctx context.Context, teamID int64) (appmodel.InvoiceDraftOptions, error) {
+func (s *Service) draftOptions(ctx context.Context, teamID int64) (appmodel.InvoiceDraftOptions, error) {
 	if teamID <= 0 {
 		return appmodel.InvoiceDraftOptions{}, ErrInvalidTeam
 	}
@@ -271,9 +271,9 @@ func (s *Service) UnbilledProjectTime(ctx context.Context, query appmodel.Unbill
 	return items, nil
 }
 
-// UnassignedHistory returns activities whose historical time needs a project
+// unassignedHistory returns activities whose historical time needs a project
 // before it can be billed.
-func (s *Service) UnassignedHistory(ctx context.Context, teamID int64) ([]model.UnassignedActivity, error) {
+func (s *Service) unassignedHistory(ctx context.Context, teamID int64) ([]model.UnassignedActivity, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -284,9 +284,9 @@ func (s *Service) UnassignedHistory(ctx context.Context, teamID int64) ([]model.
 	return items, nil
 }
 
-// OverlappingDocuments finds other invoices with the same line labels in an
+// overlappingDocuments finds other invoices with the same line labels in an
 // overlapping period. This is advisory and does not block invoice creation.
-func (s *Service) OverlappingDocuments(ctx context.Context, query appmodel.InvoiceOverlapQuery) ([]string, error) {
+func (s *Service) overlappingDocuments(ctx context.Context, query appmodel.InvoiceOverlapQuery) ([]string, error) {
 	if query.TeamID <= 0 || query.ExcludeInvoiceID <= 0 || query.Start.IsZero() || !query.End.After(query.Start) {
 		return nil, ErrInvalidInvoice
 	}
@@ -331,9 +331,9 @@ func invoiceLineTotals(lines []model.InvoiceLine) (int, int, error) {
 	return totalCents, totalHours, nil
 }
 
-// CreateDraft snapshots billable time and commits the invoice, lines, and
+// createDraft snapshots billable time and commits the invoice, lines, and
 // billing stamps through one persistence operation.
-func (s *Service) CreateDraft(ctx context.Context, request appmodel.InvoiceDraftRequest) (model.Invoice, []model.InvoiceLine, error) {
+func (s *Service) createDraft(ctx context.Context, request appmodel.InvoiceDraftRequest) (model.Invoice, []model.InvoiceLine, error) {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return model.Invoice{}, nil, ErrInvalidTeam
 	}
@@ -357,7 +357,7 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return DraftCreation{}, ErrInvalidTeam
 	}
-	invoice, lines, err := s.CreateDraft(ctx, request)
+	invoice, lines, err := s.createDraft(ctx, request)
 	if err != nil {
 		return DraftCreation{}, err
 	}
@@ -366,7 +366,7 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	for _, line := range lines {
 		labels = append(labels, line.Label)
 	}
-	overlaps, advisoryErr := s.OverlappingDocuments(ctx, appmodel.InvoiceOverlapQuery{
+	overlaps, advisoryErr := s.overlappingDocuments(ctx, appmodel.InvoiceOverlapQuery{
 		TeamID: request.TeamID, ExcludeInvoiceID: invoice.ID,
 		Start: request.Start, End: request.End, Labels: labels,
 	})
