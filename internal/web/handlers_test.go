@@ -166,3 +166,19 @@ func TestTagsPageBootstrapsReact(t *testing.T) {
 		}
 	}
 }
+
+func TestGraphPageBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/graph?period=week", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /graph status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, marker := range []string{"id=\"react-page-data\"", "id=\"paratrack-react-root\"", `"GraphReact":true`, `"ChartJSON"`} {
+		if !strings.Contains(response.Body.String(), marker) {
+			t.Errorf("GET /graph missing React bootstrap marker %q", marker)
+		}
+	}
+}

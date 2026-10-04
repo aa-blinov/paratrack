@@ -43,6 +43,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C2. React projects | project list cards/archive filter; create form submits through the existing handler; detail history and edit form submit through existing handlers |
 | C3. React goals | create and delete through existing API; progress refreshes from the progress endpoint |
 | C4. React tags | create/delete controls; tag list returns session usage counts |
+| C5. React graph | ECharts canvas, scoped period links, responsive legend toggle and theme redraw |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

@@ -180,13 +180,21 @@ document.addEventListener('alpine:init', () => {
     }
   };
 
+  const isReactGraph = () => {
+    const payload = document.getElementById('react-page-data');
+    if (!payload) return false;
+    try { return JSON.parse(payload.textContent || '{}').data?.GraphReact === true; }
+    catch (_) { return false; }
+  };
+
   // The graph page can load this module and ECharts in either order.
   document.addEventListener('load', (event) => {
-    if (event.target.matches?.('[data-paratrack-echarts]')) initEcharts();
+    if (event.target.matches?.('[data-paratrack-echarts]') && !isReactGraph()) initEcharts();
   }, true);
+  document.addEventListener('paratrack:graph-ready', () => requestAnimationFrame(initEcharts));
   document.addEventListener('alpine:initialized', () => {
     requestAnimationFrame(() => {
-      if (typeof echarts !== 'undefined') initEcharts();
+      if (typeof echarts !== 'undefined' && !isReactGraph()) initEcharts();
     });
   });
 });
