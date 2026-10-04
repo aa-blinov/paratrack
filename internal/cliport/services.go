@@ -61,7 +61,7 @@ type SessionHistory interface {
 // needed by interactive timer commands.
 type ActivityCatalog interface {
 	Activities(context.Context, int64, bool) ([]model.Activity, error)
-	FindActivity(context.Context, int64, string) (model.Activity, error)
+	FindActivity(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
 	ResolveActivityForMember(context.Context, appmodel.ActivityResolveRequest) (model.Activity, error)
 }
 

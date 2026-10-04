@@ -308,6 +308,13 @@ if ! printf '%s\n' "$session_lookup" | grep -Fq 'query appmodel.SessionLookupQue
 	echo "architecture check: session reads must carry session identity and workspace scope in one query" >&2
 	exit 1
 fi
+activity_name_lookup=$(sed -n '/^func (d \*DB) FindActivityByName(/,/^}/p' internal/db/activities.go)
+if ! printf '%s\n' "$activity_name_lookup" | grep -Fq 'query appmodel.ActivityNameQuery' ||
+	! printf '%s\n' "$activity_name_lookup" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$activity_name_lookup" | grep -Fq 'query.Name'; then
+	echo "architecture check: activity name reads must carry and validate workspace scope" >&2
+	exit 1
+fi
 for method in FindMembershipForUser TeamMemberRole; do
 	team_membership_query=$(sed -n "/^func (d \\*DB) $method(/,/^}/p" internal/db/teams.go)
 	if ! printf '%s\n' "$team_membership_query" | grep -Fq 'query appmodel.TeamMembershipQuery' ||
