@@ -122,10 +122,10 @@ func (d *DB) TeamOwnerID(ctx context.Context, teamID int64) (int64, error) {
 }
 
 // GetProjectBySlug looks up by team + slug (the URL-friendly handle).
-func (d *DB) GetProjectBySlug(ctx context.Context, teamID int64, slug string) (model.Project, error) {
+func (d *DB) GetProjectBySlug(ctx context.Context, query appmodel.ProjectSlugQuery) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
 		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at
-		   FROM projects WHERE team_id = ? AND slug = ?`, teamID, strings.ToLower(slug))
+		   FROM projects WHERE team_id = ? AND slug = ?`, query.TeamID, strings.ToLower(query.Slug))
 	return scanProject(row)
 }
 

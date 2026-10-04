@@ -118,7 +118,7 @@ func TestManualPaymentLinkEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("activity: %v", err)
 	}
-	p, err := e.db.GetProjectBySlug(t.Context(), 1, "acme")
+	p, err := e.db.GetProjectBySlug(t.Context(), appmodel.ProjectSlugQuery{TeamID: 1, Slug: "acme"})
 	if err != nil {
 		t.Fatalf("project: %v", err)
 	}

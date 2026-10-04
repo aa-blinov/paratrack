@@ -18,8 +18,8 @@ type detailCatalogStub struct {
 	includeArchived bool
 }
 
-func (stub *detailCatalogStub) GetProjectBySlug(_ context.Context, teamID int64, slug string) (model.Project, error) {
-	if teamID != stub.project.TeamID || slug != stub.project.Slug {
+func (stub *detailCatalogStub) GetProjectBySlug(_ context.Context, query appmodel.ProjectSlugQuery) (model.Project, error) {
+	if query.TeamID != stub.project.TeamID || query.Slug != stub.project.Slug {
 		return model.Project{}, model.ErrNotFound
 	}
 	return stub.project, nil
@@ -112,6 +112,15 @@ func TestListRejectsUnscopedWorkspace(t *testing.T) {
 	service := &Service{}
 	if _, err := service.List(context.Background(), appmodel.ProjectCatalogQuery{}); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("List with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+func TestGetBySlugTrimsSlugWithinWorkspaceQuery(t *testing.T) {
+	project := model.Project{ID: 7, TeamID: 3, Slug: "alpha"}
+	service := &Service{catalog: &detailCatalogStub{project: project}}
+	got, err := service.GetBySlug(context.Background(), appmodel.ProjectSlugQuery{TeamID: 3, Slug: " alpha "})
+	if err != nil || got != project {
+		t.Fatalf("GetBySlug = %+v, %v", got, err)
 	}
 }
 
