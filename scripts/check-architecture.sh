@@ -9,7 +9,7 @@ fi
 
 # Read the package graph once. Re-running `go list` for every package makes
 # this gate spend most of its time rebuilding the same metadata.
-package_info=$(go list -f '{{.ImportPath}}|{{join .Imports " "}}|{{join .Deps " "}}' ./...)
+package_info=$(go list -f '{{.ImportPath}}|{{join .Imports " "}}|{{join .Deps " "}}' ./... | awk 'index($0, "/node_modules/") == 0')
 package_paths=$(printf '%s\n' "$package_info" | cut -d'|' -f1)
 package_imports() {
 	printf '%s\n' "$package_info" | awk -F '|' -v package="$1" '$1 == package { print $2; exit }'

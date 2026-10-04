@@ -31,7 +31,7 @@ make test                        # runs Go unit tests
 
 ## Code style
 
-- **Go**: `gofmt` + `go vet ./...` should be clean. Imports are
+- **Go**: `gofmt` + `make vet` should be clean. Imports are
   grouped stdlib / third-party / internal. Tabs for indent.
 - **Templates**: pages live under `internal/web/templates/` and are composed
   through the shared layout. Keep data preparation in handlers/view models and
