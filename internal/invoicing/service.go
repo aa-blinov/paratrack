@@ -203,6 +203,33 @@ func (s *Service) List(ctx context.Context, teamID int64) ([]appmodel.InvoiceSum
 	return summaries, nil
 }
 
+// BuildIndex assembles the invoice list, draft choices and billable history
+// for the invoice index page.
+func (s *Service) BuildIndex(ctx context.Context, request appmodel.InvoiceIndexRequest) (appmodel.InvoiceIndexSnapshot, error) {
+	if request.TeamID <= 0 {
+		return appmodel.InvoiceIndexSnapshot{}, ErrInvalidTeam
+	}
+	invoices, err := s.List(ctx, request.TeamID)
+	if err != nil {
+		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load invoice index: %w", err)
+	}
+	options, err := s.DraftOptions(ctx, request.TeamID)
+	if err != nil {
+		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load invoice draft options: %w", err)
+	}
+	unbilled, err := s.UnbilledProjectTime(ctx, request.TeamID, 0)
+	if err != nil {
+		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load unbilled invoice history: %w", err)
+	}
+	unassigned, err := s.UnassignedHistory(ctx, request.TeamID)
+	if err != nil {
+		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load unassigned invoice history: %w", err)
+	}
+	return appmodel.InvoiceIndexSnapshot{
+		Invoices: invoices, DraftOptions: options, Unbilled: unbilled, Unassigned: unassigned,
+	}, nil
+}
+
 // DraftOptions applies invoice eligibility rules and joins saved client details
 // to the workspace's active project catalog for the invoice creation flow.
 func (s *Service) DraftOptions(ctx context.Context, teamID int64) (appmodel.InvoiceDraftOptions, error) {

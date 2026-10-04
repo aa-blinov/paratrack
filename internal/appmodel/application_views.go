@@ -233,6 +233,15 @@ type InvoiceSummaryResult struct {
 	TotalHoursHundredths int
 }
 
+// InvoiceIndexSnapshot contains the workflow data needed by the invoice list
+// and draft form.
+type InvoiceIndexSnapshot struct {
+	Invoices     []InvoiceSummaryResult
+	DraftOptions InvoiceDraftOptions
+	Unbilled     []model.UnbilledProject
+	Unassigned   []model.UnassignedActivity
+}
+
 type PayrollRunSummary struct {
 	Run                  model.PayrollRun
 	TotalCents           int
