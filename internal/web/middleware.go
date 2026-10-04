@@ -194,6 +194,8 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			ctx = requestctx.WithActor(ctx, user.ID)
 			if prefs, err := s.services.Preferences.Load(ctx, user.ID); err == nil {
 				ctx = withPrefs(ctx, prefs)
+			} else if s.logger != nil {
+				s.logger.Printf("web: load preferences for user %d: %v", user.ID, err)
 			}
 			if !role.CanManage() {
 				ctx = requestctx.WithScope(ctx, user.ID)
