@@ -182,7 +182,7 @@ var (
 	ErrMissingStripePaymentStatus  = appmodel.ErrMissingStripePaymentStatus
 )
 
-func (s *Service) List(ctx context.Context, teamID int64) ([]model.InvoiceDetails, error) {
+func (s *Service) List(ctx context.Context, teamID int64) ([]appmodel.InvoiceSummaryResult, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -190,7 +190,17 @@ func (s *Service) List(ctx context.Context, teamID int64) ([]model.InvoiceDetail
 	if err != nil {
 		return nil, fmt.Errorf("list invoices: %w", err)
 	}
-	return items, nil
+	summaries := make([]appmodel.InvoiceSummaryResult, 0, len(items))
+	for _, item := range items {
+		totalCents, totalHours, err := invoiceLineTotals(item.Lines)
+		if err != nil {
+			return nil, fmt.Errorf("summarize invoice %d: %w", item.Invoice.ID, err)
+		}
+		summaries = append(summaries, appmodel.InvoiceSummaryResult{
+			Invoice: item.Invoice, TotalCents: totalCents, TotalHoursHundredths: totalHours,
+		})
+	}
+	return summaries, nil
 }
 
 // DraftOptions applies invoice eligibility rules and joins saved client details
@@ -268,21 +278,30 @@ func (s *Service) Get(ctx context.Context, teamID, invoiceID int64) (appmodel.In
 	if err != nil {
 		return appmodel.InvoiceDetailResult{}, fmt.Errorf("get invoice details: %w", err)
 	}
-	totalCents, totalHours := 0, 0
-	for _, line := range details.Lines {
-		totalCents, err = money.AddCents(totalCents, line.AmountCents)
-		if err != nil {
-			return appmodel.InvoiceDetailResult{}, fmt.Errorf("sum invoice %d: %w", details.Invoice.ID, err)
-		}
-		totalHours, err = money.AddInt(totalHours, money.HoursHundredths(line.Seconds))
-		if err != nil {
-			return appmodel.InvoiceDetailResult{}, fmt.Errorf("sum invoice %d hours: %w", details.Invoice.ID, err)
-		}
+	totalCents, totalHours, err := invoiceLineTotals(details.Lines)
+	if err != nil {
+		return appmodel.InvoiceDetailResult{}, fmt.Errorf("summarize invoice %d: %w", details.Invoice.ID, err)
 	}
 	return appmodel.InvoiceDetailResult{
 		Invoice: details.Invoice, Lines: details.Lines,
 		TotalCents: totalCents, TotalHoursHundredths: totalHours,
 	}, nil
+}
+
+func invoiceLineTotals(lines []model.InvoiceLine) (int, int, error) {
+	totalCents, totalHours := 0, 0
+	for _, line := range lines {
+		var err error
+		totalCents, err = money.AddCents(totalCents, line.AmountCents)
+		if err != nil {
+			return 0, 0, err
+		}
+		totalHours, err = money.AddInt(totalHours, money.HoursHundredths(line.Seconds))
+		if err != nil {
+			return 0, 0, err
+		}
+	}
+	return totalCents, totalHours, nil
 }
 
 // CreateDraft snapshots billable time and commits the invoice, lines, and

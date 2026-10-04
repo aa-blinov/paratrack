@@ -541,7 +541,7 @@ stamps, issuer/client snapshots and project client defaults in one DB
 transaction. Creation and draft rebuild lock their billable source sessions
 and related activity/project rows before building the snapshot. Invoice list
 and detail reads fetch the header and frozen lines in one team-scoped query.
-The invoicing workflow calculates detail totals with overflow checks; the HTTP
+The invoicing workflow calculates their totals with overflow checks; the HTTP
 adapter formats those totals and each frozen line for display.
 The invoicing workflow also builds draft project options, applying billable,
 rate and archive eligibility and joining saved client defaults before the HTTP
