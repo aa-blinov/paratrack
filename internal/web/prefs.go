@@ -228,7 +228,7 @@ func (s *Server) handleAPIPreferences(w http.ResponseWriter, r *http.Request) {
 		p.DefaultProject[tid] = id
 	}
 	user, _ := UserFrom(r.Context())
-	if err := s.services.Preferences.Save(r.Context(), appmodel.PreferencesSaveRequest{UserID: user.ID, TeamID: teamID(r), Preferences: p}); err != nil {
+	if err := s.services.Preferences.Save(r.Context(), appmodel.PreferencesSaveRequest{UserID: user.ID, CallerID: user.ID, TeamID: teamID(r), Preferences: p}); err != nil {
 		msg := i18n.T(resolveLang(r), "err.internal")
 		if errors.Is(err, appmodel.ErrInvalidDefaultProject) || errors.Is(err, appmodel.ErrInvalidPreferences) {
 			msg = i18n.T(resolveLang(r), "err.invalidInput")
