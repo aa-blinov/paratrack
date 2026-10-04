@@ -23,6 +23,7 @@ ADDR        ?= 127.0.0.1:8888
 SERVER_LOG  ?= /tmp/paratrack.log
 STATICCHECK ?= honnef.co/go/tools/cmd/staticcheck@v0.8.1
 GOVULNCHECK ?= golang.org/x/vuln/cmd/govulncheck@v1.8.0
+GO_PACKAGES = $(shell GO="$(GO)" scripts/go-packages.sh)
 
 .PHONY: ui build install run web test cover cover-html vet architecture verify e2e e2e-up stop clean tidy
 
@@ -49,22 +50,22 @@ cover:
 	scripts/test.sh -cover ./internal/db ./internal/web ./internal/timeparse
 
 cover-html:
-	scripts/test.sh -coverprofile=coverage.out ./...
+	scripts/test.sh -coverprofile=coverage.out $(GO_PACKAGES)
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "wrote coverage.html — open in a browser"
 
 vet:
-	$(GO) vet ./...
+	$(GO) vet $(GO_PACKAGES)
 
 architecture:
 	scripts/check-architecture.sh
 
 verify:
 	$(GO) mod tidy -diff
-	$(GO) vet ./...
-	$(GO) run $(STATICCHECK) ./...
-	$(GO) run $(GOVULNCHECK) ./...
-	$(GO) build ./...
+	$(GO) vet $(GO_PACKAGES)
+	$(GO) run $(STATICCHECK) $(GO_PACKAGES)
+	$(GO) run $(GOVULNCHECK) $(GO_PACKAGES)
+	$(GO) build $(GO_PACKAGES)
 	scripts/check-architecture.sh
 	cd web && $(NPM) run check:js
 
