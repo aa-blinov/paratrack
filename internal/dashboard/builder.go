@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 type GoalReader interface {
@@ -114,6 +115,10 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	if snapshot.RecentSessions, err = b.tracking.ClosedSessions(ctx, query.TeamID, recentStart, recentEnd, nil); err != nil {
 		return Snapshot{}, fmt.Errorf("load recent dashboard sessions: %w", err)
 	}
+	snapshot.TodayTotalSeconds, snapshot.TopActivityName, err = summarizeToday(snapshot.TodaySessions, snapshot.ActiveSessions, todayStart, todayEnd, now)
+	if err != nil {
+		return Snapshot{}, err
+	}
 	if snapshot.Projects, err = b.projects.List(ctx, query.TeamID, false); err != nil {
 		return Snapshot{}, fmt.Errorf("load dashboard projects: %w", err)
 	}
@@ -139,6 +144,32 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 		}
 	}
 	return snapshot, nil
+}
+
+func summarizeToday(today, active []model.ActiveSession, from, through, now time.Time) (int, string, error) {
+	activityTotals := make(map[string]int)
+	total := 0
+	for _, group := range [][]model.ActiveSession{today, active} {
+		for _, item := range group {
+			seconds := item.Session.TrackedSecondsInWindow(from, through, now)
+			var err error
+			total, err = money.AddInt(total, seconds)
+			if err != nil {
+				return 0, "", fmt.Errorf("sum dashboard time: %w", err)
+			}
+			activityTotals[item.Activity.Name], err = money.AddInt(activityTotals[item.Activity.Name], seconds)
+			if err != nil {
+				return 0, "", fmt.Errorf("sum dashboard activity time: %w", err)
+			}
+		}
+	}
+	topName, topSeconds := "", 0
+	for name, seconds := range activityTotals {
+		if seconds > topSeconds || seconds == topSeconds && seconds > 0 && name < topName {
+			topName, topSeconds = name, seconds
+		}
+	}
+	return total, topName, nil
 }
 
 // BuildActiveList coordinates the read model used by the active-session
