@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -27,9 +28,9 @@ func (s *storeStub) Audit(_ context.Context, record model.AuditRecord) error {
 	return s.recordErr
 }
 
-func (s *storeStub) ListAudit(_ context.Context, teamID int64, limit int) ([]model.AuditEntry, error) {
+func (s *storeStub) ListAudit(_ context.Context, query appmodel.AuditListQuery) ([]model.AuditEntry, error) {
 	s.listCalls++
-	s.listTeamID, s.listLimit = teamID, limit
+	s.listTeamID, s.listLimit = query.TeamID, query.Limit
 	return s.entries, s.listErr
 }
 
@@ -78,14 +79,14 @@ func TestListRequiresWorkspaceAndNormalizesLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := service.List(context.Background(), 0, 25); !errors.Is(err, ErrInvalidScope) {
+	if _, err := service.List(context.Background(), appmodel.AuditListQuery{TeamID: 0, Limit: 25}); !errors.Is(err, ErrInvalidScope) {
 		t.Fatalf("List without workspace error = %v, want %v", err, ErrInvalidScope)
 	}
 	if store.listCalls != 0 {
 		t.Fatalf("audit reads = %d, want 0", store.listCalls)
 	}
 
-	items, err := service.List(context.Background(), 7, 900)
+	items, err := service.List(context.Background(), appmodel.AuditListQuery{TeamID: 7, Limit: 900})
 	if err != nil {
 		t.Fatal(err)
 	}

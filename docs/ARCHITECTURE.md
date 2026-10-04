@@ -129,6 +129,8 @@ project pages, HTTP and invoicing. `InvoiceLookupQuery` scopes invoice reads thr
 details and frozen lines; `PayrollRunLookupQuery` scopes individual payroll run
 reads and details, while `PayrollRunListQuery` carries workspace scope through
 the payroll run list. `WebhookLookupQuery` scopes webhook endpoint reads to their workspace.
+`AuditListQuery` carries the workspace and bounded result size from the audit
+settings route through the audit workflow to persistence.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
 sentinel, for invoice, dashboard and project-page reads.
 `InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace

@@ -173,7 +173,7 @@ func TestAuthenticatedWorkflowAuditReceivesCurrentTeamScope(t *testing.T) {
 		t.Fatalf("change password status = %d, want %d; body=%q", response.Code, http.StatusSeeOther, response.Body.String())
 	}
 
-	entries, err := srv.services.AuditLog.List(context.Background(), memberships[0].Team.ID, 20)
+	entries, err := srv.services.AuditLog.List(context.Background(), appmodel.AuditListQuery{TeamID: memberships[0].Team.ID, Limit: 20})
 	if err != nil {
 		t.Fatalf("list workspace audit: %v", err)
 	}
