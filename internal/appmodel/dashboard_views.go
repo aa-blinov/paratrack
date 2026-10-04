@@ -21,7 +21,7 @@ type DashboardSnapshot struct {
 	TagsBySession     map[int64][]model.Tag
 	ProjectsByID      map[int64]ProjectSummary
 	Goals             []GoalProgress
-	Unbilled          []model.UnbilledProject
+	Unbilled          []UnbilledProject
 	TodayStart        time.Time
 	TodayEnd          time.Time
 	RecentStart       time.Time

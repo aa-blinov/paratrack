@@ -14,3 +14,9 @@ type PayrollRunDetail struct {
 	TotalCents           int
 	TotalHoursHundredths int
 }
+
+// PayrollRunDetails joins one immutable payroll run with its line snapshot.
+type PayrollRunDetails struct {
+	Run   model.PayrollRun
+	Lines []model.PayrollLine
+}

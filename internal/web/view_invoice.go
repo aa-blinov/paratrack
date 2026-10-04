@@ -144,7 +144,7 @@ func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (mo
 	return inv, vm, snapshot.StripeReady, nil
 }
 
-func unbilledViewsFrom(list []model.UnbilledProject, r *http.Request) []unbilledView {
+func unbilledViewsFrom(list []appmodel.UnbilledProject, r *http.Request) []unbilledView {
 	lang := resolveLang(r)
 	out := make([]unbilledView, 0, len(list))
 	for _, item := range list {

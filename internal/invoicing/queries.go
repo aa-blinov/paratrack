@@ -87,7 +87,7 @@ func (s *Service) draftOptions(ctx context.Context, teamID int64) (appmodel.Invo
 }
 
 // UnbilledProjectTime returns billable time not yet included on an invoice.
-func (s *Service) UnbilledProjectTime(ctx context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+func (s *Service) UnbilledProjectTime(ctx context.Context, query appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error) {
 	if query.TeamID <= 0 || (query.ProjectID != nil && *query.ProjectID <= 0) {
 		return nil, ErrInvalidInvoice
 	}
@@ -100,7 +100,7 @@ func (s *Service) UnbilledProjectTime(ctx context.Context, query appmodel.Unbill
 
 // unassignedHistory returns activities whose historical time needs a project
 // before it can be billed.
-func (s *Service) unassignedHistory(ctx context.Context, teamID int64) ([]model.UnassignedActivity, error) {
+func (s *Service) unassignedHistory(ctx context.Context, teamID int64) ([]appmodel.UnassignedActivity, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}

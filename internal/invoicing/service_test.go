@@ -17,32 +17,32 @@ import (
 
 type draftReaderStub struct {
 	Reader
-	details       model.InvoiceDetails
-	listDetails   []model.InvoiceDetails
+	details       appmodel.InvoiceDetails
+	listDetails   []appmodel.InvoiceDetails
 	getCalls      int
 	lookup        appmodel.InvoiceLookupQuery
 	overlapLabels []string
 	overlapQuery  appmodel.InvoiceOverlapQuery
 	overlapErr    error
-	unbilled      []model.UnbilledProject
+	unbilled      []appmodel.UnbilledProject
 	unbilledQuery appmodel.UnbilledProjectQuery
-	unassigned    []model.UnassignedActivity
+	unassigned    []appmodel.UnassignedActivity
 }
 
-func (s *draftReaderStub) ListInvoiceDetails(context.Context, int64) ([]model.InvoiceDetails, error) {
+func (s *draftReaderStub) ListInvoiceDetails(context.Context, int64) ([]appmodel.InvoiceDetails, error) {
 	return s.listDetails, nil
 }
 
-func (s *draftReaderStub) Unbilled(_ context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+func (s *draftReaderStub) Unbilled(_ context.Context, query appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error) {
 	s.unbilledQuery = query
 	return s.unbilled, nil
 }
 
-func (s *draftReaderStub) UnassignedActivities(context.Context, int64) ([]model.UnassignedActivity, error) {
+func (s *draftReaderStub) UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error) {
 	return s.unassigned, nil
 }
 
-func (s *draftReaderStub) GetInvoiceDetails(_ context.Context, query appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error) {
+func (s *draftReaderStub) GetInvoiceDetails(_ context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error) {
 	s.getCalls++
 	s.lookup = query
 	return s.details, nil
@@ -142,9 +142,9 @@ func TestDraftOptionsAppliesBillingEligibilityAndClientDefaults(t *testing.T) {
 
 func TestBuildIndexAssemblesInvoiceListAndDraftHistory(t *testing.T) {
 	reader := &draftReaderStub{
-		listDetails: []model.InvoiceDetails{{Invoice: model.Invoice{ID: 14, TeamID: 7, Number: "INV-14"}}},
-		unbilled:    []model.UnbilledProject{{ProjectID: 3, ProjectName: "Website"}},
-		unassigned:  []model.UnassignedActivity{{ID: 9, Name: "Research", Sessions: 2}},
+		listDetails: []appmodel.InvoiceDetails{{Invoice: model.Invoice{ID: 14, TeamID: 7, Number: "INV-14"}}},
+		unbilled:    []appmodel.UnbilledProject{{ProjectID: 3, ProjectName: "Website"}},
+		unassigned:  []appmodel.UnassignedActivity{{ID: 9, Name: "Research", Sessions: 2}},
 	}
 	deps := testDependencies(reader, &draftWriterStub{})
 	deps.Projects = projectBillingStub{projects: []model.Project{{ID: 3, Name: "Website", Billable: true, BillableRateCents: ptrInt(2000)}}}
@@ -262,7 +262,7 @@ func (s *stripeGatewayStub) VerifyWebhookSignature(header string, body []byte, s
 func TestCreateStripePaymentLinkKeepsProviderCredentialsInWorkflow(t *testing.T) {
 	writer := &draftWriterStub{}
 	gateway := &stripeGatewayStub{}
-	reader := &draftReaderStub{details: model.InvoiceDetails{
+	reader := &draftReaderStub{details: appmodel.InvoiceDetails{
 		Invoice: model.Invoice{ID: 12, TeamID: 4, Number: "INV-12", Currency: "USD", Revision: 3},
 		Lines:   []model.InvoiceLine{{AmountCents: 1000}, {AmountCents: 1500}},
 	}}
@@ -296,7 +296,7 @@ func TestCreateStripePaymentLinkKeepsProviderCredentialsInWorkflow(t *testing.T)
 }
 
 func TestGetCalculatesInvoiceTotals(t *testing.T) {
-	reader := &draftReaderStub{details: model.InvoiceDetails{
+	reader := &draftReaderStub{details: appmodel.InvoiceDetails{
 		Invoice: model.Invoice{ID: 12, TeamID: 4},
 		Lines: []model.InvoiceLine{
 			{Seconds: 1800, AmountCents: 1250},
@@ -321,7 +321,7 @@ func TestGetCalculatesInvoiceTotals(t *testing.T) {
 }
 
 func TestListCalculatesInvoiceSummaryTotals(t *testing.T) {
-	reader := &draftReaderStub{listDetails: []model.InvoiceDetails{{
+	reader := &draftReaderStub{listDetails: []appmodel.InvoiceDetails{{
 		Invoice: model.Invoice{ID: 13, TeamID: 4, Number: "INV-13"},
 		Lines: []model.InvoiceLine{
 			{Seconds: 1800, AmountCents: 1250},
@@ -344,7 +344,7 @@ func TestListCalculatesInvoiceSummaryTotals(t *testing.T) {
 
 func TestGetRejectsInvoiceTotalOverflow(t *testing.T) {
 	maxInt := int(^uint(0) >> 1)
-	reader := &draftReaderStub{details: model.InvoiceDetails{
+	reader := &draftReaderStub{details: appmodel.InvoiceDetails{
 		Invoice: model.Invoice{ID: 12},
 		Lines:   []model.InvoiceLine{{AmountCents: maxInt}, {AmountCents: 1}},
 	}}
@@ -364,7 +364,7 @@ func TestCreateStripePaymentLinkExpiresSessionWhenPersistenceFails(t *testing.T)
 	gateway := &stripeGatewayStub{}
 	gateway.expire.err = errors.New("Stripe unavailable")
 	logger := &recordingLogger{}
-	reader := &draftReaderStub{details: model.InvoiceDetails{
+	reader := &draftReaderStub{details: appmodel.InvoiceDetails{
 		Invoice: model.Invoice{ID: 12, TeamID: 4, Number: "INV-12", Currency: "USD", Revision: 3},
 		Lines:   []model.InvoiceLine{{AmountCents: 2500}},
 	}}
@@ -393,7 +393,7 @@ func TestCreateStripePaymentLinkExpiresSessionWhenPersistenceFails(t *testing.T)
 
 func TestSetManualPaymentLinkRecordsAuditAfterWrite(t *testing.T) {
 	writer := &draftWriterStub{}
-	reader := &draftReaderStub{details: model.InvoiceDetails{Invoice: model.Invoice{Number: "INV-12", Revision: 5}}}
+	reader := &draftReaderStub{details: appmodel.InvoiceDetails{Invoice: model.Invoice{Number: "INV-12", Revision: 5}}}
 	audit := &recordingAudit{}
 	deps := testDependencies(reader, writer)
 	deps.Audit = audit
