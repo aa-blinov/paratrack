@@ -56,7 +56,7 @@ CLI работает с той же базой и использует workspace
 
 ### Устройство
 
-Один Go-бинарник без CGO. Переход на React и shadcn/ui идёт поэтапно: dashboard, статистика, отчёты, экспорт, интеграции, API-токены, цели, график, выплаты, расписание, теги, табель, счета и страницы проектов используют React; остальные страницы пока рендерятся через `html/template`, HTMX и Alpine.js. Оба интерфейса и их стили встраиваются в бинарник через `go:embed`; внешних CDN нет.
+Один Go-бинарник без CGO. Все основные полноэкранные страницы используют React и компоненты shadcn/ui. Общая навигационная оболочка пока формируется Go-шаблонами; шаблоны также обслуживают HTML-фрагменты, а HTMX и Alpine.js остаются для отдельных действий в браузере. React bundle и стили встраиваются в бинарник через `go:embed`; внешних CDN нет.
 
 ```
 paratrack/
@@ -112,7 +112,7 @@ CI на GitHub Actions прогоняет юнит-тесты на Postgres, с�
 
 ## Стек
 
-Go 1.27 · PostgreSQL 17 (pgx) · net/http · React 19 + shadcn/ui (migrated screens; migration in progress) · html/template · HTMX 2 · Alpine.js 3 · ECharts 5 · Tailwind v4 + DaisyUI v5
+Go 1.27 · PostgreSQL 17 (pgx) · net/http · React 19 + shadcn/ui · html/template · HTMX 2 · Alpine.js 3 · ECharts 5 · Tailwind v4 + DaisyUI v5 (legacy shell/fragments)
 
 ## Лицензия
 
