@@ -68,6 +68,22 @@ type projectListUsageStub struct {
 	spans  []model.ProjectSessionSpan
 }
 
+type projectMutationWriterStub struct {
+	ProjectWriteStore
+	updated appmodel.ProjectUpdateRequest
+	deleted appmodel.ProjectMutationRequest
+}
+
+func (stub *projectMutationWriterStub) UpdateProjectWithOptions(_ context.Context, request appmodel.ProjectUpdateRequest) (model.Project, error) {
+	stub.updated = request
+	return model.Project{ID: request.ProjectID, TeamID: request.TeamID}, nil
+}
+
+func (stub *projectMutationWriterStub) DeleteProject(_ context.Context, request appmodel.ProjectMutationRequest) error {
+	stub.deleted = request
+	return nil
+}
+
 func (stub projectListUsageStub) ProjectActivityCounts(context.Context, int64) (map[int64]int, error) {
 	return stub.counts, nil
 }
@@ -122,6 +138,51 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 	}
 	if got := snapshot.Usage[7]; got.ActivityCount != 2 || got.TodaySeconds != 7200 || got.MonthSeconds != 7200 {
 		t.Fatalf("project usage = %+v, want count 2 and 7200 seconds", got)
+	}
+}
+
+func TestSlugMutationsResolveProjectInsideWorkflow(t *testing.T) {
+	catalog := &detailCatalogStub{project: model.Project{ID: 17, TeamID: 3, Slug: "alpha"}}
+	writes := &projectMutationWriterStub{}
+	service := &Service{catalog: catalog, writes: writes}
+
+	updated, err := service.UpdateBySlug(context.Background(), appmodel.ProjectSlugUpdateRequest{
+		TeamID: 3, Slug: " alpha ", CallerID: 12, Update: appmodel.ProjectUpdate{Name: "Renamed"},
+	})
+	if err != nil {
+		t.Fatalf("UpdateBySlug: %v", err)
+	}
+	if updated.ID != 17 || writes.updated.TeamID != 3 || writes.updated.ProjectID != 17 || writes.updated.CallerID != 12 || writes.updated.Update.Name != "Renamed" {
+		t.Fatalf("resolved update = %+v, result = %+v", writes.updated, updated)
+	}
+
+	if err := service.DeleteBySlug(context.Background(), appmodel.ProjectSlugMutationRequest{
+		TeamID: 3, Slug: "alpha", CallerID: 12,
+	}); err != nil {
+		t.Fatalf("DeleteBySlug: %v", err)
+	}
+	if writes.deleted.TeamID != 3 || writes.deleted.ProjectID != 17 || writes.deleted.CallerID != 12 {
+		t.Fatalf("resolved delete = %+v", writes.deleted)
+	}
+}
+
+func TestSlugMutationsDoNotWriteForUnknownProject(t *testing.T) {
+	catalog := &detailCatalogStub{project: model.Project{ID: 17, TeamID: 3, Slug: "alpha"}}
+	writes := &projectMutationWriterStub{}
+	service := &Service{catalog: catalog, writes: writes}
+
+	if _, err := service.UpdateBySlug(context.Background(), appmodel.ProjectSlugUpdateRequest{
+		TeamID: 4, Slug: "alpha", CallerID: 12,
+	}); !errors.Is(err, model.ErrNotFound) {
+		t.Fatalf("UpdateBySlug unknown project error = %v", err)
+	}
+	if err := service.DeleteBySlug(context.Background(), appmodel.ProjectSlugMutationRequest{
+		TeamID: 4, Slug: "alpha", CallerID: 12,
+	}); !errors.Is(err, model.ErrNotFound) {
+		t.Fatalf("DeleteBySlug unknown project error = %v", err)
+	}
+	if writes.updated.ProjectID != 0 || writes.deleted.ProjectID != 0 {
+		t.Fatalf("unknown project reached writes: update=%+v delete=%+v", writes.updated, writes.deleted)
 	}
 }
 

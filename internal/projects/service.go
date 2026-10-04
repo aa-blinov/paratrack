@@ -350,6 +350,21 @@ func (s *Service) Delete(ctx context.Context, request appmodel.ProjectMutationRe
 	return s.writes.DeleteProject(ctx, request)
 }
 
+// DeleteBySlug resolves the route identity in the project workflow before
+// applying the scoped deletion command.
+func (s *Service) DeleteBySlug(ctx context.Context, request appmodel.ProjectSlugMutationRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || strings.TrimSpace(request.Slug) == "" {
+		return model.ErrNotFound
+	}
+	project, err := s.GetBySlug(ctx, request.TeamID, request.Slug)
+	if err != nil {
+		return err
+	}
+	return s.Delete(ctx, appmodel.ProjectMutationRequest{
+		TeamID: request.TeamID, ProjectID: project.ID, CallerID: request.CallerID,
+	})
+}
+
 var (
 	ErrDuplicate       = model.ErrAlreadyExists
 	ErrNotFound        = model.ErrNotFound
@@ -469,6 +484,21 @@ func (s *Service) Update(ctx context.Context, request appmodel.ProjectUpdateRequ
 		return model.Project{}, fmt.Errorf("update project: %w", err)
 	}
 	return project, nil
+}
+
+// UpdateBySlug resolves the route identity in the project workflow before
+// applying the scoped update command.
+func (s *Service) UpdateBySlug(ctx context.Context, request appmodel.ProjectSlugUpdateRequest) (model.Project, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 || strings.TrimSpace(request.Slug) == "" {
+		return model.Project{}, model.ErrNotFound
+	}
+	project, err := s.GetBySlug(ctx, request.TeamID, request.Slug)
+	if err != nil {
+		return model.Project{}, err
+	}
+	return s.Update(ctx, appmodel.ProjectUpdateRequest{
+		TeamID: request.TeamID, ProjectID: project.ID, CallerID: request.CallerID, Update: request.Update,
+	})
 }
 
 // UpdateRate changes the billable rate and flag together while preserving any
