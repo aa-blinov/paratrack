@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, GoalsData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session, TagsData } from "@/dashboard/types"
+import type { DashboardData, GoalsData, GraphData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session, TagsData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -19,6 +19,7 @@ const ProjectDetail = lazy(() => import("@/projects/project-detail").then(module
 const ProjectCreate = lazy(() => import("@/projects/project-create").then(module => ({ default: module.ProjectCreate })))
 const GoalsPage = lazy(() => import("@/goals/goals-page").then(module => ({ default: module.GoalsPage })))
 const TagsPage = lazy(() => import("@/tags/tags-page").then(module => ({ default: module.TagsPage })))
+const GraphPage = lazy(() => import("@/graph/graph-page").then(module => ({ default: module.GraphPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -204,6 +205,8 @@ if (root && payload) {
             ? <GoalsPage data={initial.data as GoalsData} />
             : "ReactTags" in initial.data && initial.data.ReactTags
             ? <TagsPage data={initial.data as TagsData} />
+            : "GraphReact" in initial.data && initial.data.GraphReact
+            ? <GraphPage data={initial.data as GraphData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

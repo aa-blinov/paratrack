@@ -98,8 +98,10 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 		return graphData{}, fmt.Errorf("encode graph chart: %w", err)
 	}
 	return graphData{
-		pageData: pageData{Title: "Graph", Active: "graph"},
-		Period:   period, Chart: chart, ChartJSON: string(chartJSON),
+		pageData:   pageData{Title: "Graph", Active: "graph", ReactApp: true},
+		GraphReact: true, Period: period,
+		PeriodStartInput: period.Start.Format("2006-01-02T15:04"), PeriodEndInput: period.End.Format("2006-01-02T15:04"),
+		Chart: chart, ChartJSON: string(chartJSON),
 		ProjectFilter: projectFilter, ProjectName: graph.Project.Name,
 		TagFilter: tagFilter, PersonFilter: graph.PersonFilter, PersonName: graph.PersonName,
 	}, nil

@@ -376,6 +376,9 @@ def main() -> int:
         page.goto(BASE + "/graph?period=week")
         page.wait_for_load_state("load")
         expect(page.locator("h1")).to_have_text("When you work")
+        check("graph mounts the React/shadcn shell",
+              page.locator('#paratrack-react-root .period-tabs a').count() == 6
+              and page.locator('#paratrack-react-root [data-slot="card"]').count() >= 1)
         # ECharts renders into a <canvas>; wait for that.
         page.wait_for_selector("#echart-canvas canvas", timeout=3000)
         series_count = page.evaluate(

@@ -197,7 +197,25 @@ export interface TagsData {
   AllTagNames: string[]
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData
+export interface GraphData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  GraphReact: boolean
+  Lang: string
+  Period: { Label: string; Start: string; End: string }
+  PeriodStartInput: string
+  PeriodEndInput: string
+  Chart: { HasData: boolean; Hours: string[]; Series: Array<{ Name: string; Color: string; Data: number[]; Total: number }>; TotalLabel: string; Legend: Array<{ Name: string; Color: string }> }
+  ChartJSON: string
+  ProjectFilter: string
+  ProjectName: string
+  TagFilter: string
+  PersonFilter: number
+  PersonName: string
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
