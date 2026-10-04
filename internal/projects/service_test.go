@@ -106,7 +106,7 @@ func (stub projectListUsageStub) ProjectActivityCounts(context.Context, int64) (
 	return stub.counts, nil
 }
 
-func (stub projectListUsageStub) ProjectSpans(context.Context, int64, time.Time, time.Time) ([]model.ProjectSessionSpan, error) {
+func (stub projectListUsageStub) ProjectSpans(context.Context, appmodel.ProjectSpansQuery) ([]model.ProjectSessionSpan, error) {
 	return stub.spans, nil
 }
 

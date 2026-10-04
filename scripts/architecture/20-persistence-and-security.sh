@@ -265,6 +265,7 @@ fi
 for method in ProjectSpans ProjectActivityCounts ProjectSessions ProjectTrackedTotal; do
 	project_query=$(sed -n "/^func (d \*DB) $method(/,/^}/p" internal/db/project_activity_queries.go)
 	case "$method" in
+		ProjectSpans) scope_check='query.TeamID <= 0 || query.From.IsZero() || query.Through.Before(query.From)' ;;
 		ProjectSessions) scope_check='query.TeamID <= 0 || query.ProjectID <= 0' ;;
 		ProjectTrackedTotal) scope_check='query.TeamID <= 0 || query.ProjectID <= 0' ;;
 		*) scope_check='teamID <= 0' ;;
