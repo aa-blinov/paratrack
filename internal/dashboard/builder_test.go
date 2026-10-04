@@ -28,6 +28,7 @@ type trackingStub struct {
 	closedRanges [][2]time.Time
 	checkedAny   int
 	withSessions bool
+	anySession   bool
 }
 
 func (s *trackingStub) ActiveSessions(context.Context, int64) ([]model.ActiveSession, error) {
@@ -47,7 +48,7 @@ func (s *trackingStub) ClosedSessions(_ context.Context, _ int64, from, to time.
 
 func (s *trackingStub) HasAnySession(context.Context, int64) (bool, error) {
 	s.checkedAny++
-	return true, nil
+	return s.anySession, nil
 }
 
 type projectsStub struct{ summaryIDs []int64 }
@@ -158,7 +159,7 @@ func TestBuildUsesCalendarDayAcrossDST(t *testing.T) {
 }
 
 func TestBuildUsesFirstRunFallbackWhenRecentSessionsAreEmpty(t *testing.T) {
-	tracking := &trackingStub{}
+	tracking := &trackingStub{anySession: true}
 	invoices := &invoicesStub{}
 	builder, err := NewBuilder(Dependencies{
 		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Tags: &tagsStub{}, Invoices: invoices,
@@ -178,5 +179,53 @@ func TestBuildUsesFirstRunFallbackWhenRecentSessionsAreEmpty(t *testing.T) {
 	}
 	if invoices.calls != 0 {
 		t.Fatalf("billing query ran while billing widget was disabled: %d calls", invoices.calls)
+	}
+}
+
+func TestBuildActiveListCoordinatesRowsAndFirstRunState(t *testing.T) {
+	tracking := &trackingStub{withSessions: true}
+	projects := &projectsStub{}
+	tags := &tagsStub{}
+	logger := &loggerStub{}
+	builder, err := NewBuilder(Dependencies{
+		Goals: goalsStub{}, Tracking: tracking, Projects: projects, Tags: tags,
+		Invoices: &invoicesStub{}, Logger: logger,
+	})
+	if err != nil {
+		t.Fatalf("construct dashboard builder: %v", err)
+	}
+	snapshot, err := builder.BuildActiveList(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("build active list: %v", err)
+	}
+	if len(snapshot.ActiveSessions) != 1 || len(snapshot.Projects) != 1 || snapshot.FirstRun {
+		t.Fatalf("active list snapshot = %+v", snapshot)
+	}
+	if tags.calls != 1 || len(tags.ids) != 1 || tags.ids[0] != 3 {
+		t.Fatalf("session tags were not loaded once: calls=%d ids=%v", tags.calls, tags.ids)
+	}
+	if len(projects.summaryIDs) != 1 || projects.summaryIDs[0] != 9 {
+		t.Fatalf("project summaries were not loaded once: %v", projects.summaryIDs)
+	}
+	if tracking.checkedAny != 0 {
+		t.Fatalf("active sessions triggered first-run lookup %d times", tracking.checkedAny)
+	}
+}
+
+func TestBuildActiveListUsesFirstRunFallback(t *testing.T) {
+	tracking := &trackingStub{}
+	builder, err := NewBuilder(Dependencies{
+		Goals: goalsStub{}, Tracking: tracking, Projects: &projectsStub{}, Tags: &tagsStub{},
+		Invoices: &invoicesStub{}, Logger: &loggerStub{},
+	})
+	if err != nil {
+		t.Fatalf("construct dashboard builder: %v", err)
+	}
+	snapshot, err := builder.BuildActiveList(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("build active list: %v", err)
+	}
+	if !snapshot.FirstRun || tracking.checkedAny != 1 {
+		t.Fatalf("first-run state = %v after %d history checks, want true after one", snapshot.FirstRun, tracking.checkedAny)
 	}
 }

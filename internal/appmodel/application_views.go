@@ -30,6 +30,16 @@ type DashboardSnapshot struct {
 	HasSession     bool
 }
 
+// ActiveListSnapshot combines the tracking and workspace data needed to
+// render the active-session list without exposing presentation types.
+type ActiveListSnapshot struct {
+	ActiveSessions []model.ActiveSession
+	Projects       []model.Project
+	TagsBySession  map[int64][]model.Tag
+	ProjectsByID   map[int64]model.ProjectSummary
+	FirstRun       bool
+}
+
 type ReportLabels struct {
 	Uncategorized string
 	Unassigned    string
