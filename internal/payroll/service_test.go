@@ -16,8 +16,8 @@ type payrollClockStore struct {
 	Store
 	at      time.Time
 	run     model.PayrollRun
-	details model.PayrollRunDetails
-	runs    []model.PayrollRunDetails
+	details appmodel.PayrollRunDetails
+	runs    []appmodel.PayrollRunDetails
 	lookup  appmodel.PayrollRunLookupQuery
 	list    appmodel.PayrollRunListQuery
 }
@@ -49,12 +49,12 @@ func (s *payrollClockStore) CreatePayrollDraft(_ context.Context, request appmod
 	return s.run, nil, nil
 }
 
-func (s *payrollClockStore) ListPayrollRunDetails(_ context.Context, query appmodel.PayrollRunListQuery) ([]model.PayrollRunDetails, error) {
+func (s *payrollClockStore) ListPayrollRunDetails(_ context.Context, query appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunDetails, error) {
 	s.list = query
 	return s.runs, nil
 }
 
-func (s *payrollClockStore) GetPayrollRunDetails(_ context.Context, query appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error) {
+func (s *payrollClockStore) GetPayrollRunDetails(_ context.Context, query appmodel.PayrollRunLookupQuery) (appmodel.PayrollRunDetails, error) {
 	s.lookup = query
 	return s.details, nil
 }
@@ -119,8 +119,8 @@ func TestPayrollReadResultsIncludeTotals(t *testing.T) {
 	lines := []model.PayrollLine{{Seconds: 1800, AmountCents: 1250}, {Seconds: 5400, AmountCents: 3750}}
 	run := model.PayrollRun{ID: 5, Number: "PAY-5"}
 	store := &payrollClockStore{
-		runs:    []model.PayrollRunDetails{{Run: run, Lines: lines}},
-		details: model.PayrollRunDetails{Run: run, Lines: lines},
+		runs:    []appmodel.PayrollRunDetails{{Run: run, Lines: lines}},
+		details: appmodel.PayrollRunDetails{Run: run, Lines: lines},
 	}
 	service, err := NewServiceWithClock(store, time.Now, payrollAuditNoop{}, payrollLoggerNoop{})
 	if err != nil {

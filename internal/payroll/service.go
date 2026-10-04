@@ -21,8 +21,8 @@ import (
 // one workspace-locked transaction.
 type Store interface {
 	CreatePayrollDraft(context.Context, appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error)
-	ListPayrollRunDetails(context.Context, appmodel.PayrollRunListQuery) ([]model.PayrollRunDetails, error)
-	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error)
+	ListPayrollRunDetails(context.Context, appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunDetails, error)
+	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (appmodel.PayrollRunDetails, error)
 	MarkPayrollPaidWithRecipients(context.Context, appmodel.PayrollMutationRequest) (bool, []int64, error)
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
@@ -70,7 +70,7 @@ var (
 	ErrNotFound      = appmodel.ErrNotFound
 )
 
-type RunDetails = model.PayrollRunDetails
+type RunDetails = appmodel.PayrollRunDetails
 
 type PaidResult = appmodel.PayrollPaidResult
 

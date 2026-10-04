@@ -49,7 +49,7 @@ func (stub teamMembershipReaderStub) IsMember(context.Context, appmodel.TeamMemb
 
 type invoiceHistoryReaderStub struct {
 	query appmodel.UnbilledProjectQuery
-	rows  []model.UnbilledProject
+	rows  []appmodel.UnbilledProject
 	err   error
 	calls int
 }
@@ -86,7 +86,7 @@ func decorationsForTest(t *testing.T, projects *projectReaderStub, tags *session
 	return builder
 }
 
-func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error) {
 	stub.query = query
 	stub.calls++
 	return stub.rows, stub.err
@@ -99,7 +99,7 @@ func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 			Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
 		}}},
 	}
-	unbilled := []model.UnbilledProject{{ProjectID: 18, ProjectName: "Alpha"}}
+	unbilled := []appmodel.UnbilledProject{{ProjectID: 18, ProjectName: "Alpha"}}
 	invoices := &invoiceHistoryReaderStub{rows: unbilled}
 	projects := &projectReaderStub{
 		detail: detail, summaries: map[int64]appmodel.ProjectSummary{12: {ID: 12, Name: "Project"}},

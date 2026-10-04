@@ -36,13 +36,6 @@ type PayrollLine struct {
 	AmountCents int
 }
 
-// PayrollRunDetails is the read model used to render a run with its immutable
-// line snapshot.
-type PayrollRunDetails struct {
-	Run   PayrollRun
-	Lines []PayrollLine
-}
-
 // Invoice is an issued billing document and its creation-time snapshots.
 type Invoice struct {
 	ID            int64
@@ -79,31 +72,6 @@ type InvoiceLine struct {
 	Currency    string
 	SessionIDs  []int64
 	ProjectID   int64
-}
-
-// InvoiceDetails is the read model used to render an invoice with its frozen
-// line snapshot.
-type InvoiceDetails struct {
-	Invoice Invoice
-	Lines   []InvoiceLine
-}
-
-// UnbilledProject is billable project time not yet assigned to an invoice.
-type UnbilledProject struct {
-	ProjectID   int64
-	ProjectName string
-	ProjectSlug string
-	Currency    string
-	Hundredths  int
-	AmountCents int
-	Since       time.Time
-}
-
-// UnassignedActivity has completed, not-yet-billed history without a project.
-type UnassignedActivity struct {
-	ID, Sessions int64
-	Name         string
-	Billed       bool
 }
 
 // BillingRules configure how a team's tracked time is rounded and how new

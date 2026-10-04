@@ -99,7 +99,7 @@ type invoicesStub struct {
 	query appmodel.UnbilledProjectQuery
 }
 
-func (s *invoicesStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+func (s *invoicesStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error) {
 	s.calls++
 	s.query = query
 	return nil, nil

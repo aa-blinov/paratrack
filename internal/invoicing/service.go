@@ -15,10 +15,10 @@ import (
 
 // Reader exposes team-scoped invoice and billable-time queries.
 type Reader interface {
-	ListInvoiceDetails(context.Context, int64) ([]model.InvoiceDetails, error)
-	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error)
-	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
-	UnassignedActivities(context.Context, int64) ([]model.UnassignedActivity, error)
+	ListInvoiceDetails(context.Context, int64) ([]appmodel.InvoiceDetails, error)
+	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
+	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
+	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
 	OverlappingInvoices(context.Context, appmodel.InvoiceOverlapQuery) ([]string, error)
 }
 

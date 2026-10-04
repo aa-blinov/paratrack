@@ -29,7 +29,7 @@ type TeamMembershipReader interface {
 }
 
 type InvoiceHistoryReader interface {
-	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
+	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 }
 
 type Dependencies struct {
