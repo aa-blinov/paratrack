@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -72,30 +71,25 @@ func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.Acti
 	return scanActiveSessions(rows)
 }
 
-// ListClosedSessionsInRange returns finished sessions whose interval
-// overlaps [start, end]. Activity filter is optional.
-func (d *DB) ListClosedSessionsInRange(ctx context.Context, teamID int64, start, end time.Time, activityID *int64) ([]model.ActiveSession, error) {
-	return d.ListClosedSessions(ctx, teamID, start, end, activityID, nil)
-}
-
 // ListClosedSessions reads closed sessions with optional activity or project filters.
-func (d *DB) ListClosedSessions(ctx context.Context, teamID int64, start, end time.Time, activityID, projectID *int64) ([]model.ActiveSession, error) {
+func (d *DB) ListClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+	if query.TeamID <= 0 || query.Start.IsZero() || query.End.Before(query.Start) ||
+		(query.ActivityID != nil && *query.ActivityID <= 0) || (query.ProjectID != nil && *query.ProjectID <= 0) {
+		return nil, ErrNotFound
+	}
 	q := sessionSelect + `
 		WHERE s.end_at IS NOT NULL
 		  AND s.start_at <= ?
-		  AND s.end_at   >= ?`
-	args := []any{FormatTime(end), FormatTime(start)}
-	if teamID > 0 {
-		q += ` AND s.team_id = ?`
-		args = append(args, teamID)
-	}
-	if activityID != nil {
+		  AND s.end_at   >= ?
+		  AND s.team_id = ?`
+	args := []any{FormatTime(query.End), FormatTime(query.Start), query.TeamID}
+	if query.ActivityID != nil {
 		q += ` AND s.activity_id = ?`
-		args = append(args, *activityID)
+		args = append(args, *query.ActivityID)
 	}
-	if projectID != nil {
+	if query.ProjectID != nil {
 		q += ` AND a.project_id = ?`
-		args = append(args, *projectID)
+		args = append(args, *query.ProjectID)
 	}
 	var sc string
 	sc, args = scopeSQL(ctx, "s.user_id", args)
@@ -222,20 +216,24 @@ type SessionCursor = model.SessionCursor
 // closed ones overlapping it and running ones started inside it, newest
 // first, at most limit rows after the cursor. more says whether another
 // page follows.
-func (d *DB) ListSessionsPage(ctx context.Context, teamID int64, from, to time.Time, after *SessionCursor, limit int) (list []model.ActiveSession, more bool, err error) {
+func (d *DB) ListSessionsPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (list []model.ActiveSession, more bool, err error) {
+	if query.TeamID <= 0 || query.From.IsZero() || query.To.IsZero() || query.To.Before(query.From) || query.Limit <= 0 ||
+		(query.After != nil && (query.After.Start == "" || query.After.ID <= 0)) {
+		return nil, false, ErrNotFound
+	}
 	q := sessionSelect + `
 		WHERE s.team_id = ?
 		  AND ((s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?)
-		    OR (s.end_at IS NULL AND s.start_at >= ? AND s.start_at < ?))`
-	args := []any{teamID, FormatTime(to), FormatTime(from), FormatTime(from), FormatTime(to)}
-	if after != nil {
+	    OR (s.end_at IS NULL AND s.start_at >= ? AND s.start_at < ?))`
+	args := []any{query.TeamID, FormatTime(query.To), FormatTime(query.From), FormatTime(query.From), FormatTime(query.To)}
+	if query.After != nil {
 		// "C" order: the ISO strings sort byte by byte, as time does.
 		q += ` AND (s.start_at COLLATE "C" < ? OR (s.start_at = ? AND s.id < ?))`
-		args = append(args, after.Start, after.Start, after.ID)
+		args = append(args, query.After.Start, query.After.Start, query.After.ID)
 	}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
 	q += sc + ` ORDER BY s.start_at COLLATE "C" DESC, s.id DESC LIMIT ?`
-	args = append(args, limit+1)
+	args = append(args, query.Limit+1)
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, false, err
@@ -245,8 +243,8 @@ func (d *DB) ListSessionsPage(ctx context.Context, teamID int64, from, to time.T
 	if err != nil {
 		return nil, false, err
 	}
-	if len(list) > limit {
-		return list[:limit], true, nil
+	if len(list) > query.Limit {
+		return list[:query.Limit], true, nil
 	}
 	return list, false, nil
 }

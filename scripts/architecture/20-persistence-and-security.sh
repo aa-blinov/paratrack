@@ -308,6 +308,22 @@ if ! printf '%s\n' "$session_lookup" | grep -Fq 'query appmodel.SessionLookupQue
 	echo "architecture check: session reads must carry session identity and workspace scope in one query" >&2
 	exit 1
 fi
+closed_sessions_lookup=$(sed -n '/^func (d \*DB) ListClosedSessions(/,/^}/p' internal/db/session_queries.go)
+if ! printf '%s\n' "$closed_sessions_lookup" | grep -Fq 'query appmodel.ClosedSessionsQuery' ||
+	! printf '%s\n' "$closed_sessions_lookup" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$closed_sessions_lookup" | grep -Fq 'query.ActivityID' ||
+	! printf '%s\n' "$closed_sessions_lookup" | grep -Fq 'query.ProjectID'; then
+	echo "architecture check: closed session reads must carry workspace, period and filters together" >&2
+	exit 1
+fi
+session_page_lookup=$(sed -n '/^func (d \*DB) ListSessionsPage(/,/^}/p' internal/db/session_queries.go)
+if ! printf '%s\n' "$session_page_lookup" | grep -Fq 'query appmodel.SessionHistoryPageQuery' ||
+	! printf '%s\n' "$session_page_lookup" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$session_page_lookup" | grep -Fq 'query.After' ||
+	! printf '%s\n' "$session_page_lookup" | grep -Fq 'query.Limit'; then
+	echo "architecture check: paginated session reads must carry workspace and cursor options together" >&2
+	exit 1
+fi
 session_tags_lookup=$(sed -n '/^func (d \*DB) TagsForSessions(/,/^}/p' internal/db/tags.go)
 if ! printf '%s\n' "$session_tags_lookup" | grep -Fq 'query appmodel.SessionTagsQuery' ||
 	! printf '%s\n' "$session_tags_lookup" | grep -Fq 'query.TeamID' ||

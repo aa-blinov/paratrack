@@ -60,7 +60,7 @@ func runLog(rt *Runtime, args []string) error {
 		actID = &a.ID
 	}
 
-	sessions, err := services.SessionHistory.ClosedSessions(ctx, teamID, period.Start, period.End, actID)
+	sessions, err := services.SessionHistory.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: teamID, Start: period.Start, End: period.End, ActivityID: actID})
 	if err != nil {
 		return fmt.Errorf("list sessions: %w", err)
 	}
@@ -119,7 +119,7 @@ func runStats(rt *Runtime, args []string) error {
 		return err
 	}
 
-	sessions, err := services.SessionHistory.ClosedSessions(ctx, teamID, period.Start, period.End, nil)
+	sessions, err := services.SessionHistory.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: teamID, Start: period.Start, End: period.End})
 	if err != nil {
 		return fmt.Errorf("list sessions: %w", err)
 	}

@@ -66,7 +66,7 @@ func TestImportEntriesBatchesActivityResolutionAndDeduplicatesExternalIDs(t *tes
 	if result.Imported != 2 || result.Skipped != 1 {
 		t.Fatalf("ImportEntries result = %+v, want imported=2 skipped=1", result)
 	}
-	rows, err := d.ListClosedSessions(ctx, teamID, start, start.Add(3*time.Hour), nil, nil)
+	rows, err := d.ListClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: teamID, Start: start, End: start.Add(3 * time.Hour)})
 	if err != nil {
 		t.Fatalf("ListClosedSessions: %v", err)
 	}

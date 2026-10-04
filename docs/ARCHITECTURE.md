@@ -119,14 +119,14 @@ scoped to its workspace across report and session decoration workflows.
 `ProjectActivityCatalogQuery` keep project identity, workspace, time range and
 archive selection together across preference, detail, CLI and persistence
 ports. `ProjectSpansQuery` scopes time aggregation, while
-`ActivityLookupQuery`, `ActivityNameQuery`, `SessionLookupQuery` and
-`SessionTagsQuery` scope activity, session and batched tag reads
-across project, tracking and tagging workflows. `TeamMembershipQuery` scopes
+`ActivityLookupQuery`, `ActivityNameQuery`, `SessionLookupQuery`,
+`SessionTagsQuery`, `ClosedSessionsQuery` and `SessionHistoryPageQuery` scope
+activity, session history and batched tag reads across project, tracking,
+reports and tagging workflows. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects,
-project pages, HTTP and invoicing. `PayrollRunLookupQuery` scopes run details to
-the requested workspace.
-`InvoiceLookupQuery` scopes invoice reads, details and frozen lines the same way;
-`PayrollRunLookupQuery` scopes both payroll run reads and their details.
+project pages, HTTP and invoicing. `InvoiceLookupQuery` scopes invoice reads,
+details and frozen lines; `PayrollRunLookupQuery` scopes payroll run reads and
+details. `WebhookLookupQuery` scopes webhook endpoint reads to their workspace.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
 sentinel, for invoice, dashboard and project-page reads.
 `InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace

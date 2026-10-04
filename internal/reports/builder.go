@@ -17,8 +17,7 @@ var ErrInvalidReportQuery = errors.New("invalid report query")
 var ErrIncompleteBuilderDependencies = errors.New("report builder dependencies are incomplete")
 
 type SessionReader interface {
-	ClosedSessions(context.Context, int64, time.Time, time.Time, *int64) ([]model.ActiveSession, error)
-	ClosedSessionsForProject(context.Context, int64, time.Time, time.Time, int64) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
 }
 
 type TagReader interface {
@@ -252,11 +251,11 @@ func (b *Builder) loadProjectSessions(ctx context.Context, teamID int64, from, t
 		return model.Project{}, nil, err
 	}
 	var sessions []model.ActiveSession
+	query := appmodel.ClosedSessionsQuery{TeamID: teamID, Start: from, End: to}
 	if project.ID > 0 {
-		sessions, err = b.sessions.ClosedSessionsForProject(ctx, teamID, from, to, project.ID)
-	} else {
-		sessions, err = b.sessions.ClosedSessions(ctx, teamID, from, to, nil)
+		query.ProjectID = &project.ID
 	}
+	sessions, err = b.sessions.ClosedSessions(ctx, query)
 	return project, sessions, err
 }
 
@@ -278,7 +277,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) || query.Now.IsZero() {
 		return AggregateResult{}, ErrInvalidReportQuery
 	}
-	sessions, err := b.sessions.ClosedSessions(ctx, query.TeamID, query.From, query.To, nil)
+	sessions, err := b.sessions.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: query.TeamID, Start: query.From, End: query.To})
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report sessions: %w", err)
 	}
@@ -349,7 +348,7 @@ func (b *Builder) BuildExport(ctx context.Context, query appmodel.ExportBuildQue
 	if query.TeamID <= 0 || query.Start.IsZero() || !query.End.After(query.Start) || query.Now.IsZero() {
 		return appmodel.ExportSnapshot{}, ErrInvalidReportQuery
 	}
-	sessions, err := b.sessions.ClosedSessions(ctx, query.TeamID, query.Start, query.End, nil)
+	sessions, err := b.sessions.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: query.TeamID, Start: query.Start, End: query.End})
 	if err != nil {
 		return appmodel.ExportSnapshot{}, fmt.Errorf("load export sessions: %w", err)
 	}
