@@ -23,8 +23,8 @@ func (stub *projectReaderStub) Detail(context.Context, appmodel.ProjectDetailReq
 	return stub.detail, stub.err
 }
 
-func (stub *projectReaderStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
-	stub.summaryIDs = append([]int64(nil), ids...)
+func (stub *projectReaderStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+	stub.summaryIDs = append([]int64(nil), query.ProjectIDs...)
 	return stub.summaries, stub.summaryErr
 }
 

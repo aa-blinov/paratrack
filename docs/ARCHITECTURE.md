@@ -114,10 +114,11 @@ conflicts and invariants. `ProjectCatalogQuery` carries workspace scope and
 archived-row selection across project reads in CLI, HTTP, dashboard, reports,
 scheduling, invoicing, workflows and persistence. Goal progress reads carry a
 typed query with the workspace and snapshot instant across CLI, HTTP,
-dashboard, workflow and persistence ports. Manager goal writes preserve caller
-and workspace scope through the workflow; persistence applies one or more
-targets in a single transaction and rechecks the manager role while holding the
-workspace lock.
+dashboard, workflow and persistence ports. `ProjectSummariesQuery` keeps a
+batch of project IDs scoped to its workspace across report and session
+decoration workflows. Manager goal writes preserve caller and workspace scope
+through the workflow; persistence applies one or more targets in a single
+transaction and rechecks the manager role while holding the workspace lock.
 Provider-produced import entries and task snapshots live in `importport` and
 `integrationport`; persistence and workflows consume those boundary types without
 classifying external payloads as domain entities.

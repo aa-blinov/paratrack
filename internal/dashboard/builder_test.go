@@ -59,14 +59,18 @@ func (s *trackingStub) HasAnySession(context.Context, int64) (bool, error) {
 	return s.anySession, nil
 }
 
-type projectsStub struct{ summaryIDs []int64 }
+type projectsStub struct {
+	summaryTeamID int64
+	summaryIDs    []int64
+}
 
 func (*projectsStub) List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	return []model.Project{{ID: 1}}, nil
 }
 
-func (s *projectsStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
-	s.summaryIDs = append(s.summaryIDs, ids...)
+func (s *projectsStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+	s.summaryTeamID = query.TeamID
+	s.summaryIDs = append(s.summaryIDs, query.ProjectIDs...)
 	return map[int64]model.ProjectSummary{}, nil
 }
 

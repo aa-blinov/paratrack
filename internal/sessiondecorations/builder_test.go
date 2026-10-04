@@ -23,9 +23,10 @@ func (stub *tagReaderStub) TagsForSessions(_ context.Context, _ int64, ids []int
 }
 
 type projectReaderStub struct {
-	ids []int64
-	by  map[int64]model.ProjectSummary
-	err error
+	teamID int64
+	ids    []int64
+	by     map[int64]model.ProjectSummary
+	err    error
 }
 
 type sessionReaderStub struct {
@@ -41,8 +42,9 @@ func (stub *sessionReaderStub) SessionActivity(_ context.Context, teamID, sessio
 	return stub.session, stub.activity, stub.err
 }
 
-func (stub *projectReaderStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
-	stub.ids = append([]int64(nil), ids...)
+func (stub *projectReaderStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+	stub.teamID = query.TeamID
+	stub.ids = append([]int64(nil), query.ProjectIDs...)
 	return stub.by, stub.err
 }
 
@@ -70,8 +72,8 @@ func TestBuildBatchesDistinctSessionAndProjectIDs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	if !reflect.DeepEqual(tags.ids, []int64{2, 3}) || !reflect.DeepEqual(projects.ids, []int64{7}) {
-		t.Fatalf("batch IDs: sessions=%v projects=%v", tags.ids, projects.ids)
+	if !reflect.DeepEqual(tags.ids, []int64{2, 3}) || !reflect.DeepEqual(projects.ids, []int64{7}) || projects.teamID != 4 {
+		t.Fatalf("batch query: sessions=%v projects=%v team=%d", tags.ids, projects.ids, projects.teamID)
 	}
 	if snapshot.TagsBySession[2][0].Name != "urgent" || snapshot.ProjectsByID[7].Name != "Client" {
 		t.Fatalf("decoration snapshot = %+v", snapshot)

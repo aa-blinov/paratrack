@@ -132,22 +132,22 @@ func (d *DB) GetProjectBySlug(ctx context.Context, teamID int64, slug string) (m
 type ProjectSummary = model.ProjectSummary
 
 // ProjectSummaries returns summaries for a set of IDs in one round trip.
-func (d *DB) ProjectSummaries(ctx context.Context, teamID int64, ids []int64) (map[int64]ProjectSummary, error) {
-	if teamID <= 0 || len(ids) == 0 {
+func (d *DB) ProjectSummaries(ctx context.Context, query appmodel.ProjectSummariesQuery) (map[int64]ProjectSummary, error) {
+	if query.TeamID <= 0 || len(query.ProjectIDs) == 0 {
 		return map[int64]ProjectSummary{}, nil
 	}
-	query := `SELECT id, slug, name, color FROM projects WHERE team_id = ? AND id IN (` + strings.TrimSuffix(strings.Repeat(`?,`, len(ids)), `,`) + `)`
-	args := make([]any, len(ids)+1)
-	args[0] = teamID
-	for i, id := range ids {
+	sqlQuery := `SELECT id, slug, name, color FROM projects WHERE team_id = ? AND id IN (` + strings.TrimSuffix(strings.Repeat(`?,`, len(query.ProjectIDs)), `,`) + `)`
+	args := make([]any, len(query.ProjectIDs)+1)
+	args[0] = query.TeamID
+	for i, id := range query.ProjectIDs {
 		args[i+1] = id
 	}
-	rows, err := d.sql.QueryContext(ctx, query, args...)
+	rows, err := d.sql.QueryContext(ctx, sqlQuery, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	summaries := make(map[int64]ProjectSummary, len(ids))
+	summaries := make(map[int64]ProjectSummary, len(query.ProjectIDs))
 	for rows.Next() {
 		var p ProjectSummary
 		if err := rows.Scan(&p.ID, &p.Slug, &p.Name, &p.Color); err != nil {
