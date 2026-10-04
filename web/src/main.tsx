@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TeamSettingsData, TimesheetData, TokensData } from "@/dashboard/types"
+import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -38,6 +38,8 @@ const ProfilePage = lazy(() => import("@/settings/profile-page").then(module => 
 const PreferencesPage = lazy(() => import("@/settings/preferences-page").then(module => ({ default: module.PreferencesPage })))
 const NotificationsPage = lazy(() => import("@/settings/notifications-page").then(module => ({ default: module.NotificationsPage })))
 const TeamSettingsPage = lazy(() => import("@/settings/team-settings-page").then(module => ({ default: module.TeamSettingsPage })))
+const TeamMembersPage = lazy(() => import("@/settings/team-members-page").then(module => ({ default: module.TeamMembersPage })))
+const TeamInvitesPage = lazy(() => import("@/settings/team-invites-page").then(module => ({ default: module.TeamInvitesPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -261,6 +263,10 @@ if (root && payload) {
             ? <NotificationsPage data={initial.data as NotificationsData} />
             : "TeamSettingsReact" in initial.data && initial.data.TeamSettingsReact
             ? <TeamSettingsPage data={initial.data as TeamSettingsData} />
+            : "MembersReact" in initial.data && initial.data.MembersReact
+            ? <TeamMembersPage data={initial.data as TeamMembersData} />
+            : "InvitesReact" in initial.data && initial.data.InvitesReact
+            ? <TeamInvitesPage data={initial.data as TeamInvitesData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

@@ -577,7 +577,32 @@ export interface TeamSettingsData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData
+export interface TeamMembersData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  MembersReact: boolean
+  User: { ID: number; Email: string; Name: string }
+  Members: Array<{ UserID: number; Email: string; Name: string; Role: string }>
+  Pay: Record<string, { Rate: string; Capacity: number }>
+  IsOwner: boolean
+  Flash: string
+  FlashOK: boolean
+}
+
+export interface TeamInvitesData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  InvitesReact: boolean
+  Invites: Array<{ Token: string; CreatedAt: string; ExpiresAt: string; Used: boolean; Expired: boolean; Live: boolean }>
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
