@@ -62,13 +62,12 @@ type ProjectCatalogQuery struct {
 	IncludeArchived bool
 }
 
-// ProjectListQuery carries the date window used for project usage totals.
-type ProjectListQuery struct {
-	TeamID          int64
-	IncludeArchived bool
-	TodayStart      time.Time
-	MonthStart      time.Time
-	Now             time.Time
+// ProjectUsageQuery combines the catalog selection with the usage window.
+type ProjectUsageQuery struct {
+	Catalog    ProjectCatalogQuery
+	TodayStart time.Time
+	MonthStart time.Time
+	Now        time.Time
 }
 
 // ProjectPageRequest combines project detail with optional invoice history
