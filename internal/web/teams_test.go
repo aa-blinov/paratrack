@@ -153,6 +153,11 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 		t.Errorf("body should mention joining Alice, got first 300 chars: %q",
 			w2.Body.String()[:min(300, len(w2.Body.String()))])
 	}
+	for _, marker := range []string{`id="react-page-data"`, `"InviteReact":true`} {
+		if !strings.Contains(w2.Body.String(), marker) {
+			t.Errorf("invite page missing React bootstrap marker %q", marker)
+		}
+	}
 
 	// Member accepts.
 	w3 := httptest.NewRecorder()
