@@ -36,21 +36,23 @@ type schedRow struct {
 
 type schedulePage struct {
 	pageData
-	WeekLabel    string
-	PrevWeek     string
-	NextWeek     string
-	ThisWeek     string
-	ProjectID    int64 // the project whose plan the cells edit
-	Days         []schedDay
-	Rows         []schedRow
-	RowVMs       []schedRowVM
-	Projects     []projectView
-	ProjectNames map[int64]string
-	GrandTotal   string
-	GrandMin     int
+	ScheduleReact bool
+	WeekLabel     string
+	PrevWeek      string
+	NextWeek      string
+	ThisWeek      string
+	ProjectID     int64 // the project whose plan the cells edit
+	Days          []schedDay
+	Rows          []schedRow
+	RowVMs        []schedRowVM
+	Projects      []projectView
+	ProjectNames  map[int64]string
+	GrandTotal    string
+	GrandMin      int
 }
 
-func (p *schedulePage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *schedulePage) setCSRF(t string)   { p.pageData.setCSRF(t) }
+func (p *schedulePage) usesReactApp() bool { return p.ScheduleReact }
 
 // handleSchedule renders the people × week planning grid.
 func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
@@ -80,18 +82,19 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := schedulePage{
-		pageData:     pageData{Title: "Schedule", Active: "schedule", Lang: lang},
-		WeekLabel:    fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
-		PrevWeek:     weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
-		NextWeek:     weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
-		ThisWeek:     weekStart.Format("2006-01-02"),
-		Days:         days,
-		Rows:         schedule.Rows,
-		Projects:     projectVMs,
-		ProjectID:    pid,
-		ProjectNames: schedule.ProjectNames,
-		GrandTotal:   fmtDur(r, schedule.TotalMinutes*60),
-		GrandMin:     schedule.TotalMinutes,
+		pageData:      pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
+		ScheduleReact: true,
+		WeekLabel:     fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
+		PrevWeek:      weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
+		NextWeek:      weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
+		ThisWeek:      weekStart.Format("2006-01-02"),
+		Days:          days,
+		Rows:          schedule.Rows,
+		Projects:      projectVMs,
+		ProjectID:     pid,
+		ProjectNames:  schedule.ProjectNames,
+		GrandTotal:    fmtDur(r, schedule.TotalMinutes*60),
+		GrandMin:      schedule.TotalMinutes,
 	}
 	canManageTeam := canManage(r)
 	for i := range schedule.Rows {
@@ -159,8 +162,13 @@ func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, project stri
 // handleScheduleCell writes one plan cell.
 // Form: user_id, project_id, date (YYYY-MM-DD), minutes.
 func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
+	wantsJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		if wantsJSON {
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		} else {
+			http.Error(w, "invalid form", http.StatusBadRequest)
+		}
 		return
 	}
 	uid, err1 := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)
@@ -190,17 +198,31 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 		Day: parsedDay, Minutes: mins,
 	}); err != nil {
 		if errors.Is(err, appmodel.ErrNoScheduleProjects) {
-			s.toastL(w, r, "err.needProject", "", "error")
-			w.WriteHeader(http.StatusOK)
+			if wantsJSON {
+				s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.needProject")})
+			} else {
+				s.toastL(w, r, "err.needProject", "", "error")
+				w.WriteHeader(http.StatusOK)
+			}
 			return
 		}
 		if errors.Is(err, appmodel.ErrInvalidScheduleCell) {
-			s.toastL(w, r, "err.invalidInput", "", "error")
+			if wantsJSON {
+				s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+			} else {
+				s.toastL(w, r, "err.invalidInput", "", "error")
+			}
 		} else {
-			s.logInternalError(err)
-			s.toastL(w, r, "err.internal", "", "error")
+			if wantsJSON {
+				s.writeInternalJSONError(w, err)
+			} else {
+				s.logInternalError(err)
+				s.toastL(w, r, "err.internal", "", "error")
+			}
 		}
-		w.WriteHeader(200)
+		if !wantsJSON {
+			w.WriteHeader(http.StatusOK)
+		}
 		return
 	}
 	s.toastL(w, r, "toast.saved", "", "success")
@@ -216,7 +238,17 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 	}
 	schedule, err := s.scheduleRows(r, startOfWeek(r, t), r.PostForm.Get("project_id"))
 	if err != nil {
-		s.writeInternalError(w, err)
+		if strings.Contains(r.Header.Get("Accept"), "application/json") {
+			s.writeInternalJSONError(w, err)
+		} else {
+			s.writeInternalError(w, err)
+		}
+		return
+	}
+	if strings.Contains(r.Header.Get("Accept"), "application/json") {
+		s.writeJSON(w, scheduleCellResponse{
+			Rows: schedule.Rows, GrandTotal: fmtDur(r, schedule.TotalMinutes*60), GrandMin: schedule.TotalMinutes,
+		})
 		return
 	}
 	for _, row := range schedule.Rows {
@@ -227,6 +259,14 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 	}
 	http.NotFound(w, r)
 }
+
+type scheduleCellResponse struct {
+	Rows       []schedRow `json:"rows"`
+	GrandTotal string     `json:"grandTotal"`
+	GrandMin   int        `json:"grandMin"`
+}
+
+func (scheduleCellResponse) isJSONResponse() {}
 
 // schedRowVM wraps a row + the project list for the cell editor.
 type schedRowVM struct {

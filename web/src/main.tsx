@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, GoalsData, GraphData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session, TagsData, TimesheetData } from "@/dashboard/types"
+import type { DashboardData, GoalsData, GraphData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ScheduleData, Session, TagsData, TimesheetData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -23,6 +23,7 @@ const GraphPage = lazy(() => import("@/graph/graph-page").then(module => ({ defa
 const TimesheetPage = lazy(() => import("@/timesheet/timesheet-page").then(module => ({ default: module.TimesheetPage })))
 const Payroll = lazy(() => import("@/payroll/payroll-page").then(module => ({ default: module.PayrollPage })))
 const PayrollDetail = lazy(() => import("@/payroll/payroll-page").then(module => ({ default: module.PayrollDetail })))
+const SchedulePage = lazy(() => import("@/schedule/schedule-page").then(module => ({ default: module.SchedulePage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -216,6 +217,8 @@ if (root && payload) {
             ? "PayrollDetail" in initial.data && initial.data.PayrollDetail
               ? <PayrollDetail data={initial.data as PayrollDetailData} />
               : <Payroll data={initial.data as PayrollData} />
+            : "ScheduleReact" in initial.data && initial.data.ScheduleReact
+            ? <SchedulePage initial={initial.data as ScheduleData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

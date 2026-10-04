@@ -1,9 +1,11 @@
 package web
 
 import (
+	"encoding/json"
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -124,7 +126,35 @@ func TestPayrollAPI(t *testing.T) {
 	if resp.StatusCode != 200 {
 		t.Fatalf("schedule: %d %s", resp.StatusCode, readBody(t, resp))
 	}
-	resp.Body.Close()
+	pageContent := readBody(t, resp)
+	if !strings.Contains(pageContent, `"ScheduleReact":true`) || !strings.Contains(pageContent, `id="paratrack-react-root"`) {
+		t.Fatalf("schedule page did not bootstrap React: %s", pageContent)
+	}
+	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Scheduled work"}}, nil))
+	var userID int64
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email='payroll@x.test'`).Scan(&userID); err != nil {
+		t.Fatal(err)
+	}
+	var projectID int64
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM projects WHERE name='Scheduled work'`).Scan(&projectID); err != nil {
+		t.Fatal(err)
+	}
+	updated := e.do("POST", "/api/schedule/cell", url.Values{
+		"user_id": {strconv.FormatInt(userID, 10)}, "project_id": {strconv.FormatInt(projectID, 10)}, "date": {"2026-09-21"}, "minutes": {"120"},
+	}, map[string]string{"Accept": "application/json"})
+	if updated.StatusCode != http.StatusOK || !strings.Contains(updated.Header.Get("Content-Type"), "application/json") {
+		t.Fatalf("schedule cell update: status=%d content-type=%q body=%s", updated.StatusCode, updated.Header.Get("Content-Type"), readBody(t, updated))
+	}
+	var result struct {
+		Rows []schedRow `json:"rows"`
+	}
+	if err := json.NewDecoder(updated.Body).Decode(&result); err != nil {
+		t.Fatalf("decode schedule update: %v", err)
+	}
+	updated.Body.Close()
+	if len(result.Rows) != 1 || result.Rows[0].Cells[0].Min != 120 {
+		t.Fatalf("schedule update response = %+v", result.Rows)
+	}
 }
 
 // A second pay run over days already paid asks first, then goes through.
