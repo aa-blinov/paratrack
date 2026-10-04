@@ -18,6 +18,7 @@ type payrollClockStore struct {
 	run     model.PayrollRun
 	details model.PayrollRunDetails
 	runs    []model.PayrollRunDetails
+	lookup  appmodel.PayrollRunLookupQuery
 }
 
 type payrollAuditNoop struct{}
@@ -51,7 +52,8 @@ func (s *payrollClockStore) ListPayrollRunDetails(context.Context, int64) ([]mod
 	return s.runs, nil
 }
 
-func (s *payrollClockStore) GetPayrollRunDetails(context.Context, int64, int64) (model.PayrollRunDetails, error) {
+func (s *payrollClockStore) GetPayrollRunDetails(_ context.Context, query appmodel.PayrollRunLookupQuery) (model.PayrollRunDetails, error) {
+	s.lookup = query
 	return s.details, nil
 }
 
@@ -136,6 +138,9 @@ func TestPayrollReadResultsIncludeTotals(t *testing.T) {
 	}
 	if detail.TotalCents != 5000 || detail.TotalHoursHundredths != 200 || len(detail.Lines) != 2 {
 		t.Fatalf("GetRun() detail = %+v", detail)
+	}
+	if want := (appmodel.PayrollRunLookupQuery{TeamID: 2, RunID: run.ID}); store.lookup != want {
+		t.Fatalf("GetPayrollRunDetails query = %+v, want %+v", store.lookup, want)
 	}
 }
 
