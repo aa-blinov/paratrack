@@ -3,7 +3,7 @@
 paratrack is a modular Go application shipped as one binary. It has two
 entrypoints into the same product: a command-line interface and an HTTP
 application. PostgreSQL is the durable store. The UI migration to React and
-shadcn is in progress: the dashboard, stats, reports, goals, graph, payroll, schedule, tags, timesheet,
+shadcn is in progress: the dashboard, stats, reports, export, goals, graph, payroll, schedule, tags, timesheet,
 invoices (list and detail), project list, project creation form and project detail mount React screens on Go-rendered pages,
 and the remaining routes still use Go
 templates, HTMX and Alpine.js.

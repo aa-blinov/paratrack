@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, GoalsData, GraphData, InvoiceDetailData, InvoicesData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData } from "@/dashboard/types"
+import type { DashboardData, ExportData, GoalsData, GraphData, InvoiceDetailData, InvoicesData, PayrollData, PayrollDetailData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TimesheetData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -29,6 +29,7 @@ const InvoiceDetailPage = lazy(() => import("@/invoices/invoices-page").then(mod
 const StatsPage = lazy(() => import("@/stats/stats-page").then(module => ({ default: module.StatsPage })))
 const ReportsPage = lazy(() => import("@/reports/reports-page").then(module => ({ default: module.ReportsPage })))
 const ReportRunPage = lazy(() => import("@/reports/reports-page").then(module => ({ default: module.ReportRunPage })))
+const ExportPage = lazy(() => import("@/export/export-page").then(module => ({ default: module.ExportPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -234,6 +235,8 @@ if (root && payload) {
             ? <ReportRunPage data={initial.data as ReportRunData} />
             : "ReportsReact" in initial.data && initial.data.ReportsReact
             ? <ReportsPage data={initial.data as ReportsData} />
+            : "ReportsEnabled" in initial.data
+            ? <ExportPage data={initial.data as ExportData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
