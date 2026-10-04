@@ -101,8 +101,9 @@ func main() {
 			Tracking: web.TrackingDependencies{
 				Queries: services.Tracking, Commands: services.Tracking,
 			},
-			TrackingOps: services.TrackingOps,
-			Imports:     services.Imports,
+			TrackingOps:          services.TrackingOps,
+			ImportedTaskTracking: services.IntegrationTaskTracking,
+			Imports:              services.Imports,
 			Integrations: web.IntegrationDependencies{
 				Queries: services.Integrations, Commands: services.Integrations,
 			},

@@ -76,8 +76,9 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 		Tracking: TrackingDependencies{
 			Queries: services.Tracking, Commands: services.Tracking,
 		},
-		TrackingOps: services.TrackingOps,
-		Imports:     services.Imports,
+		TrackingOps:          services.TrackingOps,
+		ImportedTaskTracking: services.IntegrationTaskTracking,
+		Imports:              services.Imports,
 		Integrations: IntegrationDependencies{
 			Queries: services.Integrations, Commands: services.Integrations,
 		},
