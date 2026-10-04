@@ -72,10 +72,12 @@ func TestPushAPI(t *testing.T) {
 		t.Fatalf("body=%s", body)
 	}
 	// subscribe
+	publicKey := append([]byte{4}, make([]byte, 64)...)
+	authSecret := make([]byte, 16)
 	resp = e.do("POST", "/api/push/subscribe", url.Values{
 		"endpoint": {"https://push.example/x"},
-		"p256dh":   {"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"},
-		"auth":     {"AAAAAAAAAAAAAAAAAAAAAA"},
+		"p256dh":   {base64.RawURLEncoding.EncodeToString(publicKey)},
+		"auth":     {base64.RawURLEncoding.EncodeToString(authSecret)},
 	}, nil)
 	if resp.StatusCode != 200 {
 		t.Fatalf("subscribe: %d %s", resp.StatusCode, readBody(t, resp))

@@ -156,7 +156,7 @@ func TestClockifyUserEntries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got, err := importer.Fetch(context.Background(), importport.ProviderRequest{Provider: "clockify", Secret: "key", To: "2026-09-01"})
+	got, err := importer.Fetch(context.Background(), importport.ProviderRequest{Provider: "clockify", Secret: "key", From: "2026-08-31", To: "2026-09-01"})
 	if err != nil || len(got) != 1 || got[0].ExternalID != "clockify:e1" {
 		t.Fatalf("entries %+v err %v", got, err)
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestBuildInvoiceLinesRejectsMissingWorkspaceScope(t *testing.T) {
@@ -39,7 +40,7 @@ func TestBuildInvoiceLinesRejectsMalformedSessionTime(t *testing.T) {
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
-	if _, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamID, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)}); err != nil {
+	if _, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerID), appmodel.TimerAddRequest{TeamID: teamID, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := d.TestSQL().ExecContext(ctx,

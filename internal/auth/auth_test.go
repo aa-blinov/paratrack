@@ -275,7 +275,7 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx = requestctx.WithActor(ctx, userID)
+	ctx = requestctx.WithTeamID(requestctx.WithActor(ctx, userID), teamID)
 	raw, token, err := svc.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: userID, CallerID: userID, Name: "automation", Options: appmodel.TokenOptions{TeamID: teamID}})
 	if err != nil {
 		t.Fatal(err)

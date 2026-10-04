@@ -123,7 +123,7 @@ func TestDeleteTeamChecksCurrentOwnerInStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Delete(ctx, appmodel.WorkspaceDeleteRequest{TeamID: team.ID, CallerID: other}); !errors.Is(err, model.ErrForbidden) {
+	if err := svc.Delete(ctx, appmodel.WorkspaceDeleteRequest{TeamID: team.ID, CallerID: other}); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("Delete as non-owner: want forbidden, got %v", err)
 	}
 }

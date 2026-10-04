@@ -21,6 +21,7 @@ func TestAuditAndWebhooks(t *testing.T) {
 	ctx := t.Context()
 	d.TestSQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
 	d.TestSQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	d.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (1,1,'owner',CURRENT_TIMESTAMP)`)
 
 	d.Audit(ctx, model.AuditRecord{TeamID: 1, UserID: 1, Action: "auth.login", Target: "a@x.t", IP: "127.0.0.1"})
 	d.Audit(ctx, model.AuditRecord{TeamID: 1, UserID: 1, Action: "project.delete", Target: "acme", IP: "127.0.0.1"})

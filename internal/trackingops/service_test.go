@@ -30,8 +30,8 @@ func (s *sessionStarterStub) Start(context.Context, appmodel.TimerStartRequest) 
 	return s.session, s.err
 }
 
-func (*sessionStarterStub) Activity(context.Context, int64, int64) (model.Activity, error) {
-	return model.Activity{Name: "Deep work"}, nil
+func (*sessionStarterStub) Activity(_ context.Context, _ int64, activityID int64) (model.Activity, error) {
+	return model.Activity{ID: activityID, Name: "Deep work"}, nil
 }
 
 func (s *sessionStarterStub) ResolveActivityForMember(_ context.Context, request appmodel.ActivityResolveRequest) (model.Activity, error) {

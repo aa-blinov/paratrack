@@ -68,13 +68,18 @@ func TestPWAAssets(t *testing.T) {
 		}
 		resp.Body.Close()
 	}
-	// login page links the manifest + registers the SW
+	// The page loads app.js, which imports app-pwa.js where SW registration lives.
 	resp := e.do("GET", "/login", nil, nil)
 	page := readBody(t, resp)
 	if !strings.Contains(page, "manifest.webmanifest") {
 		t.Error("login missing manifest link")
 	}
-	if !strings.Contains(page, "serviceWorker") {
-		t.Error("login missing SW registration")
+	if !strings.Contains(page, "app.js") {
+		t.Error("login missing app module")
+	}
+	resp = e.do("GET", "/static/js/app-pwa.js", nil, nil)
+	pwa := readBody(t, resp)
+	if resp.StatusCode != 200 || !strings.Contains(pwa, "serviceWorker.register('/sw.js'") {
+		t.Error("PWA module missing service worker registration")
 	}
 }

@@ -44,7 +44,7 @@ func TestNewlyAchievedAfterSessionKeepsThresholdPolicyInWorkflow(t *testing.T) {
 func TestNewlyAchievedAfterSessionsAggregatesByActivity(t *testing.T) {
 	service := &Service{deps: Dependencies{Goals: progressReaderStub{progress: []model.GoalProgress{
 		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 60, Period: "daily"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 116},
-		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 40, Period: "weekly"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 175},
+		{Goal: model.Goal{ActivityID: 3, TargetMinutes: 55, Period: "weekly"}, ActivityName: "Focus", AchievedMinutes: 70, PercentComplete: 127},
 		{Goal: model.Goal{ActivityID: 4, TargetMinutes: 60}, ActivityName: "Other", AchievedMinutes: 100, PercentComplete: 166},
 	}}}}
 	got, err := service.NewlyAchievedAfterSessions(context.Background(), 7, map[int64]int{3: 20 * 60}, time.Date(2026, time.May, 1, 12, 0, 0, 0, time.UTC))

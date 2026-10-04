@@ -3,7 +3,7 @@ package web
 import (
 	"context"
 	"errors"
-	"github.com/aa-blinov/paratrack/internal/i18n"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"github.com/aa-blinov/paratrack/internal/testutil"
@@ -207,7 +208,12 @@ func TestActionTime(t *testing.T) {
 	at := func(v string) time.Time {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(url.Values{"client_ts": {v}}.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		return actionTime(r)
+		var got time.Time
+		handler := withRequestClock(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+			got = actionTime(request)
+		}), time.Now)
+		handler.ServeHTTP(httptest.NewRecorder(), r)
+		return got
 	}
 	past := time.Now().Add(-30 * time.Minute).Truncate(time.Millisecond)
 	if got := at(strconv.FormatInt(past.UnixMilli(), 10)); !got.Equal(past) {

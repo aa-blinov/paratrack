@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestProjectUsageQueriesIgnoreCrossWorkspaceRelationships(t *testing.T) {
@@ -31,7 +32,7 @@ func TestProjectUsageQueriesIgnoreCrossWorkspaceRelationships(t *testing.T) {
 		t.Fatal(err)
 	}
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
-	if _, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)}); err != nil {
+	if _, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerB), appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -74,7 +75,7 @@ func TestProjectUsageQueriesIgnoreCrossWorkspaceRelationships(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	crossLinked, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)})
+	crossLinked, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerB), appmodel.TimerAddRequest{TeamID: teamB, ActivityID: activity.ID, Start: start, End: start.Add(time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -166,8 +166,8 @@ func (s *pushSenderStub) Send(_ context.Context, _ pushport.Subscription, public
 
 func TestNotifySendsPayloadAndRemovesExpiredEndpoints(t *testing.T) {
 	store := &pushStoreStub{subs: []pushport.Subscription{
-		{ID: 1, UserID: 7, Endpoint: "https://push.example/old"},
-		{ID: 2, UserID: 8, Endpoint: "https://push.example/current"},
+		{ID: 1, TeamID: 4, UserID: 7, Endpoint: "https://push.example/old"},
+		{ID: 2, TeamID: 4, UserID: 8, Endpoint: "https://push.example/current"},
 	}}
 	sender := &pushSenderStub{statuses: []int{http.StatusGone, http.StatusCreated}}
 	service, err := New(store, sender, log.New(io.Discard, "", 0), pushAuditNoop{})
