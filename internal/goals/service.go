@@ -30,6 +30,8 @@ type GoalReader interface {
 type GoalWriter interface {
 	UpsertGoalForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
 	DeleteGoalForManager(context.Context, appmodel.GoalDeleteRequest) error
+	UpsertGoalsForManager(context.Context, appmodel.GoalSetRequest) ([]model.Goal, error)
+	DeleteGoalsForManager(context.Context, appmodel.GoalUnsetRequest) (int, error)
 }
 
 type Dependencies struct {
@@ -159,24 +161,53 @@ func (s *Service) UpsertForManager(ctx context.Context, request appmodel.GoalUps
 	if request.TeamID <= 0 {
 		return model.Goal{}, ErrInvalidTeam
 	}
+	goals, err := s.SetForManager(ctx, appmodel.GoalSetRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, ActivityName: request.ActivityName,
+		Targets: []appmodel.GoalTarget{{Period: request.Period, Minutes: request.Minutes}},
+	})
+	if err != nil {
+		return model.Goal{}, err
+	}
+	if len(goals) != 1 {
+		return model.Goal{}, fmt.Errorf("save goal: expected one result, got %d", len(goals))
+	}
+	return goals[0], nil
+}
+
+// SetForManager validates all targets before asking persistence to apply them
+// atomically under the caller's current manager role.
+func (s *Service) SetForManager(ctx context.Context, request appmodel.GoalSetRequest) ([]model.Goal, error) {
+	if request.TeamID <= 0 {
+		return nil, ErrInvalidTeam
+	}
 	if request.CallerID <= 0 {
-		return model.Goal{}, model.ErrForbidden
+		return nil, model.ErrForbidden
 	}
 	request.ActivityName = strings.TrimSpace(request.ActivityName)
 	if request.ActivityName == "" {
-		return model.Goal{}, ErrInvalidActivity
+		return nil, ErrInvalidActivity
 	}
-	if !validPeriod(request.Period) {
-		return model.Goal{}, ErrInvalidPeriod
+	if len(request.Targets) == 0 {
+		return nil, ErrInvalidPeriod
 	}
-	if request.Minutes <= 0 {
-		return model.Goal{}, ErrInvalidTarget
+	seen := make(map[string]struct{}, len(request.Targets))
+	for _, target := range request.Targets {
+		if !validPeriod(target.Period) {
+			return nil, ErrInvalidPeriod
+		}
+		if target.Minutes <= 0 {
+			return nil, ErrInvalidTarget
+		}
+		if _, exists := seen[target.Period]; exists {
+			return nil, ErrInvalidPeriod
+		}
+		seen[target.Period] = struct{}{}
 	}
-	goal, err := s.deps.Writes.UpsertGoalForManager(ctx, request)
+	goals, err := s.deps.Writes.UpsertGoalsForManager(ctx, request)
 	if err != nil {
-		return model.Goal{}, fmt.Errorf("save goal: %w", err)
+		return nil, fmt.Errorf("save goals: %w", err)
 	}
-	return goal, nil
+	return goals, nil
 }
 
 // DeleteForManager performs a caller-aware goal deletion for manager-only routes.
@@ -184,20 +215,50 @@ func (s *Service) DeleteForManager(ctx context.Context, request appmodel.GoalDel
 	if request.TeamID <= 0 {
 		return ErrInvalidTeam
 	}
+	deleted, err := s.UnsetForManager(ctx, appmodel.GoalUnsetRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, ActivityName: request.ActivityName,
+		Periods: []string{request.Period},
+	})
+	if err != nil {
+		return err
+	}
+	if deleted == 0 {
+		return model.ErrGoalNotFound
+	}
+	return nil
+}
+
+// UnsetForManager deletes selected goal periods in one persistence
+// transaction. Missing periods are tolerated for multi-period CLI cleanup.
+func (s *Service) UnsetForManager(ctx context.Context, request appmodel.GoalUnsetRequest) (int, error) {
+	if request.TeamID <= 0 {
+		return 0, ErrInvalidTeam
+	}
 	if request.CallerID <= 0 {
-		return model.ErrForbidden
+		return 0, model.ErrForbidden
 	}
 	request.ActivityName = strings.TrimSpace(request.ActivityName)
 	if request.ActivityName == "" {
-		return ErrInvalidActivity
+		return 0, ErrInvalidActivity
 	}
-	if !validPeriod(request.Period) {
-		return ErrInvalidPeriod
+	if len(request.Periods) == 0 {
+		return 0, ErrInvalidPeriod
 	}
-	if err := s.deps.Writes.DeleteGoalForManager(ctx, request); err != nil {
-		return fmt.Errorf("delete goal: %w", err)
+	seen := make(map[string]struct{}, len(request.Periods))
+	for _, period := range request.Periods {
+		if !validPeriod(period) {
+			return 0, ErrInvalidPeriod
+		}
+		if _, exists := seen[period]; exists {
+			return 0, ErrInvalidPeriod
+		}
+		seen[period] = struct{}{}
 	}
-	return nil
+	deleted, err := s.deps.Writes.DeleteGoalsForManager(ctx, request)
+	if err != nil {
+		return 0, fmt.Errorf("delete goals: %w", err)
+	}
+	return deleted, nil
 }
 
 func validPeriod(period string) bool {

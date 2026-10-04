@@ -16,79 +16,141 @@ import (
 // UpsertGoalForManager atomically creates/resolves the activity and writes its
 // goal after rechecking the caller's manager role under the workspace lock.
 func (d *DB) UpsertGoalForManager(ctx context.Context, request appmodel.GoalUpsertRequest) (model.Goal, error) {
+	goals, err := d.UpsertGoalsForManager(ctx, appmodel.GoalSetRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, ActivityName: request.ActivityName,
+		Targets: []appmodel.GoalTarget{{Period: request.Period, Minutes: request.Minutes}},
+	})
+	if err != nil {
+		return model.Goal{}, err
+	}
+	return goals[0], nil
+}
+
+// UpsertGoalsForManager applies all targets in one workspace-locked
+// transaction, so a rejected target cannot leave a partial set behind.
+func (d *DB) UpsertGoalsForManager(ctx context.Context, request appmodel.GoalSetRequest) ([]model.Goal, error) {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
-		return model.Goal{}, model.ErrForbidden
+		return nil, model.ErrForbidden
 	}
-	if request.Minutes <= 0 {
-		return model.Goal{}, fmt.Errorf("target_minutes must be positive, got %d", request.Minutes)
-	}
-	switch request.Period {
-	case "daily", "weekly", "monthly":
-	default:
-		return model.Goal{}, fmt.Errorf("period must be daily|weekly|monthly, got %q", request.Period)
+	if len(request.Targets) == 0 {
+		return nil, fmt.Errorf("at least one goal target is required")
 	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
-		return model.Goal{}, err
+		return nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
-		return model.Goal{}, err
+		return nil, err
 	}
 	name := strings.TrimSpace(request.ActivityName)
-	now := FormatTime(d.currentTime().UTC())
 	if name == "" {
-		return model.Goal{}, fmt.Errorf("activity name cannot be empty")
+		return nil, fmt.Errorf("activity name cannot be empty")
 	}
+	now := FormatTime(d.currentTime().UTC())
 	if _, err := tx.ExecContext(ctx, `INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, name, strings.ToLower(name), request.TeamID, now, now); err != nil {
-		return model.Goal{}, err
+		return nil, err
 	}
 	var activityID int64
 	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(name), request.TeamID).Scan(&activityID); err != nil {
-		return model.Goal{}, err
+		return nil, err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO goals (activity_id, team_id, period, target_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(team_id, activity_id, period) DO UPDATE SET target_minutes = excluded.target_minutes, updated_at = excluded.updated_at`, activityID, request.TeamID, request.Period, request.Minutes, now, now); err != nil {
-		return model.Goal{}, err
-	}
-	goal, err := scanGoal(tx.QueryRowContext(ctx, `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, request.Period))
-	if err != nil {
-		return model.Goal{}, err
+	goals := make([]model.Goal, 0, len(request.Targets))
+	seenPeriods := make(map[string]struct{}, len(request.Targets))
+	for _, target := range request.Targets {
+		if _, exists := seenPeriods[target.Period]; exists {
+			return nil, fmt.Errorf("duplicate goal period %q", target.Period)
+		}
+		seenPeriods[target.Period] = struct{}{}
+		if target.Minutes <= 0 {
+			return nil, fmt.Errorf("target_minutes must be positive, got %d", target.Minutes)
+		}
+		switch target.Period {
+		case "daily", "weekly", "monthly":
+		default:
+			return nil, fmt.Errorf("period must be daily|weekly|monthly, got %q", target.Period)
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO goals (activity_id, team_id, period, target_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(team_id, activity_id, period) DO UPDATE SET target_minutes = excluded.target_minutes, updated_at = excluded.updated_at`, activityID, request.TeamID, target.Period, target.Minutes, now, now); err != nil {
+			return nil, err
+		}
+		goal, err := scanGoal(tx.QueryRowContext(ctx, `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, target.Period))
+		if err != nil {
+			return nil, err
+		}
+		goals = append(goals, goal)
 	}
 	if err := tx.Commit(); err != nil {
-		return model.Goal{}, err
+		return nil, err
 	}
-	return goal, nil
+	return goals, nil
 }
 
 // DeleteGoalForManager removes a goal after a transactional role recheck.
 func (d *DB) DeleteGoalForManager(ctx context.Context, request appmodel.GoalDeleteRequest) error {
-	tx, err := d.sql.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
-		return err
-	}
-	var activityID int64
-	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(strings.TrimSpace(request.ActivityName)), request.TeamID).Scan(&activityID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return model.ErrNotFound
-		}
-		return err
-	}
-	result, err := tx.ExecContext(ctx, `DELETE FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, request.Period)
-	if err != nil {
-		return err
-	}
-	deleted, err := result.RowsAffected()
+	deleted, err := d.DeleteGoalsForManager(ctx, appmodel.GoalUnsetRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, ActivityName: request.ActivityName,
+		Periods: []string{request.Period},
+	})
 	if err != nil {
 		return err
 	}
 	if deleted == 0 {
 		return model.ErrGoalNotFound
 	}
-	return tx.Commit()
+	return nil
+}
+
+// DeleteGoalsForManager removes the selected periods under one manager lock.
+// Missing periods are ignored so callers can unset a requested group safely.
+func (d *DB) DeleteGoalsForManager(ctx context.Context, request appmodel.GoalUnsetRequest) (int, error) {
+	if len(request.Periods) == 0 {
+		return 0, fmt.Errorf("at least one goal period is required")
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return 0, err
+	}
+	name := strings.TrimSpace(request.ActivityName)
+	if name == "" {
+		return 0, fmt.Errorf("activity name cannot be empty")
+	}
+	var activityID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(name), request.TeamID).Scan(&activityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, model.ErrNotFound
+		}
+		return 0, err
+	}
+	deleted := 0
+	seenPeriods := make(map[string]struct{}, len(request.Periods))
+	for _, period := range request.Periods {
+		if _, exists := seenPeriods[period]; exists {
+			return 0, fmt.Errorf("duplicate goal period %q", period)
+		}
+		seenPeriods[period] = struct{}{}
+		switch period {
+		case "daily", "weekly", "monthly":
+		default:
+			return 0, fmt.Errorf("period must be daily|weekly|monthly, got %q", period)
+		}
+		result, err := tx.ExecContext(ctx, `DELETE FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, period)
+		if err != nil {
+			return 0, err
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		deleted += int(count)
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return deleted, nil
 }
 
 // ListGoals returns every configured goal in the given team. If
