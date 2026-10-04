@@ -21,7 +21,7 @@ func (stub *tagListStub) ListTags(_ context.Context, query appmodel.TagListQuery
 	return nil, nil
 }
 
-func (stub *tagListStub) ListAllTagsWithCounts(_ context.Context, query appmodel.TagListQuery) ([]model.TagWithCount, error) {
+func (stub *tagListStub) ListAllTagsWithCounts(_ context.Context, query appmodel.TagListQuery) ([]appmodel.TagWithCount, error) {
 	stub.countQuery = query
 	return nil, nil
 }

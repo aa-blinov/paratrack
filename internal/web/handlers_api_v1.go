@@ -25,7 +25,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 		if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
 			limit = min(v, 500)
 		}
-		var after *model.SessionCursor
+		var after *appmodel.SessionCursor
 		if c := r.URL.Query().Get("cursor"); c != "" {
 			var ok bool
 			if after, ok = decodeSessionCursor(c); !ok {
@@ -182,11 +182,11 @@ func rangeFromQuery(r *http.Request) (time.Time, time.Time) {
 }
 
 // Cursors are opaque to clients: base64 of "start|id".
-func encodeSessionCursor(c model.SessionCursor) string {
+func encodeSessionCursor(c appmodel.SessionCursor) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(c.Start + "|" + strconv.FormatInt(c.ID, 10)))
 }
 
-func decodeSessionCursor(s string) (*model.SessionCursor, bool) {
+func decodeSessionCursor(s string) (*appmodel.SessionCursor, bool) {
 	b, err := base64.RawURLEncoding.DecodeString(s)
 	if err != nil {
 		return nil, false
@@ -199,5 +199,5 @@ func decodeSessionCursor(s string) (*model.SessionCursor, bool) {
 	if _, err := time.Parse(time.RFC3339Nano, start); err != nil || id <= 0 {
 		return nil, false
 	}
-	return &model.SessionCursor{Start: start, ID: id}, true
+	return &appmodel.SessionCursor{Start: start, ID: id}, true
 }

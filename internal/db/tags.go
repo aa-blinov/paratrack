@@ -379,7 +379,7 @@ func (d *DB) TagsForSessions(ctx context.Context, query appmodel.SessionTagsQuer
 
 // ListAllTagsWithCounts returns every tag with the number of sessions
 // (active + closed) that carry it. Used by the /tags page.
-type TagWithCount = model.TagWithCount
+type TagWithCount = appmodel.TagWithCount
 
 func (d *DB) ListAllTagsWithCounts(ctx context.Context, query appmodel.TagListQuery) ([]TagWithCount, error) {
 	if query.TeamID <= 0 {

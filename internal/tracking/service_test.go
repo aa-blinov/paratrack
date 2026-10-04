@@ -34,9 +34,9 @@ type timesheetQueryStub struct {
 	called bool
 }
 
-func (stub *timesheetQueryStub) ListTimesheet(_ context.Context, query appmodel.TimesheetRequest) (model.TimesheetWeek, error) {
+func (stub *timesheetQueryStub) ListTimesheet(_ context.Context, query appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error) {
 	stub.query, stub.called = query, true
-	return model.TimesheetWeek{}, nil
+	return appmodel.TimesheetWeek{}, nil
 }
 
 func (stub *sessionQueryStub) ListClosedSessions(_ context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
@@ -137,7 +137,7 @@ func TestSessionHistoryPageNormalizesLimitAndCursorInQuery(t *testing.T) {
 	query := appmodel.SessionHistoryPageQuery{
 		TeamID: 4, From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
 		To:    time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC),
-		After: &model.SessionCursor{Start: "2026-01-01T01:00:00+01:00", ID: 11}, Limit: 700,
+		After: &appmodel.SessionCursor{Start: "2026-01-01T01:00:00+01:00", ID: 11}, Limit: 700,
 	}
 	if _, err := service.SessionHistoryPage(context.Background(), query); err != nil {
 		t.Fatal(err)

@@ -210,7 +210,7 @@ func scanSessionWithActivity(r row) (model.Session, string, int64, error) {
 
 // SessionCursor is where a page of sessions stopped: the last row's start
 // and id (the list is newest first, ties broken by id).
-type SessionCursor = model.SessionCursor
+type SessionCursor = appmodel.SessionCursor
 
 // ListSessionsPage is one page of the sessions touching [from, to]:
 // closed ones overlapping it and running ones started inside it, newest
