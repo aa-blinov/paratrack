@@ -34,19 +34,20 @@ type importedEntry struct {
 // handleImport renders the migration page.
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
-	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: lang}}
+	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: lang, ReactApp: true}, ImportReact: true}
 	s.renderPageForRequest(w, r, "Import", "import", "import", &data)
 }
 
 type importPage struct {
 	pageData
-	Provider string
-	From, To string
-	Secret   string
-	Extra    string
-	TZ       string
-	Entries  []importedEntry
-	Error    string
+	ImportReact bool
+	Provider    string
+	From, To    string
+	Secret      string
+	Extra       string
+	TZ          string
+	Entries     []importedEntry
+	Error       string
 }
 
 func (p *importPage) setCSRF(t string) { p.pageData.setCSRF(t) }
@@ -60,7 +61,7 @@ func (s *Server) handleImportPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f := func(k string) string { return strings.TrimSpace(r.PostForm.Get(k)) }
-	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: string(resolveLang(r))}}
+	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: string(resolveLang(r)), ReactApp: true}, ImportReact: true}
 	entries, err := s.services.Imports.Preview(operationContext(r), appmodel.ProviderImportPreviewRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r),
 		Provider: importport.ProviderRequest{
