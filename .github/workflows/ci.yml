@@ -120,7 +120,9 @@ jobs:
         run: npm run build
 
       - name: go test
-        run: go test -race -count=1 -p 1 ./...
+        run: |
+          go_packages="$(scripts/go-packages.sh)"
+          go test -race -count=1 -p 1 $go_packages
 
       - name: Coverage
         run: go test -cover -p 1 ./internal/db ./internal/web ./internal/timeparse
