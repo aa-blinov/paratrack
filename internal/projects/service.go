@@ -174,11 +174,27 @@ func (s *Service) Activity(ctx context.Context, teamID, projectID int64, from, t
 	if err != nil {
 		return ActivitySummary{}, fmt.Errorf("load project sessions: %w", err)
 	}
+	recentSeconds, err := sumRecentProjectTime(recent, from, through)
+	if err != nil {
+		return ActivitySummary{}, err
+	}
 	total, err := s.usage.ProjectTrackedTotal(ctx, teamID, projectID)
 	if err != nil {
 		return ActivitySummary{}, fmt.Errorf("load project tracked total: %w", err)
 	}
-	return ActivitySummary{Recent: recent, TotalSeconds: total}, nil
+	return ActivitySummary{Recent: recent, RecentSeconds: recentSeconds, TotalSeconds: total}, nil
+}
+
+func sumRecentProjectTime(recent []model.ActiveSession, from, through time.Time) (int, error) {
+	total := 0
+	for _, item := range recent {
+		var err error
+		total, err = money.AddInt(total, item.Session.TrackedSecondsInWindow(from, through, through))
+		if err != nil {
+			return 0, fmt.Errorf("sum recent project time: %w", err)
+		}
+	}
+	return total, nil
 }
 
 func (s *Service) Currency(ctx context.Context, teamID, projectID int64) (string, error) {
