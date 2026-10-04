@@ -32,13 +32,13 @@ type IntegrationManager interface {
 // IntegrationCatalog provides credential-free workspace summaries.
 type IntegrationCatalog interface {
 	ListIntegrations(context.Context, int64) ([]model.IntegrationSummary, error)
-	GetIntegrationSummary(context.Context, int64, int64) (model.IntegrationSummary, error)
+	GetIntegrationSummary(context.Context, appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error)
 }
 
 // IntegrationTaskStore owns task queries and atomic snapshot synchronization.
 type IntegrationTaskStore interface {
-	ListExternalTasks(context.Context, int64, int64) ([]model.ExternalTask, error)
-	GetExternalTask(context.Context, int64, int64) (model.ExternalTask, error)
+	ListExternalTasks(context.Context, appmodel.IntegrationLookupQuery) ([]model.ExternalTask, error)
+	GetExternalTask(context.Context, appmodel.ExternalTaskLookupQuery) (model.ExternalTask, error)
 	ListExternalTasksForTeam(context.Context, int64) ([]model.ExternalTaskWithProvider, error)
 	SyncExternalTasks(context.Context, appmodel.IntegrationTaskSyncRequest) error
 }
@@ -183,11 +183,11 @@ func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.Integr
 }
 
 // Summary returns display data for one connection without exposing credentials.
-func (s *Service) Summary(ctx context.Context, teamID, integrationID int64) (model.IntegrationSummary, error) {
-	if teamID <= 0 || integrationID <= 0 {
+func (s *Service) Summary(ctx context.Context, query appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error) {
+	if query.TeamID <= 0 || query.IntegrationID <= 0 {
 		return model.IntegrationSummary{}, ErrInvalidIntegration
 	}
-	item, err := s.catalog.GetIntegrationSummary(ctx, teamID, integrationID)
+	item, err := s.catalog.GetIntegrationSummary(ctx, query)
 	if err != nil {
 		return model.IntegrationSummary{}, fmt.Errorf("get integration summary: %w", err)
 	}
@@ -219,11 +219,11 @@ func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action
 	}
 }
 
-func (s *Service) Tasks(ctx context.Context, teamID, integrationID int64) ([]model.ExternalTask, error) {
-	if teamID <= 0 || integrationID <= 0 {
+func (s *Service) Tasks(ctx context.Context, query appmodel.IntegrationLookupQuery) ([]model.ExternalTask, error) {
+	if query.TeamID <= 0 || query.IntegrationID <= 0 {
 		return nil, ErrInvalidIntegration
 	}
-	tasks, err := s.tasks.ListExternalTasks(ctx, teamID, integrationID)
+	tasks, err := s.tasks.ListExternalTasks(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list integration tasks: %w", err)
 	}
@@ -232,28 +232,28 @@ func (s *Service) Tasks(ctx context.Context, teamID, integrationID int64) ([]mod
 
 // Detail assembles a credential-free integration summary and its imported
 // tasks for the integration detail page.
-func (s *Service) Detail(ctx context.Context, teamID, integrationID int64) (appmodel.IntegrationDetailSnapshot, error) {
-	if teamID <= 0 || integrationID <= 0 {
+func (s *Service) Detail(ctx context.Context, query appmodel.IntegrationLookupQuery) (appmodel.IntegrationDetailSnapshot, error) {
+	if query.TeamID <= 0 || query.IntegrationID <= 0 {
 		return appmodel.IntegrationDetailSnapshot{}, ErrInvalidIntegration
 	}
-	integration, err := s.Summary(ctx, teamID, integrationID)
+	integration, err := s.Summary(ctx, query)
 	if err != nil {
 		return appmodel.IntegrationDetailSnapshot{}, err
 	}
-	tasks, err := s.Tasks(ctx, teamID, integrationID)
+	tasks, err := s.Tasks(ctx, query)
 	if err != nil {
 		return appmodel.IntegrationDetailSnapshot{}, err
 	}
 	return appmodel.IntegrationDetailSnapshot{Integration: integration, Tasks: tasks}, nil
 }
 
-func (s *Service) Task(ctx context.Context, teamID, taskID int64) (model.ExternalTask, error) {
-	if teamID <= 0 || taskID <= 0 {
+func (s *Service) Task(ctx context.Context, query appmodel.ExternalTaskLookupQuery) (model.ExternalTask, error) {
+	if query.TeamID <= 0 || query.TaskID <= 0 {
 		return model.ExternalTask{}, ErrInvalidIntegration
 	}
-	task, err := s.tasks.GetExternalTask(ctx, teamID, taskID)
+	task, err := s.tasks.GetExternalTask(ctx, query)
 	if err != nil {
-		return model.ExternalTask{}, fmt.Errorf("get integration task: %w", err)
+		return model.ExternalTask{}, fmt.Errorf("get integration task %d: %w", query.TaskID, err)
 	}
 	return task, nil
 }

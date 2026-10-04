@@ -140,7 +140,9 @@ the role again under the workspace lock before creating sessions, so a role
 change during the provider request cannot authorize a write.
 Integration settings use a typed `ProviderConfig` across application and
 provider ports; the database adapter alone maps that configuration to and from
-the persisted JSON column.
+the persisted JSON column. `IntegrationLookupQuery` and
+`ExternalTaskLookupQuery` carry workspace scope with integration and imported
+task reads across the integration and integration-tracking workflows.
 The architecture guard checks that auth, activity, import, invoice, payroll,
 preference, tag, timer, team invite and webhook state-changing database
 operations accept typed application commands rather than positional argument

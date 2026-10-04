@@ -28,6 +28,7 @@ type integrationStoreStub struct {
 type integrationManagementStore struct {
 	integrationStoreStub
 	listTeamID, taskTeamID, detailTeamID, detailIntegrationID int64
+	detailQuery                                               appmodel.IntegrationLookupQuery
 	listTasksCalls, detailTasksCalls                          int
 }
 
@@ -47,15 +48,17 @@ func (s *integrationManagementStore) ListExternalTasksForTeam(_ context.Context,
 	}, nil
 }
 
-func (s *integrationManagementStore) GetIntegrationSummary(_ context.Context, teamID, integrationID int64) (model.IntegrationSummary, error) {
-	s.detailTeamID, s.detailIntegrationID = teamID, integrationID
-	return model.IntegrationSummary{ID: integrationID, TeamID: teamID, Provider: "github", Name: "Code"}, nil
+func (s *integrationManagementStore) GetIntegrationSummary(_ context.Context, query appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error) {
+	s.detailQuery = query
+	s.detailTeamID, s.detailIntegrationID = query.TeamID, query.IntegrationID
+	return model.IntegrationSummary{ID: query.IntegrationID, TeamID: query.TeamID, Provider: "github", Name: "Code"}, nil
 }
 
-func (s *integrationManagementStore) ListExternalTasks(_ context.Context, teamID, integrationID int64) ([]model.ExternalTask, error) {
-	s.detailTeamID, s.detailIntegrationID = teamID, integrationID
+func (s *integrationManagementStore) ListExternalTasks(_ context.Context, query appmodel.IntegrationLookupQuery) ([]model.ExternalTask, error) {
+	s.detailQuery = query
+	s.detailTeamID, s.detailIntegrationID = query.TeamID, query.IntegrationID
 	s.detailTasksCalls++
-	return []model.ExternalTask{{ID: 8, IntegrationID: integrationID, Title: "Fix"}}, nil
+	return []model.ExternalTask{{ID: 8, IntegrationID: query.IntegrationID, Title: "Fix"}}, nil
 }
 
 func (s *integrationStoreStub) CreateIntegration(_ context.Context, request appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error) {
@@ -147,11 +150,12 @@ func TestDetailAssemblesScopedIntegrationAndTasks(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	snapshot, err := service.Detail(context.Background(), 14, 2)
+	snapshot, err := service.Detail(context.Background(), appmodel.IntegrationLookupQuery{TeamID: 14, IntegrationID: 2})
 	if err != nil {
 		t.Fatalf("load integration detail snapshot: %v", err)
 	}
-	if store.detailTeamID != 14 || store.detailIntegrationID != 2 || store.detailTasksCalls != 1 {
+	want := appmodel.IntegrationLookupQuery{TeamID: 14, IntegrationID: 2}
+	if store.detailTeamID != 14 || store.detailIntegrationID != 2 || store.detailQuery != want || store.detailTasksCalls != 1 {
 		t.Fatalf("detail reads team=%d integration=%d task calls=%d", store.detailTeamID, store.detailIntegrationID, store.detailTasksCalls)
 	}
 	if snapshot.Integration.ID != 2 || len(snapshot.Tasks) != 1 || snapshot.Tasks[0].ID != 8 {

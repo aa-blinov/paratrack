@@ -65,7 +65,7 @@ func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request)
 		http.NotFound(w, r)
 		return
 	}
-	snapshot, err := s.services.Integrations.Queries.Detail(r.Context(), teamID(r), id)
+	snapshot, err := s.services.Integrations.Queries.Detail(r.Context(), appmodel.IntegrationLookupQuery{TeamID: teamID(r), IntegrationID: id})
 	if err != nil {
 		http.NotFound(w, r)
 		return
