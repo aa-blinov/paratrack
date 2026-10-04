@@ -15,8 +15,8 @@ type credentialIdentityStub struct {
 	touchCalls []string
 }
 
-func (s *credentialIdentityStub) APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (model.APIToken, error) {
-	return model.APIToken{UserID: s.user.ID, TeamID: 9}, nil
+func (s *credentialIdentityStub) APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (appmodel.APITokenIdentity, error) {
+	return appmodel.APITokenIdentity{UserID: s.user.ID, TeamID: 9}, nil
 }
 
 func (s *credentialIdentityStub) Logout(context.Context, appmodel.LogoutRequest) error { return nil }

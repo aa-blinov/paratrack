@@ -313,7 +313,7 @@ type TrackingOperations interface {
 
 // IdentityWorkflow resolves authenticated users and maintains their sessions.
 type IdentityWorkflow interface {
-	APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (model.APIToken, error)
+	APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (appmodel.APITokenIdentity, error)
 	Logout(context.Context, appmodel.LogoutRequest) error
 	IdentityByID(context.Context, int64) (appmodel.UserIdentity, error)
 	AuthenticateSessionToken(context.Context, string) (appmodel.UserIdentity, error)
@@ -341,9 +341,9 @@ type ProfileWorkflow interface {
 
 // APITokenWorkflow manages a user's personal API tokens.
 type APITokenWorkflow interface {
-	CreateAPIToken(context.Context, appmodel.APITokenCreateRequest) (string, model.APIToken, error)
+	CreateAPIToken(context.Context, appmodel.APITokenCreateRequest) (string, appmodel.APITokenSummary, error)
 	DeleteAPIToken(context.Context, appmodel.APITokenDeleteRequest) error
-	ListAPITokens(context.Context, appmodel.APITokenListRequest) ([]model.APIToken, error)
+	ListAPITokens(context.Context, appmodel.APITokenListRequest) ([]appmodel.APITokenSummary, error)
 }
 
 // TeamDirectory is the workspace and membership query surface consumed by
