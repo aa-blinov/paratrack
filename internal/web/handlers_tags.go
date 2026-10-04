@@ -165,7 +165,7 @@ func (s *Server) writeTagCreateError(w http.ResponseWriter, err error) {
 // badge included) so HTMX outerHTML swaps keep the row intact.
 func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id int64) {
 	ctx := r.Context()
-	sess, act, err := s.services.Tagging.Queries.SessionActivity(ctx, teamID(r), id)
+	snapshot, err := s.services.SessionDecorations.BuildRow(ctx, teamID(r), id)
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			http.NotFound(w, r)
@@ -176,17 +176,9 @@ func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id in
 	}
 	now := userNow(r)
 	period := s.parsePeriodAt(r, now)
-	views := []sessionView{toSessionView(sess, act, period.Start, period.End, now, resolveLang(r), durFmtOf(r))}
-	decorations, err := s.services.SessionDecorations.Build(ctx, appmodel.SessionDecorationRequest{
-		TeamID: teamID(r), Sessions: []model.ActiveSession{{Session: sess, Activity: act}},
-		IncludeTags: true, IncludeProjects: true,
-	})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	attachSessionTags(views, decorations.TagsBySession)
-	attachSessionProjects(views, decorations.ProjectsByID)
+	views := []sessionView{toSessionView(snapshot.Session.Session, snapshot.Session.Activity, period.Start, period.End, now, resolveLang(r), durFmtOf(r))}
+	attachSessionTags(views, snapshot.Decorations.TagsBySession)
+	attachSessionProjects(views, snapshot.Decorations.ProjectsByID)
 	views[0].Lang = string(resolveLang(r))
 	fragment, err := s.executeTemplate("session-row", views[0])
 	if err != nil {

@@ -167,7 +167,6 @@ type TagDependencies struct {
 type TagQueries interface {
 	List(context.Context, int64) ([]model.Tag, error)
 	ListWithCounts(context.Context, int64) ([]model.TagWithCount, error)
-	SessionActivity(context.Context, int64, int64) (model.Session, model.Activity, error)
 }
 
 // TagCommands manages tags and their session assignments.
@@ -181,6 +180,7 @@ type TagCommands interface {
 // SessionDecorationBuilding batches optional tag and project metadata for session rows.
 type SessionDecorationBuilding interface {
 	Build(context.Context, appmodel.SessionDecorationRequest) (appmodel.SessionDecorationSnapshot, error)
+	BuildRow(context.Context, int64, int64) (appmodel.SessionDecorationRowSnapshot, error)
 }
 
 // ProjectQueries provides project and activity data to HTTP views.

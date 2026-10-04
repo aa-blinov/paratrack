@@ -20,11 +20,16 @@ type ProjectReader interface {
 	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
 }
 
+type SessionReader interface {
+	SessionActivity(context.Context, int64, int64) (model.Session, model.Activity, error)
+}
+
 type Logger interface {
 	Printf(string, ...any)
 }
 
 type Dependencies struct {
+	Sessions SessionReader
 	Tags     TagReader
 	Projects ProjectReader
 	Logger   Logger
@@ -34,6 +39,7 @@ var ErrIncompleteDependencies = errors.New("session decoration builder dependenc
 var ErrInvalidRequest = errors.New("invalid session decoration request")
 
 type Builder struct {
+	sessions SessionReader
 	tags     TagReader
 	projects ProjectReader
 	logger   Logger
@@ -44,13 +50,32 @@ func New(deps Dependencies) (*Builder, error) {
 		name string
 		port any
 	}{
-		{"tag reader", deps.Tags}, {"project reader", deps.Projects}, {"logger", deps.Logger},
+		{"session reader", deps.Sessions}, {"tag reader", deps.Tags},
+		{"project reader", deps.Projects}, {"logger", deps.Logger},
 	} {
 		if depcheck.IsNil(dependency.port) {
 			return nil, fmt.Errorf("%w: %s", ErrIncompleteDependencies, dependency.name)
 		}
 	}
-	return &Builder{tags: deps.Tags, projects: deps.Projects, logger: deps.Logger}, nil
+	return &Builder{sessions: deps.Sessions, tags: deps.Tags, projects: deps.Projects, logger: deps.Logger}, nil
+}
+
+func (b *Builder) BuildRow(ctx context.Context, teamID, sessionID int64) (appmodel.SessionDecorationRowSnapshot, error) {
+	if teamID <= 0 || sessionID <= 0 {
+		return appmodel.SessionDecorationRowSnapshot{}, ErrInvalidRequest
+	}
+	session, activity, err := b.sessions.SessionActivity(ctx, teamID, sessionID)
+	if err != nil {
+		return appmodel.SessionDecorationRowSnapshot{}, fmt.Errorf("load session row %d: %w", sessionID, err)
+	}
+	active := model.ActiveSession{Session: session, Activity: activity}
+	decorations, err := b.Build(ctx, appmodel.SessionDecorationRequest{
+		TeamID: teamID, Sessions: []model.ActiveSession{active}, IncludeTags: true, IncludeProjects: true,
+	})
+	if err != nil {
+		return appmodel.SessionDecorationRowSnapshot{}, err
+	}
+	return appmodel.SessionDecorationRowSnapshot{Session: active, Decorations: decorations}, nil
 }
 
 func (b *Builder) Build(ctx context.Context, request appmodel.SessionDecorationRequest) (appmodel.SessionDecorationSnapshot, error) {
