@@ -199,12 +199,13 @@ session_edit=$(sed -n '/^func (s \*Server) applySessionUpdateRequest(/,/^}/p' in
 if printf '%s\n' "$session_edit" | grep -q 'Tracking\.Queries\.Session' ||
 	! printf '%s\n' "$session_edit" | grep -q 'DurationSeconds' ||
 	! printf '%s\n' "$session_edit" | grep -q 'RecomputeDuration'; then
-	echo "architecture check: session-edit intent must be resolved by the tracking workflow" >&2
+	echo "architecture check: HTTP session edits must pass intent without loading stored session state" >&2
 	exit 1
 fi
 session_edit_transition=$(sed -n '/^func (d \*DB) UpdateSessionFields(/,/^}/p' internal/db/sessions.go)
-if ! printf '%s\n' "$session_edit_transition" | grep -q 'lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID)' ||
-	! printf '%s\n' "$session_edit_transition" | grep -q 'resolveLockedSessionUpdate(lockedSession, request)'; then
+lock_line=$(printf '%s\n' "$session_edit_transition" | grep -n -m1 'lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID)' | cut -d: -f1)
+resolve_line=$(printf '%s\n' "$session_edit_transition" | grep -n -m1 'resolveLockedSessionUpdate(lockedSession, request)' | cut -d: -f1)
+if [ -z "$lock_line" ] || [ -z "$resolve_line" ] || [ "$lock_line" -ge "$resolve_line" ]; then
 	echo "architecture check: session-edit interval resolution must use the locked persistence state" >&2
 	exit 1
 fi
