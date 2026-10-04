@@ -99,6 +99,18 @@ func decorationsForTest(t *testing.T, projects ProjectReader, tags TagReader, lo
 	return builder
 }
 
+func TestBuildRejectsUnknownGroupBeforeReading(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	builder := &Builder{}
+	_, err := builder.Build(context.Background(), BuildQuery{
+		TeamID: 1, From: from, To: from.Add(time.Hour), Now: from.Add(2 * time.Hour),
+		GroupBy: appmodel.ReportGroup("unknown"),
+	})
+	if !errors.Is(err, ErrInvalidReportQuery) {
+		t.Fatalf("build with unknown group error = %v, want %v", err, ErrInvalidReportQuery)
+	}
+}
+
 func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
 	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	end := from.Add(time.Hour)

@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -20,7 +21,7 @@ func TestAggregateSplitsBillableTotalsByCurrency(t *testing.T) {
 		},
 		ProjectCurrencies: map[int64]string{1: "USD", 2: "EUR"},
 		TeamCurrency:      "USD",
-		GroupBy:           "activity",
+		GroupBy:           appmodel.ReportGroupActivity,
 		Billable:          true,
 		From:              start.Add(-time.Hour),
 		To:                start.Add(2 * time.Hour),
@@ -55,7 +56,7 @@ func TestAggregateMarksMixedRatesInGroupedRows(t *testing.T) {
 		},
 		ProjectCurrencies: map[int64]string{1: "USD", 2: "USD"},
 		TeamCurrency:      "USD",
-		GroupBy:           "activity",
+		GroupBy:           appmodel.ReportGroupActivity,
 		Billable:          true,
 		From:              start.Add(-time.Hour),
 		To:                start.Add(2 * time.Hour),
@@ -81,7 +82,7 @@ func TestAggregateGroupsDaysInRequestedLocation(t *testing.T) {
 			{Session: model.Session{StartAt: first, EndAt: timePtr(first.Add(time.Hour)), AccumulatedSeconds: 3600}},
 			{Session: model.Session{StartAt: second, EndAt: timePtr(second.Add(time.Hour)), AccumulatedSeconds: 3600}},
 		},
-		GroupBy: "day", From: first.Add(-time.Hour), To: second.Add(2 * time.Hour),
+		GroupBy: appmodel.ReportGroupDay, From: first.Add(-time.Hour), To: second.Add(2 * time.Hour),
 		Now: second.Add(2 * time.Hour), Location: location, TeamCurrency: "USD",
 	})
 	if err != nil {
@@ -99,7 +100,7 @@ func TestAggregateGroupsAllActivitiesIntoDay(t *testing.T) {
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design"}},
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "review"}},
 		},
-		GroupBy: "day", From: start.Add(-time.Hour), To: start.Add(2 * time.Hour),
+		GroupBy: appmodel.ReportGroupDay, From: start.Add(-time.Hour), To: start.Add(2 * time.Hour),
 		Now: start.Add(2 * time.Hour), TeamCurrency: "USD",
 	})
 	if err != nil {
@@ -107,6 +108,13 @@ func TestAggregateGroupsAllActivitiesIntoDay(t *testing.T) {
 	}
 	if len(result.Rows) != 1 || result.Rows[0].Seconds != 7200 {
 		t.Fatalf("day rows = %+v, want one row totaling 7200 seconds", result.Rows)
+	}
+}
+
+func TestAggregateRejectsUnknownGroup(t *testing.T) {
+	_, err := Aggregate(AggregateInput{GroupBy: appmodel.ReportGroup("unknown")})
+	if err != ErrInvalidReportQuery {
+		t.Fatalf("aggregate with unknown group error = %v, want %v", err, ErrInvalidReportQuery)
 	}
 }
 
