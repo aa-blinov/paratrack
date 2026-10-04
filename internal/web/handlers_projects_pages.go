@@ -52,8 +52,9 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	dayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	monthFrom := now.Add(-30 * 24 * time.Hour)
-	snapshot, err := s.services.Projects.Queries.ListWithUsage(r.Context(), appmodel.ProjectListQuery{
-		TeamID: tid, IncludeArchived: showArchived, TodayStart: dayStart, MonthStart: monthFrom, Now: now,
+	snapshot, err := s.services.Projects.Queries.ListWithUsage(r.Context(), appmodel.ProjectUsageQuery{
+		Catalog:    appmodel.ProjectCatalogQuery{TeamID: tid, IncludeArchived: showArchived},
+		TodayStart: dayStart, MonthStart: monthFrom, Now: now,
 	})
 	if err != nil {
 		s.writeInternalError(w, err)
