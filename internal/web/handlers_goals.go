@@ -44,7 +44,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 
 // handleGoalsList returns all configured goals as JSON (no progress).
 func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
-	goals, err := s.services.Goals.List(r.Context(), teamID(r))
+	goals, err := s.services.Goals.List(r.Context(), appmodel.GoalListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

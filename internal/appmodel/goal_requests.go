@@ -47,3 +47,9 @@ type GoalProgressQuery struct {
 	TeamID int64
 	Now    time.Time
 }
+
+// GoalListQuery scopes configured goals to one workspace and optionally one activity.
+type GoalListQuery struct {
+	TeamID     int64
+	ActivityID *int64
+}

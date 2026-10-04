@@ -42,12 +42,14 @@ func (s *managementActivityReader) ListActivities(_ context.Context, teamID int6
 }
 
 type managementProgressReader struct {
-	progress []model.GoalProgress
-	teamID   int64
-	now      time.Time
+	progress  []model.GoalProgress
+	teamID    int64
+	now       time.Time
+	listQuery appmodel.GoalListQuery
 }
 
-func (s *managementProgressReader) ListGoals(context.Context, int64, *int64) ([]model.Goal, error) {
+func (s *managementProgressReader) ListGoals(_ context.Context, query appmodel.GoalListQuery) ([]model.Goal, error) {
+	s.listQuery = query
 	return nil, nil
 }
 
@@ -56,7 +58,7 @@ func (s *managementProgressReader) ProgressForGoals(_ context.Context, query app
 	return s.progress, nil
 }
 
-func (s progressReaderStub) ListGoals(context.Context, int64, *int64) ([]model.Goal, error) {
+func (s progressReaderStub) ListGoals(context.Context, appmodel.GoalListQuery) ([]model.Goal, error) {
 	return nil, nil
 }
 
@@ -68,6 +70,19 @@ func TestProgressRequiresWorkspace(t *testing.T) {
 	service := &Service{}
 	if _, err := service.Progress(context.Background(), appmodel.GoalProgressQuery{TeamID: 0, Now: time.Now()}); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("Progress with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+func TestGoalListForwardsWorkspaceAndOptionalActivityTogether(t *testing.T) {
+	activityID := int64(9)
+	query := appmodel.GoalListQuery{TeamID: 4, ActivityID: &activityID}
+	reader := &managementProgressReader{}
+	service := &Service{deps: Dependencies{Goals: reader}}
+	if _, err := service.List(context.Background(), query); err != nil {
+		t.Fatal(err)
+	}
+	if reader.listQuery.TeamID != query.TeamID || reader.listQuery.ActivityID != query.ActivityID {
+		t.Fatalf("goal list query = %+v, want %+v", reader.listQuery, query)
 	}
 }
 

@@ -36,7 +36,7 @@ for scoped_read in \
 	workspace_guard_checks="${workspace_guard_checks}${source}:${method}
 "
 	operation=$(sed -n "/^func (.*) $method(/,/^}/p" "$source")
-	if ! printf '%s\n' "$operation" | grep -Eq 'teamID <= 0' ||
+	if ! printf '%s\n' "$operation" | grep -Eq '(teamID|query.TeamID) <= 0' ||
 		printf '%s\n' "$operation" | grep -Eq 'if teamID > 0'; then
 		echo "architecture check: $source $method must require a positive workspace ID" >&2
 		exit 1
@@ -532,6 +532,17 @@ done
 
 # Progress summaries and timesheet invoice guards use batch reads. A query in
 # these entity loops would reintroduce per-goal or per-invoice N+1 behavior.
+goal_list_query=$(sed -n '/^func (d \*DB) ListGoals(/,/^}/p' internal/db/goals.go)
+goal_service_list=$(sed -n '/^func (s \*Service) List(/,/^}/p' internal/goals/service.go)
+goal_workflow_port=$(sed -n '/^type GoalWorkflow interface {/,/^}/p' internal/web/dependencies.go)
+if ! printf '%s\n' "$goal_list_query" | grep -Fq 'query appmodel.GoalListQuery' ||
+	! printf '%s\n' "$goal_list_query" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$goal_list_query" | grep -Fq 'query.ActivityID' ||
+	! printf '%s\n' "$goal_service_list" | grep -Fq 'ListGoals(ctx, query)' ||
+	! printf '%s\n' "$goal_workflow_port" | grep -Fq 'List(context.Context, appmodel.GoalListQuery)'; then
+	echo "architecture check: goal reads must carry workspace and optional activity scope through workflow and HTTP" >&2
+	exit 1
+fi
 goal_progress_operation=$(sed -n '/^func (d \*DB) ProgressForGoals(/,/^}/p' internal/db/goals.go)
 if printf '%s\n' "$goal_progress_operation" | grep -Eq 'activityMinutesInRange|QueryRowContext'; then
 	echo "architecture check: goal progress must batch activity and session reads" >&2

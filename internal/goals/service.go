@@ -21,7 +21,7 @@ type ActivityReader interface {
 
 // GoalReader provides configured goals and their progress.
 type GoalReader interface {
-	ListGoals(context.Context, int64, *int64) ([]model.Goal, error)
+	ListGoals(context.Context, appmodel.GoalListQuery) ([]model.Goal, error)
 	ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
 }
 
@@ -88,11 +88,11 @@ func (s *Service) Management(ctx context.Context, query appmodel.GoalProgressQue
 	return appmodel.GoalManagementSnapshot{Activities: activities, Progress: progress}, nil
 }
 
-func (s *Service) List(ctx context.Context, teamID int64) ([]model.Goal, error) {
-	if teamID <= 0 {
+func (s *Service) List(ctx context.Context, query appmodel.GoalListQuery) ([]model.Goal, error) {
+	if query.TeamID <= 0 || (query.ActivityID != nil && *query.ActivityID <= 0) {
 		return nil, ErrInvalidTeam
 	}
-	return s.deps.Goals.ListGoals(ctx, teamID, nil)
+	return s.deps.Goals.ListGoals(ctx, query)
 }
 
 func (s *Service) Progress(ctx context.Context, query appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
