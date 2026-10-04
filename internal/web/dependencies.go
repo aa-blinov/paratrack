@@ -124,7 +124,7 @@ type InvoiceMailQueue interface {
 type ReportBuilding interface {
 	Build(context.Context, appmodel.ReportBuildQuery) (appmodel.ReportAggregateResult, error)
 	BuildStats(context.Context, appmodel.ReportStatsQuery) (appmodel.ReportStatsResult, error)
-	BuildGraphSessions(context.Context, appmodel.ReportGraphQuery) (appmodel.ReportGraphResult, error)
+	BuildGraph(context.Context, appmodel.ReportGraphQuery) (appmodel.ReportGraphResult, error)
 }
 
 // GoalWorkflow is the manager and display surface for team goals.

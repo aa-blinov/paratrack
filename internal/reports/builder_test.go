@@ -44,19 +44,20 @@ func (graphProjectsStub) Currencies(context.Context, int64) (map[int64]string, e
 	return nil, nil
 }
 
-func TestBuildGraphSessionsAppliesProjectAndTagFilters(t *testing.T) {
+func TestBuildGraphAppliesProjectAndTagFiltersBeforeAggregation(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	end := from.Add(time.Hour)
 	reader := &graphSessionsStub{all: []model.ActiveSession{
-		{Session: model.Session{ID: 1}, Activity: model.Activity{ProjectID: 7}},
-		{Session: model.Session{ID: 2}, Activity: model.Activity{ProjectID: 7}},
+		{Session: model.Session{ID: 1, StartAt: from, EndAt: &end, AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "Design", ProjectID: 7}},
+		{Session: model.Session{ID: 2, StartAt: from, EndAt: &end, AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "Build", ProjectID: 7}},
 	}}
 	tags := &graphTagsStub{bySession: map[int64][]model.Tag{1: {{Name: "urgent"}}, 2: {{Name: "later"}}}}
 	builder := &Builder{sessions: reader, tags: tags, projects: graphProjectsStub{project: model.Project{ID: 7, Name: "Project", Slug: "project"}}}
-	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	got, err := builder.BuildGraphSessions(context.Background(), GraphQuery{
-		TeamID: 4, From: from, To: from.AddDate(0, 0, 1), ProjectSlug: "project", Tag: "urgent",
+	got, err := builder.BuildGraph(context.Background(), GraphQuery{
+		TeamID: 4, From: from, To: from.AddDate(0, 0, 1), Now: from.Add(12 * time.Hour), ProjectSlug: "project", Tag: "urgent",
 	})
 	if err != nil {
-		t.Fatalf("build graph sessions: %v", err)
+		t.Fatalf("build graph: %v", err)
 	}
 	if reader.projectID != 7 {
 		t.Fatalf("project query id = %d, want 7", reader.projectID)
@@ -64,22 +65,29 @@ func TestBuildGraphSessionsAppliesProjectAndTagFilters(t *testing.T) {
 	if tags.calls != 1 {
 		t.Fatalf("tag lookup calls = %d, want 1", tags.calls)
 	}
-	if got.Project.ID != 7 || len(got.Sessions) != 1 || got.Sessions[0].Session.ID != 1 {
-		t.Fatalf("filtered graph result = %#v, want project 7 and only session 1", got)
+	if got.Project.ID != 7 {
+		t.Fatalf("graph project = %#v, want project 7", got.Project)
+	}
+	if got.Graph.TotalSeconds != 3600 || len(got.Graph.Series) != 1 || got.Graph.Series[0].Name != "Design" {
+		t.Fatalf("filtered graph buckets = %#v, want one 3600-second Design series", got.Graph)
 	}
 }
 
-func TestBuildGraphSessionsSkipsTagReadWithoutTagFilter(t *testing.T) {
-	reader := &graphSessionsStub{all: []model.ActiveSession{{Session: model.Session{ID: 1}}}}
+func TestBuildGraphSkipsTagReadWithoutTagFilter(t *testing.T) {
+	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	end := from.Add(time.Hour)
+	reader := &graphSessionsStub{all: []model.ActiveSession{{
+		Session:  model.Session{ID: 1, StartAt: from, EndAt: &end, AccumulatedSeconds: 3600},
+		Activity: model.Activity{Name: "Focus"},
+	}}}
 	tags := &graphTagsStub{}
 	builder := &Builder{sessions: reader, tags: tags}
-	from := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	got, err := builder.BuildGraphSessions(context.Background(), GraphQuery{TeamID: 4, From: from, To: from.Add(time.Hour)})
+	got, err := builder.BuildGraph(context.Background(), GraphQuery{TeamID: 4, From: from, To: end, Now: end})
 	if err != nil {
-		t.Fatalf("build graph sessions: %v", err)
+		t.Fatalf("build graph: %v", err)
 	}
-	if len(got.Sessions) != 1 || tags.calls != 0 {
-		t.Fatalf("sessions=%d tag reads=%d; want 1 session and no tag read", len(got.Sessions), tags.calls)
+	if len(got.Graph.Series) != 1 || tags.calls != 0 {
+		t.Fatalf("series=%d tag reads=%d; want one series and no tag read", len(got.Graph.Series), tags.calls)
 	}
 }
 
