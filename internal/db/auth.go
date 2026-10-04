@@ -170,6 +170,9 @@ func (d *DB) DeleteAuthSession(ctx context.Context, request appmodel.AuthSession
 }
 
 func (d *DB) DeleteAuthSessionsByUser(ctx context.Context, request appmodel.AuthSessionsDeleteByUserRequest) error {
+	if request.UserID <= 0 || request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return model.ErrForbidden
+	}
 	_, err := d.sql.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = ?`, request.UserID)
 	return err
 }
