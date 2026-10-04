@@ -316,7 +316,10 @@ func scanInvoiceDetails(rows *sql.Rows) ([]model.InvoiceDetails, error) {
 }
 
 // GetInvoiceDetails returns an invoice and its frozen lines, scoped to a team.
-func (d *DB) GetInvoiceDetails(ctx context.Context, teamID, invoiceID int64) (model.InvoiceDetails, error) {
+func (d *DB) GetInvoiceDetails(ctx context.Context, query appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return model.InvoiceDetails{}, ErrNotFound
+	}
 	rows, err := d.sql.QueryContext(ctx, `
 		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes,
 			i.payment_url, COALESCE(NULLIF(i.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = i.team_id), 'RUB'),
@@ -324,7 +327,7 @@ func (d *DB) GetInvoiceDetails(ctx context.Context, teamID, invoiceID int64) (mo
 			i.receipt, i.by_person, i.created_at, i.revision,
 			l.id, l.invoice_id, l.label, l.detail, l.seconds, l.rate_cents, l.amount_cents
 		FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id = i.id
-		WHERE i.team_id = ? AND i.id = ? ORDER BY l.id`, teamID, invoiceID)
+		WHERE i.team_id = ? AND i.id = ? ORDER BY l.id`, query.TeamID, query.InvoiceID)
 	if err != nil {
 		return model.InvoiceDetails{}, err
 	}

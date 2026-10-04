@@ -35,7 +35,7 @@ func (s *Service) CreateStripePaymentLink(ctx context.Context, request appmodel.
 	if !member || !role.CanManage() {
 		return StripePaymentLink{}, model.ErrForbidden
 	}
-	details, err := s.reader.GetInvoiceDetails(ctx, teamID, invoiceID)
+	details, err := s.reader.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoiceID})
 	if err != nil {
 		return StripePaymentLink{}, fmt.Errorf("load invoice for Stripe checkout: %w", err)
 	}

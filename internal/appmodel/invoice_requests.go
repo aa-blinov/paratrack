@@ -1,5 +1,11 @@
 package appmodel
 
+// InvoiceLookupQuery resolves one invoice within its workspace.
+type InvoiceLookupQuery struct {
+	TeamID    int64
+	InvoiceID int64
+}
+
 // InvoiceIndexRequest scopes the combined invoice list and draft-form reads.
 type InvoiceIndexRequest struct {
 	TeamID int64

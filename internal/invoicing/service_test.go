@@ -19,6 +19,7 @@ type draftReaderStub struct {
 	details       model.InvoiceDetails
 	listDetails   []model.InvoiceDetails
 	getCalls      int
+	lookup        appmodel.InvoiceLookupQuery
 	overlapLabels []string
 	overlapErr    error
 	unbilled      []model.UnbilledProject
@@ -37,8 +38,9 @@ func (s *draftReaderStub) UnassignedActivities(context.Context, int64) ([]model.
 	return s.unassigned, nil
 }
 
-func (s *draftReaderStub) GetInvoiceDetails(context.Context, int64, int64) (model.InvoiceDetails, error) {
+func (s *draftReaderStub) GetInvoiceDetails(_ context.Context, query appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error) {
 	s.getCalls++
+	s.lookup = query
 	return s.details, nil
 }
 
@@ -304,6 +306,9 @@ func TestGetCalculatesInvoiceTotals(t *testing.T) {
 	}
 	if got.TotalCents != 5000 || got.TotalHoursHundredths != 200 {
 		t.Fatalf("Get() totals = %d cents, %d hundredths; want 5000 and 200", got.TotalCents, got.TotalHoursHundredths)
+	}
+	if want := (appmodel.InvoiceLookupQuery{TeamID: 4, InvoiceID: 12}); reader.lookup != want {
+		t.Fatalf("GetInvoiceDetails query = %+v, want %+v", reader.lookup, want)
 	}
 }
 
