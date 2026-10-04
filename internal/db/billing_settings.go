@@ -194,9 +194,9 @@ func (d *DB) ListProjectClients(ctx context.Context, teamID int64) (map[int64]mo
 }
 
 // ProjectCurrency returns the project currency, or an empty value when it inherits.
-func (d *DB) ProjectCurrency(ctx context.Context, teamID, projectID int64) (string, error) {
+func (d *DB) ProjectCurrency(ctx context.Context, query appmodel.ProjectScopeQuery) (string, error) {
 	var cur string
-	err := d.sql.QueryRowContext(ctx, `SELECT currency FROM projects WHERE id = ? AND team_id = ?`, projectID, teamID).Scan(&cur)
+	err := d.sql.QueryRowContext(ctx, `SELECT currency FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID).Scan(&cur)
 	return cur, err
 }
 

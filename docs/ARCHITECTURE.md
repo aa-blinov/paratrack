@@ -114,12 +114,14 @@ conflicts and invariants. `ProjectCatalogQuery` and `ProjectSlugQuery` carry
 workspace scope across project reads in CLI, HTTP, dashboard, reports,
 scheduling, invoicing, workflows and persistence; catalog queries also carry
 archived-row selection. `ProjectSummariesQuery` keeps a batch of project IDs
-scoped to its workspace across report and session decoration workflows. Goal
-progress reads carry a typed query with the workspace and snapshot instant
-across CLI, HTTP, dashboard, workflow and persistence ports. Manager goal
-writes preserve caller and workspace scope
-through the workflow; persistence applies one or more targets in a single
-transaction and rechecks the manager role while holding the workspace lock.
+scoped to its workspace across report and session decoration workflows.
+`ProjectScopeQuery` and `ProjectActivityQuery` keep project identity, workspace
+and time range together across preference, detail workflow and persistence
+ports. Goal progress reads carry a typed query with the workspace and snapshot
+instant across CLI, HTTP, dashboard, workflow and persistence ports. Manager
+goal writes preserve caller and workspace scope through the workflow;
+persistence applies multiple targets in one transaction and rechecks the
+manager role while holding the workspace lock.
 Provider-produced import entries and task snapshots live in `importport` and
 `integrationport`; persistence and workflows consume those boundary types without
 classifying external payloads as domain entities.

@@ -35,21 +35,26 @@ func (stub *detailCatalogStub) ListActivitiesForProject(_ context.Context, teamI
 
 type detailUsageStub struct {
 	ProjectUsageStore
+	query  appmodel.ProjectActivityQuery
+	scope  appmodel.ProjectScopeQuery
 	recent []model.ActiveSession
 	total  int
 }
 
-func (stub detailUsageStub) ProjectSessions(context.Context, int64, int64, time.Time, time.Time) ([]model.ActiveSession, error) {
+func (stub *detailUsageStub) ProjectSessions(_ context.Context, query appmodel.ProjectActivityQuery) ([]model.ActiveSession, error) {
+	stub.query = query
 	return stub.recent, nil
 }
 
-func (stub detailUsageStub) ProjectTrackedTotal(context.Context, int64, int64) (int, error) {
+func (stub *detailUsageStub) ProjectTrackedTotal(_ context.Context, query appmodel.ProjectScopeQuery) (int, error) {
+	stub.scope = query
 	return stub.total, nil
 }
 
 type detailBillingStub struct {
 	ProjectBillingStore
 	currency string
+	query    appmodel.ProjectScopeQuery
 }
 
 type projectListCatalogStub struct {
@@ -104,7 +109,8 @@ func (stub projectListUsageStub) ProjectSpans(context.Context, int64, time.Time,
 	return stub.spans, nil
 }
 
-func (stub detailBillingStub) ProjectCurrency(context.Context, int64, int64) (string, error) {
+func (stub *detailBillingStub) ProjectCurrency(_ context.Context, query appmodel.ProjectScopeQuery) (string, error) {
+	stub.query = query
 	return stub.currency, nil
 }
 
@@ -251,13 +257,13 @@ func TestDetailLoadsScopedProjectPageData(t *testing.T) {
 	started := from.Add(time.Hour)
 	ended := started.Add(30 * time.Minute)
 	catalog := &detailCatalogStub{project: project, activities: []model.Activity{activity}}
+	usage := &detailUsageStub{
+		recent: []model.ActiveSession{{Session: model.Session{StartAt: started, EndAt: &ended, AccumulatedSeconds: 1800}, Activity: activity}},
+		total:  7200,
+	}
+	billing := &detailBillingStub{currency: "USD"}
 	service := &Service{
-		catalog: catalog,
-		usage: detailUsageStub{
-			recent: []model.ActiveSession{{Session: model.Session{StartAt: started, EndAt: &ended, AccumulatedSeconds: 1800}, Activity: activity}},
-			total:  7200,
-		},
-		billing: detailBillingStub{currency: "USD"},
+		catalog: catalog, usage: usage, billing: billing,
 	}
 
 	got, err := service.Detail(context.Background(), appmodel.ProjectDetailRequest{
@@ -274,5 +280,10 @@ func TestDetailLoadsScopedProjectPageData(t *testing.T) {
 	}
 	if got.Activity.RecentSeconds != 1800 || got.Activity.TotalSeconds != 7200 || got.Currency != "USD" || got.EstimatePercent != 100 {
 		t.Fatalf("Detail() summary = %#v, currency %q", got.Activity, got.Currency)
+	}
+	wantQuery := appmodel.ProjectActivityQuery{TeamID: 3, ProjectID: 7, From: from, Through: through}
+	wantScope := appmodel.ProjectScopeQuery{TeamID: 3, ProjectID: 7}
+	if usage.query != wantQuery || usage.scope != wantScope || billing.query != wantScope {
+		t.Fatalf("detail read scopes = activity %+v, total %+v, currency %+v", usage.query, usage.scope, billing.query)
 	}
 }
