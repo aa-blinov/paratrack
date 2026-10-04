@@ -52,7 +52,7 @@ func runLog(rt *Runtime, args []string) error {
 
 	var actID *int64
 	if *activityFlag != "" {
-		a, err := services.SessionHistory.FindActivity(ctx, teamID, *activityFlag)
+		a, err := services.ActivityCatalog.FindActivity(ctx, teamID, *activityFlag)
 		if err != nil {
 			return fmt.Errorf("activity %q: %w", *activityFlag, err)
 		}

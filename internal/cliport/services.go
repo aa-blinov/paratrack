@@ -47,7 +47,6 @@ type TimerOperations interface {
 
 // SessionHistory is the read-only tracking capability used by CLI reports.
 type SessionHistory interface {
-	FindActivity(context.Context, int64, string) (model.Activity, error)
 	ClosedSessions(context.Context, int64, time.Time, time.Time, *int64) ([]model.ActiveSession, error)
 }
 
@@ -55,6 +54,7 @@ type SessionHistory interface {
 // needed by interactive timer commands.
 type ActivityCatalog interface {
 	Activities(context.Context, int64, bool) ([]model.Activity, error)
+	FindActivity(context.Context, int64, string) (model.Activity, error)
 	ResolveActivityForMember(context.Context, appmodel.ActivityResolveRequest) (model.Activity, error)
 }
 
