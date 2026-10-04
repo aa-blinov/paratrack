@@ -33,9 +33,9 @@ type projectLookupStub struct {
 	calls     int
 }
 
-func (s *projectLookupStub) GetInTeam(_ context.Context, teamID, projectID int64) (model.Project, error) {
+func (s *projectLookupStub) GetInTeam(_ context.Context, query appmodel.ProjectScopeQuery) (model.Project, error) {
 	s.calls++
-	s.teamID, s.projectID = teamID, projectID
+	s.teamID, s.projectID = query.TeamID, query.ProjectID
 	return s.project, s.err
 }
 

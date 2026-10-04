@@ -74,6 +74,20 @@ type ProjectSlugQuery struct {
 	Slug   string
 }
 
+// ProjectScopeQuery identifies a project within its workspace.
+type ProjectScopeQuery struct {
+	TeamID    int64
+	ProjectID int64
+}
+
+// ProjectActivityQuery scopes recent project activity to a time window.
+type ProjectActivityQuery struct {
+	TeamID    int64
+	ProjectID int64
+	From      time.Time
+	Through   time.Time
+}
+
 // ProjectUsageQuery combines the catalog selection with the usage window.
 type ProjectUsageQuery struct {
 	Catalog    ProjectCatalogQuery

@@ -36,14 +36,14 @@ func TestProjectUsageQueriesIgnoreCrossWorkspaceRelationships(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sessions, err := d.ProjectSessions(ctx, teamB, project.ID, start.Add(-time.Hour), start.Add(2*time.Hour))
+	sessions, err := d.ProjectSessions(ctx, appmodel.ProjectActivityQuery{TeamID: teamB, ProjectID: project.ID, From: start.Add(-time.Hour), Through: start.Add(2 * time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(sessions) != 0 {
 		t.Fatalf("ProjectSessions returned %d cross-workspace sessions", len(sessions))
 	}
-	total, err := d.ProjectTrackedTotal(ctx, teamB, project.ID)
+	total, err := d.ProjectTrackedTotal(ctx, appmodel.ProjectScopeQuery{TeamID: teamB, ProjectID: project.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
