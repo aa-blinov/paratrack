@@ -209,3 +209,39 @@ func (s *Service) RecentDeliveries(ctx context.Context, teamID int64, perWebhook
 	}
 	return deliveries, nil
 }
+
+// Management assembles the credential-free endpoints and their recent
+// delivery history for the settings page.
+func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.WebhookManagementSnapshot, error) {
+	if teamID <= 0 {
+		return appmodel.WebhookManagementSnapshot{}, ErrInvalidWebhook
+	}
+	endpoints, err := s.List(ctx, teamID)
+	if err != nil {
+		return appmodel.WebhookManagementSnapshot{}, err
+	}
+	deliveries, err := s.RecentDeliveries(ctx, teamID, 5)
+	if err != nil {
+		return appmodel.WebhookManagementSnapshot{}, err
+	}
+	snapshot := appmodel.WebhookManagementSnapshot{
+		Endpoints:  make([]appmodel.WebhookEndpointView, 0, len(endpoints)),
+		Deliveries: make(map[int64][]appmodel.WebhookDeliveryView, len(deliveries)),
+	}
+	for _, endpoint := range endpoints {
+		snapshot.Endpoints = append(snapshot.Endpoints, appmodel.WebhookEndpointView{
+			ID: endpoint.ID, URL: endpoint.URL, Events: endpoint.Events, Active: endpoint.Active,
+		})
+	}
+	for endpointID, attempts := range deliveries {
+		views := make([]appmodel.WebhookDeliveryView, 0, len(attempts))
+		for _, attempt := range attempts {
+			views = append(views, appmodel.WebhookDeliveryView{
+				CreatedAt: attempt.CreatedAt, Event: attempt.Event,
+				Status: attempt.Status, Error: attempt.Error,
+			})
+		}
+		snapshot.Deliveries[endpointID] = views
+	}
+	return snapshot, nil
+}

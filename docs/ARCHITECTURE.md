@@ -217,7 +217,9 @@ Credential-bearing push subscriptions and durable mail/webhook delivery jobs
 live in `pushport`, `mailport`, and `webhookport`, rather than the shared domain
 model; those ports also own lease completion and retry request types. Application
 models do not depend on queue payload contracts. Management routes receive only
-credential-free webhook summaries.
+credential-free webhook summaries. The webhook workflow assembles endpoint
+summaries and bounded recent delivery history into one settings-page snapshot;
+the HTTP adapter handles only localized date and status presentation.
 Provider APIs and web imports share `internal/httpretry` for rate-limit
 handling. It returns the transport-neutral `internal/providerstatus` error,
 which carries only the upstream name and status code, so remote error payloads

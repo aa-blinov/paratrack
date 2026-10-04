@@ -14,12 +14,7 @@ import (
 // Webhook management pages and mutations.
 // handleWebhooksPage renders /settings/webhooks.
 func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
-	list, err := s.services.Webhooks.List(r.Context(), teamID(r))
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	recentDeliveries, err := s.services.Webhooks.RecentDeliveries(r.Context(), teamID(r), 5)
+	snapshot, err := s.services.Webhooks.Management(r.Context(), teamID(r))
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -29,9 +24,9 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	location := userLoc(r)
 	now := userNow(r)
 	data := webhooksPage{pageData: pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang}}
-	for _, h := range list {
+	for _, h := range snapshot.Endpoints {
 		row := webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active}
-		for _, d := range recentDeliveries[h.ID] {
+		for _, d := range snapshot.Deliveries[h.ID] {
 			row.Deliveries = append(row.Deliveries, deliveryRow{
 				When: fmtWhen(resolvedLang, d.CreatedAt.In(location), now), Event: d.Event,
 				Status: d.Status, OK: d.Status >= 200 && d.Status < 300, Error: d.Error,
