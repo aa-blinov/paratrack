@@ -25,6 +25,17 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 		s.writeInternalError(w, err)
 		return
 	}
+	teamIDs := make([]int64, 0, len(list))
+	for _, token := range list {
+		if token.TeamID > 0 {
+			teamIDs = append(teamIDs, token.TeamID)
+		}
+	}
+	teamsByID, err := s.services.Teams.Directory.FindByIDs(r.Context(), teamIDs)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	lang := string(resolveLang(r))
 	data := tokensPage{
 		pageData: pageData{Title: "API tokens", Active: "settings-tokens", Lang: lang},
@@ -39,7 +50,7 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 			row.Expired = !t.ExpiresAt.After(userNow(r))
 		}
 		if t.TeamID > 0 {
-			if tm, err := s.services.Teams.Directory.FindByID(r.Context(), t.TeamID); err == nil {
+			if tm, ok := teamsByID[t.TeamID]; ok {
 				row.Team = tm.Name
 			}
 		}

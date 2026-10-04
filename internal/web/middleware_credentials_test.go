@@ -39,6 +39,10 @@ func (s credentialTeamDirectoryStub) FindByID(context.Context, int64) (model.Tea
 	return s.membership.Team, nil
 }
 
+func (s credentialTeamDirectoryStub) FindByIDs(context.Context, []int64) (map[int64]model.Team, error) {
+	return map[int64]model.Team{s.membership.Team.ID: s.membership.Team}, nil
+}
+
 func (s credentialTeamDirectoryStub) IsMember(context.Context, int64, int64) (model.TeamRole, bool, error) {
 	return s.membership.Role, true, nil
 }
