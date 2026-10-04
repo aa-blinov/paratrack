@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"io"
 	"testing"
 	"time"
@@ -81,7 +82,7 @@ type blockingTimerQueries struct {
 	release chan struct{}
 }
 
-func (s *blockingTimerQueries) ActiveSessions(context.Context, int64) ([]model.ActiveSession, error) {
+func (s *blockingTimerQueries) ActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error) {
 	close(s.started)
 	<-s.release
 	return nil, nil

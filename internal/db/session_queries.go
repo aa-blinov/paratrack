@@ -52,7 +52,7 @@ func (d *DB) HasAnySession(ctx context.Context, teamID int64) (bool, error) {
 
 // ListActiveSessions returns all sessions with end_at IS NULL, newest
 // first, scoped to teamID (0 means "all teams" / legacy).
-func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.ActiveSession, error) {
+func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]appmodel.ActiveSession, error) {
 	q := sessionSelect + ` WHERE s.end_at IS NULL`
 	args := []any{}
 	var sc string
@@ -72,7 +72,7 @@ func (d *DB) ListActiveSessions(ctx context.Context, teamID int64) ([]model.Acti
 }
 
 // ListClosedSessions reads closed sessions with optional activity or project filters.
-func (d *DB) ListClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+func (d *DB) ListClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error) {
 	if query.TeamID <= 0 || query.Start.IsZero() || query.End.Before(query.Start) ||
 		(query.ActivityID != nil && *query.ActivityID <= 0) || (query.ProjectID != nil && *query.ProjectID <= 0) {
 		return nil, ErrNotFound
@@ -110,14 +110,14 @@ SELECT s.id, s.activity_id, s.team_id, s.user_id, s.start_at, s.end_at, s.note,
 FROM sessions s
 JOIN activities a ON a.id = s.activity_id AND a.team_id IS NOT DISTINCT FROM s.team_id`
 
-func scanActiveSessions(rows *sql.Rows) ([]model.ActiveSession, error) {
-	var out []model.ActiveSession
+func scanActiveSessions(rows *sql.Rows) ([]appmodel.ActiveSession, error) {
+	var out []appmodel.ActiveSession
 	for rows.Next() {
 		s, name, projectID, err := scanSessionWithActivity(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, model.ActiveSession{
+		out = append(out, appmodel.ActiveSession{
 			Session:  s,
 			Activity: model.Activity{ID: s.ActivityID, Name: name, ProjectID: projectID},
 		})
@@ -216,7 +216,7 @@ type SessionCursor = appmodel.SessionCursor
 // closed ones overlapping it and running ones started inside it, newest
 // first, at most limit rows after the cursor. more says whether another
 // page follows.
-func (d *DB) ListSessionsPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (list []model.ActiveSession, more bool, err error) {
+func (d *DB) ListSessionsPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (list []appmodel.ActiveSession, more bool, err error) {
 	if query.TeamID <= 0 || query.From.IsZero() || query.To.IsZero() || query.To.Before(query.From) || query.Limit <= 0 ||
 		(query.After != nil && (query.After.Start == "" || query.After.ID <= 0)) {
 		return nil, false, ErrNotFound

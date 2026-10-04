@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"strings"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func TestPrintActiveUsesRuntimeTimezone(t *testing.T) {
 		Now: func() time.Time { return time.Date(2026, 10, 3, 12, 1, 0, 0, location) },
 		Out: &output,
 	}
-	printActive(runtime, []model.ActiveSession{{
+	printActive(runtime, []appmodel.ActiveSession{{
 		Session:  model.Session{StartAt: started, LastResumeAt: &started},
 		Activity: model.Activity{Name: "work"},
 	}})

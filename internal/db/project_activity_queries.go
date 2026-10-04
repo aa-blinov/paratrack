@@ -109,7 +109,7 @@ func (d *DB) ProjectActivityCounts(ctx context.Context, teamID int64) (map[int64
 
 // ProjectSessions is the project's closed sessions touching [from, to],
 // newest first (scoped to the person for a member).
-func (d *DB) ProjectSessions(ctx context.Context, query appmodel.ProjectActivityQuery) ([]model.ActiveSession, error) {
+func (d *DB) ProjectSessions(ctx context.Context, query appmodel.ProjectActivityQuery) ([]appmodel.ActiveSession, error) {
 	if query.TeamID <= 0 || query.ProjectID <= 0 || query.From.IsZero() || query.Through.Before(query.From) {
 		return nil, ErrNotFound
 	}

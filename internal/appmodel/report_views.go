@@ -36,7 +36,7 @@ type ReportStatsQuery struct {
 }
 
 type ReportStatsResult struct {
-	Sessions      []model.ActiveSession
+	Sessions      []ActiveSession
 	TagsBySession map[int64][]model.Tag
 	ProjectsByID  map[int64]ProjectSummary
 	People        []ReportPersonOption

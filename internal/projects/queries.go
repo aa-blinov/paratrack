@@ -125,7 +125,7 @@ func (s *Service) Activity(ctx context.Context, query appmodel.ProjectActivityQu
 	return ActivitySummary{Recent: recent, RecentSeconds: recentSeconds, TotalSeconds: total}, nil
 }
 
-func sumRecentProjectTime(recent []model.ActiveSession, from, through time.Time) (int, error) {
+func sumRecentProjectTime(recent []appmodel.ActiveSession, from, through time.Time) (int, error) {
 	total := 0
 	for _, item := range recent {
 		var err error

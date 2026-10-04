@@ -11,7 +11,7 @@ import (
 func TestAggregateSplitsBillableTotalsByCurrency(t *testing.T) {
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
 	input := AggregateInput{
-		Sessions: []model.ActiveSession{
+		Sessions: []appmodel.ActiveSession{
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design", ProjectID: 1}},
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design", ProjectID: 2}},
 		},
@@ -46,7 +46,7 @@ func TestAggregateSplitsBillableTotalsByCurrency(t *testing.T) {
 func TestAggregateMarksMixedRatesInGroupedRows(t *testing.T) {
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
 	result, err := Aggregate(AggregateInput{
-		Sessions: []model.ActiveSession{
+		Sessions: []appmodel.ActiveSession{
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design", ProjectID: 1}},
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design", ProjectID: 2}},
 		},
@@ -78,7 +78,7 @@ func TestAggregateGroupsDaysInRequestedLocation(t *testing.T) {
 	first := time.Date(2026, 9, 2, 0, 30, 0, 0, time.UTC)
 	second := time.Date(2026, 9, 2, 6, 30, 0, 0, time.UTC)
 	result, err := Aggregate(AggregateInput{
-		Sessions: []model.ActiveSession{
+		Sessions: []appmodel.ActiveSession{
 			{Session: model.Session{StartAt: first, EndAt: timePtr(first.Add(time.Hour)), AccumulatedSeconds: 3600}},
 			{Session: model.Session{StartAt: second, EndAt: timePtr(second.Add(time.Hour)), AccumulatedSeconds: 3600}},
 		},
@@ -96,7 +96,7 @@ func TestAggregateGroupsDaysInRequestedLocation(t *testing.T) {
 func TestAggregateGroupsAllActivitiesIntoDay(t *testing.T) {
 	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
 	result, err := Aggregate(AggregateInput{
-		Sessions: []model.ActiveSession{
+		Sessions: []appmodel.ActiveSession{
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design"}},
 			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "review"}},
 		},

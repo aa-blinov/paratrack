@@ -54,7 +54,7 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 	// 90 minutes of work must render as "1h 30m", not fmtDuration(90)="1m".
 	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	end := start.Add(90 * time.Minute)
-	sessions := []model.ActiveSession{{
+	sessions := []appmodel.ActiveSession{{
 		Session:  model.Session{StartAt: start, EndAt: &end},
 		Activity: model.Activity{Name: "work"},
 	}}
@@ -74,7 +74,7 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	end := start
-	sessions := []model.ActiveSession{{
+	sessions := []appmodel.ActiveSession{{
 		Session:  model.Session{StartAt: start, EndAt: &end, AccumulatedSeconds: 600},
 		Activity: model.Activity{Name: "imported"},
 	}}
@@ -93,7 +93,7 @@ func TestChartUsesTrackedTimeAndLocalHourBuckets(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 30, 0, 0, loc)
 	end := start.Add(2 * time.Hour)
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart, err := buildChartData([]model.ActiveSession{{
+	chart, err := buildChartData([]appmodel.ActiveSession{{
 		Session:  model.Session{StartAt: start.UTC(), EndAt: &end, AccumulatedSeconds: 3600},
 		Activity: model.Activity{Name: "paused-work"},
 	}}, period, end, i18n.En)
