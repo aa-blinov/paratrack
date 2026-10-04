@@ -763,11 +763,12 @@ unconfirmed requests create overlapping runs; confirmed overlap remains an
 explicit user decision.
 
 `internal/scheduling` assembles the weekly plan with its selectable project
-catalog, and owns weekly row load and team total calculations plus schedule-cell
-writes. It consumes projects through a narrow catalog port, so page and row
-fragments do not coordinate separate schedule and project reads. `appmodel.ScheduleCellRequest` carries the manager,
-target member, project, date and minutes by name through the HTTP, workflow
-and persistence boundaries. The HTTP adapter formats the workflow's load
+catalog, owns weekly row load and team total calculations, and resolves the
+first active project for schedule-cell writes that omit a project. It consumes
+projects through a narrow catalog port, so page and row fragments do not
+coordinate separate schedule and project reads. `appmodel.ScheduleCellRequest`
+carries the manager, target member, project, date and minutes by name through
+the HTTP, workflow and persistence boundaries. The HTTP adapter formats the workflow's load
 percentage into the grid. The DB adapter serializes cell writes with member
 removal, verifies current
 membership and project ownership under locks, and reports read/scan failures

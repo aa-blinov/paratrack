@@ -10,6 +10,7 @@ import (
 // Application errors are stable workflow outcomes interpreted by adapters.
 var (
 	ErrInvalidScheduleCell       = errors.New("invalid schedule cell")
+	ErrNoScheduleProjects        = errors.New("schedule requires a project")
 	ErrInvalidDefaultProject     = errors.New("default project must belong to the current workspace")
 	ErrInvalidPreferences        = errors.New("preferences exceed the allowed size")
 	ErrInvalidSavedReport        = errors.New("invalid saved report")
