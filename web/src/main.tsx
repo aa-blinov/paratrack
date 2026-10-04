@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { AuditData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, AuthPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -46,6 +46,7 @@ const AuditPage = lazy(() => import("@/settings/audit-page").then(module => ({ d
 const HelpPage = lazy(() => import("@/help/help-page").then(module => ({ default: module.HelpPage })))
 const ImportPage = lazy(() => import("@/import/import-page").then(module => ({ default: module.ImportPage })))
 const InviteAcceptPage = lazy(() => import("@/settings/invite-accept-page").then(module => ({ default: module.InviteAcceptPage })))
+const AuthPage = lazy(() => import("@/auth/auth-page").then(module => ({ default: module.AuthPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -285,6 +286,8 @@ if (root && payload) {
             ? <ImportPage data={initial.data as ImportData} />
             : "InviteReact" in initial.data && initial.data.InviteReact
             ? <InviteAcceptPage data={initial.data as InviteAcceptData} />
+            : "AuthReact" in initial.data && initial.data.AuthReact
+            ? <AuthPage data={initial.data as AuthPageData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

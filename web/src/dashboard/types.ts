@@ -664,7 +664,21 @@ export interface InviteAcceptData {
   InviteReact: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData
+export interface AuthPageData {
+  AuthReact: string
+  Title: string
+  ErrorMsg: string
+  InfoMsg: string
+  Email: string
+  Name: string
+  Next: string
+  Token: string
+  CSRFToken: string
+  Lang: string
+  SSO: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
