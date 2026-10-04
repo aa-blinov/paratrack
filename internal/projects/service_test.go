@@ -83,7 +83,8 @@ func TestSumRecentProjectTimeUsesRequestedWindowAndExcludesPause(t *testing.T) {
 func TestDetailLoadsScopedProjectPageData(t *testing.T) {
 	from := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
 	through := from.Add(24 * time.Hour)
-	project := model.Project{ID: 7, TeamID: 3, Slug: "alpha", Name: "Alpha"}
+	estimateMinutes := 120
+	project := model.Project{ID: 7, TeamID: 3, Slug: "alpha", Name: "Alpha", EstimateMinutes: &estimateMinutes}
 	activity := model.Activity{ID: 11, TeamID: 3, ProjectID: 7, Name: "Build"}
 	started := from.Add(time.Hour)
 	ended := started.Add(30 * time.Minute)
@@ -109,7 +110,7 @@ func TestDetailLoadsScopedProjectPageData(t *testing.T) {
 	if !catalog.includeArchived {
 		t.Fatal("Detail() did not pass through the archived-activity option")
 	}
-	if got.Activity.RecentSeconds != 1800 || got.Activity.TotalSeconds != 7200 || got.Currency != "USD" {
+	if got.Activity.RecentSeconds != 1800 || got.Activity.TotalSeconds != 7200 || got.Currency != "USD" || got.EstimatePercent != 100 {
 		t.Fatalf("Detail() summary = %#v, currency %q", got.Activity, got.Currency)
 	}
 }
