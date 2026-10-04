@@ -31,10 +31,10 @@ func (s *Service) NewInvite(ctx context.Context, request appmodel.TeamInviteCrea
 	token := base64.RawURLEncoding.EncodeToString(b[:])
 	now := s.now().UTC()
 	expires := now.Add(7 * 24 * time.Hour)
-	invite := Invite{Token: token, TeamID: request.TeamID, Role: RoleMember, CreatedBy: request.CallerID, CreatedAt: now, ExpiresAt: expires}
+	invite := Invite{Token: token, TeamID: request.TeamID, Role: RoleMember, CreatedAt: now, ExpiresAt: expires}
 	if err := s.invites.CreateTeamInvite(ctx, appmodel.TeamInvitePersistenceRequest{
 		Token: invite.Token, TeamID: invite.TeamID, Role: invite.Role,
-		CallerID: invite.CreatedBy, CreatedAt: invite.CreatedAt, ExpiresAt: invite.ExpiresAt,
+		CallerID: request.CallerID, CreatedAt: invite.CreatedAt, ExpiresAt: invite.ExpiresAt,
 	}); err != nil {
 		return Invite{}, mapStoreError(err)
 	}
@@ -49,7 +49,10 @@ func (s *Service) FindInvite(ctx context.Context, token string) (Invite, error) 
 		return Invite{}, ErrNotFound
 	}
 	invite, err := s.invites.FindTeamInvite(ctx, token)
-	return invite, mapStoreError(err)
+	if err != nil {
+		return Invite{}, mapStoreError(err)
+	}
+	return inviteResult(invite), nil
 }
 
 // InvitesForTeam lists every (live or dead) invite for a team.
@@ -57,7 +60,23 @@ func (s *Service) InvitesForTeam(ctx context.Context, teamID int64) ([]Invite, e
 	if teamID <= 0 {
 		return nil, ErrNotFound
 	}
-	return s.invites.ListTeamInvites(ctx, teamID)
+	invites, err := s.invites.ListTeamInvites(ctx, teamID)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]Invite, 0, len(invites))
+	for _, invite := range invites {
+		results = append(results, inviteResult(invite))
+	}
+	return results, nil
+}
+
+func inviteResult(invite model.TeamInvite) Invite {
+	return Invite{
+		Token: invite.Token, TeamID: invite.TeamID, Role: invite.Role,
+		CreatedAt: invite.CreatedAt, ExpiresAt: invite.ExpiresAt,
+		AcceptedAt: invite.AcceptedAt,
+	}
 }
 
 // RevokeInvite deletes an invite. Only workspace managers can revoke.
