@@ -66,7 +66,8 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 			Identity: services.Auth, SignIn: services.Auth, Recovery: services.Auth,
 			Profile: services.Auth, APITokens: services.Auth,
 		},
-		AuditLog: services.AuditLog,
+		TokenAdmin: services.TokenAdmin,
+		AuditLog:   services.AuditLog,
 		Teams: TeamDependencies{
 			Directory: services.Teams, Invitations: services.Teams,
 			Settings: services.Teams, Administration: services.Teams,

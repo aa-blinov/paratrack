@@ -22,3 +22,8 @@ type APITokenSummary struct {
 	ExpiresAt  *time.Time
 	ReadOnly   bool
 }
+
+type APITokenManagementSnapshot struct {
+	Tokens    []APITokenSummary
+	TeamNames map[int64]string
+}

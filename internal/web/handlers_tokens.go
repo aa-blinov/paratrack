@@ -20,18 +20,7 @@ func (s *Server) handleSettingsTokens(w http.ResponseWriter, r *http.Request) {
 // token minted by this very request, shown once and never put in a URL.
 func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreated string) {
 	u, _ := UserFrom(r.Context())
-	list, err := s.services.Auth.APITokens.ListAPITokens(r.Context(), appmodel.APITokenListRequest{UserID: u.ID, CallerID: u.ID})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	teamIDs := make([]int64, 0, len(list))
-	for _, token := range list {
-		if token.TeamID > 0 {
-			teamIDs = append(teamIDs, token.TeamID)
-		}
-	}
-	teamsByID, err := s.services.Teams.Directory.FindByIDs(r.Context(), teamIDs)
+	snapshot, err := s.services.TokenAdmin.Management(r.Context(), appmodel.APITokenListRequest{UserID: u.ID, CallerID: u.ID})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -40,7 +29,7 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 	data := tokensPage{
 		pageData: pageData{Title: "API tokens", Active: "settings-tokens", Lang: lang},
 	}
-	for _, t := range list {
+	for _, t := range snapshot.Tokens {
 		row := tokenRow{
 			ID: t.ID, Name: t.Name, Prefix: t.Prefix, ReadOnly: t.ReadOnly,
 			Created: fmtDate(resolveLang(r), t.CreatedAt.In(userLoc(r))),
@@ -49,11 +38,7 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 			row.Expires = fmtDate(resolveLang(r), t.ExpiresAt.In(userLoc(r)))
 			row.Expired = !t.ExpiresAt.After(userNow(r))
 		}
-		if t.TeamID > 0 {
-			if tm, ok := teamsByID[t.TeamID]; ok {
-				row.Team = tm.Name
-			}
-		}
+		row.Team = snapshot.TeamNames[t.TeamID]
 		data.Tokens = append(data.Tokens, row)
 	}
 	if justCreated != "" {

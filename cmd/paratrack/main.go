@@ -91,7 +91,8 @@ func main() {
 				Identity: services.Auth, SignIn: services.Auth, Recovery: services.Auth,
 				Profile: services.Auth, APITokens: services.Auth,
 			},
-			AuditLog: services.AuditLog,
+			TokenAdmin: services.TokenAdmin,
+			AuditLog:   services.AuditLog,
 			Teams: web.TeamDependencies{
 				Directory: services.Teams, Invitations: services.Teams,
 				Settings: services.Teams, Administration: services.Teams,
