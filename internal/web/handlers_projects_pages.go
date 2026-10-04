@@ -92,12 +92,17 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	if i := strings.IndexByte(slug, '/'); i >= 0 {
 		slug = slug[:i]
 	}
-	project, err := s.services.Projects.Queries.GetBySlug(r.Context(), tid, slug)
+	now := userNow(r)
+	from := now.Add(-30 * 24 * time.Hour)
+	detail, err := s.services.Projects.Queries.Detail(r.Context(), appmodel.ProjectDetailRequest{
+		TeamID: tid, Slug: slug, IncludeArchived: r.URL.Query().Get("archived") == "1",
+		From: from, Through: now,
+	})
 	if err != nil {
 		s.writeProjectLookupError(w, r, err)
 		return
 	}
-	data, err := s.buildProjectDetailPage(r, project)
+	data, err := s.buildProjectDetailPage(r, detail)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
