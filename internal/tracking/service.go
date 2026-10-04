@@ -47,7 +47,7 @@ type SessionStore interface {
 
 // SessionQueryStore provides scoped session history and summary reads.
 type SessionQueryStore interface {
-	GetSession(context.Context, int64, int64) (model.Session, error)
+	GetSession(context.Context, appmodel.SessionLookupQuery) (model.Session, error)
 	ListActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
 	ListClosedSessions(context.Context, int64, time.Time, time.Time, *int64, *int64) ([]model.ActiveSession, error)
 	HasAnySession(context.Context, int64) (bool, error)
@@ -256,7 +256,7 @@ func (s *Service) Session(ctx context.Context, teamID, sessionID int64) (model.S
 	if teamID <= 0 || sessionID <= 0 {
 		return model.Session{}, ErrInvalidStart
 	}
-	session, err := s.queries.GetSession(ctx, teamID, sessionID)
+	session, err := s.queries.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: sessionID})
 	if err != nil {
 		return model.Session{}, fmt.Errorf("get session: %w", err)
 	}
@@ -407,7 +407,7 @@ func (s *Service) Reopen(ctx context.Context, request appmodel.TimerReopenReques
 		return model.Session{}, fmt.Errorf("%w: invalid reopen request", ErrInvalidStart)
 	}
 	teamID, sessionID, now := request.TeamID, request.SessionID, request.At
-	current, err := s.queries.GetSession(ctx, teamID, sessionID)
+	current, err := s.queries.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: sessionID})
 	if err != nil {
 		return model.Session{}, fmt.Errorf("load session to reopen: %w", err)
 	}

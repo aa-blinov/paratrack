@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
 // A studio: owner + developer in one workspace.
@@ -60,7 +62,7 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 		}
 	}
 	oid, _ := strconv.ParseInt(ownerID, 10, 64)
-	if got, _ := owner.db.GetSession(t.Context(), 0, oid); (got.Note != nil && *got.Note == "взлом") || got.EndAt != nil {
+	if got, _ := owner.db.GetSession(t.Context(), appmodel.SessionLookupQuery{SessionID: oid}); (got.Note != nil && *got.Note == "взлом") || got.EndAt != nil {
 		t.Fatalf("developer rewrote the owner's session: %+v", got)
 	}
 	readBody(t, dev.do("POST", "/api/active/stop-all", nil, htmx))

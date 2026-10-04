@@ -81,7 +81,7 @@ func TestUpdateSessionRejectsInvalidResolvedIntervalWithoutWriting(t *testing.T)
 	if !errors.Is(err, appmodel.ErrInvalidSessionPeriod) {
 		t.Fatalf("invalid resolved interval error = %v, want %v", err, appmodel.ErrInvalidSessionPeriod)
 	}
-	current, err := d.GetSession(ctx, teamID, session.ID)
+	current, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: session.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

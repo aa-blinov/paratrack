@@ -285,6 +285,13 @@ for method in ProjectSpans ProjectActivityCounts ProjectSessions ProjectTrackedT
 		exit 1
 	fi
 done
+session_lookup=$(sed -n '/^func (d \*DB) GetSession(/,/^}/p' internal/db/session_queries.go)
+if ! printf '%s\n' "$session_lookup" | grep -Fq 'query appmodel.SessionLookupQuery' ||
+	! printf '%s\n' "$session_lookup" | grep -Fq 'query.SessionID' ||
+	! printf '%s\n' "$session_lookup" | grep -Fq 'query.TeamID'; then
+	echo "architecture check: session reads must carry session identity and workspace scope in one query" >&2
+	exit 1
+fi
 for method in ListTags ListAllTagsWithCounts; do
 	tag_query=$(sed -n "/^func (d \*DB) $method(/,/^}/p" internal/db/tags.go)
 	if ! printf '%s\n' "$tag_query" | grep -Fq 'teamID <= 0'; then

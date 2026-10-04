@@ -2,6 +2,12 @@ package appmodel
 
 import "time"
 
+// SessionLookupQuery resolves one session within its workspace.
+type SessionLookupQuery struct {
+	TeamID    int64
+	SessionID int64
+}
+
 type AuthSessionCreateRequest struct {
 	Token     string `json:"-"`
 	UserID    int64
