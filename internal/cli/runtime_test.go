@@ -87,7 +87,8 @@ func (s *blockingTimerQueries) ActiveSessions(context.Context, int64) ([]model.A
 	return nil, nil
 }
 
-type runtimeProjects struct{ cliport.Projects }
+type runtimeProjectQueries struct{ cliport.ProjectQueries }
+type runtimeProjectCommands struct{ cliport.ProjectCommands }
 
 type runtimeWorkspace struct{}
 
@@ -131,7 +132,8 @@ func TestRuntimeCloseWaitsForActiveCommand(t *testing.T) {
 			SessionHistory:  &runtimeSessionHistory{},
 			Workspace:       runtimeWorkspace{},
 			ProjectLookup:   runtimeProjectLookup{},
-			Projects:        runtimeProjects{},
+			ProjectQueries:  runtimeProjectQueries{},
+			ProjectCommands: runtimeProjectCommands{},
 			Tagging:         &runtimeTagging{},
 			Goals:           &runtimeGoals{},
 		}, signalCloser{closed: closed}, nil

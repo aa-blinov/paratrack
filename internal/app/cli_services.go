@@ -82,7 +82,8 @@ func NewCLIServices(database *db.DB, config CLIConfig) (*cliport.Services, io.Cl
 	return &cliport.Services{
 		Workspace:       cliWorkspace{store: database},
 		ProjectLookup:   cliProjectLookup{store: database},
-		Projects:        shared.Projects,
+		ProjectQueries:  shared.Projects,
+		ProjectCommands: shared.Projects,
 		TimerQueries:    shared.Tracking,
 		TimerCommands:   shared.Tracking,
 		TimerOperations: trackingOpsService,

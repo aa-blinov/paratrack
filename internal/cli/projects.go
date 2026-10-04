@@ -101,7 +101,7 @@ func runProjectList(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectQueries
 	if *team == 0 {
 		t, err := projectDefaultTeam(services.Workspace, ctx)
 		if err != nil {
@@ -148,7 +148,7 @@ func runProjectCreate(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectCommands
 	if *team == 0 {
 		t, err := projectDefaultTeam(services.Workspace, ctx)
 		if err != nil {
@@ -181,7 +181,7 @@ func runProjectShow(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectQueries
 	id, err := mustProjectID(services.ProjectLookup, ctx, args[0])
 	if err != nil {
 		return err
@@ -221,7 +221,7 @@ func runProjectRename(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectCommands
 	id, err := mustProjectID(services.ProjectLookup, ctx, args[0])
 	if err != nil {
 		return err
@@ -250,7 +250,7 @@ func runProjectColor(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectCommands
 	id, err := mustProjectID(services.ProjectLookup, ctx, args[0])
 	if err != nil {
 		return err
@@ -279,7 +279,7 @@ func runProjectArchive(rt *Runtime, args []string, archive bool) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectCommands
 	id, err := mustProjectID(services.ProjectLookup, ctx, args[0])
 	if err != nil {
 		return err
@@ -311,7 +311,7 @@ func runProjectDelete(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Projects
+	service := services.ProjectCommands
 	id, err := mustProjectID(services.ProjectLookup, ctx, args[0])
 	if err != nil {
 		return err

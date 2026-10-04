@@ -10,7 +10,8 @@ import (
 
 type defaultTeamWorkspaceStub struct{}
 type defaultTeamProjectLookupStub struct{ cliport.ProjectLookup }
-type defaultTeamProjectStub struct{ cliport.Projects }
+type defaultTeamProjectQueriesStub struct{ cliport.ProjectQueries }
+type defaultTeamProjectCommandsStub struct{ cliport.ProjectCommands }
 
 func (defaultTeamWorkspaceStub) DefaultTeam(context.Context) (int64, error) {
 	return 17, nil
@@ -22,9 +23,10 @@ func (defaultTeamWorkspaceStub) TeamOwnerID(context.Context, int64) (int64, erro
 
 func TestDefaultTeamForCommandSetsWorkspaceOwner(t *testing.T) {
 	services := &cliport.Services{
-		Workspace:     defaultTeamWorkspaceStub{},
-		ProjectLookup: defaultTeamProjectLookupStub{},
-		Projects:      defaultTeamProjectStub{},
+		Workspace:       defaultTeamWorkspaceStub{},
+		ProjectLookup:   defaultTeamProjectLookupStub{},
+		ProjectQueries:  defaultTeamProjectQueriesStub{},
+		ProjectCommands: defaultTeamProjectCommandsStub{},
 	}
 	teamID, ctx, err := defaultTeamForCommand(services, context.Background())
 	if err != nil {
