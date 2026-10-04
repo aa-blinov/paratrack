@@ -312,7 +312,45 @@ export interface PayrollDetailData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData
+export interface ScheduleDay {
+  Index: number
+  Label: string
+  Date: string
+  ISO: string
+  Min: number
+  Total: string
+  IsToday: boolean
+}
+
+export interface ScheduleRow {
+  UserID: number
+  UserName: string
+  Capacity: number
+  Cells: ScheduleDay[]
+  Total: string
+  TotalMin: number
+  LoadPct: number
+}
+
+export interface ScheduleData {
+  ReactApp: boolean
+  ScheduleReact: boolean
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  WeekLabel: string
+  PrevWeek: string
+  NextWeek: string
+  ThisWeek: string
+  ProjectID: number
+  Days: ScheduleDay[]
+  Rows: ScheduleRow[]
+  Projects: Project[]
+  GrandTotal: string
+  GrandMin: number
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
