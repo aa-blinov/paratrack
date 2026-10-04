@@ -2,8 +2,6 @@ package appmodel
 
 import (
 	"time"
-
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // SessionLookupQuery resolves one session within its workspace.
@@ -27,7 +25,7 @@ type SessionHistoryPageQuery struct {
 	TeamID int64
 	From   time.Time
 	To     time.Time
-	After  *model.SessionCursor
+	After  *SessionCursor
 	Limit  int
 }
 

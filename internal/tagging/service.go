@@ -20,7 +20,7 @@ type TagStore interface {
 	AttachTagForMember(context.Context, appmodel.SessionTagRequest) error
 	DetachTagForMember(context.Context, appmodel.SessionTagRequest) error
 	ListTags(context.Context, appmodel.TagListQuery) ([]model.Tag, error)
-	ListAllTagsWithCounts(context.Context, appmodel.TagListQuery) ([]model.TagWithCount, error)
+	ListAllTagsWithCounts(context.Context, appmodel.TagListQuery) ([]appmodel.TagWithCount, error)
 	TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error)
 }
 
@@ -92,7 +92,7 @@ func (s *Service) List(ctx context.Context, query appmodel.TagListQuery) ([]mode
 	return tags, nil
 }
 
-func (s *Service) ListWithCounts(ctx context.Context, query appmodel.TagListQuery) ([]model.TagWithCount, error) {
+func (s *Service) ListWithCounts(ctx context.Context, query appmodel.TagListQuery) ([]appmodel.TagWithCount, error) {
 	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}

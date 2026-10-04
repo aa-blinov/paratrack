@@ -167,7 +167,7 @@ type TagDependencies struct {
 // TagQueries provides the tag views used by HTTP routes.
 type TagQueries interface {
 	List(context.Context, appmodel.TagListQuery) ([]model.Tag, error)
-	ListWithCounts(context.Context, appmodel.TagListQuery) ([]model.TagWithCount, error)
+	ListWithCounts(context.Context, appmodel.TagListQuery) ([]appmodel.TagWithCount, error)
 }
 
 // TagCommands manages tags and their session assignments.
@@ -298,8 +298,8 @@ type TrackingQueries interface {
 	FindActivity(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
 	HasAnySession(context.Context, int64) (bool, error)
 	Session(context.Context, int64, int64) (model.Session, error)
-	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (model.SessionPage, error)
-	Timesheet(context.Context, appmodel.TimesheetRequest) (model.TimesheetWeek, error)
+	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error)
+	Timesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 }
 
 // TrackingCommands handles direct session and timesheet mutations that do not
