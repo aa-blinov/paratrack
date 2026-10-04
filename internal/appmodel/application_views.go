@@ -14,20 +14,22 @@ type DashboardQuery struct {
 }
 
 type DashboardSnapshot struct {
-	Activities     []model.Activity
-	ActiveSessions []model.ActiveSession
-	TodaySessions  []model.ActiveSession
-	RecentSessions []model.ActiveSession
-	Projects       []model.Project
-	TagsBySession  map[int64][]model.Tag
-	ProjectsByID   map[int64]model.ProjectSummary
-	Goals          []model.GoalProgress
-	Unbilled       []model.UnbilledProject
-	TodayStart     time.Time
-	TodayEnd       time.Time
-	RecentStart    time.Time
-	RecentEnd      time.Time
-	HasSession     bool
+	Activities        []model.Activity
+	ActiveSessions    []model.ActiveSession
+	TodaySessions     []model.ActiveSession
+	RecentSessions    []model.ActiveSession
+	Projects          []model.Project
+	TagsBySession     map[int64][]model.Tag
+	ProjectsByID      map[int64]model.ProjectSummary
+	Goals             []model.GoalProgress
+	Unbilled          []model.UnbilledProject
+	TodayStart        time.Time
+	TodayEnd          time.Time
+	RecentStart       time.Time
+	RecentEnd         time.Time
+	TodayTotalSeconds int
+	TopActivityName   string
+	HasSession        bool
 }
 
 // ActiveListSnapshot combines the tracking and workspace data needed to

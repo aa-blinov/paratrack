@@ -131,6 +131,29 @@ func TestBuildUsesDashboardWindowsAndOptionalBilling(t *testing.T) {
 	}
 }
 
+func TestSummarizeTodayCombinesSessionsAndBreaksTiesByActivityName(t *testing.T) {
+	from := time.Date(2026, time.October, 2, 0, 0, 0, 0, time.UTC)
+	now := from.Add(12 * time.Hour)
+	zulu := model.ActiveSession{
+		Session:  model.Session{StartAt: from.Add(time.Hour), EndAt: timePtr(from.Add(2 * time.Hour)), AccumulatedSeconds: 3600},
+		Activity: model.Activity{Name: "Zulu"},
+	}
+	alpha := model.ActiveSession{
+		Session:  model.Session{StartAt: from.Add(3 * time.Hour), EndAt: timePtr(from.Add(4 * time.Hour)), AccumulatedSeconds: 3600},
+		Activity: model.Activity{Name: "Alpha"},
+	}
+
+	seconds, top, err := summarizeToday([]model.ActiveSession{zulu}, []model.ActiveSession{alpha}, from, now, now)
+	if err != nil {
+		t.Fatalf("summarizeToday() error = %v", err)
+	}
+	if seconds != 7200 || top != "Alpha" {
+		t.Fatalf("summarizeToday() = (%d, %q), want (7200, Alpha)", seconds, top)
+	}
+}
+
+func timePtr(value time.Time) *time.Time { return &value }
+
 func TestBuildUsesCalendarDayAcrossDST(t *testing.T) {
 	location, err := time.LoadLocation("America/New_York")
 	if err != nil {
