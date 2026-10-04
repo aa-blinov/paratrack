@@ -196,17 +196,19 @@ func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
 
 // invitePage is the /invites/{token} envelope. T() exposes i18n.
 type invitePage struct {
-	Title     string
-	Token     string
-	Invite    inviteView
-	Team      teamView
-	User      userView
-	LoggedIn  bool
-	CSRFToken string
-	Lang      string
+	InviteReact bool
+	Title       string
+	Token       string
+	Invite      inviteView
+	Team        teamView
+	User        userView
+	LoggedIn    bool
+	CSRFToken   string
+	Lang        string
 }
 
-func (invitePage) isTemplateData() {}
+func (invitePage) isTemplateData()      {}
+func (p invitePage) usesReactApp() bool { return p.InviteReact }
 
 func (p invitePage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
@@ -222,7 +224,8 @@ func (s *Server) handleInviteAcceptPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	data := invitePage{
-		Title: "Join team", Token: token, Invite: inviteViewOf(snapshot.Invite, userNow(r)),
+		InviteReact: true,
+		Title:       "Join team", Token: token, Invite: inviteViewOf(snapshot.Invite, userNow(r)),
 		Team:     teamView{ID: snapshot.Team.ID, Name: snapshot.Team.Name, CreatedAt: snapshot.Team.CreatedAt},
 		LoggedIn: authed, User: userViewOf(user),
 		CSRFToken: ensureCSRF(w, r), Lang: string(resolveLang(r)),
