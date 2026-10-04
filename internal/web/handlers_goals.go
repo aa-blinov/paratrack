@@ -78,7 +78,7 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if progress == nil {
-		progress = []model.GoalProgress{}
+		progress = []appmodel.GoalProgress{}
 	}
 	s.writeJSON(w, goalProgressListResponse{Progress: goalProgressFor(progress)})
 }
@@ -182,7 +182,7 @@ func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
 
 // toGoalViews renders goal progress as the view-models used by
 // dashboard and /goals pages.
-func toGoalViews(progress []model.GoalProgress, lang i18n.Lang) []goalView {
+func toGoalViews(progress []appmodel.GoalProgress, lang i18n.Lang) []goalView {
 	out := make([]goalView, 0, len(progress))
 	for _, p := range progress {
 		// Lang is stamped by the caller after this returns.

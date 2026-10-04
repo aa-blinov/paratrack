@@ -1,7 +1,5 @@
 package appmodel
 
-import "github.com/aa-blinov/paratrack/internal/model"
-
 // SessionStoppedNotification describes the post-commit notification for a
 // timer transition without coupling the tracking workflow to a delivery
 // provider.
@@ -16,7 +14,7 @@ type SessionStoppedNotification struct {
 type GoalAchievedNotification struct {
 	TeamID int64
 	UserID int64
-	Goal   model.GoalProgress
+	Goal   GoalProgress
 }
 
 // PayrollPaidNotification identifies recipients of a completed payroll run.

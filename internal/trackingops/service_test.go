@@ -77,11 +77,11 @@ func (s *sessionStarterStub) Delete(context.Context, appmodel.SessionDeleteReque
 }
 
 type goalProgressReaderStub struct {
-	goals        []model.GoalProgress
+	goals        []appmodel.GoalProgress
 	stoppedBatch map[int64]int
 }
 
-func (s *goalProgressReaderStub) NewlyAchievedAfterSessions(_ context.Context, _ int64, stopped map[int64]int, _ time.Time) ([]model.GoalProgress, error) {
+func (s *goalProgressReaderStub) NewlyAchievedAfterSessions(_ context.Context, _ int64, stopped map[int64]int, _ time.Time) ([]appmodel.GoalProgress, error) {
 	s.stoppedBatch = stopped
 	return s.goals, nil
 }
@@ -404,7 +404,7 @@ func TestStopCoordinatesGoalAndSessionNotifications(t *testing.T) {
 	audit := &auditRecorderStub{}
 	notifications := &notificationsStub{}
 	deps := dependencies(sessions, audit)
-	deps.Goals = &goalProgressReaderStub{goals: []model.GoalProgress{{ActivityName: "Deep work"}}}
+	deps.Goals = &goalProgressReaderStub{goals: []appmodel.GoalProgress{{ActivityName: "Deep work"}}}
 	deps.Notifications = notifications
 	service, err := New(deps)
 	if err != nil {
@@ -430,7 +430,7 @@ func TestStopAllRecordsAuditForEachSession(t *testing.T) {
 		{ID: 92, ActivityID: 7, StartAt: at.Add(-time.Minute), EndAt: &at, AccumulatedSeconds: 600},
 	}}
 	audit := &auditRecorderStub{}
-	goalReader := &goalProgressReaderStub{goals: []model.GoalProgress{{ActivityName: "Deep work"}}}
+	goalReader := &goalProgressReaderStub{goals: []appmodel.GoalProgress{{ActivityName: "Deep work"}}}
 	notifications := &notificationsStub{}
 	deps := dependencies(sessions, audit)
 	deps.Goals, deps.Notifications = goalReader, notifications

@@ -16,7 +16,7 @@ import (
 
 type GoalReader interface {
 	Activities(context.Context, int64) ([]model.Activity, error)
-	Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
+	Progress(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error)
 }
 
 type TrackingReader interface {

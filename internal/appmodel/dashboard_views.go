@@ -20,7 +20,7 @@ type DashboardSnapshot struct {
 	Projects          []model.Project
 	TagsBySession     map[int64][]model.Tag
 	ProjectsByID      map[int64]ProjectSummary
-	Goals             []model.GoalProgress
+	Goals             []GoalProgress
 	Unbilled          []model.UnbilledProject
 	TodayStart        time.Time
 	TodayEnd          time.Time
@@ -80,7 +80,7 @@ type ProjectCatalogSnapshot struct {
 // used by the goal management page.
 type GoalManagementSnapshot struct {
 	Activities []model.Activity
-	Progress   []model.GoalProgress
+	Progress   []GoalProgress
 }
 
 // TimerStopResult carries the stopped session and its duration as calculated

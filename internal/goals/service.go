@@ -22,7 +22,7 @@ type ActivityReader interface {
 // GoalReader provides configured goals and their progress.
 type GoalReader interface {
 	ListGoals(context.Context, appmodel.GoalListQuery) ([]model.Goal, error)
-	ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error)
+	ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error)
 }
 
 // GoalWriter provides atomic goal mutations, including manager-authorized
@@ -95,7 +95,7 @@ func (s *Service) List(ctx context.Context, query appmodel.GoalListQuery) ([]mod
 	return s.deps.Goals.ListGoals(ctx, query)
 }
 
-func (s *Service) Progress(ctx context.Context, query appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
+func (s *Service) Progress(ctx context.Context, query appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error) {
 	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -105,7 +105,7 @@ func (s *Service) Progress(ctx context.Context, query appmodel.GoalProgressQuery
 // NewlyAchievedAfterSession returns the first goal for this activity that
 // crossed its threshold after the supplied session ended. It compares the
 // current progress with the same progress minus this session's whole minutes.
-func (s *Service) NewlyAchievedAfterSession(ctx context.Context, teamID, activityID int64, stoppedSeconds int, now time.Time) (*model.GoalProgress, error) {
+func (s *Service) NewlyAchievedAfterSession(ctx context.Context, teamID, activityID int64, stoppedSeconds int, now time.Time) (*appmodel.GoalProgress, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -122,7 +122,7 @@ func (s *Service) NewlyAchievedAfterSession(ctx context.Context, teamID, activit
 // NewlyAchievedAfterSessions finds goals crossed by a batch of sessions that
 // ended together. Seconds are grouped by activity so a bulk stop does not
 // miss a threshold reached only by the combined duration.
-func (s *Service) NewlyAchievedAfterSessions(ctx context.Context, teamID int64, stoppedSeconds map[int64]int, now time.Time) ([]model.GoalProgress, error) {
+func (s *Service) NewlyAchievedAfterSessions(ctx context.Context, teamID int64, stoppedSeconds map[int64]int, now time.Time) ([]appmodel.GoalProgress, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
@@ -141,7 +141,7 @@ func (s *Service) NewlyAchievedAfterSessions(ctx context.Context, teamID int64, 
 	if err != nil {
 		return nil, fmt.Errorf("load goal progress after stopped sessions: %w", err)
 	}
-	var newlyAchieved []model.GoalProgress
+	var newlyAchieved []appmodel.GoalProgress
 	for i := range progress {
 		candidate := &progress[i]
 		stoppedActivitySeconds, stopped := stoppedSeconds[candidate.Goal.ActivityID]

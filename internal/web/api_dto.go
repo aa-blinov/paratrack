@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -124,7 +125,7 @@ type goalProgressResponse struct {
 
 func (goalProgressResponse) isJSONResponse() {}
 
-func goalProgressFor(progress []model.GoalProgress) []goalProgressResponse {
+func goalProgressFor(progress []appmodel.GoalProgress) []goalProgressResponse {
 	responses := make([]goalProgressResponse, 0, len(progress))
 	for _, item := range progress {
 		responses = append(responses, goalProgressResponse{
