@@ -4,7 +4,7 @@ paratrack is a modular Go application shipped as one binary. It has two
 entrypoints into the same product: a command-line interface and an HTTP
 application. PostgreSQL is the durable store. The UI migration to React and
 shadcn is in progress: the dashboard, goals, graph, payroll, schedule, tags, timesheet,
-project list, project creation form and project detail mount React screens on Go-rendered pages,
+invoices (list and detail), project list, project creation form and project detail mount React screens on Go-rendered pages,
 and the remaining routes still use Go
 templates, HTMX and Alpine.js.
 
@@ -27,6 +27,9 @@ clients request a JSON row-and-totals response after edits so the grid stays
 in sync without a full-page refresh; other callers still get the HTML fragment.
 Payroll list and detail screens keep their existing POST workflows for run
 creation, overlap confirmation, payment, printing and deletion.
+Invoice list and detail screens keep existing invoice POST/PDF/email routes;
+the list also supports project-based client autofill and assigning unbilled
+activity before invoice creation.
 Each screen loads its code as a separate bundle chunk.
 `web/src/components/ui` contains the shadcn-generated Radix primitives, styled
 to the existing Honest Ledger design. `make ui` builds both the legacy

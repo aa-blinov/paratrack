@@ -350,7 +350,79 @@ export interface ScheduleData {
   GrandMin: number
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData
+export interface InvoiceSummary {
+  ID: number
+  Number: string
+  Client: string
+  Status: string
+  Total: string
+  Hours: string
+  Period: string
+}
+
+export interface InvoiceProjectOption {
+  ID: number
+  Name: string
+  ClientName: string
+  ClientDetails: string
+  ClientEmail: string
+  Selected: boolean
+  Eligible: boolean
+}
+
+export interface InvoicesData {
+  ReactApp: boolean
+  InvoicesReact: boolean
+  Lang: string
+  CSRFToken: string
+  Billable: boolean
+  Items: InvoiceSummary[]
+  Projects: InvoiceProjectOption[]
+  Prefill: InvoiceProjectOption
+  Unbilled: Array<{ ProjectID: number; ProjectName: string; Slug: string; Hours: string; Amount: string; Since: string; SinceISO: string }>
+  Unassigned: Array<{ ID: number; Sessions: number; Name: string; Billed: boolean }>
+  DefStart: string
+  DefEnd: string
+  Flash: string
+  FlashOK: boolean
+}
+
+export interface InvoiceDetailData {
+  ReactApp: boolean
+  InvoiceReact: boolean
+  InvoiceDetail: boolean
+  Lang: string
+  CSRFToken: string
+  Inv: {
+    ID: number
+    Number: string
+    ClientName: string
+    PeriodLabel: string
+    PeriodISO: string
+    Status: string
+    Notes: string
+    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string }>
+    Total: string
+    Hours: string
+    PaymentURL: string
+    Currency: string
+    IssuedLabel: string
+    SellerDetails: string
+    ClientDetails: string
+    VATNote: string
+    ClientEmail: string
+    Receipt: string
+    Logo: string
+  }
+  Seller: string
+  StripeReady: boolean
+  MailReady: boolean
+  MailtoURL: string
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
