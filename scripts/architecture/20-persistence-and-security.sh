@@ -575,6 +575,8 @@ schedule_workflow_port=$(sed -n '/^type SchedulingWorkflow interface {/,/^}/p' i
 if ! printf '%s\n' "$schedule_query" | grep -Fq 'query appmodel.ScheduleQuery' ||
 	! printf '%s\n' "$schedule_query" | grep -Fq 'query.TeamID <= 0' ||
 	! printf '%s\n' "$schedule_query" | grep -Fq 'query.WeekStart' ||
+	! printf '%s\n' "$schedule_query" | grep -Fq 'sql.LevelRepeatableRead' ||
+	! printf '%s\n' "$schedule_query" | grep -Fq 'ReadOnly: true' ||
 	! printf '%s\n' "$schedule_service_list" | grep -Fq 'ListSchedule(ctx, query)' ||
 	! printf '%s\n' "$schedule_workflow_port" | grep -Fq 'List(context.Context, appmodel.ScheduleQuery)'; then
 	echo "architecture check: schedule reads must carry workspace and week together through HTTP and persistence" >&2

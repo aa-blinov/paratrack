@@ -136,7 +136,9 @@ sentinel, for invoice, dashboard and project-page reads.
 `InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace
 through the advisory duplicate-document check.
 `GoalListQuery` scopes configured goals and optional activity filtering to one
-workspace. `ScheduleQuery` carries workspace and week together from HTTP to persistence.
+workspace. `ScheduleQuery` carries workspace and week together from HTTP to persistence;
+the database assembles members, project names and cells in one read-only
+repeatable-read snapshot.
 `TagListQuery` carries workspace scope through HTTP, CLI, reports, tagging and
 persistence for tag catalogs and usage counts.
 `TimesheetRequest` keeps workspace, week, calculation instant and extra activity
