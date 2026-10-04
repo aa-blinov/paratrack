@@ -3,11 +3,28 @@ package tagging
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
+
+type tagListStub struct {
+	TagStore
+	listQuery  appmodel.TagListQuery
+	countQuery appmodel.TagListQuery
+}
+
+func (stub *tagListStub) ListTags(_ context.Context, query appmodel.TagListQuery) ([]model.Tag, error) {
+	stub.listQuery = query
+	return nil, nil
+}
+
+func (stub *tagListStub) ListAllTagsWithCounts(_ context.Context, query appmodel.TagListQuery) ([]model.TagWithCount, error) {
+	stub.countQuery = query
+	return nil, nil
+}
 
 type sessionActivityLookupStub struct {
 	SessionActivityReader
@@ -38,6 +55,21 @@ func TestMutationsRejectUnscopedWorkspace(t *testing.T) {
 	}
 	if err := service.DetachForMember(context.Background(), appmodel.SessionTagRequest{TeamID: 0, CallerID: 1, SessionID: 1, Name: "deep-work"}); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("Detach with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+func TestTagCatalogQueriesKeepWorkspaceScope(t *testing.T) {
+	store := &tagListStub{}
+	service := &Service{tags: store}
+	want := appmodel.TagListQuery{TeamID: 9}
+	if _, err := service.List(context.Background(), want); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ListWithCounts(context.Background(), want); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(store.listQuery, want) || !reflect.DeepEqual(store.countQuery, want) {
+		t.Fatalf("catalog queries = %+v and %+v, want %+v", store.listQuery, store.countQuery, want)
 	}
 }
 

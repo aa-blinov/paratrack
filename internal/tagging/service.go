@@ -19,8 +19,8 @@ type TagStore interface {
 	DeleteTagForManager(context.Context, appmodel.TagDeleteRequest) error
 	AttachTagForMember(context.Context, appmodel.SessionTagRequest) error
 	DetachTagForMember(context.Context, appmodel.SessionTagRequest) error
-	ListTags(context.Context, int64) ([]model.Tag, error)
-	ListAllTagsWithCounts(context.Context, int64) ([]model.TagWithCount, error)
+	ListTags(context.Context, appmodel.TagListQuery) ([]model.Tag, error)
+	ListAllTagsWithCounts(context.Context, appmodel.TagListQuery) ([]model.TagWithCount, error)
 	TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error)
 }
 
@@ -81,22 +81,22 @@ func (s *Service) CreateForMember(ctx context.Context, request appmodel.TagCreat
 	return tag, nil
 }
 
-func (s *Service) List(ctx context.Context, teamID int64) ([]model.Tag, error) {
-	if teamID <= 0 {
+func (s *Service) List(ctx context.Context, query appmodel.TagListQuery) ([]model.Tag, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
-	tags, err := s.tags.ListTags(ctx, teamID)
+	tags, err := s.tags.ListTags(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list tags: %w", err)
 	}
 	return tags, nil
 }
 
-func (s *Service) ListWithCounts(ctx context.Context, teamID int64) ([]model.TagWithCount, error) {
-	if teamID <= 0 {
+func (s *Service) ListWithCounts(ctx context.Context, query appmodel.TagListQuery) ([]model.TagWithCount, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
-	tags, err := s.tags.ListAllTagsWithCounts(ctx, teamID)
+	tags, err := s.tags.ListAllTagsWithCounts(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list tags with usage counts: %w", err)
 	}

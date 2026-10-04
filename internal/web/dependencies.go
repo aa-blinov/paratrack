@@ -166,8 +166,8 @@ type TagDependencies struct {
 
 // TagQueries provides the tag views used by HTTP routes.
 type TagQueries interface {
-	List(context.Context, int64) ([]model.Tag, error)
-	ListWithCounts(context.Context, int64) ([]model.TagWithCount, error)
+	List(context.Context, appmodel.TagListQuery) ([]model.Tag, error)
+	ListWithCounts(context.Context, appmodel.TagListQuery) ([]model.TagWithCount, error)
 }
 
 // TagCommands manages tags and their session assignments.

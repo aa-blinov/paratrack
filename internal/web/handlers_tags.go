@@ -14,7 +14,7 @@ import (
 
 // handleTagsList returns every tag as JSON.
 func (s *Server) handleTagsList(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.List(r.Context(), teamID(r))
+	tags, err := s.services.Tagging.Queries.List(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -78,7 +78,7 @@ func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
 
 // respondTagsList renders the `tags-list` fragment for HTMX swaps.
 func (s *Server) respondTagsList(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), teamID(r))
+	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -193,7 +193,7 @@ func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id in
 
 // handleTagsPage serves /tags.
 func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), teamID(r))
+	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -218,7 +218,7 @@ func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 // handleTagsFragment returns the inner `tags-list` template so HTMX
 // can swap it without a full page reload.
 func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), teamID(r))
+	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

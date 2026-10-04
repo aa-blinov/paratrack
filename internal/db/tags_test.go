@@ -224,7 +224,7 @@ func TestDeleteTag_LegacyPathCannotDeleteWorkspaceTag(t *testing.T) {
 	if err := d.deleteTag(ctx, legacyTagDeleteRequest{TeamID: 0, TagID: tag.ID}); !errors.Is(err, ErrTagNotFound) {
 		t.Fatalf("legacy delete error = %v, want tag not found", err)
 	}
-	tags, err := d.ListTags(ctx, teamID)
+	tags, err := d.ListTags(ctx, appmodel.TagListQuery{TeamID: teamID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -271,7 +271,7 @@ func TestListAllTagsWithCounts_OrderedByPopularity(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tags, err := d.ListAllTagsWithCounts(ctx, teamID)
+	tags, err := d.ListAllTagsWithCounts(ctx, appmodel.TagListQuery{TeamID: teamID})
 	if err != nil {
 		t.Fatal(err)
 	}

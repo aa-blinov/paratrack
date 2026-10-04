@@ -70,15 +70,15 @@ func (d *DB) CreateTagForMember(ctx context.Context, request appmodel.TagCreateR
 }
 
 // ListTags returns every tag in the given team sorted alphabetically.
-func (d *DB) ListTags(ctx context.Context, teamID int64) ([]model.Tag, error) {
-	if teamID <= 0 {
+func (d *DB) ListTags(ctx context.Context, query appmodel.TagListQuery) ([]model.Tag, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrNotFound
 	}
 	q := `SELECT id, name, team_id, created_at FROM tags`
 	args := []any{}
-	if teamID > 0 {
+	if query.TeamID > 0 {
 		q += ` WHERE team_id = ?`
-		args = append(args, teamID)
+		args = append(args, query.TeamID)
 	}
 	q += ` ORDER BY name`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
@@ -381,8 +381,8 @@ func (d *DB) TagsForSessions(ctx context.Context, query appmodel.SessionTagsQuer
 // (active + closed) that carry it. Used by the /tags page.
 type TagWithCount = model.TagWithCount
 
-func (d *DB) ListAllTagsWithCounts(ctx context.Context, teamID int64) ([]TagWithCount, error) {
-	if teamID <= 0 {
+func (d *DB) ListAllTagsWithCounts(ctx context.Context, query appmodel.TagListQuery) ([]TagWithCount, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrNotFound
 	}
 	q := `
@@ -391,7 +391,7 @@ func (d *DB) ListAllTagsWithCounts(ctx context.Context, teamID int64) ([]TagWith
 		LEFT JOIN session_tags st ON st.tag_id = t.id
 		LEFT JOIN sessions s ON s.id = st.session_id AND s.team_id = t.team_id
 		WHERE t.team_id = ?`
-	args := []any{teamID}
+	args := []any{query.TeamID}
 	q += `
 		GROUP BY t.id
 		ORDER BY COUNT(st.session_id) DESC, t.name`

@@ -82,7 +82,7 @@ func TestSessionTags_RequireCurrentWorkspaceMembership(t *testing.T) {
 	if links != 1 {
 		t.Fatalf("rejected detach changed session tags: links=%d", links)
 	}
-	tags, err := d.ListTags(ctx, teamID)
+	tags, err := d.ListTags(ctx, appmodel.TagListQuery{TeamID: teamID})
 	if err != nil {
 		t.Fatal(err)
 	}

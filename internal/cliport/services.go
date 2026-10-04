@@ -106,7 +106,7 @@ type ProjectCommands interface {
 
 // TagQueries supplies tag catalogs for CLI output.
 type TagQueries interface {
-	ListWithCounts(context.Context, int64) ([]model.TagWithCount, error)
+	ListWithCounts(context.Context, appmodel.TagListQuery) ([]model.TagWithCount, error)
 }
 
 // TagCommands creates tags and changes session assignments.
