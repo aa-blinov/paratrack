@@ -10,7 +10,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
-	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // ---------------------------------------------------------------------------
@@ -72,7 +71,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	}
 	projectVMs := projectViews(projects)
 	pid := schedProject(r.URL.Query().Get("project"), projects)
-	srows, pnames, err := s.scheduleRows(r, weekStart, pid)
+	schedule, err := s.scheduleRows(r, weekStart, pid)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -85,14 +84,6 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 			ISO: d.Format("2006-01-02"), IsToday: sameDay(d, now),
 		}
 	}
-	grand := 0
-	for _, row := range srows {
-		grand, err = money.AddInt(grand, row.TotalMin)
-		if err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
-	}
 	data := schedulePage{
 		pageData:     pageData{Title: "Schedule", Active: "schedule", Lang: lang},
 		WeekLabel:    fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
@@ -100,16 +91,16 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 		NextWeek:     weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
 		ThisWeek:     weekStart.Format("2006-01-02"),
 		Days:         days,
-		Rows:         srows,
+		Rows:         schedule.Rows,
 		Projects:     projectVMs,
 		ProjectID:    pid,
-		ProjectNames: pnames,
-		GrandTotal:   fmtDur(r, grand*60),
-		GrandMin:     grand,
+		ProjectNames: schedule.ProjectNames,
+		GrandTotal:   fmtDur(r, schedule.TotalMinutes*60),
+		GrandMin:     schedule.TotalMinutes,
 	}
 	canManageTeam := canManage(r)
-	for i := range srows {
-		data.RowVMs = append(data.RowVMs, schedRowVM{Row: srows[i], Projects: projectVMs, ProjectID: pid, CanManage: canManageTeam, Lang: lang})
+	for i := range schedule.Rows {
+		data.RowVMs = append(data.RowVMs, schedRowVM{Row: schedule.Rows[i], Projects: projectVMs, ProjectID: pid, CanManage: canManageTeam, Lang: lang})
 	}
 	s.renderPageForRequest(w, r, "Schedule", "schedule", "schedule", &data)
 }
@@ -132,14 +123,20 @@ func schedProject(v string, projects []model.Project) int64 {
 // scheduleRows is the week per person: cells are the chosen project's
 // minutes, the total and load are across all projects (a person's week is
 // shared by every project), load over the five working days.
-func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, pid int64) ([]schedRow, map[int64]string, error) {
-	rows, pnames, err := s.services.Scheduling.List(r.Context(), teamID(r), weekStart)
+type scheduleRowsView struct {
+	Rows         []schedRow
+	ProjectNames map[int64]string
+	TotalMinutes int
+}
+
+func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, pid int64) (scheduleRowsView, error) {
+	snapshot, err := s.services.Scheduling.List(r.Context(), teamID(r), weekStart)
 	if err != nil {
-		return nil, nil, err
+		return scheduleRowsView{}, err
 	}
 	now := userNow(r)
-	out := make([]schedRow, 0, len(rows))
-	for _, rc := range rows {
+	out := make([]schedRow, 0, len(snapshot.Rows))
+	for _, rc := range snapshot.Rows {
 		row := schedRow{
 			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
 			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60), LoadPct: rc.LoadPercent,
@@ -155,7 +152,7 @@ func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, pid int64) (
 		}
 		out = append(out, row)
 	}
-	return out, pnames, nil
+	return scheduleRowsView{Rows: out, ProjectNames: snapshot.ProjectNames, TotalMinutes: snapshot.TotalMinutes}, nil
 }
 
 // handleScheduleCell writes one plan cell.
@@ -231,12 +228,12 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 		return
 	}
 	pid := schedProject(r.PostForm.Get("project_id"), projects)
-	rows, _, err := s.scheduleRows(r, startOfWeek(r, t), pid)
+	schedule, err := s.scheduleRows(r, startOfWeek(r, t), pid)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
-	for _, row := range rows {
+	for _, row := range schedule.Rows {
 		if row.UserID == uid {
 			s.renderFragment(w, "schedule-row", schedRowVM{Row: row, Projects: projectViews(projects), ProjectID: pid, CanManage: canManage(r), Lang: string(resolveLang(r))})
 			return
