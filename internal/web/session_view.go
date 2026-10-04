@@ -3,6 +3,7 @@ package web
 import (
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
@@ -75,7 +76,7 @@ func attachSessionTags(rows []sessionView, tagsByID map[int64][]model.Tag) {
 	}
 }
 
-func attachSessionProjects(rows []sessionView, byID map[int64]model.ProjectSummary) {
+func attachSessionProjects(rows []sessionView, byID map[int64]appmodel.ProjectSummary) {
 	for i, r := range rows {
 		if p, ok := byID[r.ProjectID]; ok {
 			rows[i].ProjectName = p.Name

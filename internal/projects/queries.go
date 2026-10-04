@@ -63,7 +63,7 @@ func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectUsage
 	return appmodel.ProjectListSnapshot{Projects: catalog.Projects, Usage: usage}, nil
 }
 
-func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, todayStart, monthStart, now time.Time, counts map[int64]int) (map[int64]model.ProjectUsage, error) {
+func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, todayStart, monthStart, now time.Time, counts map[int64]int) (map[int64]appmodel.ProjectUsage, error) {
 	if teamID <= 0 || todayStart.IsZero() || monthStart.IsZero() || now.IsZero() || todayStart.After(now) || monthStart.After(now) {
 		return nil, model.ErrNotFound
 	}
@@ -71,9 +71,9 @@ func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, toda
 	if err != nil {
 		return nil, fmt.Errorf("load project time spans: %w", err)
 	}
-	usage := make(map[int64]model.ProjectUsage, len(counts))
+	usage := make(map[int64]appmodel.ProjectUsage, len(counts))
 	for projectID, count := range counts {
-		usage[projectID] = model.ProjectUsage{ActivityCount: count}
+		usage[projectID] = appmodel.ProjectUsage{ActivityCount: count}
 	}
 	for _, span := range spans {
 		item := usage[span.ProjectID]
@@ -90,7 +90,7 @@ func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, toda
 	return usage, nil
 }
 
-func (s *Service) Summaries(ctx context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+func (s *Service) Summaries(ctx context.Context, query appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error) {
 	if query.TeamID <= 0 {
 		return nil, model.ErrNotFound
 	}
@@ -182,31 +182,31 @@ func (s *Service) GetBySlug(ctx context.Context, query appmodel.ProjectSlugQuery
 }
 
 // Detail loads the scoped project page data through the owning project workflow.
-func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequest) (model.ProjectDetail, error) {
+func (s *Service) Detail(ctx context.Context, request appmodel.ProjectDetailRequest) (appmodel.ProjectDetail, error) {
 	if request.TeamID <= 0 || strings.TrimSpace(request.Slug) == "" || request.From.IsZero() || request.Through.IsZero() || request.Through.Before(request.From) {
-		return model.ProjectDetail{}, model.ErrNotFound
+		return appmodel.ProjectDetail{}, model.ErrNotFound
 	}
 	project, err := s.catalog.GetProjectBySlug(ctx, appmodel.ProjectSlugQuery{TeamID: request.TeamID, Slug: strings.TrimSpace(request.Slug)})
 	if err != nil {
-		return model.ProjectDetail{}, err
+		return appmodel.ProjectDetail{}, err
 	}
 	activities, err := s.catalog.ListActivitiesForProject(ctx, appmodel.ProjectActivityCatalogQuery{TeamID: request.TeamID, ProjectID: project.ID, IncludeArchived: request.IncludeArchived})
 	if err != nil {
-		return model.ProjectDetail{}, fmt.Errorf("list project activities: %w", err)
+		return appmodel.ProjectDetail{}, fmt.Errorf("list project activities: %w", err)
 	}
 	activity, err := s.Activity(ctx, appmodel.ProjectActivityQuery{TeamID: request.TeamID, ProjectID: project.ID, From: request.From, Through: request.Through})
 	if err != nil {
-		return model.ProjectDetail{}, fmt.Errorf("load project activity summary: %w", err)
+		return appmodel.ProjectDetail{}, fmt.Errorf("load project activity summary: %w", err)
 	}
 	currency, err := s.Currency(ctx, appmodel.ProjectScopeQuery{TeamID: request.TeamID, ProjectID: project.ID})
 	if err != nil {
-		return model.ProjectDetail{}, fmt.Errorf("load project currency: %w", err)
+		return appmodel.ProjectDetail{}, fmt.Errorf("load project currency: %w", err)
 	}
 	estimatePercent := 0
 	if project.EstimateMinutes != nil && *project.EstimateMinutes > 0 {
 		estimatePercent = money.PercentRatio(activity.TotalSeconds, *project.EstimateMinutes, 5, 3)
 	}
-	return model.ProjectDetail{
+	return appmodel.ProjectDetail{
 		Project: project, Activities: activities, Activity: activity,
 		Currency: currency, EstimatePercent: estimatePercent,
 	}, nil

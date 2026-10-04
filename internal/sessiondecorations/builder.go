@@ -17,7 +17,7 @@ type TagReader interface {
 }
 
 type ProjectReader interface {
-	Summaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
+	Summaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error)
 }
 
 type SessionReader interface {

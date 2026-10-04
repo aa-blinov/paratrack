@@ -186,7 +186,7 @@ type SessionDecorationBuilding interface {
 
 // ProjectQueries provides project and activity data to HTTP views.
 type ProjectQueries interface {
-	Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error)
+	Detail(context.Context, appmodel.ProjectDetailRequest) (appmodel.ProjectDetail, error)
 	GetBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
 	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	ListWithUsage(context.Context, appmodel.ProjectUsageQuery) (appmodel.ProjectListSnapshot, error)

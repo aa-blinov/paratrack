@@ -23,8 +23,8 @@ type ProjectCatalogStore interface {
 // ProjectUsageStore provides team-scoped usage summaries.
 type ProjectUsageStore interface {
 	ProjectActivityCounts(context.Context, int64) (map[int64]int, error)
-	ProjectSpans(context.Context, appmodel.ProjectSpansQuery) ([]model.ProjectSessionSpan, error)
-	ProjectSummaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
+	ProjectSpans(context.Context, appmodel.ProjectSpansQuery) ([]appmodel.ProjectSessionSpan, error)
+	ProjectSummaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error)
 	ProjectSessions(context.Context, appmodel.ProjectActivityQuery) ([]model.ActiveSession, error)
 	ProjectTrackedTotal(context.Context, appmodel.ProjectScopeQuery) (int, error)
 }
@@ -71,7 +71,7 @@ type Service struct {
 	writes        ProjectWriteStore
 }
 
-type ActivitySummary = model.ProjectActivitySummary
+type ActivitySummary = appmodel.ProjectActivitySummary
 
 func NewService(deps Dependencies) (*Service, error) {
 	missing := []struct {
