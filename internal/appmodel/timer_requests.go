@@ -26,6 +26,14 @@ type TimerFocusRequest struct {
 	At         time.Time
 }
 
+// TimerFocusByNameRequest captures a focus action before the existing
+// workspace activity is resolved.
+type TimerFocusByNameRequest struct {
+	TeamID       int64
+	ActivityName string
+	At           time.Time
+}
+
 type TimerStopRequest struct {
 	TeamID    int64
 	SessionID int64

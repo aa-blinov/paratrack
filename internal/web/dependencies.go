@@ -317,6 +317,7 @@ type TrackingCommands interface {
 type TrackingOperations interface {
 	AddClosedActivity(context.Context, appmodel.TimerAddByNameRequest) (model.Activity, model.Session, error)
 	Focus(context.Context, appmodel.TimerFocusRequest) (appmodel.FocusResult, error)
+	FocusActivity(context.Context, appmodel.TimerFocusByNameRequest) (model.Activity, appmodel.FocusResult, error)
 	Delete(context.Context, appmodel.SessionDeleteRequest) error
 	Reopen(context.Context, appmodel.TimerReopenRequest) (model.Session, error)
 	StartActivity(context.Context, appmodel.TimerStartByNameRequest) (model.Activity, model.Session, error)
