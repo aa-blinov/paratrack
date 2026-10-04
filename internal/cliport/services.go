@@ -83,8 +83,7 @@ type ProjectLookup interface {
 }
 
 type Projects interface {
-	List(context.Context, int64, bool) ([]model.Project, error)
-	ActivityCounts(context.Context, int64) (map[int64]int, error)
+	ListWithActivityCounts(context.Context, int64, bool) (appmodel.ProjectCatalogSnapshot, error)
 	Create(context.Context, appmodel.ProjectCreateRequest) (model.Project, error)
 	Activities(context.Context, int64, int64, bool) ([]model.Activity, error)
 	Update(context.Context, appmodel.ProjectUpdateRequest) (model.Project, error)

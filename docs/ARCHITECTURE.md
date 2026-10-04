@@ -607,7 +607,9 @@ lock before assignment.
 Project-list usage (activity count, today's tracked time and rolling-month
 time) and the project rows are returned together by the projects service from
 team-scoped persistence reads. The HTTP adapter passes the user's date
-boundaries and formats labels.
+boundaries and formats labels. The CLI asks for the same catalog and activity
+counts through a lighter snapshot, so it does not coordinate catalog and usage
+queries itself.
 Project summaries used to decorate session rows and exports are also loaded
 through the service with a workspace constraint on the batch lookup.
 Project detail project, activity, recent-session, tracked-time and currency

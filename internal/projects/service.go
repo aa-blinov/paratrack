@@ -104,8 +104,7 @@ func (s *Service) List(ctx context.Context, teamID int64, includeArchived bool) 
 	return s.catalog.ListProjects(ctx, teamID, includeArchived)
 }
 
-// ActivityCounts returns the activity count per project in one workspace read.
-func (s *Service) ActivityCounts(ctx context.Context, teamID int64) (map[int64]int, error) {
+func (s *Service) activityCounts(ctx context.Context, teamID int64) (map[int64]int, error) {
 	if teamID <= 0 {
 		return nil, model.ErrNotFound
 	}
@@ -116,16 +115,43 @@ func (s *Service) ActivityCounts(ctx context.Context, teamID int64) (map[int64]i
 	return counts, nil
 }
 
-// UsageSummary returns activity counts and tracked time for the projects in
-// the requested workspace. todayStart is local midnight; monthStart may be a
-// rolling window boundary chosen by the caller.
-func (s *Service) UsageSummary(ctx context.Context, teamID int64, todayStart, monthStart, now time.Time) (map[int64]model.ProjectUsage, error) {
+// ListWithActivityCounts assembles the project catalog and counts for CLI
+// output without making the transport coordinate two workflow reads.
+func (s *Service) ListWithActivityCounts(ctx context.Context, teamID int64, includeArchived bool) (appmodel.ProjectCatalogSnapshot, error) {
+	if teamID <= 0 {
+		return appmodel.ProjectCatalogSnapshot{}, ErrInvalidTeam
+	}
+	items, err := s.catalog.ListProjects(ctx, teamID, includeArchived)
+	if err != nil {
+		return appmodel.ProjectCatalogSnapshot{}, fmt.Errorf("list projects: %w", err)
+	}
+	counts, err := s.activityCounts(ctx, teamID)
+	if err != nil {
+		return appmodel.ProjectCatalogSnapshot{}, fmt.Errorf("load project activity counts: %w", err)
+	}
+	return appmodel.ProjectCatalogSnapshot{Projects: items, ActivityCounts: counts}, nil
+}
+
+// ListWithUsage assembles the project list and its time-window summaries for
+// one adapter read, keeping list composition in the project workflow.
+func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectListQuery) (appmodel.ProjectListSnapshot, error) {
+	if query.TeamID <= 0 {
+		return appmodel.ProjectListSnapshot{}, ErrInvalidTeam
+	}
+	catalog, err := s.ListWithActivityCounts(ctx, query.TeamID, query.IncludeArchived)
+	if err != nil {
+		return appmodel.ProjectListSnapshot{}, err
+	}
+	usage, err := s.usageSummaryWithCounts(ctx, query.TeamID, query.TodayStart, query.MonthStart, query.Now, catalog.ActivityCounts)
+	if err != nil {
+		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project usage summary: %w", err)
+	}
+	return appmodel.ProjectListSnapshot{Projects: catalog.Projects, Usage: usage}, nil
+}
+
+func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, todayStart, monthStart, now time.Time, counts map[int64]int) (map[int64]model.ProjectUsage, error) {
 	if teamID <= 0 || todayStart.IsZero() || monthStart.IsZero() || now.IsZero() || todayStart.After(now) || monthStart.After(now) {
 		return nil, model.ErrNotFound
-	}
-	counts, err := s.ActivityCounts(ctx, teamID)
-	if err != nil {
-		return nil, fmt.Errorf("load project activity counts: %w", err)
 	}
 	spans, err := s.usage.ProjectSpans(ctx, teamID, monthStart, now)
 	if err != nil {
@@ -148,23 +174,6 @@ func (s *Service) UsageSummary(ctx context.Context, teamID int64, todayStart, mo
 		usage[span.ProjectID] = item
 	}
 	return usage, nil
-}
-
-// ListWithUsage assembles the project list and its time-window summaries for
-// one adapter read, keeping list composition in the project workflow.
-func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectListQuery) (appmodel.ProjectListSnapshot, error) {
-	if query.TeamID <= 0 {
-		return appmodel.ProjectListSnapshot{}, ErrInvalidTeam
-	}
-	items, err := s.catalog.ListProjects(ctx, query.TeamID, query.IncludeArchived)
-	if err != nil {
-		return appmodel.ProjectListSnapshot{}, fmt.Errorf("list projects: %w", err)
-	}
-	usage, err := s.UsageSummary(ctx, query.TeamID, query.TodayStart, query.MonthStart, query.Now)
-	if err != nil {
-		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project usage summary: %w", err)
-	}
-	return appmodel.ProjectListSnapshot{Projects: items, Usage: usage}, nil
 }
 
 func (s *Service) Summaries(ctx context.Context, teamID int64, projectIDs []int64) (map[int64]model.ProjectSummary, error) {

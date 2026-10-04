@@ -49,6 +49,13 @@ type ProjectListSnapshot struct {
 	Usage    map[int64]model.ProjectUsage
 }
 
+// ProjectCatalogSnapshot combines projects with their activity counts for
+// adapters that do not need time-window usage totals.
+type ProjectCatalogSnapshot struct {
+	Projects       []model.Project
+	ActivityCounts map[int64]int
+}
+
 // TimerStopResult carries the stopped session and its duration as calculated
 // at the stop request's timestamp.
 type TimerStopResult struct {
