@@ -82,7 +82,7 @@ func TestMembershipReadsKeepWorkspaceAndUserTogether(t *testing.T) {
 	store := &membershipLookupStub{}
 	service := &Service{memberships: store}
 
-	role, member, err := service.IsMember(context.Background(), 7, 19)
+	role, member, err := service.IsMember(context.Background(), appmodel.TeamMembershipQuery{TeamID: 7, UserID: 19})
 	if err != nil || !member || role != model.TeamRoleAdmin {
 		t.Fatalf("IsMember() = %q, %v, %v", role, member, err)
 	}
@@ -91,7 +91,7 @@ func TestMembershipReadsKeepWorkspaceAndUserTogether(t *testing.T) {
 		t.Fatalf("TeamMemberRole query = %+v, want %+v", store.query, want)
 	}
 
-	if _, member, err := service.MembershipForUser(context.Background(), 7, 19); err != nil || !member {
+	if _, member, err := service.MembershipForUser(context.Background(), appmodel.TeamMembershipQuery{TeamID: 7, UserID: 19}); err != nil || !member {
 		t.Fatalf("MembershipForUser() member = %v, error = %v", member, err)
 	}
 	if store.query != want {
@@ -110,7 +110,7 @@ func TestCreateCreatesOwnerMembership(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 
-	role, ok, err := svc.IsMember(ctx, team.ID, uid)
+	role, ok, err := svc.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: team.ID, UserID: uid})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -316,7 +316,7 @@ func TestInviteFlow(t *testing.T) {
 		t.Errorf("AcceptInvite returned team %d, want %d", joined.ID, team.ID)
 	}
 
-	role, ok, err := svc.IsMember(ctx, team.ID, member)
+	role, ok, err := svc.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: team.ID, UserID: member})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -350,7 +350,7 @@ func TestInviteFlow(t *testing.T) {
 	if err := svc.SetRole(ctx, appmodel.TeamMemberRoleRequest{TeamID: team.ID, TargetUserID: member, CallerID: owner, Role: RoleAdmin}); err != nil {
 		t.Fatalf("owner SetRole: %v", err)
 	}
-	role, ok, err = svc.IsMember(ctx, team.ID, member)
+	role, ok, err = svc.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: team.ID, UserID: member})
 	if err != nil {
 		t.Fatal(err)
 	}

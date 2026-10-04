@@ -228,11 +228,11 @@ func (s *Service) MembershipsForUser(ctx context.Context, userID int64) ([]model
 }
 
 // MembershipForUser resolves a workspace and the caller's role together.
-func (s *Service) MembershipForUser(ctx context.Context, teamID, userID int64) (model.TeamMembership, bool, error) {
-	if teamID <= 0 || userID <= 0 {
+func (s *Service) MembershipForUser(ctx context.Context, query appmodel.TeamMembershipQuery) (model.TeamMembership, bool, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
 		return model.TeamMembership{}, false, ErrNotFound
 	}
-	return s.memberships.FindMembershipForUser(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: userID})
+	return s.memberships.FindMembershipForUser(ctx, query)
 }
 
 // Rename changes the team's display name. Slug stays the same to keep

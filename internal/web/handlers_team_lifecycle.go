@@ -55,7 +55,7 @@ func (s *Server) handleAPITeamSwitch(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/?flash=bad_team", http.StatusSeeOther)
 		return
 	}
-	if _, ok, err := s.services.Teams.Directory.IsMember(r.Context(), id, user.ID); err != nil || !ok {
+	if _, ok, err := s.services.Teams.Directory.IsMember(r.Context(), appmodel.TeamMembershipQuery{TeamID: id, UserID: user.ID}); err != nil || !ok {
 		http.Redirect(w, r, "/?flash=forbidden", http.StatusSeeOther)
 		return
 	}

@@ -43,7 +43,7 @@ type teamMembershipReaderStub struct {
 	err    error
 }
 
-func (stub teamMembershipReaderStub) IsMember(context.Context, int64, int64) (model.TeamRole, bool, error) {
+func (stub teamMembershipReaderStub) IsMember(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error) {
 	return stub.role, stub.member, stub.err
 }
 
