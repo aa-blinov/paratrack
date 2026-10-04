@@ -364,6 +364,7 @@ type TeamMemberManagementBuilding interface {
 type TeamInvitations interface {
 	AcceptInvite(context.Context, appmodel.TeamInviteAcceptRequest) (model.Team, error)
 	FindInvite(context.Context, string) (appmodel.TeamInviteResult, error)
+	InvitePage(context.Context, string) (appmodel.TeamInvitePageSnapshot, error)
 	InvitesForTeam(context.Context, int64) ([]appmodel.TeamInviteResult, error)
 	NewInvite(context.Context, appmodel.TeamInviteCreateRequest) (appmodel.TeamInviteResult, error)
 	RevokeInvite(context.Context, appmodel.TeamInviteRevokeRequest) error
