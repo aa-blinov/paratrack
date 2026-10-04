@@ -288,6 +288,25 @@ func TestAPITagsHTMXAndTeamScope(t *testing.T) {
 	if id == "" {
 		t.Fatalf("no tag id in fragment: %q", body[:min(160, len(body))])
 	}
+	resp = e.do("GET", "/api/tags", nil, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("tag usage list: status %d", resp.StatusCode)
+	}
+	var tagList struct {
+		Tags []struct {
+			ID           int64  `json:"id"`
+			Name         string `json:"name"`
+			SessionCount int    `json:"session_count"`
+		} `json:"tags"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tagList); err != nil {
+		resp.Body.Close()
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if len(tagList.Tags) != 1 || tagList.Tags[0].Name != "deep-work" || tagList.Tags[0].SessionCount != 0 {
+		t.Fatalf("tag list usage = %+v, want deep-work with zero sessions", tagList.Tags)
+	}
 
 	// Second user must NOT be able to delete this tag.
 	e2 := newAPIEnvSharedDB(t, e)

@@ -14,9 +14,12 @@ type tagChip struct {
 // tagsData feeds tags.html.
 type tagsData struct {
 	pageData
+	ReactTags   bool
 	Tags        []tagWithCount
 	AllTagNames []string // for autocomplete on the new-tag input
 }
+
+func (tagsData) usesReactApp() bool { return true }
 
 // tagWithCount is a tag plus how many sessions carry it.
 type tagWithCount struct {
