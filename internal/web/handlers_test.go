@@ -311,6 +311,22 @@ func TestPreferencesPageBootstrapsReact(t *testing.T) {
 	}
 }
 
+func TestNotificationsPageBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/settings/notifications", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /settings/notifications status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, marker := range []string{`id="react-page-data"`, `id="paratrack-react-root"`, `"NotificationsReact":true`, `"DeviceCount"`} {
+		if !strings.Contains(response.Body.String(), marker) {
+			t.Errorf("GET /settings/notifications missing React bootstrap marker %q", marker)
+		}
+	}
+}
+
 func TestTimesheetPageBootstrapsReact(t *testing.T) {
 	srv, token := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/timesheet", nil)
