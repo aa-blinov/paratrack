@@ -429,54 +429,22 @@ func (s *Service) UpdateFields(ctx context.Context, request appmodel.SessionUpda
 	if request.TeamID <= 0 || request.CallerID <= 0 || request.SessionID <= 0 || request.Update.UpdatedAt.IsZero() {
 		return ErrInvalidEdit
 	}
-	teamID, sessionID, update := request.TeamID, request.SessionID, request.Update
-	current, err := s.queries.GetSession(ctx, teamID, sessionID)
-	if err != nil {
-		return fmt.Errorf("load session to edit: %w", err)
-	}
-	start := current.StartAt
-	if update.StartAt != nil {
-		start = *update.StartAt
-	}
-	end := current.EndAt
-	if update.EndAt != nil {
-		end = update.EndAt
-	}
 	if request.DurationSeconds != nil {
-		seconds := *request.DurationSeconds
-		if seconds < 0 {
+		if *request.DurationSeconds < 0 {
 			return ErrInvalidDuration
 		}
-		if int64(seconds) > model.MaxSessionDurationSeconds {
-			return model.ErrSessionDurationOverflow
-		}
-		newEnd := start.Add(time.Duration(seconds) * time.Second)
-		update.EndAt = &newEnd
-		update.AccumulatedSeconds = &seconds
-		end = update.EndAt
-	} else if request.RecomputeDuration && end != nil {
-		seconds := int(end.Sub(start).Seconds())
-		update.AccumulatedSeconds = &seconds
-	}
-	if (update.StartAt != nil || update.EndAt != nil) && end != nil {
-		if !end.After(start) {
-			return ErrInvalidInterval
-		}
-		if end.Sub(start) > time.Duration(model.MaxSessionDurationSeconds)*time.Second {
+		if int64(*request.DurationSeconds) > model.MaxSessionDurationSeconds {
 			return model.ErrSessionDurationOverflow
 		}
 	}
-	if update.AccumulatedSeconds != nil {
-		if *update.AccumulatedSeconds < 0 {
+	if request.Update.AccumulatedSeconds != nil {
+		if *request.Update.AccumulatedSeconds < 0 {
 			return ErrInvalidDuration
 		}
-		if int64(*update.AccumulatedSeconds) > model.MaxSessionDurationSeconds {
+		if int64(*request.Update.AccumulatedSeconds) > model.MaxSessionDurationSeconds {
 			return model.ErrSessionDurationOverflow
 		}
 	}
-	request.DurationSeconds = nil
-	request.RecomputeDuration = false
-	request.Update = update
 	if err := s.sessions.UpdateSessionFields(ctx, request); err != nil {
 		return fmt.Errorf("update session: %w", err)
 	}
