@@ -343,8 +343,8 @@ func TestStopCoordinatesGoalAndSessionNotifications(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Session.ID != 91 || result.DurationSeconds != 3600 {
-		t.Fatalf("stop result = %+v, want session 91 and duration 3600", result)
+	if result.Session.ID != 91 || result.DurationSeconds != 3600 || result.ActivityName != "Deep work" {
+		t.Fatalf("stop result = %+v, want session 91, duration 3600 and activity Deep work", result)
 	}
 	if notifications.stopped != 1 || notifications.achieved != 1 {
 		t.Fatalf("notifications = %+v, want stopped and goal-achieved notifications", notifications)

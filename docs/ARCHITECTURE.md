@@ -188,7 +188,9 @@ resulting push notifications, so CLI, UI and API use the same application
 policy. Bulk stops retain their session snapshots through the transaction so
 the persistence transaction can record one webhook event for each stopped
 session and the coordinator can evaluate goal thresholds against the combined
-duration per activity. Reopen carries the previously checked stop time into
+duration per activity. A single stop result carries the activity name and
+duration captured by the workflow, so the HTTP adapter does not issue a
+post-transition lookup to build its toast. Reopen carries the previously checked stop time into
 the persistence command; the transaction compares it with the locked row so a
 concurrent edit cannot bypass the reopen window.
 Production

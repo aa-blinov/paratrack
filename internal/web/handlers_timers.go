@@ -113,14 +113,10 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	pushName := "a session"
-	if activity, err := s.services.Tracking.Queries.Activity(ctx, teamID(r), stopped.Session.ActivityID); err == nil {
-		pushName = activity.Name
-	}
 	// Say what stopped, how long it ran, and where it went.
 	// A session that ran at all reads "<1 min", never "0 min".
 	dur := fmtDur(r, max(1, stopped.DurationSeconds))
-	s.toast(w, strings.NewReplacer("{name}", pushName, "{dur}", dur).
+	s.toast(w, strings.NewReplacer("{name}", stopped.ActivityName, "{dur}", dur).
 		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
 	// Stop is instant; the toast carries the way back (and a discard for
 	// accidental sub-minute sessions).
