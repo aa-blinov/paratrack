@@ -125,7 +125,7 @@ func TestDraftOptionsAppliesBillingEligibilityAndClientDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("construct invoicing service: %v", err)
 	}
-	options, err := service.DraftOptions(context.Background(), 7)
+	options, err := service.draftOptions(context.Background(), 7)
 	if err != nil {
 		t.Fatalf("DraftOptions: %v", err)
 	}
@@ -333,12 +333,12 @@ func TestListCalculatesInvoiceSummaryTotals(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := service.List(context.Background(), 4)
+	got, err := service.list(context.Background(), 4)
 	if err != nil {
-		t.Fatalf("List() error = %v", err)
+		t.Fatalf("list() error = %v", err)
 	}
 	if len(got) != 1 || got[0].Invoice.Number != "INV-13" || got[0].TotalCents != 5000 || got[0].TotalHoursHundredths != 200 {
-		t.Fatalf("List() summaries = %+v", got)
+		t.Fatalf("list() summaries = %+v", got)
 	}
 }
 
