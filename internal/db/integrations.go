@@ -18,7 +18,7 @@ import (
 
 // Integration records are returned as credential-free summaries.
 type ExternalTask = model.ExternalTask
-type ExternalTaskWithProvider = model.ExternalTaskWithProvider
+type ExternalTaskWithProvider = appmodel.ExternalTaskWithProvider
 
 type integrationConfigRecord struct {
 	Target string `json:"target,omitempty"`
@@ -26,31 +26,31 @@ type integrationConfigRecord struct {
 
 // CreateIntegration stores a connection. name is the display label
 // (e.g. "acme/api-server" or "Product board").
-func (d *DB) CreateIntegration(ctx context.Context, request appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error) {
+func (d *DB) CreateIntegration(ctx context.Context, request appmodel.IntegrationCreateRequest) (appmodel.IntegrationSummary, error) {
 	teamID, callerID := request.TeamID, request.CallerID
 	provider, name, secret := request.Provider, request.Name, request.Secret
 	if teamID <= 0 || callerID <= 0 {
-		return model.IntegrationSummary{}, ErrNotFound
+		return appmodel.IntegrationSummary{}, ErrNotFound
 	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return model.IntegrationSummary{}, fmt.Errorf("name is required")
+		return appmodel.IntegrationSummary{}, fmt.Errorf("name is required")
 	}
 	sealedSecret, err := d.sealSecret(secret)
 	if err != nil {
-		return model.IntegrationSummary{}, fmt.Errorf("seal integration secret: %w", err)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("seal integration secret: %w", err)
 	}
 	configJSON, err := json.Marshal(integrationConfigRecord{Target: request.Config.Target})
 	if err != nil {
-		return model.IntegrationSummary{}, fmt.Errorf("encode integration configuration: %w", err)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("encode integration configuration: %w", err)
 	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
-		return model.IntegrationSummary{}, err
+		return appmodel.IntegrationSummary{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
-		return model.IntegrationSummary{}, err
+		return appmodel.IntegrationSummary{}, err
 	}
 	createdAt := d.currentTime().UTC()
 	var id int64
@@ -60,19 +60,19 @@ func (d *DB) CreateIntegration(ctx context.Context, request appmodel.Integration
 		teamID, provider, name, sealedSecret, string(configJSON), FormatTime(createdAt)).Scan(&id)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return model.IntegrationSummary{}, ErrDuplicate
+			return appmodel.IntegrationSummary{}, ErrDuplicate
 		}
-		return model.IntegrationSummary{}, err
+		return appmodel.IntegrationSummary{}, err
 	}
 	if err := tx.Commit(); err != nil {
-		return model.IntegrationSummary{}, err
+		return appmodel.IntegrationSummary{}, err
 	}
-	return model.IntegrationSummary{ID: id, TeamID: teamID, Provider: provider, Name: name, CreatedAt: createdAt}, nil
+	return appmodel.IntegrationSummary{ID: id, TeamID: teamID, Provider: provider, Name: name, CreatedAt: createdAt}, nil
 }
 
 // ListIntegrations returns safe summaries; credentials are only read by the
 // team-scoped sync starter used when a provider fetch begins.
-func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]model.IntegrationSummary, error) {
+func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]appmodel.IntegrationSummary, error) {
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT id, team_id, provider, name, created_at
 		 FROM integrations WHERE team_id = ? ORDER BY provider, name`, teamID)
@@ -80,10 +80,10 @@ func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]model.Integr
 		return nil, err
 	}
 	defer rows.Close()
-	var out []model.IntegrationSummary
+	var out []appmodel.IntegrationSummary
 	for rows.Next() {
 		var (
-			it      model.IntegrationSummary
+			it      appmodel.IntegrationSummary
 			created string
 		)
 		if err := rows.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &created); err != nil {
@@ -144,12 +144,12 @@ func (d *DB) BeginIntegrationSync(ctx context.Context, request appmodel.Integrat
 }
 
 // GetIntegrationSummary reads one connection without decrypting its secret.
-func (d *DB) GetIntegrationSummary(ctx context.Context, query appmodel.IntegrationLookupQuery) (model.IntegrationSummary, error) {
+func (d *DB) GetIntegrationSummary(ctx context.Context, query appmodel.IntegrationLookupQuery) (appmodel.IntegrationSummary, error) {
 	if query.TeamID <= 0 || query.IntegrationID <= 0 {
-		return model.IntegrationSummary{}, ErrNotFound
+		return appmodel.IntegrationSummary{}, ErrNotFound
 	}
 	var (
-		item    model.IntegrationSummary
+		item    appmodel.IntegrationSummary
 		created string
 	)
 	err := d.sql.QueryRowContext(ctx,
@@ -158,13 +158,13 @@ func (d *DB) GetIntegrationSummary(ctx context.Context, query appmodel.Integrati
 	).Scan(&item.ID, &item.TeamID, &item.Provider, &item.Name, &created)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.IntegrationSummary{}, ErrNotFound
+			return appmodel.IntegrationSummary{}, ErrNotFound
 		}
-		return model.IntegrationSummary{}, err
+		return appmodel.IntegrationSummary{}, err
 	}
 	item.CreatedAt, err = ScanTime(created)
 	if err != nil {
-		return model.IntegrationSummary{}, fmt.Errorf("parse integration creation time: %w", err)
+		return appmodel.IntegrationSummary{}, fmt.Errorf("parse integration creation time: %w", err)
 	}
 	return item, nil
 }
