@@ -1,9 +1,13 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -69,6 +73,16 @@ func (credentialPreferencesStub) Save(context.Context, appmodel.PreferencesSaveR
 	return nil
 }
 
+type failingCredentialPreferencesStub struct{ err error }
+
+func (s failingCredentialPreferencesStub) Load(context.Context, int64) (appmodel.UserPreferences, error) {
+	return appmodel.UserPreferences{}, s.err
+}
+
+func (failingCredentialPreferencesStub) Save(context.Context, appmodel.PreferencesSaveRequest) error {
+	return nil
+}
+
 func TestRequireAuthTouchesOnlyBrowserSessions(t *testing.T) {
 	for _, test := range []struct {
 		name       string
@@ -111,5 +125,35 @@ func TestRequireAuthTouchesOnlyBrowserSessions(t *testing.T) {
 				t.Fatalf("Touch calls = %v, want [%q]", identity.touchCalls, test.wantTouch)
 			}
 		})
+	}
+}
+
+func TestRequireAuthLogsPreferenceLoadFailureAndContinues(t *testing.T) {
+	identity := &credentialIdentityStub{user: appmodel.UserIdentity{ID: 7}}
+	membership := model.TeamMembership{
+		Team: model.Team{ID: 9}, Role: model.TeamRoleMember,
+	}
+	var logs bytes.Buffer
+	server := &Server{
+		logger: log.New(&logs, "", 0),
+		services: Dependencies{
+			Auth:        AuthenticationDependencies{Identity: identity},
+			Teams:       TeamDependencies{Directory: credentialTeamDirectoryStub{membership: membership}},
+			Preferences: failingCredentialPreferencesStub{err: errors.New("preferences store unavailable")},
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "browser-session"})
+	recorder := httptest.NewRecorder()
+	called := false
+	server.requireAuth(func(http.ResponseWriter, *http.Request) {})(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+		called = true
+	})).ServeHTTP(recorder, req)
+
+	if !called {
+		t.Fatalf("request did not continue after preference failure: status %d", recorder.Code)
+	}
+	if got := logs.String(); !strings.Contains(got, "load preferences for user 7") || !strings.Contains(got, "preferences store unavailable") {
+		t.Fatalf("preference failure log = %q", got)
 	}
 }
