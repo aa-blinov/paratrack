@@ -96,7 +96,7 @@ func TestBillableRateAndInvoiceFlow(t *testing.T) {
 	if inv.Number != num || inv.ClientName != "Acme" {
 		t.Fatalf("inv=%+v", inv)
 	}
-	details, _ := d.GetInvoiceDetails(ctx, 1, inv.ID)
+	details, _ := d.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: 1, InvoiceID: inv.ID})
 	if len(details.Lines) != 1 || details.Lines[0].AmountCents != 20000 {
 		t.Fatalf("lines=%+v", details.Lines)
 	}

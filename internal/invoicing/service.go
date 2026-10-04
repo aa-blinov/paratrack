@@ -21,7 +21,7 @@ import (
 // Reader exposes team-scoped invoice and billable-time queries.
 type Reader interface {
 	ListInvoiceDetails(context.Context, int64) ([]model.InvoiceDetails, error)
-	GetInvoiceDetails(context.Context, int64, int64) (model.InvoiceDetails, error)
+	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error)
 	Unbilled(context.Context, int64, int64) ([]model.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]model.UnassignedActivity, error)
 	OverlappingInvoices(context.Context, int64, int64, time.Time, time.Time, []string) ([]string, error)
@@ -301,7 +301,7 @@ func (s *Service) Get(ctx context.Context, teamID, invoiceID int64) (appmodel.In
 	if teamID <= 0 || invoiceID <= 0 {
 		return appmodel.InvoiceDetailResult{}, ErrInvalidInvoice
 	}
-	details, err := s.reader.GetInvoiceDetails(ctx, teamID, invoiceID)
+	details, err := s.reader.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoiceID})
 	if err != nil {
 		return appmodel.InvoiceDetailResult{}, fmt.Errorf("get invoice details: %w", err)
 	}
@@ -444,7 +444,7 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	if request.Client == "" {
 		return ErrInvalidClient
 	}
-	current, err := s.reader.GetInvoiceDetails(ctx, request.TeamID, request.InvoiceID)
+	current, err := s.reader.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: request.TeamID, InvoiceID: request.InvoiceID})
 	if err != nil {
 		return fmt.Errorf("load invoice for edit: %w", err)
 	}
