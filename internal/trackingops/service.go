@@ -306,6 +306,8 @@ func (s *Service) Stop(ctx context.Context, request appmodel.TimerStopRequest) (
 	activityName := "a session"
 	if activity, err := s.activities.Activity(effectCtx, teamID, session.ActivityID); err == nil {
 		activityName = activity.Name
+	} else {
+		s.logger.Printf("tracking: load activity name for stopped session %s: %v", target, err)
 	}
 	if err := s.notifications.SessionStopped(effectCtx, appmodel.SessionStoppedNotification{
 		TeamID: teamID, UserID: requestctx.ActorID(ctx), ActivityName: activityName,
@@ -313,7 +315,7 @@ func (s *Service) Stop(ctx context.Context, request appmodel.TimerStopRequest) (
 		s.logger.Printf("tracking: enqueue stopped notification for session %d: %v", sessionID, err)
 	}
 	s.notifyGoalsAfterSessions(effectCtx, teamID, map[int64]int{session.ActivityID: duration}, at, strconv.FormatInt(sessionID, 10))
-	return appmodel.TimerStopResult{Session: session, DurationSeconds: duration}, nil
+	return appmodel.TimerStopResult{Session: session, DurationSeconds: duration, ActivityName: activityName}, nil
 }
 
 // StopAll ends every active session at one instant and records its audit
