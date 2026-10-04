@@ -59,6 +59,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C18. React workspace settings | rename, currency, invoice requisites, billing rounding and logo, Stripe credentials, workspace creation and deletion forms preserve the existing routes |
 | C19. React members | role, pay, capacity, remove-member and owner transfer forms remain role-aware and submit through the existing handlers |
 | C20. React invites | create with optional email delivery; live links, used/expired state, and revoke actions |
+| C21. React sections and welcome | presets, custom module selection, manager-only section behavior and onboarding skip/persist paths |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

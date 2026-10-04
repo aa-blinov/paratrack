@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData } from "@/dashboard/types"
+import type { DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -40,6 +40,7 @@ const NotificationsPage = lazy(() => import("@/settings/notifications-page").the
 const TeamSettingsPage = lazy(() => import("@/settings/team-settings-page").then(module => ({ default: module.TeamSettingsPage })))
 const TeamMembersPage = lazy(() => import("@/settings/team-members-page").then(module => ({ default: module.TeamMembersPage })))
 const TeamInvitesPage = lazy(() => import("@/settings/team-invites-page").then(module => ({ default: module.TeamInvitesPage })))
+const SectionsPage = lazy(() => import("@/settings/sections-page").then(module => ({ default: module.SectionsPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -267,6 +268,8 @@ if (root && payload) {
             ? <TeamMembersPage data={initial.data as TeamMembersData} />
             : "InvitesReact" in initial.data && initial.data.InvitesReact
             ? <TeamInvitesPage data={initial.data as TeamInvitesData} />
+            : "SectionsReact" in initial.data && initial.data.SectionsReact
+            ? <SectionsPage data={initial.data as SectionsData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data

@@ -602,7 +602,19 @@ export interface TeamInvitesData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData
+export interface SectionsData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  SectionsReact: boolean
+  Welcome: boolean
+  Modules: Array<{ Key: string; Icon: string; Label: string; Hint: string; On: boolean; Manage: boolean }>
+  Presets: Array<{ Key: string; Title: string; Blurb: string; Icon: string; Active: boolean; Names: string[] }>
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
