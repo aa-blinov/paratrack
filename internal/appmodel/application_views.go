@@ -235,6 +235,22 @@ type InvoiceDetailResult struct {
 	TotalHoursHundredths int
 }
 
+// InvoiceDocumentRequest scopes the shared invoice detail read used by the
+// invoice page, printable documents, and outbound email.
+type InvoiceDocumentRequest struct {
+	TeamID                 int64
+	InvoiceID              int64
+	IncludeStripeReadiness bool
+}
+
+// InvoiceDocumentSnapshot combines invoice details with the workspace billing
+// rules needed to render an invoice or act.
+type InvoiceDocumentSnapshot struct {
+	Details      InvoiceDetailResult
+	BillingRules model.BillingRules
+	StripeReady  bool
+}
+
 type InvoiceSummaryResult struct {
 	Invoice              model.Invoice
 	TotalCents           int

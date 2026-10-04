@@ -8,43 +8,22 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-type invoiceDetailsStub struct {
-	InvoiceQueries
-	details appmodel.InvoiceDetailResult
+type invoiceDocumentBuilderStub struct{ err error }
+
+func (stub invoiceDocumentBuilderStub) Build(context.Context, appmodel.InvoiceDocumentRequest) (appmodel.InvoiceDocumentSnapshot, error) {
+	return appmodel.InvoiceDocumentSnapshot{}, stub.err
 }
 
-func (s invoiceDetailsStub) Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error) {
-	return s.details, nil
-}
-
-type billingRulesErrorStub struct {
-	TeamSettingsManagement
-	err error
-}
-
-func (s billingRulesErrorStub) BillingRules(context.Context, int64) (model.BillingRules, error) {
-	return model.BillingRules{}, s.err
-}
-
-func TestLoadInvoiceVMReturnsBillingRulesError(t *testing.T) {
+func TestLoadInvoiceVMReturnsInvoiceDocumentWorkflowError(t *testing.T) {
 	wantErr := errors.New("billing rules unavailable")
-	server := &Server{services: Dependencies{
-		Invoicing: InvoiceDependencies{Queries: invoiceDetailsStub{details: appmodel.InvoiceDetailResult{Invoice: model.Invoice{
-			ID: 4, TeamID: 8, Currency: "RUB",
-			PeriodStart: time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC),
-			PeriodEnd:   time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC),
-			CreatedAt:   time.Date(2026, time.October, 2, 0, 0, 0, 0, time.UTC),
-		}}}},
-		Teams: TeamDependencies{Settings: billingRulesErrorStub{err: wantErr}},
-	}}
+	server := &Server{services: Dependencies{InvoiceDocuments: invoiceDocumentBuilderStub{err: wantErr}}}
 	request := httptest.NewRequest("GET", "/invoices/4", nil)
-	if _, _, err := server.loadInvoiceVM(request); !errors.Is(err, wantErr) {
+	if _, _, _, err := server.loadInvoiceVM(request, false); !errors.Is(err, wantErr) {
 		t.Fatalf("loadInvoiceVM() error = %v, want wrapped billing rules error", err)
 	}
 }
