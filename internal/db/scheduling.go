@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // ScheduleRow is one member's planned work during a week.
-type ScheduleRow = model.ScheduleRow
+type ScheduleRow = appmodel.ScheduleRow
 
 // UpsertScheduleEntry sets planned minutes for one workspace schedule cell.
 func (d *DB) UpsertScheduleEntry(ctx context.Context, request appmodel.ScheduleCellRequest) error {
