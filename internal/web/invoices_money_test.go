@@ -103,7 +103,7 @@ func TestBillableRateAndInvoiceFlow(t *testing.T) {
 	if _, _, err := d.MarkInvoicePaidOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: 1, InvoiceID: inv.ID, CallerID: 1}); err != nil {
 		t.Fatal(err)
 	}
-	got2, _ := d.GetInvoice(ctx, 1, inv.ID)
+	got2, _ := d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: 1, InvoiceID: inv.ID})
 	if got2.Status != "paid" {
 		t.Fatalf("status=%s", got2.Status)
 	}
@@ -216,7 +216,7 @@ func TestInvoiceAndPayrollCurrency(t *testing.T) {
 	if err != nil || run.Currency != "EUR" {
 		t.Errorf("pay run currency %q err %v, want EUR", run.Currency, err)
 	}
-	if got, _ := d.GetInvoice(ctx, 1, inv.ID); got.Currency != "USD" {
+	if got, _ := d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: 1, InvoiceID: inv.ID}); got.Currency != "USD" {
 		t.Errorf("issued invoice must keep USD after team change, got %q", got.Currency)
 	}
 }

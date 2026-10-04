@@ -249,7 +249,7 @@ func TestRebuildingInvoiceInvalidatesItsStripeCheckout(t *testing.T) {
 	if err := d.RebuildInvoice(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: invoice.ID, CallerID: ownerID}); err != nil {
 		t.Fatal(err)
 	}
-	rebuilt, err := d.GetInvoice(ctx, teamID, invoice.ID)
+	rebuilt, err := d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoice.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

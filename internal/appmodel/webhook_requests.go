@@ -1,5 +1,11 @@
 package appmodel
 
+// WebhookLookupQuery resolves one endpoint within its workspace.
+type WebhookLookupQuery struct {
+	TeamID    int64
+	WebhookID int64
+}
+
 type WebhookRegistrationCommand struct {
 	TeamID   int64
 	CallerID int64

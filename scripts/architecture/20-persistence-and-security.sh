@@ -343,11 +343,32 @@ if ! printf '%s\n' "$payroll_run_lookup" | grep -Fq 'query appmodel.PayrollRunLo
 	echo "architecture check: payroll run details must validate explicit workspace and run scope" >&2
 	exit 1
 fi
+payroll_run=$(sed -n '/^func (d \*DB) GetPayrollRun(/,/^}/p' internal/db/payroll_queries.go)
+if ! printf '%s\n' "$payroll_run" | grep -Fq 'query appmodel.PayrollRunLookupQuery' ||
+	! printf '%s\n' "$payroll_run" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$payroll_run" | grep -Fq 'query.RunID <= 0'; then
+	echo "architecture check: payroll run reads must validate explicit workspace and run scope" >&2
+	exit 1
+fi
 invoice_lookup=$(sed -n '/^func (d \*DB) GetInvoiceDetails(/,/^}/p' internal/db/invoices.go)
 if ! printf '%s\n' "$invoice_lookup" | grep -Fq 'query appmodel.InvoiceLookupQuery' ||
 	! printf '%s\n' "$invoice_lookup" | grep -Fq 'query.TeamID <= 0' ||
 	! printf '%s\n' "$invoice_lookup" | grep -Fq 'query.InvoiceID <= 0'; then
 	echo "architecture check: invoice details must validate explicit workspace and invoice scope" >&2
+	exit 1
+fi
+invoice=$(sed -n '/^func (d \*DB) GetInvoice(/,/^}/p' internal/db/invoices.go)
+if ! printf '%s\n' "$invoice" | grep -Fq 'query appmodel.InvoiceLookupQuery' ||
+	! printf '%s\n' "$invoice" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$invoice" | grep -Fq 'query.InvoiceID <= 0'; then
+	echo "architecture check: invoice reads must validate explicit workspace and invoice scope" >&2
+	exit 1
+fi
+webhook_lookup=$(sed -n '/^func (d \*DB) GetWebhook(/,/^}/p' internal/db/webhooks.go)
+if ! printf '%s\n' "$webhook_lookup" | grep -Fq 'query appmodel.WebhookLookupQuery' ||
+	! printf '%s\n' "$webhook_lookup" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$webhook_lookup" | grep -Fq 'query.WebhookID <= 0'; then
+	echo "architecture check: webhook reads must validate explicit workspace and endpoint scope" >&2
 	exit 1
 fi
 invoice_overlap=$(sed -n '/^func (d \*DB) OverlappingInvoices(/,/^}/p' internal/db/invoice_transitions.go)

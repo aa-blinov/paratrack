@@ -88,11 +88,6 @@ func (d *DB) ListSavedReports(ctx context.Context, teamID int64) ([]SavedReport,
 	return out, rows.Err()
 }
 
-// GetSavedReport fetches one preset inside a team.
-func (d *DB) GetSavedReport(ctx context.Context, teamID, id int64) (SavedReport, error) {
-	return getSavedReport(ctx, d.sql, teamID, id, false)
-}
-
 func getSavedReport(ctx context.Context, queryer queryRower, teamID, id int64, lock bool) (SavedReport, error) {
 	query := `SELECT id, team_id, name, period, project_slug, tag, created_by, created_at
 		 FROM saved_reports WHERE id = ? AND team_id = ?`
