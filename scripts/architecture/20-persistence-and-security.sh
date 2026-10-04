@@ -390,7 +390,7 @@ if ! printf '%s\n' "$invoice_lookup" | grep -Fq 'query appmodel.InvoiceLookupQue
 	echo "architecture check: invoice details must validate explicit workspace and invoice scope" >&2
 	exit 1
 fi
-invoice_service_get=$(sed -n '/^func (s \*Service) Get(/,/^}/p' internal/invoicing/service.go)
+invoice_service_get=$(sed -n '/^func (s \*Service) Get(/,/^}/p' internal/invoicing/queries.go)
 invoice_document_reader=$(sed -n '/^type InvoiceReader interface {/,/^}/p' internal/invoicedocuments/builder.go)
 http_invoice_queries=$(sed -n '/^type InvoiceQueries interface {/,/^}/p' internal/web/dependencies.go)
 if ! printf '%s\n' "$invoice_service_get" | grep -Fq 'query appmodel.InvoiceLookupQuery' ||
