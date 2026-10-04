@@ -75,13 +75,13 @@ func TestRuntimeClockRequiresConfiguration(t *testing.T) {
 	(&Runtime{}).now()
 }
 
-type blockingTimerCommands struct {
-	cliport.TimerCommands
+type blockingTimerQueries struct {
+	cliport.TimerQueries
 	started chan struct{}
 	release chan struct{}
 }
 
-func (s *blockingTimerCommands) ActiveSessions(context.Context, int64) ([]model.ActiveSession, error) {
+func (s *blockingTimerQueries) ActiveSessions(context.Context, int64) ([]model.ActiveSession, error) {
 	close(s.started)
 	<-s.release
 	return nil, nil
@@ -104,6 +104,7 @@ func (runtimeProjectLookup) GetProjectByID(context.Context, int64) (model.Projec
 }
 
 type runtimeTimerOperations struct{ cliport.TimerOperations }
+type runtimeTimerCommands struct{ cliport.TimerCommands }
 type runtimeActivityCatalog struct{ cliport.ActivityCatalog }
 type runtimeSessionHistory struct{ cliport.SessionHistory }
 type runtimeTagging struct{ cliport.Tagging }
@@ -123,7 +124,8 @@ func TestRuntimeCloseWaitsForActiveCommand(t *testing.T) {
 	runtime := NewRuntime(nil, io.Discard, io.Discard)
 	runtime.ServiceLoader = func(context.Context) (*cliport.Services, io.Closer, error) {
 		return &cliport.Services{
-			Timers:          &blockingTimerCommands{started: started, release: release},
+			TimerQueries:    &blockingTimerQueries{started: started, release: release},
+			TimerCommands:   &runtimeTimerCommands{},
 			TimerOperations: &runtimeTimerOperations{},
 			ActivityCatalog: &runtimeActivityCatalog{},
 			SessionHistory:  &runtimeSessionHistory{},

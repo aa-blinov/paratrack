@@ -15,7 +15,8 @@ var ErrIncompleteServices = errors.New("CLI application services are incomplete"
 
 // Services contains only workflows used by CLI commands.
 type Services struct {
-	Timers          TimerCommands
+	TimerQueries    TimerQueries
+	TimerCommands   TimerCommands
 	TimerOperations TimerOperations
 	ActivityCatalog ActivityCatalog
 	SessionHistory  SessionHistory
@@ -27,7 +28,7 @@ type Services struct {
 }
 
 func (s *Services) Validate() error {
-	if s == nil || depcheck.IsNil(s.Timers) || depcheck.IsNil(s.TimerOperations) || depcheck.IsNil(s.ActivityCatalog) ||
+	if s == nil || depcheck.IsNil(s.TimerQueries) || depcheck.IsNil(s.TimerCommands) || depcheck.IsNil(s.TimerOperations) || depcheck.IsNil(s.ActivityCatalog) ||
 		depcheck.IsNil(s.SessionHistory) || depcheck.IsNil(s.Workspace) || depcheck.IsNil(s.ProjectLookup) || depcheck.IsNil(s.Projects) ||
 		depcheck.IsNil(s.Tagging) || depcheck.IsNil(s.Goals) {
 		return ErrIncompleteServices
@@ -36,7 +37,8 @@ func (s *Services) Validate() error {
 }
 
 // TimerOperations contains transitions that coordinate audit and webhook
-// effects. Read and lower-level timer capabilities remain on TimerCommands.
+// effects. Active-session reads and pause/resume remain on the lower-level
+// timer ports.
 type TimerOperations interface {
 	AddClosed(context.Context, appmodel.TimerAddByIDRequest) (model.Session, error)
 	Focus(context.Context, appmodel.TimerFocusRequest) (appmodel.FocusResult, error)
@@ -58,11 +60,14 @@ type ActivityCatalog interface {
 	ResolveActivityForMember(context.Context, appmodel.ActivityResolveRequest) (model.Activity, error)
 }
 
-// TimerCommands contains active-session reads and state transitions used by
-// timer commands. Historical report queries and activity selection live in
-// their own ports above.
-type TimerCommands interface {
+// TimerQueries exposes the active-session read used by timer commands.
+type TimerQueries interface {
 	ActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
+}
+
+// TimerCommands contains pause and resume transitions. Start, focus and stop
+// operations that coordinate audit and notifications live on TimerOperations.
+type TimerCommands interface {
 	PauseAll(context.Context, appmodel.TimerStopAllRequest) ([]int64, error)
 	Pause(context.Context, appmodel.TimerSessionRequest) (model.Session, error)
 	Resume(context.Context, appmodel.TimerSessionRequest) (model.Session, error)
