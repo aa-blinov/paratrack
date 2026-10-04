@@ -22,14 +22,16 @@ type Services struct {
 	SessionHistory  SessionHistory
 	Workspace       WorkspaceContext
 	ProjectLookup   ProjectLookup
-	Projects        Projects
+	ProjectQueries  ProjectQueries
+	ProjectCommands ProjectCommands
 	Tagging         Tagging
 	Goals           Goals
 }
 
 func (s *Services) Validate() error {
 	if s == nil || depcheck.IsNil(s.TimerQueries) || depcheck.IsNil(s.TimerCommands) || depcheck.IsNil(s.TimerOperations) || depcheck.IsNil(s.ActivityCatalog) ||
-		depcheck.IsNil(s.SessionHistory) || depcheck.IsNil(s.Workspace) || depcheck.IsNil(s.ProjectLookup) || depcheck.IsNil(s.Projects) ||
+		depcheck.IsNil(s.SessionHistory) || depcheck.IsNil(s.Workspace) || depcheck.IsNil(s.ProjectLookup) ||
+		depcheck.IsNil(s.ProjectQueries) || depcheck.IsNil(s.ProjectCommands) ||
 		depcheck.IsNil(s.Tagging) || depcheck.IsNil(s.Goals) {
 		return ErrIncompleteServices
 	}
@@ -87,10 +89,15 @@ type ProjectLookup interface {
 	GetProjectByID(context.Context, int64) (model.Project, error)
 }
 
-type Projects interface {
+// ProjectQueries supplies workspace-scoped project catalog reads.
+type ProjectQueries interface {
 	ListWithActivityCounts(context.Context, int64, bool) (appmodel.ProjectCatalogSnapshot, error)
-	Create(context.Context, appmodel.ProjectCreateRequest) (model.Project, error)
 	Activities(context.Context, int64, int64, bool) ([]model.Activity, error)
+}
+
+// ProjectCommands supplies workspace-scoped project mutations.
+type ProjectCommands interface {
+	Create(context.Context, appmodel.ProjectCreateRequest) (model.Project, error)
 	Update(context.Context, appmodel.ProjectUpdateRequest) (model.Project, error)
 	Delete(context.Context, appmodel.ProjectMutationRequest) error
 }
