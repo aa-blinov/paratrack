@@ -301,6 +301,13 @@ for method in FindMembershipForUser TeamMemberRole; do
 		exit 1
 	fi
 done
+payroll_run_lookup=$(sed -n '/^func (d \*DB) GetPayrollRunDetails(/,/^}/p' internal/db/payroll_queries.go)
+if ! printf '%s\n' "$payroll_run_lookup" | grep -Fq 'query appmodel.PayrollRunLookupQuery' ||
+	! printf '%s\n' "$payroll_run_lookup" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$payroll_run_lookup" | grep -Fq 'query.RunID <= 0'; then
+	echo "architecture check: payroll run details must validate explicit workspace and run scope" >&2
+	exit 1
+fi
 for method in ListTags ListAllTagsWithCounts; do
 	tag_query=$(sed -n "/^func (d \*DB) $method(/,/^}/p" internal/db/tags.go)
 	if ! printf '%s\n' "$tag_query" | grep -Fq 'teamID <= 0'; then
