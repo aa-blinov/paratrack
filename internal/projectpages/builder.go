@@ -29,7 +29,7 @@ type TeamMembershipReader interface {
 }
 
 type InvoiceHistoryReader interface {
-	UnbilledProjectTime(context.Context, int64, int64) ([]model.UnbilledProject, error)
+	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
 }
 
 type Dependencies struct {
@@ -113,7 +113,8 @@ func (b *Builder) Build(ctx context.Context, request appmodel.ProjectPageRequest
 		if !role.CanManage() {
 			return snapshot, nil
 		}
-		unbilled, err := b.invoicing.UnbilledProjectTime(ctx, request.TeamID, detail.Project.ID)
+		projectID := detail.Project.ID
+		unbilled, err := b.invoicing.UnbilledProjectTime(ctx, appmodel.UnbilledProjectQuery{TeamID: request.TeamID, ProjectID: &projectID})
 		if err != nil {
 			return appmodel.ProjectPageSnapshot{}, fmt.Errorf("load project unbilled time: %w", err)
 		}

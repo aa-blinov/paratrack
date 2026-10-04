@@ -22,7 +22,7 @@ import (
 type Reader interface {
 	ListInvoiceDetails(context.Context, int64) ([]model.InvoiceDetails, error)
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error)
-	Unbilled(context.Context, int64, int64) ([]model.UnbilledProject, error)
+	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]model.UnassignedActivity, error)
 	OverlappingInvoices(context.Context, int64, int64, time.Time, time.Time, []string) ([]string, error)
 }
@@ -217,7 +217,7 @@ func (s *Service) BuildIndex(ctx context.Context, request appmodel.InvoiceIndexR
 	if err != nil {
 		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load invoice draft options: %w", err)
 	}
-	unbilled, err := s.UnbilledProjectTime(ctx, request.TeamID, 0)
+	unbilled, err := s.UnbilledProjectTime(ctx, appmodel.UnbilledProjectQuery{TeamID: request.TeamID})
 	if err != nil {
 		return appmodel.InvoiceIndexSnapshot{}, fmt.Errorf("load unbilled invoice history: %w", err)
 	}
@@ -260,11 +260,11 @@ func (s *Service) DraftOptions(ctx context.Context, teamID int64) (appmodel.Invo
 }
 
 // UnbilledProjectTime returns billable time not yet included on an invoice.
-func (s *Service) UnbilledProjectTime(ctx context.Context, teamID, projectID int64) ([]model.UnbilledProject, error) {
-	if teamID <= 0 || projectID < 0 {
+func (s *Service) UnbilledProjectTime(ctx context.Context, query appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error) {
+	if query.TeamID <= 0 || (query.ProjectID != nil && *query.ProjectID <= 0) {
 		return nil, ErrInvalidInvoice
 	}
-	items, err := s.reader.Unbilled(ctx, teamID, projectID)
+	items, err := s.reader.Unbilled(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("list unbilled project time: %w", err)
 	}

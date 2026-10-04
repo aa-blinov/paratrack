@@ -239,7 +239,7 @@ type InvoiceQueries interface {
 	BuildIndex(context.Context, appmodel.InvoiceIndexRequest) (appmodel.InvoiceIndexSnapshot, error)
 	Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error)
 	StripeReady(context.Context, int64) (bool, error)
-	UnbilledProjectTime(context.Context, int64, int64) ([]model.UnbilledProject, error)
+	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
 }
 
 // InvoiceDrafts owns draft lifecycle and invoice history assignment.

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/money"
 )
@@ -159,8 +160,8 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 
 // Unbilled sums, per project, what an invoice for all unbilled time up to
 // now would say: the same lines rule as BuildInvoiceLinesFor.
-func (d *DB) Unbilled(ctx context.Context, teamID int64, projectID int64) ([]UnbilledProject, error) {
-	if teamID <= 0 || projectID < 0 {
+func (d *DB) Unbilled(ctx context.Context, query appmodel.UnbilledProjectQuery) ([]UnbilledProject, error) {
+	if query.TeamID <= 0 || (query.ProjectID != nil && *query.ProjectID <= 0) {
 		return nil, ErrInvalidInvoiceQuery
 	}
 	// Summed in SQL per invoice line (project × activity), then rounded
@@ -181,10 +182,10 @@ func (d *DB) Unbilled(ctx context.Context, teamID int64, projectID int64) ([]Unb
 		JOIN projects p ON p.id = a.project_id AND p.team_id = ?
 		JOIN teams t ON t.id = p.team_id
 		WHERE COALESCE(p.billable, 1) = 1 AND COALESCE(p.billable_rate_cents, 0) > 0 AND p.archived = 0`
-	args := []any{teamID, FormatTime(d.currentTime().Add(time.Hour)), teamID, teamID}
-	if projectID > 0 {
+	args := []any{query.TeamID, FormatTime(d.currentTime().Add(time.Hour)), query.TeamID, query.TeamID}
+	if query.ProjectID != nil {
 		q += ` AND p.id = ?`
-		args = append(args, projectID)
+		args = append(args, *query.ProjectID)
 	}
 	q += ` GROUP BY p.id, p.name, p.slug, p.currency, t.currency, p.billable_rate_cents, a.name ORDER BY p.name`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
@@ -192,7 +193,7 @@ func (d *DB) Unbilled(ctx context.Context, teamID int64, projectID int64) ([]Unb
 		return nil, err
 	}
 	defer rows.Close()
-	rules, err := d.TeamBilling(ctx, teamID)
+	rules, err := d.TeamBilling(ctx, query.TeamID)
 	if err != nil {
 		return nil, fmt.Errorf("load unbilled billing rules: %w", err)
 	}
