@@ -331,6 +331,14 @@ if ! printf '%s\n' "$invoice_lookup" | grep -Fq 'query appmodel.InvoiceLookupQue
 	echo "architecture check: invoice details must validate explicit workspace and invoice scope" >&2
 	exit 1
 fi
+invoice_overlap=$(sed -n '/^func (d \*DB) OverlappingInvoices(/,/^}/p' internal/db/invoice_transitions.go)
+if ! printf '%s\n' "$invoice_overlap" | grep -Fq 'query appmodel.InvoiceOverlapQuery' ||
+	! printf '%s\n' "$invoice_overlap" | grep -Fq 'query.TeamID <= 0' ||
+	! printf '%s\n' "$invoice_overlap" | grep -Fq 'query.ExcludeInvoiceID <= 0' ||
+	! printf '%s\n' "$invoice_overlap" | grep -Fq '!query.End.After(query.Start)'; then
+	echo "architecture check: invoice overlap reads must validate workspace, exclusion and period together" >&2
+	exit 1
+fi
 unbilled_query=$(sed -n '/^func (d \*DB) Unbilled(/,/^}/p' internal/db/invoice_lines.go)
 if ! printf '%s\n' "$unbilled_query" | grep -Fq 'query appmodel.UnbilledProjectQuery' ||
 	! printf '%s\n' "$unbilled_query" | grep -Fq 'query.TeamID <= 0' ||

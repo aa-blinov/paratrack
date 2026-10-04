@@ -19,6 +19,54 @@ func TestBuildInvoiceLinesRejectsMissingWorkspaceScope(t *testing.T) {
 	}
 }
 
+func TestOverlappingInvoicesRejectsInvalidScope(t *testing.T) {
+	var d *DB
+	if _, err := d.OverlappingInvoices(t.Context(), appmodel.InvoiceOverlapQuery{}); !errors.Is(err, ErrInvalidInvoiceQuery) {
+		t.Fatalf("OverlappingInvoices without scope error = %v, want invalid query", err)
+	}
+}
+
+func TestOverlappingInvoicesRespectsWorkspacePeriodAndLabels(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamA := seedTeam(t, d, "Overlap A", "overlap-a")
+	teamB := seedTeam(t, d, "Overlap B", "overlap-b")
+	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 2)
+	insertInvoice := func(teamID int64, number string, periodStart, periodEnd time.Time, label string) int64 {
+		t.Helper()
+		var invoiceID int64
+		err := d.TestSQL().QueryRowContext(ctx, `
+			INSERT INTO invoices (team_id, number, client_name, period_start, period_end, status, created_at)
+			VALUES (?, ?, '', ?, ?, 'draft', ?) RETURNING id`,
+			teamID, number, FormatTime(periodStart), FormatTime(periodEnd), FormatTime(start)).Scan(&invoiceID)
+		if err != nil {
+			t.Fatalf("insert invoice %s: %v", number, err)
+		}
+		if label != "" {
+			if _, err := d.TestSQL().ExecContext(ctx, `INSERT INTO invoice_lines (invoice_id, label) VALUES (?, ?)`, invoiceID, label); err != nil {
+				t.Fatalf("insert invoice line %s: %v", number, err)
+			}
+		}
+		return invoiceID
+	}
+	excludedID := insertInvoice(teamA, "INV-CURRENT", start, end, "Design")
+	insertInvoice(teamA, "INV-OVERLAP", start.Add(-time.Hour), end.Add(time.Hour), "Design")
+	insertInvoice(teamA, "INV-DIFFERENT-LABEL", start, end, "Engineering")
+	insertInvoice(teamA, "INV-OUTSIDE-PERIOD", end, end.AddDate(0, 0, 1), "Design")
+	insertInvoice(teamB, "INV-OTHER-TEAM", start, end, "Design")
+
+	got, err := d.OverlappingInvoices(ctx, appmodel.InvoiceOverlapQuery{
+		TeamID: teamA, ExcludeInvoiceID: excludedID, Start: start, End: end, Labels: []string{"Design"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "INV-OVERLAP" {
+		t.Fatalf("overlapping invoices = %v, want [INV-OVERLAP]", got)
+	}
+}
+
 func TestBuildInvoiceLinesRejectsMalformedSessionTime(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()

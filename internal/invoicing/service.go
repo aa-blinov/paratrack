@@ -24,7 +24,7 @@ type Reader interface {
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (model.InvoiceDetails, error)
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]model.UnassignedActivity, error)
-	OverlappingInvoices(context.Context, int64, int64, time.Time, time.Time, []string) ([]string, error)
+	OverlappingInvoices(context.Context, appmodel.InvoiceOverlapQuery) ([]string, error)
 }
 
 // ProjectBillingReader provides the project catalog data needed to prepare
@@ -286,11 +286,11 @@ func (s *Service) UnassignedHistory(ctx context.Context, teamID int64) ([]model.
 
 // OverlappingDocuments finds other invoices with the same line labels in an
 // overlapping period. This is advisory and does not block invoice creation.
-func (s *Service) OverlappingDocuments(ctx context.Context, teamID, exceptID int64, start, end time.Time, labels []string) ([]string, error) {
-	if teamID <= 0 || exceptID <= 0 || start.IsZero() || !end.After(start) {
+func (s *Service) OverlappingDocuments(ctx context.Context, query appmodel.InvoiceOverlapQuery) ([]string, error) {
+	if query.TeamID <= 0 || query.ExcludeInvoiceID <= 0 || query.Start.IsZero() || !query.End.After(query.Start) {
 		return nil, ErrInvalidInvoice
 	}
-	numbers, err := s.reader.OverlappingInvoices(ctx, teamID, exceptID, start, end, labels)
+	numbers, err := s.reader.OverlappingInvoices(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("find overlapping invoices: %w", err)
 	}
@@ -366,7 +366,10 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	for _, line := range lines {
 		labels = append(labels, line.Label)
 	}
-	overlaps, advisoryErr := s.OverlappingDocuments(ctx, request.TeamID, invoice.ID, request.Start, request.End, labels)
+	overlaps, advisoryErr := s.OverlappingDocuments(ctx, appmodel.InvoiceOverlapQuery{
+		TeamID: request.TeamID, ExcludeInvoiceID: invoice.ID,
+		Start: request.Start, End: request.End, Labels: labels,
+	})
 	return DraftCreation{
 		Invoice: invoice, Lines: lines, Overlaps: overlaps, AdvisoryError: advisoryErr,
 	}, nil

@@ -126,6 +126,8 @@ invoicing. `PayrollRunLookupQuery` scopes run details to the requested workspace
 `InvoiceLookupQuery` scopes invoice details and frozen lines the same way.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
 sentinel, for invoice, dashboard and project-page reads.
+`InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace
+through the advisory duplicate-document check.
 Goal progress reads carry a typed query with the workspace and
 snapshot instant across CLI, HTTP, dashboard, workflow and persistence ports.
 Manager goal writes preserve caller and workspace scope through the workflow;
