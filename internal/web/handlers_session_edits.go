@@ -64,7 +64,8 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 		}
 		update.StartAt = &t
 	}
-	// A duration wins over end_at; the tracking workflow computes the end.
+	// A duration wins over end_at; persistence computes the end from the
+	// session state protected by its edit transaction.
 	if endStr != "" && durationStr == "" {
 		t, err := time.ParseInLocation("2006-01-02T15:04", endStr, userLoc(r))
 		if err != nil {
@@ -72,8 +73,8 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 		}
 		update.EndAt = &t
 	}
-	// Duration takes priority over end_at. Tracking applies it to the current
-	// or supplied start time after loading the session in its workflow.
+	// Duration takes priority over end_at. Persistence applies it to the
+	// locked or supplied start time inside the edit transaction.
 	if durationStr != "" {
 		secs, err := timeparse.ParseDuration(durationStr)
 		if err != nil {
