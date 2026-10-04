@@ -140,7 +140,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct payroll service: %w", err)
 	}
-	schedulingService, err := scheduling.New(database)
+	schedulingService, err := scheduling.New(scheduling.Dependencies{Store: database, Projects: projectService})
 	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)
 	}

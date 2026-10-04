@@ -197,6 +197,7 @@ type ScheduleViewRow struct {
 type ScheduleSnapshot struct {
 	Rows         []ScheduleViewRow
 	ProjectNames map[int64]string
+	Projects     []model.Project
 	TotalMinutes int
 }
 
