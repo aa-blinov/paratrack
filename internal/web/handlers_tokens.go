@@ -27,7 +27,8 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 	}
 	lang := string(resolveLang(r))
 	data := tokensPage{
-		pageData: pageData{Title: "API tokens", Active: "settings-tokens", Lang: lang},
+		pageData:    pageData{Title: "API tokens", Active: "settings-tokens", Lang: lang, ReactApp: true},
+		TokensReact: true,
 	}
 	for _, t := range snapshot.Tokens {
 		row := tokenRow{
@@ -65,13 +66,15 @@ type tokenRow struct {
 // tokensPage is the /settings/tokens envelope.
 type tokensPage struct {
 	pageData
+	TokensReact bool
 	Tokens      []tokenRow
 	JustCreated string
 	Flash       string
 	FlashOK     bool
 }
 
-func (p *tokensPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *tokensPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
+func (p tokensPage) usesReactApp() bool { return p.TokensReact }
 
 // handleAPITokenCreate mints a token and shows its raw value once, in the
 // response itself (a redirect carried it in the URL: history, logs).

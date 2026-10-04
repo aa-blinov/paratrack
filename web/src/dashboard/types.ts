@@ -510,7 +510,19 @@ export interface MarketplaceData {
   Items: Array<{ ID: string; Name: string; Category: string; Icon: string; Blurb: string; Available: boolean; Connected: boolean; SecretHint: string; TargetHint: string }>
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData
+export interface TokensData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  TokensReact: boolean
+  Tokens: Array<{ ID: number; Name: string; Prefix: string; Created: string; Expires: string; Expired: boolean; Team: string; ReadOnly: boolean }>
+  JustCreated: string
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
