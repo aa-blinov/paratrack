@@ -107,6 +107,8 @@ type ReportStatsQuery struct {
 	From          time.Time
 	To            time.Time
 	Now           time.Time
+	PersonID      int64
+	IncludePeople bool
 	ProjectSlug   string
 	Tag           string
 	Uncategorized string
@@ -116,10 +118,18 @@ type ReportStatsResult struct {
 	Sessions      []model.ActiveSession
 	TagsBySession map[int64][]model.Tag
 	ProjectsByID  map[int64]model.ProjectSummary
+	People        []ReportPersonOption
+	PersonFilter  int64
 	Projects      []model.Project
 	Project       model.Project
 	Tags          []model.Tag
 	Summary       ReportStatsSummary
+}
+
+type ReportPersonOption struct {
+	UserID   int64
+	Name     string
+	Selected bool
 }
 
 type ReportGraphQuery struct {
@@ -127,6 +137,7 @@ type ReportGraphQuery struct {
 	From        time.Time
 	To          time.Time
 	Now         time.Time
+	PersonID    int64
 	ProjectSlug string
 	Tag         string
 }
@@ -143,8 +154,10 @@ type ReportGraphData struct {
 }
 
 type ReportGraphResult struct {
-	Project model.Project
-	Graph   ReportGraphData
+	Project      model.Project
+	Graph        ReportGraphData
+	PersonFilter int64
+	PersonName   string
 }
 
 type ReportAggregateRow struct {

@@ -10,6 +10,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/reportstats"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 var ErrInvalidReportQuery = errors.New("invalid report query")
@@ -97,6 +98,10 @@ func (b *Builder) BuildGraph(ctx context.Context, query GraphQuery) (GraphResult
 	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) || query.Now.IsZero() {
 		return GraphResult{}, ErrInvalidReportQuery
 	}
+	ctx, personFilter, personName, err := b.resolvePersonScope(ctx, query.TeamID, query.PersonID)
+	if err != nil {
+		return GraphResult{}, fmt.Errorf("resolve graph person scope: %w", err)
+	}
 	project, sessions, err := b.loadProjectSessions(ctx, query.TeamID, query.From, query.To, query.ProjectSlug)
 	if err != nil {
 		return GraphResult{}, fmt.Errorf("load graph sessions: %w", err)
@@ -125,7 +130,7 @@ func (b *Builder) BuildGraph(ctx context.Context, query GraphQuery) (GraphResult
 	if err != nil {
 		return GraphResult{}, fmt.Errorf("aggregate hourly graph: %w", err)
 	}
-	return GraphResult{Project: project, Graph: graph}, nil
+	return GraphResult{Project: project, Graph: graph, PersonFilter: personFilter, PersonName: personName}, nil
 }
 
 // BuildStats loads and filters the stats read model before calculating totals.
@@ -133,6 +138,20 @@ func (b *Builder) BuildGraph(ctx context.Context, query GraphQuery) (GraphResult
 func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult, error) {
 	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) || query.Now.IsZero() {
 		return StatsResult{}, ErrInvalidReportQuery
+	}
+	ctx, personFilter, members, err := b.loadPersonScope(ctx, query.TeamID, query.PersonID, query.IncludePeople)
+	if err != nil {
+		return StatsResult{}, fmt.Errorf("resolve stats person scope: %w", err)
+	}
+	people := make([]appmodel.ReportPersonOption, 0, len(members))
+	for _, member := range members {
+		name := member.Name
+		if name == "" {
+			name = member.Email
+		}
+		if name != "" {
+			people = append(people, appmodel.ReportPersonOption{UserID: member.UserID, Name: name, Selected: member.UserID == personFilter})
+		}
 	}
 	project, sessions, err := b.loadProjectSessions(ctx, query.TeamID, query.From, query.To, query.ProjectSlug)
 	if err != nil {
@@ -189,8 +208,44 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("summarize stats: %w", err)
 	}
-	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, ProjectsByID: projectsByID, Projects: projects, Project: project, Tags: tags,
+	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, ProjectsByID: projectsByID, People: people, PersonFilter: personFilter, Projects: projects, Project: project, Tags: tags,
 		Summary: summary}, nil
+}
+
+func (b *Builder) resolvePersonScope(ctx context.Context, teamID, requestedID int64) (context.Context, int64, string, error) {
+	ctx, selectedID, members, err := b.loadPersonScope(ctx, teamID, requestedID, false)
+	if err != nil || selectedID == 0 {
+		return ctx, selectedID, "", err
+	}
+	for _, member := range members {
+		if member.UserID == selectedID {
+			if member.Name != "" {
+				return ctx, selectedID, member.Name, nil
+			}
+			return ctx, selectedID, member.Email, nil
+		}
+	}
+	return ctx, 0, "", nil
+}
+
+func (b *Builder) loadPersonScope(ctx context.Context, teamID, requestedID int64, includePeople bool) (context.Context, int64, []model.TeamMember, error) {
+	if requestedID <= 0 && !includePeople {
+		return ctx, 0, nil, nil
+	}
+	members, err := b.teams.Members(ctx, teamID)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("list workspace members: %w", err)
+	}
+	for _, member := range members {
+		if requestedID <= 0 || member.UserID != requestedID {
+			continue
+		}
+		if member.Name == "" && member.Email == "" {
+			return ctx, 0, members, nil
+		}
+		return requestctx.WithScope(ctx, member.UserID), member.UserID, members, nil
+	}
+	return ctx, 0, members, nil
 }
 
 func sessionProjectIDs(sessions []model.ActiveSession) []int64 {

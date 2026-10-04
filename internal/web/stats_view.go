@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,28 +17,11 @@ import (
 func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	now := userNow(r)
 	period := s.parsePeriodAt(r, now)
-	var people []personOpt
-	names := map[int64]string{}
-	scope, err := s.resolveReportPersonScope(r, true)
-	if err != nil {
-		return statsData{}, err
-	}
-	ctx, personFilter := scope.Context, scope.UserID
-	if len(scope.Members) > 1 {
-		for _, member := range scope.Members {
-			name := member.Name
-			if name == "" {
-				name = member.Email
-			}
-			names[member.UserID] = name
-			people = append(people, personOpt{ID: member.UserID, Name: name, Selected: member.UserID == personFilter})
-		}
-	}
-
 	projectFilter := strings.TrimSpace(r.URL.Query().Get("project"))
 	tagFilter := strings.TrimSpace(r.URL.Query().Get("tag"))
-	stats, err := s.services.ReportBuilder.BuildStats(ctx, appmodel.ReportStatsQuery{
+	stats, err := s.services.ReportBuilder.BuildStats(r.Context(), appmodel.ReportStatsQuery{
 		TeamID: teamID(r), From: period.Start, To: period.End, Now: now,
+		PersonID: requestedReportPerson(r), IncludePeople: canManage(r),
 		ProjectSlug: projectFilter, Tag: tagFilter,
 		Uncategorized: i18n.T(resolveLang(r), "dash.uncategorized"),
 	})
@@ -46,6 +30,14 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	}
 	if stats.Project.ID == 0 {
 		projectFilter = ""
+	}
+	var people []personOpt
+	names := make(map[int64]string, len(stats.People))
+	for _, member := range stats.People {
+		names[member.UserID] = member.Name
+		if len(stats.People) > 1 {
+			people = append(people, personOpt{ID: member.UserID, Name: member.Name, Selected: member.Selected})
+		}
 	}
 	rows, activities, projects := s.statsPresentation(r, period, now, names, stats)
 	shown := rows
@@ -60,7 +52,7 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	if err != nil {
 		return statsData{}, fmt.Errorf("load saved reports for stats: %w", err)
 	}
-	user, _ := UserFrom(ctx)
+	user, _ := UserFrom(r.Context())
 	query := r.URL.Query()
 	query.Set("log", "all")
 	return statsData{
@@ -68,7 +60,7 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 		ShowAllURL:    "/stats?" + query.Encode(),
 		MeID:          user.ID,
 		People:        people,
-		PersonFilter:  personFilter,
+		PersonFilter:  stats.PersonFilter,
 		pageData:      pageData{Title: "Stats", Active: "stats"},
 		Period:        period,
 		Aggregated:    activities,
@@ -87,16 +79,11 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 	now := userNow(r)
 	period := s.parsePeriodAt(r, now)
-	scope, err := s.resolveReportPersonScope(r, false)
-	if err != nil {
-		return graphData{}, err
-	}
-	ctx, personFilter, personName := scope.Context, scope.UserID, scope.Name
-
 	projectFilter := strings.TrimSpace(r.URL.Query().Get("project"))
 	tagFilter := strings.TrimSpace(r.URL.Query().Get("tag"))
-	graph, err := s.services.ReportBuilder.BuildGraph(ctx, appmodel.ReportGraphQuery{
+	graph, err := s.services.ReportBuilder.BuildGraph(r.Context(), appmodel.ReportGraphQuery{
 		TeamID: teamID(r), From: period.Start, To: period.End, Now: now,
+		PersonID:    requestedReportPerson(r),
 		ProjectSlug: projectFilter, Tag: tagFilter,
 	})
 	if err != nil {
@@ -114,8 +101,16 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 		pageData: pageData{Title: "Graph", Active: "graph"},
 		Period:   period, Chart: chart, ChartJSON: string(chartJSON),
 		ProjectFilter: projectFilter, ProjectName: graph.Project.Name,
-		TagFilter: tagFilter, PersonFilter: personFilter, PersonName: personName,
+		TagFilter: tagFilter, PersonFilter: graph.PersonFilter, PersonName: graph.PersonName,
 	}, nil
+}
+
+func requestedReportPerson(r *http.Request) int64 {
+	if !canManage(r) {
+		return 0
+	}
+	id, _ := strconv.ParseInt(r.URL.Query().Get("person"), 10, 64)
+	return id
 }
 
 // statsPresentation converts the report workflow result into transport view
