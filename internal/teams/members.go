@@ -15,7 +15,7 @@ func (s *Service) IsMember(ctx context.Context, teamID, userID int64) (Role, boo
 	if teamID <= 0 || userID <= 0 {
 		return "", false, ErrNotFound
 	}
-	role, ok, err := s.memberships.TeamMemberRole(ctx, teamID, userID)
+	role, ok, err := s.memberships.TeamMemberRole(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: userID})
 	if err != nil {
 		return "", false, err
 	}

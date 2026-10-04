@@ -6,6 +6,12 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
+// TeamMembershipQuery resolves a user's membership within one workspace.
+type TeamMembershipQuery struct {
+	TeamID int64
+	UserID int64
+}
+
 type TeamMemberRoleRequest struct {
 	TeamID       int64
 	TargetUserID int64

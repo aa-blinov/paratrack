@@ -63,6 +63,42 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
+type membershipLookupStub struct {
+	MembershipStore
+	query appmodel.TeamMembershipQuery
+}
+
+func (stub *membershipLookupStub) TeamMemberRole(_ context.Context, query appmodel.TeamMembershipQuery) (model.TeamRole, bool, error) {
+	stub.query = query
+	return model.TeamRoleAdmin, true, nil
+}
+
+func (stub *membershipLookupStub) FindMembershipForUser(_ context.Context, query appmodel.TeamMembershipQuery) (model.TeamMembership, bool, error) {
+	stub.query = query
+	return model.TeamMembership{Role: model.TeamRoleAdmin}, true, nil
+}
+
+func TestMembershipReadsKeepWorkspaceAndUserTogether(t *testing.T) {
+	store := &membershipLookupStub{}
+	service := &Service{memberships: store}
+
+	role, member, err := service.IsMember(context.Background(), 7, 19)
+	if err != nil || !member || role != model.TeamRoleAdmin {
+		t.Fatalf("IsMember() = %q, %v, %v", role, member, err)
+	}
+	want := appmodel.TeamMembershipQuery{TeamID: 7, UserID: 19}
+	if store.query != want {
+		t.Fatalf("TeamMemberRole query = %+v, want %+v", store.query, want)
+	}
+
+	if _, member, err := service.MembershipForUser(context.Background(), 7, 19); err != nil || !member {
+		t.Fatalf("MembershipForUser() member = %v, error = %v", member, err)
+	}
+	if store.query != want {
+		t.Fatalf("FindMembershipForUser query = %+v, want %+v", store.query, want)
+	}
+}
+
 func TestCreateCreatesOwnerMembership(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestService(t, d)

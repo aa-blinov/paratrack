@@ -43,7 +43,7 @@ type ProjectBillingStore interface {
 // ProjectAuthorizationReader resolves the caller's current workspace role.
 // The write ports still repeat authorization checks transactionally.
 type ProjectAuthorizationReader interface {
-	TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error)
+	TeamMemberRole(context.Context, appmodel.TeamMembershipQuery) (model.TeamRole, bool, error)
 }
 
 // ProjectWriteStore provides atomic project and activity mutations.
@@ -309,7 +309,7 @@ func (s *Service) AssignActivity(ctx context.Context, request appmodel.AssignAct
 	if request.ActivityID <= 0 || request.ProjectID < 0 || request.CallerID <= 0 {
 		return model.ErrNotFound
 	}
-	role, member, err := s.authorization.TeamMemberRole(ctx, request.TeamID, request.CallerID)
+	role, member, err := s.authorization.TeamMemberRole(ctx, appmodel.TeamMembershipQuery{TeamID: request.TeamID, UserID: request.CallerID})
 	if err != nil {
 		return fmt.Errorf("resolve project assignment role: %w", err)
 	}

@@ -28,7 +28,7 @@ func (s *Service) CreateStripePaymentLink(ctx context.Context, request appmodel.
 	if s.authorizer == nil {
 		return StripePaymentLink{}, ErrStripeUnavailable
 	}
-	role, member, err := s.authorizer.TeamMemberRole(ctx, teamID, callerID)
+	role, member, err := s.authorizer.TeamMemberRole(ctx, appmodel.TeamMembershipQuery{TeamID: teamID, UserID: callerID})
 	if err != nil {
 		return StripePaymentLink{}, fmt.Errorf("authorize Stripe checkout: %w", err)
 	}
