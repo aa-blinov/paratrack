@@ -65,6 +65,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C24. React import | provider-specific fields/hints, preview list, timezone capture and confirmation run retain existing import handlers |
 | C25. React help | all translated feature guides, keyboard shortcuts and settings links |
 | C26. React invite acceptance | invalid, expired, used, anonymous and signed-in states; accept and logout actions retain existing routes |
+| C27. React authentication | login/register and password recovery/reset forms keep CSRF, redirect target, SSO link, validation and error/info states |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

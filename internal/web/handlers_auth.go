@@ -14,6 +14,7 @@ import (
 // authPage is the shared envelope for login / register / password
 // recovery pages. T() exposes the i18n dictionary to templates.
 type authPage struct {
+	AuthReact string
 	Title     string
 	ErrorMsg  string
 	InfoMsg   string
@@ -26,7 +27,8 @@ type authPage struct {
 	SSO       bool
 }
 
-func (authPage) isTemplateData() {}
+func (authPage) isTemplateData()      {}
+func (p authPage) usesReactApp() bool { return p.AuthReact != "" }
 
 func (p authPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
@@ -36,9 +38,10 @@ func (p *authPage) setLang(lang string)  { p.Lang = lang }
 // handleLogin renders the login form.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	data := authPage{
-		Title: "Log in",
-		Next:  r.URL.Query().Get("next"),
-		SSO:   s.config.OIDCEnabled,
+		AuthReact: "login",
+		Title:     "Log in",
+		Next:      r.URL.Query().Get("next"),
+		SSO:       s.config.OIDCEnabled,
 	}
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
@@ -51,8 +54,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 // handleRegister renders the registration form.
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	data := authPage{
-		Title: "Sign up",
-		Next:  r.URL.Query().Get("next"),
+		AuthReact: "register",
+		Title:     "Sign up",
+		Next:      r.URL.Query().Get("next"),
 	}
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
