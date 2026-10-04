@@ -19,12 +19,6 @@ type goalWriterStub struct {
 	unsetReq   appmodel.GoalUnsetRequest
 }
 
-func (s *goalWriterStub) UpsertGoalForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error) {
-	panic("single goal API should not be called")
-}
-func (s *goalWriterStub) DeleteGoalForManager(context.Context, appmodel.GoalDeleteRequest) error {
-	panic("single goal API should not be called")
-}
 func (s *goalWriterStub) UpsertGoalsForManager(_ context.Context, request appmodel.GoalSetRequest) ([]model.Goal, error) {
 	s.setCalls++
 	s.setRequest = request

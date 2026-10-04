@@ -28,8 +28,6 @@ type GoalReader interface {
 // GoalWriter provides atomic goal mutations, including manager-authorized
 // operations that recheck the caller's role in the persistence transaction.
 type GoalWriter interface {
-	UpsertGoalForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
-	DeleteGoalForManager(context.Context, appmodel.GoalDeleteRequest) error
 	UpsertGoalsForManager(context.Context, appmodel.GoalSetRequest) ([]model.Goal, error)
 	DeleteGoalsForManager(context.Context, appmodel.GoalUnsetRequest) (int, error)
 }
