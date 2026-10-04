@@ -41,6 +41,7 @@ Start the local service with `make e2e-up` before running them. Set
 | B. Timer | start, pause, resume, stop, backfill, dashboard refresh |
 | C. Dashboard | active sessions, focus button, duration readout |
 | C2. React projects | project list cards/archive filter; create form submits through the existing handler; detail history and edit form submit through existing handlers |
+| C3. React goals | create and delete through existing API; progress refreshes from the progress endpoint |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

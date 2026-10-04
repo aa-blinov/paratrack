@@ -10,13 +10,14 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
+import type { DashboardData, GoalsData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
 const ProjectList = lazy(() => import("@/projects/project-list").then(module => ({ default: module.ProjectList })))
 const ProjectDetail = lazy(() => import("@/projects/project-detail").then(module => ({ default: module.ProjectDetail })))
 const ProjectCreate = lazy(() => import("@/projects/project-create").then(module => ({ default: module.ProjectCreate })))
+const GoalsPage = lazy(() => import("@/goals/goals-page").then(module => ({ default: module.GoalsPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -198,6 +199,8 @@ if (root && payload) {
         <Suspense fallback={<div className="min-h-32 animate-pulse rounded-lg bg-muted" aria-hidden="true" />}>
           {"NewProject" in initial.data && initial.data.NewProject
             ? <ProjectCreate data={initial.data as ProjectCreateData} />
+            : "GoalsReact" in initial.data && initial.data.GoalsReact
+            ? <GoalsPage data={initial.data as GoalsData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
