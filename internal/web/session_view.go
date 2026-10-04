@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -68,79 +67,12 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 	return v
 }
 
-// hydrateSessionTags does a single batched lookup and attaches the
-// resulting tag chips to each row. Safe to call with an empty slice.
-type sessionTagReader interface {
-	TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error)
-}
-
-type viewLogger interface {
-	Printf(string, ...any)
-}
-
-func hydrateSessionTags(ctx context.Context, reader sessionTagReader, teamID int64, rows []sessionView, logger viewLogger) {
-	if len(rows) == 0 {
-		return
-	}
-	ids := make([]int64, len(rows))
-	for i, r := range rows {
-		ids[i] = r.ID
-	}
-	tagsByID, err := reader.TagsForSessions(ctx, teamID, ids)
-	if err != nil {
-		if logger != nil {
-			logger.Printf("web: attach tags to %d session rows for team %d: %v", len(rows), teamID, err)
-		}
-		return // non-fatal — just skip rendering tags
-	}
-	attachSessionTags(rows, tagsByID)
-}
-
 func attachSessionTags(rows []sessionView, tagsByID map[int64][]model.Tag) {
 	for i := range rows {
 		for _, t := range tagsByID[rows[i].ID] {
 			rows[i].Tags = append(rows[i].Tags, tagChip{ID: t.ID, Name: t.Name})
 		}
 	}
-}
-
-// hydrateSessionProjects looks up the project for each session's
-// activity (a session inherits its activity's project) and writes
-// the chip onto the row. Sessions whose activity has no project are
-// left blank — they show as "Uncategorized" in the badge if the
-// template chooses to render that.
-type projectSummaryReader interface {
-	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
-}
-
-func hydrateSessionProjects(ctx context.Context, reader projectSummaryReader, teamID int64, rows []sessionView, logger viewLogger) {
-	if len(rows) == 0 {
-		return
-	}
-	// One query: every distinct (project_id) across the rows.
-	seen := map[int64]struct{}{}
-	pids := []int64{}
-	for _, r := range rows {
-		if r.ProjectID == 0 {
-			continue
-		}
-		if _, ok := seen[r.ProjectID]; ok {
-			continue
-		}
-		seen[r.ProjectID] = struct{}{}
-		pids = append(pids, r.ProjectID)
-	}
-	if len(pids) == 0 {
-		return
-	}
-	byID, err := reader.Summaries(ctx, teamID, pids)
-	if err != nil {
-		if logger != nil {
-			logger.Printf("web: attach project summaries to %d session rows for team %d: %v", len(rows), teamID, err)
-		}
-		return
-	}
-	attachSessionProjects(rows, byID)
 }
 
 func attachSessionProjects(rows []sessionView, byID map[int64]model.ProjectSummary) {

@@ -42,6 +42,22 @@ type ActiveListSnapshot struct {
 	FirstRun       bool
 }
 
+// SessionDecorationRequest selects the row metadata that a consumer needs
+// for a batch of sessions.
+type SessionDecorationRequest struct {
+	TeamID          int64
+	Sessions        []model.ActiveSession
+	IncludeTags     bool
+	IncludeProjects bool
+}
+
+// SessionDecorationSnapshot contains optional tag and project metadata keyed
+// by session or project ID.
+type SessionDecorationSnapshot struct {
+	TagsBySession map[int64][]model.Tag
+	ProjectsByID  map[int64]model.ProjectSummary
+}
+
 // ProjectListSnapshot combines projects with the workflow-calculated usage
 // values displayed beside them.
 type ProjectListSnapshot struct {
