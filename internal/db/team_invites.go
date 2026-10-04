@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 
@@ -11,6 +13,10 @@ import (
 )
 
 func (d *DB) CreateTeamInvite(ctx context.Context, request appmodel.TeamInvitePersistenceRequest) error {
+	sealedToken, err := d.sealSecret(request.Token)
+	if err != nil {
+		return fmt.Errorf("seal team invite token: %w", err)
+	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -20,22 +26,22 @@ func (d *DB) CreateTeamInvite(ctx context.Context, request appmodel.TeamInvitePe
 		return err
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO invites (token, team_id, role, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		request.Token, request.TeamID, request.Role, request.CallerID, FormatTime(request.CreatedAt), FormatTime(request.ExpiresAt)); err != nil {
+		`INSERT INTO invites (token, sealed_token, team_id, role, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		teamInviteTokenHash(request.Token), sealedToken, request.TeamID, request.Role, request.CallerID, FormatTime(request.CreatedAt), FormatTime(request.ExpiresAt)); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
 func (d *DB) FindTeamInvite(ctx context.Context, token string) (model.TeamInvite, error) {
-	return scanTeamInvite(d.sql.QueryRowContext(ctx, `
-		SELECT token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by
-		FROM invites WHERE token = ?`, token))
+	return d.scanTeamInvite(d.sql.QueryRowContext(ctx, `
+		SELECT sealed_token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by
+		FROM invites WHERE token = ?`, teamInviteTokenHash(token)))
 }
 
 func (d *DB) ListTeamInvites(ctx context.Context, teamID int64) ([]model.TeamInvite, error) {
 	rows, err := d.sql.QueryContext(ctx, `
-		SELECT token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by
+		SELECT sealed_token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by
 		FROM invites WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -43,7 +49,7 @@ func (d *DB) ListTeamInvites(ctx context.Context, teamID int64) ([]model.TeamInv
 	defer rows.Close()
 	var invites []model.TeamInvite
 	for rows.Next() {
-		invite, err := scanTeamInvite(rows)
+		invite, err := d.scanTeamInvite(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +67,7 @@ func (d *DB) DeleteTeamInvite(ctx context.Context, request appmodel.TeamInviteRe
 	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
 		return err
 	}
-	if err := execRequireRows(ctx, tx, `DELETE FROM invites WHERE token = ? AND team_id = ?`, request.Token, request.TeamID); err != nil {
+	if err := execRequireRows(ctx, tx, `DELETE FROM invites WHERE token = ? AND team_id = ?`, teamInviteTokenHash(request.Token), request.TeamID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -86,7 +92,7 @@ func (d *DB) AcceptTeamInvite(ctx context.Context, request appmodel.TeamInviteAc
 	var expires, role string
 	var accepted sql.NullString
 	if err := tx.QueryRowContext(ctx,
-		`SELECT expires_at, accepted_at, role FROM invites WHERE token = ? AND team_id = ? FOR UPDATE`, request.Token, request.TeamID,
+		`SELECT expires_at, accepted_at, role FROM invites WHERE token = ? AND team_id = ? FOR UPDATE`, teamInviteTokenHash(request.Token), request.TeamID,
 	).Scan(&expires, &accepted, &role); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.ErrNotFound
@@ -105,7 +111,7 @@ func (d *DB) AcceptTeamInvite(ctx context.Context, request appmodel.TeamInviteAc
 	}
 	res, err := tx.ExecContext(ctx,
 		`UPDATE invites SET accepted_at = ?, accepted_by = ? WHERE token = ? AND team_id = ? AND accepted_at IS NULL`,
-		FormatTime(request.At), request.UserID, request.Token, request.TeamID)
+		FormatTime(request.At), request.UserID, teamInviteTokenHash(request.Token), request.TeamID)
 	if err != nil {
 		return fmt.Errorf("mark invite accepted: %w", err)
 	}
@@ -122,17 +128,22 @@ func (d *DB) AcceptTeamInvite(ctx context.Context, request appmodel.TeamInviteAc
 	return tx.Commit()
 }
 
-func scanTeamInvite(row interface{ Scan(...any) error }) (model.TeamInvite, error) {
+func (d *DB) scanTeamInvite(row interface{ Scan(...any) error }) (model.TeamInvite, error) {
 	var invite model.TeamInvite
-	var role, created, expires string
+	var sealedToken, role, created, expires string
 	var accepted sql.NullString
 	var acceptedBy sql.NullInt64
-	if err := row.Scan(&invite.Token, &invite.TeamID, &role, &invite.CreatedBy, &created, &expires, &accepted, &acceptedBy); err != nil {
+	if err := row.Scan(&sealedToken, &invite.TeamID, &role, &invite.CreatedBy, &created, &expires, &accepted, &acceptedBy); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.TeamInvite{}, ErrNotFound
 		}
 		return model.TeamInvite{}, err
 	}
+	token, err := d.openSecret(sealedToken)
+	if err != nil {
+		return model.TeamInvite{}, fmt.Errorf("open team invite token: %w", err)
+	}
+	invite.Token = token
 	invite.Role = model.TeamRole(role)
 	createdAt, err := ScanTime(created)
 	if err != nil {
@@ -153,4 +164,9 @@ func scanTeamInvite(row interface{ Scan(...any) error }) (model.TeamInvite, erro
 		invite.AcceptedBy = acceptedBy.Int64
 	}
 	return invite, nil
+}
+
+func teamInviteTokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
