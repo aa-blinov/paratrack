@@ -81,6 +81,9 @@ func check(input io.Reader) error {
 	if err := checkDatabaseMutationCommandShape(fset); err != nil {
 		return err
 	}
+	if err := checkSelfScopedPersistenceWrites(fset); err != nil {
+		return err
+	}
 	if err := checkTransportGuards(fset); err != nil {
 		return err
 	}
