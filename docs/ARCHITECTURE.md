@@ -343,7 +343,10 @@ audit events after successful account/session transitions.
 HTTP session validation returns only a credential-free user identity; the
 middleware keeps the presented token from the request for the last-seen update.
 SSO audit metadata retains the provider subject. API-token creation and
-revocation are audited without storing the raw token. Password-reset tokens
+revocation are audited without storing the raw token. Self-service profile
+changes and API-token listing/mutations carry the user and caller explicitly;
+the persistence adapter requires the caller to match the authenticated request
+actor and the target account. Password-reset tokens
 are hashed before persistence; legacy plaintext reset rows are converted to
 the digest when consumed. Auth also owns account password-reset lookup,
 issuance and completion, plus API-token issuance,
@@ -628,8 +631,9 @@ converts that snapshot into localized session and widget view models.
 and saving. The service verifies that a selected default project belongs to
 the active workspace before writing the preference document; middleware falls
 back to defaults if preference storage or decoding fails. The workflow serializes
-the stable preference format, then passes it with the user ID in a typed save
-command to persistence.
+the stable preference format, then passes it with explicit user and caller IDs
+in a typed save command. Persistence allows only the authenticated user to
+change their own preference row.
 
 `internal/audit` owns event persistence and bounded workspace-scoped audit
 reads. `model.AuditRecord` names workspace, actor, action, target, metadata and
@@ -778,7 +782,9 @@ delivery policy, a bounded notification queue, and graceful worker shutdown.
 HTTP enqueues notifications and does not own their background lifecycle or call
 the Web Push protocol directly. The workflow loads recipients and keys, calls
 the outbound Sender port, and removes expired endpoints based on its semantic
-result. `internal/push/providers` implements that port with the Web Push
+result through a dedicated internal cleanup command. Member subscribe and
+unsubscribe requests carry the caller ID, which persistence checks against the
+authenticated request actor and subscription owner. `internal/push/providers` implements that port with the Web Push
 protocol and translates provider status codes. The application composition
 root injects its public-address-only HTTP client and owns its lifetime. The database upsert
 locks the workspace, user and membership in the same order as member removal,

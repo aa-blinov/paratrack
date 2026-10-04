@@ -40,7 +40,7 @@ func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.services.Push.Subscribe(operationContext(r), appmodel.PushSubscribeRequest{
-		TeamID: teamID(r), UserID: u.ID, Endpoint: endpoint, PublicKey: p256dh, AuthSecret: auth,
+		TeamID: teamID(r), UserID: u.ID, CallerID: u.ID, Endpoint: endpoint, PublicKey: p256dh, AuthSecret: auth,
 	}); err != nil {
 		if errors.Is(err, appmodel.ErrInvalidPushSubscription) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -68,7 +68,7 @@ func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := s.services.Push.UnsubscribeForMember(operationContext(r), appmodel.PushUnsubscribeRequest{TeamID: teamID(r), UserID: u.ID, Endpoint: endpoint}); err != nil {
+	if err := s.services.Push.UnsubscribeForMember(operationContext(r), appmodel.PushUnsubscribeRequest{TeamID: teamID(r), UserID: u.ID, CallerID: u.ID, Endpoint: endpoint}); err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
