@@ -237,7 +237,7 @@ type InvoiceDependencies struct {
 // payment handlers.
 type InvoiceQueries interface {
 	BuildIndex(context.Context, appmodel.InvoiceIndexRequest) (appmodel.InvoiceIndexSnapshot, error)
-	Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error)
+	Get(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error)
 	StripeReady(context.Context, int64) (bool, error)
 	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]model.UnbilledProject, error)
 }

@@ -186,7 +186,7 @@ func (s *Service) SetManualPaymentLink(ctx context.Context, request appmodel.Inv
 	if teamID <= 0 || invoiceID <= 0 || callerID <= 0 {
 		return ErrInvalidInvoice
 	}
-	details, err := s.Get(ctx, teamID, invoiceID)
+	details, err := s.Get(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoiceID})
 	if err != nil {
 		return err
 	}
