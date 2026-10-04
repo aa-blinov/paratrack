@@ -785,6 +785,20 @@ def main() -> int:
         page.wait_for_load_state("load")
         expect(page.locator("h1")).to_have_text("Goals")
         check("goals h1=Goals", True)
+        check("goals page mounts React/shadcn controls",
+              page.locator('#paratrack-react-root form [data-slot="input"]').count() == 2)
+
+        # Exercise the React form and delete flow against the existing goals API.
+        goal_activity = f"React migration QA {int(time.time())}"
+        page.fill("#goal-activity", goal_activity)
+        page.fill("#goal-minutes", "15")
+        page.get_by_role("button", name="Set goal").click()
+        goal_row = page.locator("#paratrack-react-root .grid.gap-2").filter(has_text=goal_activity)
+        expect(goal_row).to_be_visible()
+        check("goal form creates progress row", goal_row.count() == 1)
+        page.once("dialog", lambda dialog: dialog.accept())
+        goal_row.get_by_role("button", name="Delete goal").click()
+        expect(goal_row).to_have_count(0)
 
         # Goals widget should appear on the dashboard because we set up
         # some earlier. If empty, seed via API to keep this test self-sufficient.
