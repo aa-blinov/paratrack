@@ -18,34 +18,35 @@ var ErrIncompleteServices = errors.New("HTTP application dependencies are incomp
 
 // Dependencies are the workflow ports consumed by the HTTP adapter.
 type Dependencies struct {
-	Billing            BillingWorkflow
-	Auth               AuthenticationDependencies
-	TokenAdmin         APITokenManagementBuilding
-	AuditLog           AuditWorkflow
-	Teams              TeamDependencies
-	TeamOps            TeamOperations
-	Tracking           TrackingDependencies
-	TrackingOps        TrackingOperations
-	Imports            ImportWorkflow
-	Integrations       IntegrationDependencies
-	Invoicing          InvoiceDependencies
-	InvoiceDocuments   InvoiceDocumentBuilding
-	Payroll            PayrollWorkflow
-	MemberAdmin        TeamMemberManagementBuilding
-	PayrollPaid        PayrollPaymentWorkflow
-	Preferences        PreferenceWorkflow
-	Scheduling         SchedulingWorkflow
-	Projects           ProjectDependencies
-	ProjectPages       ProjectPageBuilding
-	Reports            SavedReportWorkflow
-	ReportBuilder      ReportBuilding
-	Dashboard          DashboardBuilding
-	SessionDecorations SessionDecorationBuilding
-	Push               PushWorkflow
-	Tagging            TagDependencies
-	Goals              GoalWorkflow
-	Webhooks           WebhookWorkflow
-	MailQueue          InvoiceMailQueue
+	Billing              BillingWorkflow
+	Auth                 AuthenticationDependencies
+	TokenAdmin           APITokenManagementBuilding
+	AuditLog             AuditWorkflow
+	Teams                TeamDependencies
+	TeamOps              TeamOperations
+	Tracking             TrackingDependencies
+	TrackingOps          TrackingOperations
+	ImportedTaskTracking ImportedTaskTimerStarting
+	Imports              ImportWorkflow
+	Integrations         IntegrationDependencies
+	Invoicing            InvoiceDependencies
+	InvoiceDocuments     InvoiceDocumentBuilding
+	Payroll              PayrollWorkflow
+	MemberAdmin          TeamMemberManagementBuilding
+	PayrollPaid          PayrollPaymentWorkflow
+	Preferences          PreferenceWorkflow
+	Scheduling           SchedulingWorkflow
+	Projects             ProjectDependencies
+	ProjectPages         ProjectPageBuilding
+	Reports              SavedReportWorkflow
+	ReportBuilder        ReportBuilding
+	Dashboard            DashboardBuilding
+	SessionDecorations   SessionDecorationBuilding
+	Push                 PushWorkflow
+	Tagging              TagDependencies
+	Goals                GoalWorkflow
+	Webhooks             WebhookWorkflow
+	MailQueue            InvoiceMailQueue
 }
 
 // AuthenticationDependencies groups the HTTP consumer contracts for account
@@ -325,6 +326,10 @@ type TrackingOperations interface {
 	StopAll(context.Context, appmodel.TimerStopAllRequest) ([]int64, error)
 }
 
+type ImportedTaskTimerStarting interface {
+	Start(context.Context, appmodel.ImportedTaskStartRequest) (model.Activity, model.Session, error)
+}
+
 // IdentityWorkflow resolves authenticated users and maintains their sessions.
 type IdentityWorkflow interface {
 	APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (appmodel.APITokenIdentity, error)
@@ -445,6 +450,7 @@ func (s Dependencies) Validate() error {
 		dependency{"tracking queries", depcheck.IsNil(s.Tracking.Queries)},
 		dependency{"tracking commands", depcheck.IsNil(s.Tracking.Commands)},
 		dependency{"tracking operations", depcheck.IsNil(s.TrackingOps)},
+		dependency{"imported task tracking", depcheck.IsNil(s.ImportedTaskTracking)},
 		dependency{"imports", depcheck.IsNil(s.Imports)},
 		dependency{"integration queries", depcheck.IsNil(s.Integrations.Queries)},
 		dependency{"integration commands", depcheck.IsNil(s.Integrations.Commands)},

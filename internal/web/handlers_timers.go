@@ -56,20 +56,21 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) startTimer(r *http.Request, name, note string) (model.Activity, error) {
-	var projectID int64
-	if pidStr := r.FormValue("project_id"); pidStr != "" {
-		if parsed, err := strconv.ParseInt(pidStr, 10, 64); err == nil && parsed > 0 {
-			projectID = parsed
-		}
-	}
 	act, _, err := s.services.TrackingOps.StartActivity(operationContext(r), appmodel.TimerStartByNameRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), ActivityName: name,
-		ProjectID: projectID, At: actionTime(r), Note: note,
+		ProjectID: projectIDFromForm(r), At: actionTime(r), Note: note,
 	})
 	if err != nil {
 		return act, err
 	}
 	return act, nil
+}
+
+func projectIDFromForm(r *http.Request) int64 {
+	if projectID, err := strconv.ParseInt(r.FormValue("project_id"), 10, 64); err == nil && projectID > 0 {
+		return projectID
+	}
+	return 0
 }
 
 func (s *Server) writeTimerStartError(w http.ResponseWriter, r *http.Request, activityName string, err error) {

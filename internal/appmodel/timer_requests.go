@@ -34,6 +34,17 @@ type TimerFocusByNameRequest struct {
 	At           time.Time
 }
 
+// ImportedTaskStartRequest captures starting a timer from a workspace-scoped
+// task supplied by an external integration.
+type ImportedTaskStartRequest struct {
+	TeamID    int64
+	CallerID  int64
+	TaskID    int64
+	ProjectID int64
+	At        time.Time
+	Note      string
+}
+
 type TimerStopRequest struct {
 	TeamID    int64
 	SessionID int64

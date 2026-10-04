@@ -187,16 +187,10 @@ func (s *Server) handleIntegrationStart(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "task_id required", 400)
 		return
 	}
-	task, err := s.services.Integrations.Queries.Task(r.Context(), teamID(r), tid)
-	if errors.Is(err, model.ErrNotFound) {
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	activity, err := s.startTimer(r, task.Title, strings.TrimSpace(r.FormValue("note")))
+	activity, _, err := s.services.ImportedTaskTracking.Start(operationContext(r), appmodel.ImportedTaskStartRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), TaskID: tid,
+		ProjectID: projectIDFromForm(r), At: actionTime(r), Note: strings.TrimSpace(r.FormValue("note")),
+	})
 	if err != nil {
 		s.writeTimerStartError(w, r, activity.Name, err)
 		return

@@ -17,6 +17,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/importproviders"
 	"github.com/aa-blinov/paratrack/internal/integrations"
 	"github.com/aa-blinov/paratrack/internal/integrations/providers"
+	"github.com/aa-blinov/paratrack/internal/integrationtracking"
 	"github.com/aa-blinov/paratrack/internal/invoicedocuments"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mailqueue"
@@ -231,6 +232,12 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct tracking operations: %w", err)
 	}
+	integrationTaskTracking, err := integrationtracking.New(integrationtracking.Dependencies{
+		Tasks: integrationService, Timers: trackingOpsService,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("construct imported task tracking: %w", err)
+	}
 	billingService, err := billing.New(billing.Dependencies{
 		Payments: stripeInvoiceProcessor{service: invoiceService}, ManualPayments: invoiceService,
 		Audit: auditService, Logger: logger,
@@ -246,34 +253,35 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		return nil, fmt.Errorf("construct dashboard builder: %w", err)
 	}
 	return &Services{
-		Billing:            billingService,
-		Auth:               authService,
-		TokenAdmin:         tokenAdminBuilder,
-		AuditLog:           auditService,
-		Teams:              teamService,
-		TeamOps:            teamOpsService,
-		Tracking:           trackingService,
-		TrackingOps:        trackingOpsService,
-		Imports:            importService,
-		Integrations:       integrationService,
-		Invoicing:          invoiceService,
-		InvoiceDocuments:   invoiceDocuments,
-		Payroll:            payrollService,
-		PayrollPaid:        payrollPaidService,
-		Preferences:        preferenceService,
-		Scheduling:         schedulingService,
-		Projects:           projectService,
-		ProjectPages:       projectPageBuilder,
-		Reports:            reportService,
-		ReportBuilder:      reportBuilder,
-		Dashboard:          dashboardBuilder,
-		SessionDecorations: sessionDecorationBuilder,
-		MemberAdmin:        memberAdminService,
-		Push:               pushService,
-		Tagging:            taggingService,
-		Goals:              goalService,
-		Webhooks:           webhookService,
-		MailQueue:          mailQueueService,
-		Resources:          resources,
+		Billing:                 billingService,
+		Auth:                    authService,
+		TokenAdmin:              tokenAdminBuilder,
+		AuditLog:                auditService,
+		Teams:                   teamService,
+		TeamOps:                 teamOpsService,
+		Tracking:                trackingService,
+		TrackingOps:             trackingOpsService,
+		IntegrationTaskTracking: integrationTaskTracking,
+		Imports:                 importService,
+		Integrations:            integrationService,
+		Invoicing:               invoiceService,
+		InvoiceDocuments:        invoiceDocuments,
+		Payroll:                 payrollService,
+		PayrollPaid:             payrollPaidService,
+		Preferences:             preferenceService,
+		Scheduling:              schedulingService,
+		Projects:                projectService,
+		ProjectPages:            projectPageBuilder,
+		Reports:                 reportService,
+		ReportBuilder:           reportBuilder,
+		Dashboard:               dashboardBuilder,
+		SessionDecorations:      sessionDecorationBuilder,
+		MemberAdmin:             memberAdminService,
+		Push:                    pushService,
+		Tagging:                 taggingService,
+		Goals:                   goalService,
+		Webhooks:                webhookService,
+		MailQueue:               mailQueueService,
+		Resources:               resources,
 	}, nil
 }
