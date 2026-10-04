@@ -614,7 +614,24 @@ export interface SectionsData {
   FlashOK: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData
+export interface WebhooksData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  WebhooksReact: boolean
+  Items: Array<{ ID: number; URL: string; Events: string; Active: boolean; Deliveries: Array<{ When: string; Event: string; Status: number; OK: boolean; Error: string }> }>
+  Flash: string
+  FlashOK: boolean
+}
+
+export interface AuditData {
+  Active: string
+  Lang: string
+  AuditReact: boolean
+  Items: Array<{ Time: string; Action: string; Target: string; IP: string }>
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

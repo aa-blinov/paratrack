@@ -60,6 +60,8 @@ Start the local service with `make e2e-up` before running them. Set
 | C19. React members | role, pay, capacity, remove-member and owner transfer forms remain role-aware and submit through the existing handlers |
 | C20. React invites | create with optional email delivery; live links, used/expired state, and revoke actions |
 | C21. React sections and welcome | presets, custom module selection, manager-only section behavior and onboarding skip/persist paths |
+| C22. React webhooks | endpoint creation/deletion, event subscriptions and five latest delivery results |
+| C23. React audit | latest 100 workspace events, translated action names and empty state |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |
