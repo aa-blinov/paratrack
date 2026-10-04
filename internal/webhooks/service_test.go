@@ -57,6 +57,12 @@ type lifecycleStore struct {
 	outbox *fakeWebhookOutbox
 }
 
+type webhookManagementStore struct {
+	lifecycleStore
+	listTeamID, deliveryTeamID int64
+	deliveryLimit              int
+}
+
 type oversizedStore struct{ lifecycleStore }
 
 type contextRecordingStore struct {
@@ -121,6 +127,18 @@ func (lifecycleStore) ListWebhooks(context.Context, int64) ([]webhookport.Webhoo
 }
 func (lifecycleStore) ListRecentWebhookDeliveries(context.Context, int64, int) (map[int64][]webhookport.WebhookDeliverySummary, error) {
 	return map[int64][]webhookport.WebhookDeliverySummary{}, nil
+}
+
+func (s *webhookManagementStore) ListWebhookSummaries(_ context.Context, teamID int64) ([]webhookport.WebhookSummary, error) {
+	s.listTeamID = teamID
+	return []webhookport.WebhookSummary{{ID: 3, TeamID: teamID, URL: "https://example.test/hook", Events: "*", Active: true}}, nil
+}
+
+func (s *webhookManagementStore) ListRecentWebhookDeliveries(_ context.Context, teamID int64, limit int) (map[int64][]webhookport.WebhookDeliverySummary, error) {
+	s.deliveryTeamID, s.deliveryLimit = teamID, limit
+	return map[int64][]webhookport.WebhookDeliverySummary{
+		3: {{CreatedAt: time.Date(2026, 10, 4, 12, 0, 0, 0, time.UTC), Event: "session.stopped", Status: 204}},
+	}, nil
 }
 func (s lifecycleStore) EnqueueWebhookDeliveries(_ context.Context, request appmodel.WebhookDeliveryBatchRequest) error {
 	if s.outbox == nil {
@@ -258,6 +276,28 @@ func TestManagementMethodsReturnCredentialFreeSummaries(t *testing.T) {
 	}
 	if len(listed) != 1 || listed[0].ID != 1 || listed[0].URL != "https://example.test/hook" {
 		t.Fatalf("listed summaries = %+v", listed)
+	}
+}
+
+func TestWebhookManagementAssemblesScopedPageSnapshot(t *testing.T) {
+	store := &webhookManagementStore{}
+	service, err := testService(store, &capturingDeliverer{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.Management(context.Background(), 17)
+	if err != nil {
+		t.Fatalf("load webhook management snapshot: %v", err)
+	}
+	if store.listTeamID != 17 || store.deliveryTeamID != 17 || store.deliveryLimit != 5 {
+		t.Fatalf("management queries: list team=%d deliveries team=%d limit=%d", store.listTeamID, store.deliveryTeamID, store.deliveryLimit)
+	}
+	if len(snapshot.Endpoints) != 1 || snapshot.Endpoints[0].ID != 3 || snapshot.Endpoints[0].URL != "https://example.test/hook" || !snapshot.Endpoints[0].Active {
+		t.Fatalf("management endpoints = %+v", snapshot.Endpoints)
+	}
+	deliveries := snapshot.Deliveries[3]
+	if len(deliveries) != 1 || deliveries[0].Event != "session.stopped" || deliveries[0].Status != 204 || deliveries[0].CreatedAt.IsZero() {
+		t.Fatalf("management deliveries = %+v", deliveries)
 	}
 }
 
