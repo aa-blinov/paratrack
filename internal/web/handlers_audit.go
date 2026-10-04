@@ -13,7 +13,7 @@ func (s *Server) handleAuditPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := string(resolveLang(r))
-	data := auditPage{pageData: pageData{Title: "Audit log", Active: "settings-audit", Lang: lang}}
+	data := auditPage{pageData: pageData{Title: "Audit log", Active: "settings-audit", Lang: lang, ReactApp: true}, AuditReact: true}
 	for _, e := range list {
 		data.Items = append(data.Items, auditRow{
 			Time: e.CreatedAt.Format("2006-01-02 15:04"), Action: e.Action,
@@ -32,9 +32,10 @@ type auditRow struct {
 
 type auditPage struct {
 	pageData
-	Items   []auditRow
-	Flash   string
-	FlashOK bool
+	AuditReact bool
+	Items      []auditRow
+	Flash      string
+	FlashOK    bool
 }
 
 func (p *auditPage) setCSRF(t string) { p.pageData.setCSRF(t) }

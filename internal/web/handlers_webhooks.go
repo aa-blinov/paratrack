@@ -23,7 +23,7 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	resolvedLang := resolveLang(r)
 	location := userLoc(r)
 	now := userNow(r)
-	data := webhooksPage{pageData: pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang}}
+	data := webhooksPage{pageData: pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang, ReactApp: true}, WebhooksReact: true}
 	for _, h := range snapshot.Endpoints {
 		row := webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active}
 		for _, d := range snapshot.Deliveries[h.ID] {
@@ -56,9 +56,10 @@ type deliveryRow struct {
 
 type webhooksPage struct {
 	pageData
-	Items   []webhookRow
-	Flash   string
-	FlashOK bool
+	WebhooksReact bool
+	Items         []webhookRow
+	Flash         string
+	FlashOK       bool
 }
 
 func (p *webhooksPage) setCSRF(t string) { p.pageData.setCSRF(t) }
