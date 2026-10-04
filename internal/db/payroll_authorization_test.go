@@ -42,7 +42,7 @@ func TestPayrollWrites_RecheckManagerRole(t *testing.T) {
 		t.Errorf("DeletePayrollDraft error = %v, want forbidden", err)
 	}
 
-	got, err := d.GetPayrollRun(ctx, teamID, run.ID)
+	got, err := d.GetPayrollRun(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func TestEnqueueInvoiceEmail_RechecksManagerRole(t *testing.T) {
 	}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("member enqueue error = %v, want forbidden", err)
 	}
-	got, err := d.GetInvoice(ctx, teamID, invoice.ID)
+	got, err := d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: teamID, InvoiceID: invoice.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

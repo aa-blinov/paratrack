@@ -97,11 +97,14 @@ func (d *DB) ListWebhookSummaries(ctx context.Context, teamID int64) ([]webhookp
 	return out, rows.Err()
 }
 
-// GetWebhook fetches one endpoint.
-func (d *DB) GetWebhook(ctx context.Context, teamID, id int64) (Webhook, error) {
+// GetWebhook fetches one endpoint inside its workspace.
+func (d *DB) GetWebhook(ctx context.Context, query appmodel.WebhookLookupQuery) (Webhook, error) {
+	if query.TeamID <= 0 || query.WebhookID <= 0 {
+		return Webhook{}, ErrNotFound
+	}
 	row := d.sql.QueryRowContext(ctx,
 		`SELECT id, team_id, url, secret, events, active, created_at
-		 FROM webhooks WHERE id = ? AND team_id = ?`, id, teamID)
+		 FROM webhooks WHERE id = ? AND team_id = ?`, query.WebhookID, query.TeamID)
 	h, err := d.scanWebhook(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Webhook{}, ErrNotFound

@@ -52,7 +52,7 @@ func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hook, err := database.GetWebhook(ctx, 1, hookSummary.ID)
+	hook, err := database.GetWebhook(ctx, appmodel.WebhookLookupQuery{TeamID: 1, WebhookID: hookSummary.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

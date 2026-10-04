@@ -76,14 +76,14 @@ func TestInvoicePDFAndPayment(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	got, _ := d.GetInvoice(ctx, 1, inv.ID)
+	got, _ := d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: 1, InvoiceID: inv.ID})
 	if got.PaymentURL != "https://buy.stripe.com/xyz" {
 		t.Fatalf("payment=%s", got.PaymentURL)
 	}
 	if _, changed, err := d.MarkInvoicePaidOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: 1, InvoiceID: inv.ID, CallerID: 1}); err != nil || !changed {
 		t.Fatalf("mark paid = (changed=%v, err=%v), want first transition", changed, err)
 	}
-	got, _ = d.GetInvoice(ctx, 1, inv.ID)
+	got, _ = d.GetInvoice(ctx, appmodel.InvoiceLookupQuery{TeamID: 1, InvoiceID: inv.ID})
 	if got.Status != "paid" {
 		t.Fatalf("status=%s", got.Status)
 	}

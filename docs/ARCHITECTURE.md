@@ -125,7 +125,8 @@ across project, tracking and tagging workflows. `TeamMembershipQuery` scopes
 membership and role reads across authentication, teams, importing, projects,
 project pages, HTTP and invoicing. `PayrollRunLookupQuery` scopes run details to
 the requested workspace.
-`InvoiceLookupQuery` scopes invoice details and frozen lines the same way.
+`InvoiceLookupQuery` scopes invoice reads, details and frozen lines the same way;
+`PayrollRunLookupQuery` scopes both payroll run reads and their details.
 `UnbilledProjectQuery` makes the project filter optional without using a zero-ID
 sentinel, for invoice, dashboard and project-page reads.
 `InvoiceOverlapQuery` carries the period, excluded invoice, labels and workspace
@@ -147,6 +148,7 @@ provider ports; the database adapter alone maps that configuration to and from
 the persisted JSON column. `IntegrationLookupQuery` and
 `ExternalTaskLookupQuery` carry workspace scope with integration and imported
 task reads across the integration and integration-tracking workflows.
+`WebhookLookupQuery` scopes endpoint reads to the owning workspace.
 The architecture guard checks that auth, activity, import, invoice, payroll,
 preference, tag, timer, team invite and webhook state-changing database
 operations accept typed application commands rather than positional argument

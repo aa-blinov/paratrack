@@ -165,13 +165,6 @@ func (d *DB) SetProjectRate(ctx context.Context, request appmodel.ProjectRateReq
 // ProjectClient is an alias to the project invoice defaults model.
 type ProjectClient = model.ProjectClient
 
-func (d *DB) GetProjectClient(ctx context.Context, teamID, projectID int64) (ProjectClient, error) {
-	var c ProjectClient
-	err := d.sql.QueryRowContext(ctx, `SELECT client_name, client_details, client_email FROM projects WHERE id = ? AND team_id = ?`,
-		projectID, teamID).Scan(&c.Name, &c.Details, &c.Email)
-	return c, err
-}
-
 // ListProjectClients loads invoice defaults for a team's non-archived
 // projects in one query, for invoice-form rendering.
 func (d *DB) ListProjectClients(ctx context.Context, teamID int64) (map[int64]model.ProjectClient, error) {
