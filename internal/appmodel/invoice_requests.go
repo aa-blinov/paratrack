@@ -1,5 +1,10 @@
 package appmodel
 
+// InvoiceIndexRequest scopes the combined invoice list and draft-form reads.
+type InvoiceIndexRequest struct {
+	TeamID int64
+}
+
 type InvoiceMutationRequest struct {
 	TeamID    int64
 	InvoiceID int64

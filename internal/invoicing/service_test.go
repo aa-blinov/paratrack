@@ -21,10 +21,20 @@ type draftReaderStub struct {
 	getCalls      int
 	overlapLabels []string
 	overlapErr    error
+	unbilled      []model.UnbilledProject
+	unassigned    []model.UnassignedActivity
 }
 
 func (s *draftReaderStub) ListInvoiceDetails(context.Context, int64) ([]model.InvoiceDetails, error) {
 	return s.listDetails, nil
+}
+
+func (s *draftReaderStub) Unbilled(context.Context, int64, int64) ([]model.UnbilledProject, error) {
+	return s.unbilled, nil
+}
+
+func (s *draftReaderStub) UnassignedActivities(context.Context, int64) ([]model.UnassignedActivity, error) {
+	return s.unassigned, nil
 }
 
 func (s *draftReaderStub) GetInvoiceDetails(context.Context, int64, int64) (model.InvoiceDetails, error) {
@@ -122,6 +132,36 @@ func TestDraftOptionsAppliesBillingEligibilityAndClientDefaults(t *testing.T) {
 		t.Fatalf("ineligible projects became selectable: %+v", options.Projects[1:])
 	}
 }
+
+func TestBuildIndexAssemblesInvoiceListAndDraftHistory(t *testing.T) {
+	reader := &draftReaderStub{
+		listDetails: []model.InvoiceDetails{{Invoice: model.Invoice{ID: 14, TeamID: 7, Number: "INV-14"}}},
+		unbilled:    []model.UnbilledProject{{ProjectID: 3, ProjectName: "Website"}},
+		unassigned:  []model.UnassignedActivity{{ID: 9, Name: "Research", Sessions: 2}},
+	}
+	deps := testDependencies(reader, &draftWriterStub{})
+	deps.Projects = projectBillingStub{projects: []model.Project{{ID: 3, Name: "Website", Billable: true, BillableRateCents: ptrInt(2000)}}}
+	service, err := NewService(deps)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	snapshot, err := service.BuildIndex(context.Background(), appmodel.InvoiceIndexRequest{TeamID: 7})
+	if err != nil {
+		t.Fatalf("BuildIndex: %v", err)
+	}
+	if len(snapshot.Invoices) != 1 || snapshot.Invoices[0].Invoice.ID != 14 {
+		t.Fatalf("invoice list = %+v", snapshot.Invoices)
+	}
+	if !snapshot.DraftOptions.HasBillable || len(snapshot.DraftOptions.Projects) != 1 || !snapshot.DraftOptions.Projects[0].Eligible {
+		t.Fatalf("draft options = %+v", snapshot.DraftOptions)
+	}
+	if len(snapshot.Unbilled) != 1 || snapshot.Unbilled[0].ProjectID != 3 || len(snapshot.Unassigned) != 1 || snapshot.Unassigned[0].ID != 9 {
+		t.Fatalf("invoice history = unbilled %+v, unassigned %+v", snapshot.Unbilled, snapshot.Unassigned)
+	}
+}
+
+func ptrInt(value int) *int { return &value }
 
 type recordingAudit struct{ calls [][6]any }
 

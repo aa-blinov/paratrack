@@ -5,18 +5,20 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
 func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
-	list, err := s.services.Invoicing.Queries.List(r.Context(), teamID(r))
+	snapshot, err := s.services.Invoicing.Queries.BuildIndex(r.Context(), appmodel.InvoiceIndexRequest{TeamID: teamID(r)})
 	if err != nil {
-		return invoicesPage{}, fmt.Errorf("list invoices for page: %w", err)
+		return invoicesPage{}, fmt.Errorf("build invoice index: %w", err)
 	}
 	lang := string(resolveLang(r))
 	data := invoicesPage{
 		pageData: pageData{Title: "Invoices", Active: "invoices", Lang: lang},
 	}
-	for _, item := range list {
+	for _, item := range snapshot.Invoices {
 		inv := item.Invoice
 		data.Items = append(data.Items, invoiceSummary{
 			ID: inv.ID, Number: inv.Number, Client: inv.ClientName, Status: inv.Status,
@@ -36,10 +38,7 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			data.DefStart = from
 		}
 	}
-	options, err := s.services.Invoicing.Queries.DraftOptions(r.Context(), teamID(r))
-	if err != nil {
-		return invoicesPage{}, fmt.Errorf("load invoice draft options: %w", err)
-	}
+	options := snapshot.DraftOptions
 	data.Billable = options.HasBillable
 	for _, projectOption := range options.Projects {
 		project := projectOption.Project
@@ -57,16 +56,9 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		}
 		data.Projects = append(data.Projects, option)
 	}
-	data.Unbilled, err = s.unbilledViews(r, 0)
-	if err != nil {
-		return invoicesPage{}, fmt.Errorf("load unbilled invoice history: %w", err)
-	}
-	unassigned, err := s.services.Invoicing.Queries.UnassignedHistory(r.Context(), teamID(r))
-	if err != nil {
-		return invoicesPage{}, fmt.Errorf("load unassigned invoice history: %w", err)
-	}
-	data.Unassigned = make([]unassignedActivityView, 0, len(unassigned))
-	for _, activity := range unassigned {
+	data.Unbilled = unbilledViewsFrom(snapshot.Unbilled, r)
+	data.Unassigned = make([]unassignedActivityView, 0, len(snapshot.Unassigned))
+	for _, activity := range snapshot.Unassigned {
 		data.Unassigned = append(data.Unassigned, unassignedActivityView{
 			ID: activity.ID, Sessions: activity.Sessions, Name: activity.Name, Billed: activity.Billed,
 		})
