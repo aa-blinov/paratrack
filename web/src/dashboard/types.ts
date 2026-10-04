@@ -559,7 +559,25 @@ export interface NotificationsData {
   DeviceCount: number
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData
+export interface TeamSettingsData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  TeamSettingsReact: boolean
+  Team: { ID: number; Name: string; CreatedAt: string }
+  Currency: string
+  Currencies: Array<{ Code: string; Label: string }>
+  Requisites: string
+  VATNote: string
+  Billing: { RoundMinutes: number; RoundMode: string; InvoicePrefix: string; HasLogo: boolean }
+  RoundOpts: number[]
+  LogoURL: string
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
