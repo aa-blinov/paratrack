@@ -90,7 +90,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 | Control | Detail |
 |---|---|
 | CSRF | Double-submit cookie `paratrack_csrf` + `X-CSRF-Token` / `csrf_token` on every mutation |
-| Auth rate limit | login 10/min, register 5/min, forgot 5/min, reset 10/min per IP; 429 + `Retry-After` |
+| Auth rate limit | login 10/min per IP and email, with a 200/min IP ceiling; register 30/min, forgot 5/min, reset 10/min per IP; 429 + `Retry-After` |
 | Headers | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, CSP, HSTS on TLS |
 | Passwords | bcrypt |
 | API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once |
@@ -187,8 +187,8 @@ Rules worth knowing:
 
 - Service worker at `/sw.js` (root scope `/`) caches the app shell; pages are network-first
 - Offline banner: `Offline — changes will sync when you reconnect`
-- Mutating requests (HTMX and `fetch`) are queued in `localStorage` **with their body**
-- On reconnect the queue drains; only **2xx** dequeues — a 4xx/5xx keeps the item
+- Serializable same-origin mutations (HTMX and `fetch`) are queued in `localStorage` with their body encoding
+- On reconnect or page load the queue drains; only **2xx** dequeues. A failed item stays first in line and offers retry or explicit removal. Unsupported bodies and cross-origin URLs are not queued or replayed.
 
 **Push** (`Settings → Notifications`)
 
@@ -222,20 +222,31 @@ make ui
 
 Env knobs: `PARATRACK_SMTP_*`, `PARATRACK_JIRA_SITE`, `PARATRACK_GITLAB_SITE`,
 `PARATRACK_STRIPE_KEY`, `PARATRACK_STRIPE_WEBHOOK_SECRET`,
-`PARATRACK_OIDC_ISSUER`, `PARATRACK_OIDC_CLIENT_ID`, `PARATRACK_OIDC_CLIENT_SECRET`.
+`PARATRACK_OIDC_ISSUER`, `PARATRACK_OIDC_CLIENT_ID`, `PARATRACK_OIDC_CLIENT_SECRET`,
+`PARATRACK_PUBLIC_URL` (required HTTPS origin in production),
+`PARATRACK_TRUSTED_PROXIES` (comma-separated CIDR ranges for reverse proxies;
+forwarded host/proto/IP headers are ignored from all other peers). The public
+HTTPS origin marks cookies and HSTS secure behind a TLS terminator; trusted
+proxy ranges remain necessary before forwarded headers affect request data;
+`PARATRACK_INTEGRATION_ALLOW_PRIVATE` (explicitly allow private Jira/GitLab
+addresses; default is to allow public destinations only).
 
 ---
 
 ## 9. QA
 
-Four suites, all green on the current build. See [QA.md](./QA.md) for the matrix.
+CI runs static, architecture, dependency, race-enabled Go and browser E2E gates
+for pushes and pull requests targeting `main` or `master`. The expanded product,
+business-logic and offline acceptance suites are manual; their last recorded
+results are in [QA.md](./QA.md) and are not a claim about the current working
+tree.
 
 ```bash
 go test ./...                                   # unit + integration
 . .venv/bin/activate
 python e2e/qa_full.py                           # UI / visual (Playwright + screenshots)
 python e2e/qa_logic.py                          # business-logic math (HTTP)
-python e2e/wave9_verify.py                      # offline + push
+python e2e/qa_offline_push.py                   # offline + push
 ```
 
 ---
@@ -244,8 +255,6 @@ python e2e/wave9_verify.py                      # offline + push
 
 - Stripe Checkout and OIDC are wired but untested against real providers
 - Live provider import needs real PATs (no sandbox credentials in-repo)
-- `NextInvoiceNumber` / `NextPayrollNumber` race under concurrent creation
-- Rate limiting is per-process (single-binary target)
+- `NextInvoiceNumber` returns an advisory display value; concurrent reads may return the same value, while invoice draft creation allocates under a workspace lock. Payroll numbers are allocated inside atomic payroll draft creation.
+- Rate limiting is per-process (single-binary target), with at most 10,000 tracked keys per limiter; when full, unseen keys fail closed until cleanup frees capacity
 - No email verification on signup
-- `GetActivity` is not team-scoped at the helper level
-- BuildReport does a per-row project lookup (N+1)

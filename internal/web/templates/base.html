@@ -2,20 +2,7 @@
 <html lang="{{if eq .Lang "ru"}}ru{{else}}en{{end}}" data-theme="paratrack-light"{{with .DurFmt}} data-durfmt="{{.}}"{{end}}>
 <head>
   <meta charset="utf-8">
-  <script>
-  /* Resolve theme before first paint — avoids the light→dark flash. */
-  (function () {
-    try {
-      var m = localStorage.getItem('paratrack-theme') || 'auto';
-      var dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      document.documentElement.dataset.theme = dark ? 'paratrack-dark' : 'paratrack-light';
-      document.documentElement.dataset.themeMode = m;
-      // label text is written here too — Alpine is deferred and would
-      // otherwise pop the word in a frame later.
-      document.querySelectorAll('.theme-mode-label').forEach(el => { el.textContent = el.dataset[m] || m; });
-    } catch (e) {}
-  })();
-  </script>
+  <script src="{{asset "js/app-bootstrap.js"}}"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{{.Title}} | paratrack</title>
   <link rel="manifest" href="/static/manifest.webmanifest">
@@ -31,23 +18,25 @@
   {{with sentryDSN}}<meta name="sentry" content="{{.}}" data-release="{{release}}" data-env="{{sentryEnv}}">
   <script src="{{asset "js/sentry.min.js"}}"></script>
   <script src="{{asset "js/sentry-init.js"}}"></script>{{end}}
-  {{/* The user's time zone for the server (it runs in UTC): days, "today"
-       and every printed time follow it. Refresh once if it changed. */}}
-  <script>(function () {
-    try {
-      var tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      var had = (document.cookie.match(/(?:^|; )paratrack_tz=([^;]*)/) || [])[1];
-      if (tz && decodeURIComponent(had || '') !== tz) {
-        document.cookie = 'paratrack_tz=' + encodeURIComponent(tz) + '; path=/; max-age=31536000; samesite=lax';
-        if (had) location.reload(); // zone changed (travel): re-render once
-      }
-    } catch (e) {}
-  })();</script>
   <script src="{{asset "js/htmx.min.js"}}"></script>
-  <script defer src="{{asset "js/app.js"}}"></script>
+  <script type="importmap">{{appImportMap}}</script>
+  <script type="module" src="{{asset "js/app.js"}}"></script>
   <script defer src="{{asset "js/alpine.min.js"}}"></script>
 </head>
-<body class="min-h-screen flex flex-col bg-base-200 text-base-content">
+<body class="min-h-screen flex flex-col bg-base-200 text-base-content"
+  data-i18n-send-error="{{.T "pwa.sendError"}}"
+  data-i18n-undo="{{.T "toast.undo"}}"
+  data-i18n-discard="{{.T "toast.discard"}}"
+  data-i18n-need-start-duration="{{.T "err.needStartDuration"}}"
+  data-i18n-ios-install="{{.T "pwa.iosInstall"}}"
+  data-i18n-offline="{{.T "pwa.offline"}}"
+  data-i18n-offline-pending="{{.T "pwa.offlinePending"}}"
+  data-i18n-syncing="{{.T "pwa.syncing"}}"
+  data-i18n-queued="{{.T "pwa.queued"}}"
+  data-i18n-queue-failed="{{.T "pwa.queueFailed"}}"
+  data-i18n-queue-network-failed="{{.T "pwa.queueNetworkFailed"}}"
+  data-i18n-queue-retry="{{.T "pwa.queueRetry"}}"
+  data-i18n-queue-discard="{{.T "pwa.queueDiscard"}}">
   <a href="#main" class="skip-link">{{.T "nav.skip"}}</a>
   <header class="appbar bg-base-100 border-b border-base-300">
     <div class="navbar min-h-12! mx-auto max-w-[90rem] px-2 sm:px-4 gap-1 flex-nowrap items-center">
@@ -191,8 +180,7 @@
         <button class="btn btn-ghost btn-xs theme-btn gap-1"
                 data-theme-toggle
                 title="{{.T "nav.theme"}} (T)"
-                x-data="themeToggle"
-                @click="cycle()">
+                x-data="themeToggle">
           <span class="theme-icon theme-icon-light">{{icon "sun" "icon icon-sm"}}</span>
           <span class="theme-icon theme-icon-dark">{{icon "moon" "icon icon-sm"}}</span>
           <span class="theme-icon theme-icon-auto">{{icon "sun-moon" "icon icon-sm"}}</span>
@@ -268,7 +256,7 @@
       <a href="/lang/{{if eq .Lang "ru"}}en{{else}}ru{{end}}?next={{urlquery .RequestPath}}" class="btn btn-ghost btn-sm flex-1 gap-1.5">{{icon "languages" "icon icon-sm"}}{{if eq .Lang "ru"}}English{{else}}Русский{{end}}</a>
       <button type="button" class="btn btn-ghost btn-sm flex-1 gap-1.5" data-theme-toggle
              
-              x-data="themeToggle" @click="cycle()">
+              x-data="themeToggle">
         <span class="theme-icon theme-icon-light">{{icon "sun" "icon icon-sm"}}</span>
         <span class="theme-icon theme-icon-dark">{{icon "moon" "icon icon-sm"}}</span>
         <span class="theme-icon theme-icon-auto">{{icon "sun-moon" "icon icon-sm"}}</span>
@@ -283,52 +271,5 @@
   </dialog>
   {{end}}
 
-  <script>
-    window.paratrackT = {
-      sendError: {{.T "pwa.sendError"}},
-      undo: {{.T "toast.undo"}},
-      discard: {{.T "toast.discard"}},
-      needStartDuration: {{.T "err.needStartDuration"}},
-      iosInstall: {{.T "pwa.iosInstall"}},
-      offline: {{.T "pwa.offline"}},
-      offlinePending: {{.T "pwa.offlinePending"}},
-      syncing: {{.T "pwa.syncing"}},
-      queued: {{.T "pwa.queued"}},
-    };
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {}));
-    }
-    document.body.addEventListener('htmx:afterRequest', (e) => {
-      const msg = window.paratrackDecode(e.detail.xhr.getResponseHeader('X-Toast'));
-      const kind = e.detail.xhr.getResponseHeader('X-Toast-Kind') || 'success';
-      if (!msg) return;
-      const xhr = e.detail.xhr, actions = [];
-      const undo = xhr.getResponseHeader('X-Toast-Undo');
-      const discard = xhr.getResponseHeader('X-Toast-Discard');
-      if (undo) actions.push({ label: window.paratrackT.undo, method: 'POST', url: undo });
-      if (discard) actions.push({ label: window.paratrackT.discard, method: 'DELETE', url: discard, quiet: true });
-      window.paratrackToast(msg, kind, 0, actions);
-    });
-    document.body.addEventListener('htmx:beforeRequest', (e) => {
-      const hdr = e.detail.xhr.getResponseHeader('X-Redirect');
-      if (hdr) {
-        e.preventDefault();
-        window.location.href = hdr;
-      }
-      // Visual feedback: dim the originating button while in flight.
-      const el = e.detail.elt;
-      if (el && (el.tagName === 'BUTTON' || el.classList.contains('btn'))) {
-        el.classList.add('btn-disabled');
-        el.setAttribute('aria-busy', 'true');
-      }
-    });
-    document.body.addEventListener('htmx:afterRequest', (e) => {
-      const el = e.detail.elt;
-      if (el) {
-        el.classList.remove('btn-disabled');
-        el.removeAttribute('aria-busy');
-      }
-    });
-  </script>
 </body>
 </html>{{end}}

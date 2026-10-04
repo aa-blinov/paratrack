@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/db"
 )
 
@@ -88,12 +89,12 @@ func TestGraphUsesStatsScopeAndPreservesItAcrossPeriods(t *testing.T) {
 		}, htmx))
 	}
 	var sessionID int64
-	if err := e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT s.id FROM sessions s JOIN activities a ON a.id=s.activity_id WHERE a.name='alpha-work'`).Scan(&sessionID); err != nil {
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT s.id FROM sessions s JOIN activities a ON a.id=s.activity_id WHERE a.name='alpha-work'`).Scan(&sessionID); err != nil {
 		t.Fatal(err)
 	}
 	readBody(t, e.do("POST", fmt.Sprintf("/api/sessions/%d/tags", sessionID), url.Values{"name": {"review"}}, htmx))
 	var slug string
-	if err := e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT slug FROM projects WHERE name='Client One'`).Scan(&slug); err != nil {
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT slug FROM projects WHERE name='Client One'`).Scan(&slug); err != nil {
 		t.Fatal(err)
 	}
 	scope := "period=yesterday&project=" + url.QueryEscape(slug) + "&tag=review"
@@ -152,7 +153,7 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 		"activity": {"unassigned-work"}, "start": {day + " 10:00"}, "end": {day + " 11:00"},
 	}, htmx))
 	var activityID int64
-	if err := e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM activities WHERE name='unassigned-work'`).Scan(&activityID); err != nil {
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM activities WHERE name='unassigned-work'`).Scan(&activityID); err != nil {
 		t.Fatal(err)
 	}
 	form := readBody(t, e.do("GET", "/invoices", nil, nil))
@@ -172,13 +173,13 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 	if resp := post("1", "99999"); resp.code != 303 || !strings.Contains(resp.loc, "flash=") {
 		t.Fatalf("assignment to unknown project: %+v", resp)
 	}
-	if a, _ := e.srv.db.GetActivity(t.Context(), activityID); a.ProjectID != 0 {
+	if a, _ := e.db.GetActivity(t.Context(), 1, activityID); a.ProjectID != 0 {
 		t.Fatal("failed assignment changed the activity")
 	}
 	if resp := post("1", "1"); resp.code != 303 || !strings.Contains(resp.loc, "project=1") {
 		t.Fatalf("assignment failed: %+v", resp)
 	}
-	if a, _ := e.srv.db.GetActivity(t.Context(), activityID); a.ProjectID != 1 {
+	if a, _ := e.db.GetActivity(t.Context(), 1, activityID); a.ProjectID != 1 {
 		t.Fatal("past sessions did not move with the activity")
 	}
 	bill := e.do("POST", "/invoices", url.Values{"project_id": {"1"}, "client": {"Customer"}, "start": {day}, "end": {day}}, nil)
@@ -193,17 +194,17 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 	if resp.StatusCode != 409 {
 		t.Fatalf("billed activity moved through the project picker: %d", resp.StatusCode)
 	}
-	if err := e.srv.db.AssignActivityProject(t.Context(), 1, activityID, 0); !errors.Is(err, db.ErrAlreadyBilled) {
+	if err := e.db.AssignActivityProject(t.Context(), appmodel.AssignActivityProjectRequest{TeamID: 1, ActivityID: activityID, ProjectID: 0, CallerID: 1}); !errors.Is(err, db.ErrAlreadyBilled) {
 		t.Fatalf("billed activity was moved: %v", err)
 	}
 	// Simulate a legacy activity whose project was cleared before this guard.
-	if _, err := e.srv.db.SQL().ExecContext(t.Context(), `UPDATE activities SET project_id = NULL WHERE id = ?`, activityID); err != nil {
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE activities SET project_id = NULL WHERE id = ?`, activityID); err != nil {
 		t.Fatal(err)
 	}
 	if resp := post("1", "1"); resp.code != 303 || !strings.Contains(resp.loc, "flash=") {
 		t.Fatalf("billed activity was reattached: %+v", resp)
 	}
-	if a, _ := e.srv.db.GetActivity(t.Context(), activityID); a.ProjectID != 0 {
+	if a, _ := e.db.GetActivity(t.Context(), 1, activityID); a.ProjectID != 0 {
 		t.Fatal("billed history changed project")
 	}
 	if page := readBody(t, e.do("GET", "/invoices", nil, nil)); strings.Contains(page, `name="activity_id" value="`+fmt.Sprint(activityID)+`"`) {

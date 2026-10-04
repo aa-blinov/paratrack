@@ -76,7 +76,7 @@
     <div class="flex items-center gap-2">
       <a href="/reports/run?id={{.VM.Template.ID}}&from={{.VM.From}}&to={{.VM.To}}&format=csv"
          class="btn btn-ghost btn-sm gap-1.5">{{icon "download"}}CSV</a>
-      <button class="btn btn-ghost btn-sm gap-1.5" onclick="window.print()">{{icon "download"}}{{.T "inv.print"}}</button>
+      <button class="btn btn-ghost btn-sm gap-1.5" type="button" data-print>{{icon "download"}}{{.T "inv.print"}}</button>
     </div>
   </div>
 

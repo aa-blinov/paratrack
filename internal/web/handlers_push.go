@@ -1,71 +1,90 @@
 package web
 
 import (
-	"github.com/aa-blinov/paratrack/internal/i18n"
 	"bytes"
-	"context"
-	"crypto/elliptic"
-	"encoding/base64"
-	"encoding/json"
-	"math/big"
+	"errors"
 	"net/http"
 	"strings"
 
-	webpush "github.com/SherClockHolmes/webpush-go"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // ---------------------------------------------------------------------------
-// Wave 9: Web Push + offline-aware client
+// Web Push subscriptions and notifications.
 // ---------------------------------------------------------------------------
 
 // handlePushKey returns the VAPID public key (JS needs it to subscribe).
 func (s *Server) handlePushKey(w http.ResponseWriter, r *http.Request) {
-	pub, _, err := s.db.EnsureVAPIDKeys(r.Context())
+	pub, err := s.services.Push.PublicKey(r.Context())
 	if err != nil {
-		w.WriteHeader(500)
-		writeJSON(w, map[string]string{"error": err.Error()})
+		s.writeInternalJSONError(w, err)
 		return
 	}
-	writeJSON(w, map[string]string{"publicKey": pub})
+	s.writeJSON(w, pushPublicKeyResponse{PublicKey: pub})
 }
 
 // handlePushSubscribe stores a browser subscription.
 // Body: endpoint, p256dh, auth.
 func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		return
+	}
 	endpoint := strings.TrimSpace(r.PostForm.Get("endpoint"))
 	p256dh := strings.TrimSpace(r.PostForm.Get("p256dh"))
 	auth := strings.TrimSpace(r.PostForm.Get("auth"))
 	u, ok := UserFrom(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", 401)
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
-	if err := s.db.UpsertPushSubscription(r.Context(), teamID(r), u.ID, endpoint, p256dh, auth); err != nil {
-		http.Error(w, err.Error(), 400)
+	if err := s.services.Push.Subscribe(operationContext(r), appmodel.PushSubscribeRequest{
+		TeamID: teamID(r), UserID: u.ID, Endpoint: endpoint, PublicKey: p256dh, AuthSecret: auth,
+	}); err != nil {
+		if errors.Is(err, appmodel.ErrInvalidPushSubscription) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		} else {
+			s.writeInternalError(w, err)
+		}
 		return
 	}
-	s.audit(r, "push.subscribe", "", "")
-	writeJSON(w, map[string]any{"ok": true})
+	s.writeJSON(w, operationOKResponse{OK: true})
 }
 
 // handlePushUnsubscribe drops a subscription by endpoint.
 func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
-	endpoint := strings.TrimSpace(r.PostForm.Get("endpoint"))
-	if endpoint != "" {
-		_ = s.db.DeletePushSubscription(r.Context(), endpoint)
-		s.audit(r, "push.unsubscribe", "", "")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
 	}
-	writeJSON(w, map[string]any{"ok": true})
+	endpoint := strings.TrimSpace(r.PostForm.Get("endpoint"))
+	if endpoint == "" {
+		http.Error(w, "endpoint is required", http.StatusBadRequest)
+		return
+	}
+	u, ok := UserFrom(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if err := s.services.Push.UnsubscribeForMember(operationContext(r), appmodel.PushUnsubscribeRequest{TeamID: teamID(r), UserID: u.ID, Endpoint: endpoint}); err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	s.writeJSON(w, operationOKResponse{OK: true})
 }
 
 // handleNotificationsPage renders the push settings card.
 func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := notifyPage{pageData: pageData{Title: "Notifications", Active: "settings-notify", Lang: lang}}
-	subs, _ := s.db.ListPushSubscriptions(r.Context(), teamID(r))
-	data.DeviceCount = len(subs)
+	deviceCount, err := s.services.Push.SubscriptionCount(r.Context(), teamID(r))
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	data.DeviceCount = deviceCount
 	s.renderPageForRequest(w, r, "Notifications", "settings-notify", "notifications", &data)
 }
 
@@ -77,73 +96,6 @@ type notifyPage struct {
 }
 
 func (p *notifyPage) setCSRF(t string) { p.pageData.setCSRF(t) }
-
-// sendPush delivers a notification to the given people's devices in the
-// team, in the background so a slow push service never holds a request.
-// Failures (410 Gone etc.) clean up dead endpoints.
-func (s *Server) sendPush(teamID int64, userIDs []int64, title, body, url string) {
-	if len(userIDs) == 0 {
-		return
-	}
-	go s.deliverPush(teamID, userIDs, title, body, url)
-}
-
-func (s *Server) deliverPush(teamID int64, userIDs []int64, title, body, url string) {
-	ctx := context.Background()
-	subs, err := s.db.ListPushSubscriptions(ctx, teamID, userIDs...)
-	if err != nil || len(subs) == 0 {
-		return
-	}
-	pub, priv, err := s.db.EnsureVAPIDKeys(ctx)
-	if err != nil {
-		return
-	}
-	privKey, err := parseECDSAPrivate(priv)
-	if err != nil {
-		return
-	}
-	payload, _ := json.Marshal(map[string]string{
-		"title": title,
-		"body":  body,
-		"url":   url,
-		"tag":   "paratrack-" + strings.ReplaceAll(title, " ", "-"),
-	})
-	for _, sub := range subs {
-		ws := &webpush.Subscription{
-			Endpoint: sub.Endpoint,
-			Keys:     webpush.Keys{P256dh: sub.P256DH, Auth: sub.Auth},
-		}
-		resp, err := webpush.SendNotification(payload, ws, &webpush.Options{
-			Subscriber:      "paratrack",
-			VAPIDPublicKey:  pub,
-			VAPIDPrivateKey: privKey,
-			TTL:             86400,
-			HTTPClient:      hookClient, // timeout, no private addresses
-		})
-		if err != nil {
-			continue
-		}
-		if resp.StatusCode == 404 || resp.StatusCode == 410 {
-			_ = s.db.DeletePushSubscription(ctx, sub.Endpoint)
-		}
-		_ = resp.Body.Close()
-	}
-}
-
-// parseECDSAPrivate rebuilds an ECDSA P-256 key from the stored scalar.
-func parseECDSAPrivate(b64 string) (string, error) {
-	b, err := base64.RawURLEncoding.DecodeString(strings.TrimSpace(b64))
-	if err != nil {
-		return "", err
-	}
-	d := new(big.Int).SetBytes(b)
-	curve := elliptic.P256()
-	x, y := curve.ScalarBaseMult(d.Bytes())
-	_ = x
-	_ = y
-	// webpush-go accepts the raw base64url private scalar directly.
-	return b64, nil
-}
 
 // handleServiceWorker serves sw.js from the root so its default scope is "/".
 func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
@@ -166,34 +118,27 @@ func (s *Server) handleServiceWorker(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleManifest(w http.ResponseWriter, r *http.Request) {
 	lang := resolveLang(r)
 	t := func(k string) string { return i18n.T(lang, k) }
-	icon := func(src, sizes, purpose string) map[string]string {
-		return map[string]string{"src": src, "sizes": sizes, "type": "image/png", "purpose": purpose}
+	icon := func(src, sizes, purpose string) webManifestIcon {
+		return webManifestIcon{Source: src, Sizes: sizes, Type: "image/png", Purpose: purpose}
 	}
-	shortcut := func(name, url string) map[string]any {
-		return map[string]any{"name": name, "short_name": name, "url": url,
-			"icons": []map[string]string{icon("/static/icon192.png", "192x192", "any")}}
+	shortcut := func(name, url string) webManifestShortcut {
+		return webManifestShortcut{Name: name, ShortName: name, URL: url,
+			Icons: []webManifestIcon{icon("/static/icon192.png", "192x192", "any")}}
 	}
-	w.Header().Set("Content-Type", "application/manifest+json")
 	w.Header().Set("Cache-Control", "no-cache")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"id":               "/",
-		"name":             "paratrack",
-		"short_name":       "paratrack",
-		"description":      t("pwa.description"),
-		"lang":             string(lang),
-		"start_url":        "/",
-		"scope":            "/",
-		"display":          "standalone",
-		"background_color": "#f9fafb",
-		"theme_color":      "#6366f1",
-		"categories":       []string{"productivity", "business"},
-		"icons": []map[string]string{
+	s.writeJSONContentType(w, "application/manifest+json", webManifestResponse{
+		ID: "/", Name: "paratrack", ShortName: "paratrack",
+		Description: t("pwa.description"), Language: string(lang),
+		StartURL: "/", Scope: "/", Display: "standalone",
+		BackgroundColor: "#f9fafb", ThemeColor: "#6366f1",
+		Categories: []string{"productivity", "business"},
+		Icons: []webManifestIcon{
 			icon("/static/icon128.png", "128x128", "any"),
 			icon("/static/icon192.png", "192x192", "any"),
 			icon("/static/icon512.png", "512x512", "any"),
 			icon("/static/icon512-maskable.png", "512x512", "maskable"),
 		},
-		"shortcuts": []map[string]any{
+		Shortcuts: []webManifestShortcut{
 			shortcut(t("pwa.newTimer"), "/?focus=activity"),
 			shortcut(t("nav.stats"), "/stats"),
 			shortcut(t("nav.timesheet"), "/timesheet"),

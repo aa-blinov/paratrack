@@ -17,6 +17,10 @@ func urlEscape(s string) string {
 // is fine but a typed helper reads better at the call site.
 func intToString(n int64) string { return strconv.FormatInt(n, 10) }
 
+func parseID(s string) (int64, error) {
+	return strconv.ParseInt(s, 10, 64)
+}
+
 // scanInt parses s as a base-10 int64. Returns the number of bytes
 // consumed (always 0 for empty / non-numeric input).
 func scanInt(s string, dst *int64) (int, error) {

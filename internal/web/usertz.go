@@ -1,8 +1,8 @@
 package web
 
 import (
+	"context"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 	_ "time/tzdata" // zones load in a slim container
@@ -10,10 +10,26 @@ import (
 
 // The server runs in UTC; people don't. Every "now", "today" and printed
 // time uses the user's zone: the browser reports it in the paratrack_tz
-// cookie (base.html), PARATRACK_TZ is the fallback before that first
-// report (Europe/Moscow on the RU-first public instance), else the
-// server's own zone.
+// cookie (base.html), then the process-configured fallback before that first
+// report, else the server's own zone.
 var tzCache sync.Map // name → *time.Location
+
+type defaultTimezoneKey struct{}
+type requestClockKey struct{}
+
+func withRequestClock(next http.Handler, now func() time.Time) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), requestClockKey{}, now())
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func withDefaultTimezone(next http.Handler, name string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), defaultTimezoneKey{}, name)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
 
 func loadZone(name string) *time.Location {
 	if name == "" {
@@ -41,11 +57,26 @@ func userLoc(r *http.Request) *time.Location {
 			}
 		}
 	}
-	if l := loadZone(os.Getenv("PARATRACK_TZ")); l != nil {
-		return l
+	if r != nil {
+		if name, _ := r.Context().Value(defaultTimezoneKey{}).(string); name != "" {
+			if l := loadZone(name); l != nil {
+				return l
+			}
+		}
 	}
 	return time.Local
 }
 
-// userNow is time.Now() in the user's zone (same instant).
-func userNow(r *http.Request) time.Time { return time.Now().In(userLoc(r)) }
+// userNow returns the request's single clock instant in the user's zone.
+// Routes must be wrapped with withRequestClock so handlers never select a
+// process clock independently.
+func userNow(r *http.Request) time.Time {
+	if r == nil {
+		panic("web: userNow called without an HTTP request")
+	}
+	now, ok := r.Context().Value(requestClockKey{}).(time.Time)
+	if !ok {
+		panic("web: request clock middleware is missing")
+	}
+	return now.In(userLoc(r))
+}

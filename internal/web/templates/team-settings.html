@@ -92,13 +92,13 @@
       </form>
       <div class="border-t border-base-300 pt-3 space-y-2">
         <label for="team-logo" class="label-text">{{.T "bill.logo"}}</label>
-        {{if .Billing.Logo}}<img src="{{.LogoURL}}" alt="{{.T "bill.logo"}}" class="max-h-14 max-w-48 object-contain border border-base-300 rounded p-1 bg-white">{{end}}
+        {{if .Billing.HasLogo}}<img src="{{.LogoURL}}" alt="{{.T "bill.logo"}}" class="max-h-14 max-w-48 object-contain border border-base-300 rounded p-1 bg-white">{{end}}
         <form method="POST" action="/api/team/logo" enctype="multipart/form-data" class="flex flex-wrap gap-2 items-center form-measure">
           <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
           <input id="team-logo" type="file" name="logo" accept="image/png,image/jpeg" required class="file-input file-input-bordered file-input-sm flex-1 min-w-0">
           <button type="submit" class="btn btn-sm btn-neutral">{{.T "bill.upload"}}</button>
         </form>
-        {{if .Billing.Logo}}
+        {{if .Billing.HasLogo}}
         <form method="POST" action="/api/team/logo">
           <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
           <input type="hidden" name="remove" value="1">
@@ -152,7 +152,7 @@
       <h2 class="card-title mb-2">{{.T "team.danger"}}</h2>
       <p class="text-sm opacity-60 mb-3">{{.T "team.dangerBlurb"}}</p>
       <form method="POST" action="/api/team/delete"
-            onsubmit="return confirm('{{.T "team.confirmDelete"}}')">
+            data-confirm="{{.T "team.confirmDelete"}}">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <button type="submit" class="btn btn-error btn-sm gap-1.5">{{icon "trash-2"}}{{.T "team.delete"}}</button>
       </form>

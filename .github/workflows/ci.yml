@@ -1,15 +1,18 @@
 # GitHub Actions CI for paratrack.
 #
-# Three jobs:
+# Four jobs:
 #   1. ui    — installs Node deps and builds the Tailwind/DaisyUI
-#              CSS bundle. Fast — runs in parallel with unit.
-#   2. unit  — runs on every push / PR. Fast, no browser.
-#   3. e2e   — builds the binary, starts the server, runs the
+#              CSS bundle. Runs in parallel with static and unit.
+#   2. architecture — runs the local static/security/frontend gate without
+#                     Postgres or a browser; it needs Go and npm dependencies.
+#   3. unit  — runs on every push / PR. No browser.
+#   4. e2e   — builds the binary, starts the server, runs the
 #              Playwright suite against it. Requires the chromium
 #              browser to be installed in the runner image.
 #
-# Both Go jobs use the same Go version the project targets and a
-# Postgres service (the only database).
+# Go jobs use the project's Go version. Only unit and e2e need Postgres. The
+# UI and architecture jobs install npm packages; unit and e2e also install
+# them for their CSS builds.
 
 name: CI
 
@@ -44,8 +47,38 @@ jobs:
         working-directory: web
         run: npm run build
 
+      - name: Test frontend JavaScript helpers
+        working-directory: web
+        run: npm run test:js
+
       - name: Verify output exists
         run: test -s internal/web/static/css/paratrack.css
+
+  architecture:
+    name: Static and architecture checks
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: "1.27"
+          cache: true
+
+      - name: Set up Node for frontend static checks
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install frontend static check dependencies
+        working-directory: web
+        run: npm ci
+
+      - name: Verify static, security, architecture and frontend checks
+        run: make verify
 
   unit:
     name: Go unit tests
@@ -86,22 +119,16 @@ jobs:
         working-directory: web
         run: npm run build
 
-      - name: go vet
-        run: go vet ./...
-
       - name: go test
         run: go test -race -count=1 -p 1 ./...
 
       - name: Coverage
         run: go test -cover -p 1 ./internal/db ./internal/web ./internal/timeparse
 
-      - name: Build
-        run: go build -o /tmp/paratrack ./cmd/paratrack
-
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-24.04
-    needs: [ui, unit]
+    needs: [ui, architecture, unit]
     services:
       postgres:
         image: postgres:17-alpine
@@ -114,6 +141,8 @@ jobs:
           --health-cmd "pg_isready -U t" --health-interval 2s --health-timeout 5s --health-retries 20
     env:
       PARATRACK_DATABASE_URL: postgres://t:t@127.0.0.1:5432/t?sslmode=disable
+      PARATRACK_ENV: test
+      PARATRACK_PUBLIC_URL: http://127.0.0.1:8888
     steps:
       - uses: actions/checkout@v7
 
@@ -166,10 +195,9 @@ jobs:
 
       - name: Run Playwright suite
         run: |
-          # Tee so the log is always captured even on success.
+          # Preserve the test runner's exit code while capturing its output.
+          set -o pipefail
           python e2e/test_dashboard.py 2>&1 | tee /tmp/e2e.log
-          # Always upload the log as an artefact for debugging.
-          echo "E2E finished with exit=$?"
 
       - name: Upload e2e artefacts
         if: always()

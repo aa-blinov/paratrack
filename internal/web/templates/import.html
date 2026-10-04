@@ -12,8 +12,8 @@
   <div class="card bg-base-100 border border-base-300">
     <div class="card-body p-5">
       <h2 class="card-title mb-3">{{.T "imp.pick"}}</h2>
-      <form method="POST" action="/import/preview" class="grid gap-3 sm:grid-cols-2" x-data="{p: 'toggl'}">
-        <input type="hidden" name="tz" x-init="$el.value = Intl.DateTimeFormat().resolvedOptions().timeZone">
+      <form method="POST" action="/import/preview" class="grid gap-3 sm:grid-cols-2" x-data="historyImportForm">
+        <input type="hidden" name="tz">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
         <div>
           <label class="label py-1" for="import-provider"><span class="label-text">{{.T "int.provider"}}</span></label>

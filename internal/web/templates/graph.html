@@ -1,5 +1,5 @@
 {{define "graph-content"}}
-<script src="{{asset "js/echarts.min.js"}}" defer onload="window.paratrackInitEcharts && window.paratrackInitEcharts()"></script>
+<script src="{{asset "js/echarts.min.js"}}" defer data-paratrack-echarts></script>
 <h1 class="mb-1">{{.T "graph.title"}}</h1>
 <p class="text-sm opacity-70 mb-4">{{.T "graph.pageBlurb"}}</p>
 
@@ -24,19 +24,6 @@
   <a href="?period={{.Period.Label}}{{if eq .Period.Label "custom"}}&start={{urlquery (.Period.Start.Format "2006-01-02T15:04")}}&end={{urlquery (.Period.End.Format "2006-01-02T15:04")}}{{end}}" class="btn btn-ghost btn-sm ml-auto">{{.T "stats.clearFilters"}}</a>
 </div>
 {{end}}
-
-<script>
-  // ECharts imperative init — runs after Alpine has mounted so the
-  // canvas has its final size and layout. Without this hook the
-  // ECharts hover events are eaten by Alpine's reactive proxy.
-  document.addEventListener('alpine:initialized', () => {
-    // Fallback: if echarts was cached and already loaded, draw now.
-    // The primary path is the script onload above.
-    requestAnimationFrame(() => {
-      if (typeof echarts !== "undefined") window.paratrackInitEcharts && window.paratrackInitEcharts();
-    });
-  });
-</script>
 
 <div class="card bg-base-100 border border-base-300">
   <div class="card-body p-5">

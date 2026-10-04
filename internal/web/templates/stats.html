@@ -24,7 +24,7 @@
   {{if .ProjectFilter}}<input type="hidden" name="project" value="{{.ProjectFilter}}">{{end}}
   {{if .TagFilter}}<input type="hidden" name="tag" value="{{.TagFilter}}">{{end}}
   <label for="person" class="doc-muted">{{.T "stats.person"}}</label>
-  <select id="person" name="person" class="select select-bordered select-sm" onchange="this.form.submit()">
+  <select id="person" name="person" class="select select-bordered select-sm" data-submit-on-change>
     <option value="">{{.T "stats.everyone"}}</option>
     {{range .People}}<option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>{{end}}
   </select>
@@ -200,7 +200,7 @@
            placeholder="{{.T "ph.duration"}}"
            title="{{.T "stats.durationTitle"}}"
            class="input input-sm input-bordered w-24"
-           onchange="paratrackResize(this, {{.ID}})">
+           data-resize-session="{{.ID}}">
     {{if and .DurationSecs .Duration}}{{end}}
   </td>
   <td data-label="{{.T "stats.note"}}">

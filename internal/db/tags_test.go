@@ -1,28 +1,31 @@
 package db
 
 import (
+	"errors"
 	"testing"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
 func TestCreateTag_Idempotent(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.CreateTag(ctx, 0, "deep-work")
+	a, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "deep-work"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, err := d.CreateTag(ctx, 0, "deep-work")
+	b, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "deep-work"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a.ID != b.ID {
-		t.Errorf("CreateTag on existing name: a.ID=%d, b.ID=%d (should be equal)", a.ID, b.ID)
+		t.Errorf("createTag on existing name: a.ID=%d, b.ID=%d (should be equal)", a.ID, b.ID)
 	}
 	// Mixed-case input must collapse to the same tag — the COLLATE
-	// NOCASE column guarantees it but CreateTag also normalises on the
+	// NOCASE column guarantees it but createTag also normalises on the
 	// way in so the *output* name is the canonical lowercase.
-	c, err := d.CreateTag(ctx, 0, "Deep-Work")
+	c, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "Deep-Work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,62 +35,39 @@ func TestCreateTag_Idempotent(t *testing.T) {
 	}
 }
 
-func TestGetTagByName_IsCaseInsensitive(t *testing.T) {
-	d := openTestDB(t)
-	ctx := t.Context()
-	a, err := d.CreateTag(ctx, 0, "morning")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, in := range []string{"MORNING", "Morning", "mOrNiNg"} {
-		got, err := d.GetTagByName(ctx, 0, in)
-		if err != nil {
-			t.Errorf("GetTagByName(%q): %v", in, err)
-			continue
-		}
-		if got.ID != a.ID || got.Name != "morning" {
-			t.Errorf("GetTagByName(%q) = %d (%q), want %d (morning)", in, got.ID, got.Name, a.ID)
-		}
-	}
-}
-
 func TestCreateTag_TrimsWhitespace(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	t1, err := d.CreateTag(ctx, 0, "  spaced  ")
+	t1, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "  spaced  "})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t2, err := d.GetTagByName(ctx, 0, "spaced")
-	if err != nil {
-		t.Fatalf("tag should be retrievable by trimmed name: %v", err)
-	}
-	if t1.ID != t2.ID {
-		t.Errorf("trimmed create should match lookup: %d vs %d", t1.ID, t2.ID)
+	if t1.Name != "spaced" {
+		t.Errorf("created tag name = %q, want normalized name %q", t1.Name, "spaced")
 	}
 }
 
 func TestCreateTag_RejectsEmpty(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	if _, err := d.CreateTag(ctx, 0, "   "); err == nil {
-		t.Error("CreateTag on whitespace-only should fail, got nil")
+	if _, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "   "}); err == nil {
+		t.Error("createTag on whitespace-only should fail, got nil")
 	}
 }
 
 func TestAttachTag_AutoCreates(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "writing")
-	s, err := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "writing"})
+	s, err := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := d.AttachTag(ctx, 0, s.ID, "deep-work"); err != nil {
-		t.Fatalf("AttachTag should auto-create: %v", err)
+	if err := d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "deep-work"}); err != nil {
+		t.Fatalf("attachTag should auto-create: %v", err)
 	}
 	// Tag should exist now.
-	tags, err := d.ListTagsForSession(ctx, s.ID)
+	tags, err := d.listTagsForSession(ctx, 0, s.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,13 +79,13 @@ func TestAttachTag_AutoCreates(t *testing.T) {
 func TestAttachTag_Idempotent(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "reading")
-	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, 0, s.ID, "morning")
-	if err := d.AttachTag(ctx, 0, s.ID, "morning"); err != nil {
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "reading"})
+	s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "morning"})
+	if err := d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "morning"}); err != nil {
 		t.Errorf("double attach should be no-op, got: %v", err)
 	}
-	tags, _ := d.ListTagsForSession(ctx, s.ID)
+	tags, _ := d.listTagsForSession(ctx, 0, s.ID)
 	if len(tags) != 1 {
 		t.Errorf("expected 1 tag after double attach, got %d", len(tags))
 	}
@@ -114,16 +94,16 @@ func TestAttachTag_Idempotent(t *testing.T) {
 func TestDetachTag_KeepsTagAlive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "work")
-	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-	_, _ = d.CreateTag(ctx, 0, "office")
-	if err := d.AttachTag(ctx, 0, s.ID, "office"); err != nil {
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "work"})
+	s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+	_, _ = d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "office"})
+	if err := d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "office"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.DetachTag(ctx, 0, s.ID, "office"); err != nil {
+	if err := d.detachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "office"}); err != nil {
 		t.Fatal(err)
 	}
-	tags, _ := d.ListTagsForSession(ctx, s.ID)
+	tags, _ := d.listTagsForSession(ctx, 0, s.ID)
 	if len(tags) != 0 {
 		t.Errorf("session still has tags after detach: %v", tags)
 	}
@@ -143,15 +123,15 @@ func TestDetachTag_KeepsTagAlive(t *testing.T) {
 func TestSetTagsForSession_ReplacesAll(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "study")
-	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, 0, s.ID, "old1")
-	_ = d.AttachTag(ctx, 0, s.ID, "old2")
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "study"})
+	s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "old1"})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "old2"})
 
-	if err := d.SetTagsForSession(ctx, 0, s.ID, []string{"new1", "new2", "new3"}); err != nil {
+	if err := d.setTagsForSession(ctx, legacySessionTagsRequest{TeamID: 0, SessionID: s.ID, Names: []string{"new1", "new2", "new3"}}); err != nil {
 		t.Fatal(err)
 	}
-	tags, _ := d.ListTagsForSession(ctx, s.ID)
+	tags, _ := d.listTagsForSession(ctx, 0, s.ID)
 	got := map[string]bool{}
 	for _, tg := range tags {
 		got[tg.Name] = true
@@ -160,20 +140,20 @@ func TestSetTagsForSession_ReplacesAll(t *testing.T) {
 		t.Errorf("after replace, tags = %v; want only new1/new2/new3", tags)
 	}
 	if got["old1"] || got["old2"] {
-		t.Error("SetTagsForSession should have removed old tags")
+		t.Error("setTagsForSession should have removed old tags")
 	}
 }
 
 func TestSetTagsForSession_EmptyClears(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "calm")
-	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, 0, s.ID, "temp")
-	if err := d.SetTagsForSession(ctx, 0, s.ID, nil); err != nil {
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "calm"})
+	s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "temp"})
+	if err := d.setTagsForSession(ctx, legacySessionTagsRequest{TeamID: 0, SessionID: s.ID, Names: nil}); err != nil {
 		t.Fatal(err)
 	}
-	tags, _ := d.ListTagsForSession(ctx, s.ID)
+	tags, _ := d.listTagsForSession(ctx, 0, s.ID)
 	if len(tags) != 0 {
 		t.Errorf("empty set should clear all tags, got %v", tags)
 	}
@@ -182,19 +162,19 @@ func TestSetTagsForSession_EmptyClears(t *testing.T) {
 func TestTagsForSessions_BatchedAcrossMany(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "batch")
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "batch"})
 	var sids []int64
 	for i := 0; i < 5; i++ {
-		s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
+		s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
 		sids = append(sids, s.ID)
 	}
 	// Tag session 0 with 'a', 1 with 'b', 2 with both.
-	_ = d.AttachTag(ctx, 0, sids[0], "a")
-	_ = d.AttachTag(ctx, 0, sids[1], "b")
-	_ = d.AttachTag(ctx, 0, sids[2], "a")
-	_ = d.AttachTag(ctx, 0, sids[2], "b")
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: sids[0], Name: "a"})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: sids[1], Name: "b"})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: sids[2], Name: "a"})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: sids[2], Name: "b"})
 
-	got, err := d.TagsForSessions(ctx, sids)
+	got, err := d.TagsForSessions(ctx, 0, sids)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,32 +199,56 @@ func TestTagsForSessions_BatchedAcrossMany(t *testing.T) {
 func TestDeleteTag_CascadesIntoSessionTags(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "doomed")
-	s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-	tag, _ := d.CreateTag(ctx, 0, "doomed")
-	if err := d.AttachTag(ctx, 0, s.ID, "doomed"); err != nil {
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "doomed"})
+	s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+	tag, _ := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "doomed"})
+	if err := d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "doomed"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.DeleteTag(ctx, 0, tag.ID); err != nil {
+	if err := d.deleteTag(ctx, legacyTagDeleteRequest{TeamID: 0, TagID: tag.ID}); err != nil {
 		t.Fatal(err)
 	}
-	tags, _ := d.ListTagsForSession(ctx, s.ID)
+	tags, _ := d.listTagsForSession(ctx, 0, s.ID)
 	if len(tags) != 0 {
 		t.Errorf("session_tags should cascade: got %v", tags)
 	}
 }
 
+func TestDeleteTag_LegacyPathCannotDeleteWorkspaceTag(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Scoped tag delete", "scoped-tag-delete")
+	ownerID := teamOwner(t, d, teamID)
+	tag, err := d.CreateTagForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "keep"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.deleteTag(ctx, legacyTagDeleteRequest{TeamID: 0, TagID: tag.ID}); !errors.Is(err, ErrTagNotFound) {
+		t.Fatalf("legacy delete error = %v, want tag not found", err)
+	}
+	tags, err := d.ListTags(ctx, teamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, listed := range tags {
+		if listed.ID == tag.ID {
+			return
+		}
+	}
+	t.Fatalf("workspace tag %d was deleted by legacy path", tag.ID)
+}
+
 func TestListAllTagsWithCounts_OrderedByPopularity(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.GetOrCreateActivity(ctx, 0, "rank")
+	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "rank"})
 	// popular has 3 sessions, niche has 1.
 	for i := 0; i < 3; i++ {
-		s, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-		_ = d.AttachTag(ctx, 0, s.ID, "popular")
+		s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+		_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "popular"})
 	}
-	one, _ := d.CreateSession(ctx, 0, act.ID, time.Now(), "")
-	_ = d.AttachTag(ctx, 0, one.ID, "niche")
+	one, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
+	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: one.ID, Name: "niche"})
 
 	tags, err := d.ListAllTagsWithCounts(ctx, 0)
 	if err != nil {

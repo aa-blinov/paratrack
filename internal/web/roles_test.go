@@ -32,7 +32,7 @@ func joinStudio(t *testing.T, owner *apiEnv, others map[string]*apiEnv, order ..
 			o.jar[c.Name] = c.Value
 		}
 		var id string
-		o.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = ?`, email).Scan(&id)
+		o.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = ?`, email).Scan(&id)
 		ids = append(ids, id)
 	}
 	return ids
@@ -54,13 +54,13 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 	readBody(t, owner.do("POST", "/projects/new", url.Values{"name": {"Клиент А"}, "rate": {"3000"}}, nil))
 	readBody(t, owner.do("POST", "/projects/new", url.Values{"name": {"Клиент Б"}, "rate": {"9000"}}, nil))
 	var pa, pb string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM projects WHERE name = 'Клиент А'`).Scan(&pa)
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM projects WHERE name = 'Клиент Б'`).Scan(&pb)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM projects WHERE name = 'Клиент А'`).Scan(&pa)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM projects WHERE name = 'Клиент Б'`).Scan(&pb)
 
 	// A member gives a new activity its first project, but can't move it.
 	readBody(t, dev.do("POST", "/api/start", url.Values{"activity": {"вёрстка"}, "project_id": {pa}}, htmx))
 	var actID, actProj string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id, project_id FROM activities WHERE name_key = 'вёрстка'`).Scan(&actID, &actProj)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT id, project_id FROM activities WHERE name_key = 'вёрстка'`).Scan(&actID, &actProj)
 	if actProj != pa {
 		t.Fatalf("first project not set: %q", actProj)
 	}
@@ -72,7 +72,7 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 	}
 	resp = dev.do("POST", "/api/start", url.Values{"activity": {"вёрстка"}, "project_id": {pb}}, htmx)
 	resp.Body.Close()
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT project_id FROM activities WHERE id = ?`, actID).Scan(&actProj)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT project_id FROM activities WHERE id = ?`, actID).Scan(&actProj)
 	if actProj != pa {
 		t.Errorf("starting a timer moved the activity to another client")
 	}
@@ -85,7 +85,7 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 	// Tags and goals: members use them, managers remove them.
 	readBody(t, owner.do("POST", "/api/tags", url.Values{"name": {"срочно"}}, htmx))
 	var tagID string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM tags WHERE name = 'срочно'`).Scan(&tagID)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM tags WHERE name = 'срочно'`).Scan(&tagID)
 	for _, c := range []struct{ method, path string }{
 		{"DELETE", "/api/tags?id=" + tagID},
 		{"POST", "/api/goals"},
@@ -113,14 +113,14 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 		}
 	}
 	var slug string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT slug FROM projects WHERE id = ?`, pa).Scan(&slug)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT slug FROM projects WHERE id = ?`, pa).Scan(&slug)
 	if page := readBody(t, dev.do("GET", "/projects/"+slug, nil, nil)); strings.Contains(page, `name="rate"`) {
 		t.Error("member sees the rate form on the project page")
 	}
 
 	// The owner is above the admins.
 	var ownerID string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = 'own@roles.test'`).Scan(&ownerID)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = 'own@roles.test'`).Scan(&ownerID)
 	resp = adm.do("POST", "/api/member/pay", url.Values{"user_id": {ownerID}, "hourly_pay": {"1"}}, nil)
 	resp.Body.Close()
 	if !strings.Contains(resp.Header.Get("Location"), "forbidden") {
@@ -129,7 +129,7 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 	resp = adm.do("POST", "/api/team/members/"+ownerID+"/remove", nil, nil)
 	resp.Body.Close()
 	var n int
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = ? AND t.name = 'Студия'`, ownerID).Scan(&n)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT count(*) FROM memberships m JOIN teams t ON t.id = m.team_id WHERE m.user_id = ? AND t.name = 'Студия'`, ownerID).Scan(&n)
 	if n != 1 {
 		t.Fatal("admin removed the owner")
 	}
@@ -146,7 +146,7 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 		t.Fatalf("transfer: %q", resp.Header.Get("Location"))
 	}
 	roles := map[string]string{}
-	rows, _ := owner.srv.db.SQL().QueryContext(t.Context(), `SELECT m.user_id, m.role FROM memberships m JOIN teams t ON t.id = m.team_id WHERE t.name = 'Студия'`)
+	rows, _ := owner.db.TestSQL().QueryContext(t.Context(), `SELECT m.user_id, m.role FROM memberships m JOIN teams t ON t.id = m.team_id WHERE t.name = 'Студия'`)
 	for rows.Next() {
 		var id, role string
 		rows.Scan(&id, &role)
@@ -154,7 +154,7 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 	}
 	rows.Close()
 	var teamOwner string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT owner_id FROM teams WHERE name = 'Студия'`).Scan(&teamOwner)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT owner_id FROM teams WHERE name = 'Студия'`).Scan(&teamOwner)
 	if roles[devID] != "owner" || roles[ownerID] != "admin" || teamOwner != devID {
 		t.Errorf("after transfer: roles %v, team owner %s", roles, teamOwner)
 	}

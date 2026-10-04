@@ -15,30 +15,36 @@ make e2e                         # runs the Playwright suite
 make test                        # runs Go unit tests
 ```
 
-`make` will print available targets via `make help` if you forget.
-
 ## Development loop
 
 1. Branch off `master`. Prefix with `feat/`, `fix/`, `test/`, `docs/`,
    or `build/` so the commit history stays scannable.
-3. Keep commits small and single-purpose. Squash noise before pushing.
-4. Run `make test` + `make e2e` locally before opening a PR. CI does
-   the same — PRs that fail the workflow don't get merged.
-5. Push your branch, open a PR against `master`. The CI badge will
+2. Keep commits small and single-purpose. Squash noise before pushing.
+3. Before the first local verification, install frontend tooling with
+   `cd web && npm ci`. Then run `make verify`, `make test` and `make e2e` before
+   opening a PR. `make verify` runs static, security, architecture and
+   frontend checks without executing tests. CI installs these dependencies
+   itself and runs the same static gates plus race-enabled Go tests and the
+   browser suite.
+4. Push your branch, open a PR against `master`. The CI badge will
    appear in the PR timeline.
 
 ## Code style
 
 - **Go**: `gofmt` + `go vet ./...` should be clean. Imports are
   grouped stdlib / third-party / internal. Tabs for indent.
-- **Templates**: one page = one file under `internal/web/templates/`,
-  composed into `base.html` via `{{define "name"}}…{{end}}`.
-  Keep logic in the handlers, not the templates.
-- **CSS**: single file at `internal/web/static/css/app.css`. No
-  preprocessor. Use CSS variables from `:root` so light/dark mode
-  stay in sync.
-- **JS**: `internal/web/static/js/app.js`. Prefer declarative
-  (Alpine.data + HTMX) over hand-written DOM mutation.
+- **Templates**: pages live under `internal/web/templates/` and are composed
+  through the shared layout. Keep data preparation in handlers/view models and
+  presentation in templates.
+- **CSS**: edit Tailwind/DaisyUI sources in `web/` and rebuild the embedded
+  bundle with `npm run build` from that directory. Use shared design tokens
+  for light and dark themes.
+- **JS**: `internal/web/static/js/app.js` is the entrypoint; feature behavior
+  lives in focused `app-*.js` ES modules. Use the shared request/offline APIs
+  and imports/exports instead of mutable globals. Keep event handlers in the
+  modules and use data attributes in templates; inline event expressions are
+  rejected by the architecture check. Run `npm run check:js` in `web/` after
+  JavaScript changes.
 
 ## Testing new features
 
@@ -46,7 +52,7 @@ The project ships two suites. Pick whichever fits:
 
 * **Go unit test** — for a pure function or DB method. The
   `internal/db` package has `openTestDB(t) *DB` that returns an
-  isolated Postgres schema (other packages: `db.OpenTest(t)`), use it
+  isolated Postgres schema (other packages: `testutil.OpenTest(t)`), use it
   for any new DB CRUD. Run everything with `scripts/test.sh`.
 * **Playwright E2E** — for anything that touches the web layer.
   `e2e/test_dashboard.py` is a single file with `check(name, ok,
@@ -57,10 +63,11 @@ Anything that wires both layers (handler + DB) needs both tests.
 
 ## Adding CLI commands
 
-CLI dispatch lives in `cmd/paratrack/main.go:main()`. Match the
-existing pattern: `runFoo(args []string)` with `flag.NewFlagSet`,
-document the new command in `printUsage()`, and add a row to the
-CLI reference table in `README.md`.
+CLI process setup lives in `cmd/paratrack/main.go`; command dispatch and
+command implementations live in `internal/cli`. Add a `runFoo(rt *Runtime,
+args []string)` command, wire it into `RunWithRuntime`, document it in
+`printUsage`, and add a row to the CLI reference table in `README.md`. Keep
+process configuration and concrete service construction in the command root.
 
 ## Releasing
 

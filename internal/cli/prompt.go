@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -89,9 +88,3 @@ func Choose(r io.Reader, w io.Writer, label string, options []string, def int) (
 	}
 	return n - 1, nil
 }
-
-// Stdin is the default reader; overridden in tests.
-var Stdin io.Reader = os.Stdin
-
-// Stderr is the default writer for prompts (so stdout stays clean).
-var Stderr io.Writer = os.Stderr

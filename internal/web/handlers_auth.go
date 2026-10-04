@@ -1,12 +1,13 @@
 package web
 
 import (
-	"net/url"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
-	"github.com/aa-blinov/paratrack/internal/auth"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
@@ -25,21 +26,26 @@ type authPage struct {
 	SSO       bool
 }
 
+func (authPage) isTemplateData() {}
+
 func (p authPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
+
+func (p *authPage) setCSRF(token string) { p.CSRFToken = token }
+func (p *authPage) setLang(lang string)  { p.Lang = lang }
 
 // handleLogin renders the login form.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	data := authPage{
 		Title: "Log in",
 		Next:  r.URL.Query().Get("next"),
-		SSO:   ssoConfigured(),
+		SSO:   s.config.OIDCEnabled,
 	}
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
-	s.renderPage(w, r, "Log in", "", "login", data)
+	s.renderPage(w, r, "Log in", "", "login", &data)
 }
 
 // handleRegister renders the registration form.
@@ -53,7 +59,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
-	s.renderPage(w, r, "Sign up", "", "register", data)
+	s.renderPage(w, r, "Sign up", "", "register", &data)
 }
 
 // handleAPILogin accepts the login form submission, verifies the
@@ -71,25 +77,18 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := s.auth.FindByEmail(r.Context(), email)
-	if err != nil {
+	_, sess, err := s.services.Auth.SignIn.AuthenticatePassword(operationContext(r), appmodel.PasswordLoginRequest{Email: email, Password: password})
+	if errors.Is(err, appmodel.ErrAuthCredentialsInvalid) {
 		// Same message for "no such user" and "wrong password" — don't
 		// leak which one it was.
 		http.Redirect(w, r, "/login?error=bad_credentials", http.StatusSeeOther)
 		return
 	}
-	if err := s.auth.VerifyPassword(user, password); err != nil {
-		http.Redirect(w, r, "/login?error=bad_credentials", http.StatusSeeOther)
-		return
-	}
-
-	sess, err := s.auth.NewSession(r.Context(), user.ID)
 	if err != nil {
 		http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
-	s.audit(r, "auth.login", user.Email, "")
 
 	redirect := "/"
 	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
@@ -119,28 +118,21 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, teamID, err := s.auth.CreateUser(r.Context(), email, password, name)
+	teamName := localizedPersonalTeamName(resolveLang(r), name)
+	sess, _, err := s.services.Auth.SignIn.RegisterAndStartSession(operationContext(r), appmodel.RegistrationRequest{
+		Email: email, Password: password, Name: name, TeamName: teamName,
+	})
 	if err != nil {
 		code := "validation_failed"
 		switch {
-		case errors.Is(err, auth.ErrInvalidEmail):
+		case errors.Is(err, appmodel.ErrAuthInvalidEmail):
 			code = "bad_email"
-		case errors.Is(err, auth.ErrValidation):
+		case errors.Is(err, appmodel.ErrAuthValidation):
 			code = "validation_failed"
 		default:
 			code = "could_not_register"
 		}
 		http.Redirect(w, r, "/register?error="+code+keep, http.StatusSeeOther)
-		return
-	}
-
-	// The personal team is created as "<Name>'s workspace"; name it in
-	// the visitor's language ("Пространство: Аня"). Best effort.
-	_ = s.teams.Rename(r.Context(), teamID, strings.ReplaceAll(i18n.T(resolveLang(r), "team.personalName"), "{name}", name))
-
-	sess, err := s.auth.NewSession(r.Context(), userID)
-	if err != nil {
-		http.Redirect(w, r, "/register?error=internal"+keep, http.StatusSeeOther)
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
@@ -152,13 +144,20 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
+func localizedPersonalTeamName(lang i18n.Lang, name string) string {
+	return strings.ReplaceAll(i18n.T(lang, "team.personalName"), "{name}", strings.TrimSpace(name))
+}
+
 // handleAPILogout kills the current session and bounces to /login.
 func (s *Server) handleAPILogout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(auth.CookieName); err == nil {
-		_ = s.auth.DeleteByToken(r.Context(), cookie.Value)
+	token := ""
+	if cookie, err := r.Cookie(sessionCookieName); err == nil {
+		token = cookie.Value
+	}
+	if err := s.services.Auth.Identity.Logout(operationContext(r), appmodel.LogoutRequest{TeamID: teamID(r), UserID: authenticatedUserID(r), Token: token}); err != nil {
+		s.logInternalError(fmt.Errorf("delete logout session: %w", err))
 	}
 	clearSessionCookie(w)
-	s.audit(r, "auth.logout", "", "")
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

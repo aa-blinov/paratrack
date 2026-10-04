@@ -2,323 +2,207 @@ package db
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
-	"time"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
-
-// ---------------------------------------------------------------------------
-// API tokens — long-lived bearer credentials for the browser extension
-// and CLI. The raw token is shown once; only its SHA-256 is stored.
-// ---------------------------------------------------------------------------
-
-// APIToken is a named credential owned by a user.
-type APIToken struct {
-	ID         int64      `json:"id"`
-	UserID     int64      `json:"user_id"`
-	Name       string     `json:"name"`
-	Prefix     string     `json:"prefix"` // first 8 chars, for the tokens list
-	CreatedAt  time.Time  `json:"created_at"`
-	LastUsedAt *time.Time `json:"last_used_at,omitempty"`
-	TeamID     int64      `json:"team_id,omitempty"`    // 0: the owner's current/personal team
-	ExpiresAt  *time.Time `json:"expires_at,omitempty"` // nil: never
-	ReadOnly   bool       `json:"read_only"`
-}
-
-// TokenOptions narrows a new token.
-type TokenOptions struct {
-	TeamID    int64
-	ExpiresAt *time.Time
-	ReadOnly  bool
-}
-
-// ErrTokenInvalid is returned by APITokenByRaw when the bearer is unknown.
-var ErrTokenInvalid = errors.New("api token invalid")
-
-// HashAPIToken returns the hex SHA-256 of the raw token. Tokens are
-// high-entropy so a fast hash is fine (unlike passwords).
-func HashAPIToken(raw string) string {
-	sum := sha256.Sum256([]byte(raw))
-	return hex.EncodeToString(sum[:])
-}
-
-// CreateAPIToken mints a token and returns the raw secret (shown once)
-// plus the stored row.
-func (d *DB) CreateAPIToken(ctx context.Context, userID int64, name string, opts ...TokenOptions) (string, APIToken, error) {
-	var o TokenOptions
-	if len(opts) > 0 {
-		o = opts[0]
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		name = "api token"
-	}
-	var b [32]byte
-	if _, err := rand.Read(b[:]); err != nil {
-		return "", APIToken{}, err
-	}
-	raw := "pt_" + hex.EncodeToString(b[:])
-	hash := HashAPIToken(raw)
-	now := time.Now().UTC()
-	var id int64
-	var exp any
-	if o.ExpiresAt != nil {
-		exp = FormatTime(o.ExpiresAt.UTC())
-	}
-	ro := 0
-	if o.ReadOnly {
-		ro = 1
-	}
-	err := d.sql.QueryRowContext(ctx,
-		`INSERT INTO api_tokens (user_id, name, token_hash, prefix, created_at, team_id, expires_at, read_only)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		userID, name, hash, raw[:11], FormatTime(now), nullableInt64(o.TeamID), exp, ro).Scan(&id)
-	if err != nil {
-		return "", APIToken{}, err
-	}
-	return raw, APIToken{ID: id, UserID: userID, Name: name, Prefix: raw[:11], CreatedAt: now,
-		TeamID: o.TeamID, ExpiresAt: o.ExpiresAt, ReadOnly: o.ReadOnly}, nil
-}
-
-// ListAPITokens returns the user's tokens (never the raw secrets).
-func (d *DB) ListAPITokens(ctx context.Context, userID int64) ([]APIToken, error) {
-	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, user_id, name, prefix, created_at, last_used_at, COALESCE(team_id, 0), expires_at, read_only
-		 FROM api_tokens WHERE user_id = ? ORDER BY created_at DESC`, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []APIToken
-	for rows.Next() {
-		var (
-			t                 APIToken
-			created, lastUsed sql.NullString
-			expires           sql.NullString
-			ro                int
-		)
-		if err := rows.Scan(&t.ID, &t.UserID, &t.Name, &t.Prefix, &created, &lastUsed, &t.TeamID, &expires, &ro); err != nil {
-			return nil, err
-		}
-		t.ReadOnly = ro == 1
-		if expires.Valid {
-			if ts, err := ScanTime(expires.String); err == nil {
-				t.ExpiresAt = &ts
-			}
-		}
-		t.CreatedAt, _ = ScanTime(created.String)
-		if lastUsed.Valid {
-			if ts, err := ScanTime(lastUsed.String); err == nil {
-				t.LastUsedAt = &ts
-			}
-		}
-		out = append(out, t)
-	}
-	return out, rows.Err()
-}
-
-// DeleteAPIToken removes one token.
-func (d *DB) DeleteAPIToken(ctx context.Context, userID, id int64) error {
-	res, err := d.sql.ExecContext(ctx,
-		`DELETE FROM api_tokens WHERE id = ? AND user_id = ?`, id, userID)
-	if err != nil {
-		return err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-// APITokenByRaw looks up a bearer token and touches last_used_at.
-func (d *DB) APITokenByRaw(ctx context.Context, raw string) (APIToken, error) {
-	if raw == "" {
-		return APIToken{}, ErrTokenInvalid
-	}
-	hash := HashAPIToken(raw)
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, user_id, name, prefix, created_at, COALESCE(team_id, 0), expires_at, read_only
-		 FROM api_tokens WHERE token_hash = ?`, hash)
-	var (
-		t       APIToken
-		created string
-		expires sql.NullString
-		ro      int
-	)
-	if err := row.Scan(&t.ID, &t.UserID, &t.Name, &t.Prefix, &created, &t.TeamID, &expires, &ro); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return APIToken{}, ErrTokenInvalid
-		}
-		return APIToken{}, err
-	}
-	t.CreatedAt, _ = ScanTime(created)
-	t.ReadOnly = ro == 1
-	if expires.Valid {
-		if ts, err := ScanTime(expires.String); err == nil {
-			if !ts.After(time.Now()) {
-				return APIToken{}, ErrTokenInvalid // expired
-			}
-			t.ExpiresAt = &ts
-		}
-	}
-	_, _ = d.sql.ExecContext(ctx, `UPDATE api_tokens SET last_used_at = ? WHERE id = ?`,
-		FormatTime(time.Now().UTC()), t.ID)
-	return t, nil
-}
 
 // ---------------------------------------------------------------------------
 // Integrations (github / trello)
 // ---------------------------------------------------------------------------
 
-// Integration is one connected third-party account.
-type Integration struct {
-	ID        int64     `json:"id"`
-	TeamID    int64     `json:"team_id"`
-	Provider  string    `json:"provider"` // github | trello
-	Name      string    `json:"name"`
-	Secret    string    `json:"-"` // API token / key — never serialise
-	Config    string    `json:"config"`
-	CreatedAt time.Time `json:"created_at"`
-}
+// Integration records are returned as credential-free summaries.
+type ExternalTask = model.ExternalTask
+type ExternalTaskWithProvider = model.ExternalTaskWithProvider
 
-// ExternalTask is a GitHub issue / Trello card imported into paratrack.
-type ExternalTask struct {
-	ID            int64  `json:"id"`
-	IntegrationID int64  `json:"integration_id"`
-	ExternalID    string `json:"external_id"`
-	Title         string `json:"title"`
-	URL           string `json:"url"`
-	Status        string `json:"status"`
-	ActivityID    int64  `json:"activity_id"`
+type integrationConfigRecord struct {
+	Target string `json:"target,omitempty"`
 }
 
 // CreateIntegration stores a connection. name is the display label
 // (e.g. "acme/api-server" or "Product board").
-func (d *DB) CreateIntegration(ctx context.Context, teamID int64, provider, name, secret, config string) (Integration, error) {
+func (d *DB) CreateIntegration(ctx context.Context, request appmodel.IntegrationCreateRequest) (model.IntegrationSummary, error) {
+	teamID, callerID := request.TeamID, request.CallerID
+	provider, name, secret := request.Provider, request.Name, request.Secret
+	if teamID <= 0 || callerID <= 0 {
+		return model.IntegrationSummary{}, ErrNotFound
+	}
 	name = strings.TrimSpace(name)
 	if name == "" {
-		return Integration{}, fmt.Errorf("name is required")
+		return model.IntegrationSummary{}, fmt.Errorf("name is required")
 	}
-	now := FormatTime(time.Now().UTC())
+	sealedSecret, err := d.sealSecret(secret)
+	if err != nil {
+		return model.IntegrationSummary{}, fmt.Errorf("seal integration secret: %w", err)
+	}
+	configJSON, err := json.Marshal(integrationConfigRecord{Target: request.Config.Target})
+	if err != nil {
+		return model.IntegrationSummary{}, fmt.Errorf("encode integration configuration: %w", err)
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.IntegrationSummary{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+		return model.IntegrationSummary{}, err
+	}
+	createdAt := d.currentTime().UTC()
 	var id int64
-	err := d.sql.QueryRowContext(ctx,
+	err = tx.QueryRowContext(ctx,
 		`INSERT INTO integrations (team_id, provider, name, secret, config, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
-		teamID, provider, name, sealSecret(secret), config, now).Scan(&id)
+		teamID, provider, name, sealedSecret, string(configJSON), FormatTime(createdAt)).Scan(&id)
 	if err != nil {
 		if isUniqueViolation(err) {
-			return Integration{}, ErrDuplicate
+			return model.IntegrationSummary{}, ErrDuplicate
 		}
-		return Integration{}, err
+		return model.IntegrationSummary{}, err
 	}
-	return d.GetIntegration(ctx, teamID, id)
+	if err := tx.Commit(); err != nil {
+		return model.IntegrationSummary{}, err
+	}
+	return model.IntegrationSummary{ID: id, TeamID: teamID, Provider: provider, Name: name, CreatedAt: createdAt}, nil
 }
 
-// ListIntegrations returns the team's connections (secret included for
-// server-side API calls only — templates must not print it).
-func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]Integration, error) {
+// ListIntegrations returns safe summaries; credentials are only read by the
+// team-scoped sync starter used when a provider fetch begins.
+func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]model.IntegrationSummary, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, provider, name, secret, config, created_at
+		`SELECT id, team_id, provider, name, created_at
 		 FROM integrations WHERE team_id = ? ORDER BY provider, name`, teamID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []Integration
+	var out []model.IntegrationSummary
 	for rows.Next() {
 		var (
-			it      Integration
+			it      model.IntegrationSummary
 			created string
 		)
-		if err := rows.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &it.Secret, &it.Config, &created); err != nil {
+		if err := rows.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &created); err != nil {
 			return nil, err
 		}
-		it.Secret = mustOpen(it.Secret)
-		it.CreatedAt, _ = ScanTime(created)
+		it.CreatedAt, err = ScanTime(created)
+		if err != nil {
+			return nil, fmt.Errorf("parse integration creation time: %w", err)
+		}
 		out = append(out, it)
 	}
 	return out, rows.Err()
 }
 
-// GetIntegration fetches one connection inside a team.
-func (d *DB) GetIntegration(ctx context.Context, teamID, id int64) (Integration, error) {
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, provider, name, secret, config, created_at
-		 FROM integrations WHERE id = ? AND team_id = ?`, id, teamID)
-	var (
-		it      Integration
-		created string
-	)
-	if err := row.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &it.Secret, &it.Config, &created); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Integration{}, ErrNotFound
-		}
-		return Integration{}, err
+// BeginIntegrationSync reserves the newest snapshot generation and returns
+// its credentials atomically. A later call invalidates every earlier fetch.
+func (d *DB) BeginIntegrationSync(ctx context.Context, request appmodel.IntegrationSyncStartRequest) (appmodel.IntegrationSyncCredentials, error) {
+	if request.TeamID <= 0 || request.IntegrationID <= 0 || request.CallerID <= 0 {
+		return appmodel.IntegrationSyncCredentials{}, ErrNotFound
 	}
-	it.Secret = mustOpen(it.Secret)
-	it.CreatedAt, _ = ScanTime(created)
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return appmodel.IntegrationSyncCredentials{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return appmodel.IntegrationSyncCredentials{}, err
+	}
+	var it appmodel.IntegrationSyncCredentials
+	var configJSON string
+	err = tx.QueryRowContext(ctx, `UPDATE integrations
+		SET sync_generation = sync_generation + 1
+		WHERE id = ? AND team_id = ?
+		RETURNING id, team_id, provider, secret, config, sync_generation`,
+		request.IntegrationID, request.TeamID).Scan(&it.ID, &it.TeamID, &it.Provider, &it.Secret, &configJSON, &it.Generation)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return appmodel.IntegrationSyncCredentials{}, ErrNotFound
+		}
+		return appmodel.IntegrationSyncCredentials{}, fmt.Errorf("reserve integration sync: %w", err)
+	}
+	if strings.TrimSpace(configJSON) == "" {
+		configJSON = "{}"
+	}
+	var config integrationConfigRecord
+	if err := json.Unmarshal([]byte(configJSON), &config); err != nil {
+		return appmodel.IntegrationSyncCredentials{}, fmt.Errorf("decode integration configuration: %w", err)
+	}
+	it.Config = appmodel.IntegrationConfig{Target: config.Target}
+	it.Secret, err = d.openSecret(it.Secret)
+	if err != nil {
+		return appmodel.IntegrationSyncCredentials{}, fmt.Errorf("open integration credential: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return appmodel.IntegrationSyncCredentials{}, err
+	}
 	return it, nil
 }
 
+// GetIntegrationSummary reads one connection without decrypting its secret.
+func (d *DB) GetIntegrationSummary(ctx context.Context, teamID, id int64) (model.IntegrationSummary, error) {
+	var (
+		item    model.IntegrationSummary
+		created string
+	)
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT id, team_id, provider, name, created_at
+		 FROM integrations WHERE id = ? AND team_id = ?`, id, teamID,
+	).Scan(&item.ID, &item.TeamID, &item.Provider, &item.Name, &created)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.IntegrationSummary{}, ErrNotFound
+		}
+		return model.IntegrationSummary{}, err
+	}
+	item.CreatedAt, err = ScanTime(created)
+	if err != nil {
+		return model.IntegrationSummary{}, fmt.Errorf("parse integration creation time: %w", err)
+	}
+	return item, nil
+}
+
 // DeleteIntegration removes the connection and its imported tasks.
-func (d *DB) DeleteIntegration(ctx context.Context, teamID, id int64) error {
-	res, err := d.sql.ExecContext(ctx,
-		`DELETE FROM integrations WHERE id = ? AND team_id = ?`, id, teamID)
+func (d *DB) DeleteIntegration(ctx context.Context, request appmodel.IntegrationMutationRequest) error {
+	if request.TeamID <= 0 {
+		return ErrNotFound
+	}
+	teamID, id, callerID := request.TeamID, request.IntegrationID, request.CallerID
+	if id <= 0 || callerID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+		return err
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM integrations WHERE id = ? AND team_id = ?`, id, teamID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
 		return ErrNotFound
 	}
-	return nil
+	return tx.Commit()
 }
 
-// UpsertExternalTask imports or refreshes one issue / card.
-// CloseMissingExternalTasks marks every open task the provider no longer
-// returned as closed. keep is the ids of this fetch.
-func (d *DB) CloseMissingExternalTasks(ctx context.Context, integrationID int64, keep []string) error {
-	q := `UPDATE external_tasks SET status = 'closed' WHERE integration_id = ? AND status <> 'closed'`
-	args := []any{integrationID}
-	if len(keep) > 0 {
-		q += ` AND external_id NOT IN (?` + strings.Repeat(`, ?`, len(keep)-1) + `)`
-		for _, k := range keep {
-			args = append(args, k)
-		}
-	}
-	_, err := d.sql.ExecContext(ctx, q, args...)
-	return err
-}
-
-func (d *DB) UpsertExternalTask(ctx context.Context, integrationID int64, externalID, title, url, status string) (ExternalTask, error) {
-	now := FormatTime(time.Now().UTC())
-	_, err := d.sql.ExecContext(ctx, `
-		INSERT INTO external_tasks (integration_id, external_id, title, url, status, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT (integration_id, external_id) DO UPDATE SET
-		  title = excluded.title,
-		  url = excluded.url,
-		  status = excluded.status`,
-		integrationID, externalID, title, url, status, now)
-	if err != nil {
-		return ExternalTask{}, err
-	}
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, integration_id, external_id, title, url, status, COALESCE(activity_id, 0)
-		 FROM external_tasks WHERE integration_id = ? AND external_id = ?`,
-		integrationID, externalID)
-	return scanExternalTask(row)
-}
-
-// ListExternalTasks returns imported items for an integration.
-func (d *DB) ListExternalTasks(ctx context.Context, integrationID int64) ([]ExternalTask, error) {
+// ListExternalTasks returns imported items for a workspace integration.
+func (d *DB) ListExternalTasks(ctx context.Context, teamID, integrationID int64) ([]ExternalTask, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, integration_id, external_id, title, url, status, COALESCE(activity_id, 0)
-		 FROM external_tasks WHERE integration_id = ? ORDER BY status, title`, integrationID)
+		`SELECT t.id, t.integration_id, t.external_id, t.title, t.url, t.status, COALESCE(t.activity_id, 0)
+		 FROM external_tasks t JOIN integrations i ON i.id = t.integration_id
+		 WHERE i.team_id = ? AND t.integration_id = ? ORDER BY t.status, t.title`, teamID, integrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -330,6 +214,41 @@ func (d *DB) ListExternalTasks(ctx context.Context, integrationID int64) ([]Exte
 			return nil, err
 		}
 		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// GetExternalTask fetches one imported task only when its integration belongs
+// to the requested workspace.
+func (d *DB) GetExternalTask(ctx context.Context, teamID, id int64) (ExternalTask, error) {
+	task, err := scanExternalTask(d.sql.QueryRowContext(ctx,
+		`SELECT t.id, t.integration_id, t.external_id, t.title, t.url, t.status, COALESCE(t.activity_id, 0)
+		 FROM external_tasks t JOIN integrations i ON i.id = t.integration_id
+		 WHERE t.id = ? AND i.team_id = ?`, id, teamID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return ExternalTask{}, ErrNotFound
+	}
+	return task, err
+}
+
+// ListExternalTasksForTeam loads every imported task and provider for a team
+// in one query, avoiding per-integration lookup loops in HTTP adapters.
+func (d *DB) ListExternalTasksForTeam(ctx context.Context, teamID int64) ([]ExternalTaskWithProvider, error) {
+	rows, err := d.sql.QueryContext(ctx, `
+		SELECT t.id, t.integration_id, t.title, t.url, t.status, i.provider
+		FROM external_tasks t JOIN integrations i ON i.id = t.integration_id
+		WHERE i.team_id = ? ORDER BY t.status, t.title`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ExternalTaskWithProvider
+	for rows.Next() {
+		var task ExternalTaskWithProvider
+		if err := rows.Scan(&task.ID, &task.IntegrationID, &task.Title, &task.URL, &task.Status, &task.Provider); err != nil {
+			return nil, err
+		}
+		out = append(out, task)
 	}
 	return out, rows.Err()
 }

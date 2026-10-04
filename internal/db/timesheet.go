@@ -3,13 +3,14 @@ package db
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // ---------------------------------------------------------------------------
@@ -21,205 +22,260 @@ import (
 // (activity, day) so the cell value is the source of truth.
 // ---------------------------------------------------------------------------
 
-// DayCell is one grid cell: tracked seconds for an activity on a date.
-type DayCell struct {
-	ActivityID   int64
-	ActivityName string
-	Color        string // filled by the web layer
-	ProjectID    int64
-	// Secs is indexed Mon..Sun (0..6).
-	Secs     [7]int
-	RowTotal int
-}
-
-// TimesheetWeek is the full grid for one week.
-type TimesheetWeek struct {
-	Rows       []DayCell
-	DayTotals  [7]int
-	GrandTotal int
-	Others     []model.Activity // not on the sheet; offered as "add a row"
-}
+type DayCell = model.TimesheetCell
+type TimesheetWeek = model.TimesheetWeek
 
 // sheetAllRows: up to this many activities, every one gets a row.
 const sheetAllRows = 30
+
+type timesheetAccumulator struct {
+	name   string
+	projID int64
+	secs   [7]int
+	total  int
+}
 
 // ListTimesheet aggregates tracked time per (activity, day) inside
 // [weekStart, weekStart+7d). Sessions are clipped to the week window
 // and scaled like TrackedSecondsInWindow so pause gaps don't inflate
 // the cell.
 func (d *DB) ListTimesheet(ctx context.Context, teamID int64, weekStart time.Time, now time.Time, extra ...int64) (TimesheetWeek, error) {
+	if teamID <= 0 || weekStart.IsZero() || now.IsZero() {
+		return TimesheetWeek{}, ErrNotFound
+	}
 	weekEnd := weekStart.AddDate(0, 0, 7)
-	q := `
+	query := `
 		SELECT s.activity_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at,
 		       a.name, a.project_id
 		FROM sessions s
-		JOIN activities a ON a.id = s.activity_id
+		JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
 		WHERE s.start_at < ?
 		  AND (s.end_at IS NULL OR s.end_at >= ?)`
 	args := []any{FormatTime(weekEnd), FormatTime(weekStart)}
-	if teamID > 0 {
-		q += ` AND s.team_id = ?`
-		args = append(args, teamID)
-	}
-	var sc string
-	sc, args = scopeSQL(ctx, "s.user_id", args)
-	q += sc + ` ORDER BY a.name, s.start_at`
-
-	rows, err := d.sql.QueryContext(ctx, q, args...)
+	query += ` AND s.team_id = ?`
+	args = append(args, teamID)
+	scope, args := scopeSQL(ctx, "s.user_id", args)
+	buckets, err := d.aggregateTimesheetSessions(ctx, query+scope, args, weekStart, now)
 	if err != nil {
 		return TimesheetWeek{}, err
 	}
-	defer rows.Close()
 
-	type acc struct {
-		name   string
-		projID int64
-		secs   [7]int
-		total  int
+	week, err := summarizeTimesheetBuckets(buckets)
+	if err != nil {
+		return TimesheetWeek{}, err
 	}
-	buckets := map[int64]*acc{}
+	if err := d.appendTimesheetActivities(ctx, &week, teamID, weekStart, extra); err != nil {
+		return TimesheetWeek{}, err
+	}
+	return week, nil
+}
 
+func (d *DB) aggregateTimesheetSessions(ctx context.Context, query string, args []any, weekStart, now time.Time) (map[int64]*timesheetAccumulator, error) {
+	rows, err := d.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	buckets := make(map[int64]*timesheetAccumulator)
 	for rows.Next() {
 		var (
-			actID                      int64
+			activityID                 int64
 			startAt, endAt, lastResume sql.NullString
-			accum                      int
+			accumulated                int
 			paused                     int
 			name                       string
-			projID                     sql.NullInt64
+			projectID                  sql.NullInt64
 		)
-		if err := rows.Scan(&actID, &startAt, &endAt, &accum, &paused, &lastResume, &name, &projID); err != nil {
-			return TimesheetWeek{}, err
+		if err := rows.Scan(&activityID, &startAt, &endAt, &accumulated, &paused, &lastResume, &name, &projectID); err != nil {
+			return nil, err
 		}
-		st, err := ScanTime(startAt.String)
+		started, err := ScanTime(startAt.String)
 		if err != nil {
-			continue
+			return nil, fmt.Errorf("parse timesheet session start: %w", err)
 		}
-		sess := model.Session{
-			StartAt:            st,
-			AccumulatedSeconds: accum,
-			Paused:             paused == 1,
-			ActivityID:         actID,
+		session := model.Session{
+			StartAt: started, AccumulatedSeconds: accumulated,
+			Paused: paused == 1, ActivityID: activityID,
 		}
 		if endAt.Valid {
-			if t, err := ScanTime(endAt.String); err == nil {
-				sess.EndAt = &t
+			ended, err := ScanTime(endAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("parse timesheet session end: %w", err)
 			}
+			session.EndAt = &ended
 		}
 		if lastResume.Valid {
-			if t, err := ScanTime(lastResume.String); err == nil {
-				sess.LastResumeAt = &t
+			resumed, err := ScanTime(lastResume.String)
+			if err != nil {
+				return nil, fmt.Errorf("parse timesheet session resume time: %w", err)
 			}
+			session.LastResumeAt = &resumed
 		}
-		b := buckets[actID]
-		if b == nil {
-			pid := int64(0)
-			if projID.Valid {
-				pid = projID.Int64
+		bucket := buckets[activityID]
+		if bucket == nil {
+			project := int64(0)
+			if projectID.Valid {
+				project = projectID.Int64
 			}
-			b = &acc{name: name, projID: pid}
-			buckets[actID] = b
+			bucket = &timesheetAccumulator{name: name, projID: project}
+			buckets[activityID] = bucket
 		}
-		// Attribute to each weekday the session overlaps.
-		for i := 0; i < 7; i++ {
-			dayStart := weekStart.AddDate(0, 0, i)
+		for day := 0; day < 7; day++ {
+			dayStart := weekStart.AddDate(0, 0, day)
 			dayEnd := dayStart.AddDate(0, 0, 1)
-			sec := sess.TrackedSecondsInWindow(dayStart, dayEnd, now)
-			if sec > 0 {
-				b.secs[i] += sec
-				b.total += sec
+			seconds := session.TrackedSecondsInWindow(dayStart, dayEnd, now)
+			if seconds > 0 {
+				bucket.secs[day], err = money.AddInt(bucket.secs[day], seconds)
+				if err != nil {
+					return nil, fmt.Errorf("sum timesheet activity %d day %d: %w", activityID, day, err)
+				}
+				bucket.total, err = money.AddInt(bucket.total, seconds)
+				if err != nil {
+					return nil, fmt.Errorf("sum timesheet activity %d: %w", activityID, err)
+				}
 			}
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return TimesheetWeek{}, err
+		return nil, err
 	}
-
-	var out TimesheetWeek
-	for id, b := range buckets {
-		if b.total <= 0 {
-			continue
-		}
-		row := DayCell{
-			ActivityID:   id,
-			ActivityName: b.name,
-			ProjectID:    b.projID,
-			Secs:         b.secs,
-			RowTotal:     b.total,
-		}
-		for i := 0; i < 7; i++ {
-			out.DayTotals[i] += b.secs[i]
-		}
-		out.GrandTotal += b.total
-		out.Rows = append(out.Rows, row)
-	}
-	// buckets is a map: without this the rows came back in a new random
-	// order on every load.
-	sort.Slice(out.Rows, func(i, j int) bool {
-		a, b := strings.ToLower(out.Rows[i].ActivityName), strings.ToLower(out.Rows[j].ActivityName)
-		if a != b {
-			return a < b
-		}
-		return out.Rows[i].ActivityID < out.Rows[j].ActivityID
-	})
-	// Empty rows to fill: every activity in a small workspace; in a big
-	// one only what this person used in the last 8 weeks plus rows they
-	// added, the rest offered in a picker.
-	if teamID > 0 {
-		acts, err := d.ListActivities(ctx, teamID, false)
-		if err == nil {
-			seen := map[int64]bool{}
-			for _, r := range out.Rows {
-				seen[r.ActivityID] = true
-			}
-			want := func(int64) bool { return true }
-			if len(acts) > sheetAllRows {
-				keep := map[int64]bool{}
-				for _, id := range extra {
-					keep[id] = true
-				}
-				q := `SELECT DISTINCT activity_id FROM sessions WHERE team_id = ? AND start_at >= ? AND start_at < ?`
-				args := []any{teamID, FormatTime(weekStart.AddDate(0, 0, -56)), FormatTime(weekStart.AddDate(0, 0, 7))}
-				sc, args := scopeSQL(ctx, "user_id", args)
-				if rows, err := d.sql.QueryContext(ctx, q+sc, args...); err == nil {
-					for rows.Next() {
-						var id int64
-						if rows.Scan(&id) == nil {
-							keep[id] = true
-						}
-					}
-					rows.Close()
-				}
-				want = func(id int64) bool { return keep[id] }
-			}
-			for _, a := range acts {
-				switch {
-				case seen[a.ID]:
-				case want(a.ID):
-					out.Rows = append(out.Rows, DayCell{
-						ActivityID:   a.ID,
-						ActivityName: a.Name,
-						ProjectID:    a.ProjectID,
-					})
-				default:
-					out.Others = append(out.Others, a)
-				}
-			}
-		}
-	}
-	return out, nil
+	return buckets, nil
 }
 
-// UpsertDayTotal sets the tracked total for (activity, day) to the
-// given duration. It collapses existing closed sessions that day into
-// one synthetic "sheet" session anchored at 09:00, or deletes them all
-// when totalSecs is 0.
-func (d *DB) UpsertDayTotal(ctx context.Context, teamID, activityID int64, day time.Time, totalSecs int) error {
-	if totalSecs < 0 {
-		return fmt.Errorf("duration must be >= 0")
+func summarizeTimesheetBuckets(buckets map[int64]*timesheetAccumulator) (TimesheetWeek, error) {
+	var week TimesheetWeek
+	for id, bucket := range buckets {
+		if bucket.total <= 0 {
+			continue
+		}
+		week.Rows = append(week.Rows, DayCell{
+			ActivityID: id, ActivityName: bucket.name, ProjectID: bucket.projID,
+			Secs: bucket.secs, RowTotal: bucket.total,
+		})
+		for day, seconds := range bucket.secs {
+			var err error
+			week.DayTotals[day], err = money.AddInt(week.DayTotals[day], seconds)
+			if err != nil {
+				return TimesheetWeek{}, fmt.Errorf("sum timesheet day %d: %w", day, err)
+			}
+		}
+		var err error
+		week.GrandTotal, err = money.AddInt(week.GrandTotal, bucket.total)
+		if err != nil {
+			return TimesheetWeek{}, fmt.Errorf("sum timesheet week: %w", err)
+		}
+	}
+	sort.Slice(week.Rows, func(i, j int) bool {
+		left, right := strings.ToLower(week.Rows[i].ActivityName), strings.ToLower(week.Rows[j].ActivityName)
+		if left != right {
+			return left < right
+		}
+		return week.Rows[i].ActivityID < week.Rows[j].ActivityID
+	})
+	return week, nil
+}
+
+func (d *DB) appendTimesheetActivities(ctx context.Context, week *TimesheetWeek, teamID int64, weekStart time.Time, extra []int64) error {
+	if teamID <= 0 {
+		return nil
+	}
+	activities, err := d.ListActivities(ctx, teamID, false)
+	if err != nil {
+		return fmt.Errorf("list timesheet activities: %w", err)
+	}
+	seen := make(map[int64]bool, len(week.Rows))
+	for _, row := range week.Rows {
+		seen[row.ActivityID] = true
+	}
+	keep := make(map[int64]bool, len(extra))
+	for _, id := range extra {
+		keep[id] = true
+	}
+	if len(activities) > sheetAllRows {
+		recent, err := d.recentTimesheetActivityIDs(ctx, teamID, weekStart)
+		if err != nil {
+			return err
+		}
+		for id := range recent {
+			keep[id] = true
+		}
+	}
+	for _, activity := range activities {
+		if seen[activity.ID] {
+			continue
+		}
+		if len(activities) <= sheetAllRows || keep[activity.ID] {
+			week.Rows = append(week.Rows, DayCell{ActivityID: activity.ID, ActivityName: activity.Name, ProjectID: activity.ProjectID})
+		} else {
+			week.Others = append(week.Others, activity)
+		}
+	}
+	return nil
+}
+
+func (d *DB) recentTimesheetActivityIDs(ctx context.Context, teamID int64, weekStart time.Time) (map[int64]bool, error) {
+	query := `SELECT DISTINCT activity_id FROM sessions WHERE team_id = ? AND start_at >= ? AND start_at < ?`
+	args := []any{teamID, FormatTime(weekStart.AddDate(0, 0, -56)), FormatTime(weekStart.AddDate(0, 0, 7))}
+	scope, args := scopeSQL(ctx, "user_id", args)
+	rows, err := d.sql.QueryContext(ctx, query+scope, args...)
+	if err != nil {
+		return nil, fmt.Errorf("find recently used timesheet activities: %w", err)
+	}
+	defer rows.Close()
+	ids := make(map[int64]bool)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan recently used timesheet activity: %w", err)
+		}
+		ids[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate recently used timesheet activities: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close recently used timesheet activities: %w", err)
+	}
+	return ids, nil
+}
+
+// UpsertDayTotal atomically replaces the current actor's total for an
+// activity and day with one synthetic session (or clears the cell). It locks
+// the activity and affected sessions and refuses sent or paid invoice rows.
+
+func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellUpdateRequest) error {
+	teamID, activityID, day, totalSecs := request.TeamID, request.ActivityID, request.Day, request.TotalSeconds
+	if teamID <= 0 {
+		return model.ErrForbidden
+	}
+	if activityID <= 0 || totalSecs < 0 || totalSecs > 24*60*60 {
+		return fmt.Errorf("invalid timesheet cell update")
+	}
+	actor := actorID(ctx)
+	if actor <= 0 {
+		return model.ErrForbidden
 	}
 	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	dayEnd := dayStart.AddDate(0, 0, 1)
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockSessionOwner(ctx, tx, teamID); err != nil {
+		return err
+	}
+	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
+		return err
+	}
+	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
+		return err
+	}
+	if teamID > 0 {
+		if err := lockTimesheetCellInvoices(ctx, tx, teamID, activityID, dayStart, dayEnd); err != nil {
+			return err
+		}
+	}
 
 	// Drop existing closed sessions for this activity/day — the cell is
 	// the source of truth for the sheet.
@@ -235,139 +291,76 @@ func (d *DB) UpsertDayTotal(ctx context.Context, teamID, activityID int64, day t
 	}
 	// Only the actor's own day: a colleague's sessions on the same
 	// activity are theirs, not this cell's.
-	if uid, ok := actorOf(ctx).(int64); ok {
-		del += ` AND user_id = ?`
-		delArgs = append(delArgs, uid)
-	}
-	if _, err := d.sql.ExecContext(ctx, del, delArgs...); err != nil {
+	del += ` AND user_id = ?`
+	delArgs = append(delArgs, actor)
+	if _, err := tx.ExecContext(ctx, del, delArgs...); err != nil {
 		return err
 	}
 	if totalSecs == 0 {
-		return nil
+		return tx.Commit()
 	}
 	// One sheet session 09:00 → 09:00+total.
 	start := dayStart.Add(9 * time.Hour)
 	end := start.Add(time.Duration(totalSecs) * time.Second)
-	note := "timesheet"
-	_, err := d.CreateClosedSession(ctx, teamID, activityID, start, end, note)
-	return err
+	if _, err := insertClosedSessionTx(ctx, tx, teamID, activityID, start, end, "timesheet"); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
-// ---------------------------------------------------------------------------
-// Saved reports (Wave 1)
-// ---------------------------------------------------------------------------
-
-// SavedReport is a named /stats filter preset.
-type SavedReport struct {
-	ID          int64     `json:"id"`
-	TeamID      int64     `json:"team_id"`
-	Name        string    `json:"name"`
-	Period      string    `json:"period"`
-	ProjectSlug string    `json:"project_slug"`
-	Tag         string    `json:"tag"`
-	CreatedBy   int64     `json:"created_by"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
-// CreateSavedReport inserts a preset. Duplicate names in the team are
-// rejected with ErrDuplicate.
-func (d *DB) CreateSavedReport(ctx context.Context, teamID int64, name, period, projectSlug, tag string, createdBy int64) (SavedReport, error) {
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return SavedReport{}, fmt.Errorf("name is required")
-	}
-	if period == "" {
-		period = "today"
-	}
-	now := FormatTime(time.Now().UTC())
-	var id int64
-	err := d.sql.QueryRowContext(ctx,
-		`INSERT INTO saved_reports (team_id, name, period, project_slug, tag, created_by, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-		teamID, name, period, projectSlug, tag, nullableInt64(createdBy), now).Scan(&id)
-	if err != nil {
-		if isUniqueViolation(err) {
-			return SavedReport{}, ErrDuplicate
-		}
-		return SavedReport{}, err
-	}
-	return d.GetSavedReport(ctx, teamID, id)
-}
-
-// ListSavedReports returns the team's presets, newest first.
-func (d *DB) ListSavedReports(ctx context.Context, teamID int64) ([]SavedReport, error) {
-	q := `SELECT id, team_id, name, period, project_slug, tag, created_by, created_at
-	      FROM saved_reports`
-	args := []any{}
-	if teamID > 0 {
-		q += ` WHERE team_id = ?`
-		args = append(args, teamID)
-	}
-	q += ` ORDER BY name`
-	rows, err := d.sql.QueryContext(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var out []SavedReport
-	for rows.Next() {
-		r, err := scanSavedReport(rows)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
-}
-
-// GetSavedReport fetches one preset inside a team.
-func (d *DB) GetSavedReport(ctx context.Context, teamID, id int64) (SavedReport, error) {
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, name, period, project_slug, tag, created_by, created_at
-		 FROM saved_reports WHERE id = ? AND team_id = ?`, id, teamID)
-	r, err := scanSavedReport(row)
-	if errors.Is(err, sql.ErrNoRows) {
-		return SavedReport{}, ErrNotFound
-	}
-	return r, err
-}
-
-// DeleteSavedReport removes a preset.
-// DeleteSavedReport removes a preset; onlyBy > 0 limits it to the
-// person who saved it (a member can't remove the team's presets).
-func (d *DB) DeleteSavedReport(ctx context.Context, teamID, id int64, onlyBy ...int64) error {
-	q := `DELETE FROM saved_reports WHERE id = ? AND team_id = ?`
-	args := []any{id, teamID}
-	if len(onlyBy) > 0 && onlyBy[0] > 0 {
-		q += ` AND created_by = ?`
-		args = append(args, onlyBy[0])
-	}
-	res, err := d.sql.ExecContext(ctx, q, args...)
+func lockTimesheetCellInvoices(ctx context.Context, tx *Tx, teamID, activityID int64, dayStart, dayEnd time.Time) error {
+	query := `SELECT COALESCE(s.invoice_id, 0)
+		FROM sessions s
+		WHERE s.team_id = ? AND s.activity_id = ? AND s.end_at IS NOT NULL
+		  AND s.start_at >= ? AND s.start_at < ? AND (? = 0 OR s.user_id = ?)
+		ORDER BY s.id FOR UPDATE OF s`
+	actor := actorID(ctx)
+	rows, err := tx.QueryContext(ctx, query,
+		teamID, activityID, FormatTime(dayStart), FormatTime(dayEnd), actor, actor)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+	defer rows.Close()
+	invoiceIDs := make([]int64, 0)
+	seen := make(map[int64]struct{})
+	for rows.Next() {
+		var invoiceID int64
+		if err := rows.Scan(&invoiceID); err != nil {
+			rows.Close()
+			return err
+		}
+		if invoiceID > 0 {
+			if _, ok := seen[invoiceID]; !ok {
+				seen[invoiceID] = struct{}{}
+				invoiceIDs = append(invoiceIDs, invoiceID)
+			}
+		}
 	}
-	return nil
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	sort.Slice(invoiceIDs, func(i, j int) bool { return invoiceIDs[i] < invoiceIDs[j] })
+	if len(invoiceIDs) == 0 {
+		return nil
+	}
+	invoiceRows, err := tx.QueryContext(ctx,
+		`SELECT number, status FROM invoices WHERE id = ANY(?) ORDER BY id FOR UPDATE`, invoiceIDs)
+	if err != nil {
+		return err
+	}
+	defer invoiceRows.Close()
+	for invoiceRows.Next() {
+		var number, status string
+		if err := invoiceRows.Scan(&number, &status); err != nil {
+			return err
+		}
+		if status == "sent" || status == "paid" {
+			return &model.SessionInvoiceLockError{InvoiceNumber: number}
+		}
+	}
+	return invoiceRows.Err()
 }
-
-func scanSavedReport(r interface{ Scan(...any) error }) (SavedReport, error) {
-	var (
-		out       SavedReport
-		createdBy sql.NullInt64
-		created   string
-	)
-	if err := r.Scan(&out.ID, &out.TeamID, &out.Name, &out.Period,
-		&out.ProjectSlug, &out.Tag, &createdBy, &created); err != nil {
-		return SavedReport{}, err
-	}
-	if createdBy.Valid {
-		out.CreatedBy = createdBy.Int64
-	}
-	out.CreatedAt, _ = ScanTime(created)
-	return out, nil
-}
-
-// nullableInt64 helper (also used by sessions).
-var _ = nullableInt64

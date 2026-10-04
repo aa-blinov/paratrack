@@ -5,7 +5,6 @@ Run:  . .venv/bin/activate && python e2e/qa_logic.py
 from __future__ import annotations
 
 import json
-import os
 import pathlib
 import re
 import sys
@@ -14,7 +13,8 @@ from urllib.parse import urlencode
 
 import requests
 
-BASE = os.environ.get("PARATRACK_BASE", "https://paratrack.duckdns.org")
+from target import BASE_URL as BASE
+
 OUT = pathlib.Path(__file__).resolve().parent / "screenshots" / "qa-logic"
 OUT.mkdir(parents=True, exist_ok=True)
 
