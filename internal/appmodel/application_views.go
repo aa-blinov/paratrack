@@ -40,6 +40,20 @@ type ActiveListSnapshot struct {
 	FirstRun       bool
 }
 
+// InvoiceDraftOptions combines workspace projects with their saved client
+// details and records which projects may be selected for a new invoice.
+type InvoiceDraftOptions struct {
+	Projects    []InvoiceProjectOption
+	HasBillable bool
+}
+
+type InvoiceProjectOption struct {
+	Project   model.Project
+	Client    model.ProjectClient
+	HasClient bool
+	Eligible  bool
+}
+
 type ReportLabels struct {
 	Uncategorized string
 	Unassigned    string

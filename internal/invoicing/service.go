@@ -26,6 +26,13 @@ type Reader interface {
 	OverlappingInvoices(context.Context, int64, int64, time.Time, time.Time, []string) ([]string, error)
 }
 
+// ProjectBillingReader provides the project catalog data needed to prepare
+// invoice draft choices without making the transport coordinate project reads.
+type ProjectBillingReader interface {
+	ListProjects(context.Context, int64, bool) ([]model.Project, error)
+	ListProjectClients(context.Context, int64) (map[int64]model.ProjectClient, error)
+}
+
 // Writer exposes invoice transitions. The persistence adapter owns locking
 // and atomic writes for these operations.
 type Writer interface {
@@ -89,6 +96,7 @@ type StripePaymentLink = appmodel.InvoiceStripePaymentLink
 // Dependencies separates invoice queries from transactional commands.
 type Dependencies struct {
 	Reader              Reader
+	Projects            ProjectBillingReader
 	Writer              Writer
 	Authorizer          ManagerAuthorizer
 	StripeCredentials   StripeCredentials
@@ -112,6 +120,7 @@ var ErrIncompleteDependencies = errors.New("invoicing service dependencies are i
 // Service coordinates invoice draft creation policy.
 type Service struct {
 	reader              Reader
+	projects            ProjectBillingReader
 	writer              Writer
 	authorizer          ManagerAuthorizer
 	stripeCredentials   StripeCredentials
@@ -133,6 +142,9 @@ func NewService(deps Dependencies) (*Service, error) {
 	if depcheck.IsNil(deps.Writer) {
 		return nil, fmt.Errorf("%w: invoice writer", ErrIncompleteDependencies)
 	}
+	if depcheck.IsNil(deps.Projects) {
+		return nil, fmt.Errorf("%w: project billing reader", ErrIncompleteDependencies)
+	}
 	if depcheck.IsNil(deps.Audit) {
 		return nil, fmt.Errorf("%w: audit recorder", ErrIncompleteDependencies)
 	}
@@ -140,7 +152,7 @@ func NewService(deps Dependencies) (*Service, error) {
 		return nil, fmt.Errorf("%w: logger", ErrIncompleteDependencies)
 	}
 	return &Service{
-		reader: deps.Reader, writer: deps.Writer, authorizer: deps.Authorizer,
+		reader: deps.Reader, projects: deps.Projects, writer: deps.Writer, authorizer: deps.Authorizer,
 		stripeCredentials: deps.StripeCredentials, stripeGateway: deps.StripeGateway,
 		stripeAPIKey: deps.StripeAPIKey, stripeWebhookSecret: deps.StripeWebhookSecret,
 		audit: deps.Audit, logger: deps.Logger,
@@ -178,6 +190,35 @@ func (s *Service) List(ctx context.Context, teamID int64) ([]model.InvoiceDetail
 		return nil, fmt.Errorf("list invoices: %w", err)
 	}
 	return items, nil
+}
+
+// DraftOptions applies invoice eligibility rules and joins saved client details
+// to the workspace's active project catalog for the invoice creation flow.
+func (s *Service) DraftOptions(ctx context.Context, teamID int64) (appmodel.InvoiceDraftOptions, error) {
+	if teamID <= 0 {
+		return appmodel.InvoiceDraftOptions{}, ErrInvalidTeam
+	}
+	projects, err := s.projects.ListProjects(ctx, teamID, false)
+	if err != nil {
+		return appmodel.InvoiceDraftOptions{}, fmt.Errorf("list invoice projects: %w", err)
+	}
+	clients, err := s.projects.ListProjectClients(ctx, teamID)
+	if err != nil {
+		return appmodel.InvoiceDraftOptions{}, fmt.Errorf("load invoice project clients: %w", err)
+	}
+	options := appmodel.InvoiceDraftOptions{Projects: make([]appmodel.InvoiceProjectOption, 0, len(projects))}
+	for _, project := range projects {
+		hasRate := project.Billable && project.BillableRateCents != nil && *project.BillableRateCents > 0
+		if hasRate {
+			options.HasBillable = true
+		}
+		option := appmodel.InvoiceProjectOption{Project: project, Eligible: !project.Archived && hasRate}
+		if client, ok := clients[project.ID]; ok {
+			option.Client, option.HasClient = client, true
+		}
+		options.Projects = append(options.Projects, option)
+	}
+	return options, nil
 }
 
 // UnbilledProjectTime returns billable time not yet included on an invoice.

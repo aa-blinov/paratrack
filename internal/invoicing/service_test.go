@@ -52,6 +52,19 @@ type draftWriterStub struct {
 	}
 }
 
+type projectBillingStub struct {
+	projects []model.Project
+	clients  map[int64]model.ProjectClient
+}
+
+func (s projectBillingStub) ListProjects(context.Context, int64, bool) ([]model.Project, error) {
+	return s.projects, nil
+}
+
+func (s projectBillingStub) ListProjectClients(context.Context, int64) (map[int64]model.ProjectClient, error) {
+	return s.clients, nil
+}
+
 type noopAuditRecorder struct{}
 
 func (noopAuditRecorder) Record(context.Context, model.AuditRecord) error {
@@ -69,7 +82,39 @@ func (s *recordingLogger) Printf(format string, args ...any) {
 }
 
 func testDependencies(reader Reader, writer Writer) Dependencies {
-	return Dependencies{Reader: reader, Writer: writer, Audit: noopAuditRecorder{}, Logger: noopLogger{}}
+	return Dependencies{Reader: reader, Projects: projectBillingStub{}, Writer: writer, Audit: noopAuditRecorder{}, Logger: noopLogger{}}
+}
+
+func TestDraftOptionsAppliesBillingEligibilityAndClientDefaults(t *testing.T) {
+	rate := 1250
+	projects := projectBillingStub{
+		projects: []model.Project{
+			{ID: 1, Billable: true, BillableRateCents: &rate},
+			{ID: 2, Billable: true, BillableRateCents: &rate, Archived: true},
+			{ID: 3, Billable: true},
+			{ID: 4, Billable: false, BillableRateCents: &rate},
+		},
+		clients: map[int64]model.ProjectClient{1: {Name: "Acme", Email: "billing@example.test"}},
+	}
+	deps := testDependencies(&draftReaderStub{}, &draftWriterStub{})
+	deps.Projects = projects
+	service, err := NewService(deps)
+	if err != nil {
+		t.Fatalf("construct invoicing service: %v", err)
+	}
+	options, err := service.DraftOptions(context.Background(), 7)
+	if err != nil {
+		t.Fatalf("DraftOptions: %v", err)
+	}
+	if !options.HasBillable || len(options.Projects) != 4 {
+		t.Fatalf("DraftOptions = %+v", options)
+	}
+	if !options.Projects[0].Eligible || !options.Projects[0].HasClient || options.Projects[0].Client.Name != "Acme" {
+		t.Fatalf("billable project option = %+v", options.Projects[0])
+	}
+	if options.Projects[1].Eligible || options.Projects[2].Eligible || options.Projects[3].Eligible {
+		t.Fatalf("ineligible projects became selectable: %+v", options.Projects[1:])
+	}
 }
 
 type recordingAudit struct{ calls [][6]any }

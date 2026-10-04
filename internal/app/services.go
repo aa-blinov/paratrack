@@ -117,7 +117,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		return nil, err
 	}
 	invoiceService, err := invoicing.NewService(invoicing.Dependencies{
-		Reader: database, Writer: database, Authorizer: database, StripeCredentials: database,
+		Reader: database, Projects: database, Writer: database, Authorizer: database, StripeCredentials: database,
 		StripeGateway: stripeProtocol{client: stripeHTTPClient},
 		StripeAPIKey:  config.StripeAPIKey, StripeWebhookSecret: config.StripeWebhookSecret,
 		Audit: auditService, Logger: logger,
