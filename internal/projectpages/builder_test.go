@@ -3,6 +3,7 @@ package projectpages
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -10,12 +11,20 @@ import (
 )
 
 type projectReaderStub struct {
-	detail model.ProjectDetail
-	err    error
+	detail     model.ProjectDetail
+	summaries  map[int64]model.ProjectSummary
+	summaryIDs []int64
+	err        error
+	summaryErr error
 }
 
-func (stub projectReaderStub) Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error) {
+func (stub *projectReaderStub) Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error) {
 	return stub.detail, stub.err
+}
+
+func (stub *projectReaderStub) Summaries(_ context.Context, _ int64, ids []int64) (map[int64]model.ProjectSummary, error) {
+	stub.summaryIDs = append([]int64(nil), ids...)
+	return stub.summaries, stub.summaryErr
 }
 
 type teamSettingsReaderStub struct {
@@ -43,18 +52,45 @@ type invoiceHistoryReaderStub struct {
 	err               error
 }
 
+type sessionTagReaderStub struct {
+	bySession map[int64][]model.Tag
+	ids       []int64
+	err       error
+}
+
+func (stub *sessionTagReaderStub) TagsForSessions(_ context.Context, _ int64, ids []int64) (map[int64][]model.Tag, error) {
+	stub.ids = append([]int64(nil), ids...)
+	return stub.bySession, stub.err
+}
+
+type loggerStub struct{ messages []string }
+
+func (stub *loggerStub) Printf(format string, args ...any) {
+	stub.messages = append(stub.messages, fmt.Sprintf(format, args...))
+}
+
 func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, teamID, projectID int64) ([]model.UnbilledProject, error) {
 	stub.teamID, stub.projectID = teamID, projectID
 	return stub.rows, stub.err
 }
 
 func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
-	detail := model.ProjectDetail{Project: model.Project{ID: 18, TeamID: 4, Slug: "alpha"}}
+	detail := model.ProjectDetail{
+		Project: model.Project{ID: 18, TeamID: 4, Slug: "alpha"},
+		Activity: model.ProjectActivitySummary{Recent: []model.ActiveSession{{
+			Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
+		}}},
+	}
 	unbilled := []model.UnbilledProject{{ProjectID: 18, ProjectName: "Alpha"}}
 	invoices := &invoiceHistoryReaderStub{rows: unbilled}
+	projects := &projectReaderStub{
+		detail: detail, summaries: map[int64]model.ProjectSummary{12: {ID: 12, Name: "Project"}},
+	}
+	tags := &sessionTagReaderStub{bySession: map[int64][]model.Tag{31: {{ID: 7, Name: "urgent"}}}}
 	builder, err := New(Dependencies{
-		Projects: projectReaderStub{detail: detail}, Teams: teamSettingsReaderStub{currency: "EUR"},
+		Projects: projects, Teams: teamSettingsReaderStub{currency: "EUR"},
 		Memberships: teamMembershipReaderStub{role: model.TeamRoleOwner, member: true}, Invoicing: invoices,
+		Tags: tags, Logger: &loggerStub{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -68,6 +104,12 @@ func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 	if snapshot.Detail.Project.ID != detail.Project.ID || snapshot.TeamCurrency != "EUR" || len(snapshot.Unbilled) != 1 || snapshot.Unbilled[0] != unbilled[0] {
 		t.Fatalf("project page snapshot = %+v", snapshot)
 	}
+	if len(tags.ids) != 1 || tags.ids[0] != 31 || len(snapshot.TagsBySession[31]) != 1 || snapshot.ProjectsByID[12].Name != "Project" {
+		t.Fatalf("session decorations were not assembled: %+v", snapshot)
+	}
+	if len(projects.summaryIDs) != 1 || projects.summaryIDs[0] != 12 {
+		t.Fatalf("project summary IDs = %v", projects.summaryIDs)
+	}
 	if invoices.teamID != 4 || invoices.projectID != 18 {
 		t.Fatalf("invoice history scope = team %d project %d", invoices.teamID, invoices.projectID)
 	}
@@ -76,8 +118,9 @@ func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 func TestBuildSkipsInvoiceHistoryWhenNotRequested(t *testing.T) {
 	invoices := &invoiceHistoryReaderStub{}
 	builder, err := New(Dependencies{
-		Projects: projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
+		Projects: &projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
 		Teams:    teamSettingsReaderStub{currency: "USD"}, Memberships: teamMembershipReaderStub{}, Invoicing: invoices,
+		Tags: &sessionTagReaderStub{}, Logger: &loggerStub{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -95,8 +138,9 @@ func TestBuildSkipsInvoiceHistoryWhenNotRequested(t *testing.T) {
 func TestBuildPropagatesWorkspaceCurrencyFailure(t *testing.T) {
 	wantErr := errors.New("workspace settings unavailable")
 	builder, err := New(Dependencies{
-		Projects: projectReaderStub{}, Teams: teamSettingsReaderStub{err: wantErr},
+		Projects: &projectReaderStub{}, Teams: teamSettingsReaderStub{err: wantErr},
 		Memberships: teamMembershipReaderStub{}, Invoicing: &invoiceHistoryReaderStub{},
+		Tags: &sessionTagReaderStub{}, Logger: &loggerStub{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -111,10 +155,11 @@ func TestBuildPropagatesWorkspaceCurrencyFailure(t *testing.T) {
 func TestBuildDoesNotReadInvoiceHistoryForNonManager(t *testing.T) {
 	invoices := &invoiceHistoryReaderStub{}
 	builder, err := New(Dependencies{
-		Projects:    projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
+		Projects:    &projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
 		Teams:       teamSettingsReaderStub{currency: "USD"},
 		Memberships: teamMembershipReaderStub{role: model.TeamRoleMember, member: true},
 		Invoicing:   invoices,
+		Tags:        &sessionTagReaderStub{}, Logger: &loggerStub{},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -127,5 +172,36 @@ func TestBuildDoesNotReadInvoiceHistoryForNonManager(t *testing.T) {
 	}
 	if len(snapshot.Unbilled) != 0 || invoices.teamID != 0 || invoices.projectID != 0 {
 		t.Fatalf("non-manager received invoice history: snapshot=%+v invoice query=%+v", snapshot, invoices)
+	}
+}
+
+func TestBuildKeepsDetailWhenSessionDecorationReadsFail(t *testing.T) {
+	projects := &projectReaderStub{
+		detail: model.ProjectDetail{
+			Project: model.Project{ID: 18},
+			Activity: model.ProjectActivitySummary{Recent: []model.ActiveSession{{
+				Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
+			}}},
+		},
+		summaryErr: errors.New("project summaries unavailable"),
+	}
+	tags := &sessionTagReaderStub{err: errors.New("session tags unavailable")}
+	logger := &loggerStub{}
+	builder, err := New(Dependencies{
+		Projects: projects, Teams: teamSettingsReaderStub{currency: "USD"},
+		Memberships: teamMembershipReaderStub{}, Invoicing: &invoiceHistoryReaderStub{},
+		Tags: tags, Logger: logger,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := builder.Build(context.Background(), appmodel.ProjectPageRequest{
+		TeamID: 4, Slug: "alpha",
+	})
+	if err != nil {
+		t.Fatalf("Build should retain project detail: %v", err)
+	}
+	if snapshot.Detail.Project.ID != 18 || len(logger.messages) != 2 {
+		t.Fatalf("decoration failures: project=%+v logs=%v", snapshot.Detail.Project, logger.messages)
 	}
 }
