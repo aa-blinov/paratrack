@@ -17,6 +17,7 @@ type sessionStarterStub struct {
 	session         model.Session
 	stopAllSessions []model.Session
 	focus           appmodel.FocusResult
+	focusRequest    appmodel.TimerFocusRequest
 	deleteCalls     int
 	err             error
 	resolved        model.Activity
@@ -53,7 +54,8 @@ func (s *sessionStarterStub) AddClosed(_ context.Context, request appmodel.Timer
 	return s.session, s.err
 }
 
-func (s *sessionStarterStub) Focus(context.Context, appmodel.TimerFocusRequest) (appmodel.FocusResult, error) {
+func (s *sessionStarterStub) Focus(_ context.Context, request appmodel.TimerFocusRequest) (appmodel.FocusResult, error) {
+	s.focusRequest = request
 	return s.focus, s.err
 }
 
@@ -150,6 +152,50 @@ func TestFocusActivityResolvesExistingNameAndAuditsFocus(t *testing.T) {
 	}
 	if audit.calls != 1 || audit.action != "session.start" || audit.target != "83" || audit.meta != "Deep work" {
 		t.Fatalf("focus audit = %+v", audit)
+	}
+}
+
+func TestFocusActivityForMemberResolvesCreatesAndAuditsTogether(t *testing.T) {
+	sessions := &sessionStarterStub{focus: appmodel.FocusResult{Started: true, StartedSessionID: 84}}
+	audit := &auditRecorderStub{}
+	service, err := New(dependencies(sessions, audit))
+	if err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	ctx := requestctx.WithActor(context.Background(), 12)
+	activity, result, err := service.FocusActivityForMember(ctx, appmodel.TimerFocusForMemberRequest{
+		TeamID: 4, CallerID: 12, ActivityName: " Deep work ", At: at,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if activity.ID != 7 || activity.Name != "Deep work" || !result.Started {
+		t.Fatalf("focus activity result = activity %+v, result %+v", activity, result)
+	}
+	if sessions.resolved != activity || sessions.focusRequest.TeamID != 4 || sessions.focusRequest.ActivityID != activity.ID || !sessions.focusRequest.At.Equal(at) {
+		t.Fatalf("resolved activity=%+v focus request=%+v", sessions.resolved, sessions.focusRequest)
+	}
+	if audit.calls != 1 || audit.action != "session.start" || audit.target != "84" || audit.meta != activity.Name {
+		t.Fatalf("focus audit = %+v", audit)
+	}
+}
+
+func TestFocusActivityForMemberRejectsCallerMismatchBeforeResolving(t *testing.T) {
+	sessions := &sessionStarterStub{}
+	service, err := New(dependencies(sessions, &auditRecorderStub{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := requestctx.WithActor(context.Background(), 12)
+	_, _, err = service.FocusActivityForMember(ctx, appmodel.TimerFocusForMemberRequest{
+		TeamID: 4, CallerID: 13, ActivityName: "Deep work", At: time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC),
+	})
+	if !errors.Is(err, appmodel.ErrForbidden) {
+		t.Fatalf("FocusActivityForMember caller mismatch error = %v", err)
+	}
+	if sessions.resolved.ID != 0 || sessions.focusRequest.ActivityID != 0 {
+		t.Fatalf("caller mismatch reached activity resolution or focus: resolved=%+v focus=%+v", sessions.resolved, sessions.focusRequest)
 	}
 }
 
