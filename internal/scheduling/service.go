@@ -14,7 +14,7 @@ import (
 )
 
 type Store interface {
-	ListSchedule(context.Context, appmodel.ScheduleQuery) ([]model.ScheduleRow, map[int64]string, error)
+	ListSchedule(context.Context, appmodel.ScheduleQuery) ([]appmodel.ScheduleRow, map[int64]string, error)
 	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
 }
 

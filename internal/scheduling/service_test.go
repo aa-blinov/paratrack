@@ -12,7 +12,7 @@ import (
 )
 
 type scheduleStoreStub struct {
-	rows  []model.ScheduleRow
+	rows  []appmodel.ScheduleRow
 	query appmodel.ScheduleQuery
 }
 
@@ -20,7 +20,7 @@ type scheduleCellStoreStub struct {
 	request appmodel.ScheduleCellRequest
 }
 
-func (scheduleCellStoreStub) ListSchedule(context.Context, appmodel.ScheduleQuery) ([]model.ScheduleRow, map[int64]string, error) {
+func (scheduleCellStoreStub) ListSchedule(context.Context, appmodel.ScheduleQuery) ([]appmodel.ScheduleRow, map[int64]string, error) {
 	return nil, nil, nil
 }
 
@@ -40,7 +40,7 @@ func (s *scheduleProjectCatalogStub) List(_ context.Context, query appmodel.Proj
 	return s.projects, nil
 }
 
-func (s *scheduleStoreStub) ListSchedule(_ context.Context, query appmodel.ScheduleQuery) ([]model.ScheduleRow, map[int64]string, error) {
+func (s *scheduleStoreStub) ListSchedule(_ context.Context, query appmodel.ScheduleQuery) ([]appmodel.ScheduleRow, map[int64]string, error) {
 	s.query = query
 	return s.rows, nil, nil
 }
@@ -50,7 +50,7 @@ func (scheduleStoreStub) UpsertScheduleEntry(context.Context, appmodel.ScheduleC
 
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	projects := &scheduleProjectCatalogStub{projects: []model.Project{{ID: 9, Name: "Alpha"}}}
-	store := &scheduleStoreStub{rows: []model.ScheduleRow{
+	store := &scheduleStoreStub{rows: []appmodel.ScheduleRow{
 		{UserID: 1, Capacity: 60, Total: 150},
 		{UserID: 2, Capacity: 0, Total: 90},
 	}}
@@ -82,7 +82,7 @@ func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 
 func TestListRejectsOverflowInTeamTotal(t *testing.T) {
 	maxInt := int(^uint(0) >> 1)
-	service, err := New(Dependencies{Store: &scheduleStoreStub{rows: []model.ScheduleRow{{Total: maxInt}, {Total: 1}}}, Projects: &scheduleProjectCatalogStub{}})
+	service, err := New(Dependencies{Store: &scheduleStoreStub{rows: []appmodel.ScheduleRow{{Total: maxInt}, {Total: 1}}}, Projects: &scheduleProjectCatalogStub{}})
 	if err != nil {
 		t.Fatal(err)
 	}
