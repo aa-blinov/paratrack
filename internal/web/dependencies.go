@@ -221,7 +221,7 @@ type InvoiceDependencies struct {
 // payment handlers.
 type InvoiceQueries interface {
 	DraftOptions(context.Context, int64) (appmodel.InvoiceDraftOptions, error)
-	Get(context.Context, int64, int64) (model.InvoiceDetails, error)
+	Get(context.Context, int64, int64) (appmodel.InvoiceDetailResult, error)
 	List(context.Context, int64) ([]model.InvoiceDetails, error)
 	StripeReady(context.Context, int64) (bool, error)
 	UnassignedHistory(context.Context, int64) ([]model.UnassignedActivity, error)
