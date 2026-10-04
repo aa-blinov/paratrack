@@ -137,6 +137,18 @@ for dependency in $(package_imports "$module/internal/model"); do
 			echo "architecture check: shared model must not depend on internal package $dependency" >&2
 			exit 1
 			;;
+esac
+done
+
+# Application requests and results stay independent of queue lease payloads;
+# those retry contracts belong to the queue ports themselves. Provider output
+# types remain valid appmodel inputs at the import and integration boundaries.
+for dependency in $(package_imports "$module/internal/appmodel"); do
+	case "$dependency" in
+		"$module/internal/mailport"|"$module/internal/webhookport")
+			echo "architecture check: appmodel must not depend on queue contract $dependency" >&2
+			exit 1
+			;;
 	esac
 done
 

@@ -202,7 +202,7 @@ func (s *Service) processQueuedEvent(ctx context.Context, job webhookport.Commit
 		if delay > 30*time.Minute {
 			delay = 30 * time.Minute
 		}
-		if retryErr := s.store.RetryWebhookEvent(persistCtx, appmodel.WebhookEventRetryRequest{Event: job, AvailableAt: s.now().UTC().Add(delay)}); retryErr != nil {
+		if retryErr := s.store.RetryWebhookEvent(persistCtx, webhookport.EventRetryRequest{Event: job, AvailableAt: s.now().UTC().Add(delay)}); retryErr != nil {
 			s.logger.Printf("webhooks: retry event %d: %v (processing: %v)", job.ID, retryErr, err)
 		}
 		return
@@ -226,7 +226,7 @@ func (s *Service) deliverQueued(ctx context.Context, job webhookport.DeliveryJob
 		if delay > 30*time.Minute {
 			delay = 30 * time.Minute
 		}
-		if retryErr := s.store.RetryWebhookDelivery(persistCtx, appmodel.WebhookDeliveryRetryRequest{Job: job, AvailableAt: s.now().UTC().Add(delay), MaxAttempts: deliveryMaxAttempts}); retryErr != nil {
+		if retryErr := s.store.RetryWebhookDelivery(persistCtx, webhookport.DeliveryRetryRequest{Job: job, AvailableAt: s.now().UTC().Add(delay), MaxAttempts: deliveryMaxAttempts}); retryErr != nil {
 			s.logger.Printf("webhooks: schedule retry for delivery %d: %v (delivery: %v)", job.ID, retryErr, err)
 		}
 		return
