@@ -14,6 +14,7 @@ func TestMutationDetectionFollowsPrivatePersistenceHelpers(t *testing.T) {
 func (d *DB) Rename(ctx context.Context, request appmodel.RenameRequest) error {
 	return d.persistRename(ctx)
 }
+
 func (d *DB) persistRename(ctx context.Context) error {
 	_, err := d.sql.ExecContext(ctx, "UPDATE teams SET name = ?")
 	return err
@@ -35,6 +36,32 @@ func (d *DB) persistRename(ctx context.Context) error {
 	}
 	if !hasMutatingPersistenceCall(rename, functions, make(map[*ast.FuncDecl]bool)) {
 		t.Fatal("Rename was not classified as mutating through persistRename")
+	}
+}
+
+func TestMutationDetectionDistinguishesReadOnlyTransactions(t *testing.T) {
+	cases := []struct {
+		name      string
+		options   string
+		wantWrite bool
+	}{
+		{name: "read only", options: "&sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}"},
+		{name: "read write", options: "&sql.TxOptions{Isolation: sql.LevelRepeatableRead}", wantWrite: true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			fset := token.NewFileSet()
+			source := "package db\nfunc (d *DB) Read(ctx context.Context) error { tx, err := d.sql.BeginTx(ctx, " + testCase.options + "); if err != nil { return err }; rows, err := tx.QueryContext(ctx, \"SELECT 1\"); if err != nil { return err }; defer rows.Close(); return tx.Commit() }"
+			file, err := parser.ParseFile(fset, "fixture.go", source, 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			function := file.Decls[0].(*ast.FuncDecl)
+			gotWrite := hasMutatingPersistenceCall(function, map[string][]*ast.FuncDecl{}, make(map[*ast.FuncDecl]bool))
+			if gotWrite != testCase.wantWrite {
+				t.Fatalf("read transaction classified as write = %v, want %v", gotWrite, testCase.wantWrite)
+			}
+		})
 	}
 }
 

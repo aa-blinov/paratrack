@@ -96,9 +96,19 @@ func hasMutatingPersistenceCall(function *ast.FuncDecl, functionsByName map[stri
 			name = callee.Sel.Name
 		}
 		switch name {
-		case "BeginTx", "Exec", "ExecContext", "Commit":
+		case "BeginTx":
+			if !isReadOnlyTransaction(call) {
+				found = true
+				return false
+			}
+			return true
+		case "Exec", "ExecContext":
 			found = true
 			return false
+		case "Commit":
+			// Commit finalizes a transaction; the mutating statement is tracked
+			// separately by Exec/ExecContext or a called persistence helper.
+			return true
 		}
 		if name != "" {
 			calledNames = append(calledNames, name)
@@ -114,6 +124,33 @@ func hasMutatingPersistenceCall(function *ast.FuncDecl, functionsByName map[stri
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func isReadOnlyTransaction(call *ast.CallExpr) bool {
+	if len(call.Args) < 2 {
+		return false
+	}
+	address, ok := call.Args[1].(*ast.UnaryExpr)
+	if !ok || address.Op != token.AND {
+		return false
+	}
+	options, ok := address.X.(*ast.CompositeLit)
+	if !ok {
+		return false
+	}
+	for _, element := range options.Elts {
+		field, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, ok := field.Key.(*ast.Ident)
+		if !ok || key.Name != "ReadOnly" {
+			continue
+		}
+		value, ok := field.Value.(*ast.Ident)
+		return ok && value.Name == "true"
 	}
 	return false
 }

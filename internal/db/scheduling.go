@@ -5,9 +5,9 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -88,129 +88,161 @@ func (d *DB) UpsertScheduleEntry(ctx context.Context, request appmodel.ScheduleC
 	return tx.Commit()
 }
 
-// ListSchedule returns the plan for a week plus a project breakdown.
-// weekStart is the first day selected by the user's workspace preference.
+// ListSchedule returns the plan for a week plus a project breakdown from one
+// repeatable-read snapshot, so membership, project names and cells agree.
 func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]ScheduleRow, map[int64]string, error) {
 	if query.TeamID <= 0 || query.WeekStart.IsZero() {
 		return nil, nil, ErrNotFound
 	}
-	weekEnd := query.WeekStart.AddDate(0, 0, 7)
-	dayStr := func(t time.Time) string { return t.Format("2006-01-02") }
+	tx, err := d.sql.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true})
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin schedule snapshot: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
 
-	// users in the team
-	urows, err := d.sql.QueryContext(ctx,
+	users, err := loadScheduleUsers(ctx, tx, query.TeamID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load schedule members: %w", err)
+	}
+	projectNames, err := loadScheduleProjectNames(ctx, tx, query.TeamID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load schedule projects: %w", err)
+	}
+	entries, byProject, err := loadScheduleEntries(ctx, tx, query)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load schedule entries: %w", err)
+	}
+	rows := buildScheduleRows(users, entries, byProject, query.WeekStart)
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit schedule snapshot: %w", err)
+	}
+	return rows, projectNames, nil
+}
+
+type scheduleUser struct {
+	id   int64
+	name string
+	cap  int
+}
+
+type scheduleCellKey struct {
+	userID int64
+	day    string
+}
+
+type scheduleProjectCellKey struct {
+	userID, projectID int64
+	day               string
+}
+
+func loadScheduleUsers(ctx context.Context, tx *Tx, teamID int64) ([]scheduleUser, error) {
+	rows, err := tx.QueryContext(ctx,
 		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0)
 		 FROM memberships m JOIN users u ON u.id = m.user_id
-		 WHERE m.team_id = ? ORDER BY u.name`, query.TeamID)
+		 WHERE m.team_id = ? ORDER BY u.name`, teamID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	defer urows.Close()
-	type userRec struct {
-		id   int64
-		name string
-		cap  int
-	}
-	var users []userRec
-	for urows.Next() {
-		var u userRec
+	defer rows.Close()
+	var users []scheduleUser
+	for rows.Next() {
+		var user scheduleUser
 		var email string
-		if err := urows.Scan(&u.id, &u.name, &email, &u.cap); err != nil {
-			urows.Close()
-			return nil, nil, err
+		if err := rows.Scan(&user.id, &user.name, &email, &user.cap); err != nil {
+			return nil, err
 		}
-		if u.name == "" {
-			u.name = email
+		if user.name == "" {
+			user.name = email
 		}
-		if u.cap <= 0 {
-			u.cap = 480
+		if user.cap <= 0 {
+			user.cap = 480
 		}
-		users = append(users, u)
+		users = append(users, user)
 	}
-	if err := urows.Err(); err != nil {
-		urows.Close()
-		return nil, nil, err
-	}
-	urows.Close()
+	return users, rows.Err()
+}
 
-	// project names
-	pnames := map[int64]string{}
-	prows, err := d.sql.QueryContext(ctx, `SELECT id, name FROM projects WHERE team_id = ?`, query.TeamID)
+func loadScheduleProjectNames(ctx context.Context, tx *Tx, teamID int64) (map[int64]string, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT id, name FROM projects WHERE team_id = ?`, teamID)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	defer prows.Close()
-	for prows.Next() {
+	defer rows.Close()
+	names := make(map[int64]string)
+	for rows.Next() {
 		var id int64
 		var name string
-		if err := prows.Scan(&id, &name); err != nil {
-			prows.Close()
-			return nil, nil, err
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
 		}
-		pnames[id] = name
+		names[id] = name
 	}
-	if err := prows.Err(); err != nil {
-		prows.Close()
-		return nil, nil, err
-	}
-	prows.Close()
+	return names, rows.Err()
+}
 
-	// entries in window
-	q := `SELECT user_id, project_id, day, minutes FROM schedule_entries
-	      WHERE team_id = ? AND day >= ? AND day < ?`
-	erows, err := d.sql.QueryContext(ctx, q, query.TeamID, dayStr(query.WeekStart), dayStr(weekEnd))
+func loadScheduleEntries(ctx context.Context, tx *Tx, query appmodel.ScheduleQuery) (map[scheduleCellKey]int, map[scheduleProjectCellKey]int, error) {
+	weekEnd := query.WeekStart.AddDate(0, 0, 7)
+	rows, err := tx.QueryContext(ctx,
+		`SELECT user_id, project_id, day, minutes FROM schedule_entries
+		 WHERE team_id = ? AND day >= ? AND day < ?`,
+		query.TeamID, scheduleDay(query.WeekStart), scheduleDay(weekEnd))
 	if err != nil {
 		return nil, nil, err
 	}
-	defer erows.Close()
-	type key struct {
-		uid int64
-		day string
-	}
-	type pkey struct {
-		uid, pid int64
-		day      string
-	}
-	entry := map[key]int{}
-	byProj := map[pkey]int{}
-	for erows.Next() {
-		var uid, pid int64
+	defer rows.Close()
+	entries := make(map[scheduleCellKey]int)
+	byProject := make(map[scheduleProjectCellKey]int)
+	for rows.Next() {
+		var userID, projectID int64
 		var day string
-		var m int
-		if err := erows.Scan(&uid, &pid, &day, &m); err != nil {
-			erows.Close()
+		var minutes int
+		if err := rows.Scan(&userID, &projectID, &day, &minutes); err != nil {
 			return nil, nil, err
 		}
-		entry[key{uid, day}] += m
-		byProj[pkey{uid, pid, day}] += m
+		entries[scheduleCellKey{userID, day}] += minutes
+		byProject[scheduleProjectCellKey{userID, projectID, day}] += minutes
 	}
-	if err := erows.Err(); err != nil {
-		erows.Close()
+	if err := rows.Err(); err != nil {
 		return nil, nil, err
 	}
-	erows.Close()
-
-	rows := make([]ScheduleRow, 0, len(users))
-	for _, u := range users {
-		row := ScheduleRow{UserID: u.id, UserName: u.name, Capacity: u.cap, ByProject: map[int64][7]int{}}
-		for i := 0; i < 7; i++ {
-			day := dayStr(query.WeekStart.AddDate(0, 0, i))
-			row.Minutes[i] = entry[key{u.id, day}]
-			row.Total += row.Minutes[i]
-		}
-		for k, m := range byProj {
-			if k.uid != u.id {
-				continue
-			}
-			for i := 0; i < 7; i++ {
-				if dayStr(query.WeekStart.AddDate(0, 0, i)) == k.day {
-					w := row.ByProject[k.pid]
-					w[i] += m
-					row.ByProject[k.pid] = w
-				}
-			}
-		}
-		rows = append(rows, row)
-	}
-	return rows, pnames, nil
+	return entries, byProject, nil
 }
+
+func buildScheduleRows(users []scheduleUser, entries map[scheduleCellKey]int, byProject map[scheduleProjectCellKey]int, weekStart time.Time) []ScheduleRow {
+	rows := make([]ScheduleRow, len(users))
+	rowByUser := make(map[int64]int, len(users))
+	dayIndex := make(map[string]int, 7)
+	for i := 0; i < 7; i++ {
+		dayIndex[scheduleDay(weekStart.AddDate(0, 0, i))] = i
+	}
+	for i, user := range users {
+		rows[i] = ScheduleRow{UserID: user.id, UserName: user.name, Capacity: user.cap, ByProject: make(map[int64][7]int)}
+		rowByUser[user.id] = i
+	}
+	for cell, minutes := range entries {
+		rowIndex, exists := rowByUser[cell.userID]
+		day, validDay := dayIndex[cell.day]
+		if !exists || !validDay {
+			continue
+		}
+		rows[rowIndex].Minutes[day] += minutes
+	}
+	for cell, minutes := range byProject {
+		rowIndex, exists := rowByUser[cell.userID]
+		day, validDay := dayIndex[cell.day]
+		if !exists || !validDay {
+			continue
+		}
+		projectMinutes := rows[rowIndex].ByProject[cell.projectID]
+		projectMinutes[day] += minutes
+		rows[rowIndex].ByProject[cell.projectID] = projectMinutes
+	}
+	for i := range rows {
+		for _, minutes := range rows[i].Minutes {
+			rows[i].Total += minutes
+		}
+	}
+	return rows
+}
+
+func scheduleDay(day time.Time) string { return day.Format("2006-01-02") }
