@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -51,12 +52,45 @@ func (s *Server) userModules(r *http.Request) map[string]bool {
 	return on
 }
 
+type teamModulesCache struct {
+	once    sync.Once
+	enabled map[string]bool
+}
+
+func (c *teamModulesCache) load(read func() (map[string]bool, error)) map[string]bool {
+	c.once.Do(func() {
+		var err error
+		c.enabled, err = read()
+		if err != nil {
+			c.enabled = map[string]bool{}
+		}
+	})
+	return copyModuleSet(c.enabled)
+}
+
+func copyModuleSet(source map[string]bool) map[string]bool {
+	if source == nil {
+		return nil
+	}
+	cloned := make(map[string]bool, len(source))
+	for key, enabled := range source {
+		cloned[key] = enabled
+	}
+	return cloned
+}
+
 func (s *Server) teamModules(r *http.Request) map[string]bool {
-	enabled, err := s.services.Teams.Settings.SectionModules(r.Context(), teamID(r))
+	read := func() (map[string]bool, error) {
+		return s.services.Teams.Settings.SectionModules(r.Context(), teamID(r))
+	}
+	if cache, ok := r.Context().Value(ctxTeamModulesKey).(*teamModulesCache); ok && cache != nil {
+		return cache.load(read)
+	}
+	enabled, err := read()
 	if err != nil {
 		return map[string]bool{} // fail closed: storage failure must not enable gated sections
 	}
-	return enabled
+	return copyModuleSet(enabled)
 }
 
 // module guards a section's routes: switched off, its pages lead to the
