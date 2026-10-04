@@ -41,7 +41,7 @@ type TimerOperations interface {
 	AddClosed(context.Context, appmodel.TimerAddByIDRequest) (model.Session, error)
 	Focus(context.Context, appmodel.TimerFocusRequest) (appmodel.FocusResult, error)
 	StartActivity(context.Context, appmodel.TimerStartByNameRequest) (model.Activity, model.Session, error)
-	Stop(context.Context, appmodel.TimerStopRequest) (model.Session, error)
+	Stop(context.Context, appmodel.TimerStopRequest) (appmodel.TimerStopResult, error)
 	StopAll(context.Context, appmodel.TimerStopAllRequest) ([]int64, error)
 }
 

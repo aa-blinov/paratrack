@@ -42,6 +42,13 @@ type ActiveListSnapshot struct {
 	FirstRun       bool
 }
 
+// TimerStopResult carries the stopped session and its duration as calculated
+// at the stop request's timestamp.
+type TimerStopResult struct {
+	Session         model.Session
+	DurationSeconds int
+}
+
 // InvoiceDraftOptions combines workspace projects with their saved client
 // details and records which projects may be selected for a new invoice.
 type InvoiceDraftOptions struct {
