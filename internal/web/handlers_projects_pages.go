@@ -112,13 +112,16 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 type projectNewPage struct {
 	Title        string
 	Active       string
+	ReactApp     bool
+	NewProject   bool
 	CSRFToken    string
 	Lang         string
 	Currencies   []currencyOption
 	TeamCurrency string
 }
 
-func (projectNewPage) isTemplateData() {}
+func (projectNewPage) isTemplateData()    {}
+func (projectNewPage) usesReactApp() bool { return true }
 
 func (p projectNewPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
@@ -128,7 +131,7 @@ func (p *projectNewPage) setLang(lang string)  { p.Lang = lang }
 // handleProjectNew — GET /projects/new (form page).
 func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
-	data := projectNewPage{Title: "New project", Active: "projects", CSRFToken: ensureCSRF(w, r), Lang: lang,
+	data := projectNewPage{Title: "New project", Active: "projects", ReactApp: true, NewProject: true, CSRFToken: ensureCSRF(w, r), Lang: lang,
 		Currencies: currencyOptions()}
 	var err error
 	data.TeamCurrency, err = s.services.Teams.Settings.Currency(r.Context(), teamID(r))

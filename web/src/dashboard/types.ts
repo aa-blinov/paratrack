@@ -140,7 +140,18 @@ export interface ProjectDetailData {
   Unbilled: UnbilledItem[]
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData
+export interface ProjectCreateData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  NewProject: boolean
+  Lang: string
+  CSRFToken: string
+  Currencies: Array<{ Code: string; Label: string }>
+  TeamCurrency: string
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
