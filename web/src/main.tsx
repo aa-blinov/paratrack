@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { AuditData, DashboardData, ExportData, GoalsData, GraphData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -43,6 +43,8 @@ const TeamInvitesPage = lazy(() => import("@/settings/team-invites-page").then(m
 const SectionsPage = lazy(() => import("@/settings/sections-page").then(module => ({ default: module.SectionsPage })))
 const WebhooksPage = lazy(() => import("@/settings/webhooks-page").then(module => ({ default: module.WebhooksPage })))
 const AuditPage = lazy(() => import("@/settings/audit-page").then(module => ({ default: module.AuditPage })))
+const HelpPage = lazy(() => import("@/help/help-page").then(module => ({ default: module.HelpPage })))
+const ImportPage = lazy(() => import("@/import/import-page").then(module => ({ default: module.ImportPage })))
 
 async function messageFrom(response: Response): Promise<string> {
   const body = await response.text()
@@ -276,6 +278,10 @@ if (root && payload) {
             ? <WebhooksPage data={initial.data as WebhooksData} />
             : "AuditReact" in initial.data && initial.data.AuditReact
             ? <AuditPage data={initial.data as AuditData} />
+            : "HelpReact" in initial.data && initial.data.HelpReact
+            ? <HelpPage data={initial.data as HelpData} />
+            : "ImportReact" in initial.data && initial.data.ImportReact
+            ? <ImportPage data={initial.data as ImportData} />
             : "Sessions" in initial.data
             ? <ProjectDetail data={initial.data as ProjectDetailData} />
             : "ShowArchived" in initial.data
