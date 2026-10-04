@@ -7,19 +7,12 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 type sessionEditStoreStub struct {
 	SessionStore
-	SessionQueryStore
-	current model.Session
 	updated appmodel.SessionUpdateRequest
 	err     error
-}
-
-func (stub *sessionEditStoreStub) GetSession(context.Context, int64, int64) (model.Session, error) {
-	return stub.current, stub.err
 }
 
 func (stub *sessionEditStoreStub) UpdateSessionFields(_ context.Context, request appmodel.SessionUpdateRequest) error {
@@ -27,61 +20,50 @@ func (stub *sessionEditStoreStub) UpdateSessionFields(_ context.Context, request
 	return stub.err
 }
 
-func TestUpdateFieldsAppliesDurationToSelectedStart(t *testing.T) {
-	start := time.Date(2026, 1, 2, 9, 0, 0, 0, time.UTC)
-	selectedStart := start.Add(time.Hour)
+func TestUpdateFieldsPassesEditIntentToTransactionalStore(t *testing.T) {
+	store := &sessionEditStoreStub{}
+	service := &Service{sessions: store}
 	seconds := 90 * 60
-	store := &sessionEditStoreStub{current: model.Session{StartAt: start}}
-	service := &Service{queries: store, sessions: store}
+	updatedAt := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
+	request := appmodel.SessionUpdateRequest{
+		TeamID: 4, CallerID: 12, SessionID: 31, DurationSeconds: &seconds,
+		Update: appmodel.SessionUpdate{UpdatedAt: updatedAt},
+	}
+	if err := service.UpdateFields(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if store.updated.DurationSeconds == nil || *store.updated.DurationSeconds != seconds || store.updated.Update.AccumulatedSeconds != nil {
+		t.Fatalf("store request did not preserve duration intent: %+v", store.updated)
+	}
+}
+
+func TestUpdateFieldsRejectsInvalidDurationBeforePersistence(t *testing.T) {
+	store := &sessionEditStoreStub{}
+	service := &Service{sessions: store}
+	seconds := -1
+	updatedAt := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
 	err := service.UpdateFields(context.Background(), appmodel.SessionUpdateRequest{
 		TeamID: 4, CallerID: 12, SessionID: 31, DurationSeconds: &seconds,
-		Update: appmodel.SessionUpdate{StartAt: &selectedStart, UpdatedAt: selectedStart},
+		Update: appmodel.SessionUpdate{UpdatedAt: updatedAt},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got := store.updated.Update
-	if got.EndAt == nil || !got.EndAt.Equal(selectedStart.Add(time.Duration(seconds)*time.Second)) || got.AccumulatedSeconds == nil || *got.AccumulatedSeconds != seconds {
-		t.Fatalf("applied duration update = %+v", got)
-	}
-	if store.updated.DurationSeconds != nil || store.updated.RecomputeDuration {
-		t.Fatalf("unresolved edit intent reached persistence: %+v", store.updated)
-	}
-}
-
-func TestUpdateFieldsRecomputesDurationFromCurrentStart(t *testing.T) {
-	start := time.Date(2026, 1, 2, 9, 0, 0, 0, time.UTC)
-	end := start.Add(2 * time.Hour)
-	store := &sessionEditStoreStub{current: model.Session{StartAt: start}}
-	service := &Service{queries: store, sessions: store}
-	err := service.UpdateFields(context.Background(), appmodel.SessionUpdateRequest{
-		TeamID: 4, CallerID: 12, SessionID: 31, RecomputeDuration: true,
-		Update: appmodel.SessionUpdate{EndAt: &end, UpdatedAt: end},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if store.updated.Update.AccumulatedSeconds == nil || *store.updated.Update.AccumulatedSeconds != 2*60*60 {
-		t.Fatalf("recomputed duration = %+v", store.updated.Update.AccumulatedSeconds)
-	}
-	if store.updated.RecomputeDuration {
-		t.Fatal("recompute intent reached persistence")
-	}
-}
-
-func TestUpdateFieldsRejectsInvalidSessionBeforePersistence(t *testing.T) {
-	start := time.Date(2026, 1, 2, 9, 0, 0, 0, time.UTC)
-	end := start.Add(-time.Minute)
-	store := &sessionEditStoreStub{current: model.Session{StartAt: start}}
-	service := &Service{queries: store, sessions: store}
-	err := service.UpdateFields(context.Background(), appmodel.SessionUpdateRequest{
-		TeamID: 4, CallerID: 12, SessionID: 31, RecomputeDuration: true,
-		Update: appmodel.SessionUpdate{EndAt: &end, UpdatedAt: start},
-	})
-	if !errors.Is(err, appmodel.ErrInvalidSessionPeriod) {
-		t.Fatalf("invalid interval error = %v", err)
+	if !errors.Is(err, appmodel.ErrInvalidSessionLength) {
+		t.Fatalf("invalid duration error = %v", err)
 	}
 	if store.updated.SessionID != 0 {
-		t.Fatalf("invalid interval reached persistence: %+v", store.updated)
+		t.Fatalf("invalid duration reached persistence: %+v", store.updated)
+	}
+}
+
+func TestUpdateFieldsPropagatesTransactionalIntervalError(t *testing.T) {
+	wantErr := appmodel.ErrInvalidSessionPeriod
+	store := &sessionEditStoreStub{err: wantErr}
+	service := &Service{sessions: store}
+	updatedAt := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
+	err := service.UpdateFields(context.Background(), appmodel.SessionUpdateRequest{
+		TeamID: 4, CallerID: 12, SessionID: 31, RecomputeDuration: true,
+		Update: appmodel.SessionUpdate{UpdatedAt: updatedAt},
+	})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("transactional interval error = %v, want %v", err, wantErr)
 	}
 }
