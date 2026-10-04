@@ -14,6 +14,16 @@ type activityLookupStub struct {
 	query appmodel.ActivityLookupQuery
 }
 
+type sessionLookupStub struct {
+	SessionQueryStore
+	query appmodel.SessionLookupQuery
+}
+
+func (stub *sessionLookupStub) GetSession(_ context.Context, query appmodel.SessionLookupQuery) (model.Session, error) {
+	stub.query = query
+	return model.Session{ID: query.SessionID, TeamID: query.TeamID}, nil
+}
+
 func (stub *activityLookupStub) GetActivity(_ context.Context, query appmodel.ActivityLookupQuery) (model.Activity, error) {
 	stub.query = query
 	return model.Activity{ID: query.ActivityID, TeamID: query.TeamID}, nil
@@ -39,5 +49,18 @@ func TestActivityLookupKeepsWorkspaceAndActivityTogether(t *testing.T) {
 	want := appmodel.ActivityLookupQuery{TeamID: 4, ActivityID: 9}
 	if got.TeamID != want.TeamID || got.ID != want.ActivityID || store.query != want {
 		t.Fatalf("activity lookup = %+v, query %+v; want %+v", got, store.query, want)
+	}
+}
+
+func TestSessionLookupKeepsWorkspaceAndSessionTogether(t *testing.T) {
+	store := &sessionLookupStub{}
+	service := &Service{queries: store}
+	got, err := service.Session(context.Background(), 4, 9)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := appmodel.SessionLookupQuery{TeamID: 4, SessionID: 9}
+	if got.TeamID != want.TeamID || got.ID != want.SessionID || store.query != want {
+		t.Fatalf("session lookup = %+v, query %+v; want %+v", got, store.query, want)
 	}
 }

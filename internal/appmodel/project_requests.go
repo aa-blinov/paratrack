@@ -102,12 +102,6 @@ type ProjectSpansQuery struct {
 	Through time.Time
 }
 
-// ActivityLookupQuery resolves one activity within its workspace.
-type ActivityLookupQuery struct {
-	TeamID     int64
-	ActivityID int64
-}
-
 // ProjectUsageQuery combines the catalog selection with the usage window.
 type ProjectUsageQuery struct {
 	Catalog    ProjectCatalogQuery

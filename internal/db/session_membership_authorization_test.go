@@ -164,7 +164,7 @@ func TestSessionTransitionsRejectUnscopedWorkspace(t *testing.T) {
 	if _, err := d.FocusActivity(ctx, appmodel.TimerFocusRequest{TeamID: 0, ActivityID: activity.ID, At: now.Add(time.Minute)}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("unscoped focus error = %v, want forbidden", err)
 	}
-	stored, err := d.GetSession(ctx, teamID, session.ID)
+	stored, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: session.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,7 +201,7 @@ func TestRemovingMemberEmitsTransactionalSessionStoppedEvent(t *testing.T) {
 	if err := d.RemoveTeamMember(ctx, appmodel.TeamMemberRemovalRequest{TeamID: teamID, TargetUserID: memberID, CallerID: ownerID, LeftAt: stoppedAt}); err != nil {
 		t.Fatal(err)
 	}
-	stoppedSession, err := d.GetSession(ctx, teamID, session.ID)
+	stoppedSession, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: session.ID})
 	if err != nil || stoppedSession.EndAt == nil || !stoppedSession.EndAt.Equal(stoppedAt) {
 		t.Fatalf("session after member removal = %+v, err=%v, want ended at %s", stoppedSession, err, stoppedAt)
 	}

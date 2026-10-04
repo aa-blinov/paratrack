@@ -27,7 +27,7 @@ func TestFocusActivityReturnsIDForNewSession(t *testing.T) {
 	if !first.Started || first.StartedSessionID <= 0 {
 		t.Fatalf("new focus result = %+v, want a started session ID", first)
 	}
-	session, err := d.GetSession(ctx, teamID, first.StartedSessionID)
+	session, err := d.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: first.StartedSessionID})
 	if err != nil {
 		t.Fatal(err)
 	}

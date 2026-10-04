@@ -13,12 +13,14 @@ type sessionActivityLookupStub struct {
 	SessionActivityReader
 	teamID        int64
 	sessionID     int64
+	sessionQuery  appmodel.SessionLookupQuery
 	activityQuery appmodel.ActivityLookupQuery
 }
 
-func (stub *sessionActivityLookupStub) GetSession(_ context.Context, teamID, sessionID int64) (model.Session, error) {
-	stub.teamID, stub.sessionID = teamID, sessionID
-	return model.Session{ID: sessionID, ActivityID: 12}, nil
+func (stub *sessionActivityLookupStub) GetSession(_ context.Context, query appmodel.SessionLookupQuery) (model.Session, error) {
+	stub.sessionQuery = query
+	stub.teamID, stub.sessionID = query.TeamID, query.SessionID
+	return model.Session{ID: query.SessionID, ActivityID: 12}, nil
 }
 
 func (stub *sessionActivityLookupStub) GetActivity(_ context.Context, query appmodel.ActivityLookupQuery) (model.Activity, error) {
@@ -47,7 +49,8 @@ func TestSessionActivityKeepsWorkspaceOnActivityLookup(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantQuery := appmodel.ActivityLookupQuery{TeamID: 4, ActivityID: 12}
-	if session.ID != 7 || activity.ID != 12 || activity.TeamID != 4 || reader.teamID != 4 || reader.sessionID != 7 || reader.activityQuery != wantQuery {
+	wantSessionQuery := appmodel.SessionLookupQuery{TeamID: 4, SessionID: 7}
+	if session.ID != 7 || activity.ID != 12 || activity.TeamID != 4 || reader.teamID != 4 || reader.sessionID != 7 || reader.sessionQuery != wantSessionQuery || reader.activityQuery != wantQuery {
 		t.Fatalf("session/activity = %+v/%+v, lookup = team %d session %d query %+v", session, activity, reader.teamID, reader.sessionID, reader.activityQuery)
 	}
 }
