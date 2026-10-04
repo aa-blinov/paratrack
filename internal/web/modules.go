@@ -127,11 +127,12 @@ type presetView struct {
 
 type sectionsPage struct {
 	pageData
-	Modules []moduleView
-	Presets []presetView
-	Welcome bool // the onboarding step right after sign-up
-	Flash   string
-	FlashOK bool
+	SectionsReact bool
+	Modules       []moduleView
+	Presets       []presetView
+	Welcome       bool // the onboarding step right after sign-up
+	Flash         string
+	FlashOK       bool
 }
 
 func (p *sectionsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
@@ -139,7 +140,11 @@ func (p *sectionsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 func (s *Server) sectionsData(r *http.Request, welcome bool) *sectionsPage {
 	lang := resolveLang(r)
 	on := s.teamModules(r)
-	data := &sectionsPage{pageData: pageData{Title: "Sections", Active: "settings-sections", Lang: string(lang)}, Welcome: welcome}
+	title, active := "Sections", "settings-sections"
+	if welcome {
+		title, active = "Welcome", "welcome"
+	}
+	data := &sectionsPage{pageData: pageData{Title: title, Active: active, Lang: string(lang), ReactApp: true}, SectionsReact: true, Welcome: welcome}
 	for _, m := range modules {
 		data.Modules = append(data.Modules, moduleView{Key: m.Key, Icon: m.Icon, Label: m.Label, Hint: m.Hint, On: on[m.Key], Manage: m.Manage})
 	}
