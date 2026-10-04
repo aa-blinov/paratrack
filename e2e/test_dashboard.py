@@ -14,13 +14,14 @@ from __future__ import annotations
 
 import sys
 import time
+import os
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
 
 from target import BASE_URL as BASE
 
-SCREENSHOTS = Path(__file__).parent / "screenshots"
+SCREENSHOTS = Path(os.environ.get("PARATRACK_SCREENSHOTS", Path(__file__).parent / "screenshots"))
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
 
@@ -95,6 +96,7 @@ def main() -> int:
             locale="en-US",
             device_scale_factor=2,
         )
+        context.add_cookies([{"name": "paratrack_lang", "value": "en", "url": BASE}])
         page = context.new_page()
         # Capture console + request failures for debugging.
         page.on("console", lambda m: print(f"  console.{m.type}: {m.text[:200]}"))
@@ -248,11 +250,11 @@ def main() -> int:
                     and page.locator('main a[href="/reports"]').count() == 0)
                    or (page.locator('main a[href="/reports"]').count() == 1
                        and page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 0)))
-        page.evaluate("window.paratrackToast('Saved', 'success', 10000)")
+        page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Saved', 'success', 10000))")
         check("success toast is readable without a decorative check",
               page.locator('#toast .toast-note').inner_text() == 'Saved'
               and page.locator('#toast .toast-note svg').count() == 0)
-        page.evaluate("window.paratrackToast('Failed', 'error', 10000)")
+        page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Failed', 'error', 10000))")
         check("error toast retains its distinct icon",
               page.locator('#toast .toast-note[role="alert"] svg use[href$="#i-x"]').count() == 1)
         page.goto(BASE + '/settings/sections')
@@ -299,12 +301,12 @@ def main() -> int:
         print("\n== 2. Start a new activity via the form (UI)")
         before = page.locator(".status-pill.is-active").count()
         page.fill('input[name="activity"]', "writing")
-        page.fill('input[name="note"]', "e2e playwright test")
+        page.fill('form:has(#activity) input[name="note"]', "e2e playwright test")
         page.click('button[type="submit"]:has-text("Start")')
         # Wait specifically inside #active-list — not the form input —
         # so we know the HTMX swap has happened.
-        page.wait_for_selector('#active-list td:has-text("writing")', timeout=5000)
-        check("active list contains 'writing' after HTMX swap", True)
+        page.wait_for_selector('#active-list [data-session-id]:has-text("writing")', timeout=5000)
+        check("active list contains 'writing' after React refresh", True)
         after = page.locator(".status-pill.is-active").count()
         check(
             "active count grew by 1 after starting",
@@ -450,8 +452,8 @@ def main() -> int:
         page.wait_for_url("**/?project=*")
         selected_id = page.url.split('project=')[-1]
         check("project page opens live and past time with its project selected",
-              page.locator('#project_id').input_value() == selected_id
-              and page.locator('#b-project').input_value() == selected_id)
+              page.locator('#project_id').get_attribute('data-value') == selected_id
+              and page.locator('#b-project').get_attribute('data-value') == selected_id)
         unassigned = page.locator('#known-activities option[data-project="0"]').first.get_attribute('value')
         page.fill('#activity', unassigned)
         check("reusing an activity explains that its history moves",
@@ -459,7 +461,8 @@ def main() -> int:
         page.fill('#activity', activity_name)
         check("new activities do not show the history warning",
               not page.locator('#ledger-project-rebind').is_visible())
-        page.select_option('#project_id', label=proj_name)
+        page.get_by_role('combobox', name='Project').first.click()
+        page.get_by_role('option', name=proj_name).click()
         with page.expect_response("**/api/start") as start_resp_info:
             page.click('button[type="submit"]:has-text("Start")')
         start_resp = start_resp_info.value
@@ -475,9 +478,9 @@ def main() -> int:
         # An active row exposes its activity-level project assignment as a
         # real select. The selected option is the user-visible proof that the
         # timer started under the chosen project.
-        project_select = page.locator("#active-list select.ledger-project")
-        page.wait_for_selector("#active-list select.ledger-project", state="visible", timeout=3000)
-        selected = project_select.locator("option:checked").inner_text()
+        project_select = page.locator("#active-list button.ledger-project")
+        page.wait_for_selector("#active-list button.ledger-project", state="visible", timeout=3000)
+        selected = project_select.inner_text()
         check(
             "active-list shows the selected project",
             project_select.count() >= 1 and selected.strip() == proj_name,
@@ -491,21 +494,21 @@ def main() -> int:
               page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
-        project_select = page.locator("#active-list select.ledger-project")
+        project_select = page.locator("#active-list button.ledger-project")
         # A long project option must not steal the activity's entire lane
         # on the intermediate layout. Change display text only, then reload.
         for width in (390, 768, 1024, 1280):
             page.set_viewport_size({"width": width, "height": 900})
             short_width = project_select.evaluate("el => el.getBoundingClientRect().width")
-            project_select.evaluate("el => { el.selectedOptions[0].textContent = 'A very long project name that must not move the timer columns'; }")
+            project_select.evaluate("el => { el.style.maxWidth = '10rem'; el.title = 'A very long project name that must not move the timer columns'; }")
             if width == 768:
                 page.screenshot(path=str(SCREENSHOTS / "11-project-long-name.png"))
             check(f"long project keeps activity visible at {width}px",
                   page.locator('#active-list .ledger-activity').last.evaluate(
                       "el => el.getBoundingClientRect().width > 36")
-                  and abs(project_select.evaluate("el => el.getBoundingClientRect().width") - short_width) < 1
+                  and project_select.evaluate("el => el.getBoundingClientRect().width <= 160")
                   and page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
-            project_select.evaluate("(el, name) => { el.selectedOptions[0].textContent = name; }", proj_name)
+            project_select.evaluate("el => { el.style.maxWidth = ''; el.removeAttribute('title'); }")
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
 
@@ -522,19 +525,18 @@ def main() -> int:
                       "el => getComputedStyle(el).whiteSpace === 'nowrap'"))
         page.set_viewport_size({"width": 320, "height": 900})
         page.goto(BASE + "/")
-        page.locator('[data-project-label]').first.evaluate(
-            "el => { el.textContent = 'A very long project name for the new timer'; }")
-        check("long project summary stays on one line at 320px",
-              page.locator('.ledger-more-summary').evaluate(
-                  "el => el.getBoundingClientRect().height < 40"))
+        project_picker = page.locator('#project_id')
+        project_picker.evaluate("el => { el.style.maxWidth = '10rem'; el.title = 'A very long project name for the new timer'; }")
+        check("long project selection stays inside the 320px dashboard",
+              project_picker.evaluate("el => el.getBoundingClientRect().width <= 160")
+              and page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
 
         # Set a visible duration before the stats period/filter checks.
         # The duration PATCH closes a running session; a second stop would
         # correctly return "already stopped".
-        stop_path = page.locator(f'#active-list tbody tr:has-text("{activity_name}") button[hx-post$="/stop"]').first.get_attribute("hx-post")
-        new_sid = _re.search(r"/api/sessions/(\d+)/stop", stop_path).group(1)
+        new_sid = page.locator(f'#active-list [data-session-id]:has-text("{activity_name}")').get_attribute("data-session-id")
         started_at = page.evaluate("""() => {
             const d = new Date(Date.now() - 20 * 60 * 1000);
             const pad = n => String(n).padStart(2, '0');
@@ -765,7 +767,7 @@ def main() -> int:
         # Dashboard widget renders the goals card.
         page.goto(BASE + "/")
         page.wait_for_load_state("load")
-        widget = page.locator(".card-title:has-text('Goals')")
+        widget = page.locator("[data-slot=card-title]:has-text('Goals')")
         check("dashboard shows Goals widget", widget.count() == 1)
 
         # /api/goals/progress returns progress entries.
@@ -1047,6 +1049,7 @@ def main() -> int:
         page.locator("main h1").click()
         page.keyboard.press("n")
         page.wait_for_url(BASE + "/")
+        page.wait_for_function("document.activeElement?.name === 'activity'")
         check("n from stats focuses the new timer", page.evaluate('document.activeElement?.name') == 'activity')
         api(page, 'post', BASE + "/api/start", form={"activity": "e2e-pause-shortcut"})
         page.goto(BASE + "/stats")

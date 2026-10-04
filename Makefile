@@ -1,6 +1,6 @@
 # paratrack — common dev tasks.
 #
-#   make ui           install npm deps + build paratrack.css via Tailwind/DaisyUI
+#   make ui           install npm deps + build legacy CSS and React UI via Tailwind/Vite
 #   make build        compile a /tmp/paratrack binary (auto-runs `make ui` first)
 #   make install      go install into $GOBIN
 #   make run          build + run the CLI (pass args via RUN=...)

@@ -7,7 +7,7 @@ GitHub Actions is the source of truth for pushes and pull requests targeting
 
 | Job | Commands / coverage |
 |---|---|
-| UI build | `npm ci`, `npm run build`, `npm run test:js` |
+| UI build | `npm ci`, `npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run test:js` |
 | Architecture | `make verify` (Go static/security/build checks, architecture rules, JS lint/import graph and npm audit) |
 | Go tests | `go test -race -count=1 -p 1 ./...` plus coverage for `internal/db`, `internal/web` and `internal/timeparse` |
 | Browser E2E | `python e2e/test_dashboard.py` against the CI Postgres service |
@@ -38,7 +38,7 @@ Start the local service with `make e2e-up` before running them. Set
 | Block | Checks |
 |---|---|
 | A. Auth | register, login, logout, forgot-password reachable, lang switch on public pages |
-| B. Timer | start, pause, resume, stop, backfill, active-list HTMX swap |
+| B. Timer | start, pause, resume, stop, backfill, dashboard refresh |
 | C. Dashboard | active sessions, focus button, duration readout |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |

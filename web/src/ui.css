@@ -1,0 +1,239 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@custom-variant dark (&:where([data-theme=paratrack-dark], [data-theme=paratrack-dark] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 10px;
+}
+
+:root {
+  color-scheme: light;
+  --background: #f9fafb;
+  --foreground: #1a1d23;
+  --card: #ffffff;
+  --card-foreground: #1a1d23;
+  --popover: #ffffff;
+  --popover-foreground: #1a1d23;
+  --primary: #1f2937;
+  --primary-foreground: #f9fafb;
+  --secondary: #f3f4f6;
+  --secondary-foreground: #1a1d23;
+  --muted: #f3f4f6;
+  --muted-foreground: #596273;
+  --accent: #eef2ff;
+  --accent-foreground: #3730a3;
+  --destructive: #dc2626;
+  --border: #e5e7eb;
+  --input: #d1d5db;
+  --ring: #6366f1;
+  --radius: 10px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "cv11", "ss01";
+  font-variation-settings: "opsz" 32;
+}
+
+[data-theme="paratrack-dark"] {
+  color-scheme: dark;
+  --background: #232730;
+  --foreground: #e5e7eb;
+  --card: #1a1d23;
+  --card-foreground: #e5e7eb;
+  --popover: #1a1d23;
+  --popover-foreground: #e5e7eb;
+  --primary: #e5e7eb;
+  --primary-foreground: #0f1115;
+  --secondary: #2d3139;
+  --secondary-foreground: #e5e7eb;
+  --muted: #2d3139;
+  --muted-foreground: #a5adba;
+  --accent: #292b43;
+  --accent-foreground: #c7d2fe;
+  --destructive: #f87171;
+  --border: #2d3139;
+  --input: #454b57;
+  --ring: #818cf8;
+}
+
+#paratrack-react-root {
+  color: var(--foreground);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.55;
+  font-feature-settings: "tnum";
+}
+
+#paratrack-react-root {
+  width: 100%;
+  min-width: 0;
+}
+
+#paratrack-react-root :where(button, input, select, textarea) {
+  font: inherit;
+}
+
+#paratrack-react-root .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+#paratrack-react-root .data-table th,
+#paratrack-react-root .data-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.65rem 0.75rem;
+  vertical-align: middle;
+}
+
+#paratrack-react-root .data-table th {
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+#paratrack-react-root .data-table tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--secondary) 55%, transparent);
+}
+
+#paratrack-react-root .numeric {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#paratrack-react-root .status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+#paratrack-react-root .status-pill[data-state="running"] {
+  background: color-mix(in srgb, #10b981 15%, transparent);
+  color: #047857;
+}
+
+#paratrack-react-root .status-pill[data-state="paused"] {
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  color: #92400e;
+}
+
+[data-theme="paratrack-dark"] #paratrack-react-root .status-pill[data-state="running"] {
+  color: #6ee7b7;
+}
+
+[data-theme="paratrack-dark"] #paratrack-react-root .status-pill[data-state="paused"] {
+  color: #fcd34d;
+}
+
+#paratrack-react-root .activity-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.5rem;
+  font-weight: 550;
+}
+
+#paratrack-react-root .activity-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+#paratrack-react-root .mobile-data-label {
+  display: none;
+}
+
+#paratrack-react-root .react-live-region {
+  min-height: 1.4rem;
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+@media (max-width: 639px) {
+  #paratrack-react-root .data-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+
+  #paratrack-react-root .data-table,
+  #paratrack-react-root .data-table tbody,
+  #paratrack-react-root .data-table tr,
+  #paratrack-react-root .data-table td {
+    display: block;
+    width: 100%;
+  }
+
+  #paratrack-react-root .data-table tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.35rem 0.75rem;
+    padding: 0.75rem 0;
+  }
+
+  #paratrack-react-root .data-table td {
+    border: 0;
+    padding: 0;
+  }
+
+  #paratrack-react-root .data-table td[data-cell="activity"],
+  #paratrack-react-root .data-table td[data-cell="actions"] {
+    grid-column: 1 / -1;
+  }
+
+  #paratrack-react-root .data-table td[data-cell="actions"] {
+    grid-row: 1;
+  }
+
+  #paratrack-react-root .data-table td[data-cell="activity"] {
+    grid-row: 2;
+  }
+
+  #paratrack-react-root .data-table .mobile-data-label {
+    display: inline;
+    margin-right: 0.45rem;
+    color: var(--muted-foreground);
+    font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+    font-size: 0.75rem;
+  }
+}
+
+@media (pointer: coarse) {
+  #paratrack-react-root button,
+  #paratrack-react-root input,
+  #paratrack-react-root select {
+    min-height: 44px;
+  }
+}
+
+#paratrack-react-root :focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}

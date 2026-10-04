@@ -47,12 +47,20 @@ jobs:
         working-directory: web
         run: npm run build
 
+      - name: Typecheck React UI
+        working-directory: web
+        run: npm run typecheck
+
+      - name: Test React UI helpers
+        working-directory: web
+        run: npm run test:unit
+
       - name: Test frontend JavaScript helpers
         working-directory: web
         run: npm run test:js
 
       - name: Verify output exists
-        run: test -s internal/web/static/css/paratrack.css
+        run: test -s internal/web/static/css/paratrack.css && test -s internal/web/static/ui/app.js && test -s internal/web/static/ui/app.css
 
   architecture:
     name: Static and architecture checks
