@@ -5,7 +5,6 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/reportstats"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -40,7 +39,7 @@ type chartLegendEntry struct {
 // across activities. Sessions spanning multiple hours are split so a
 // 10:30→13:45 session contributes 30 min to the 10:00 bucket, 60 to
 // 11:00, 60 to 12:00 and 45 to 13:00.
-func buildChartData(sessions []model.ActiveSession, period timeparse.Period, now time.Time, lang i18n.Lang) (ChartData, error) {
+func buildChartData(sessions []appmodel.ActiveSession, period timeparse.Period, now time.Time, lang i18n.Lang) (ChartData, error) {
 	graph, err := reportstats.HourlyGraph(sessions, period.Start, period.End, now)
 	if err != nil {
 		return ChartData{}, err

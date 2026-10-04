@@ -48,10 +48,10 @@ type SessionStore interface {
 // SessionQueryStore provides scoped session history and summary reads.
 type SessionQueryStore interface {
 	GetSession(context.Context, appmodel.SessionLookupQuery) (model.Session, error)
-	ListActiveSessions(context.Context, int64) ([]model.ActiveSession, error)
-	ListClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
+	ListActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error)
+	ListClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 	HasAnySession(context.Context, int64) (bool, error)
-	ListSessionsPage(context.Context, appmodel.SessionHistoryPageQuery) ([]model.ActiveSession, bool, error)
+	ListSessionsPage(context.Context, appmodel.SessionHistoryPageQuery) ([]appmodel.ActiveSession, bool, error)
 }
 
 // ActivityStore provides activity lookup and lifecycle operations.
@@ -197,7 +197,7 @@ func (s *Service) Timesheet(ctx context.Context, request appmodel.TimesheetReque
 	return grid, nil
 }
 
-func (s *Service) ActiveSessions(ctx context.Context, teamID int64) ([]model.ActiveSession, error) {
+func (s *Service) ActiveSessions(ctx context.Context, teamID int64) ([]appmodel.ActiveSession, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidStart
 	}
@@ -208,7 +208,7 @@ func (s *Service) ActiveSessions(ctx context.Context, teamID int64) ([]model.Act
 	return sessions, nil
 }
 
-func (s *Service) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
+func (s *Service) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error) {
 	if query.TeamID <= 0 || query.Start.IsZero() || query.End.Before(query.Start) ||
 		(query.ActivityID != nil && *query.ActivityID <= 0) || (query.ProjectID != nil && *query.ProjectID <= 0) {
 		return nil, ErrInvalidInterval

@@ -19,7 +19,7 @@ type ProjectUsage struct {
 
 // ProjectActivitySummary contains recent sessions and total time for a project.
 type ProjectActivitySummary struct {
-	Recent        []model.ActiveSession
+	Recent        []ActiveSession
 	RecentSeconds int
 	TotalSeconds  int
 }

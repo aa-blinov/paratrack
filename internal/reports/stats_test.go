@@ -1,6 +1,7 @@
 package reports
 
 import (
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"testing"
 	"time"
 
@@ -13,7 +14,7 @@ func TestSummarizeStatsBuildsActivityAndProjectBreakdowns(t *testing.T) {
 		value := start.Add(time.Duration(seconds) * time.Second)
 		return &value
 	}
-	sessions := []model.ActiveSession{
+	sessions := []appmodel.ActiveSession{
 		{Session: model.Session{ID: 1, StartAt: start, EndAt: end(3600), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "Build", ProjectID: 7}},
 		{Session: model.Session{ID: 2, StartAt: start, EndAt: end(1800), AccumulatedSeconds: 1800}, Activity: model.Activity{Name: "Build", ProjectID: 7}},
 		{Session: model.Session{ID: 3, StartAt: start, EndAt: end(1800), AccumulatedSeconds: 1800}, Activity: model.Activity{Name: "Review"}},

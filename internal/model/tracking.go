@@ -176,9 +176,3 @@ func safeOverlapDurationSeconds(start, end time.Time) int64 {
 
 // Active reports whether the session is open and unfinished.
 func (s Session) Active() bool { return s.EndAt == nil }
-
-// ActiveSession pairs a session with its activity for display.
-type ActiveSession struct {
-	Session  Session
-	Activity Activity
-}

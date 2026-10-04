@@ -1,6 +1,7 @@
 package reportstats
 
 import (
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"math"
 	"testing"
 	"time"
@@ -11,7 +12,7 @@ import (
 func TestSummarizeTotalsSharesAndStableOrdering(t *testing.T) {
 	start := time.Date(2026, time.January, 5, 9, 0, 0, 0, time.UTC)
 	end := start.Add(time.Hour)
-	active := []model.ActiveSession{
+	active := []appmodel.ActiveSession{
 		sessionForStats("Alpha", 2, start, end, 3600),
 		sessionForStats("Zulu", 2, start, end, 1800),
 		sessionForStats("Alpha", 2, start, end, 1800),
@@ -72,7 +73,7 @@ func TestHourlyGraphSplitsTrackedMinutesAcrossHourBuckets(t *testing.T) {
 	end := time.Date(2026, time.June, 1, 13, 45, 0, 0, location)
 	tracked := int(end.Sub(start).Seconds())
 
-	got, err := HourlyGraph([]model.ActiveSession{
+	got, err := HourlyGraph([]appmodel.ActiveSession{
 		sessionForStats("Focus", 0, start, end, tracked),
 	}, from, from.AddDate(0, 0, 1), end)
 	if err != nil {
@@ -97,7 +98,7 @@ func TestHourlyGraphUsesLocalHourAndStableSeriesOrder(t *testing.T) {
 	from := time.Date(2026, time.June, 1, 0, 0, 0, 0, location)
 	start := time.Date(2026, time.June, 1, 14, 0, 0, 0, location)
 	end := start.Add(time.Hour)
-	sessions := []model.ActiveSession{
+	sessions := []appmodel.ActiveSession{
 		sessionForStats("Zulu", 0, start, end, 3600),
 		sessionForStats("Alpha", 0, start, end, 3600),
 	}
@@ -114,8 +115,8 @@ func TestHourlyGraphUsesLocalHourAndStableSeriesOrder(t *testing.T) {
 	}
 }
 
-func sessionForStats(activity string, projectID int64, start, end time.Time, seconds int) model.ActiveSession {
-	return model.ActiveSession{
+func sessionForStats(activity string, projectID int64, start, end time.Time, seconds int) appmodel.ActiveSession {
+	return appmodel.ActiveSession{
 		Session:  model.Session{StartAt: start, EndAt: &end, AccumulatedSeconds: seconds},
 		Activity: model.Activity{Name: activity, ProjectID: projectID},
 	}

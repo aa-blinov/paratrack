@@ -17,7 +17,7 @@ var ErrInvalidReportQuery = errors.New("invalid report query")
 var ErrIncompleteBuilderDependencies = errors.New("report builder dependencies are incomplete")
 
 type SessionReader interface {
-	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error)
+	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 }
 
 type TagReader interface {
@@ -114,7 +114,7 @@ func (b *Builder) BuildGraph(ctx context.Context, query GraphQuery) (GraphResult
 		if err != nil {
 			return GraphResult{}, fmt.Errorf("load graph session tags: %w", err)
 		}
-		filtered = make([]model.ActiveSession, 0, len(sessions))
+		filtered = make([]appmodel.ActiveSession, 0, len(sessions))
 		for _, session := range sessions {
 			for _, tag := range tagsBySession[session.Session.ID] {
 				if tag.Name == query.Tag {
@@ -245,12 +245,12 @@ func (b *Builder) loadPersonScope(ctx context.Context, teamID, requestedID int64
 
 // loadProjectSessions resolves an optional slug and applies its workspace
 // scope before either stats or graph presentation adds its own filters.
-func (b *Builder) loadProjectSessions(ctx context.Context, teamID int64, from, to time.Time, slug string) (model.Project, []model.ActiveSession, error) {
+func (b *Builder) loadProjectSessions(ctx context.Context, teamID int64, from, to time.Time, slug string) (model.Project, []appmodel.ActiveSession, error) {
 	project, err := b.resolveProjectSlug(ctx, teamID, slug)
 	if err != nil {
 		return model.Project{}, nil, err
 	}
-	var sessions []model.ActiveSession
+	var sessions []appmodel.ActiveSession
 	query := appmodel.ClosedSessionsQuery{TeamID: teamID, Start: from, End: to}
 	if project.ID > 0 {
 		query.ProjectID = &project.ID
@@ -352,7 +352,7 @@ func (b *Builder) BuildExport(ctx context.Context, query appmodel.ExportBuildQue
 	if err != nil {
 		return appmodel.ExportSnapshot{}, fmt.Errorf("load export sessions: %w", err)
 	}
-	visible := make([]model.ActiveSession, 0, len(sessions))
+	visible := make([]appmodel.ActiveSession, 0, len(sessions))
 	projectIDs := make([]int64, 0)
 	seenProjects := make(map[int64]struct{})
 	for _, session := range sessions {

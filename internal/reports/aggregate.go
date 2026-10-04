@@ -13,7 +13,7 @@ import (
 // AggregateInput contains the data needed to build a reusable report. The
 // adapter loads it and remains responsible for localized labels and output.
 type AggregateInput struct {
-	Sessions          []model.ActiveSession
+	Sessions          []appmodel.ActiveSession
 	Projects          map[int64]model.Project
 	ProjectCurrencies map[int64]string
 	UserNames         map[int64]string

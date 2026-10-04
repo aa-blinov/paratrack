@@ -61,7 +61,7 @@ func TestBuildBatchesDistinctSessionAndProjectIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sessions := []model.ActiveSession{
+	sessions := []appmodel.ActiveSession{
 		{Session: model.Session{ID: 2}, Activity: model.Activity{ProjectID: 7}},
 		{Session: model.Session{ID: 2}, Activity: model.Activity{ProjectID: 7}},
 		{Session: model.Session{ID: 3}},
@@ -91,7 +91,7 @@ func TestBuildKeepsSessionRowsWhenOptionalDecorationsFail(t *testing.T) {
 		t.Fatal(err)
 	}
 	snapshot, err := builder.Build(context.Background(), appmodel.SessionDecorationRequest{
-		TeamID: 4, Sessions: []model.ActiveSession{{Session: model.Session{ID: 1}, Activity: model.Activity{ProjectID: 9}}},
+		TeamID: 4, Sessions: []appmodel.ActiveSession{{Session: model.Session{ID: 1}, Activity: model.Activity{ProjectID: 9}}},
 		IncludeTags: true, IncludeProjects: true,
 	})
 	if err != nil {
