@@ -50,7 +50,7 @@ func TestProjectUsageQueriesIgnoreCrossWorkspaceRelationships(t *testing.T) {
 	if total != 0 {
 		t.Fatalf("ProjectTrackedTotal = %d, want 0 for a foreign project", total)
 	}
-	spans, err := d.ProjectSpans(ctx, teamB, start.Add(-time.Hour), start.Add(2*time.Hour))
+	spans, err := d.ProjectSpans(ctx, appmodel.ProjectSpansQuery{TeamID: teamB, From: start.Add(-time.Hour), Through: start.Add(2 * time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}

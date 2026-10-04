@@ -173,13 +173,13 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 	if resp := post("1", "99999"); resp.code != 303 || !strings.Contains(resp.loc, "flash=") {
 		t.Fatalf("assignment to unknown project: %+v", resp)
 	}
-	if a, _ := e.db.GetActivity(t.Context(), 1, activityID); a.ProjectID != 0 {
+	if a, _ := e.db.GetActivity(t.Context(), appmodel.ActivityLookupQuery{TeamID: 1, ActivityID: activityID}); a.ProjectID != 0 {
 		t.Fatal("failed assignment changed the activity")
 	}
 	if resp := post("1", "1"); resp.code != 303 || !strings.Contains(resp.loc, "project=1") {
 		t.Fatalf("assignment failed: %+v", resp)
 	}
-	if a, _ := e.db.GetActivity(t.Context(), 1, activityID); a.ProjectID != 1 {
+	if a, _ := e.db.GetActivity(t.Context(), appmodel.ActivityLookupQuery{TeamID: 1, ActivityID: activityID}); a.ProjectID != 1 {
 		t.Fatal("past sessions did not move with the activity")
 	}
 	bill := e.do("POST", "/invoices", url.Values{"project_id": {"1"}, "client": {"Customer"}, "start": {day}, "end": {day}}, nil)
@@ -204,7 +204,7 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 	if resp := post("1", "1"); resp.code != 303 || !strings.Contains(resp.loc, "flash=") {
 		t.Fatalf("billed activity was reattached: %+v", resp)
 	}
-	if a, _ := e.db.GetActivity(t.Context(), 1, activityID); a.ProjectID != 0 {
+	if a, _ := e.db.GetActivity(t.Context(), appmodel.ActivityLookupQuery{TeamID: 1, ActivityID: activityID}); a.ProjectID != 0 {
 		t.Fatal("billed history changed project")
 	}
 	if page := readBody(t, e.do("GET", "/invoices", nil, nil)); strings.Contains(page, `name="activity_id" value="`+fmt.Sprint(activityID)+`"`) {

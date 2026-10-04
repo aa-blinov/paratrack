@@ -22,13 +22,13 @@ type ProjectCatalogStore interface {
 	ListActivitiesForProject(context.Context, appmodel.ProjectActivityCatalogQuery) ([]model.Activity, error)
 	GetProjectInTeam(context.Context, appmodel.ProjectScopeQuery) (model.Project, error)
 	GetProjectBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
-	GetActivity(context.Context, int64, int64) (model.Activity, error)
+	GetActivity(context.Context, appmodel.ActivityLookupQuery) (model.Activity, error)
 }
 
 // ProjectUsageStore provides team-scoped usage summaries.
 type ProjectUsageStore interface {
 	ProjectActivityCounts(context.Context, int64) (map[int64]int, error)
-	ProjectSpans(context.Context, int64, time.Time, time.Time) ([]model.ProjectSessionSpan, error)
+	ProjectSpans(context.Context, appmodel.ProjectSpansQuery) ([]model.ProjectSessionSpan, error)
 	ProjectSummaries(context.Context, appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error)
 	ProjectSessions(context.Context, appmodel.ProjectActivityQuery) ([]model.ActiveSession, error)
 	ProjectTrackedTotal(context.Context, appmodel.ProjectScopeQuery) (int, error)
@@ -153,7 +153,7 @@ func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, toda
 	if teamID <= 0 || todayStart.IsZero() || monthStart.IsZero() || now.IsZero() || todayStart.After(now) || monthStart.After(now) {
 		return nil, model.ErrNotFound
 	}
-	spans, err := s.usage.ProjectSpans(ctx, teamID, monthStart, now)
+	spans, err := s.usage.ProjectSpans(ctx, appmodel.ProjectSpansQuery{TeamID: teamID, From: monthStart, Through: now})
 	if err != nil {
 		return nil, fmt.Errorf("load project time spans: %w", err)
 	}
@@ -319,7 +319,7 @@ func (s *Service) AssignActivity(ctx context.Context, request appmodel.AssignAct
 	if role.CanManage() {
 		return s.writes.AssignActivityProject(ctx, request)
 	}
-	activity, err := s.catalog.GetActivity(ctx, request.TeamID, request.ActivityID)
+	activity, err := s.catalog.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: request.TeamID, ActivityID: request.ActivityID})
 	if errors.Is(err, model.ErrNotFound) {
 		return model.ErrNotFound
 	}

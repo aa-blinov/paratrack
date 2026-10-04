@@ -207,7 +207,7 @@ func TestDeleteProject_PreservesActivities(t *testing.T) {
 	if err := d.DeleteProject(ctx, appmodel.ProjectMutationRequest{TeamID: teamID, ProjectID: p.ID, CallerID: teamOwner(t, d, teamID)}); err != nil {
 		t.Fatal(err)
 	}
-	got, err := d.GetActivity(ctx, teamID, a.ID)
+	got, err := d.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: teamID, ActivityID: a.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +319,7 @@ func TestAssignActivityProject_RechecksManagerRole(t *testing.T) {
 	if err := d.AssignActivityProject(ctx, appmodel.AssignActivityProjectRequest{TeamID: teamID, ActivityID: activity.ID, ProjectID: project.ID, CallerID: memberID}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("expected current member role to be rechecked, got %v", err)
 	}
-	got, err := d.GetActivity(ctx, teamID, activity.ID)
+	got, err := d.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: teamID, ActivityID: activity.ID})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -345,7 +345,7 @@ func TestAssignFirstActivityProject_RequiresCurrentMembership(t *testing.T) {
 	if err := d.AssignFirstActivityProject(ctx, appmodel.AssignActivityProjectRequest{TeamID: teamID, ActivityID: activity.ID, ProjectID: project.ID, CallerID: outsiderID}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("expected current membership check to reject outsider, got %v", err)
 	}
-	got, err := d.GetActivity(ctx, teamID, activity.ID)
+	got, err := d.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: teamID, ActivityID: activity.ID})
 	if err != nil {
 		t.Fatal(err)
 	}

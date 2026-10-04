@@ -44,12 +44,12 @@ func (d *DB) createActivity(ctx context.Context, request legacyActivityRequest) 
 }
 
 // GetActivity fetches one activity from the requested workspace.
-func (d *DB) GetActivity(ctx context.Context, teamID, id int64) (model.Activity, error) {
-	if teamID <= 0 || id <= 0 {
+func (d *DB) GetActivity(ctx context.Context, query appmodel.ActivityLookupQuery) (model.Activity, error) {
+	if query.TeamID <= 0 || query.ActivityID <= 0 {
 		return model.Activity{}, ErrNotFound
 	}
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ? AND team_id = ?`, id, teamID)
+		`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ? AND team_id = ?`, query.ActivityID, query.TeamID)
 	return scanActivity(row)
 }
 
