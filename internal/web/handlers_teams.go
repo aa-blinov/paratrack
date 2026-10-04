@@ -85,7 +85,7 @@ type inviteView struct {
 	Live      bool
 }
 
-func inviteViews(invites []model.TeamInvite, now time.Time) []inviteView {
+func inviteViews(invites []appmodel.TeamInviteResult, now time.Time) []inviteView {
 	views := make([]inviteView, 0, len(invites))
 	for _, invite := range invites {
 		views = append(views, inviteViewOf(invite, now))
@@ -93,7 +93,7 @@ func inviteViews(invites []model.TeamInvite, now time.Time) []inviteView {
 	return views
 }
 
-func inviteViewOf(invite model.TeamInvite, now time.Time) inviteView {
+func inviteViewOf(invite appmodel.TeamInviteResult, now time.Time) inviteView {
 	used := invite.Used()
 	expired := !used && invite.ExpiredAt(now)
 	return inviteView{

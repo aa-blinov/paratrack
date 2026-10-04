@@ -35,6 +35,7 @@ func TestSensitiveApplicationFieldsAreExcludedFromJSON(t *testing.T) {
 		{"task integration credential", integrationport.ProviderInput{Secret: "task-provider-secret-marker", Config: integrationport.ProviderConfig{Target: "private-provider-config-marker"}}, "private-provider-config-marker"},
 		{"workspace stripe key", TeamStripeCredentialsRequest{Key: "stripe-key-marker", Secret: "stripe-secret-marker"}, "stripe-key-marker"},
 		{"invite token", TeamInviteAcceptRequest{Token: "invite-request-token-marker"}, "invite-request-token-marker"},
+		{"invite result token", TeamInviteResult{Token: "invite-result-token-marker"}, "invite-result-token-marker"},
 		{"integration secret", IntegrationCreateRequest{Secret: "integration-create-secret-marker", Config: IntegrationConfig{Target: "private-integration-target-marker"}}, "private-integration-target-marker"},
 		{"push endpoint", PushSubscribeRequest{Endpoint: "push-request-endpoint-marker"}, "push-request-endpoint-marker"},
 		{"push key", PushSubscribeRequest{PublicKey: "push-request-public-key-marker"}, "push-request-public-key-marker"},

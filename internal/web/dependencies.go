@@ -359,9 +359,9 @@ type TeamDirectory interface {
 // TeamInvitations handles workspace invitation lifecycle operations.
 type TeamInvitations interface {
 	AcceptInvite(context.Context, appmodel.TeamInviteAcceptRequest) (model.Team, error)
-	FindInvite(context.Context, string) (model.TeamInvite, error)
-	InvitesForTeam(context.Context, int64) ([]model.TeamInvite, error)
-	NewInvite(context.Context, appmodel.TeamInviteCreateRequest) (model.TeamInvite, error)
+	FindInvite(context.Context, string) (appmodel.TeamInviteResult, error)
+	InvitesForTeam(context.Context, int64) ([]appmodel.TeamInviteResult, error)
+	NewInvite(context.Context, appmodel.TeamInviteCreateRequest) (appmodel.TeamInviteResult, error)
 	RevokeInvite(context.Context, appmodel.TeamInviteRevokeRequest) error
 }
 
