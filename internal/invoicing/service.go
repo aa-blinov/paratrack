@@ -13,6 +13,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/postcommit"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
@@ -259,15 +260,29 @@ func (s *Service) OverlappingDocuments(ctx context.Context, teamID, exceptID int
 	return numbers, nil
 }
 
-func (s *Service) Get(ctx context.Context, teamID, invoiceID int64) (model.InvoiceDetails, error) {
+func (s *Service) Get(ctx context.Context, teamID, invoiceID int64) (appmodel.InvoiceDetailResult, error) {
 	if teamID <= 0 || invoiceID <= 0 {
-		return model.InvoiceDetails{}, ErrInvalidInvoice
+		return appmodel.InvoiceDetailResult{}, ErrInvalidInvoice
 	}
 	details, err := s.reader.GetInvoiceDetails(ctx, teamID, invoiceID)
 	if err != nil {
-		return model.InvoiceDetails{}, fmt.Errorf("get invoice details: %w", err)
+		return appmodel.InvoiceDetailResult{}, fmt.Errorf("get invoice details: %w", err)
 	}
-	return details, nil
+	totalCents, totalHours := 0, 0
+	for _, line := range details.Lines {
+		totalCents, err = money.AddCents(totalCents, line.AmountCents)
+		if err != nil {
+			return appmodel.InvoiceDetailResult{}, fmt.Errorf("sum invoice %d: %w", details.Invoice.ID, err)
+		}
+		totalHours, err = money.AddInt(totalHours, money.HoursHundredths(line.Seconds))
+		if err != nil {
+			return appmodel.InvoiceDetailResult{}, fmt.Errorf("sum invoice %d hours: %w", details.Invoice.ID, err)
+		}
+	}
+	return appmodel.InvoiceDetailResult{
+		Invoice: details.Invoice, Lines: details.Lines,
+		TotalCents: totalCents, TotalHoursHundredths: totalHours,
+	}, nil
 }
 
 // CreateDraft snapshots billable time and commits the invoice, lines, and

@@ -10,6 +10,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
@@ -236,6 +237,43 @@ func TestCreateStripePaymentLinkKeepsProviderCredentialsInWorkflow(t *testing.T)
 	}
 	if len(audit.calls) != 1 || audit.calls[0] != [6]any{int64(4), int64(9), "invoice.paylink", "INV-12", "stripe", "203.0.113.2"} {
 		t.Fatalf("payment-link audit = %v", audit.calls)
+	}
+}
+
+func TestGetCalculatesInvoiceTotals(t *testing.T) {
+	reader := &draftReaderStub{details: model.InvoiceDetails{
+		Invoice: model.Invoice{ID: 12, TeamID: 4},
+		Lines: []model.InvoiceLine{
+			{Seconds: 1800, AmountCents: 1250},
+			{Seconds: 5400, AmountCents: 3750},
+		},
+	}}
+	service, err := NewService(testDependencies(reader, &draftWriterStub{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := service.Get(context.Background(), 4, 12)
+	if err != nil {
+		t.Fatalf("Get() error = %v", err)
+	}
+	if got.TotalCents != 5000 || got.TotalHoursHundredths != 200 {
+		t.Fatalf("Get() totals = %d cents, %d hundredths; want 5000 and 200", got.TotalCents, got.TotalHoursHundredths)
+	}
+}
+
+func TestGetRejectsInvoiceTotalOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	reader := &draftReaderStub{details: model.InvoiceDetails{
+		Invoice: model.Invoice{ID: 12},
+		Lines:   []model.InvoiceLine{{AmountCents: maxInt}, {AmountCents: 1}},
+	}}
+	service, err := NewService(testDependencies(reader, &draftWriterStub{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Get(context.Background(), 4, 12); !errors.Is(err, money.ErrOverflow) {
+		t.Fatalf("Get() overflow error = %v, want %v", err, money.ErrOverflow)
 	}
 }
 

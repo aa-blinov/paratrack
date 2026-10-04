@@ -115,18 +115,9 @@ func (s *Server) loadInvoiceVM(r *http.Request) (model.Invoice, invoiceVM, error
 		return model.Invoice{}, invoiceVM{}, err
 	}
 	inv, lines := details.Invoice, details.Lines
-	total, secs := 0, 0
 	vms := make([]invoiceLineVM, 0, len(lines))
 	lang := resolveLang(r)
 	for _, line := range lines {
-		total, err = money.AddCents(total, line.AmountCents)
-		if err != nil {
-			return model.Invoice{}, invoiceVM{}, fmt.Errorf("sum invoice %d: %w", inv.ID, err)
-		}
-		secs, err = money.AddInt(secs, money.HoursHundredths(line.Seconds))
-		if err != nil {
-			return model.Invoice{}, invoiceVM{}, fmt.Errorf("sum invoice %d hours: %w", inv.ID, err)
-		}
 		vms = append(vms, invoiceLineVM{
 			Label: line.Label, Hours: fmtHoursL(lang, money.HoursHundredths(line.Seconds)),
 			Rate: moneyL(lang, line.RateCents, inv.Currency), Amount: moneyL(lang, line.AmountCents, inv.Currency),
@@ -138,7 +129,8 @@ func (s *Server) loadInvoiceVM(r *http.Request) (model.Invoice, invoiceVM, error
 		PeriodLabel: fmtDate(lang, inv.PeriodStart) + " – " + fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1)),
 		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.AddDate(0, 0, -1).Format("2006-01-02"),
 		Status:      inv.Status, Notes: inv.Notes, Lines: vms,
-		Total: moneyL(lang, total, inv.Currency), TotalCents: total, Hours: fmtHoursL(lang, secs),
+		Total: moneyL(lang, details.TotalCents, inv.Currency), TotalCents: details.TotalCents,
+		Hours:      fmtHoursL(lang, details.TotalHoursHundredths),
 		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
 		IssuedLabel:   fmtDate(lang, inv.CreatedAt.In(userLoc(r))),
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
