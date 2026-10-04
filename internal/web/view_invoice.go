@@ -76,32 +76,37 @@ type invoiceSummary struct {
 
 type invoicesPage struct {
 	pageData
-	Items      []invoiceSummary
-	Projects   []invoiceProjectOpt
-	Prefill    invoiceProjectOpt
-	Unbilled   []unbilledView
-	Unassigned []unassignedActivityView
-	Billable   bool
-	DefStart   string
-	DefEnd     string
-	Flash      string
-	FlashOK    bool
+	InvoicesReact bool
+	Items         []invoiceSummary
+	Projects      []invoiceProjectOpt
+	Prefill       invoiceProjectOpt
+	Unbilled      []unbilledView
+	Unassigned    []unassignedActivityView
+	Billable      bool
+	DefStart      string
+	DefEnd        string
+	Flash         string
+	FlashOK       bool
 }
 
-func (p *invoicesPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *invoicesPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
+func (p *invoicesPage) usesReactApp() bool { return p.InvoicesReact }
 
 type invoiceDetailPage struct {
 	pageData
-	Inv         invoiceVM
-	Seller      string
-	StripeReady bool
-	MailReady   bool
-	MailtoURL   string
-	Flash       string
-	FlashOK     bool
+	InvoiceReact  bool
+	InvoiceDetail bool
+	Inv           invoiceVM
+	Seller        string
+	StripeReady   bool
+	MailReady     bool
+	MailtoURL     string
+	Flash         string
+	FlashOK       bool
 }
 
-func (p *invoiceDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }
+func (p *invoiceDetailPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
+func (p *invoiceDetailPage) usesReactApp() bool { return p.InvoiceReact }
 
 // loadInvoiceVM builds the shared invoice presentation used by the page and documents.
 func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (model.Invoice, invoiceVM, bool, error) {

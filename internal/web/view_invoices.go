@@ -16,7 +16,8 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 	}
 	lang := string(resolveLang(r))
 	data := invoicesPage{
-		pageData: pageData{Title: "Invoices", Active: "invoices", Lang: lang},
+		pageData:      pageData{Title: "Invoices", Active: "invoices", Lang: lang, ReactApp: true},
+		InvoicesReact: true,
 	}
 	for _, item := range snapshot.Invoices {
 		inv := item.Invoice

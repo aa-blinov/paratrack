@@ -62,8 +62,13 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	if again := mk(); !strings.Contains(again.loc, "flash=") || strings.HasPrefix(again.loc, "/invoices/2") {
 		t.Errorf("the same hours were billed twice: %+v", again)
 	}
-	if form := readBody(t, e.do("GET", "/invoices?project=1", nil, nil)); !strings.Contains(form, "buh@romashka.ru") {
-		t.Error("client not remembered on the project")
+	if form := readBody(t, e.do("GET", "/invoices?project=1", nil, nil)); !strings.Contains(form, "buh@romashka.ru") ||
+		!strings.Contains(form, `"InvoicesReact":true`) || !strings.Contains(form, `id="paratrack-react-root"`) {
+		t.Error("invoice form did not bootstrap React or remember the client on the project")
+	}
+	detail := readBody(t, e.do("GET", first.loc, nil, nil))
+	if !strings.Contains(detail, `"InvoiceReact":true`) || !strings.Contains(detail, `"InvoiceDetail":true`) || !strings.Contains(detail, `id="paratrack-react-root"`) {
+		t.Fatal("invoice detail did not bootstrap React")
 	}
 
 	// Rebuild the draft from the edited ledger before sending it.
