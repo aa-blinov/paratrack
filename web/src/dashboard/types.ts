@@ -631,7 +631,28 @@ export interface AuditData {
   Items: Array<{ Time: string; Action: string; Target: string; IP: string }>
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData
+export interface ImportData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  ImportReact: boolean
+  Provider: string
+  From: string
+  To: string
+  Secret: string
+  Extra: string
+  TZ: string
+  Entries: Array<{ ExtID: string; Activity: string; Start: string; End: string; Note: string }>
+  Error: string
+}
+
+export interface HelpData {
+  Active: string
+  Lang: string
+  HelpReact: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

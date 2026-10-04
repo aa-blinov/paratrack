@@ -62,6 +62,8 @@ Start the local service with `make e2e-up` before running them. Set
 | C21. React sections and welcome | presets, custom module selection, manager-only section behavior and onboarding skip/persist paths |
 | C22. React webhooks | endpoint creation/deletion, event subscriptions and five latest delivery results |
 | C23. React audit | latest 100 workspace events, translated action names and empty state |
+| C24. React import | provider-specific fields/hints, preview list, timezone capture and confirmation run retain existing import handlers |
+| C25. React help | all translated feature guides, keyboard shortcuts and settings links |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |

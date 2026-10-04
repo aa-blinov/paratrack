@@ -6,6 +6,7 @@ import "net/http"
 // still carries pageData so {{.T}} / nav Active work like every other page.
 type helpPage struct {
 	pageData
+	HelpReact bool
 	// flash-banner partial reads these on every page that includes it.
 	Flash   string
 	FlashOK bool
@@ -15,10 +16,12 @@ func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := helpPage{
 		pageData: pageData{
-			Title:  "Help",
-			Active: "help",
-			Lang:   lang,
+			Title:    "Help",
+			Active:   "help",
+			Lang:     lang,
+			ReactApp: true,
 		},
+		HelpReact: true,
 	}
 	s.renderPageForRequest(w, r, "Help", "help", "help", &data)
 }
