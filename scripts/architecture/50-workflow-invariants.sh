@@ -71,7 +71,7 @@ if printf '%s\n' "$authentication_ports" | grep -Eq 'model\.User([[:space:]]|[,)
 	echo "architecture check: HTTP auth boundaries must use credential-free user identities" >&2
 	exit 1
 fi
-if grep -Eq 'model\.(User|Integration|Webhook|PushSubscription|TeamInvite|AuthSession)([[:space:]]|[,)]|$)' internal/web/*.go; then
+if grep -Eq 'model\.(User|Integration|Webhook|PushSubscription|TeamInvite|AuthSession|APIToken)([[:space:]]|[,)]|$)' internal/web/*.go; then
 	echo "architecture check: HTTP adapters must not consume credential-bearing persistence models; use appmodel result types" >&2
 	exit 1
 fi
