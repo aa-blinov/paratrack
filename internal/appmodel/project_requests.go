@@ -15,11 +15,24 @@ type ProjectMutationRequest struct {
 	CallerID  int64
 }
 
+type ProjectSlugMutationRequest struct {
+	TeamID   int64
+	Slug     string
+	CallerID int64
+}
+
 type ProjectUpdateRequest struct {
 	TeamID    int64
 	ProjectID int64
 	CallerID  int64
 	Update    ProjectUpdate
+}
+
+type ProjectSlugUpdateRequest struct {
+	TeamID   int64
+	Slug     string
+	CallerID int64
+	Update   ProjectUpdate
 }
 
 type ProjectRateRequest struct {

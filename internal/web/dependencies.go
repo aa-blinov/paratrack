@@ -190,7 +190,9 @@ type ProjectCommands interface {
 	AssignActivity(context.Context, appmodel.AssignActivityProjectRequest) error
 	Create(context.Context, appmodel.ProjectCreateRequest) (model.Project, error)
 	Delete(context.Context, appmodel.ProjectMutationRequest) error
+	DeleteBySlug(context.Context, appmodel.ProjectSlugMutationRequest) error
 	Update(context.Context, appmodel.ProjectUpdateRequest) (model.Project, error)
+	UpdateBySlug(context.Context, appmodel.ProjectSlugUpdateRequest) (model.Project, error)
 	UpdateRate(context.Context, appmodel.ProjectRateRequest) error
 }
 

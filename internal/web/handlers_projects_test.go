@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -158,6 +159,28 @@ func TestAPIProjects_FullCRUD(t *testing.T) {
 	w = e.do("GET", "/api/projects", nil, "")
 	if strings.Contains(w.Body.String(), "EORA RAG") {
 		t.Errorf("project should be gone: %s", w.Body.String())
+	}
+}
+
+func TestProjectPageMutationsResolveSlugInWorkflow(t *testing.T) {
+	e := newProjectTestEnv(t)
+	create := url.Values{"name": {"Alpha"}, "color": {"#7c8499"}}
+	w := e.do("POST", "/projects/new", []byte(create.Encode()), "application/x-www-form-urlencoded")
+	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/projects/alpha" {
+		t.Fatalf("create project page: status=%d location=%q", w.Code, w.Header().Get("Location"))
+	}
+
+	update := url.Values{
+		"name": {"Alpha renamed"}, "color": {"#7c8499"}, "billable": {"1"}, "estimate_minutes": {"60"},
+	}
+	w = e.do("POST", "/projects/alpha", []byte(update.Encode()), "application/x-www-form-urlencoded")
+	if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/projects/alpha?flash=") {
+		t.Fatalf("update project page: status=%d location=%q body=%s", w.Code, w.Header().Get("Location"), w.Body.String())
+	}
+
+	w = e.do("POST", "/projects/alpha/delete", nil, "application/x-www-form-urlencoded")
+	if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/projects?flash=") {
+		t.Fatalf("delete project page: status=%d location=%q body=%s", w.Code, w.Header().Get("Location"), w.Body.String())
 	}
 }
 
