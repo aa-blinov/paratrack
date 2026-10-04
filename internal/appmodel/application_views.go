@@ -249,6 +249,27 @@ type InvoiceIndexSnapshot struct {
 	Unassigned   []model.UnassignedActivity
 }
 
+// WebhookManagementSnapshot contains the credential-free data needed by the
+// webhook settings page.
+type WebhookManagementSnapshot struct {
+	Endpoints  []WebhookEndpointView
+	Deliveries map[int64][]WebhookDeliveryView
+}
+
+type WebhookEndpointView struct {
+	ID     int64
+	URL    string
+	Events string
+	Active bool
+}
+
+type WebhookDeliveryView struct {
+	CreatedAt time.Time
+	Event     string
+	Status    int
+	Error     string
+}
+
 type PayrollRunSummary struct {
 	Run                  model.PayrollRun
 	TotalCents           int

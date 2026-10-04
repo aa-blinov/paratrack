@@ -109,8 +109,7 @@ type PushWorkflow interface {
 type WebhookWorkflow interface {
 	Create(context.Context, appmodel.WebhookCreateRequest) (webhookport.WebhookSummary, error)
 	Delete(context.Context, appmodel.WebhookDeleteRequest) error
-	RecentDeliveries(context.Context, int64, int) (map[int64][]webhookport.WebhookDeliverySummary, error)
-	List(context.Context, int64) ([]webhookport.WebhookSummary, error)
+	Management(context.Context, int64) (appmodel.WebhookManagementSnapshot, error)
 }
 
 // InvoiceMailQueue enqueues frozen invoice messages for durable delivery.
