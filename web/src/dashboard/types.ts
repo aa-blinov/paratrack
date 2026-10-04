@@ -91,6 +91,30 @@ export interface DashboardData {
   DefaultProject: number
 }
 
+export interface ProjectListRow {
+  ID: number
+  Slug: string
+  Name: string
+  Color: string
+  Archived: boolean
+  Activities: number
+  TodaySecs: number
+  MonthSecs: number
+  TodayLabel: string
+  MonthLabel: string
+}
+
+export interface ProjectListData {
+  Active: string
+  Lang: string
+  Projects: ProjectListRow[]
+  ShowArchived: boolean
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData
+
 export interface ReactPageBootstrap {
-  data: DashboardData
+	data: ReactPageData
 }

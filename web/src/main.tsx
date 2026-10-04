@@ -10,7 +10,8 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { DashboardData, ReactPageBootstrap, Session } from "@/dashboard/types"
+import { ProjectList } from "@/projects/project-list"
+import type { DashboardData, ProjectListData, ReactPageBootstrap, Session } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -40,7 +41,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   async function refresh() {
     const response = await fetch("/api/dashboard", { headers: { Accept: "application/json" }, credentials: "same-origin" })
     if (!response.ok) throw new Error(await response.text())
-    const body = await response.json() as ReactPageBootstrap
+    const body = await response.json() as { data: DashboardData }
     setData(body.data)
   }
 
@@ -190,7 +191,13 @@ if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap
     const restoreFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity"
-    createRoot(root).render(<StrictMode><DashboardApp initial={initial.data} restoreFocus={restoreFocus} /></StrictMode>)
+    createRoot(root).render(
+      <StrictMode>
+        {"ShowArchived" in initial.data
+          ? <ProjectList data={initial.data as ProjectListData} />
+          : <DashboardApp initial={initial.data as DashboardData} restoreFocus={restoreFocus} />}
+      </StrictMode>
+    )
   } catch (error) {
     console.error("Could not initialize dashboard", error)
   }

@@ -34,6 +34,15 @@ ast.walkRules(rule => {
       )
       const id = selectorParser.id({ value: "paratrack-react-root" })
       const descendant = selectorParser.combinator({ value: " " })
+      if (selector.nodes.length === 1 && selector.nodes[0].type === "attribute" &&
+          selector.nodes[0].attribute === "data-theme" && selector.nodes[0].value === "paratrack-dark") {
+        // Theme tokens belong on the React root when the document theme is
+        // dark; the theme attribute itself lives on <html>, outside the root.
+        selector.append(descendant)
+        selector.append(id)
+        scoped++
+        return
+      }
       if (theme) {
         selector.prepend(descendant)
         selector.prepend(id)

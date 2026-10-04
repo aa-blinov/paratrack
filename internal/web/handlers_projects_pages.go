@@ -17,6 +17,7 @@ import (
 type projectsPageData struct {
 	Title        string
 	Active       string
+	ReactApp     bool
 	Projects     []projectListRow
 	ShowArchived bool
 	Flash        string
@@ -25,7 +26,8 @@ type projectsPageData struct {
 	Lang         string
 }
 
-func (projectsPageData) isTemplateData() {}
+func (projectsPageData) isTemplateData()    {}
+func (projectsPageData) usesReactApp() bool { return true }
 
 func (p *projectsPageData) setCSRF(t string)   { p.CSRFToken = t }
 func (p *projectsPageData) setLang(l string)   { p.Lang = l }
@@ -73,6 +75,7 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	data := projectsPageData{
 		Title:        "Projects",
 		Active:       "projects",
+		ReactApp:     true,
 		Projects:     rows,
 		ShowArchived: showArchived,
 	}

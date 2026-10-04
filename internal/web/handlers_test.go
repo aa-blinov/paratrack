@@ -104,3 +104,22 @@ func TestDashboardBootstrapsReactFromEmbeddedAssets(t *testing.T) {
 		t.Fatalf("React stylesheet status=%d; embedded dashboard styles missing", styles.Code)
 	}
 }
+
+func TestProjectsListBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	handler := srv.routes()
+	for _, path := range []string{"/projects", "/projects?archived=1"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		if response.Code != http.StatusOK {
+			t.Fatalf("GET %s status=%d body=%q", path, response.Code, response.Body.String())
+		}
+		for _, marker := range []string{"id=\"react-page-data\"", "id=\"paratrack-react-root\"", `"ReactApp":true`} {
+			if !strings.Contains(response.Body.String(), marker) {
+				t.Errorf("GET %s missing React bootstrap marker %q", path, marker)
+			}
+		}
+	}
+}

@@ -445,6 +445,28 @@ def main() -> int:
         expect(page.locator("h1")).to_contain_text(proj_name)
         check("detail page shows project name", proj_name in page.content())
 
+        # Project cards and archive filtering are rendered by the React app.
+        page.goto(BASE + "/projects")
+        project_card = page.locator('#paratrack-react-root [data-slot="card"]')
+        expect(project_card).to_contain_text(proj_name)
+        check("project list mounts the React/shadcn card", project_card.count() > 0)
+        original_theme = page.locator("html").get_attribute("data-theme")
+        project_card.evaluate("el => document.documentElement.dataset.theme = 'paratrack-dark'")
+        dark_card = project_card.evaluate("el => getComputedStyle(el).backgroundColor")
+        dark_text = project_card.locator("h2").evaluate("el => getComputedStyle(el).color")
+        check("React project card follows dark theme tokens",
+              dark_card == "rgb(26, 29, 35)" and dark_text == "rgb(229, 231, 235)",
+              f"card={dark_card}, text={dark_text}")
+        project_card.evaluate("(el, theme) => document.documentElement.dataset.theme = theme", original_theme)
+        page.get_by_role("link", name="Show archived").click()
+        page.wait_for_url("**/projects?archived=1")
+        expect(page.locator('#paratrack-react-root [data-slot="card"]')).to_contain_text(proj_name)
+        check("project list archive filter keeps projects visible", proj_name in page.content())
+        shot(page, "11-project-list-react")
+        page.get_by_role("link", name="Hide archived").click()
+        page.wait_for_url("**/projects")
+        page.goto(BASE + f"/projects/{proj_slug}")
+
         # A unique activity per run keeps repeated local E2E runs from
         # inheriting a project assignment from an earlier run.
         activity_name = f"deep-work-{proj_slug}"
@@ -1091,7 +1113,16 @@ def main() -> int:
               const bg = lum(getComputedStyle(e).backgroundColor);
               return (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05);
             }''')
-            check(f"{theme} placeholder contrast is at least 4.5:1", ratio >= 4.5, f"{ratio:.2f}:1")
+            colors = page.locator('#activity').evaluate('''e => ({
+              foreground: getComputedStyle(e, '::placeholder').color,
+              background: getComputedStyle(e).backgroundColor,
+              disabled: e.matches(':disabled'),
+              opacity: getComputedStyle(e).opacity,
+              rootForeground: getComputedStyle(document.querySelector('#paratrack-react-root')).getPropertyValue('--foreground'),
+              muted: getComputedStyle(document.querySelector('#paratrack-react-root')).getPropertyValue('--muted-foreground')
+            })''')
+            check(f"{theme} placeholder contrast is at least 4.5:1", ratio >= 4.5,
+                  f"{ratio:.2f}:1; {colors}")
         browser.close()
 
     # Summary
