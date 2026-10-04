@@ -328,9 +328,17 @@ func (d *DB) listTagsForSession(ctx context.Context, teamID, sessionID int64) ([
 // tags simply don't appear in the result map. Designed for batch
 // hydration when rendering a long list of sessions — one SQL round-trip
 // instead of N.
-func (d *DB) TagsForSessions(ctx context.Context, teamID int64, sessionIDs []int64) (map[int64][]model.Tag, error) {
-	out := make(map[int64][]model.Tag, len(sessionIDs))
-	if len(sessionIDs) == 0 {
+func (d *DB) TagsForSessions(ctx context.Context, query appmodel.SessionTagsQuery) (map[int64][]model.Tag, error) {
+	if query.TeamID < 0 {
+		return nil, ErrNotFound
+	}
+	for _, id := range query.SessionIDs {
+		if id <= 0 {
+			return nil, ErrNotFound
+		}
+	}
+	out := make(map[int64][]model.Tag, len(query.SessionIDs))
+	if len(query.SessionIDs) == 0 {
 		return out, nil
 	}
 	// One array parameter: an IN list of ?s hits Postgres' 65535-parameter
@@ -342,7 +350,7 @@ func (d *DB) TagsForSessions(ctx context.Context, teamID int64, sessionIDs []int
 	      WHERE COALESCE(s.team_id, 0) = ? AND st.session_id = ANY(?)
 	        AND (t.team_id IS NULL OR t.team_id = s.team_id)
 	      ORDER BY st.session_id, t.name`
-	rows, err := d.sql.QueryContext(ctx, q, teamID, sessionIDs)
+	rows, err := d.sql.QueryContext(ctx, q, query.TeamID, query.SessionIDs)
 	if err != nil {
 		return nil, err
 	}

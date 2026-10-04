@@ -23,7 +23,7 @@ type SessionReader interface {
 
 type TagReader interface {
 	List(context.Context, int64) ([]model.Tag, error)
-	TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error)
+	TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error)
 }
 
 type TeamReader interface {
@@ -111,7 +111,7 @@ func (b *Builder) BuildGraph(ctx context.Context, query GraphQuery) (GraphResult
 		for _, session := range sessions {
 			ids = append(ids, session.Session.ID)
 		}
-		tagsBySession, err := b.tags.TagsForSessions(ctx, query.TeamID, ids)
+		tagsBySession, err := b.tags.TagsForSessions(ctx, appmodel.SessionTagsQuery{TeamID: query.TeamID, SessionIDs: ids})
 		if err != nil {
 			return GraphResult{}, fmt.Errorf("load graph session tags: %w", err)
 		}
@@ -178,7 +178,7 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 		ids = append(ids, session.Session.ID)
 	}
 	sessions = visible
-	tagsBySession, err := b.tags.TagsForSessions(ctx, query.TeamID, ids)
+	tagsBySession, err := b.tags.TagsForSessions(ctx, appmodel.SessionTagsQuery{TeamID: query.TeamID, SessionIDs: ids})
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("load stats session tags: %w", err)
 	}

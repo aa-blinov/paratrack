@@ -52,7 +52,7 @@ type graphTagsStub struct {
 }
 
 func (*graphTagsStub) List(context.Context, int64) ([]model.Tag, error) { return nil, nil }
-func (s *graphTagsStub) TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error) {
+func (s *graphTagsStub) TagsForSessions(context.Context, appmodel.SessionTagsQuery) (map[int64][]model.Tag, error) {
 	s.calls++
 	return s.bySession, nil
 }

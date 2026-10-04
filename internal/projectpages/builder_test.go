@@ -66,8 +66,8 @@ func (sessionReaderStub) SessionActivity(context.Context, int64, int64) (model.S
 	return model.Session{}, model.Activity{}, nil
 }
 
-func (stub *sessionTagReaderStub) TagsForSessions(_ context.Context, _ int64, ids []int64) (map[int64][]model.Tag, error) {
-	stub.ids = append([]int64(nil), ids...)
+func (stub *sessionTagReaderStub) TagsForSessions(_ context.Context, query appmodel.SessionTagsQuery) (map[int64][]model.Tag, error) {
+	stub.ids = append([]int64(nil), query.SessionIDs...)
 	return stub.bySession, stub.err
 }
 
