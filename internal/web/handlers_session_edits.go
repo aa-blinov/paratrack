@@ -49,10 +49,6 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 	if err != nil || id <= 0 {
 		return 0, invalidSessionUpdateBadID
 	}
-	session, err := s.services.Tracking.Queries.Session(r.Context(), teamID(r), id)
-	if err != nil {
-		return 0, err
-	}
 	if err := r.ParseForm(); err != nil {
 		return 0, invalidSessionUpdateBadForm
 	}
@@ -60,18 +56,15 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 	endStr := r.FormValue("end_at")
 	durationStr := r.FormValue("duration")
 	update := appmodel.SessionUpdate{Note: r.FormValue("note"), UpdatedAt: userNow(r)}
-	var startTime time.Time
-	hasStart := false
+	request := appmodel.SessionUpdateRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), SessionID: id}
 	if startStr != "" {
 		t, err := time.ParseInLocation("2006-01-02T15:04", startStr, userLoc(r))
 		if err != nil {
 			return 0, invalidSessionUpdateBadStart
 		}
-		startTime, hasStart = t, true
 		update.StartAt = &t
 	}
-	// A duration wins over end_at (end = start + duration below); setting
-	// both would assign end_at twice, which Postgres rejects.
+	// A duration wins over end_at; the tracking workflow computes the end.
 	if endStr != "" && durationStr == "" {
 		t, err := time.ParseInLocation("2006-01-02T15:04", endStr, userLoc(r))
 		if err != nil {
@@ -79,32 +72,19 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 		}
 		update.EndAt = &t
 	}
-	// Duration takes priority: it overrides end_at by computing
-	// end = start + duration. If no start is given, fetch current.
+	// Duration takes priority over end_at. Tracking applies it to the current
+	// or supplied start time after loading the session in its workflow.
 	if durationStr != "" {
 		secs, err := timeparse.ParseDuration(durationStr)
 		if err != nil {
 			return 0, invalidSessionUpdateBadDuration
 		}
-		if !hasStart {
-			startTime = session.StartAt
-		}
-		newEnd := startTime.Add(time.Duration(secs) * time.Second)
-		update.EndAt = &newEnd
-		// Hand-editing the interval defines the tracked total too —
-		// keep accumulated_seconds in lock-step so every aggregate agrees.
-		update.AccumulatedSeconds = &secs
+		request.DurationSeconds = &secs
 	} else if endStr != "" {
-		if !hasStart {
-			startTime = session.StartAt
-		}
-		span := int(update.EndAt.Sub(startTime).Seconds())
-		if span < 0 {
-			span = 0
-		}
-		update.AccumulatedSeconds = &span
+		request.RecomputeDuration = true
 	}
-	if err := s.services.Tracking.Commands.UpdateFields(r.Context(), appmodel.SessionUpdateRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), SessionID: id, Update: update}); err != nil {
+	request.Update = update
+	if err := s.services.Tracking.Commands.UpdateFields(r.Context(), request); err != nil {
 		return 0, err
 	}
 	return id, nil

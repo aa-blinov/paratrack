@@ -467,7 +467,9 @@ adapter rechecks current workspace membership before locking the session and
 linked invoice rows, serializing writes with member removal and ensuring a
 concurrent send cannot race an edit to a sent or paid invoice's time ledger.
 The service also rejects edited intervals whose end is not after their start
-and negative tracked durations.
+and negative tracked durations. HTTP passes duration intent rather than reading
+the session to calculate derived end and accumulated values; tracking resolves
+that intent from its current session read before issuing the scoped update.
 
 `internal/importing` coordinates provider fetches with batch validation and
 application. Preview fetches do not persist entries; a run performs the fetch

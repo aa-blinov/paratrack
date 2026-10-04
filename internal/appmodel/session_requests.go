@@ -37,5 +37,11 @@ type SessionUpdateRequest struct {
 	TeamID    int64
 	CallerID  int64
 	SessionID int64
-	Update    SessionUpdate
+	// DurationSeconds asks tracking to derive EndAt from the current or
+	// supplied StartAt and to replace the tracked duration with this value.
+	DurationSeconds *int
+	// RecomputeDuration derives the tracked duration from the resulting start
+	// and end values after tracking loads the current session.
+	RecomputeDuration bool
+	Update            SessionUpdate
 }
