@@ -7,37 +7,21 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
+import { SettingsNav } from "@/settings/settings-nav"
 import type { TokensData } from "@/dashboard/types"
-
-const tabs = [
-  ["settings-profile", "/settings/profile", "profile.title"],
-  ["settings-prefs", "/settings/preferences", "prefs.title"],
-  ["settings-notify", "/settings/notifications", "sheet.notifications"],
-  ["settings-tokens", "/settings/tokens", "set.tabTokens"],
-] as const
-const managerTabs = [
-  ["settings-team", "/settings/team", "team.workspaceTab"],
-  ["settings-sections", "/settings/sections", "nav.sections"],
-  ["settings-members", "/settings/members", "team.members"],
-  ["settings-invites", "/settings/invites", "set.tabInvites"],
-  ["settings-webhooks", "/settings/webhooks", "set.tabWebhooks"],
-  ["settings-audit", "/settings/audit", "set.tabAudit"],
-] as const
 
 export function TokensPage({ data }: { data: TokensData }) {
   const lang = data.Lang || "en"
   const [expiresDays, setExpiresDays] = React.useState("90")
   const [copied, setCopied] = React.useState(false)
   const [copyError, setCopyError] = React.useState(false)
-  const links = [...tabs.slice(0, 3), ...(data.CanManage ? managerTabs.slice(0, 4) : []), tabs[3], ...(data.CanManage ? managerTabs.slice(4) : [])]
   async function copyToken() {
     try { await navigator.clipboard.writeText(data.JustCreated); setCopied(true); setCopyError(false) }
     catch { setCopyError(true) }
   }
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
-    <nav role="tablist" aria-label={t(lang, "set.title")} className="flex gap-1 overflow-x-auto border-b" style={{ scrollbarWidth: "none" }}>{links.map(([active, href, key]) => <a key={active} role="tab" href={href} aria-current={data.Active === active ? "page" : undefined} className={`shrink-0 border-b-2 px-3 py-2 text-sm ${data.Active === active ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{t(lang, key)}</a>)}</nav>
-    <p className="text-sm text-muted-foreground">{t(lang, `set.desc.${data.Active}`)}</p>
+    <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
     {data.JustCreated && <Card className="border-primary/50"><CardContent className="grid gap-2 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">{t(lang, "tokens.once")}</p><Button type="button" size="sm" variant="outline" onClick={() => void copyToken()}>{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}{copied ? t(lang, "tokens.copied") : t(lang, "tokens.copy")}</Button></div><code className="block break-all rounded-md bg-muted p-3 text-sm">{data.JustCreated}</code>{copyError && <p role="alert" className="text-xs text-destructive">{t(lang, "err.generic")}</p>}</CardContent></Card>}
     <Card><CardHeader><CardTitle>{t(lang, "tokens.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "tokens.blurb")}</p></CardHeader><CardContent className="grid gap-4">

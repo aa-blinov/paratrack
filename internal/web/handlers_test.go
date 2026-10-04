@@ -279,6 +279,22 @@ func TestTokensPageBootstrapsReact(t *testing.T) {
 	}
 }
 
+func TestProfilePageBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/settings/profile", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /settings/profile status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, marker := range []string{`id="react-page-data"`, `id="paratrack-react-root"`, `"ProfileReact":true`, `"User"`} {
+		if !strings.Contains(response.Body.String(), marker) {
+			t.Errorf("GET /settings/profile missing React bootstrap marker %q", marker)
+		}
+	}
+}
+
 func TestTimesheetPageBootstrapsReact(t *testing.T) {
 	srv, token := newTestServer(t)
 	req := httptest.NewRequest(http.MethodGet, "/timesheet", nil)
