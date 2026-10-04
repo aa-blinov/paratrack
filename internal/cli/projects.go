@@ -109,26 +109,22 @@ func runProjectList(rt *Runtime, args []string) error {
 		}
 		*team = t
 	}
-	list, err := service.List(ctx, *team, *archived)
+	snapshot, err := service.ListWithActivityCounts(ctx, *team, *archived)
 	if err != nil {
 		return fmt.Errorf("list projects: %w", err)
 	}
-	if len(list) == 0 {
+	if len(snapshot.Projects) == 0 {
 		fmt.Fprintln(rt.Out, "No projects yet. Create one with: paratrack project create \"EORA RAG\"")
 		return nil
 	}
-	activityCounts, err := service.ActivityCounts(ctx, *team)
-	if err != nil {
-		return fmt.Errorf("count project activities: %w", err)
-	}
 	tw := tabwriter.NewWriter(rt.Out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "SLUG\tNAME\tCOLOR\tACTIVITIES\tSTATE")
-	for _, p := range list {
+	for _, p := range snapshot.Projects {
 		state := "active"
 		if p.Archived {
 			state = "archived"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n", p.Slug, p.Name, p.Color, activityCounts[p.ID], state)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%d\t%s\n", p.Slug, p.Name, p.Color, snapshot.ActivityCounts[p.ID], state)
 	}
 	tw.Flush()
 	return nil

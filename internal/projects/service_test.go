@@ -103,6 +103,13 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 			}}},
 		},
 	}
+	catalogSnapshot, err := service.ListWithActivityCounts(context.Background(), 3, true)
+	if err != nil {
+		t.Fatalf("ListWithActivityCounts: %v", err)
+	}
+	if len(catalogSnapshot.Projects) != 1 || catalogSnapshot.Projects[0] != project || catalogSnapshot.ActivityCounts[7] != 2 {
+		t.Fatalf("catalog snapshot = %+v, want project and activity count", catalogSnapshot)
+	}
 
 	snapshot, err := service.ListWithUsage(context.Background(), appmodel.ProjectListQuery{
 		TeamID: 3, IncludeArchived: true, TodayStart: start, MonthStart: monthStart, Now: now,
