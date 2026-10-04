@@ -3,6 +3,7 @@ package tracking
 import (
 	"context"
 	"errors"
+	"reflect"
 	"testing"
 	"time"
 
@@ -25,6 +26,17 @@ type sessionQueryStub struct {
 	SessionQueryStore
 	closed appmodel.ClosedSessionsQuery
 	page   appmodel.SessionHistoryPageQuery
+}
+
+type timesheetQueryStub struct {
+	TimesheetStore
+	query  appmodel.TimesheetRequest
+	called bool
+}
+
+func (stub *timesheetQueryStub) ListTimesheet(_ context.Context, query appmodel.TimesheetRequest) (model.TimesheetWeek, error) {
+	stub.query, stub.called = query, true
+	return model.TimesheetWeek{}, nil
 }
 
 func (stub *sessionQueryStub) ListClosedSessions(_ context.Context, query appmodel.ClosedSessionsQuery) ([]model.ActiveSession, error) {
@@ -132,5 +144,35 @@ func TestSessionHistoryPageNormalizesLimitAndCursorInQuery(t *testing.T) {
 	}
 	if store.page.Limit != 500 || store.page.After == nil || store.page.After.Start != "2026-01-01T00:00:00Z" || store.page.TeamID != query.TeamID {
 		t.Fatalf("session history query = %+v, want capped limit, canonical cursor and workspace", store.page)
+	}
+}
+
+func TestTimesheetKeepsGridSelectionInRequest(t *testing.T) {
+	request := appmodel.TimesheetRequest{
+		TeamID: 4, WeekStart: time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC),
+		Now: time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC), ExtraActivityIDs: []int64{8, 9},
+	}
+	store := &timesheetQueryStub{}
+	service := &Service{timesheets: store}
+	if _, err := service.Timesheet(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if !store.called || !reflect.DeepEqual(store.query, request) {
+		t.Fatalf("timesheet persistence request = %+v, want %+v", store.query, request)
+	}
+}
+
+func TestTimesheetRejectsInvalidExtraActivityID(t *testing.T) {
+	store := &timesheetQueryStub{}
+	service := &Service{timesheets: store}
+	request := appmodel.TimesheetRequest{
+		TeamID: 4, WeekStart: time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC),
+		Now: time.Date(2026, 10, 7, 12, 0, 0, 0, time.UTC), ExtraActivityIDs: []int64{0},
+	}
+	if _, err := service.Timesheet(context.Background(), request); !errors.Is(err, ErrInvalidEdit) {
+		t.Fatalf("timesheet with invalid activity ID error = %v, want %v", err, ErrInvalidEdit)
+	}
+	if store.called {
+		t.Fatal("persistence was called for invalid extra activity ID")
 	}
 }

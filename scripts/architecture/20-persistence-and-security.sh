@@ -453,10 +453,13 @@ if ! printf '%s\n' "$tag_counts" | grep -Fq 's.team_id = t.team_id' ||
 	exit 1
 fi
 timesheet_query=$(sed -n '/^func (d \*DB) ListTimesheet(/,/^}/p' internal/db/timesheet.go)
-if ! printf '%s\n' "$timesheet_query" | grep -Fq 'teamID <= 0' ||
+timesheet_service=$(sed -n '/^func (s \*Service) Timesheet(/,/^}/p' internal/tracking/service.go)
+if ! printf '%s\n' "$timesheet_query" | grep -Fq 'request appmodel.TimesheetRequest' ||
+	! printf '%s\n' "$timesheet_query" | grep -Fq 'request.TeamID <= 0' ||
 	! printf '%s\n' "$timesheet_query" | grep -Fq 's.team_id = ?' ||
-	! printf '%s\n' "$timesheet_query" | grep -Fq 'a.team_id = s.team_id'; then
-	echo "architecture check: timesheet aggregation must require a workspace and same-workspace activity join" >&2
+	! printf '%s\n' "$timesheet_query" | grep -Fq 'a.team_id = s.team_id' ||
+	! printf '%s\n' "$timesheet_service" | grep -Fq 'ListTimesheet(ctx, request)'; then
+	echo "architecture check: timesheet scope, instant and extra activities must stay together through workflow and persistence" >&2
 	exit 1
 fi
 session_select=$(sed -n '/^const sessionSelect =/,/^`/p' internal/db/session_queries.go)

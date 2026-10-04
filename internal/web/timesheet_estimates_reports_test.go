@@ -66,7 +66,7 @@ func TestTimesheetUpsertAndList(t *testing.T) {
 	}
 	// Monday Sep 21 2026? Sep 22 is Tuesday — startOfWeek in web; use Monday.
 	monday := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
-	grid, err := d.ListTimesheet(ctx, teamID, monday, time.Now())
+	grid, err := d.ListTimesheet(ctx, appmodel.TimesheetRequest{TeamID: teamID, WeekStart: monday, Now: time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -86,7 +86,7 @@ func TestTimesheetUpsertAndList(t *testing.T) {
 	if err := d.UpsertDayTotal(ctx, appmodel.TimesheetCellUpdateRequest{TeamID: teamID, ActivityID: act.ID, Day: day}); err != nil {
 		t.Fatal(err)
 	}
-	grid, _ = d.ListTimesheet(ctx, teamID, monday, time.Now())
+	grid, _ = d.ListTimesheet(ctx, appmodel.TimesheetRequest{TeamID: teamID, WeekStart: monday, Now: time.Now()})
 	for _, r := range grid.Rows {
 		if r.ActivityID == act.ID && r.Secs[1] != 0 {
 			t.Errorf("after clear Tuesday=%d", r.Secs[1])
@@ -245,7 +245,7 @@ func TestTimesheetRowsSortedByName(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	grid, err := d.ListTimesheet(ctx, teamID, time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC), time.Now())
+	grid, err := d.ListTimesheet(ctx, appmodel.TimesheetRequest{TeamID: teamID, WeekStart: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC), Now: time.Now()})
 	if err != nil {
 		t.Fatal(err)
 	}
