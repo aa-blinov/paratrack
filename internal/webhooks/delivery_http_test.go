@@ -43,6 +43,9 @@ func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
 	if _, err := database.TestSQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := database.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (1,1,'owner',CURRENT_TIMESTAMP)`); err != nil {
+		t.Fatal(err)
+	}
 	hookSummary, err := database.CreateWebhook(ctx, appmodel.WebhookRegistrationCommand{
 		TeamID: 1, CallerID: 1, URL: server.URL, Secret: "s3cret", Events: "*",
 	})

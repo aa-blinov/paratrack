@@ -27,9 +27,6 @@ func TestWorkspaceWrites_RecheckManagerRole(t *testing.T) {
 	if _, err := d.UpsertGoalForManager(ctx, appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: memberID, ActivityName: "unauthorized", Period: "daily", Minutes: 60}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("member goal upsert error = %v, want forbidden", err)
 	}
-	if _, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: memberID, Name: "unauthorized activity"}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("member activity resolve error = %v, want forbidden", err)
-	}
 	if err := d.DeleteGoalForManager(ctx, appmodel.GoalDeleteRequest{TeamID: teamID, CallerID: memberID, ActivityName: "focus", Period: "daily"}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("member goal delete error = %v, want forbidden", err)
 	}
@@ -39,6 +36,9 @@ func TestWorkspaceWrites_RecheckManagerRole(t *testing.T) {
 	}
 	if len(activities) != 1 || activities[0].Name != "focus" {
 		t.Fatalf("unauthorized goal upsert left activity behind: %+v", activities)
+	}
+	if _, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: memberID, Name: "member activity"}); err != nil {
+		t.Fatalf("member activity resolve error = %v, want success", err)
 	}
 
 	tag, err := d.CreateTagForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "keep"})

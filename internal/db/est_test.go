@@ -11,6 +11,7 @@ func TestEstimateRoundTrip(t *testing.T) {
 	ctx := t.Context()
 	d.TestSQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
 	d.TestSQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	d.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (1,1,'owner',CURRENT_TIMESTAMP)`)
 	p, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{TeamID: 1, CallerID: 1, Name: "Budgeted", Slug: "", Color: "#7c3aed"})
 	if err != nil {
 		t.Fatal(err)

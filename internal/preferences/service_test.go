@@ -100,7 +100,7 @@ func TestSaveIgnoresDefaultsForOtherWorkspaces(t *testing.T) {
 
 func TestPreferencesKeepPersistedJSONShape(t *testing.T) {
 	store := &preferenceStoreStub{}
-	service, err := New(store, &projectLookupStub{})
+	service, err := New(store, &projectLookupStub{project: model.Project{ID: 42, TeamID: 7}})
 	if err != nil {
 		t.Fatal(err)
 	}

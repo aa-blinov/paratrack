@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 func TestCreateTag_Idempotent(t *testing.T) {
@@ -108,14 +109,11 @@ func TestDetachTag_KeepsTagAlive(t *testing.T) {
 		t.Errorf("session still has tags after detach: %v", tags)
 	}
 	// Tag itself should still exist.
-	all, _ := d.ListTags(ctx, 0)
-	found := false
-	for _, tg := range all {
-		if tg.Name == "office" {
-			found = true
-		}
+	var count int
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM tags WHERE team_id IS NULL AND name = 'office'`).Scan(&count); err != nil {
+		t.Fatal(err)
 	}
-	if !found {
+	if count != 1 {
 		t.Error("detach removed the tag from the catalogue, expected it to remain")
 	}
 }
@@ -241,16 +239,39 @@ func TestDeleteTag_LegacyPathCannotDeleteWorkspaceTag(t *testing.T) {
 func TestListAllTagsWithCounts_OrderedByPopularity(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "rank"})
+	teamID := seedTeam(t, d, "Tag ranking", "tag-ranking")
+	ownerID := teamOwner(t, d, teamID)
+	act, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "rank"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	popular, err := d.CreateTagForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "popular"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	niche, err := d.CreateTagForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "niche"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	// popular has 3 sessions, niche has 1.
 	for i := 0; i < 3; i++ {
-		s, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
-		_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: s.ID, Name: "popular"})
+		s, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerID), appmodel.TimerAddRequest{TeamID: teamID, ActivityID: act.ID, Start: time.Now().Add(-time.Duration(i+2) * time.Hour), End: time.Now().Add(-time.Duration(i+1) * time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := d.AttachTagForMember(ctx, appmodel.SessionTagRequest{TeamID: teamID, CallerID: ownerID, SessionID: s.ID, Name: popular.Name}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	one, _ := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: act.ID, At: time.Now(), Note: ""})
-	_ = d.attachTag(ctx, legacySessionTagRequest{TeamID: 0, SessionID: one.ID, Name: "niche"})
+	one, err := d.CreateClosedSession(requestctx.WithActor(ctx, ownerID), appmodel.TimerAddRequest{TeamID: teamID, ActivityID: act.ID, Start: time.Now().Add(-5 * time.Hour), End: time.Now().Add(-4 * time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.AttachTagForMember(ctx, appmodel.SessionTagRequest{TeamID: teamID, CallerID: ownerID, SessionID: one.ID, Name: niche.Name}); err != nil {
+		t.Fatal(err)
+	}
 
-	tags, err := d.ListAllTagsWithCounts(ctx, 0)
+	tags, err := d.ListAllTagsWithCounts(ctx, teamID)
 	if err != nil {
 		t.Fatal(err)
 	}

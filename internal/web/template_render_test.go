@@ -2,6 +2,8 @@ package web
 
 import (
 	"html/template"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,7 +16,7 @@ func (brokenFragmentTemplateData) isTemplateData()         {}
 func (brokenFragmentTemplateData) isFragmentTemplateData() {}
 
 func TestRenderFragmentDoesNotCommitPartialTemplateOutput(t *testing.T) {
-	s := &Server{tmpl: template.Must(template.New("broken").Parse("partial{{.Missing}}"))}
+	s := &Server{tmpl: template.Must(template.New("broken").Parse("partial{{.Missing}}")), logger: log.New(io.Discard, "", 0)}
 	w := httptest.NewRecorder()
 	s.renderFragment(w, "broken", brokenFragmentTemplateData{})
 
