@@ -56,7 +56,7 @@ func (*retryStore) CompleteInvoiceEmail(context.Context, mailport.InvoiceEmailJo
 	return nil
 }
 
-func (s *retryStore) RetryInvoiceEmail(_ context.Context, request appmodel.InvoiceEmailRetryRequest) error {
+func (s *retryStore) RetryInvoiceEmail(_ context.Context, request mailport.InvoiceEmailRetryRequest) error {
 	s.retryAt = request.AvailableAt
 	s.maxTries = request.MaxAttempts
 	return nil

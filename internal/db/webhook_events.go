@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/webhookport"
 )
 
@@ -156,7 +155,7 @@ func (d *DB) CompleteWebhookEvent(ctx context.Context, event webhookport.Committ
 
 // RetryWebhookEvent releases a failed fan-out for a future worker attempt.
 
-func (d *DB) RetryWebhookEvent(ctx context.Context, request appmodel.WebhookEventRetryRequest) error {
+func (d *DB) RetryWebhookEvent(ctx context.Context, request webhookport.EventRetryRequest) error {
 	event, availableAt := request.Event, request.AvailableAt
 	result, err := d.sql.ExecContext(ctx,
 		`UPDATE webhook_event_outbox SET locked_at = NULL, available_at = ?

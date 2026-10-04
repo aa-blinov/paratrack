@@ -52,10 +52,10 @@ type Store interface {
 	EnqueueWebhookDeliveries(context.Context, appmodel.WebhookDeliveryBatchRequest) error
 	ClaimWebhookEvent(context.Context) (webhookport.CommittedEvent, bool, error)
 	CompleteWebhookEvent(context.Context, webhookport.CommittedEvent) error
-	RetryWebhookEvent(context.Context, appmodel.WebhookEventRetryRequest) error
+	RetryWebhookEvent(context.Context, webhookport.EventRetryRequest) error
 	ClaimWebhookDelivery(context.Context) (webhookport.DeliveryJob, bool, error)
 	CompleteWebhookDelivery(context.Context, webhookport.DeliveryJob) error
-	RetryWebhookDelivery(context.Context, appmodel.WebhookDeliveryRetryRequest) error
+	RetryWebhookDelivery(context.Context, webhookport.DeliveryRetryRequest) error
 }
 
 type DeliveryRequest = webhookport.DeliveryRequest

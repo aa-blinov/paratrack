@@ -145,7 +145,7 @@ func (lifecycleStore) ClaimWebhookEvent(context.Context) (webhookport.CommittedE
 func (lifecycleStore) CompleteWebhookEvent(context.Context, webhookport.CommittedEvent) error {
 	return nil
 }
-func (lifecycleStore) RetryWebhookEvent(context.Context, appmodel.WebhookEventRetryRequest) error {
+func (lifecycleStore) RetryWebhookEvent(context.Context, webhookport.EventRetryRequest) error {
 	return nil
 }
 func (s lifecycleStore) ClaimWebhookDelivery(context.Context) (webhookport.DeliveryJob, bool, error) {
@@ -197,7 +197,7 @@ func (s *eventBacklogStore) ClaimWebhookDelivery(ctx context.Context) (webhookpo
 func (lifecycleStore) CompleteWebhookDelivery(context.Context, webhookport.DeliveryJob) error {
 	return nil
 }
-func (lifecycleStore) RetryWebhookDelivery(context.Context, appmodel.WebhookDeliveryRetryRequest) error {
+func (lifecycleStore) RetryWebhookDelivery(context.Context, webhookport.DeliveryRetryRequest) error {
 	return nil
 }
 func (s lifecycleStore) LogWebhookDelivery(context.Context, appmodel.WebhookDeliveryLogRequest) error {

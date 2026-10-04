@@ -103,7 +103,7 @@ func (d *DB) CompleteWebhookDelivery(ctx context.Context, job webhookport.Delive
 // RetryWebhookDelivery releases a failed lease with a future availability
 // time. Rows beyond the attempt limit are discarded after their final log.
 
-func (d *DB) RetryWebhookDelivery(ctx context.Context, request appmodel.WebhookDeliveryRetryRequest) error {
+func (d *DB) RetryWebhookDelivery(ctx context.Context, request webhookport.DeliveryRetryRequest) error {
 	job, availableAt, maxAttempts := request.Job, request.AvailableAt, request.MaxAttempts
 	var result sql.Result
 	var err error

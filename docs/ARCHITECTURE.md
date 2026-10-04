@@ -215,7 +215,9 @@ and `internal/webhookport` contracts, so protocol adapters do not import feature
 workflows to exchange delivery requests, results, or network-policy errors.
 Credential-bearing push subscriptions and durable mail/webhook delivery jobs
 live in `pushport`, `mailport`, and `webhookport`, rather than the shared domain
-model; management routes receive only credential-free webhook summaries.
+model; those ports also own lease completion and retry request types. Application
+models do not depend on queue payload contracts. Management routes receive only
+credential-free webhook summaries.
 Provider APIs and web imports share `internal/httpretry` for rate-limit
 handling. It returns the transport-neutral `internal/providerstatus` error,
 which carries only the upstream name and status code, so remote error payloads

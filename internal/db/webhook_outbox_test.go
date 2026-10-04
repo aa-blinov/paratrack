@@ -36,7 +36,7 @@ func TestWebhookDeliveryQueueLeasesRetriesAndCompletes(t *testing.T) {
 		t.Fatalf("second claim before lease expiry = (%v, %v), want no job", ok, err)
 	}
 
-	if err := d.RetryWebhookDelivery(ctx, appmodel.WebhookDeliveryRetryRequest{Job: job, AvailableAt: time.Now().Add(-time.Second), MaxAttempts: 10}); err != nil {
+	if err := d.RetryWebhookDelivery(ctx, webhookport.DeliveryRetryRequest{Job: job, AvailableAt: time.Now().Add(-time.Second), MaxAttempts: 10}); err != nil {
 		t.Fatalf("RetryWebhookDelivery: %v", err)
 	}
 	retried, ok, err := d.ClaimWebhookDelivery(ctx)

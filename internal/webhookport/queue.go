@@ -28,6 +28,19 @@ type CommittedEvent struct {
 	CreatedAt  time.Time
 }
 
+// EventRetryRequest reschedules a leased outbox event after fan-out fails.
+type EventRetryRequest struct {
+	Event       CommittedEvent
+	AvailableAt time.Time
+}
+
+// DeliveryRetryRequest reschedules or expires a leased endpoint delivery.
+type DeliveryRetryRequest struct {
+	Job         DeliveryJob
+	AvailableAt time.Time
+	MaxAttempts int
+}
+
 // Webhook is an endpoint loaded for delivery. Its signing secret must stay in
 // the workflow and outbound delivery path.
 type Webhook struct {
