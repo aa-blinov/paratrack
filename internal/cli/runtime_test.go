@@ -108,8 +108,10 @@ type runtimeTimerOperations struct{ cliport.TimerOperations }
 type runtimeTimerCommands struct{ cliport.TimerCommands }
 type runtimeActivityCatalog struct{ cliport.ActivityCatalog }
 type runtimeSessionHistory struct{ cliport.SessionHistory }
-type runtimeTagging struct{ cliport.Tagging }
-type runtimeGoals struct{ cliport.Goals }
+type runtimeTagQueries struct{ cliport.TagQueries }
+type runtimeTagCommands struct{ cliport.TagCommands }
+type runtimeGoalQueries struct{ cliport.GoalQueries }
+type runtimeGoalCommands struct{ cliport.GoalCommands }
 
 type signalCloser struct{ closed chan struct{} }
 
@@ -134,8 +136,10 @@ func TestRuntimeCloseWaitsForActiveCommand(t *testing.T) {
 			ProjectLookup:   runtimeProjectLookup{},
 			ProjectQueries:  runtimeProjectQueries{},
 			ProjectCommands: runtimeProjectCommands{},
-			Tagging:         &runtimeTagging{},
-			Goals:           &runtimeGoals{},
+			TagQueries:      &runtimeTagQueries{},
+			TagCommands:     &runtimeTagCommands{},
+			GoalQueries:     &runtimeGoalQueries{},
+			GoalCommands:    &runtimeGoalCommands{},
 		}, signalCloser{closed: closed}, nil
 	}
 

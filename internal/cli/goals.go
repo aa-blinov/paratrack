@@ -86,7 +86,7 @@ func runGoalSet(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Goals
+	service := services.GoalCommands
 
 	for _, p := range pairs {
 		secs, err := timeparse.ParseDuration(p.dur)
@@ -113,7 +113,7 @@ func runGoalList(rt *Runtime) error {
 	if err != nil {
 		return err
 	}
-	service := services.Goals
+	service := services.GoalQueries
 	now := rt.now()
 	progress, err := service.Progress(ctx, teamID, now)
 	if err != nil {
@@ -172,7 +172,7 @@ func runGoalUnset(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	service := services.Goals
+	service := services.GoalCommands
 	for _, p := range periods {
 		if err := service.DeleteForManager(ctx, appmodel.GoalDeleteRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), ActivityName: *activityFlag, Period: p}); err != nil && !errors.Is(err, model.ErrGoalNotFound) {
 			return fmt.Errorf("unset %s: %w", p, err)

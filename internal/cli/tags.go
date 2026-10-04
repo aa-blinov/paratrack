@@ -56,7 +56,7 @@ func runTagAdd(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	t, err := services.Tagging.CreateForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), Name: args[0]})
+	t, err := services.TagCommands.CreateForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), Name: args[0]})
 	if err != nil {
 		return fmt.Errorf("create tag: %w", err)
 	}
@@ -73,7 +73,7 @@ func runTagList(rt *Runtime) error {
 	if err != nil {
 		return err
 	}
-	tags, err := services.Tagging.ListWithCounts(ctx, teamID)
+	tags, err := services.TagQueries.ListWithCounts(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list tags: %w", err)
 	}
@@ -106,7 +106,7 @@ func runTagAttach(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := services.Tagging.AttachForMember(ctx, appmodel.SessionTagRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), SessionID: sid, Name: args[1]}); err != nil {
+	if err := services.TagCommands.AttachForMember(ctx, appmodel.SessionTagRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), SessionID: sid, Name: args[1]}); err != nil {
 		return fmt.Errorf("attach: %w", err)
 	}
 	fmt.Fprintf(rt.Out, "tagged session %d with #%s\n", sid, args[1])
@@ -129,7 +129,7 @@ func runTagDetach(rt *Runtime, args []string) error {
 	if err != nil {
 		return err
 	}
-	if err := services.Tagging.DetachForMember(ctx, appmodel.SessionTagRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), SessionID: sid, Name: args[1]}); err != nil {
+	if err := services.TagCommands.DetachForMember(ctx, appmodel.SessionTagRequest{TeamID: teamID, CallerID: requestctx.ActorID(ctx), SessionID: sid, Name: args[1]}); err != nil {
 		return fmt.Errorf("detach: %w", err)
 	}
 	fmt.Fprintf(rt.Out, "removed #%s from session %d\n", args[1], sid)
