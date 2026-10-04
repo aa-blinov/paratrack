@@ -46,6 +46,7 @@ func New(deps Dependencies) (*Service, error) {
 }
 
 var ErrInvalidScheduleCell = appmodel.ErrInvalidScheduleCell
+var ErrNoProjects = appmodel.ErrNoScheduleProjects
 
 func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (appmodel.ScheduleSnapshot, error) {
 	if teamID <= 0 || weekStart.IsZero() {
@@ -76,8 +77,21 @@ func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (
 }
 
 func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequest) error {
-	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID <= 0 || request.Day.IsZero() || request.Minutes < 0 || request.Minutes > 24*60 {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID < 0 || request.Day.IsZero() || request.Minutes < 0 || request.Minutes > 24*60 {
 		return ErrInvalidScheduleCell
+	}
+	if request.ProjectID == 0 {
+		projects, err := s.projects.List(ctx, request.TeamID, false)
+		if err != nil {
+			return fmt.Errorf("resolve default schedule project: %w", err)
+		}
+		if len(projects) == 0 {
+			return ErrNoProjects
+		}
+		request.ProjectID = projects[0].ID
+		if request.ProjectID <= 0 {
+			return ErrInvalidScheduleCell
+		}
 	}
 	request.Day = time.Date(request.Day.Year(), request.Day.Month(), request.Day.Day(), 0, 0, 0, 0, time.UTC)
 	if err := s.store.UpsertScheduleEntry(ctx, request); err != nil {

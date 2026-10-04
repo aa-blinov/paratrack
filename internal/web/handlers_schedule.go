@@ -185,24 +185,15 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
 		return
 	}
-	if pid == 0 {
-		// fall back to the first project so the grid always has a target
-		projs, err := s.services.Projects.Queries.List(r.Context(), teamID(r), false)
-		if err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
-		if len(projs) == 0 {
-			s.toastL(w, r, "err.needProject", "", "error")
-			w.WriteHeader(200)
-			return
-		}
-		pid = projs[0].ID
-	}
 	if err := s.services.Scheduling.SetCell(r.Context(), appmodel.ScheduleCellRequest{
 		TeamID: teamID(r), ActorID: authenticatedUserID(r), UserID: uid, ProjectID: pid,
 		Day: parsedDay, Minutes: mins,
 	}); err != nil {
+		if errors.Is(err, appmodel.ErrNoScheduleProjects) {
+			s.toastL(w, r, "err.needProject", "", "error")
+			w.WriteHeader(http.StatusOK)
+			return
+		}
 		if errors.Is(err, appmodel.ErrInvalidScheduleCell) {
 			s.toastL(w, r, "err.invalidInput", "", "error")
 		} else {
