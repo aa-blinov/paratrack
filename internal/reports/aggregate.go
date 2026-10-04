@@ -84,6 +84,7 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		case "day":
 			day = session.Session.StartAt.In(location)
 			identityDay = day.Format("2006-01-02")
+			label = identityDay
 		case "user":
 			userID := session.Session.UserID
 			if userID == 0 {

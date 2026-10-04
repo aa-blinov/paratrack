@@ -92,5 +92,23 @@ func TestAggregateGroupsDaysInRequestedLocation(t *testing.T) {
 	}
 }
 
+func TestAggregateGroupsAllActivitiesIntoDay(t *testing.T) {
+	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
+	result, err := Aggregate(AggregateInput{
+		Sessions: []model.ActiveSession{
+			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "design"}},
+			{Session: model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600}, Activity: model.Activity{Name: "review"}},
+		},
+		GroupBy: "day", From: start.Add(-time.Hour), To: start.Add(2 * time.Hour),
+		Now: start.Add(2 * time.Hour), TeamCurrency: "USD",
+	})
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	if len(result.Rows) != 1 || result.Rows[0].Seconds != 7200 {
+		t.Fatalf("day rows = %+v, want one row totaling 7200 seconds", result.Rows)
+	}
+}
+
 func timePtr(value time.Time) *time.Time { return &value }
 func intPtr(value int) *int              { return &value }
