@@ -27,11 +27,10 @@ type TrackingReader interface {
 
 type ProjectReader interface {
 	List(context.Context, int64, bool) ([]model.Project, error)
-	Summaries(context.Context, int64, []int64) (map[int64]model.ProjectSummary, error)
 }
 
-type TagReader interface {
-	TagsForSessions(context.Context, int64, []int64) (map[int64][]model.Tag, error)
+type SessionDecorationBuilder interface {
+	Build(context.Context, appmodel.SessionDecorationRequest) (appmodel.SessionDecorationSnapshot, error)
 }
 
 type InvoiceReader interface {
@@ -43,12 +42,12 @@ type Logger interface {
 }
 
 type Dependencies struct {
-	Goals    GoalReader
-	Tracking TrackingReader
-	Projects ProjectReader
-	Tags     TagReader
-	Invoices InvoiceReader
-	Logger   Logger
+	Goals       GoalReader
+	Tracking    TrackingReader
+	Projects    ProjectReader
+	Decorations SessionDecorationBuilder
+	Invoices    InvoiceReader
+	Logger      Logger
 }
 
 var (
@@ -57,12 +56,12 @@ var (
 )
 
 type Builder struct {
-	goals    GoalReader
-	tracking TrackingReader
-	projects ProjectReader
-	tags     TagReader
-	invoices InvoiceReader
-	logger   Logger
+	goals       GoalReader
+	tracking    TrackingReader
+	projects    ProjectReader
+	decorations SessionDecorationBuilder
+	invoices    InvoiceReader
+	logger      Logger
 }
 
 type Query = appmodel.DashboardQuery
@@ -74,7 +73,7 @@ func NewBuilder(deps Dependencies) (*Builder, error) {
 		port any
 	}{
 		{"goals", deps.Goals}, {"tracking", deps.Tracking},
-		{"projects", deps.Projects}, {"tags", deps.Tags}, {"invoices", deps.Invoices},
+		{"projects", deps.Projects}, {"session decorations", deps.Decorations}, {"invoices", deps.Invoices},
 		{"logger", deps.Logger},
 	}
 	for _, dependency := range missing {
@@ -84,7 +83,7 @@ func NewBuilder(deps Dependencies) (*Builder, error) {
 	}
 	return &Builder{
 		goals: deps.Goals, tracking: deps.Tracking,
-		projects: deps.Projects, tags: deps.Tags, invoices: deps.Invoices, logger: deps.Logger,
+		projects: deps.Projects, decorations: deps.Decorations, invoices: deps.Invoices, logger: deps.Logger,
 	}, nil
 }
 
@@ -122,8 +121,14 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 	if snapshot.Projects, err = b.projects.List(ctx, query.TeamID, false); err != nil {
 		return Snapshot{}, fmt.Errorf("load dashboard projects: %w", err)
 	}
-	sessionIDs, projectIDs := collectSessionReferences(snapshot.ActiveSessions, snapshot.TodaySessions, snapshot.RecentSessions)
-	snapshot.TagsBySession, snapshot.ProjectsByID = b.enrichSessions(ctx, query.TeamID, sessionIDs, projectIDs)
+	decorations, err := b.decorations.Build(ctx, appmodel.SessionDecorationRequest{
+		TeamID: query.TeamID, Sessions: combineSessions(snapshot.ActiveSessions, snapshot.TodaySessions, snapshot.RecentSessions),
+		IncludeTags: true, IncludeProjects: true,
+	})
+	if err != nil {
+		return Snapshot{}, fmt.Errorf("build dashboard session decorations: %w", err)
+	}
+	snapshot.TagsBySession, snapshot.ProjectsByID = decorations.TagsBySession, decorations.ProjectsByID
 	snapshot.HasSession = len(snapshot.ActiveSessions) > 0 || len(snapshot.RecentSessions) > 0
 	if !snapshot.HasSession {
 		snapshot.HasSession, err = b.tracking.HasAnySession(ctx, query.TeamID)
@@ -187,8 +192,12 @@ func (b *Builder) BuildActiveList(ctx context.Context, teamID int64) (appmodel.A
 	if err != nil {
 		return appmodel.ActiveListSnapshot{}, fmt.Errorf("load active-list projects: %w", err)
 	}
-	ids, projectIDs := collectSessionReferences(active)
-	tags, summaries := b.enrichSessions(ctx, teamID, ids, projectIDs)
+	decorations, err := b.decorations.Build(ctx, appmodel.SessionDecorationRequest{
+		TeamID: teamID, Sessions: active, IncludeTags: true, IncludeProjects: true,
+	})
+	if err != nil {
+		return appmodel.ActiveListSnapshot{}, fmt.Errorf("build active-list session decorations: %w", err)
+	}
 	firstRun := false
 	if len(active) == 0 {
 		hasSession, err := b.tracking.HasAnySession(ctx, teamID)
@@ -198,50 +207,15 @@ func (b *Builder) BuildActiveList(ctx context.Context, teamID int64) (appmodel.A
 		firstRun = !hasSession
 	}
 	return appmodel.ActiveListSnapshot{
-		ActiveSessions: active, Projects: projects, TagsBySession: tags,
-		ProjectsByID: summaries, FirstRun: firstRun,
+		ActiveSessions: active, Projects: projects, TagsBySession: decorations.TagsBySession,
+		ProjectsByID: decorations.ProjectsByID, FirstRun: firstRun,
 	}, nil
 }
 
-func collectSessionReferences(sessionGroups ...[]model.ActiveSession) ([]int64, []int64) {
-	var sessionIDs, projectIDs []int64
-	seenSessions, seenProjects := map[int64]bool{}, map[int64]bool{}
-	for _, sessions := range sessionGroups {
-		for _, item := range sessions {
-			if !seenSessions[item.Session.ID] {
-				seenSessions[item.Session.ID] = true
-				sessionIDs = append(sessionIDs, item.Session.ID)
-			}
-			projectID := item.Activity.ProjectID
-			if projectID > 0 && !seenProjects[projectID] {
-				seenProjects[projectID] = true
-				projectIDs = append(projectIDs, projectID)
-			}
-		}
+func combineSessions(groups ...[]model.ActiveSession) []model.ActiveSession {
+	var sessions []model.ActiveSession
+	for _, group := range groups {
+		sessions = append(sessions, group...)
 	}
-	return sessionIDs, projectIDs
-}
-
-func (b *Builder) enrichSessions(ctx context.Context, teamID int64, sessionIDs, projectIDs []int64) (map[int64][]model.Tag, map[int64]model.ProjectSummary) {
-	var tagsBySession map[int64][]model.Tag
-	var projectsByID map[int64]model.ProjectSummary
-	// Row decorations are best-effort so a tags or project lookup failure does
-	// not make the active timer list unavailable.
-	if len(sessionIDs) > 0 {
-		tags, err := b.tags.TagsForSessions(ctx, teamID, sessionIDs)
-		if err != nil {
-			b.logger.Printf("dashboard: load session tags for team %d: %v", teamID, err)
-		} else {
-			tagsBySession = tags
-		}
-	}
-	if len(projectIDs) > 0 {
-		summaries, err := b.projects.Summaries(ctx, teamID, projectIDs)
-		if err != nil {
-			b.logger.Printf("dashboard: load project summaries for team %d: %v", teamID, err)
-		} else {
-			projectsByID = summaries
-		}
-	}
-	return tagsBySession, projectsByID
+	return sessions
 }

@@ -28,6 +28,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/projectpages"
 	savedreports "github.com/aa-blinov/paratrack/internal/reports"
 	"github.com/aa-blinov/paratrack/internal/scheduling"
+	"github.com/aa-blinov/paratrack/internal/sessiondecorations"
 	"github.com/aa-blinov/paratrack/internal/teamops"
 	"github.com/aa-blinov/paratrack/internal/teams"
 	"github.com/aa-blinov/paratrack/internal/trackingops"
@@ -97,6 +98,12 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	projectService := shared.Projects
 	trackingService := shared.Tracking
 	taggingService := shared.Tagging
+	sessionDecorationBuilder, err := sessiondecorations.New(sessiondecorations.Dependencies{
+		Tags: taggingService, Projects: projectService, Logger: logger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("construct session decoration builder: %w", err)
+	}
 	goalService := shared.Goals
 	auditService := shared.Audit
 	authService, err := auth.NewService(auth.Dependencies{
@@ -136,7 +143,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	}
 	projectPageBuilder, err := projectpages.New(projectpages.Dependencies{
 		Projects: projectService, Teams: teamService, Memberships: teamService, Invoicing: invoiceService,
-		Tags: taggingService, Logger: logger,
+		Decorations: sessionDecorationBuilder,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct project page builder: %w", err)
@@ -201,7 +208,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	}
 	reportBuilder, err := savedreports.NewBuilder(savedreports.BuilderDependencies{
 		Sessions: trackingService, Teams: teamService,
-		Projects: projectService, Users: authService, Tags: taggingService, Logger: logger,
+		Projects: projectService, Users: authService, Tags: taggingService, Decorations: sessionDecorationBuilder,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct report builder: %w", err)
@@ -228,38 +235,39 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	}
 	dashboardBuilder, err := dashboard.NewBuilder(dashboard.Dependencies{
 		Goals: goalService, Tracking: trackingService,
-		Projects: projectService, Tags: taggingService, Invoices: invoiceService, Logger: logger,
+		Projects: projectService, Decorations: sessionDecorationBuilder, Invoices: invoiceService, Logger: logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct dashboard builder: %w", err)
 	}
 	return &Services{
-		Billing:          billingService,
-		Auth:             authService,
-		AuditLog:         auditService,
-		Teams:            teamService,
-		TeamOps:          teamOpsService,
-		Tracking:         trackingService,
-		TrackingOps:      trackingOpsService,
-		Imports:          importService,
-		Integrations:     integrationService,
-		Invoicing:        invoiceService,
-		InvoiceDocuments: invoiceDocuments,
-		Payroll:          payrollService,
-		PayrollPaid:      payrollPaidService,
-		Preferences:      preferenceService,
-		Scheduling:       schedulingService,
-		Projects:         projectService,
-		ProjectPages:     projectPageBuilder,
-		Reports:          reportService,
-		ReportBuilder:    reportBuilder,
-		Dashboard:        dashboardBuilder,
-		MemberAdmin:      memberAdminService,
-		Push:             pushService,
-		Tagging:          taggingService,
-		Goals:            goalService,
-		Webhooks:         webhookService,
-		MailQueue:        mailQueueService,
-		Resources:        resources,
+		Billing:            billingService,
+		Auth:               authService,
+		AuditLog:           auditService,
+		Teams:              teamService,
+		TeamOps:            teamOpsService,
+		Tracking:           trackingService,
+		TrackingOps:        trackingOpsService,
+		Imports:            importService,
+		Integrations:       integrationService,
+		Invoicing:          invoiceService,
+		InvoiceDocuments:   invoiceDocuments,
+		Payroll:            payrollService,
+		PayrollPaid:        payrollPaidService,
+		Preferences:        preferenceService,
+		Scheduling:         schedulingService,
+		Projects:           projectService,
+		ProjectPages:       projectPageBuilder,
+		Reports:            reportService,
+		ReportBuilder:      reportBuilder,
+		Dashboard:          dashboardBuilder,
+		SessionDecorations: sessionDecorationBuilder,
+		MemberAdmin:        memberAdminService,
+		Push:               pushService,
+		Tagging:            taggingService,
+		Goals:              goalService,
+		Webhooks:           webhookService,
+		MailQueue:          mailQueueService,
+		Resources:          resources,
 	}, nil
 }
