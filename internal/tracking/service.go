@@ -59,7 +59,7 @@ type ActivityStore interface {
 	GetOrCreateActivityForMember(context.Context, appmodel.ActivityResolveRequest) (model.Activity, error)
 	FindActivityByName(context.Context, int64, string) (model.Activity, error)
 	ListActivities(context.Context, int64, bool) ([]model.Activity, error)
-	GetActivity(context.Context, int64, int64) (model.Activity, error)
+	GetActivity(context.Context, appmodel.ActivityLookupQuery) (model.Activity, error)
 }
 
 // TimesheetStore provides grid reads and atomic daily-total replacement.
@@ -245,7 +245,7 @@ func (s *Service) Activity(ctx context.Context, teamID, activityID int64) (model
 	if teamID <= 0 || activityID <= 0 {
 		return model.Activity{}, ErrInvalidStart
 	}
-	activity, err := s.activities.GetActivity(ctx, teamID, activityID)
+	activity, err := s.activities.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: teamID, ActivityID: activityID})
 	if err != nil {
 		return model.Activity{}, fmt.Errorf("get activity: %w", err)
 	}

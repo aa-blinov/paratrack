@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -43,8 +42,8 @@ func (d *DB) ListActivitiesForProject(ctx context.Context, query appmodel.Projec
 // ProjectSpans returns the closed sessions touching [from, to] that
 // belong to a project, in one query for the whole workspace (scoped to
 // the person for a member).
-func (d *DB) ProjectSpans(ctx context.Context, teamID int64, from, to time.Time) ([]model.ProjectSessionSpan, error) {
-	if teamID <= 0 || from.IsZero() || to.Before(from) {
+func (d *DB) ProjectSpans(ctx context.Context, query appmodel.ProjectSpansQuery) ([]model.ProjectSessionSpan, error) {
+	if query.TeamID <= 0 || query.From.IsZero() || query.Through.Before(query.From) {
 		return nil, ErrNotFound
 	}
 	q := `SELECT a.project_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused
@@ -53,7 +52,7 @@ func (d *DB) ProjectSpans(ctx context.Context, teamID int64, from, to time.Time)
 		JOIN projects p ON p.id = a.project_id AND p.team_id = s.team_id
 		WHERE s.team_id = ? AND a.project_id IS NOT NULL AND s.end_at IS NOT NULL
 		  AND s.start_at <= ? AND s.end_at >= ?`
-	args := []any{teamID, FormatTime(to), FormatTime(from)}
+	args := []any{query.TeamID, FormatTime(query.Through), FormatTime(query.From)}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
 	rows, err := d.sql.QueryContext(ctx, q+sc, args...)
 	if err != nil {

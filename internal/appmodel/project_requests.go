@@ -95,6 +95,19 @@ type ProjectActivityCatalogQuery struct {
 	IncludeArchived bool
 }
 
+// ProjectSpansQuery scopes project time spans to one workspace and range.
+type ProjectSpansQuery struct {
+	TeamID  int64
+	From    time.Time
+	Through time.Time
+}
+
+// ActivityLookupQuery resolves one activity within its workspace.
+type ActivityLookupQuery struct {
+	TeamID     int64
+	ActivityID int64
+}
+
 // ProjectUsageQuery combines the catalog selection with the usage window.
 type ProjectUsageQuery struct {
 	Catalog    ProjectCatalogQuery
