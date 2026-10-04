@@ -21,6 +21,8 @@ const sealedPrefix = "enc:v1:"
 
 type secretCodec struct{ aead cipher.AEAD }
 
+type secretColumn struct{ table, col string }
+
 func newSecretCodec(key string) secretCodec {
 	if key == "" {
 		return secretCodec{}
@@ -94,12 +96,43 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 	if err := lockMigrations(ctx, tx); err != nil {
 		return fmt.Errorf("lock secret migration: %w", err)
 	}
-	columns := []struct{ table, col string }{
+	columns := []secretColumn{
 		{"integrations", "secret"}, {"webhooks", "secret"},
 		{"teams", "stripe_key"}, {"teams", "stripe_webhook_secret"},
 	}
 	sealPlaintext := d.secrets.aead != nil
 
+	if err := d.validateExistingSecrets(ctx, tx, columns); err != nil {
+		return err
+	}
+	if !sealPlaintext {
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit secret validation: %w", err)
+		}
+		return nil
+	}
+
+	sealedCounts := make(map[string]int)
+	if err := d.sealLegacySecretColumns(ctx, tx, columns, sealedCounts); err != nil {
+		return err
+	}
+	var sealedInviteCount int
+	if err := d.sealLegacyInviteTokens(ctx, tx, &sealedInviteCount); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit secret migration: %w", err)
+	}
+	for column, count := range sealedCounts {
+		d.logger.Printf("secrets: sealed %d %s values", count, column)
+	}
+	if sealedInviteCount > 0 {
+		d.logger.Printf("secrets: sealed %d invites.sealed_token values", sealedInviteCount)
+	}
+	return nil
+}
+
+func (d *DB) validateExistingSecrets(ctx context.Context, tx *Tx, columns []secretColumn) error {
 	// Validate every existing ciphertext before changing any legacy plaintext.
 	// Otherwise a wrong key discovered in a later table could leave earlier
 	// tables newly encrypted with that wrong key. This pass retains no
@@ -156,14 +189,10 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 	if err := rows.Close(); err != nil {
 		return fmt.Errorf("close encrypted invite tokens: %w", err)
 	}
-	if !sealPlaintext {
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit secret validation: %w", err)
-		}
-		return nil
-	}
+	return nil
+}
 
-	sealedCounts := make(map[string]int)
+func (d *DB) sealLegacySecretColumns(ctx context.Context, tx *Tx, columns []secretColumn, sealedCounts map[string]int) error {
 	for _, c := range columns {
 		var lastID int64
 		for {
@@ -217,7 +246,10 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 			}
 		}
 	}
-	var sealedInviteCount int
+	return nil
+}
+
+func (d *DB) sealLegacyInviteTokens(ctx context.Context, tx *Tx, sealedInviteCount *int) error {
 	for {
 		rows, err := tx.QueryContext(ctx, `SELECT token, sealed_token FROM invites WHERE sealed_token <> '' AND sealed_token NOT LIKE ? ORDER BY token LIMIT ?`, sealedPrefix+"%", migrationBatchSize)
 		if err != nil {
@@ -257,17 +289,8 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("count sealed invite token updates: %w", err)
 			}
-			sealedInviteCount += int(updated)
+			*sealedInviteCount += int(updated)
 		}
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit secret migration: %w", err)
-	}
-	for column, count := range sealedCounts {
-		d.logger.Printf("secrets: sealed %d %s values", count, column)
-	}
-	if sealedInviteCount > 0 {
-		d.logger.Printf("secrets: sealed %d invites.sealed_token values", sealedInviteCount)
 	}
 	return nil
 }
