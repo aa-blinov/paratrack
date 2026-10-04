@@ -342,6 +342,9 @@ func (s *Service) UpdateName(ctx context.Context, request appmodel.ProfileNameRe
 	if request.UserID <= 0 {
 		return ErrNotFound
 	}
+	if request.CallerID <= 0 || request.CallerID != request.UserID {
+		return ErrForbidden
+	}
 	request.Name = strings.TrimSpace(request.Name)
 	if request.Name == "" {
 		return fmt.Errorf("%w: name cannot be empty", ErrValidation)
@@ -357,6 +360,9 @@ func (s *Service) UpdateName(ctx context.Context, request appmodel.ProfileNameRe
 // overwritten with a hash verified against an older value.
 func (s *Service) ChangePassword(ctx context.Context, request appmodel.PasswordChangeRequest) error {
 	userID, currentPassword, newPassword := request.UserID, request.CurrentPassword, request.NewPassword
+	if request.CallerID <= 0 || request.CallerID != userID {
+		return ErrForbidden
+	}
 	user, err := s.findByID(ctx, userID)
 	if err != nil {
 		return err
@@ -372,7 +378,7 @@ func (s *Service) ChangePassword(ctx context.Context, request appmodel.PasswordC
 		return fmt.Errorf("hash new password: %w", err)
 	}
 	updated, err := s.users.UpdateUserPasswordIfHashMatches(ctx, appmodel.PasswordHashUpdateRequest{
-		UserID: userID, ExpectedHash: user.PasswordHash, PasswordHash: string(hash),
+		UserID: userID, CallerID: request.CallerID, ExpectedHash: user.PasswordHash, PasswordHash: string(hash),
 	})
 	if err != nil {
 		return mapStoreNotFound(err)

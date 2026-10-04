@@ -13,6 +13,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/audit"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"github.com/aa-blinov/paratrack/internal/testutil"
 )
 
@@ -122,8 +123,9 @@ func TestChangePasswordUsesCurrentCredentialAndConditionalUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("createUser: %v", err)
 	}
+	ctx = requestctx.WithActor(ctx, userID)
 
-	if err := svc.ChangePassword(ctx, appmodel.PasswordChangeRequest{UserID: userID, CurrentPassword: "wrong-password", NewPassword: "new-password"}); !errors.Is(err, ErrBadPassword) {
+	if err := svc.ChangePassword(ctx, appmodel.PasswordChangeRequest{UserID: userID, CallerID: userID, CurrentPassword: "wrong-password", NewPassword: "new-password"}); !errors.Is(err, ErrBadPassword) {
 		t.Fatalf("ChangePassword with wrong current password: got %v, want ErrBadPassword", err)
 	}
 	user, err := svc.findByID(ctx, userID)
@@ -132,7 +134,7 @@ func TestChangePasswordUsesCurrentCredentialAndConditionalUpdate(t *testing.T) {
 	}
 
 	staleHash := user.PasswordHash
-	if err := svc.ChangePassword(ctx, appmodel.PasswordChangeRequest{UserID: userID, CurrentPassword: "old-password", NewPassword: "new-password"}); err != nil {
+	if err := svc.ChangePassword(ctx, appmodel.PasswordChangeRequest{UserID: userID, CallerID: userID, CurrentPassword: "old-password", NewPassword: "new-password"}); err != nil {
 		t.Fatalf("ChangePassword: %v", err)
 	}
 	var passwordChangeAudits int
@@ -149,7 +151,7 @@ func TestChangePasswordUsesCurrentCredentialAndConditionalUpdate(t *testing.T) {
 		t.Fatalf("hash concurrent password: %v", err)
 	}
 	updated, err := d.UpdateUserPasswordIfHashMatches(ctx, appmodel.PasswordHashUpdateRequest{
-		UserID: userID, ExpectedHash: staleHash, PasswordHash: string(concurrentHash),
+		UserID: userID, CallerID: userID, ExpectedHash: staleHash, PasswordHash: string(concurrentHash),
 	})
 	if err != nil {
 		t.Fatalf("conditional stale password update: %v", err)
