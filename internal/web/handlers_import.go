@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/importport"
+	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/providerstatus"
 )
 
@@ -60,9 +61,12 @@ func (s *Server) handleImportPreview(w http.ResponseWriter, r *http.Request) {
 	}
 	f := func(k string) string { return strings.TrimSpace(r.PostForm.Get(k)) }
 	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: string(resolveLang(r))}}
-	entries, err := s.services.Imports.Preview(r.Context(), importport.ProviderRequest{
-		Provider: f("provider"), Secret: f("secret"), Extra: f("extra"),
-		From: f("from"), To: f("to"), Timezone: f("tz"),
+	entries, err := s.services.Imports.Preview(operationContext(r), appmodel.ProviderImportPreviewRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r),
+		Provider: importport.ProviderRequest{
+			Provider: f("provider"), Secret: f("secret"), Extra: f("extra"),
+			From: f("from"), To: f("to"), Timezone: f("tz"),
+		},
 	})
 	if err != nil {
 		data.Error = s.importFailureMessage(r, err)
@@ -116,6 +120,8 @@ func (s *Server) importFailureMessage(r *http.Request, err error) string {
 	case errors.Is(err, importport.ErrApplyFailed):
 		s.logInternalError(err)
 		return i18n.T(resolveLang(r), "err.internal")
+	case errors.Is(err, model.ErrForbidden):
+		return i18n.T(resolveLang(r), "flash.forbidden")
 	}
 	var statusErr *providerstatus.Error
 	if errors.As(err, &statusErr) {

@@ -83,7 +83,7 @@ type BillingWorkflow interface {
 
 // ImportWorkflow is the provider import surface exposed to HTTP routes.
 type ImportWorkflow interface {
-	Preview(context.Context, importport.ProviderRequest) ([]importport.ImportedEntry, error)
+	Preview(context.Context, appmodel.ProviderImportPreviewRequest) ([]importport.ImportedEntry, error)
 	RunFromProvider(context.Context, appmodel.ProviderImportRunRequest) (appmodel.ImportResult, error)
 }
 

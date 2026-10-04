@@ -38,26 +38,43 @@ type AuditRecorder interface {
 	Record(context.Context, model.AuditRecord) error
 }
 
+// ImportAuthorizer checks manager access before credentials are sent to an
+// external provider. Persistence rechecks access inside the write transaction.
+type ImportAuthorizer interface {
+	TeamMemberRole(context.Context, int64, int64) (model.TeamRole, bool, error)
+}
+
 type Logger interface {
 	Printf(string, ...any)
 }
 
 type Service struct {
-	store     Store
-	providers ProviderFetcher
-	audit     AuditRecorder
-	logger    Logger
+	store      Store
+	providers  ProviderFetcher
+	authorizer ImportAuthorizer
+	audit      AuditRecorder
+	logger     Logger
 }
 
-func New(store Store, providers ProviderFetcher, audit AuditRecorder, logger Logger) (*Service, error) {
-	if depcheck.IsNil(store) || depcheck.IsNil(providers) || depcheck.IsNil(audit) || depcheck.IsNil(logger) {
+func New(store Store, providers ProviderFetcher, authorizer ImportAuthorizer, audit AuditRecorder, logger Logger) (*Service, error) {
+	if depcheck.IsNil(store) || depcheck.IsNil(providers) || depcheck.IsNil(authorizer) || depcheck.IsNil(audit) || depcheck.IsNil(logger) {
 		return nil, ErrIncompleteDependencies
 	}
-	return &Service{store: store, providers: providers, audit: audit, logger: logger}, nil
+	return &Service{store: store, providers: providers, authorizer: authorizer, audit: audit, logger: logger}, nil
 }
 
 // Preview fetches and normalizes a provider's entries without persisting them.
-func (s *Service) Preview(ctx context.Context, request importport.ProviderRequest) ([]importport.ImportedEntry, error) {
+func (s *Service) Preview(ctx context.Context, request appmodel.ProviderImportPreviewRequest) ([]importport.ImportedEntry, error) {
+	if request.TeamID <= 0 {
+		return nil, fmt.Errorf("%w: team ID must be positive", ErrInvalidEntry)
+	}
+	if err := s.authorize(ctx, request.TeamID, request.CallerID); err != nil {
+		return nil, err
+	}
+	return s.fetchAndValidate(ctx, request.Provider)
+}
+
+func (s *Service) fetchAndValidate(ctx context.Context, request importport.ProviderRequest) ([]importport.ImportedEntry, error) {
 	entries, err := s.providers.Fetch(ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetch import provider entries: %w", err)
@@ -72,11 +89,14 @@ func (s *Service) Preview(ctx context.Context, request importport.ProviderReques
 // RunFromProvider fetches entries and applies them as one validated import
 // batch. No local writes occur unless fetching and validation both succeed.
 func (s *Service) RunFromProvider(ctx context.Context, request appmodel.ProviderImportRunRequest) (appmodel.ImportResult, error) {
-	if request.TeamID <= 0 || request.CallerID <= 0 {
-		return appmodel.ImportResult{}, fmt.Errorf("%w: team and caller IDs must be positive", ErrInvalidEntry)
+	if request.TeamID <= 0 {
+		return appmodel.ImportResult{}, fmt.Errorf("%w: team ID must be positive", ErrInvalidEntry)
+	}
+	if err := s.authorize(ctx, request.TeamID, request.CallerID); err != nil {
+		return appmodel.ImportResult{}, err
 	}
 	teamID, callerID := request.TeamID, request.CallerID
-	entries, err := s.Preview(ctx, request.Provider)
+	entries, err := s.fetchAndValidate(ctx, request.Provider)
 	if err != nil {
 		return appmodel.ImportResult{}, err
 	}
@@ -95,6 +115,20 @@ func (s *Service) RunFromProvider(ctx context.Context, request appmodel.Provider
 		s.logger.Printf("importing: record provider import audit for team %d: %v", teamID, err)
 	}
 	return result, nil
+}
+
+func (s *Service) authorize(ctx context.Context, teamID, callerID int64) error {
+	if teamID <= 0 || callerID <= 0 {
+		return fmt.Errorf("%w: team and caller IDs must be positive", ErrInvalidEntry)
+	}
+	role, member, err := s.authorizer.TeamMemberRole(ctx, teamID, callerID)
+	if err != nil {
+		return fmt.Errorf("authorize provider import: %w", err)
+	}
+	if !member || !role.CanManage() {
+		return model.ErrForbidden
+	}
+	return nil
 }
 
 // runEntries validates and applies an already fetched batch.

@@ -116,6 +116,10 @@ transaction, preserving caller and workspace scope at the authorization check.
 Provider-produced import entries and task snapshots live in `importport` and
 `integrationport`; persistence and workflows consume those boundary types without
 classifying external payloads as domain entities.
+Provider import preview and execution check the caller's manager role before
+sending supplied credentials to an external provider. Import persistence checks
+the role again under the workspace lock before creating sessions, so a role
+change during the provider request cannot authorize a write.
 Integration settings use a typed `ProviderConfig` across application and
 provider ports; the database adapter alone maps that configuration to and from
 the persisted JSON column.
