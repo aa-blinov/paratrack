@@ -277,6 +277,23 @@ type TeamMemberManagementSnapshot struct {
 	PaySettings []model.MemberPayrollSettings
 }
 
+// IntegrationManagementSnapshot contains connected providers with task counts
+// for the integration settings page.
+type IntegrationManagementSnapshot struct {
+	Items []IntegrationManagementItem
+}
+
+type IntegrationManagementItem struct {
+	Integration model.IntegrationSummary
+	TaskCount   int
+}
+
+// IntegrationDetailSnapshot contains one connection and its imported tasks.
+type IntegrationDetailSnapshot struct {
+	Integration model.IntegrationSummary
+	Tasks       []model.ExternalTask
+}
+
 type PayrollRunSummary struct {
 	Run                  model.PayrollRun
 	TotalCents           int
