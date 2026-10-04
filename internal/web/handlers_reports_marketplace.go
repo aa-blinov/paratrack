@@ -57,7 +57,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	rows := make([]reportRow, 0, len(result.Rows))
 	for _, row := range result.Rows {
 		key := row.Key
-		if tpl.GroupBy == "day" {
+		if tpl.GroupBy == appmodel.ReportGroupDay {
 			day := row.Day.In(userLoc(r))
 			key = fmtWeekday(resolveLang(r), day) + " " + fmtDay(resolveLang(r), day)
 		}

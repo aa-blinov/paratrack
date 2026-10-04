@@ -274,7 +274,7 @@ func (b *Builder) resolveProjectSlug(ctx context.Context, teamID int64, slug str
 }
 
 func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult, error) {
-	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) || query.Now.IsZero() {
+	if query.TeamID <= 0 || query.From.IsZero() || !query.To.After(query.From) || query.Now.IsZero() || !query.GroupBy.Valid() {
 		return AggregateResult{}, ErrInvalidReportQuery
 	}
 	sessions, err := b.sessions.ClosedSessions(ctx, appmodel.ClosedSessionsQuery{TeamID: query.TeamID, Start: query.From, End: query.To})
@@ -298,7 +298,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 		return AggregateResult{}, fmt.Errorf("load report project currencies: %w", err)
 	}
 	userNames := make(map[int64]string)
-	if query.GroupBy == "user" {
+	if query.GroupBy == appmodel.ReportGroupUser {
 		members, err := b.teams.Members(ctx, query.TeamID)
 		if err != nil {
 			return AggregateResult{}, fmt.Errorf("load report members: %w", err)
