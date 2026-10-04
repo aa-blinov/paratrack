@@ -21,7 +21,7 @@ type ProjectReader interface {
 }
 
 type SessionReader interface {
-	SessionActivity(context.Context, int64, int64) (model.Session, model.Activity, error)
+	SessionActivity(context.Context, appmodel.SessionLookupQuery) (model.Session, model.Activity, error)
 }
 
 type Logger interface {
@@ -60,17 +60,17 @@ func New(deps Dependencies) (*Builder, error) {
 	return &Builder{sessions: deps.Sessions, tags: deps.Tags, projects: deps.Projects, logger: deps.Logger}, nil
 }
 
-func (b *Builder) BuildRow(ctx context.Context, teamID, sessionID int64) (appmodel.SessionDecorationRowSnapshot, error) {
-	if teamID <= 0 || sessionID <= 0 {
+func (b *Builder) BuildRow(ctx context.Context, query appmodel.SessionLookupQuery) (appmodel.SessionDecorationRowSnapshot, error) {
+	if query.TeamID <= 0 || query.SessionID <= 0 {
 		return appmodel.SessionDecorationRowSnapshot{}, ErrInvalidRequest
 	}
-	session, activity, err := b.sessions.SessionActivity(ctx, teamID, sessionID)
+	session, activity, err := b.sessions.SessionActivity(ctx, query)
 	if err != nil {
-		return appmodel.SessionDecorationRowSnapshot{}, fmt.Errorf("load session row %d: %w", sessionID, err)
+		return appmodel.SessionDecorationRowSnapshot{}, fmt.Errorf("load session row %d: %w", query.SessionID, err)
 	}
 	active := model.ActiveSession{Session: session, Activity: activity}
 	decorations, err := b.Build(ctx, appmodel.SessionDecorationRequest{
-		TeamID: teamID, Sessions: []model.ActiveSession{active}, IncludeTags: true, IncludeProjects: true,
+		TeamID: query.TeamID, Sessions: []model.ActiveSession{active}, IncludeTags: true, IncludeProjects: true,
 	})
 	if err != nil {
 		return appmodel.SessionDecorationRowSnapshot{}, err

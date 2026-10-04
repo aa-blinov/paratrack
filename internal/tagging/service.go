@@ -121,15 +121,15 @@ func (s *Service) TagsForSessions(ctx context.Context, query appmodel.SessionTag
 
 // SessionActivity returns the session and its activity only when both belong
 // to the requested workspace. This is used when rebuilding a tagged row.
-func (s *Service) SessionActivity(ctx context.Context, teamID, sessionID int64) (model.Session, model.Activity, error) {
-	if teamID <= 0 || sessionID <= 0 {
+func (s *Service) SessionActivity(ctx context.Context, query appmodel.SessionLookupQuery) (model.Session, model.Activity, error) {
+	if query.TeamID <= 0 || query.SessionID <= 0 {
 		return model.Session{}, model.Activity{}, ErrInvalidSession
 	}
-	session, err := s.sessionActivities.GetSession(ctx, appmodel.SessionLookupQuery{TeamID: teamID, SessionID: sessionID})
+	session, err := s.sessionActivities.GetSession(ctx, query)
 	if err != nil {
 		return model.Session{}, model.Activity{}, fmt.Errorf("load tagged session: %w", err)
 	}
-	activity, err := s.sessionActivities.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: teamID, ActivityID: session.ActivityID})
+	activity, err := s.sessionActivities.GetActivity(ctx, appmodel.ActivityLookupQuery{TeamID: query.TeamID, ActivityID: session.ActivityID})
 	if err != nil {
 		return model.Session{}, model.Activity{}, fmt.Errorf("load tagged session activity: %w", err)
 	}
