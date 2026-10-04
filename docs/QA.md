@@ -56,6 +56,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C15. React profile settings | profile name and password forms retain their existing endpoints and validation; disabled email; success and error flashes |
 | C16. React personal preferences | duration, week start, time zone, default project, dashboard blocks, section visibility and four-tab limit save through the existing preferences endpoint |
 | C17. React notifications | browser subscription state; subscribe/unsubscribe via existing push APIs; permission, unavailable browser and request failure messages; device count and event list |
+| C18. React workspace settings | rename, currency, invoice requisites, billing rounding and logo, Stripe credentials, workspace creation and deletion forms preserve the existing routes |
 | D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |
