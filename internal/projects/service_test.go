@@ -51,6 +51,31 @@ type detailBillingStub struct {
 	currency string
 }
 
+type projectListCatalogStub struct {
+	ProjectCatalogStore
+	projects        []model.Project
+	includeArchived bool
+}
+
+func (stub *projectListCatalogStub) ListProjects(_ context.Context, _ int64, includeArchived bool) ([]model.Project, error) {
+	stub.includeArchived = includeArchived
+	return stub.projects, nil
+}
+
+type projectListUsageStub struct {
+	ProjectUsageStore
+	counts map[int64]int
+	spans  []model.ProjectSessionSpan
+}
+
+func (stub projectListUsageStub) ProjectActivityCounts(context.Context, int64) (map[int64]int, error) {
+	return stub.counts, nil
+}
+
+func (stub projectListUsageStub) ProjectSpans(context.Context, int64, time.Time, time.Time) ([]model.ProjectSessionSpan, error) {
+	return stub.spans, nil
+}
+
 func (stub detailBillingStub) ProjectCurrency(context.Context, int64, int64) (string, error) {
 	return stub.currency, nil
 }
@@ -59,6 +84,37 @@ func TestListRejectsUnscopedWorkspace(t *testing.T) {
 	service := &Service{}
 	if _, err := service.List(context.Background(), 0, false); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("List with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
+	start := time.Date(2026, time.June, 2, 0, 0, 0, 0, time.UTC)
+	now := start.Add(3 * time.Hour)
+	monthStart := start.AddDate(0, 0, -30)
+	ended := start.Add(2 * time.Hour)
+	project := model.Project{ID: 7, TeamID: 3, Slug: "alpha", Name: "Alpha", Archived: true}
+	catalog := &projectListCatalogStub{projects: []model.Project{project}}
+	service := &Service{
+		catalog: catalog,
+		usage: projectListUsageStub{
+			counts: map[int64]int{7: 2},
+			spans: []model.ProjectSessionSpan{{ProjectID: 7, Session: model.Session{
+				StartAt: start, EndAt: &ended, AccumulatedSeconds: 2 * 60 * 60,
+			}}},
+		},
+	}
+
+	snapshot, err := service.ListWithUsage(context.Background(), appmodel.ProjectListQuery{
+		TeamID: 3, IncludeArchived: true, TodayStart: start, MonthStart: monthStart, Now: now,
+	})
+	if err != nil {
+		t.Fatalf("ListWithUsage: %v", err)
+	}
+	if !catalog.includeArchived || len(snapshot.Projects) != 1 || snapshot.Projects[0] != project {
+		t.Fatalf("project snapshot = %+v, archived = %v", snapshot, catalog.includeArchived)
+	}
+	if got := snapshot.Usage[7]; got.ActivityCount != 2 || got.TodaySeconds != 7200 || got.MonthSeconds != 7200 {
+		t.Fatalf("project usage = %+v, want count 2 and 7200 seconds", got)
 	}
 }
 
