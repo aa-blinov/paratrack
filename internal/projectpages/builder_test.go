@@ -12,18 +12,18 @@ import (
 )
 
 type projectReaderStub struct {
-	detail     model.ProjectDetail
-	summaries  map[int64]model.ProjectSummary
+	detail     appmodel.ProjectDetail
+	summaries  map[int64]appmodel.ProjectSummary
 	summaryIDs []int64
 	err        error
 	summaryErr error
 }
 
-func (stub *projectReaderStub) Detail(context.Context, appmodel.ProjectDetailRequest) (model.ProjectDetail, error) {
+func (stub *projectReaderStub) Detail(context.Context, appmodel.ProjectDetailRequest) (appmodel.ProjectDetail, error) {
 	return stub.detail, stub.err
 }
 
-func (stub *projectReaderStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+func (stub *projectReaderStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error) {
 	stub.summaryIDs = append([]int64(nil), query.ProjectIDs...)
 	return stub.summaries, stub.summaryErr
 }
@@ -93,16 +93,16 @@ func (stub *invoiceHistoryReaderStub) UnbilledProjectTime(_ context.Context, que
 }
 
 func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
-	detail := model.ProjectDetail{
+	detail := appmodel.ProjectDetail{
 		Project: model.Project{ID: 18, TeamID: 4, Slug: "alpha"},
-		Activity: model.ProjectActivitySummary{Recent: []model.ActiveSession{{
+		Activity: appmodel.ProjectActivitySummary{Recent: []model.ActiveSession{{
 			Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
 		}}},
 	}
 	unbilled := []model.UnbilledProject{{ProjectID: 18, ProjectName: "Alpha"}}
 	invoices := &invoiceHistoryReaderStub{rows: unbilled}
 	projects := &projectReaderStub{
-		detail: detail, summaries: map[int64]model.ProjectSummary{12: {ID: 12, Name: "Project"}},
+		detail: detail, summaries: map[int64]appmodel.ProjectSummary{12: {ID: 12, Name: "Project"}},
 	}
 	tags := &sessionTagReaderStub{bySession: map[int64][]model.Tag{31: {{ID: 7, Name: "urgent"}}}}
 	builder, err := New(Dependencies{
@@ -136,7 +136,7 @@ func TestBuildAssemblesProjectAndOptionalInvoiceHistory(t *testing.T) {
 func TestBuildSkipsInvoiceHistoryWhenNotRequested(t *testing.T) {
 	invoices := &invoiceHistoryReaderStub{}
 	builder, err := New(Dependencies{
-		Projects: &projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
+		Projects: &projectReaderStub{detail: appmodel.ProjectDetail{Project: model.Project{ID: 18}}},
 		Teams:    teamSettingsReaderStub{currency: "USD"}, Memberships: teamMembershipReaderStub{}, Invoicing: invoices,
 		Decorations: decorationsForTest(t, &projectReaderStub{}, &sessionTagReaderStub{}, &loggerStub{}),
 	})
@@ -173,7 +173,7 @@ func TestBuildPropagatesWorkspaceCurrencyFailure(t *testing.T) {
 func TestBuildDoesNotReadInvoiceHistoryForNonManager(t *testing.T) {
 	invoices := &invoiceHistoryReaderStub{}
 	builder, err := New(Dependencies{
-		Projects:    &projectReaderStub{detail: model.ProjectDetail{Project: model.Project{ID: 18}}},
+		Projects:    &projectReaderStub{detail: appmodel.ProjectDetail{Project: model.Project{ID: 18}}},
 		Teams:       teamSettingsReaderStub{currency: "USD"},
 		Memberships: teamMembershipReaderStub{role: model.TeamRoleMember, member: true},
 		Invoicing:   invoices,
@@ -195,9 +195,9 @@ func TestBuildDoesNotReadInvoiceHistoryForNonManager(t *testing.T) {
 
 func TestBuildKeepsDetailWhenSessionDecorationReadsFail(t *testing.T) {
 	projects := &projectReaderStub{
-		detail: model.ProjectDetail{
+		detail: appmodel.ProjectDetail{
 			Project: model.Project{ID: 18},
-			Activity: model.ProjectActivitySummary{Recent: []model.ActiveSession{{
+			Activity: appmodel.ProjectActivitySummary{Recent: []model.ActiveSession{{
 				Session: model.Session{ID: 31}, Activity: model.Activity{ProjectID: 12},
 			}}},
 		},

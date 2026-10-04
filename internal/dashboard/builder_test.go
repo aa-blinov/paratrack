@@ -68,10 +68,10 @@ func (*projectsStub) List(context.Context, appmodel.ProjectCatalogQuery) ([]mode
 	return []model.Project{{ID: 1}}, nil
 }
 
-func (s *projectsStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]model.ProjectSummary, error) {
+func (s *projectsStub) Summaries(_ context.Context, query appmodel.ProjectSummariesQuery) (map[int64]appmodel.ProjectSummary, error) {
 	s.summaryTeamID = query.TeamID
 	s.summaryIDs = append(s.summaryIDs, query.ProjectIDs...)
-	return map[int64]model.ProjectSummary{}, nil
+	return map[int64]appmodel.ProjectSummary{}, nil
 }
 
 type tagsStub struct {

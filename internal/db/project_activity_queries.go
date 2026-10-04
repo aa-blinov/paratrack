@@ -42,7 +42,7 @@ func (d *DB) ListActivitiesForProject(ctx context.Context, query appmodel.Projec
 // ProjectSpans returns the closed sessions touching [from, to] that
 // belong to a project, in one query for the whole workspace (scoped to
 // the person for a member).
-func (d *DB) ProjectSpans(ctx context.Context, query appmodel.ProjectSpansQuery) ([]model.ProjectSessionSpan, error) {
+func (d *DB) ProjectSpans(ctx context.Context, query appmodel.ProjectSpansQuery) ([]appmodel.ProjectSessionSpan, error) {
 	if query.TeamID <= 0 || query.From.IsZero() || query.Through.Before(query.From) {
 		return nil, ErrNotFound
 	}
@@ -59,9 +59,9 @@ func (d *DB) ProjectSpans(ctx context.Context, query appmodel.ProjectSpansQuery)
 		return nil, err
 	}
 	defer rows.Close()
-	var out []model.ProjectSessionSpan
+	var out []appmodel.ProjectSessionSpan
 	for rows.Next() {
-		var sp model.ProjectSessionSpan
+		var sp appmodel.ProjectSessionSpan
 		var st, en string
 		var paused int
 		if err := rows.Scan(&sp.ProjectID, &st, &en, &sp.Session.AccumulatedSeconds, &paused); err != nil {

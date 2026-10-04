@@ -2,43 +2,6 @@ package model
 
 import "time"
 
-// ProjectSessionSpan associates a project with one session for time summaries.
-type ProjectSessionSpan struct {
-	ProjectID int64
-	Session   Session
-}
-
-// ProjectUsage summarizes activity and tracked time for a project list row.
-type ProjectUsage struct {
-	ActivityCount int
-	TodaySeconds  int
-	MonthSeconds  int
-}
-
-// ProjectActivitySummary contains recent sessions and total time for a project.
-type ProjectActivitySummary struct {
-	Recent        []ActiveSession
-	RecentSeconds int
-	TotalSeconds  int
-}
-
-// ProjectDetail groups the team-scoped reads needed to render a project page.
-type ProjectDetail struct {
-	Project         Project
-	Activities      []Activity
-	Activity        ProjectActivitySummary
-	Currency        string
-	EstimatePercent int
-}
-
-// ProjectSummary is the public subset used by session rows and exports.
-type ProjectSummary struct {
-	ID    int64
-	Slug  string
-	Name  string
-	Color string
-}
-
 // Activity is a tracked activity (e.g. "reading", "work").
 // TeamID is the workspace this activity belongs to. TeamID == 0 represents
 // pre-workspace legacy data; application workflows require an explicit
