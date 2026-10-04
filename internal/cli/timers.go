@@ -20,7 +20,7 @@ func runStatus(rt *Runtime) error {
 	if err != nil {
 		return err
 	}
-	rows, err := services.Timers.ActiveSessions(ctx, teamID)
+	rows, err := services.TimerQueries.ActiveSessions(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list active: %w", err)
 	}
@@ -93,7 +93,7 @@ func runStop(rt *Runtime, args []string) error {
 		fmt.Fprintf(rt.Out, "✓ stopped %d session(s)\n", len(stopped))
 		return nil
 	}
-	active, err := services.Timers.ActiveSessions(ctx, teamID)
+	active, err := services.TimerQueries.ActiveSessions(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list active: %w", err)
 	}
@@ -132,7 +132,7 @@ func runPause(rt *Runtime, args []string) error {
 		return err
 	}
 	now := rt.now()
-	tracker := services.Timers
+	tracker := services.TimerCommands
 	if target == "" {
 		ids, err := tracker.PauseAll(ctx, appmodel.TimerStopAllRequest{TeamID: teamID, At: now})
 		if err != nil {
@@ -146,7 +146,7 @@ func runPause(rt *Runtime, args []string) error {
 		return nil
 	}
 	count := 0
-	active, err := services.Timers.ActiveSessions(ctx, teamID)
+	active, err := services.TimerQueries.ActiveSessions(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list active: %w", err)
 	}
@@ -157,7 +157,7 @@ func runPause(rt *Runtime, args []string) error {
 		if !equalsFold(as.Activity.Name, target) {
 			continue
 		}
-		if _, err := tracker.Pause(ctx, appmodel.TimerSessionRequest{TeamID: teamID, SessionID: as.Session.ID, At: now}); err != nil {
+		if _, err := services.TimerCommands.Pause(ctx, appmodel.TimerSessionRequest{TeamID: teamID, SessionID: as.Session.ID, At: now}); err != nil {
 			return fmt.Errorf("pause %d: %w", as.Session.ID, err)
 		}
 		count++
@@ -190,11 +190,10 @@ func runResume(rt *Runtime, args []string) error {
 	}
 	now := rt.now()
 	count := 0
-	active, err := services.Timers.ActiveSessions(ctx, teamID)
+	active, err := services.TimerQueries.ActiveSessions(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list active: %w", err)
 	}
-	tracker := services.Timers
 	for _, as := range active {
 		if !as.Session.Paused {
 			continue
@@ -202,7 +201,7 @@ func runResume(rt *Runtime, args []string) error {
 		if target != "" && !equalsFold(as.Activity.Name, target) {
 			continue
 		}
-		if _, err := tracker.Resume(ctx, appmodel.TimerSessionRequest{TeamID: teamID, SessionID: as.Session.ID, At: now}); err != nil {
+		if _, err := services.TimerCommands.Resume(ctx, appmodel.TimerSessionRequest{TeamID: teamID, SessionID: as.Session.ID, At: now}); err != nil {
 			return fmt.Errorf("resume %d: %w", as.Session.ID, err)
 		}
 		count++
