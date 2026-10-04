@@ -24,7 +24,7 @@ const (
 
 type Team = model.Team
 type Member = model.TeamMember
-type Invite = model.TeamInvite
+type Invite = appmodel.TeamInviteResult
 
 // TeamStore provides core workspace operations.
 type TeamStore interface {
