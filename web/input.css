@@ -85,6 +85,7 @@
 
 @source "../internal/web/templates/**/*.html";
 @source "../internal/web/static/js/app.js";
+@source "../internal/web/static/js/app-*.js";
 
 @plugin "daisyui" {
   themes: paratrack-light --default, paratrack-dark --prefersdark;
@@ -428,6 +429,17 @@
   .toast-error > .icon { color: var(--color-error); }
   .toast-warning > .icon { color: var(--color-warning); }
   .toast-info > .icon { color: var(--color-info); }
+
+  .offline-banner {
+    @apply fixed inset-x-4 bottom-4 z-[70] mx-auto flex max-w-2xl flex-wrap items-center gap-2
+           rounded-box border border-base-300 bg-base-100 px-4 py-2 text-sm font-semibold text-base-content;
+  }
+  .offline-banner-action {
+    @apply min-h-11 rounded-field border border-base-300 bg-base-100 px-2 py-1 text-sm font-semibold;
+  }
+  .offline-banner-actions { @apply ms-auto flex gap-2; }
+  .offline-banner-action:hover { background: var(--color-base-200); }
+  .offline-banner-action:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 }
 
 
@@ -664,11 +676,13 @@ td[data-label], .table td, .table th {
   position: fixed;
   top: 0; left: 0;
   height: 3px;
-  width: 0%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left center;
   background: var(--color-primary);
   z-index: 100;
   opacity: 0;
-  transition: width .25s ease-out, opacity .2s ease-out;
+  transition: transform .25s ease-out, opacity .2s ease-out;
   pointer-events: none;
 }
 #htmx-progress.on { opacity: 1; }
@@ -976,6 +990,8 @@ header .header-extra { display: none; }
   /* Toasts sit above the tabs (and the timer bar when it shows). */
   #toast { bottom: calc(var(--tabbar-h) + var(--safe-b) + 0.75rem); }
   body:has(.minibar:not(:empty)) #toast { bottom: calc(var(--tabbar-h) + var(--safe-b) + 5rem); }
+  .offline-banner { bottom: calc(var(--tabbar-h) + var(--safe-b) + 0.75rem); }
+  body:has(.minibar:not(:empty)) .offline-banner { bottom: calc(var(--tabbar-h) + var(--safe-b) + 5rem); }
 
   /* Bottom sheet on a native <dialog>. */
   dialog.sheet[open] {

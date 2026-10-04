@@ -1,17 +1,26 @@
 package web
 
 import (
+	"crypto"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"encoding/json"
+	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/oidcclient"
+	"github.com/aa-blinov/paratrack/internal/testutil"
 )
 
 // apiEnv is a logged-in server + cookie jar helper for API tests.
@@ -19,23 +28,24 @@ type apiEnv struct {
 	t   *testing.T
 	ts  *httptest.Server
 	srv *Server
+	db  *db.DB
 	jar map[string]string // cookie name → value
 }
 
 func newAPIEnv(t *testing.T) *apiEnv {
 	t.Helper()
-	d, err := db.OpenTest(t)
+	d, err := testutil.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
-	srv, err := New(d, "127.0.0.1:0")
+	srv, err := newServerForTest(d, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}
 	ts := httptest.NewServer(srv.routes())
 	t.Cleanup(ts.Close)
-	return &apiEnv{t: t, ts: ts, srv: srv, jar: map[string]string{}}
+	return &apiEnv{t: t, ts: ts, srv: srv, db: d, jar: map[string]string{}}
 }
 
 func (e *apiEnv) do(method, path string, form url.Values, hdr map[string]string) *http.Response {
@@ -295,10 +305,9 @@ func TestAPITagsHTMXAndTeamScope(t *testing.T) {
 func newAPIEnvSharedDB(t *testing.T, base *apiEnv) *apiEnv {
 	t.Helper()
 	// Recover the *db.DB from the first server via its teams service is
-	// not exported — instead hit the same routes with a fresh auth
-	// session on a cloned server sharing the file. For :memory: this
-	// won't work, so we use the same srv and just a new cookie jar.
-	return &apiEnv{t: t, ts: base.ts, srv: base.srv, jar: map[string]string{}}
+	// not exported. Reuse the server and database with a fresh cookie jar
+	// so this test exercises a second authenticated identity.
+	return &apiEnv{t: t, ts: base.ts, srv: base.srv, db: base.db, jar: map[string]string{}}
 }
 
 func TestAPICSVUsesProjectNameAndTrackedDuration(t *testing.T) {
@@ -446,21 +455,70 @@ func TestActiveListFirstRun(t *testing.T) {
 // (it could claim someone else's account), a verified one does.
 func TestSSOCallbackRequiresVerifiedEmail(t *testing.T) {
 	verified := false
+	currentNonce := ""
+	currentChallenge := ""
+	var discoveryRequests atomic.Int32
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("generate OIDC test key: %v", err)
+	}
+	encode := base64.RawURLEncoding.EncodeToString
+	exponent := big.NewInt(int64(key.PublicKey.E)).Bytes()
+	keysJSON, err := json.Marshal(map[string]any{"keys": []any{map[string]any{
+		"kty": "RSA", "use": "sig", "alg": "RS256", "kid": "test-key",
+		"n": encode(key.PublicKey.N.Bytes()), "e": encode(exponent),
+	}}})
+	if err != nil {
+		t.Fatal(err)
+	}
 	var idp *httptest.Server
 	idp = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/.well-known/openid-configuration":
-			fmt.Fprintf(w, `{"authorization_endpoint":"%[1]s/auth","token_endpoint":"%[1]s/tok","userinfo_endpoint":"%[1]s/me"}`, idp.URL)
+			discoveryRequests.Add(1)
+			fmt.Fprintf(w, `{"issuer":"%[1]s","authorization_endpoint":"%[1]s/auth","token_endpoint":"%[1]s/tok","userinfo_endpoint":"%[1]s/me","jwks_uri":"%[1]s/keys","id_token_signing_alg_values_supported":["RS256"]}`, idp.URL)
+		case "/keys":
+			_, _ = w.Write(keysJSON)
 		case "/tok":
-			fmt.Fprint(w, `{"access_token":"at"}`)
+			if err := r.ParseForm(); err != nil {
+				t.Errorf("parse token request: %v", err)
+				return
+			}
+			if got := pkceS256(r.PostForm.Get("code_verifier")); got != currentChallenge {
+				t.Errorf("PKCE challenge = %q, want %q", got, currentChallenge)
+				return
+			}
+			now := time.Now()
+			claims, err := json.Marshal(map[string]any{
+				"iss": idp.URL, "sub": "42", "aud": "cid", "exp": now.Add(time.Hour).Unix(),
+				"iat": now.Unix(), "nonce": currentNonce,
+			})
+			if err != nil {
+				t.Errorf("marshal ID token claims: %v", err)
+				return
+			}
+			header, _ := json.Marshal(map[string]string{"alg": "RS256", "kid": "test-key", "typ": "JWT"})
+			message := encode(header) + "." + encode(claims)
+			digest := sha256.Sum256([]byte(message))
+			signature, err := rsa.SignPKCS1v15(rand.Reader, key, crypto.SHA256, digest[:])
+			if err != nil {
+				t.Errorf("sign ID token: %v", err)
+				return
+			}
+			fmt.Fprintf(w, `{"access_token":"at","id_token":%q}`, message+"."+encode(signature))
 		case "/me":
 			fmt.Fprintf(w, `{"email":"sso@x.test","sub":"42","email_verified":%v}`, verified)
 		}
 	}))
 	defer idp.Close()
-	t.Setenv("PARATRACK_OIDC_ISSUER", idp.URL)
-	t.Setenv("PARATRACK_OIDC_CLIENT_ID", "cid")
 	e := newAPIEnv(t)
+	provider, err := oidcclient.New(idp.Client(), oidcclient.Config{Issuer: idp.URL, ClientID: "cid"})
+	if err != nil {
+		t.Fatalf("construct OIDC provider: %v", err)
+	}
+	t.Cleanup(provider.CloseIdleConnections)
+	e.srv.runtime.OIDC = provider
+	e.srv.config.OIDCEnabled = true
 	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	login := func() (string, bool) {
 		resp, err := noRedirect.Get(e.ts.URL + "/sso/login")
@@ -470,6 +528,14 @@ func TestSSOCallbackRequiresVerifiedEmail(t *testing.T) {
 		loc, _ := url.Parse(resp.Header.Get("Location"))
 		if !strings.HasPrefix(loc.String(), idp.URL+"/auth?") {
 			t.Fatalf("authorize URL not from discovery: %s", loc)
+		}
+		currentNonce = loc.Query().Get("nonce")
+		if currentNonce == "" {
+			t.Fatal("authorization request omitted nonce")
+		}
+		currentChallenge = loc.Query().Get("code_challenge")
+		if loc.Query().Get("code_challenge_method") != "S256" || currentChallenge == "" {
+			t.Fatal("authorization request omitted an S256 PKCE challenge")
 		}
 		req, _ := http.NewRequest("GET", e.ts.URL+"/sso/callback?code=c&state="+loc.Query().Get("state"), nil)
 		for _, c := range resp.Cookies() {
@@ -493,6 +559,9 @@ func TestSSOCallbackRequiresVerifiedEmail(t *testing.T) {
 	if loc, ok := login(); !ok {
 		t.Fatalf("verified email refused (loc %s)", loc)
 	}
+	if got := discoveryRequests.Load(); got != 1 {
+		t.Fatalf("discovery requests = %d, want one cached response", got)
+	}
 }
 
 // Pause all / stop all act on every open timer at once.
@@ -509,5 +578,38 @@ func TestPauseAllStopAll(t *testing.T) {
 	body = readBody(t, e.do("POST", "/api/active/stop-all", nil, map[string]string{"HX-Request": "true"}))
 	if strings.Contains(body, "status-pill") {
 		t.Fatal("stop all left timers running")
+	}
+}
+
+func TestAPIv1SessionPatchReturnsJSON(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("apiv1-patch@x.test")
+
+	created := e.do("POST", "/api/v1/sessions", url.Values{"activity": {"api-patch"}}, nil)
+	var session struct {
+		ID int64 `json:"session_id"`
+	}
+	if err := json.Unmarshal([]byte(readBody(t, created)), &session); err != nil {
+		t.Fatalf("decode create response: %v", err)
+	}
+	if session.ID <= 0 {
+		t.Fatalf("create response has invalid session id: %d", session.ID)
+	}
+
+	updated := e.do("PATCH", fmt.Sprintf("/api/v1/sessions/%d", session.ID), url.Values{"note": {"api note"}}, nil)
+	if updated.StatusCode != http.StatusOK {
+		t.Fatalf("patch: %d %s", updated.StatusCode, readBody(t, updated))
+	}
+	if contentType := updated.Header.Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("patch content type = %q, want JSON", contentType)
+	}
+	var response struct {
+		Updated int64 `json:"updated"`
+	}
+	if err := json.Unmarshal([]byte(readBody(t, updated)), &response); err != nil {
+		t.Fatalf("decode patch response: %v", err)
+	}
+	if response.Updated != session.ID {
+		t.Fatalf("patch response id = %d, want %d", response.Updated, session.ID)
 	}
 }

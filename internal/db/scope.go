@@ -1,53 +1,77 @@
 package db
 
-import "context"
+import (
+	"context"
+	"database/sql"
+	"errors"
 
-// Who a request acts as, carried in the context so every query and insert
-// honours it without threading a user id through each call.
-//
-//   - actor: stamped as sessions.user_id on every new session (timer,
-//     backfill, timesheet, import, API), so payroll and "by person"
-//     reports know whose time it is.
-//   - scope: when set, session reads and deletes see only that user's
-//     sessions. A member is always scoped to self; an owner/admin only on
-//     personal screens (dashboard, timers, timesheet).
-type ctxKey int
-
-const (
-	actorKey ctxKey = iota
-	scopeKey
+	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
-func WithActor(ctx context.Context, userID int64) context.Context {
-	return context.WithValue(ctx, actorKey, userID)
-}
-
-func WithScope(ctx context.Context, userID int64) context.Context {
-	return context.WithValue(ctx, scopeKey, userID)
-}
-
-// ScopedTo reports the user a context is scoped to (0 = whole team).
-func ScopedTo(ctx context.Context) int64 {
-	v, _ := ctx.Value(scopeKey).(int64)
-	return v
-}
-
 func actorOf(ctx context.Context) any {
-	if v, _ := ctx.Value(actorKey).(int64); v > 0 {
-		return v
-	}
-	return nil
+	return requestctx.ActorValue(ctx)
 }
 
 // scopeSQL is the extra filter for a sessions alias ("s." or "").
 func scopeSQL(ctx context.Context, col string, args []any) (string, []any) {
-	if uid := ScopedTo(ctx); uid > 0 {
+	if uid := requestctx.ScopedUserID(ctx); uid > 0 {
 		return " AND " + col + " = ?", append(args, uid)
 	}
 	return "", args
 }
 
 func actorID(ctx context.Context) int64 {
-	v, _ := ctx.Value(actorKey).(int64)
-	return v
+	return requestctx.ActorID(ctx)
+}
+
+// lockSessionOwner serializes session-start/focus workflows for one actor.
+// Legacy calls without an actor serialize at the team level when possible.
+func lockSessionOwner(ctx context.Context, tx *Tx, teamID int64) error {
+	query := ""
+	var id int64
+	if actor := actorID(ctx); actor > 0 {
+		query = `SELECT id FROM users WHERE id = ? FOR UPDATE`
+		if err := tx.QueryRowContext(ctx, query, actor).Scan(&id); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+		return nil
+	}
+	if teamID > 0 {
+		query = `SELECT id FROM teams WHERE id = ? FOR UPDATE`
+		if err := tx.QueryRowContext(ctx, query, teamID).Scan(&id); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// requireTeamMembership keeps a request authorized through its write
+// transaction. Session mutations require a workspace and an authenticated
+// member; unscoped legacy records are readable, but are never a write scope.
+// It must follow lockSessionOwner so member removal and timer creation acquire
+// user/membership locks in the same order.
+func requireTeamMembership(ctx context.Context, tx *Tx, teamID int64) error {
+	actor := actorID(ctx)
+	if teamID <= 0 {
+		return model.ErrForbidden
+	}
+	if actor <= 0 {
+		return model.ErrForbidden
+	}
+	var memberID int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT user_id FROM memberships WHERE team_id = ? AND user_id = ? FOR SHARE`, teamID, actor).Scan(&memberID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.ErrNotFound
+		}
+		return err
+	}
+	return nil
 }

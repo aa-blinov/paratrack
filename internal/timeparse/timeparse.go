@@ -29,12 +29,36 @@
 package timeparse
 
 import (
+	"errors"
 	"fmt"
+	"math"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/model"
 )
+
+var ErrDurationOverflow = errors.New("duration exceeds representable range")
+
+// maxDurationSeconds keeps parsed values safe both as machine ints and when
+// callers convert them to time.Duration nanoseconds.
+func maxDurationSeconds() int {
+	maxInt := int64(int(^uint(0) >> 1))
+	maxSeconds := model.MaxSessionDurationSeconds
+	if maxInt < maxSeconds {
+		maxSeconds = maxInt
+	}
+	return int(maxSeconds)
+}
+
+func durationSeconds(seconds float64) (int, error) {
+	if math.IsNaN(seconds) || math.IsInf(seconds, 0) || seconds > float64(maxDurationSeconds()) {
+		return 0, ErrDurationOverflow
+	}
+	return int(seconds), nil
+}
 
 // ParseDateTime parses s relative to now. Local zone is used for
 // bare dates; explicit offsets/Z are honoured.
@@ -107,7 +131,8 @@ func ParseDateTime(s string, now time.Time) (time.Time, error) {
 		}
 	}
 
-	// Explicit datetimes. Try several layouts.
+	// Explicit datetimes. Naive layouts use the location carried by the
+	// caller's clock so configured process timezones apply consistently.
 	candidate := orig
 	if candidate == "" {
 		candidate = s
@@ -123,7 +148,7 @@ func ParseDateTime(s string, now time.Time) (time.Time, error) {
 		"02.01.2006",
 		"02/01/2006",
 	} {
-		if t, err := time.ParseInLocation(layout, candidate, time.Local); err == nil {
+		if t, err := time.ParseInLocation(layout, candidate, now.Location()); err == nil {
 			return t, nil
 		}
 		if t, err := time.Parse(layout, candidate); err == nil {
@@ -150,11 +175,16 @@ func ParseDuration(s string) (int, error) {
 	}
 	// Bare number → minutes
 	if n, err := strconv.Atoi(s); err == nil {
+		if n > maxDurationSeconds()/60 {
+			return 0, ErrDurationOverflow
+		}
 		return n * 60, nil
 	}
 	if f, err := strconv.ParseFloat(s, 64); err == nil && !strings.ContainsAny(s, "hmчм") {
-		// Float with no unit is still minutes (covers "1.5" → 1.5 min)
-		return int(f * 60), nil
+		// Float with no unit is still minutes (covers "1.5" → 1.5 min).
+		return durationSeconds(f * 60)
+	} else if errors.Is(err, strconv.ErrRange) && !strings.ContainsAny(s, "hmчм") {
+		return 0, ErrDurationOverflow
 	}
 
 	// Tokenise: number + unit, possibly many. Spaces optional between
@@ -162,36 +192,49 @@ func ParseDuration(s string) (int, error) {
 	// uses regex alternation that never matches letters beyond itself,
 	// which lets adjacent tokens like "2h30m" split cleanly at the digit
 	// boundary.
-	tokens := durationTokenRe.FindAllStringSubmatch(s, -1)
+	tokens := durationTokenRe.FindAllStringSubmatchIndex(s, -1)
 	if len(tokens) == 0 {
 		return 0, fmt.Errorf("cannot parse duration %q", s)
 	}
 	total := 0.0
-	for _, tok := range tokens {
-		val, err := strconv.ParseFloat(tok[1], 64)
-		if err != nil {
-			return 0, fmt.Errorf("bad number in %q", tok[0])
+	cursor := 0
+	for _, token := range tokens {
+		if strings.TrimSpace(s[cursor:token[0]]) != "" {
+			return 0, fmt.Errorf("cannot parse duration %q", s)
 		}
-		unit := tok[2]
+		val, err := strconv.ParseFloat(s[token[2]:token[3]], 64)
+		if err != nil {
+			return 0, fmt.Errorf("bad number in %q", s[token[0]:token[1]])
+		}
+		unit := s[token[4]:token[5]]
+		var multiplier float64
 		switch unit {
 		case "h", "hr", "hrs", "hour", "hours", "ч", "час", "часа", "часов":
-			total += val * 3600
+			multiplier = 3600
 		case "m", "min", "mins", "minute", "minutes", "м", "мин", "минута", "минуты", "минут":
-			total += val * 60
+			multiplier = 60
 		case "s", "sec", "secs", "second", "seconds", "с", "сек":
-			total += val
+			multiplier = 1
 		case "d", "day", "days", "д", "дн", "день", "дня", "дней":
-			total += val * 86400
+			multiplier = 86400
 		case "w", "week", "weeks", "н", "нед", "неделя", "недели", "недель":
-			total += val * 86400 * 7
+			multiplier = 86400 * 7
 		default:
 			return 0, fmt.Errorf("unknown unit %q in duration", unit)
 		}
+		total += val * multiplier
+		if math.IsInf(total, 0) || total > float64(maxDurationSeconds()) {
+			return 0, ErrDurationOverflow
+		}
+		cursor = token[1]
+	}
+	if strings.TrimSpace(s[cursor:]) != "" {
+		return 0, fmt.Errorf("cannot parse duration %q", s)
 	}
 	if total <= 0 {
 		return 0, fmt.Errorf("duration must be positive: %q", s)
 	}
-	return int(total), nil
+	return durationSeconds(total)
 }
 
 // Period is a closed-open date range used by log/stats.
@@ -204,6 +247,15 @@ type Period struct {
 // ResolvePeriod maps a short name ("today", "yesterday", "week", "month",
 // "last_week", "last_month") to a Period. "custom" requires start/end
 // arguments; if missing, returns an error.
+func IsKnownPeriod(name string) bool {
+	switch name {
+	case "today", "yesterday", "week", "last_week", "month", "last_month":
+		return true
+	default:
+		return false
+	}
+}
+
 func ResolvePeriod(name string, now time.Time) (Period, error) {
 	startOfDay := func(t time.Time) time.Time {
 		return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
@@ -264,7 +316,7 @@ func parseHHMM(s string) (hhmm, error) {
 }
 
 var (
-	agoRe     = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+(hour|hours|hr|hrs|minute|minutes|min|mins|day|days|week|weeks)\s+ago$`)
+	agoRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+(hour|hours|hr|hrs|minute|minutes|min|mins|day|days|week|weeks)\s+ago$`)
 	// durationTokenRe matches number + unit word; the unit alternative
 	// is bounded (no \b) so that "2h30m" splits at "2h" + "30m".
 	durationTokenRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(h|hrs?|hours?|m|mins?|minutes?|s|secs?|seconds?|d|days?|w|weeks?|часа|часов|час|ч|минуты|минута|минут|мин|м|сек|с|дней|дня|день|дн|д|недели|неделя|недель|нед|н)`)
@@ -283,19 +335,27 @@ func parseAgo(s string, now time.Time) (time.Time, bool) {
 	if err != nil {
 		return time.Time{}, false
 	}
-	var d time.Duration
+	var unit time.Duration
 	switch m[2] {
 	case "hour", "hours", "hr", "hrs":
-		d = time.Duration(val * float64(time.Hour))
+		unit = time.Hour
 	case "minute", "minutes", "min", "mins":
-		d = time.Duration(val * float64(time.Minute))
+		unit = time.Minute
 	case "day", "days":
-		d = time.Duration(val * float64(time.Hour) * 24)
+		unit = 24 * time.Hour
 	case "week", "weeks":
-		d = time.Duration(val * float64(time.Hour) * 24 * 7)
+		unit = 7 * 24 * time.Hour
 	default:
 		return time.Time{}, false
 	}
+	nanoseconds := val * float64(unit)
+	// float64(MaxInt64) rounds to 2^63, so the inclusive comparison
+	// prevents converting that value to a negative time.Duration.
+	const maxInt64 = int64(^uint64(0) >> 1)
+	if math.IsNaN(nanoseconds) || math.IsInf(nanoseconds, 0) || nanoseconds >= float64(maxInt64) {
+		return time.Time{}, false
+	}
+	d := time.Duration(nanoseconds)
 	return now.Add(-d), true
 }
 

@@ -5,6 +5,17 @@ import (
 	"time"
 )
 
+func TestTeamInviteExpiryBoundary(t *testing.T) {
+	expiresAt := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	invite := TeamInvite{ExpiresAt: expiresAt}
+	if invite.ExpiredAt(expiresAt.Add(-time.Nanosecond)) {
+		t.Fatal("invite expired before its expiry instant")
+	}
+	if !invite.ExpiredAt(expiresAt) {
+		t.Fatal("invite must expire at its expiry instant")
+	}
+}
+
 // A timer started yesterday and resumed today counts today second for
 // second; a paused one stops growing.
 func TestTrackedSecondsInWindowOpenSession(t *testing.T) {
@@ -27,5 +38,21 @@ func TestTrackedSecondsInWindowOpenSession(t *testing.T) {
 	b := p.TrackedSecondsInWindow(day, end, now.Add(time.Hour))
 	if a != b {
 		t.Errorf("paused session must not grow: %d then %d", a, b)
+	}
+}
+
+func TestSessionDurationCapsAtRepresentableLimit(t *testing.T) {
+	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+	maxSeconds := int(maxSessionSecondsInt())
+	resume := now.Add(-time.Second)
+	session := Session{
+		StartAt: now.Add(-2 * time.Hour), AccumulatedSeconds: maxSeconds,
+		LastResumeAt: &resume,
+	}
+	if got := session.DurationSeconds(now); got != maxSeconds {
+		t.Fatalf("DurationSeconds() = %d, want capped value %d", got, maxSeconds)
+	}
+	if got := session.TrackedSecondsInWindow(session.StartAt, now, now); got != maxSeconds {
+		t.Fatalf("TrackedSecondsInWindow() = %d, want capped value %d", got, maxSeconds)
 	}
 }

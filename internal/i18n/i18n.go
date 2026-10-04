@@ -11,6 +11,7 @@ package i18n
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"sync"
 )
 
@@ -29,28 +30,50 @@ const (
 // Russian is the product's default language.
 const Default = Ru
 
-// Supported lists the language switcher options, in menu order.
-var Supported = []Lang{En, Ru}
+var supportedLanguages = [...]Lang{En, Ru}
+
+// SupportedLanguages returns the language switcher options in menu order.
+// The returned slice is independent so callers cannot mutate package state.
+func SupportedLanguages() []Lang {
+	return append([]Lang(nil), supportedLanguages[:]...)
+}
 
 var (
-	once sync.Once
-	dict map[Lang]map[string]string
+	once    sync.Once
+	dict    map[Lang]map[string]string
+	loadErr error
 )
 
 func load() {
 	once.Do(func() {
 		dict = map[Lang]map[string]string{}
-		for _, l := range Supported {
+		for _, l := range supportedLanguages {
 			b, err := dictFS.ReadFile("dict/" + string(l) + ".json")
 			if err != nil {
+				if loadErr == nil {
+					loadErr = fmt.Errorf("read %s translations: %w", l, err)
+				}
 				dict[l] = map[string]string{}
 				continue
 			}
 			m := map[string]string{}
-			_ = json.Unmarshal(b, &m)
+			if err := json.Unmarshal(b, &m); err != nil {
+				if loadErr == nil {
+					loadErr = fmt.Errorf("decode %s translations: %w", l, err)
+				}
+				dict[l] = map[string]string{}
+				continue
+			}
 			dict[l] = m
 		}
 	})
+}
+
+// Validate checks that every embedded language dictionary can be loaded.
+// Server startup calls this so malformed UI resources fail visibly.
+func Validate() error {
+	load()
+	return loadErr
 }
 
 // T returns the translation of key in lang, falling back to English

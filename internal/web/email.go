@@ -1,14 +1,15 @@
 package web
 
 import (
-	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"github.com/aa-blinov/paratrack/internal/mail"
+	"github.com/aa-blinov/paratrack/internal/mailport"
+	"github.com/aa-blinov/paratrack/internal/postcommit"
 )
 
 // emailVM is one letter, rendered twice: templates/email.html for HTML
@@ -28,26 +29,41 @@ type emailVM struct {
 	Footer      string
 }
 
+func (emailVM) isTemplateData() {}
+
 type emailFact struct {
 	Key, Value string
 	Mono       bool
 }
 
-func (s *Server) buildEmail(to, subject string, vm emailVM, files ...mail.Attachment) (mail.Message, error) {
-	var html bytes.Buffer
-	if err := s.tmpl.ExecuteTemplate(&html, "email", vm); err != nil {
-		return mail.Message{}, err
+func (s *Server) buildEmail(to, subject string, vm emailVM, files ...mailport.Attachment) (mailport.Message, error) {
+	html, err := s.executeTemplate("email", vm)
+	if err != nil {
+		return mailport.Message{}, err
 	}
-	return mail.Message{To: to, Subject: subject, Text: emailText(vm), HTML: html.String(), Files: files}, nil
+	return mailport.Message{To: to, Subject: subject, Text: emailText(vm), HTML: string(html), Files: files}, nil
+}
+
+// humanTTL is a localized duration for an email.
+func humanTTL(lang i18n.Lang, d time.Duration) string {
+	return fmtDurL(lang, int(d.Seconds()))
 }
 
 // deliver sends a rich letter, falling back to plain text for a sender
 // that can't do more.
-func (s *Server) deliver(m mail.Message) error {
-	if rs, ok := s.mailer.(mail.RichSender); ok {
-		return rs.Deliver(m)
+func (s *Server) deliver(ctx context.Context, m mailport.Message) error {
+	if rs, ok := s.runtime.Mailer.(mailport.RichSender); ok {
+		return rs.Deliver(ctx, m)
 	}
-	return s.mailer.Send(m.To, m.Subject, m.Text)
+	return s.runtime.Mailer.Send(ctx, m.To, m.Subject, m.Text)
+}
+
+// deliverPostcommit lets a short SMTP attempt finish when the HTTP client
+// disconnects after the application has already committed its state change.
+func (s *Server) deliverPostcommit(ctx context.Context, message mailport.Message) error {
+	effectCtx, cancel := postcommit.NewContext(ctx)
+	defer cancel()
+	return s.deliver(effectCtx, message)
 }
 
 func emailText(vm emailVM) string {
@@ -138,9 +154,9 @@ func (s *Server) handleEmailPreview(w http.ResponseWriter, r *http.Request) {
 	var ev emailVM
 	switch r.URL.Query().Get("kind") {
 	case "reset":
-		_, ev = resetEmail(lang, "Анна", "anna@example.ru", publicBaseURL(r)+"/reset-password?token=sample", humanTTL(lang, time.Hour))
+		_, ev = resetEmail(lang, "Анна", "anna@example.ru", s.publicBaseURL(r)+"/reset-password?token=sample", humanTTL(lang, time.Hour))
 	case "invite":
-		_, ev = inviteEmail(lang, "Анна Фрилансер", "Студия Ромашка", publicBaseURL(r)+"/invites/sample")
+		_, ev = inviteEmail(lang, "Анна Фрилансер", "Студия Ромашка", s.publicBaseURL(r)+"/invites/sample")
 	default:
 		_, ev = invoiceEmail(lang, invoiceVM{
 			Number: "INV-2026-001", PeriodLabel: "1 сен 2026 – 27 сен 2026", Hours: fmtHoursL(lang, 350),
@@ -153,6 +169,13 @@ func (s *Server) handleEmailPreview(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, emailText(ev))
 		return
 	}
+	html, err := s.executeTemplate("email", ev)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = s.tmpl.ExecuteTemplate(w, "email", ev)
+	if _, err := w.Write(html); err != nil {
+		s.logger.Printf("web: write email preview: %v", err)
+	}
 }

@@ -60,7 +60,7 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 		}
 	}
 	oid, _ := strconv.ParseInt(ownerID, 10, 64)
-	if got, _ := owner.srv.db.GetSession(t.Context(), 0, oid); (got.Note != nil && *got.Note == "взлом") || got.EndAt != nil {
+	if got, _ := owner.db.GetSession(t.Context(), 0, oid); (got.Note != nil && *got.Note == "взлом") || got.EndAt != nil {
 		t.Fatalf("developer rewrote the owner's session: %+v", got)
 	}
 	readBody(t, dev.do("POST", "/api/active/stop-all", nil, htmx))
@@ -94,24 +94,24 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	// Timesheet: the developer's cell doesn't wipe the owner's day.
 	readBody(t, owner.do("POST", "/api/active/stop-all", nil, htmx))
 	var actID, day string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT activity_id, substr(start_at, 1, 10) FROM sessions WHERE id = ?`, ownerID).Scan(&actID, &day)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT activity_id, substr(start_at, 1, 10) FROM sessions WHERE id = ?`, ownerID).Scan(&actID, &day)
 	readBody(t, dev.do("POST", "/api/timesheet/cell", url.Values{"activity_id": {actID}, "date": {day}, "minutes": {"30"}}, htmx))
 	var n int
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions WHERE id = ?`, ownerID).Scan(&n)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions WHERE id = ?`, ownerID).Scan(&n)
 	if n != 1 {
 		t.Fatal("a developer's timesheet cell deleted the owner's session")
 	}
 
 	// Payroll pays each person their own time.
 	var nobody int
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions WHERE user_id IS NULL`).Scan(&nobody)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions WHERE user_id IS NULL`).Scan(&nobody)
 	if nobody != 0 {
 		t.Errorf("%d sessions without an author", nobody)
 	}
 
 	// Only the owner hands out roles.
 	var devID string
-	owner.srv.db.SQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = 'dev@studio.test'`).Scan(&devID)
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = 'dev@studio.test'`).Scan(&devID)
 	resp = dev.do("POST", "/api/team/members/"+devID+"/role", url.Values{"role": {"admin"}}, nil)
 	resp.Body.Close()
 	if resp.StatusCode != 403 {
@@ -156,7 +156,7 @@ func TestBackfillInUserZone(t *testing.T) {
 	e.jar["paratrack_tz"] = "Europe/Moscow"
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"a"}, "start": {"вчера 10:00"}, "end": {"вчера 11:00"}}, map[string]string{"HX-Request": "true"}))
 	var start string
-	e.srv.db.SQL().QueryRowContext(t.Context(), `SELECT start_at FROM sessions ORDER BY id DESC LIMIT 1`).Scan(&start)
+	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT start_at FROM sessions ORDER BY id DESC LIMIT 1`).Scan(&start)
 	if !strings.Contains(start, "T07:00:00") {
 		t.Fatalf("stored %s, want 07:00 UTC (10:00 MSK)", start)
 	}

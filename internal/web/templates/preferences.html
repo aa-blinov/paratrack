@@ -84,8 +84,7 @@
       <div class="card-body p-5 gap-2">
         <h2 class="card-title">{{.T "prefs.tabs"}}</h2>
         <p class="text-sm doc-muted">{{.T "prefs.tabsHint"}}</p>
-        <fieldset x-data="{n: 0}" x-init="n = $el.querySelectorAll('input:checked').length"
-                  @change="n = $el.querySelectorAll('input:checked').length" class="grid sm:grid-cols-2 gap-x-4">
+        <fieldset x-data="preferenceTabs" class="grid sm:grid-cols-2 gap-x-4">
           {{range .TabOpts}}
           <label class="flex items-center gap-3 py-1.5 cursor-pointer has-[:disabled]:opacity-45 has-[:disabled]:cursor-not-allowed">
             <input type="checkbox" name="tabs" value="{{.Key}}" class="checkbox checkbox-sm"{{if .On}} checked{{end}}

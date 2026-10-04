@@ -1,0 +1,64 @@
+// Package scheduling owns team planning reads and schedule-cell rules.
+package scheduling
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/depcheck"
+	"github.com/aa-blinov/paratrack/internal/model"
+)
+
+type Store interface {
+	ListSchedule(context.Context, int64, time.Time) ([]model.ScheduleRow, map[int64]string, error)
+	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
+}
+
+// Row adds scheduling policy derived from the persisted weekly plan.
+type Row = appmodel.ScheduleViewRow
+
+type Service struct{ store Store }
+
+var ErrIncompleteDependencies = errors.New("scheduling service store is nil")
+
+func New(store Store) (*Service, error) {
+	if depcheck.IsNil(store) {
+		return nil, ErrIncompleteDependencies
+	}
+	return &Service{store: store}, nil
+}
+
+var ErrInvalidScheduleCell = appmodel.ErrInvalidScheduleCell
+
+func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) ([]Row, map[int64]string, error) {
+	if teamID <= 0 || weekStart.IsZero() {
+		return nil, nil, ErrInvalidScheduleCell
+	}
+	storedRows, names, err := s.store.ListSchedule(ctx, teamID, weekStart)
+	if err != nil {
+		return nil, nil, fmt.Errorf("list weekly schedule: %w", err)
+	}
+	rows := make([]Row, 0, len(storedRows))
+	for _, stored := range storedRows {
+		row := Row{ScheduleRow: stored}
+		if stored.Capacity > 0 {
+			row.LoadPercent = int(int64(stored.Total) * 100 / (int64(stored.Capacity) * 5))
+		}
+		rows = append(rows, row)
+	}
+	return rows, names, nil
+}
+
+func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID <= 0 || request.Day.IsZero() || request.Minutes < 0 || request.Minutes > 24*60 {
+		return ErrInvalidScheduleCell
+	}
+	request.Day = time.Date(request.Day.Year(), request.Day.Month(), request.Day.Day(), 0, 0, 0, 0, time.UTC)
+	if err := s.store.UpsertScheduleEntry(ctx, request); err != nil {
+		return fmt.Errorf("save schedule cell: %w", err)
+	}
+	return nil
+}

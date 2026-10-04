@@ -5,14 +5,14 @@ Saves to e2e/screenshots/ui-audit/.
 """
 from __future__ import annotations
 
-import os
 import re
 import sys
 from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
-BASE = os.environ.get("PARATRACK_BASE", "http://127.0.0.1:8888")
+from target import BASE_URL as BASE
+
 OUT = Path(__file__).parent / "screenshots" / "ui-audit"
 OUT.mkdir(parents=True, exist_ok=True)
 

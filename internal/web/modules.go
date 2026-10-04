@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
@@ -40,47 +41,6 @@ var presets = []struct {
 	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}},
 }
 
-func knownModule(k string) bool {
-	for _, m := range modules {
-		if m.Key == k {
-			return true
-		}
-	}
-	return false
-}
-
-// moduleSet parses the stored list ("" = all on).
-func moduleSet(stored string) map[string]bool {
-	on := map[string]bool{}
-	if strings.TrimSpace(stored) == "" {
-		for _, m := range modules {
-			on[m.Key] = true
-		}
-		return on
-	}
-	for _, k := range strings.Split(stored, ",") {
-		if k = strings.TrimSpace(k); knownModule(k) {
-			on[k] = true
-		}
-	}
-	return on
-}
-
-// encodeModules is the stored form, in menu order. "none" keeps an
-// all-off choice distinct from the empty "everything" default.
-func encodeModules(on map[string]bool) string {
-	var keys []string
-	for _, m := range modules {
-		if on[m.Key] {
-			keys = append(keys, m.Key)
-		}
-	}
-	if len(keys) == 0 {
-		return "none"
-	}
-	return strings.Join(keys, ",")
-}
-
 // userModules is what this person's menu shows: the workspace's sections
 // minus the ones they hid for themselves.
 func (s *Server) userModules(r *http.Request) map[string]bool {
@@ -92,8 +52,11 @@ func (s *Server) userModules(r *http.Request) map[string]bool {
 }
 
 func (s *Server) teamModules(r *http.Request) map[string]bool {
-	stored, _ := s.db.TeamModules(r.Context(), teamID(r))
-	return moduleSet(stored)
+	enabled, err := s.services.Teams.Settings.SectionModules(r.Context(), teamID(r))
+	if err != nil {
+		return map[string]bool{} // fail closed: storage failure must not enable gated sections
+	}
+	return enabled
 }
 
 // module guards a section's routes: switched off, its pages lead to the
@@ -157,7 +120,7 @@ func (s *Server) sectionsData(r *http.Request, welcome bool) *sectionsPage {
 				}
 			}
 		}
-		pv.Active = !welcome && encodeModules(set) == encodeModules(on)
+		pv.Active = !welcome && appmodel.EncodeSections(set) == appmodel.EncodeSections(on)
 		data.Presets = append(data.Presets, pv)
 	}
 	if f := r.URL.Query().Get("flash"); f != "" {
@@ -181,7 +144,10 @@ func (s *Server) handleSectionsPage(w http.ResponseWriter, r *http.Request) {
 
 // handleAPITeamModules saves a preset or a hand-picked list.
 func (s *Server) handleAPITeamModules(w http.ResponseWriter, r *http.Request) {
-	_ = r.ParseForm()
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/settings/sections?flash=bad_request", http.StatusSeeOther)
+		return
+	}
 	on := map[string]bool{}
 	if pk := r.PostForm.Get("preset"); pk != "" {
 		for _, p := range presets {
@@ -193,16 +159,17 @@ func (s *Server) handleAPITeamModules(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		for _, k := range r.PostForm["modules"] {
-			if knownModule(k) {
+			if appmodel.IsKnownSection(k) {
 				on[k] = true
 			}
 		}
 	}
-	if err := s.db.SetTeamModules(r.Context(), teamID(r), encodeModules(on)); err != nil {
-		http.Redirect(w, r, "/settings/sections?flash="+url.QueryEscape(encodeFlash(false, err.Error())), http.StatusSeeOther)
+	if err := s.services.Teams.Settings.UpdateModules(r.Context(), appmodel.TeamModulesRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Selected: on}); err != nil {
+		http.Redirect(w, r, "/settings/sections?flash="+url.QueryEscape(encodeFlash(false, s.teamErrorMessage(r, err))), http.StatusSeeOther)
 		return
 	}
-	s.audit(r, "team.modules", strings.ReplaceAll(encodeModules(on), ",", ", "), "")
+	encoded := appmodel.EncodeSections(on)
+	s.audit(r, "team.modules", strings.ReplaceAll(encoded, ",", ", "), "")
 	if r.PostForm.Get("from") == "welcome" {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return

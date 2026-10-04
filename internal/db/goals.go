@@ -5,62 +5,102 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
-// ErrGoalNotFound is returned when a goal is missing.
-var ErrGoalNotFound = errors.New("goal not found")
-
-// UpsertGoal inserts or replaces the goal for (team, activity, period).
-// One goal per (team, activity, period) triple — setting "reading
-// daily 2h" when one already exists in this team just updates the
-// target_minutes.
-func (d *DB) UpsertGoal(ctx context.Context, teamID, activityID int64, period string, targetMinutes int) (model.Goal, error) {
-	if targetMinutes <= 0 {
-		return model.Goal{}, fmt.Errorf("target_minutes must be positive, got %d", targetMinutes)
+// UpsertGoalForManager atomically creates/resolves the activity and writes its
+// goal after rechecking the caller's manager role under the workspace lock.
+func (d *DB) UpsertGoalForManager(ctx context.Context, request appmodel.GoalUpsertRequest) (model.Goal, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return model.Goal{}, model.ErrForbidden
 	}
-	switch period {
+	if request.Minutes <= 0 {
+		return model.Goal{}, fmt.Errorf("target_minutes must be positive, got %d", request.Minutes)
+	}
+	switch request.Period {
 	case "daily", "weekly", "monthly":
 	default:
-		return model.Goal{}, fmt.Errorf("period must be daily|weekly|monthly, got %q", period)
+		return model.Goal{}, fmt.Errorf("period must be daily|weekly|monthly, got %q", request.Period)
 	}
-	now := FormatTime(time.Now().UTC())
-	_, err := d.sql.ExecContext(ctx, `
-		INSERT INTO goals (activity_id, team_id, period, target_minutes, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-		ON CONFLICT(team_id, activity_id, period) DO UPDATE SET
-			target_minutes = excluded.target_minutes,
-			updated_at = excluded.updated_at
-	`, activityID, teamID, period, targetMinutes, now, now)
+	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return model.Goal{}, err
 	}
-	// Read back the row — id is auto-assigned on first insert, kept on update.
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at
-		 FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`,
-		teamID, activityID, period)
-	return scanGoal(row)
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return model.Goal{}, err
+	}
+	name := strings.TrimSpace(request.ActivityName)
+	now := FormatTime(d.currentTime().UTC())
+	if name == "" {
+		return model.Goal{}, fmt.Errorf("activity name cannot be empty")
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, name, strings.ToLower(name), request.TeamID, now, now); err != nil {
+		return model.Goal{}, err
+	}
+	var activityID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(name), request.TeamID).Scan(&activityID); err != nil {
+		return model.Goal{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO goals (activity_id, team_id, period, target_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(team_id, activity_id, period) DO UPDATE SET target_minutes = excluded.target_minutes, updated_at = excluded.updated_at`, activityID, request.TeamID, request.Period, request.Minutes, now, now); err != nil {
+		return model.Goal{}, err
+	}
+	goal, err := scanGoal(tx.QueryRowContext(ctx, `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, request.Period))
+	if err != nil {
+		return model.Goal{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.Goal{}, err
+	}
+	return goal, nil
+}
+
+// DeleteGoalForManager removes a goal after a transactional role recheck.
+func (d *DB) DeleteGoalForManager(ctx context.Context, request appmodel.GoalDeleteRequest) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var activityID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(strings.TrimSpace(request.ActivityName)), request.TeamID).Scan(&activityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.ErrNotFound
+		}
+		return err
+	}
+	result, err := tx.ExecContext(ctx, `DELETE FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, request.Period)
+	if err != nil {
+		return err
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if deleted == 0 {
+		return model.ErrGoalNotFound
+	}
+	return tx.Commit()
 }
 
 // ListGoals returns every configured goal in the given team. If
 // activityID is non-nil the list is filtered to that single activity.
 func (d *DB) ListGoals(ctx context.Context, teamID int64, activityID *int64) ([]model.Goal, error) {
-	q := `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals`
-	args := []any{}
-	if teamID > 0 {
-		q += ` WHERE team_id = ?`
-		args = append(args, teamID)
+	if teamID <= 0 {
+		return nil, ErrNotFound
 	}
+	q := `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ?`
+	args := []any{teamID}
 	if activityID != nil {
-		if teamID > 0 {
-			q += ` AND`
-		} else {
-			q += ` WHERE`
-		}
-		q += ` activity_id = ?`
+		q += ` AND activity_id = ?`
 		args = append(args, *activityID)
 	}
 	q += ` ORDER BY activity_id, period`
@@ -80,34 +120,9 @@ func (d *DB) ListGoals(ctx context.Context, teamID int64, activityID *int64) ([]
 	return out, rows.Err()
 }
 
-// DeleteGoal removes the goal for (team, activity, period). Returns
-// ErrGoalNotFound if no such row existed.
-func (d *DB) DeleteGoal(ctx context.Context, teamID, activityID int64, period string) error {
-	res, err := d.sql.ExecContext(ctx,
-		`DELETE FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`,
-		teamID, activityID, period)
-	if err != nil {
-		return err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrGoalNotFound
-	}
-	return nil
-}
-
-// GoalProgress is the actual time accumulated against a goal in its period.
-type GoalProgress struct {
-	Goal            model.Goal `json:"goal"`
-	ActivityName    string      `json:"activity_name"`
-	AchievedMinutes int         `json:"achieved_minutes"` // minutes so far in the period
-	PercentComplete int         `json:"percent_complete"` // 0..100+ (capped at 100 for display elsewhere)
-	PeriodStart     time.Time   `json:"period_start"`
-	PeriodEnd       time.Time   `json:"period_end"`
-}
+// GoalProgress is kept as an adapter alias for callers that used the older
+// db package type name.
+type GoalProgress = model.GoalProgress
 
 // ProgressForGoals joins the configured goals (in teamID) with the
 // actual minutes tracked in each goal's current period. Active
@@ -121,100 +136,131 @@ func (d *DB) ProgressForGoals(ctx context.Context, teamID int64, now time.Time) 
 	if err != nil {
 		return nil, err
 	}
-	out := make([]GoalProgress, 0, len(goals))
-	for _, g := range goals {
-		start, end := goalPeriodRange(g.Period, now)
-		minutes, err := d.activityMinutesInRange(ctx, g.TeamID, g.ActivityID, start, end, now)
-		if err != nil {
-			return nil, err
+	if len(goals) == 0 {
+		return []GoalProgress{}, nil
+	}
+
+	activityIDs := make([]int64, 0, len(goals))
+	seenActivities := make(map[int64]struct{}, len(goals))
+	windows := make(map[int64][2]time.Time, len(goals))
+	var rangeStart, rangeEnd time.Time
+	for _, goal := range goals {
+		start, end := goalPeriodRange(goal.Period, now)
+		windows[goal.ID] = [2]time.Time{start, end}
+		if rangeStart.IsZero() || start.Before(rangeStart) {
+			rangeStart = start
 		}
-		// Look up the activity name for display.
+		if end.After(rangeEnd) {
+			rangeEnd = end
+		}
+		if _, exists := seenActivities[goal.ActivityID]; !exists {
+			seenActivities[goal.ActivityID] = struct{}{}
+			activityIDs = append(activityIDs, goal.ActivityID)
+		}
+	}
+
+	activityNames := make(map[int64]string, len(activityIDs))
+	activityRows, err := d.sql.QueryContext(ctx,
+		`SELECT id, name FROM activities WHERE team_id = ? AND id = ANY(?)`, teamID, activityIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer activityRows.Close()
+	for activityRows.Next() {
+		var id int64
 		var name string
-		if err := d.sql.QueryRowContext(ctx,
-			`SELECT name FROM activities WHERE id = ?`, g.ActivityID,
-		).Scan(&name); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		if err := activityRows.Scan(&id, &name); err != nil {
+			_ = activityRows.Close()
 			return nil, err
 		}
-		pct := 0
-		if g.TargetMinutes > 0 {
-			pct = minutes * 100 / g.TargetMinutes
+		activityNames[id] = name
+	}
+	if err := activityRows.Err(); err != nil {
+		_ = activityRows.Close()
+		return nil, err
+	}
+	if err := activityRows.Close(); err != nil {
+		return nil, err
+	}
+
+	sessionsByActivity, err := d.goalSessionsForActivities(ctx, teamID, activityIDs, rangeStart, rangeEnd)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]GoalProgress, 0, len(goals))
+	for _, goal := range goals {
+		window := windows[goal.ID]
+		var totalSeconds int
+		for _, session := range sessionsByActivity[goal.ActivityID] {
+			seconds := session.TrackedSecondsInWindow(window[0], window[1], now)
+			totalSeconds, err = money.AddInt(totalSeconds, seconds)
+			if err != nil {
+				return nil, fmt.Errorf("sum tracked time for goal %d: %w", goal.ID, err)
+			}
 		}
+		minutes := totalSeconds / 60
+		pct := money.PercentRatio(minutes, goal.TargetMinutes, 100, 1)
 		out = append(out, GoalProgress{
-			Goal:            g,
-			ActivityName:    name,
+			Goal:            goal,
+			ActivityName:    activityNames[goal.ActivityID],
 			AchievedMinutes: minutes,
 			PercentComplete: pct,
-			PeriodStart:     start,
-			PeriodEnd:       end,
+			PeriodStart:     window[0],
+			PeriodEnd:       window[1],
 		})
 	}
 	return out, nil
 }
 
-// activityMinutesInRange sums tracked (non-paused) session minutes in
-// teamID overlapping [start,end], clipped to the window via
-// TrackedSecondsInWindow, and includes the live elapsed time of any
-// active session as of `now`.
-func (d *DB) activityMinutesInRange(ctx context.Context, teamID, activityID int64, start, end, now time.Time) (int, error) {
-	q := `
-		SELECT start_at, end_at, accumulated_seconds, paused, last_resume_at
-		FROM sessions
-		WHERE activity_id = ?
-		  AND (
-		    (end_at IS NOT NULL AND start_at <= ? AND end_at >= ?)
-		    OR (end_at IS NULL AND start_at <= ?)
-		  )`
-	args := []any{activityID, FormatTime(end), FormatTime(start), FormatTime(end)}
-	if teamID > 0 {
-		q += ` AND team_id = ?`
-		args = append(args, teamID)
-	}
-	var sc string
-	sc, args = scopeSQL(ctx, "user_id", args)
-	q += sc
-	rows, err := d.sql.QueryContext(ctx, q, args...)
+func (d *DB) goalSessionsForActivities(ctx context.Context, teamID int64, activityIDs []int64, start, end time.Time) (map[int64][]model.Session, error) {
+	q := `SELECT s.activity_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
+	      FROM sessions s
+	      WHERE s.team_id = ? AND s.activity_id = ANY(?)
+	        AND ((s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?)
+	          OR (s.end_at IS NULL AND s.start_at <= ?))`
+	args := []any{teamID, activityIDs, FormatTime(end), FormatTime(start), FormatTime(end)}
+	var scope string
+	scope, args = scopeSQL(ctx, "s.user_id", args)
+	rows, err := d.sql.QueryContext(ctx, q+scope, args...)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 	defer rows.Close()
-	var totalSec int
+	sessions := make(map[int64][]model.Session)
 	for rows.Next() {
 		var (
-			sStart, sEnd sql.NullString
+			activityID   int64
+			startAt      string
+			endAt        sql.NullString
 			accumulated  int
 			paused       int
-			lastResume   sql.NullString
+			lastResumeAt sql.NullString
 		)
-		if err := rows.Scan(&sStart, &sEnd, &accumulated, &paused, &lastResume); err != nil {
-			return 0, err
+		if err := rows.Scan(&activityID, &startAt, &endAt, &accumulated, &paused, &lastResumeAt); err != nil {
+			return nil, err
 		}
-		st, err := ScanTime(sStart.String)
+		started, err := ScanTime(startAt)
 		if err != nil {
-			return 0, err
+			return nil, fmt.Errorf("parse goal session start time: %w", err)
 		}
-		sess := model.Session{
-			StartAt:            st,
-			AccumulatedSeconds: accumulated,
-			Paused:             paused == 1,
-		}
-		if sEnd.Valid {
-			t, err := ScanTime(sEnd.String)
+		session := model.Session{StartAt: started, AccumulatedSeconds: accumulated, Paused: paused == 1}
+		if endAt.Valid {
+			ended, err := ScanTime(endAt.String)
 			if err != nil {
-				return 0, err
+				return nil, fmt.Errorf("parse goal session end time: %w", err)
 			}
-			sess.EndAt = &t
+			session.EndAt = &ended
 		}
-		if lastResume.Valid {
-			if lr, err := ScanTime(lastResume.String); err == nil {
-				sess.LastResumeAt = &lr
+		if lastResumeAt.Valid {
+			resumed, err := ScanTime(lastResumeAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("parse goal session resume time: %w", err)
 			}
+			session.LastResumeAt = &resumed
 		}
-		totalSec += sess.TrackedSecondsInWindow(start, end, now)
+		sessions[activityID] = append(sessions[activityID], session)
 	}
-	if err := rows.Err(); err != nil {
-		return 0, err
-	}
-	return totalSec / 60, nil
+	return sessions, rows.Err()
 }
 
 // goalPeriodRange returns the [start, end) window for a goal's period
@@ -257,18 +303,21 @@ func scanGoal(r row) (model.Goal, error) {
 	)
 	if err := r.Scan(&g.ID, &g.ActivityID, &teamID, &g.Period, &g.TargetMinutes, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return model.Goal{}, ErrGoalNotFound
+			return model.Goal{}, model.ErrGoalNotFound
 		}
 		return model.Goal{}, err
 	}
 	if teamID.Valid {
 		g.TeamID = teamID.Int64
 	}
-	if t, err := ScanTime(createdAt); err == nil {
-		g.CreatedAt = t
+	created, err := ScanTime(createdAt)
+	if err != nil {
+		return model.Goal{}, fmt.Errorf("parse goal creation time: %w", err)
 	}
-	if t, err := ScanTime(updatedAt); err == nil {
-		g.UpdatedAt = t
+	g.CreatedAt = created
+	g.UpdatedAt, err = ScanTime(updatedAt)
+	if err != nil {
+		return model.Goal{}, fmt.Errorf("parse goal update time: %w", err)
 	}
 	return g, nil
 }

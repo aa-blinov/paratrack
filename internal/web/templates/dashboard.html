@@ -8,7 +8,7 @@
      at the bottom like the sum under a ledger column. -->
 <section class="card bg-base-100 border border-base-300" aria-labelledby="ledger-running-title">
   <div class="card-body p-5 gap-0">
-    <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML" hx-on::after-request="if (event.detail.successful) { this.reset(); window.paratrackLedgerProject && window.paratrackLedgerProject(); }">
+    <form hx-post="/api/start" hx-target="#active-list" hx-swap="innerHTML" data-reset-after-request data-ledger-sync>
       <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
       <label class="ledger-label" for="activity">{{.T "ledger.what"}}</label>
       <div class="flex gap-2 items-center mt-1.5">
@@ -81,7 +81,6 @@
   {{if .On "invoices"}}<a href="/projects/new">{{.T "onb.nextProject"}}</a>{{end}}
   <button type="button" class="btn btn-ghost btn-xs gap-1 ms-auto" data-next-hide aria-label="{{.T "onb.hide"}}">{{icon "x" "icon icon-sm"}}<span class="max-sm:sr-only">{{.T "onb.hide"}}</span></button>
 </nav>
-<script>try { if (localStorage.getItem('paratrack-next-hidden')) document.getElementById('next-steps').remove(); } catch (e) {}</script>
 {{end}}
 
 <!-- Recent closed sessions: swapped in by #today-stats (backfill lands here). -->
@@ -173,8 +172,7 @@
   <div class="card-body p-5 pt-0">
     <p class="text-sm opacity-60 mb-3">{{.T "dash.backfillBlurb"}} <code>{{.T "ph.start"}}</code>, <code>{{.T "ph.ago"}}</code>, <code>2026-09-22 09:00</code>.</p>
     <span id="b-form-error" role="alert" class="block text-sm text-error"></span>
-    <form hx-post="/api/sessions/backfill" hx-target="#active-list" hx-swap="innerHTML"
-          hx-on::before-request="backfillBeforeRequest(this)" hx-on::after-request="backfillAfterRequest(this, event)"
+    <form hx-post="/api/sessions/backfill" hx-target="#active-list" hx-swap="innerHTML" data-backfill-form
           data-network-error="{{.T "err.backfillNetwork"}}" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
       <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
       <div>
@@ -241,7 +239,7 @@
               <select name="project_id" class="select select-ghost select-xs ledger-project"
                       aria-label="{{.T "dash.projectLabel"}}" title="{{.T "dash.projectChangeTitle"}}"
                       hx-post="/api/activities/{{.ActivityID}}/project" hx-trigger="change" hx-swap="none"
-                      hx-on::after-request="htmx.ajax('GET', '/api/active', {target: '#active-list', swap: 'innerHTML'})">
+                      data-refresh-active-after-request>
                 <option value="0">{{.T "dash.uncategorized"}}</option>
                 {{range $.Projects}}<option value="{{.ID}}"{{if eq .Slug $cur}} selected{{end}}>{{.Name}}</option>{{end}}
               </select>

@@ -41,7 +41,7 @@ time.example.com {
 }
 ```
 
-Прокси должен передавать заголовки `X-Forwarded-Proto` и `X-Forwarded-For`: по ним paratrack строит ссылки в письмах и считает попытки входа по настоящим адресам.
+Укажите `PARATRACK_PUBLIC_URL=https://time.example.com` в `.env`. Для доверия к forwarded-заголовкам добавьте адрес или CIDR прокси в `PARATRACK_TRUSTED_PROXIES` (например, `172.20.0.0/16` для внутренней сети Docker). Только от этих адресов приложение принимает `X-Forwarded-Proto`, `X-Forwarded-For` и `X-Forwarded-Host`; без настройки запросы учитываются по адресу непосредственного клиента.
 
 ## Настройки
 
@@ -53,8 +53,10 @@ time.example.com {
 | `PARATRACK_SECRET_KEY` | шифрование ключей в базе, обязательно |
 | `PARATRACK_PORT` | порт на `127.0.0.1`, по умолчанию 8000 |
 | `PARATRACK_TZ` | часовой пояс до того, как браузер сообщит свой, по умолчанию `Europe/Moscow` |
+| `PARATRACK_PUBLIC_URL` | канонический origin приложения для ссылок в письмах, SSO и Stripe; вне `development`/`test` обязателен и должен начинаться с `https://` |
+| `PARATRACK_TRUSTED_PROXIES` | CIDR доверенных reverse proxy; только от них принимаются `X-Forwarded-Host`, `X-Forwarded-Proto` и `X-Forwarded-For` |
 | `PARATRACK_SMTP_HOST`, `PARATRACK_SMTP_USER`, `PARATRACK_SMTP_PASS`, `PARATRACK_MAIL_FROM` | почта: счета клиентам, приглашения, сброс пароля. Хост с портом, например `smtp.yandex.ru:465`. Без почты письма пишутся в лог сервера |
-| `PARATRACK_OIDC_ISSUER`, `PARATRACK_OIDC_CLIENT_ID`, `PARATRACK_OIDC_CLIENT_SECRET` | вход через SSO (OIDC). Адрес возврата у провайдера: `https://ваш-домен/sso/callback` |
+| `PARATRACK_OIDC_ISSUER`, `PARATRACK_OIDC_CLIENT_ID`, `PARATRACK_OIDC_CLIENT_SECRET` | вход через SSO (OIDC); issuer обязан использовать HTTPS вне `development`/`test`. Адрес возврата у провайдера: `https://ваш-домен/sso/callback` |
 | `PARATRACK_OIDC_TRUST_EMAIL` | `1`, если провайдер проверяет почту, но не присылает `email_verified` |
 | `PARATRACK_STRIPE_KEY`, `PARATRACK_STRIPE_WEBHOOK_SECRET` | ключи Stripe на весь сервер, если в пространстве свои не заданы |
 | `PARATRACK_WEBHOOK_ALLOW_PRIVATE` | `1`: разрешить вебхуки на адреса локальной сети |

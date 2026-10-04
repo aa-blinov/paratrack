@@ -3,101 +3,94 @@ package auth
 import (
 	"context"
 	"crypto/rand"
-	"database/sql"
+	"crypto/sha256"
 	"encoding/base64"
 	"errors"
-	"time"
+	"fmt"
 
-	"github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
+	"golang.org/x/crypto/bcrypt"
 )
 
-// Password-reset tokens are single-use, 30-minute, stored hashed-ish
-// (the raw token is what we email; the row is the source of truth).
-
 // ResetTTL is how long a forgot-password link stays valid.
-const ResetTTL = 30 * time.Minute
+const ResetTTL = appmodel.ResetTTL
 
 // ErrResetInvalid is returned when a token is unknown, expired, or
 // already used. Callers must not distinguish — the user gets one
 // generic message.
-var ErrResetInvalid = errors.New("reset token invalid")
+var ErrResetInvalid = appmodel.ErrAuthResetInvalid
 
-// CreatePasswordReset mints a single-use token for the user and returns
-// the raw string to embed in the email. Previous unused tokens for the
-// user are invalidated so only the newest link works.
-func (s *Service) CreatePasswordReset(ctx context.Context, userID int64) (string, error) {
-	// Invalidate any outstanding tokens.
-	_, _ = s.d.SQL().ExecContext(ctx,
-		`UPDATE password_reset_tokens SET used_at = ? WHERE user_id = ? AND used_at IS NULL`,
-		db.FormatTime(time.Now().UTC()), userID,
-	)
+// RequestPasswordReset resolves an account and mints a single-use reset
+// token. Transport adapters should keep their response identical for
+// ErrNotFound and successful requests to avoid account enumeration.
+func (s *Service) RequestPasswordReset(ctx context.Context, request appmodel.PasswordResetRequest) (appmodel.UserIdentity, string, error) {
+	user, err := s.findByEmail(ctx, request.Email)
+	if err != nil {
+		return appmodel.UserIdentity{}, "", err
+	}
+	token, err := s.createPasswordReset(ctx, user.ID)
+	if err != nil {
+		return appmodel.UserIdentity{}, "", fmt.Errorf("create password reset token: %w", err)
+	}
+	return identityOf(user), token, nil
+}
+
+// createPasswordReset mints a single-use token and atomically invalidates
+// previous outstanding tokens for the user.
+func (s *Service) createPasswordReset(ctx context.Context, userID int64) (string, error) {
 	var b [32]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return "", err
 	}
 	token := base64.RawURLEncoding.EncodeToString(b[:])
-	now := time.Now().UTC()
-	_, err := s.d.SQL().ExecContext(ctx,
-		`INSERT INTO password_reset_tokens (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-		token, userID, db.FormatTime(now), db.FormatTime(now.Add(ResetTTL)),
-	)
-	if err != nil {
+	now := s.now().UTC()
+	if err := s.resets.CreatePasswordReset(ctx, appmodel.PasswordResetCreateRequest{
+		TokenHash: passwordResetTokenHash(token), UserID: userID, CreatedAt: now, ExpiresAt: now.Add(ResetTTL),
+	}); err != nil {
 		return "", err
 	}
 	return token, nil
 }
 
-// ConsumePasswordReset validates the token and returns the user it
-// belongs to. The token is marked used in the same call — a second
-// attempt with the same link fails.
-func (s *Service) ConsumePasswordReset(ctx context.Context, token, newPassword string) (User, error) {
-	row := s.d.SQL().QueryRowContext(ctx, `
-		SELECT t.user_id, t.expires_at, t.used_at,
-		       u.id, u.email, u.password_hash, u.name, u.created_at, u.updated_at
-		FROM password_reset_tokens t
-		JOIN users u ON u.id = t.user_id
-		WHERE t.token = ?`, token)
-	var (
-		userID  int64
-		exp, used sql.NullString
-		user    User
-		uct, uupd string
-	)
-	if err := row.Scan(&userID, &exp, &used, &user.ID, &user.Email, &user.PasswordHash,
-		&user.Name, &uct, &uupd); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return User{}, ErrResetInvalid
-		}
-		return User{}, err
+// consumePasswordReset validates the token, changes the password, marks the
+// token used, and revokes existing sessions in one storage transaction.
+func (s *Service) consumePasswordReset(ctx context.Context, token, newPassword string) (User, error) {
+	if len(newPassword) < 8 || len(newPassword) > 72 {
+		return User{}, fmt.Errorf("%w: password must be 8-72 characters", ErrValidation)
 	}
-	if used.Valid {
-		return User{}, ErrResetInvalid
-	}
-	if exp.Valid {
-		if t, err := db.ScanTime(exp.String); err == nil && time.Now().UTC().After(t) {
-			return User{}, ErrResetInvalid
-		}
-	}
-	user.CreatedAt, _ = db.ScanTime(uct)
-	user.UpdatedAt, _ = db.ScanTime(uupd)
-
-	// Mark used first (single-use), then set the password.
-	now := db.FormatTime(time.Now().UTC())
-	res, err := s.d.SQL().ExecContext(ctx,
-		`UPDATE password_reset_tokens SET used_at = ? WHERE token = ? AND used_at IS NULL`,
-		now, token,
-	)
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
 		return User{}, err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	user, err := s.resets.ConsumePasswordReset(ctx, appmodel.PasswordResetConsumeRequest{
+		TokenHash: passwordResetTokenHash(token), LegacyToken: token, PasswordHash: string(hash), At: s.now().UTC(),
+	})
+	if errors.Is(err, model.ErrNotFound) {
 		return User{}, ErrResetInvalid
 	}
-	if err := s.UpdatePassword(ctx, user.ID, newPassword); err != nil {
+	if err != nil {
 		return User{}, err
 	}
-	// Kick every existing session — password change must log out
-	// other devices.
-	_ = s.DeleteByUser(ctx, user.ID)
+	s.recordAudit(ctx, 0, user.ID, "auth.password_reset", user.Email, "")
 	return user, nil
+}
+
+func passwordResetTokenHash(token string) string {
+	digest := sha256.Sum256([]byte(token))
+	return "sha256:" + base64.RawURLEncoding.EncodeToString(digest[:])
+}
+
+// CompletePasswordReset consumes the reset token and starts a fresh session
+// for the account whose previous sessions were revoked by the reset.
+func (s *Service) CompletePasswordReset(ctx context.Context, request appmodel.PasswordResetCompletionRequest) (appmodel.UserIdentity, Session, error) {
+	user, err := s.consumePasswordReset(ctx, request.Token, request.NewPassword)
+	if err != nil {
+		return appmodel.UserIdentity{}, Session{}, err
+	}
+	session, err := s.newSession(ctx, user.ID)
+	if err != nil {
+		return appmodel.UserIdentity{}, Session{}, fmt.Errorf("create session after password reset: %w", err)
+	}
+	return identityOf(user), session, nil
 }

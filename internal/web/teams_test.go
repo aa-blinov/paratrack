@@ -1,29 +1,35 @@
 package web
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/aa-blinov/paratrack/internal/auth"
 )
 
-// secondUser creates a second user via the auth service and returns
-// a fresh session token. Used to test multi-user flows (owner invites
-// a member).
+// secondUser registers a second user through the HTTP adapter and returns its
+// session token. Used to test multi-user flows (owner invites a member).
 func secondUser(t *testing.T, srv *Server, email, name string) string {
 	t.Helper()
-	uid, _, err := srv.auth.CreateUser(context.Background(), email, "longenough", name)
-	if err != nil {
-		t.Fatalf("seed %s: %v", email, err)
+	csrfToken, csrfCookie := seedCSRF(t, srv.routes())
+	form := url.Values{"name": {name}, "email": {email}, "password": {"longenough"}}
+	r := httptest.NewRequest(http.MethodPost, "/api/register", strings.NewReader(form.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.Header.Set(csrfHeaderName, csrfToken)
+	r.AddCookie(csrfCookie)
+	w := httptest.NewRecorder()
+	srv.routes().ServeHTTP(w, r)
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("register %s: want 303, got %d: %s", email, w.Code, w.Body.String())
 	}
-	sess, err := srv.auth.NewSession(context.Background(), uid)
-	if err != nil {
-		t.Fatal(err)
+	for _, cookie := range w.Result().Cookies() {
+		if cookie.Name == sessionCookieName {
+			return cookie.Value
+		}
 	}
-	return sess.Token
+	t.Fatalf("register %s did not set a session cookie", email)
+	return ""
 }
 
 func TestSettingsPagesAccessibleToLoggedInUser(t *testing.T) {
@@ -31,7 +37,7 @@ func TestSettingsPagesAccessibleToLoggedInUser(t *testing.T) {
 	for _, path := range []string{"/settings/team", "/settings/members", "/settings/invites", "/settings/profile"} {
 		w := httptest.NewRecorder()
 		r := httptest.NewRequest(http.MethodGet, path, nil)
-		r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+		r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 		srv.routes().ServeHTTP(w, r)
 		if w.Code != http.StatusOK {
 			t.Errorf("GET %s: want 200, got %d body=%q", path, w.Code,
@@ -56,7 +62,7 @@ func TestTeamSettingsPageShowsCurrentTeamName(t *testing.T) {
 	srv, token := newTestServer(t)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/settings/team", nil)
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusOK {
 		t.Fatalf("GET /settings/team: want 200, got %d", w.Code)
@@ -75,7 +81,7 @@ func TestCreateTeamAndSwitch(t *testing.T) {
 	form := strings.NewReader("name=Side+Project")
 	r := httptest.NewRequest(http.MethodPost, "/api/team/create", form)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	csrfTok, csrfCk := seedCSRF(t, srv.routes())
 	r.Header.Set(csrfHeaderName, csrfTok)
 	r.AddCookie(csrfCk)
@@ -88,7 +94,7 @@ func TestCreateTeamAndSwitch(t *testing.T) {
 	// After creating, /settings/team should list two workspaces.
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/settings/team", nil)
-	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r2.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusOK {
 		t.Fatalf("GET /settings/team after create: %d", w2.Code)
@@ -105,7 +111,7 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	// Owner generates an invite.
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/team/invites", nil)
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: ownerToken})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: ownerToken})
 	csrfTok, csrfCk := seedCSRF(t, srv.routes())
 	r.Header.Set(csrfHeaderName, csrfTok)
 	r.AddCookie(csrfCk)
@@ -114,28 +120,31 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 		t.Fatalf("POST /api/team/invites: want 303, got %d", w.Code)
 	}
 
-	// Find the freshly-minted token. We pull it from the DB rather
-	// than parsing the flash message — simpler and more durable.
-	teams := srv.teams
-	owner, err := srv.auth.FindByEmail(context.Background(), "alice@example.com")
-	if err != nil {
-		t.Fatalf("FindByEmail: %v", err)
+	// Read the generated invite from the same page an owner uses in the UI.
+	invitesPage := httptest.NewRecorder()
+	invitesRequest := httptest.NewRequest(http.MethodGet, "/settings/invites", nil)
+	invitesRequest.AddCookie(&http.Cookie{Name: sessionCookieName, Value: ownerToken})
+	srv.routes().ServeHTTP(invitesPage, invitesRequest)
+	if invitesPage.Code != http.StatusOK {
+		t.Fatalf("GET /settings/invites: want 200, got %d", invitesPage.Code)
 	}
-	ownerTeams, err := teams.ListForUser(context.Background(), owner.ID)
-	if err != nil || len(ownerTeams) == 0 {
-		t.Fatalf("ListForUser: %v / %d teams", err, len(ownerTeams))
+	const inviteHref = `href="/invites/`
+	start := strings.Index(invitesPage.Body.String(), inviteHref)
+	if start < 0 {
+		t.Fatal("invite page did not render the generated invite link")
 	}
-	invites, err := teams.InvitesForTeam(context.Background(), ownerTeams[0].ID)
-	if err != nil || len(invites) == 0 {
-		t.Fatalf("InvitesForTeam: %v / %d", err, len(invites))
+	start += len(inviteHref)
+	end := strings.IndexByte(invitesPage.Body.String()[start:], '"')
+	if end < 0 {
+		t.Fatal("invite page rendered an unterminated invite link")
 	}
-	token := invites[0].Token
+	token := invitesPage.Body.String()[start : start+end]
 
 	// Member tries to view the invite-accept page.
 	memberToken := secondUser(t, srv, "bob@example.com", "Bob")
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/invites/"+token, nil)
-	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: memberToken})
+	r2.AddCookie(&http.Cookie{Name: sessionCookieName, Value: memberToken})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusOK {
 		t.Fatalf("GET /invites/%s: want 200, got %d body=%s", token, w2.Code, w2.Body.String())
@@ -148,7 +157,7 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	// Member accepts.
 	w3 := httptest.NewRecorder()
 	r3 := httptest.NewRequest(http.MethodPost, "/api/invites/"+token+"/accept", nil)
-	r3.AddCookie(&http.Cookie{Name: auth.CookieName, Value: memberToken})
+	r3.AddCookie(&http.Cookie{Name: sessionCookieName, Value: memberToken})
 	csrfTok, csrfCk = seedCSRF(t, srv.routes())
 	r3.Header.Set(csrfHeaderName, csrfTok)
 	r3.AddCookie(csrfCk)
@@ -160,7 +169,7 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	// Owner /settings/members should now list Bob.
 	w4 := httptest.NewRecorder()
 	r4 := httptest.NewRequest(http.MethodGet, "/settings/members", nil)
-	r4.AddCookie(&http.Cookie{Name: auth.CookieName, Value: ownerToken})
+	r4.AddCookie(&http.Cookie{Name: sessionCookieName, Value: ownerToken})
 	srv.routes().ServeHTTP(w4, r4)
 	if w4.Code != http.StatusOK {
 		t.Fatalf("GET /settings/members: %d", w4.Code)
@@ -179,7 +188,7 @@ func TestMemberCannotRemoveOtherMembers(t *testing.T) {
 	// her team should be refused.
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/team/members/1/remove", nil)
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: memberToken})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: memberToken})
 	csrfTok, csrfCk := seedCSRF(t, srv.routes())
 	r.Header.Set(csrfHeaderName, csrfTok)
 	r.AddCookie(csrfCk)
@@ -196,7 +205,7 @@ func TestProfileUpdate(t *testing.T) {
 	form := strings.NewReader("name=Alice+Updated")
 	r := httptest.NewRequest(http.MethodPost, "/api/profile", form)
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	csrfTok, csrfCk := seedCSRF(t, srv.routes())
 	r.Header.Set(csrfHeaderName, csrfTok)
 	r.AddCookie(csrfCk)
@@ -208,7 +217,7 @@ func TestProfileUpdate(t *testing.T) {
 	// Reload profile page; it should now reflect the new name.
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/settings/profile", nil)
-	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r2.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusOK {
 		t.Fatalf("GET /settings/profile: %d", w2.Code)

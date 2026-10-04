@@ -1,9 +1,48 @@
 package db
 
 import (
+	"errors"
 	"testing"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
+
+func TestProgressForGoalsBatchesWorkspaceActivitySessions(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal progress", "goal-progress")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	activity, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "focus"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	for _, period := range []string{"daily", "weekly", "monthly"} {
+		if _, err := d.UpsertGoalForManager(ctx, appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: ownerID, ActivityName: activity.Name, Period: period, Minutes: 120}); err != nil {
+			t.Fatalf("create %s goal: %v", period, err)
+		}
+	}
+	if _, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamID, ActivityID: activity.ID, Start: now.Add(-30 * time.Minute), End: now, Note: "focus"}); err != nil {
+		t.Fatalf("create tracked session: %v", err)
+	}
+
+	progress, err := d.ProgressForGoals(ctx, teamID, now)
+	if err != nil {
+		t.Fatalf("ProgressForGoals: %v", err)
+	}
+	if len(progress) != 3 {
+		t.Fatalf("progress count = %d, want 3", len(progress))
+	}
+	for _, item := range progress {
+		if item.ActivityName != "focus" || item.AchievedMinutes != 30 || item.PercentComplete != 25 {
+			t.Errorf("%s progress = %+v, want focus with 30 minutes and 25%%", item.Goal.Period, item)
+		}
+	}
+}
 
 // goalPeriodRange is the single source of truth for what window a
 // goal's progress is measured against. Edge cases worth pinning:
@@ -109,17 +148,18 @@ func TestGoalPeriodRange_UnknownFallsBackToDaily(t *testing.T) {
 func TestUpsertGoal_RejectsInvalidPeriod(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, err := d.GetOrCreateActivity(ctx, 0, "test-up")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := d.UpsertGoal(ctx, 0, act.ID, "yearly", 60); err == nil {
+	teamID := seedTeam(t, d, "Goal validation", "goal-validation")
+	ownerID := teamOwner(t, d, teamID)
+	request := appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "test-up", Period: "yearly", Minutes: 60}
+	if _, err := d.UpsertGoalForManager(ctx, request); err == nil {
 		t.Error("UpsertGoal with period=yearly should fail, got nil")
 	}
-	if _, err := d.UpsertGoal(ctx, 0, act.ID, "daily", 0); err == nil {
+	request.Period, request.Minutes = "daily", 0
+	if _, err := d.UpsertGoalForManager(ctx, request); err == nil {
 		t.Error("UpsertGoal with 0 minutes should fail, got nil")
 	}
-	if _, err := d.UpsertGoal(ctx, 0, act.ID, "daily", -10); err == nil {
+	request.Minutes = -10
+	if _, err := d.UpsertGoalForManager(ctx, request); err == nil {
 		t.Error("UpsertGoal with negative minutes should fail, got nil")
 	}
 }
@@ -127,15 +167,15 @@ func TestUpsertGoal_RejectsInvalidPeriod(t *testing.T) {
 func TestUpsertGoal_ReplacesExistingForSamePeriod(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, err := d.GetOrCreateActivity(ctx, 0, "test-replace")
+	teamID := seedTeam(t, d, "Goal replacement", "goal-replacement")
+	ownerID := teamOwner(t, d, teamID)
+	request := appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "test-replace", Period: "daily", Minutes: 60}
+	g1, err := d.UpsertGoalForManager(ctx, request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	g1, err := d.UpsertGoal(ctx, 0, act.ID, "daily", 60)
-	if err != nil {
-		t.Fatal(err)
-	}
-	g2, err := d.UpsertGoal(ctx, 0, act.ID, "daily", 120)
+	request.Minutes = 120
+	g2, err := d.UpsertGoalForManager(ctx, request)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,28 +187,31 @@ func TestUpsertGoal_ReplacesExistingForSamePeriod(t *testing.T) {
 	}
 }
 
-func TestDeleteGoal_MissingReturnsErrGoalNotFound(t *testing.T) {
+func TestDeleteGoalForManager_MissingGoalReturnsErrGoalNotFound(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	act, err := d.GetOrCreateActivity(ctx, 0, "test-del")
+	teamID := seedTeam(t, d, "Goal deletion", "goal-deletion")
+	ownerID := teamOwner(t, d, teamID)
+	activity, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "focus"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = d.DeleteGoal(ctx, 0, act.ID, "daily")
-	if err != ErrGoalNotFound {
-		t.Errorf("DeleteGoal on missing row: err=%v, want %v", err, ErrGoalNotFound)
+	err = d.DeleteGoalForManager(ctx, appmodel.GoalDeleteRequest{
+		TeamID: teamID, CallerID: ownerID, ActivityName: activity.Name, Period: "daily",
+	})
+	if !errors.Is(err, model.ErrGoalNotFound) {
+		t.Fatalf("DeleteGoalForManager error = %v, want %v", err, model.ErrGoalNotFound)
 	}
 }
 
-// openTestDB returns an isolated in-memory DB so the tests don't
-// touch the user's real ~/.track/track.db. Uses modernc's
-// ":memory:" DSN. Tables are created via the same Open() path the
-// production code uses, so schema and migrations are exercised.
+// openTestDB returns a dedicated Postgres schema for this test. The
+// schema is dropped during cleanup; opening the DB applies the same
+// schema and migrations used by production.
 func openTestDB(t *testing.T) *DB {
 	t.Helper()
 	d, err := OpenTest(t)
 	if err != nil {
-		t.Fatalf("open :memory: db: %v", err)
+		t.Fatalf("open test database: %v", err)
 	}
 	t.Cleanup(func() { d.Close() })
 	return d

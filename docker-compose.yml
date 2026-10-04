@@ -19,6 +19,9 @@ services:
     logging: *logging
     environment:
       PARATRACK_DATABASE_URL: postgres://paratrack:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/paratrack?sslmode=disable
+      PARATRACK_ENV: ${PARATRACK_ENV:-production}
+      PARATRACK_PUBLIC_URL: ${PARATRACK_PUBLIC_URL:-}
+      PARATRACK_TRUSTED_PROXIES: ${PARATRACK_TRUSTED_PROXIES:-}
       # Error reporting: empty = off (nothing leaves the server).
       PARATRACK_SENTRY_DSN: ${PARATRACK_SENTRY_DSN:-}
       PARATRACK_SENTRY_TRACES: ${PARATRACK_SENTRY_TRACES:-1.0}

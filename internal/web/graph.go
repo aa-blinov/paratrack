@@ -1,11 +1,13 @@
 package web
 
 import (
-	"github.com/aa-blinov/paratrack/internal/i18n"
+	"fmt"
 	"sort"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -39,7 +41,7 @@ type chartLegendEntry struct {
 // across activities. Sessions spanning multiple hours are split so a
 // 10:30→13:45 session contributes 30 min to the 10:00 bucket, 60 to
 // 11:00, 60 to 12:00 and 45 to 13:00.
-func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lang i18n.Lang) ChartData {
+func buildChartData(sessions []model.ActiveSession, period timeparse.Period, now time.Time, lang i18n.Lang) (ChartData, error) {
 	out := ChartData{
 		Hours:  make([]string, 24),
 		Series: []chartSeries{},
@@ -72,26 +74,40 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 		if e.After(period.End) {
 			e = period.End
 		}
-		tracked := as.Session.TrackedSecondsInWindow(period.Start, period.End, time.Now())
+		tracked := as.Session.TrackedSecondsInWindow(period.Start, period.End, now)
 		if !e.After(s) {
 			// A hand-edited/imported session may have a zero wall-clock span.
-			tracked = as.Session.DurationSeconds(time.Now())
+			tracked = as.Session.DurationSeconds(now)
 		}
 		if tracked <= 0 {
 			continue
 		}
-		totalSeconds += tracked
+		var err error
+		totalSeconds, err = money.AddInt(totalSeconds, tracked)
+		if err != nil {
+			return ChartData{}, fmt.Errorf("sum chart tracked time: %w", err)
+		}
 		b := buckets[as.Activity.Name]
 		if b == nil {
 			b = &activityBuckets{}
 			buckets[as.Activity.Name] = b
 		}
-		minutes := max(1, (tracked+30)/60) // chart resolution: nearest minute
-		b.total += minutes
+		minutes := tracked / 60
+		if tracked%60 >= 30 {
+			minutes++
+		}
+		minutes = max(1, minutes) // chart resolution: nearest minute
+		b.total, err = money.AddInt(b.total, minutes)
+		if err != nil {
+			return ChartData{}, fmt.Errorf("sum chart series %q: %w", as.Activity.Name, err)
+		}
 		// The chart is explicitly about the user's hours, not UTC hours.
 		s, e = s.In(period.Start.Location()), e.In(period.Start.Location())
 		if !e.After(s) {
-			b.minutes[s.Hour()] += minutes
+			b.minutes[s.Hour()], err = money.AddInt(b.minutes[s.Hour()], minutes)
+			if err != nil {
+				return ChartData{}, fmt.Errorf("sum chart hour %d for %q: %w", s.Hour(), as.Activity.Name, err)
+			}
 			continue
 		}
 		span := e.Sub(s)
@@ -107,14 +123,17 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 			// Cumulative rounding guarantees every session contributes exactly
 			// its tracked minutes across the 24 buckets.
 			allocated := int(float64(minutes)*float64(end.Sub(s))/float64(span) + 0.5)
-			b.minutes[cur.Hour()] += allocated - assigned
+			b.minutes[cur.Hour()], err = money.AddInt(b.minutes[cur.Hour()], allocated-assigned)
+			if err != nil {
+				return ChartData{}, fmt.Errorf("sum chart hour %d for %q: %w", cur.Hour(), as.Activity.Name, err)
+			}
 			assigned = allocated
 			cur = end
 		}
 	}
 
 	if len(buckets) == 0 {
-		return ChartData{HasData: false, Hours: out.Hours, Period: period.Label}
+		return ChartData{HasData: false, Hours: out.Hours, Period: period.Label}, nil
 	}
 
 	// Sort activities by total desc for stable legend / series order.
@@ -149,7 +168,7 @@ func buildChartData(sessions []model.ActiveSession, period timeparse.Period, lan
 		out.Legend = append(out.Legend, chartLegendEntry{Name: r.name, Color: s.Color})
 	}
 	out.HasData = true
-	return out
+	return out, nil
 }
 
 func fmtHourLabel(h int) string {

@@ -45,7 +45,6 @@ func TestPromptCancelsOnDot(t *testing.T) {
 	}
 }
 
-
 func TestConfirmYes(t *testing.T) {
 	r := strings.NewReader("y\n")
 	var w strings.Builder
@@ -107,5 +106,3 @@ func TestChooseByNumber(t *testing.T) {
 		t.Fatalf("got %d, want 2", got)
 	}
 }
-
-

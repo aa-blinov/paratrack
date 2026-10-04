@@ -148,7 +148,7 @@
             <button type="submit" class="btn btn-neutral btn-sm w-full">{{.T "projects.save"}}</button>
           </form>
           <form method="POST" action="/projects/{{.Project.Slug}}/delete"
-                onsubmit="return confirm('{{.T "projects.confirmDelete"}}');">
+                data-confirm="{{.T "projects.confirmDelete"}}">
         <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
             <button type="submit" class="btn btn-ghost btn-sm gap-1.5 text-error w-full">{{icon "trash-2"}}{{.T "projects.delete"}}</button>
           </form>

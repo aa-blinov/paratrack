@@ -1,0 +1,33 @@
+package model
+
+import "errors"
+
+var (
+	ErrActiveSessionExists     = errors.New("activity already has an active session")
+	ErrSessionNotActive        = errors.New("session is not active")
+	ErrNotFound                = errors.New("not found")
+	ErrInviteExpired           = errors.New("invite expired")
+	ErrGoalNotFound            = errors.New("goal not found")
+	ErrSessionInvoiceLocked    = errors.New("session belongs to a sent or paid invoice")
+	ErrInvoiceNotDraft         = errors.New("invoice is no longer a draft")
+	ErrTokenInvalid            = errors.New("api token invalid")
+	ErrNoBillableTime          = errors.New("no billable time in that period")
+	ErrNoPayableTime           = errors.New("no paid members with tracked time in that period")
+	ErrAlreadyExists           = errors.New("record already exists")
+	ErrAlreadyBilled           = errors.New("some of this time was just billed on another invoice; reload and try again")
+	ErrMixedCurrency           = errors.New("lines in different currencies")
+	ErrInvoiceChanged          = errors.New("invoice changed while email was being prepared")
+	ErrTagNotFound             = errors.New("tag not found")
+	ErrStripeSessionMismatch   = errors.New("stripe checkout session does not match invoice")
+	ErrStripeSessionPending    = errors.New("stripe checkout session is not persisted yet")
+	ErrAmbiguousProject        = errors.New("project slug exists in more than one team")
+	ErrForbidden               = errors.New("forbidden")
+	ErrLastOwner               = errors.New("cannot remove the last team owner")
+	ErrOwnerMustTransfer       = errors.New("transfer team ownership before removing its current owner")
+	ErrTeamHasMembers          = errors.New("team still has multiple members")
+	ErrSessionAlreadyPaused    = errors.New("session is already paused")
+	ErrSessionNotPaused        = errors.New("session is not paused")
+	ErrSessionReopenExpired    = errors.New("session can no longer be reopened")
+	ErrSessionDurationOverflow = errors.New("session duration exceeds the representable range")
+	ErrProjectRebindForbidden  = errors.New("members may assign only unassigned activities to projects")
+)

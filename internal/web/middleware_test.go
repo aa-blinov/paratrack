@@ -1,15 +1,22 @@
 package web
 
 import (
-	"github.com/aa-blinov/paratrack/internal/i18n"
 	"context"
+	"github.com/aa-blinov/paratrack/internal/i18n"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/aa-blinov/paratrack/internal/app"
+	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/audit"
 	"github.com/aa-blinov/paratrack/internal/auth"
 	dbpkg "github.com/aa-blinov/paratrack/internal/db"
+	"github.com/aa-blinov/paratrack/internal/mail"
+	"github.com/aa-blinov/paratrack/internal/testutil"
 )
 
 // newTestServer builds a Server backed by a temp DB and seeds one
@@ -17,28 +24,88 @@ import (
 // freshly minted session token so tests can hit authed paths.
 func newTestServer(t *testing.T) (*Server, string) {
 	t.Helper()
-	d, err := dbpkg.OpenTest(t)
+	d, err := testutil.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
 
-	srv, err := New(d, "127.0.0.1:0")
+	srv, err := newServerForTest(d, "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("server: %v", err)
 	}
 
-	authSvc := auth.NewService(d)
-	uid, _, err := authSvc.CreateUser(context.Background(),
-		"alice@example.com", "longenough", "Alice")
+	auditService, err := audit.New(d)
 	if err != nil {
-		t.Fatalf("seed user: %v", err)
+		t.Fatalf("audit service: %v", err)
 	}
-	sess, err := authSvc.NewSession(context.Background(), uid)
+	authSvc, err := auth.NewService(auth.Dependencies{
+		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d,
+		Now: time.Now, Audit: auditService, Logger: log.Default(),
+	})
+	if err != nil {
+		t.Fatalf("auth service: %v", err)
+	}
+	sess, _, err := authSvc.RegisterAndStartSession(context.Background(), appmodel.RegistrationRequest{
+		Email: "alice@example.com", Password: "longenough", Name: "Alice", TeamName: "Alice workspace",
+	})
 	if err != nil {
 		t.Fatalf("seed session: %v", err)
 	}
 	return srv, sess.Token
+}
+
+func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
+	services, err := app.NewServices(database, app.Config{Logger: log.Default(), Now: time.Now})
+	if err != nil {
+		return nil, err
+	}
+	return New(Dependencies{
+		Billing: services.Billing,
+		Auth: AuthenticationDependencies{
+			Identity: services.Auth, SignIn: services.Auth, Recovery: services.Auth,
+			Profile: services.Auth, APITokens: services.Auth,
+		},
+		AuditLog: services.AuditLog,
+		Teams: TeamDependencies{
+			Directory: services.Teams, Invitations: services.Teams,
+			Settings: services.Teams, Administration: services.Teams,
+		},
+		TeamOps: services.TeamOps,
+		Tracking: TrackingDependencies{
+			Queries: services.Tracking, Commands: services.Tracking,
+		},
+		TrackingOps: services.TrackingOps,
+		Imports:     services.Imports,
+		Integrations: IntegrationDependencies{
+			Queries: services.Integrations, Commands: services.Integrations,
+		},
+		Invoicing: InvoiceDependencies{
+			Queries: services.Invoicing, Drafts: services.Invoicing,
+			PaymentLinks: services.Invoicing,
+		},
+		Payroll:       services.Payroll,
+		PayrollPaid:   services.PayrollPaid,
+		Preferences:   services.Preferences,
+		Scheduling:    services.Scheduling,
+		Projects:      ProjectDependencies{Queries: services.Projects, Commands: services.Projects},
+		Reports:       services.Reports,
+		ReportBuilder: services.ReportBuilder,
+		Dashboard:     services.Dashboard,
+		Push:          services.Push,
+		Tagging: TagDependencies{
+			Queries: services.Tagging, Commands: services.Tagging,
+		},
+		SessionTags: services.Tagging,
+		Goals:       services.Goals,
+		Webhooks:    services.Webhooks,
+		MailQueue:   services.MailQueue,
+	}, addr, Config{Logger: log.Default(), Now: time.Now}, RuntimeDependencies{
+		OIDC:                  nil,
+		Mailer:                mail.LogSender{},
+		MailQueueWorker:       services.MailQueue,
+		WebhookDeliveryWorker: services.Webhooks,
+	})
 }
 
 func TestPublicLoginPageAccessibleWithoutAuth(t *testing.T) {
@@ -72,12 +139,45 @@ func TestProtectedPageAccessibleWithValidSession(t *testing.T) {
 	srv, token := newTestServer(t)
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodGet, "/stats", nil)
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w, r)
 	if w.Code != http.StatusOK {
 		t.Errorf("GET /stats with cookie: want 200, got %d body=%q",
 			w.Code, w.Body.String())
 	}
+}
+
+func TestAuthenticatedWorkflowAuditReceivesCurrentTeamScope(t *testing.T) {
+	srv, token := newTestServer(t)
+	user, err := srv.services.Auth.Identity.AuthenticateSessionToken(context.Background(), token)
+	if err != nil {
+		t.Fatalf("authenticate test session: %v", err)
+	}
+	memberships, err := srv.services.Teams.Directory.MembershipsForUser(context.Background(), user.ID)
+	if err != nil || len(memberships) == 0 {
+		t.Fatalf("load test user's workspace: memberships=%d err=%v", len(memberships), err)
+	}
+
+	csrfToken, csrfCookie := seedCSRF(t, srv.routes())
+	req := csrfRequest(http.MethodPost, "/api/profile/password",
+		"current_password=longenough&new_password=longerpassword", csrfToken,
+		csrfCookie, &http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("change password status = %d, want %d; body=%q", response.Code, http.StatusSeeOther, response.Body.String())
+	}
+
+	entries, err := srv.services.AuditLog.List(context.Background(), memberships[0].Team.ID, 20)
+	if err != nil {
+		t.Fatalf("list workspace audit: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.Action == "auth.password_change" && entry.TeamID == memberships[0].Team.ID {
+			return
+		}
+	}
+	t.Fatalf("password change audit entry missing for team %d", memberships[0].Team.ID)
 }
 
 func TestProtectedAPIReturns401JSONWhenUnauth(t *testing.T) {
@@ -113,8 +213,8 @@ func TestLoginFlowEndToEnd(t *testing.T) {
 		t.Fatalf("POST /api/login: want 303, got %d", w.Code)
 	}
 	cookie := w.Header().Get("Set-Cookie")
-	if !strings.Contains(cookie, auth.CookieName+"=") {
-		t.Fatalf("Set-Cookie should include %s, got %q", auth.CookieName, cookie)
+	if !strings.Contains(cookie, sessionCookieName+"=") {
+		t.Fatalf("Set-Cookie should include %s, got %q", sessionCookieName, cookie)
 	}
 
 	// The cookie value should let us hit /stats now. We can't easily
@@ -124,7 +224,7 @@ func TestLoginFlowEndToEnd(t *testing.T) {
 	// token we know is in the DB.
 	token := ""
 	for _, c := range w.Result().Cookies() {
-		if c.Name == auth.CookieName {
+		if c.Name == sessionCookieName {
 			token = c.Value
 		}
 	}
@@ -134,7 +234,7 @@ func TestLoginFlowEndToEnd(t *testing.T) {
 
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/stats", nil)
-	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r2.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusOK {
 		t.Errorf("GET /stats after login: want 200, got %d", w2.Code)
@@ -146,7 +246,7 @@ func TestLogoutClearsCookie(t *testing.T) {
 
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
-	r.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	csrfTok, csrfCk := seedCSRF(t, srv.routes())
 	r.Header.Set(csrfHeaderName, csrfTok)
 	r.AddCookie(csrfCk)
@@ -158,7 +258,7 @@ func TestLogoutClearsCookie(t *testing.T) {
 	// After logout the same cookie should be invalid.
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/stats", nil)
-	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r2.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusSeeOther {
 		t.Errorf("GET /stats after logout: want 303, got %d", w2.Code)
@@ -181,7 +281,7 @@ func TestRegisterFlowCreatesUserAndLogsIn(t *testing.T) {
 	// Find the session cookie.
 	var token string
 	for _, c := range w.Result().Cookies() {
-		if c.Name == auth.CookieName {
+		if c.Name == sessionCookieName {
 			token = c.Value
 		}
 	}
@@ -191,7 +291,7 @@ func TestRegisterFlowCreatesUserAndLogsIn(t *testing.T) {
 
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/stats", nil)
-	r2.AddCookie(&http.Cookie{Name: auth.CookieName, Value: token})
+	r2.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
 	srv.routes().ServeHTTP(w2, r2)
 	if w2.Code != http.StatusOK {
 		t.Errorf("after register, GET /stats: want 200, got %d", w2.Code)
@@ -204,6 +304,7 @@ func min(a, b int) int {
 	}
 	return b
 }
+
 // Server-to-server and token callers pass without a CSRF token; a plain
 // cookie POST still needs one.
 func TestCSRFExemptions(t *testing.T) {
