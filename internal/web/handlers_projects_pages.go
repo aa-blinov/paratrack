@@ -90,19 +90,17 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	now := userNow(r)
 	from := now.Add(-30 * 24 * time.Hour)
-	detail, err := s.services.Projects.Queries.Detail(r.Context(), appmodel.ProjectDetailRequest{
-		TeamID: tid, Slug: slug, IncludeArchived: r.URL.Query().Get("archived") == "1",
-		From: from, Through: now,
+	snapshot, err := s.services.ProjectPages.Build(r.Context(), appmodel.ProjectPageRequest{
+		TeamID: tid, CallerID: authenticatedUserID(r), Slug: slug,
+		IncludeArchived: r.URL.Query().Get("archived") == "1",
+		From:            from, Through: now,
+		IncludeUnbilled: s.teamModules(r)["invoices"],
 	})
 	if err != nil {
 		s.writeProjectLookupError(w, r, err)
 		return
 	}
-	data, err := s.buildProjectDetailPage(r, detail)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
+	data := s.buildProjectDetailPage(r, snapshot)
 	s.renderPageForRequest(w, r, data.Title, "projects", "project-detail", &data)
 }
 

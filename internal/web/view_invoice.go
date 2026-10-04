@@ -144,14 +144,6 @@ func (s *Server) loadInvoiceVM(r *http.Request) (model.Invoice, invoiceVM, error
 	return inv, vm, nil
 }
 
-func (s *Server) unbilledViews(r *http.Request, projectID int64) ([]unbilledView, error) {
-	list, err := s.services.Invoicing.Queries.UnbilledProjectTime(r.Context(), teamID(r), projectID)
-	if err != nil {
-		return nil, err
-	}
-	return unbilledViewsFrom(list, r), nil
-}
-
 func unbilledViewsFrom(list []model.UnbilledProject, r *http.Request) []unbilledView {
 	lang := resolveLang(r)
 	out := make([]unbilledView, 0, len(list))

@@ -1,13 +1,12 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // projectDetailData is the presentation envelope for /projects/{slug}.
@@ -42,7 +41,8 @@ func (p *projectDetailData) setManage(v bool)   { p.CanManage = v }
 func (p *projectDetailData) setLang(l string)   { p.Lang = l }
 func (p projectDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
-func (s *Server) buildProjectDetailPage(r *http.Request, detail model.ProjectDetail) (projectDetailData, error) {
+func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.ProjectPageSnapshot) projectDetailData {
+	detail := snapshot.Detail
 	p := detail.Project
 	tid := teamID(r)
 	now := userNow(r)
@@ -80,20 +80,12 @@ func (s *Server) buildProjectDetailPage(r *http.Request, detail model.ProjectDet
 		RateInput: rateInput, EstimatePercent: estimatePercent, Currencies: currencyOptions(),
 	}
 	data.Currency = detail.Currency
-	var err error
 	if canManage(r) && s.teamModules(r)["invoices"] {
-		data.Unbilled, err = s.unbilledViews(r, p.ID)
-		if err != nil {
-			return projectDetailData{}, fmt.Errorf("load project unbilled time: %w", err)
-		}
+		data.Unbilled = unbilledViewsFrom(snapshot.Unbilled, r)
 	}
-	teamCurrency, err := s.services.Teams.Settings.Currency(r.Context(), tid)
-	if err != nil {
-		return projectDetailData{}, fmt.Errorf("load workspace currency: %w", err)
-	}
-	data.TeamCurrency = teamCurrency
+	data.TeamCurrency = snapshot.TeamCurrency
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	return data, nil
+	return data
 }
