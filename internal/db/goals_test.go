@@ -30,7 +30,7 @@ func TestProgressForGoalsBatchesWorkspaceActivitySessions(t *testing.T) {
 		t.Fatalf("create tracked session: %v", err)
 	}
 
-	progress, err := d.ProgressForGoals(ctx, teamID, now)
+	progress, err := d.ProgressForGoals(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
 	if err != nil {
 		t.Fatalf("ProgressForGoals: %v", err)
 	}

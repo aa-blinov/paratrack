@@ -110,9 +110,11 @@ Application commands, edit fields and options that carry actor, workspace and
 operation inputs live in `appmodel`, keeping use-case data out of the shared
 domain package. Typed request-validation errors shared across workflows,
 persistence ports and adapters live there too; `model` retains domain-state
-conflicts and invariants. Manager goal writes carry their `GoalUpsertRequest` or
-`GoalDeleteRequest` unchanged through the workflow port into the persistence
-transaction, preserving caller and workspace scope at the authorization check.
+conflicts and invariants. Goal progress reads carry a typed query with the
+workspace and snapshot instant across CLI, HTTP, dashboard, workflow and
+persistence ports. Manager goal writes preserve caller and workspace scope
+through the workflow; persistence applies one or more targets in a single
+transaction and rechecks the manager role while holding the workspace lock.
 Provider-produced import entries and task snapshots live in `importport` and
 `integrationport`; persistence and workflows consume those boundary types without
 classifying external payloads as domain entities.

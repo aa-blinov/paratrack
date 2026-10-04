@@ -51,8 +51,8 @@ func (s *managementProgressReader) ListGoals(context.Context, int64, *int64) ([]
 	return nil, nil
 }
 
-func (s *managementProgressReader) ProgressForGoals(_ context.Context, teamID int64, now time.Time) ([]model.GoalProgress, error) {
-	s.teamID, s.now = teamID, now
+func (s *managementProgressReader) ProgressForGoals(_ context.Context, query appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
+	s.teamID, s.now = query.TeamID, query.Now
 	return s.progress, nil
 }
 
@@ -60,13 +60,13 @@ func (s progressReaderStub) ListGoals(context.Context, int64, *int64) ([]model.G
 	return nil, nil
 }
 
-func (s progressReaderStub) ProgressForGoals(context.Context, int64, time.Time) ([]model.GoalProgress, error) {
+func (s progressReaderStub) ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
 	return s.progress, nil
 }
 
 func TestProgressRequiresWorkspace(t *testing.T) {
 	service := &Service{}
-	if _, err := service.Progress(context.Background(), 0, time.Now()); !errors.Is(err, ErrInvalidTeam) {
+	if _, err := service.Progress(context.Background(), appmodel.GoalProgressQuery{TeamID: 0, Now: time.Now()}); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("Progress with no workspace error = %v, want %v", err, ErrInvalidTeam)
 	}
 }
@@ -117,7 +117,7 @@ func TestManagementAssemblesScopedActivityAndProgressSnapshot(t *testing.T) {
 	progress := &managementProgressReader{progress: []model.GoalProgress{goal}}
 	service := &Service{deps: Dependencies{Activities: activities, Goals: progress}}
 
-	snapshot, err := service.Management(context.Background(), appmodel.GoalManagementQuery{TeamID: 3, Now: now})
+	snapshot, err := service.Management(context.Background(), appmodel.GoalProgressQuery{TeamID: 3, Now: now})
 	if err != nil {
 		t.Fatalf("Management: %v", err)
 	}

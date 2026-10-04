@@ -117,7 +117,7 @@ func runGoalList(rt *Runtime) error {
 	}
 	service := services.GoalQueries
 	now := rt.now()
-	progress, err := service.Progress(ctx, teamID, now)
+	progress, err := service.Progress(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
 	if err != nil {
 		return fmt.Errorf("progress: %w", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/sessiondecorations"
 )
@@ -27,7 +28,7 @@ func (sessionReaderStub) SessionActivity(context.Context, int64, int64) (model.S
 }
 
 func (goalsStub) Activities(context.Context, int64) ([]model.Activity, error) { return nil, nil }
-func (goalsStub) Progress(context.Context, int64, time.Time) ([]model.GoalProgress, error) {
+func (goalsStub) Progress(context.Context, appmodel.GoalProgressQuery) ([]model.GoalProgress, error) {
 	return nil, errors.New("optional widget unavailable")
 }
 
