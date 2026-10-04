@@ -187,13 +187,13 @@ func (d *DB) ProjectCurrencies(ctx context.Context, teamID int64) (map[int64]str
 // ListProjects returns projects in teamID. By default archived rows
 // are hidden — set includeArchived=true to surface them too (used by
 // the "Show archived" toggle on /projects).
-func (d *DB) ListProjects(ctx context.Context, teamID int64, includeArchived bool) ([]model.Project, error) {
+func (d *DB) ListProjects(ctx context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	q := `SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE team_id = ?`
-	if !includeArchived {
+	if !query.IncludeArchived {
 		q += ` AND archived = 0`
 	}
 	q += ` ORDER BY archived ASC, name`
-	rows, err := d.sql.QueryContext(ctx, q, teamID)
+	rows, err := d.sql.QueryContext(ctx, q, query.TeamID)
 	if err != nil {
 		return nil, err
 	}

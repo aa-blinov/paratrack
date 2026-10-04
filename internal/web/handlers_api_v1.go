@@ -133,7 +133,7 @@ func (s *Server) handleAPIv1Session(w http.ResponseWriter, r *http.Request) {
 
 // handleAPIv1Projects — GET list.
 func (s *Server) handleAPIv1Projects(w http.ResponseWriter, r *http.Request) {
-	list, err := s.services.Projects.Queries.List(r.Context(), teamID(r), r.URL.Query().Get("archived") == "1")
+	list, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: r.URL.Query().Get("archived") == "1"})
 	if err != nil {
 		s.writeInternalJSONError(w, err)
 		return

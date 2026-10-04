@@ -20,7 +20,7 @@ type Store interface {
 
 // ProjectCatalog supplies selectable projects for the schedule editor.
 type ProjectCatalog interface {
-	List(context.Context, int64, bool) ([]model.Project, error)
+	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 }
 
 // Row adds scheduling policy derived from the persisted weekly plan.
@@ -69,7 +69,7 @@ func (s *Service) List(ctx context.Context, teamID int64, weekStart time.Time) (
 		}
 		rows = append(rows, row)
 	}
-	projects, err := s.projects.List(ctx, teamID, false)
+	projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID})
 	if err != nil {
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule projects: %w", err)
 	}
@@ -81,7 +81,7 @@ func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequ
 		return ErrInvalidScheduleCell
 	}
 	if request.ProjectID == 0 {
-		projects, err := s.projects.List(ctx, request.TeamID, false)
+		projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: request.TeamID})
 		if err != nil {
 			return fmt.Errorf("resolve default schedule project: %w", err)
 		}

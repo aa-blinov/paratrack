@@ -18,7 +18,7 @@ import (
 
 // ProjectCatalogStore provides project and activity lookups.
 type ProjectCatalogStore interface {
-	ListProjects(context.Context, int64, bool) ([]model.Project, error)
+	ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 	ListActivitiesForProject(context.Context, int64, int64, bool) ([]model.Activity, error)
 	GetProjectInTeam(context.Context, int64, int64) (model.Project, error)
 	GetProjectBySlug(context.Context, int64, string) (model.Project, error)
@@ -97,11 +97,11 @@ func NewService(deps Dependencies) (*Service, error) {
 	}, nil
 }
 
-func (s *Service) List(ctx context.Context, teamID int64, includeArchived bool) ([]model.Project, error) {
-	if teamID <= 0 {
+func (s *Service) List(ctx context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
+	if query.TeamID <= 0 {
 		return nil, ErrInvalidTeam
 	}
-	return s.catalog.ListProjects(ctx, teamID, includeArchived)
+	return s.catalog.ListProjects(ctx, query)
 }
 
 func (s *Service) activityCounts(ctx context.Context, teamID int64) (map[int64]int, error) {
@@ -117,15 +117,15 @@ func (s *Service) activityCounts(ctx context.Context, teamID int64) (map[int64]i
 
 // ListWithActivityCounts assembles the project catalog and counts for CLI
 // output without making the transport coordinate two workflow reads.
-func (s *Service) ListWithActivityCounts(ctx context.Context, teamID int64, includeArchived bool) (appmodel.ProjectCatalogSnapshot, error) {
-	if teamID <= 0 {
+func (s *Service) ListWithActivityCounts(ctx context.Context, query appmodel.ProjectCatalogQuery) (appmodel.ProjectCatalogSnapshot, error) {
+	if query.TeamID <= 0 {
 		return appmodel.ProjectCatalogSnapshot{}, ErrInvalidTeam
 	}
-	items, err := s.catalog.ListProjects(ctx, teamID, includeArchived)
+	items, err := s.catalog.ListProjects(ctx, query)
 	if err != nil {
 		return appmodel.ProjectCatalogSnapshot{}, fmt.Errorf("list projects: %w", err)
 	}
-	counts, err := s.activityCounts(ctx, teamID)
+	counts, err := s.activityCounts(ctx, query.TeamID)
 	if err != nil {
 		return appmodel.ProjectCatalogSnapshot{}, fmt.Errorf("load project activity counts: %w", err)
 	}
@@ -138,7 +138,7 @@ func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectListQ
 	if query.TeamID <= 0 {
 		return appmodel.ProjectListSnapshot{}, ErrInvalidTeam
 	}
-	catalog, err := s.ListWithActivityCounts(ctx, query.TeamID, query.IncludeArchived)
+	catalog, err := s.ListWithActivityCounts(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID, IncludeArchived: query.IncludeArchived})
 	if err != nil {
 		return appmodel.ProjectListSnapshot{}, err
 	}

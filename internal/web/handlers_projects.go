@@ -24,7 +24,7 @@ import (
 func (s *Server) handleAPIProjectsList(w http.ResponseWriter, r *http.Request) {
 	tid := teamID(r)
 	includeArchived := r.URL.Query().Get("archived") == "1"
-	list, err := s.services.Projects.Queries.List(r.Context(), tid, includeArchived)
+	list, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: tid, IncludeArchived: includeArchived})
 	if err != nil {
 		s.writeInternalJSONError(w, err)
 		return
