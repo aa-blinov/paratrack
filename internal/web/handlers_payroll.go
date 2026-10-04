@@ -38,7 +38,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := string(resolveLang(r))
-	data := payrollPage{pageData: pageData{Title: "Payroll", Active: "payroll", Lang: lang}}
+	data := payrollPage{pageData: pageData{Title: "Payroll", Active: "payroll", Lang: lang, ReactApp: true}, PayrollReact: true}
 	for _, item := range list {
 		run := item.Run
 		data.Items = append(data.Items, payrollSummary{
@@ -72,13 +72,14 @@ type payrollSummary struct {
 
 type payrollPage struct {
 	pageData
-	Items    []payrollSummary
-	DefStart string
-	DefEnd   string
-	DefNotes string
-	Overlap  string // runs whose period this one overlaps, "PAY-…, PAY-…"
-	Flash    string
-	FlashOK  bool
+	PayrollReact bool
+	Items        []payrollSummary
+	DefStart     string
+	DefEnd       string
+	DefNotes     string
+	Overlap      string // runs whose period this one overlaps, "PAY-…, PAY-…"
+	Flash        string
+	FlashOK      bool
 }
 
 func (p *payrollPage) setCSRF(t string) { p.pageData.setCSRF(t) }
@@ -148,7 +149,8 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	data := payrollDetailPage{
-		pageData: pageData{Title: run.Number, Active: "payroll", Lang: lang},
+		pageData:     pageData{Title: run.Number, Active: "payroll", Lang: lang, ReactApp: true},
+		PayrollReact: true, PayrollDetail: true,
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
 			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
@@ -183,9 +185,11 @@ type payrollVM struct {
 
 type payrollDetailPage struct {
 	pageData
-	Run     payrollVM
-	Flash   string
-	FlashOK bool
+	PayrollReact  bool
+	PayrollDetail bool
+	Run           payrollVM
+	Flash         string
+	FlashOK       bool
 }
 
 func (p *payrollDetailPage) setCSRF(t string) { p.pageData.setCSRF(t) }

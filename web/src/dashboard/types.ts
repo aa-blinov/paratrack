@@ -264,7 +264,55 @@ export interface TimesheetData {
   WeekLabel: string
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData
+export interface PayrollSummary {
+  ID: number
+  Number: string
+  Status: string
+  Total: string
+  Hours: string
+  Period: string
+}
+
+export interface PayrollData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  PayrollReact: boolean
+  Lang: string
+  CSRFToken: string
+  Items: PayrollSummary[]
+  DefStart: string
+  DefEnd: string
+  DefNotes: string
+  Overlap: string
+  Flash: string
+  FlashOK: boolean
+}
+
+export interface PayrollDetailData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  PayrollReact: boolean
+  PayrollDetail: boolean
+  Lang: string
+  CSRFToken: string
+  Run: {
+    ID: number
+    Number: string
+    Status: string
+    Notes: string
+    PeriodLabel: string
+    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string }>
+    Total: string
+    TotalCents: number
+    Hours: string
+  }
+  Flash: string
+  FlashOK: boolean
+}
+
+export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

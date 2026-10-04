@@ -198,3 +198,19 @@ func TestTimesheetPageBootstrapsReact(t *testing.T) {
 		}
 	}
 }
+
+func TestPayrollPageBootstrapsReact(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/payroll", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET /payroll status=%d body=%q", response.Code, response.Body.String())
+	}
+	for _, marker := range []string{"id=\"react-page-data\"", "id=\"paratrack-react-root\"", `"PayrollReact":true`} {
+		if !strings.Contains(response.Body.String(), marker) {
+			t.Errorf("GET /payroll missing React bootstrap marker %q", marker)
+		}
+	}
+}
