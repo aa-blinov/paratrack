@@ -38,7 +38,11 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := string(resolveLang(r))
-	data := payrollPage{pageData: pageData{Title: "Payroll", Active: "payroll", Lang: lang, ReactApp: true}, PayrollReact: true}
+	data := payrollPage{
+		pageData:     pageData{Title: "Payroll", Active: "payroll", Lang: lang, ReactApp: true},
+		PayrollReact: true,
+		Items:        make([]payrollSummary, 0, len(list)),
+	}
 	for _, item := range list {
 		run := item.Run
 		data.Items = append(data.Items, payrollSummary{

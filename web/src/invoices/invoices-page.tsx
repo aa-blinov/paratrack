@@ -118,11 +118,13 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "inv.rateHint")}</p>
     </CardContent></Card>
 
-    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "inv.list")}</CardTitle></CardHeader><CardContent className="overflow-x-auto">
-      <Table>
+    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "inv.list")}</CardTitle></CardHeader><CardContent>
+      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/invoices/${item.ID}`} className="font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><InvoiceStatus lang={lang} status={item.Status} /></div><p className="font-medium">{item.Client}</p><p className="text-xs text-muted-foreground">{item.Period}</p><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
+      <div className="hidden overflow-x-auto sm:block"><Table>
         <TableHeader><TableRow><TableHead>{t(lang, "inv.number")}</TableHead><TableHead>{t(lang, "inv.client")}</TableHead><TableHead>{t(lang, "inv.period")}</TableHead><TableHead>{t(lang, "inv.hours")}</TableHead><TableHead>{t(lang, "inv.amount")}</TableHead><TableHead>{t(lang, "team.status")}</TableHead></TableRow></TableHeader>
         <TableBody>{data.Items.map(item => <TableRow key={item.ID}><TableCell><a href={`/invoices/${item.ID}`} className="whitespace-nowrap font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell>{item.Client}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><InvoiceStatus lang={lang} status={item.Status} /></TableCell></TableRow>)}</TableBody>
       </Table>
+      </div>
     </CardContent></Card> : <div className="py-8 text-center"><p className="font-medium">{t(lang, "inv.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.emptyHint")}</p></div>}
   </main>
 }
@@ -161,7 +163,8 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
         <div className="sm:col-span-2"><dt className="text-xs text-muted-foreground">{t(lang, "inv.period")}</dt><dd className="font-mono text-sm">{inv.PeriodLabel}</dd></div>
       </dl>
 
-      <div className="overflow-x-auto"><Table className="doc-table">
+      <InvoiceLineCards data={data} />
+      <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table">
         <TableHeader><TableRow><TableHead>{t(lang, "pdf.work")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "inv.rate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader>
         <TableBody>{inv.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Amount}</TableCell></TableRow>)}</TableBody>
         <tfoot><tr className="border-t-2 font-semibold"><td className="p-2">{t(lang, "pdf.total")}</td><td className="whitespace-nowrap p-2 text-right font-mono">{inv.Hours}</td><td /><td className="whitespace-nowrap p-2 text-right font-mono">{inv.Total}</td></tr></tfoot>
@@ -207,9 +210,29 @@ export function InvoiceActPage({ data }: { data: InvoiceDetailData }) {
       <h1 className="text-2xl font-semibold">{t(lang, "act.heading")} <span className="font-mono">{invoice.Number}</span></h1>
       <p className="text-sm text-muted-foreground">{t(lang, "pdf.issued")} {invoice.IssuedLabel}, {t(lang, "inv.period")}: {invoice.PeriodLabel}</p>
       <dl className="grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.from")}</dt><dd className="font-medium">{seller}</dd>{invoice.SellerDetails && <dd className="mt-1 whitespace-pre-line">{invoice.SellerDetails}</dd>}</div><div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.billedTo")}</dt><dd className="font-medium">{invoice.ClientName}</dd>{invoice.ClientDetails && <dd className="mt-1 whitespace-pre-line">{invoice.ClientDetails}</dd>}</div></dl>
-      <div className="overflow-x-auto"><Table className="doc-table"><TableHeader><TableRow><TableHead>{t(lang, "pdf.work")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "inv.rate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader><TableBody>{invoice.Lines.map((line, index) => <TableRow key={`${line.Label}-${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Amount}</TableCell></TableRow>)}</TableBody><tfoot><TableRow className="border-t-2 font-semibold"><td>{t(lang, "pdf.total")}</td><td className="text-right font-mono">{invoice.Hours}</td><td></td><td className="text-right font-mono">{invoice.Total}</td></TableRow></tfoot></Table></div>
+      <InvoiceLineCards data={data} />
+      <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table"><TableHeader><TableRow><TableHead>{t(lang, "pdf.work")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "inv.rate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader><TableBody>{invoice.Lines.map((line, index) => <TableRow key={`${line.Label}-${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono">{line.Amount}</TableCell></TableRow>)}</TableBody><tfoot><TableRow className="border-t-2 font-semibold"><td>{t(lang, "pdf.total")}</td><td className="text-right font-mono">{invoice.Hours}</td><td></td><td className="text-right font-mono">{invoice.Total}</td></TableRow></tfoot></Table></div>
       {invoice.VATNote && <p className="text-sm">{invoice.VATNote}</p>}{invoice.Receipt && <p className="break-all text-sm"><span className="text-muted-foreground">{t(lang, "inv.receipt")}:</span> {invoice.Receipt}</p>}
       <p className="text-sm">{t(lang, "act.statement")}</p><div className="grid grid-cols-2 gap-8 pt-6 text-sm"><div><div className="text-xs text-muted-foreground">{t(lang, "pdf.from")}</div><div className="h-8 border-b border-foreground/40"></div></div><div><div className="text-xs text-muted-foreground">{t(lang, "pdf.billedTo")}</div><div className="h-8 border-b border-foreground/40"></div></div></div>
     </CardContent></Card>
   </main>
+}
+
+function InvoiceLineCards({ data }: { data: InvoiceDetailData }) {
+  const lang = data.Lang
+  const invoice = data.Inv
+  return <div className="grid gap-3 sm:hidden print:hidden">
+    {invoice.Lines.map((line, index) => <article key={`${line.Label}:${index}`} className="grid gap-3 border-b pb-3 last:border-0 last:pb-0">
+      <h2 className="break-words font-medium">{line.Label}</h2>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+        <div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{line.Hours}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">{t(lang, "inv.rate")}</dt><dd className="font-mono tabular-nums">{line.Rate}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono font-medium tabular-nums">{line.Amount}</dd></div>
+      </dl>
+    </article>)}
+    <dl className="grid grid-cols-2 gap-x-4 border-t-2 pt-3 text-sm font-semibold">
+      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")} · {t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{invoice.Hours}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")} · {t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{invoice.Total}</dd></div>
+    </dl>
+  </div>
 }
