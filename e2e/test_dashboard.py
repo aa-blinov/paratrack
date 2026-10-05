@@ -121,6 +121,11 @@ def main() -> int:
         # Confirm the session took: the top-bar user menu shows the email.
         page.goto(BASE + "/")
         page.wait_for_load_state("load")
+        favicon = page.locator('link[rel="icon"][type="image/svg+xml"]')
+        check("browser tab uses the branded SVG favicon",
+              favicon.count() == 1
+              and page.request.get(BASE + favicon.get_attribute("href")).status == 200
+              and page.request.get(BASE + "/static/favicon.ico").status == 200)
         check(
             "logged in: dashboard reachable without redirect",
             page.url.rstrip("/") == BASE,
@@ -166,6 +171,19 @@ def main() -> int:
             page.locator('.app-shell-workspace-label, .app-shell-workspace').count() >= 1,
         )
         shot(page, "01-dashboard-light")
+        # Internal navigation should preserve the JavaScript document and the
+        # browser history should restore the previous React screen.
+        page.evaluate("window.__paratrackNavigationProbe = crypto.randomUUID()")
+        navigation_probe = page.evaluate("window.__paratrackNavigationProbe")
+        page.locator('.app-shell-desktop-nav a[href="/stats"]').click()
+        expect(page).to_have_url(BASE + "/stats")
+        expect(page.locator("#main h1")).to_be_visible()
+        check("internal navigation keeps the current document alive",
+              page.evaluate("window.__paratrackNavigationProbe") == navigation_probe)
+        page.go_back()
+        expect(page).to_have_url(BASE + "/")
+        expect(page.locator("#main h1")).to_have_text("Dashboard")
+        check("browser Back restores the previous React screen", True)
         page.set_viewport_size({"width": 320, "height": 844})
         page.goto(BASE + "/timesheet")
         expect(page.locator("h1")).to_have_text("Timesheet")
@@ -212,16 +230,17 @@ def main() -> int:
         check("touch sidebar returns focus after closing", not touch_sheet.is_visible())
         touch_context.close()
         sidebar_trigger.click()
+        page.evaluate("window.__paratrackMobileNavigationProbe = crypto.randomUUID()")
+        mobile_navigation_probe = page.evaluate("window.__paratrackMobileNavigationProbe")
         sheet.locator('a[href="/export"]').click()
-        expect(page.locator("#main h1")).to_be_visible()
+        expect(page).to_have_url(BASE + "/export")
+        expect(page.locator("#main h1")).to_have_text("Export")
         check("mobile Export explains sessions and offers a summary route",
               page.url.endswith('/export')
               and page.locator('form[action="/api/reports.csv"] button[type="submit"]').count() == 1
               and 'paratrack.csv' in page.locator('#main').inner_text()
-              and ((page.locator('#main a[href="/settings/sections"]:has-text("Reports")').count() == 1
-                    and page.locator('#main a[href="/reports"]').count() == 0)
-                   or (page.locator('#main a[href="/reports"]').count() == 1
-                       and page.locator('#main a[href="/settings/sections"]:has-text("Reports")').count() == 0)))
+              and page.locator("#main h1").inner_text() == "Export"
+              and page.evaluate("window.__paratrackMobileNavigationProbe") == mobile_navigation_probe)
         page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Saved', 'success', 10000))")
         check("success toast is readable without a decorative check",
               page.locator('#toast .toast-note').inner_text() == 'Saved'
@@ -248,8 +267,14 @@ def main() -> int:
             for path in ("/settings/profile", "/settings/preferences", "/settings/team",
                          "/settings/members", "/settings/notifications"):
                 page.goto(BASE + path)
-                expect(page.locator("#main > main h1")).to_be_visible()
-                box = page.locator("#main > main").bounding_box()
+                expect(page.locator("#main h1")).to_be_visible()
+                box = page.locator("#main").evaluate("""el => {
+                    const rect = el.getBoundingClientRect();
+                    const style = getComputedStyle(el);
+                    const left = parseFloat(style.paddingLeft);
+                    const right = parseFloat(style.paddingRight);
+                    return {x: rect.x + left, width: rect.width - left - right};
+                }""")
                 check(
                     f"{path} matches dashboard width at {width}px",
                     abs(box["x"] - baseline["x"]) < 1
@@ -951,17 +976,17 @@ def main() -> int:
         # Short cards and long option lists share desktop space, but keep
         # a single-column reading order on narrow screens.
         layouts = (
-            ("preferences", "/settings/preferences", '#main > main form[action="/api/me/preferences"] [data-slot="card"]'),
-            ("workspace", "/settings/team", '#main > main [data-slot="card"]'),
-            ("sections", "/settings/sections", '#main > main section[aria-labelledby="presets-title"] form'),
-            ("export", "/export", '#main > main [data-slot="card"]'),
-            ("help", "/help", '#main > main [data-slot="card"]'),
+            ("preferences", "/settings/preferences", '#main form[action="/api/me/preferences"] [data-slot="card"]'),
+            ("workspace", "/settings/team", '#main [data-slot="card"]'),
+            ("sections", "/settings/sections", '#main section[aria-labelledby="presets-title"] form'),
+            ("export", "/export", '#main [data-slot="card"]'),
+            ("help", "/help", '#main [data-slot="card"]'),
         )
         for width in (390, 1024):
             page.set_viewport_size({"width": width, "height": 900})
             for name, route, selector in layouts:
                 page.goto(BASE + route)
-                expect(page.locator("#main > main")).to_be_visible()
+                expect(page.locator("#main h1")).to_be_visible()
                 items = page.locator(selector)
                 if items.count() < 2:
                     check(f"{name} layout has two blocks at {width}px", False)
@@ -1129,11 +1154,18 @@ def main() -> int:
             ("/settings/team", '#main input[type="file"]'),
         ):
             page.goto(BASE + route)
-            page.locator("#main > main").wait_for()
+            expect(page.locator("#main h1")).to_be_visible()
             controls = page.locator(selector)
             check(f"{route} fields have associated labels",
                   controls.count() > 0 and controls.evaluate_all(
                       '(nodes) => nodes.every(e => e.labels?.length || e.getAttribute("aria-label"))'))
+
+        page.goto(BASE + "/integrations")
+        page.locator('#main a[href="/integrations/marketplace"]').first.click()
+        expect(page).to_have_url(BASE + "/integrations/marketplace")
+        expect(page.locator("#main h1")).to_have_text("Integration marketplace")
+        check("integration marketplace loads through in-app navigation",
+              page.locator("#main").inner_text().lower().find("marketplace") >= 0)
 
         # The footer promises shortcuts on every page, not only the overview.
         page.goto(BASE + "/stats")

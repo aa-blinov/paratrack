@@ -94,7 +94,7 @@ func emailText(vm emailVM) string {
 // invoiceEmail is the letter that carries an invoice PDF to the client.
 func invoiceEmail(lang i18n.Lang, vm invoiceVM, seller string) (string, emailVM) {
 	T := func(k string) string { return i18n.T(lang, k) }
-	subj := T("inv.invoice") + " " + vm.Number + " · " + seller
+	subj := T("inv.invoice") + " " + vm.Number + ", " + seller
 	ev := emailVM{
 		Lang:        string(lang),
 		Preheader:   fmt.Sprintf(T("mail.inv.pre"), vm.Number, vm.Total),

@@ -48,13 +48,20 @@ document.addEventListener('click', (event) => {
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
   }
 
+  function navigate(path, detail = {}) {
+    const event = new CustomEvent('paratrack:navigate', { detail: { url: path, ...detail }, cancelable: true });
+    window.dispatchEvent(event);
+    if (event.defaultPrevented && detail.focusActivity) removeSessionValue('paratrack-focus-new');
+    if (!event.defaultPrevented) window.location.href = path;
+  }
+
   document.addEventListener('keydown', (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return;
     const key = event.key.toLowerCase();
     const here = window.location.pathname;
-    if (key === 'g' && here !== '/graph') { window.location.href = '/graph'; return; }
-    if (key === 's' && here !== '/stats') { window.location.href = '/stats'; return; }
-    if (key === 'd' && here !== '/') { window.location.href = '/'; return; }
+    if (key === 'g' && here !== '/graph') { navigate('/graph'); return; }
+    if (key === 's' && here !== '/stats') { navigate('/stats'); return; }
+    if (key === 'd' && here !== '/') { navigate('/'); return; }
     if (key === 't') {
       document.querySelector('[data-theme-toggle]')?.click();
       return;
@@ -63,7 +70,7 @@ document.addEventListener('click', (event) => {
       if (here === '/') document.querySelector('input[name="activity"]')?.focus();
       else {
         setSessionValue('paratrack-focus-new', '1');
-        window.location.href = '/';
+        navigate('/', { focusActivity: true });
       }
       return;
     }
