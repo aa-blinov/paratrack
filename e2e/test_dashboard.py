@@ -15,6 +15,7 @@ from __future__ import annotations
 import sys
 import time
 import os
+import uuid
 from pathlib import Path
 
 from playwright.sync_api import expect, sync_playwright
@@ -109,15 +110,16 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 1
         print("\n== 1. Register / sign in (auth gate)")
+        e2e_email = f"e2e-{uuid.uuid4().hex[:12]}@paratrack.test"
         # First run after a fresh DB: /register succeeds and the cookie
         # is set. On repeated runs the email is taken; detect by checking
         # the URL after submit — fall back to /login.
-        register_account(page)
+        register_account(page, email=e2e_email)
         # Register can land on `/` (success), `/register?error=…` (duplicate),
         # or `/login` (any prior redirect). Fall through to sign_in unless
         # we actually reached the dashboard.
         if "/login" in page.url or "/register" in page.url:
-            sign_in(page)
+            sign_in(page, email=e2e_email)
         # Confirm the session took: the top-bar user menu shows the email.
         page.goto(BASE + "/")
         page.wait_for_load_state("load")
@@ -175,11 +177,14 @@ def main() -> int:
         # browser history should restore the previous React screen.
         page.evaluate("window.__paratrackNavigationProbe = crypto.randomUUID()")
         navigation_probe = page.evaluate("window.__paratrackNavigationProbe")
+        page.evaluate("window.__paratrackMainNode = document.getElementById('main')")
         page.locator('.app-shell-desktop-nav a[href="/stats"]').click()
         expect(page).to_have_url(BASE + "/stats")
         expect(page.locator("#main h1")).to_be_visible()
         check("internal navigation keeps the current document alive",
               page.evaluate("window.__paratrackNavigationProbe") == navigation_probe)
+        check("screen changes keep the same app-shell container",
+              page.evaluate("window.__paratrackMainNode === document.getElementById('main')"))
         page.go_back()
         expect(page).to_have_url(BASE + "/")
         expect(page.locator("#main h1")).to_have_text("Dashboard")
@@ -256,8 +261,9 @@ def main() -> int:
         for width in (390, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/")
+            expect(page.locator("#main")).to_be_visible()
             baseline = page.evaluate("""() => {
-                const main = document.querySelector('main');
+                const main = document.querySelector('#main');
                 const rect = main.getBoundingClientRect();
                 const style = getComputedStyle(main);
                 const left = parseFloat(style.paddingLeft);
@@ -790,6 +796,7 @@ def main() -> int:
         print("\n== 12. Goals — dashboard widget + management page")
         page.goto(BASE + "/goals")
         page.wait_for_load_state("load")
+        expect(page.locator("#goal-activity")).to_be_visible()
         expect(page.locator("h1")).to_have_text("Goals")
         check("goals h1=Goals", True)
         check("goals page mounts React/shadcn controls",
