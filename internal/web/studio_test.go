@@ -86,10 +86,10 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	if resp.StatusCode != 403 {
 		t.Errorf("developer changed the currency: %d", resp.StatusCode)
 	}
-	if page := readBody(t, dev.do("GET", "/", nil, nil)); strings.Contains(page, `href="/invoices"`) {
+	if page := readBody(t, dev.do("GET", "/", nil, nil)); strings.Contains(page, `"canManage":true`) {
 		t.Error("developer's menu shows invoices")
 	}
-	if page := readBody(t, owner.do("GET", "/", nil, nil)); !strings.Contains(page, `href="/invoices"`) || !strings.Contains(page, `href="/settings/team"`) {
+	if page := readBody(t, owner.do("GET", "/", nil, nil)); !strings.Contains(page, `"canManage":true`) || !strings.Contains(page, `"invoices":true`) {
 		t.Error("the owner's menu lost invoices or team settings")
 	}
 

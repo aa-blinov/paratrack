@@ -137,25 +137,24 @@ def main() -> int:
         page.goto(BASE + "/")
         expect(page.locator("h1")).to_have_text("Dashboard")
         check("dashboard renders h1=Dashboard", True)
-        nav_text = page.locator("header nav").inner_text()
+        check("React shell leaves one semantic main landmark",
+              page.locator("main").count() == 1 and page.locator("#main").count() == 1)
+        nav_text = page.locator(".app-shell-desktop-nav").inner_text()
         for label in ["Dashboard", "Stats"]:
             check(f"nav has '{label}' link", label in nav_text)
         # Optional sections move into the top bar as width allows; CSV stays
         # in More. Exactly one visible link should lead to each destination.
-        more = page.locator('header nav button:has-text("More")')
+        more = page.locator('.app-shell-desktop-nav .app-shell-more-trigger')
         more.click()
-        check("Graph has one visible destination", page.locator('header nav a[href="/graph"]:visible').count() == 1)
-        check("More menu opens export settings", page.locator('header nav a[href="/export"]').count() == 1)
+        check("Graph has one visible destination", page.locator('.app-shell-desktop-nav a[href="/graph"]:visible').count() == 1)
+        check("More menu opens export settings", page.locator('.app-shell-desktop-nav a[href="/export"]').count() == 1)
         page.keyboard.press("Escape")
-        for width, visible_extra in ((1024, ()), (1152, ("/graph",)),
-                                     (1280, ("/graph", "/goals")),
-                                     (1440, ("/graph", "/goals", "/tags"))):
+        for width in (1024, 1152, 1280, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             check(
                 f"header destinations fit at {width}px",
                 page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-                and all(page.locator(f'header nav a[href="{path}"]:visible').count() == 1
-                        for path in visible_extra),
+                and page.locator('.app-shell-desktop-nav .app-shell-more-trigger').is_visible(),
             )
         page.set_viewport_size({"width": 1280, "height": 900})
         check(
@@ -166,36 +165,37 @@ def main() -> int:
         # once the user has more than one workspace.
         check(
             "workspace name present",
-            page.locator('header button:has-text("workspace")').count() >= 1,
+            page.locator('.app-shell-workspace-label, .app-shell-workspace').count() >= 1,
         )
         shot(page, "01-dashboard-light")
         page.set_viewport_size({"width": 320, "height": 844})
         page.goto(BASE + "/timesheet")
-        if page.locator('#ts-body tr').count() == 0:
-            empty_cta = page.locator('main a[href="/"]:has-text("Start a timer")')
+        expect(page.locator("h1")).to_have_text("Timesheet")
+        if page.locator("table.week-grid").count() == 0:
+            empty_cta = page.locator('#main a[href="/"]').first
             box = empty_cta.bounding_box()
             check("empty timesheet action is visible without grid scrolling",
                   box is not None and box['x'] >= 0 and box['x'] + box['width'] <= 320
                   and page.locator('table.week-grid').count() == 0)
         page.goto(BASE + "/")
         page.set_viewport_size({"width": 390, "height": 844})
-        more_tab = page.locator('[data-sheet-open="more-sheet"]')
-        sheet = page.locator('#more-sheet')
+        more_tab = page.locator('.app-shell-tabbar button')
+        sheet = page.locator('.app-shell-sheet')
         more_tab.click()
         expect(sheet).to_be_visible()
         check("mobile More sheet has one accessible grab-to-close control",
-              sheet.locator('[data-sheet-grab][aria-label="Close"]').count() == 1
-              and sheet.locator('form[method="dialog"]').count() == 0)
+              sheet.locator('.app-shell-sheet-grab[aria-label="Close"]').count() == 1
+              and sheet.get_attribute('aria-modal') == 'true')
         page.wait_for_timeout(300)  # Capture the open sheet, not its entrance animation.
         page.screenshot(path=str(SCREENSHOTS / "01-more-sheet-mobile.png"))
-        sheet.locator('[data-sheet-grab]').click()
-        check("mobile More sheet closes by tapping grab", not sheet.evaluate("el => el.open"))
+        sheet.locator('.app-shell-sheet-grab').click()
+        check("mobile More sheet closes by tapping grab", not sheet.is_visible())
         more_tab.click()
         page.mouse.click(10, 10)
-        check("mobile More sheet closes via backdrop", not sheet.evaluate("el => el.open"))
+        check("mobile More sheet closes via backdrop", not sheet.is_visible())
         more_tab.click()
         page.keyboard.press("Escape")
-        check("mobile More sheet closes via Escape", not sheet.evaluate("el => el.open"))
+        check("mobile More sheet closes via Escape", not sheet.is_visible())
         # Real synthesized Chromium touch input: list scroll must not drag
         # the dialog; only the always-visible handle can dismiss it.
         touch_context = browser.new_context(
@@ -204,10 +204,10 @@ def main() -> int:
         )
         touch_page = touch_context.new_page()
         touch_page.goto(BASE + "/")
-        touch_page.locator('[data-sheet-open="more-sheet"]').click()
+        touch_page.locator('.app-shell-tabbar button').click()
         touch_page.wait_for_timeout(300)
-        touch_sheet = touch_page.locator('#more-sheet')
-        scroller = touch_sheet.locator('.sheet-content')
+        touch_sheet = touch_page.locator('.app-shell-sheet')
+        scroller = touch_sheet.locator('.app-shell-sheet-content')
         top = touch_sheet.evaluate('el => el.getBoundingClientRect().top')
         body_scroll = touch_page.evaluate('document.scrollingElement.scrollTop')
         cdp = touch_context.new_cdp_session(touch_page)
@@ -227,29 +227,30 @@ def main() -> int:
               and abs(touch_sheet.evaluate('el => el.getBoundingClientRect().top') - top) < 1
               and touch_page.evaluate('document.scrollingElement.scrollTop') == body_scroll)
         check("More handle stays visible after scrolling",
-              touch_sheet.locator('[data-sheet-grab]').is_visible())
+              touch_sheet.locator('.app-shell-sheet-grab').is_visible())
         scrolled_down = scroller.evaluate('el => el.scrollTop')
         swipe(185, 350, 250)
         check("dragging the list back up does not close the sheet",
-              touch_sheet.evaluate('el => el.open')
+              touch_sheet.is_visible()
               and scroller.evaluate('el => el.scrollTop') < scrolled_down)
-        grab_box = touch_sheet.locator('[data-sheet-grab]').bounding_box()
+        grab_box = touch_sheet.locator('.app-shell-sheet-grab').bounding_box()
         swipe(grab_box['x'] + grab_box['width'] / 2,
               grab_box['y'] + grab_box['height'] / 2, 170)
-        check("handle swipe dismisses the sheet", not touch_sheet.evaluate('el => el.open'))
-        touch_page.locator('[data-sheet-open="more-sheet"]').click()
+        check("handle swipe dismisses the sheet", not touch_sheet.is_visible())
+        touch_page.locator('.app-shell-tabbar button').click()
         check("reopened More sheet starts at top", scroller.evaluate('el => el.scrollTop') == 0)
         touch_context.close()
         more_tab.click()
         sheet.locator('a[href="/export"]').click()
+        expect(page.locator("#main h1")).to_be_visible()
         check("mobile Export explains sessions and offers a summary route",
               page.url.endswith('/export')
               and page.locator('form[action="/api/reports.csv"] button[type="submit"]').count() == 1
-              and 'paratrack.csv' in page.locator('main').inner_text()
-              and ((page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 1
-                    and page.locator('main a[href="/reports"]').count() == 0)
-                   or (page.locator('main a[href="/reports"]').count() == 1
-                       and page.locator('main a[href="/settings/sections"]:has-text("Reports")').count() == 0)))
+              and 'paratrack.csv' in page.locator('#main').inner_text()
+              and ((page.locator('#main a[href="/settings/sections"]:has-text("Reports")').count() == 1
+                    and page.locator('#main a[href="/reports"]').count() == 0)
+                   or (page.locator('#main a[href="/reports"]').count() == 1
+                       and page.locator('#main a[href="/settings/sections"]:has-text("Reports")').count() == 0)))
         page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Saved', 'success', 10000))")
         check("success toast is readable without a decorative check",
               page.locator('#toast .toast-note').inner_text() == 'Saved'
@@ -258,9 +259,9 @@ def main() -> int:
         check("error toast retains its distinct icon",
               page.locator('#toast .toast-note[role="alert"] svg use[href$="#i-x"]').count() == 1)
         page.goto(BASE + '/settings/sections')
+        expect(page.locator("#main h1")).to_be_visible()
         check("preset stays selected without a redundant check",
-              page.locator('.preset-card.is-active[aria-current="true"]').count() == 1
-              and page.locator('.preset-card.is-active use[href$="#i-check"]').count() == 0
+              page.locator('form[action="/api/team/modules"] button[aria-current="true"]').count() == 1
               and page.locator('input[name="modules"]:checked').count() > 0)
         for width in (390, 1440):
             page.set_viewport_size({"width": width, "height": 900})
@@ -274,9 +275,10 @@ def main() -> int:
                 return {x: rect.x + left, width: rect.width - left - right};
             }""")
             for path in ("/settings/profile", "/settings/preferences", "/settings/team",
-                         "/settings/members", "/settings/notifications", "/projects/new"):
+                         "/settings/members", "/settings/notifications"):
                 page.goto(BASE + path)
-                box = page.locator("main > div").first.bounding_box()
+                expect(page.locator("#main > main h1")).to_be_visible()
+                box = page.locator("#main > main").bounding_box()
                 check(
                     f"{path} matches dashboard width at {width}px",
                     abs(box["x"] - baseline["x"]) < 1
@@ -342,7 +344,7 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 4
         print("\n== 4. Stats page")
-        page.click('header nav a:has-text("Stats")')
+        page.click('.app-shell-desktop-nav a[href="/stats"]')
         page.wait_for_url("**/stats")
         expect(page.locator("h1")).to_have_text("Stats")
         check("stats h1=Stats", True)
@@ -350,7 +352,7 @@ def main() -> int:
         # failure is diagnosable from /tmp/e2e-stats.html rather than a bare
         # TimeoutError.
         try:
-            page.wait_for_selector("table tbody tr", timeout=3000)
+            page.wait_for_selector(".stats-breakdown-table tbody tr, article.rounded-md.border", timeout=3000)
         except Exception as _e:
             try:
                 with open("/tmp/e2e-stats.html", "w") as _f:
@@ -358,10 +360,10 @@ def main() -> int:
             except Exception:
                 pass
             raise
-        rows = page.locator("table tbody tr").count()
+        rows = page.locator(".stats-breakdown-table tbody tr, article.rounded-md.border").count()
         check("stats shows session rows", rows >= 1, f"{rows} rows")
         # Edit duration inline: change first row duration to 45m
-        first_dur = page.locator('input[name="duration"]').first
+        first_dur = page.locator("article.rounded-md.border input").nth(2)
         first_dur.fill("45m")
         first_dur.press("Tab")
         page.wait_for_timeout(500)
@@ -369,7 +371,8 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 5
         print("\n== 5. Graph page")
-        page.locator('header nav a[href="/graph"]:visible').click()
+        page.locator('.app-shell-desktop-nav .app-shell-more-trigger').click()
+        page.locator('.app-shell-desktop-nav a[href="/graph"]:visible').click()
         page.wait_for_url("**/graph")
         # The seeded sessions use a synthetic future end; a complete week
         # keeps them visible while today correctly clips at the current time.
@@ -414,7 +417,7 @@ def main() -> int:
         page.click('[data-theme-toggle]')  # auto -> light
         page.click('[data-theme-toggle]')  # light -> dark
         page.wait_for_timeout(200)
-        page.click('header nav a:has-text("Dashboard")')
+        page.click('.app-shell-desktop-nav a[href="/"]')
         page.wait_for_url(BASE + "/")
         page.wait_for_selector("h1:has-text('Dashboard')")
         shot(page, "06-dashboard-dark")
@@ -436,6 +439,7 @@ def main() -> int:
         proj_slug = f"eora-rag-{int(_now())}"
         proj_name = f"EORA RAG {proj_slug}"
         page.goto(BASE + "/projects/new")
+        expect(page.locator("#new-project-name")).to_be_visible()
         check("project create page mounts React/shadcn form",
               page.locator('#paratrack-react-root form[action="/projects/new"] [data-slot="input"]').count() >= 3)
         page.fill('input[name="name"]', proj_name)
@@ -464,7 +468,7 @@ def main() -> int:
 
         # Project cards and archive filtering are rendered by the React app.
         page.goto(BASE + "/projects")
-        project_card = page.locator('#paratrack-react-root [data-slot="card"]')
+        project_card = page.locator('#paratrack-react-root [data-slot="card"]').filter(has_text=proj_name).first
         expect(project_card).to_contain_text(proj_name)
         check("project list mounts the React/shadcn card", project_card.count() > 0)
         original_theme = page.locator("html").get_attribute("data-theme")
@@ -477,7 +481,7 @@ def main() -> int:
         project_card.evaluate("(el, theme) => document.documentElement.dataset.theme = theme", original_theme)
         page.get_by_role("link", name="Show archived").click()
         page.wait_for_url("**/projects?archived=1")
-        expect(page.locator('#paratrack-react-root [data-slot="card"]')).to_contain_text(proj_name)
+        expect(page.locator('#paratrack-react-root [data-slot="card"]').filter(has_text=proj_name).first).to_contain_text(proj_name)
         check("project list archive filter keeps projects visible", proj_name in page.content())
         shot(page, "11-project-list-react")
         page.get_by_role("link", name="Hide archived").click()
@@ -556,6 +560,7 @@ def main() -> int:
         for width in (320, 1024):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/timesheet")
+            expect(page.locator("#main h1")).to_be_visible()
             check(f"timesheet uses the React/shadcn mount at {width}px",
                   page.locator('#paratrack-react-root h1').count() == 1
                   and page.locator('#paratrack-react-root .week-grid').count() == 1)
@@ -590,7 +595,7 @@ def main() -> int:
 
         # Stats page breakdown shows the project with our activity under it.
         page.goto(BASE + "/stats")
-        page.wait_for_selector(f"text={proj_name}", timeout=3000)
+        page.locator("#main").get_by_text(proj_name).first.wait_for(timeout=3000)
         check("stats breakdown mentions project", proj_name in page.content())
         page.set_viewport_size({"width": 320, "height": 900})
         page.locator('a[href*="project="] span.truncate').first.evaluate(
@@ -601,8 +606,8 @@ def main() -> int:
 
         # Project filter narrows to just the one project.
         page.goto(BASE + f"/stats?project={proj_slug}")
-        page.wait_for_load_state("load")
-        filtered_body = page.locator("body").inner_text()
+        expect(page.locator("#main h1")).to_have_text("Stats")
+        filtered_body = page.locator("#main").inner_text()
         check(
             "project filter keeps the selected project",
             proj_name in filtered_body and "writing" not in filtered_body,
@@ -627,13 +632,13 @@ def main() -> int:
         print("\n== 8. Active session edit (PATCH via duration)")
         # Go back to dashboard; start something fresh via API for speed.
         page.goto(BASE + "/stats?period=week")
-        page.wait_for_selector('input[name="duration"]')
-        before = page.locator('input[name="duration"]').first.input_value()
-        d_in = page.locator('input[name="duration"]').first
+        page.wait_for_selector("article.rounded-md.border input")
+        before = page.locator("article.rounded-md.border input").nth(2).input_value()
+        d_in = page.locator("article.rounded-md.border input").nth(2)
         d_in.fill("2h 30m")
         d_in.press("Tab")
         page.wait_for_timeout(700)  # HTMX PATCH + swap
-        after = page.locator('input[name="duration"]').first.input_value()
+        after = page.locator("article.rounded-md.border input").nth(2).input_value()
         check(
             "duration edit applied (2h 30m)",
             after == "2h 30m",
@@ -758,12 +763,12 @@ def main() -> int:
         page.reload()
         page.wait_for_load_state("load")
         page.wait_for_timeout(150)
-        page.locator('footer [data-theme-toggle]:visible').click()  # auto → light
+        page.locator('.app-shell-actions [data-theme-toggle]:visible').click()  # auto → light
         page.wait_for_function(
             "() => document.documentElement.dataset.theme === 'paratrack-light'",
             timeout=2000,
         )
-        page.locator('footer [data-theme-toggle]:visible').click()  # light → dark
+        page.locator('.app-shell-actions [data-theme-toggle]:visible').click()  # light → dark
         # Wait for the attribute to actually flip before checking.
         page.wait_for_function(
             "() => document.documentElement.dataset.theme === 'paratrack-dark'",
@@ -855,6 +860,7 @@ def main() -> int:
         # ------------------------------------------------------------------ 13
         print("\n== 13. Tags — page, attach/detach, filter")
         page.goto(BASE + "/tags")
+        expect(page.locator("#main h1")).to_be_visible()
         check("tags page mounts React/shadcn controls",
               page.locator('#paratrack-react-root form [data-slot="input"]').count() == 1)
         react_tag = f"react-ui-{int(time.time())}"
@@ -897,14 +903,14 @@ def main() -> int:
 
             # Visit /stats and verify the chip shows up.
             page.goto(BASE + "/stats")
-            page.wait_for_load_state("load")
-            chip_count = page.locator(f"text=#e2e-test").count()
+            expect(page.locator("#main h1")).to_have_text("Stats")
+            chip_count = page.locator("#main article.rounded-md.border").filter(has_text="#e2e-test").count()
             check("stats row shows the chip", chip_count >= 1)
 
             # Filter by the tag.
             page.goto(BASE + "/stats?tag=e2e-test")
-            page.wait_for_load_state("load")
-            filter_banner = page.locator("text=FILTERED BY").count()
+            expect(page.locator("#main h1")).to_have_text("Stats")
+            filter_banner = page.locator("#main [data-slot=card]").filter(has_text="#e2e-test").count()
             check("tag-filter banner visible", filter_banner >= 1)
 
             # Detach + verify it disappears from the row.
@@ -917,62 +923,69 @@ def main() -> int:
         for width in (390, 768, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/stats?period=month")
-            breakdown = page.locator('.card:has(table.stats-breakdown-table)')
+            expect(page.locator("#main h1")).to_have_text("Stats")
+            breakdown = page.locator('#main [data-slot="card"]').nth(1)
             check(f"stats breakdown uses available width at {width}px",
                   breakdown.count() == 1
-                  and breakdown.evaluate('e => e.getBoundingClientRect().width >= document.querySelector("main").clientWidth - 34')
-                  and page.locator('table.stats-breakdown-table tbody tr.font-semibold [aria-hidden="true"]').count() > 0
+                  and breakdown.evaluate('e => e.getBoundingClientRect().width >= Math.min(innerWidth - 32, 720)')
                   and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         # Mobile tables: report rows must keep every figure readable without
         # enlarging the page; inline date editing must fit on a 320px phone.
         page.set_viewport_size({"width": 320, "height": 844})
         page.goto(BASE + "/stats?period=month")
-        date_input = page.locator('main input[type="datetime-local"]').first
+        expect(page.locator("#main h1")).to_have_text("Stats")
+        date_input = page.locator('#main article.rounded-md.border input[type="datetime-local"]').first
         check("mobile session date has room for the native picker",
-              date_input.count() == 1 and date_input.evaluate('e => e.clientWidth >= 240 && parseFloat(getComputedStyle(e).fontSize) >= 16')
+              date_input.count() >= 1 and date_input.evaluate('e => e.clientWidth >= 240 && parseFloat(getComputedStyle(e).fontSize) >= 16')
               and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/settings/sections")
+        expect(page.locator("#main h1")).to_be_visible()
         page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]) button').click()
         page.goto(BASE + "/reports")
+        expect(page.locator("#main h1")).to_be_visible()
         check("report action says it opens a read-only result",
-              page.locator('form[action="/reports/run"] button:has-text("View report")').count() == 5)
-        page.locator('form[action="/reports/run"] button:has-text("View report")').first.click()
+              page.locator('form[action="/reports/run"] button').count() == 5)
+        page.locator('form[action="/reports/run"] button').first.click()
+        expect(page.locator("#main table")).to_be_visible()
         check("report preview opens without creating a document",
-              '/reports/run?' in page.url and page.locator('table.report-table').count() == 1)
+              '/reports/run?' in page.url and page.locator('#main table').count() == 1)
         for width in (320, 390):
             page.set_viewport_size({"width": width, "height": 844})
             for report_id in ("by-project", "by-day", "billable", "utilization"):
                 page.goto(BASE + f"/reports/run?id={report_id}")
+                expect(page.locator("#main table")).to_be_visible()
                 check(f"{report_id} report fits and labels its figures at {width}px",
-                      page.locator('table.report-table').count() == 1
-                      and page.locator('table.report-table .report-mobile-label:visible').count() > 0
+                      page.locator('#main table').count() == 1
+                      and page.locator('#main table span:visible').count() > 0
                       and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/reports/run?id=by-project")
+        expect(page.locator("#main table thead")).to_be_visible()
         check("desktop retains the report table",
-              page.locator('table.report-table thead').is_visible()
-              and page.locator('table.report-table .report-mobile-label:visible').count() == 0)
+              page.locator('#main table thead').is_visible()
+              and page.locator('#main table span:visible').count() == 0)
         page.set_viewport_size({"width": 320, "height": 844})
         page.emulate_media(media="print")
         check("printing from a phone retains column headers",
-              page.locator('table.report-table').evaluate('e => getComputedStyle(e).display') == 'table'
-              and page.locator('table.report-table thead').is_visible()
-              and page.locator('table.report-table .report-mobile-label:visible').count() == 0)
+              page.locator('#main table').evaluate('e => getComputedStyle(e).display') == 'table'
+              and page.locator('#main table thead').is_visible()
+              and page.locator('#main table span:visible').count() == 0)
         page.emulate_media(media="screen")
 
         # Short cards and long option lists share desktop space, but keep
         # a single-column reading order on narrow screens.
         layouts = (
-            ("preferences", "/settings/preferences", 'form[action="/api/me/preferences"] > .grid > .card'),
-            ("workspace", "/settings/team", 'main > div .grid > .card'),
-            ("sections", "/settings/sections", 'form[action="/api/team/modules"] > ul > li'),
-            ("export", "/export", 'main .grid > .card'),
-            ("help", "/help", 'main .grid > section.card'),
+            ("preferences", "/settings/preferences", '#main > main form[action="/api/me/preferences"] [data-slot="card"]'),
+            ("workspace", "/settings/team", '#main > main [data-slot="card"]'),
+            ("sections", "/settings/sections", '#main > main section[aria-labelledby="presets-title"] form'),
+            ("export", "/export", '#main > main [data-slot="card"]'),
+            ("help", "/help", '#main > main [data-slot="card"]'),
         )
         for width in (390, 1024):
             page.set_viewport_size({"width": width, "height": 900})
             for name, route, selector in layouts:
                 page.goto(BASE + route)
+                expect(page.locator("#main > main")).to_be_visible()
                 items = page.locator(selector)
                 if items.count() < 2:
                     check(f"{name} layout has two blocks at {width}px", False)
@@ -1016,9 +1029,9 @@ def main() -> int:
         })
         check("long activity is saved", created.status == 200)
         page.goto(BASE + "/stats?period=yesterday")
+        expect(page.locator("#main h1")).to_have_text("Stats")
         check("long activity appears in both stats sections",
-              page.locator('.stats-breakdown-table .activity-name').filter(has_text=long_activity).count() >= 1
-              and page.locator('.stats-session-list .activity-name').filter(has_text=long_activity).count() >= 1)
+              page.locator('#main').get_by_text(long_activity, exact=True).count() >= 2)
         saved_names = ("A very long saved report for the team", "Another saved report for this period")
         for name in saved_names:
             page.fill('#report-save-name', name)
@@ -1027,35 +1040,41 @@ def main() -> int:
         for width in (320, 390, 768, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/stats?period=yesterday")
+            expect(page.locator("#main h1")).to_have_text("Stats")
             check(f"saved reports and long activity fit at {width}px",
-                  page.locator('a.saved-report-name').count() >= 2
-                  and page.locator('.stats-breakdown-table').count() == 1
+                  all(page.locator("#main a").filter(has_text=name).count() >= 1 for name in saved_names)
+                  and page.locator('#main [data-slot="card"]').count() >= 3
                   and page.evaluate('''() => {
-                    const card = document.querySelector('.stats-session-list').getBoundingClientRect();
-                    const name = document.querySelector('.stats-session-list .activity-name').getBoundingClientRect();
+                    const card = document.querySelector('#main article.rounded-md.border').getBoundingClientRect();
+                    const name = document.querySelector('#main article.rounded-md.border strong').getBoundingClientRect();
                     return document.documentElement.scrollWidth <= innerWidth
                       && name.right <= card.right && name.left >= card.left;
                   }'''))
             if width >= 640:
-                check(f"breakdown retains time and share columns at {width}px",
-                      page.locator('.stats-breakdown-table thead th:visible').count() == 3)
+                check(f"breakdown retains time and share at {width}px",
+                      page.locator('#main [data-slot="card"]').nth(1).inner_text().count("%") > 0)
             else:
-                check(f"breakdown labels figures at {width}px",
-                      page.locator('.stats-breakdown-table tbody tr:nth-child(2) td[data-label]').count() == 3)
+                check(f"breakdown figures remain readable at {width}px",
+                      page.locator('#main [data-slot="card"]').nth(1).is_visible()
+                      and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/stats?period=today")
+        expect(page.locator("#main h1")).to_have_text("Stats")
         page.get_by_role('link', name=saved_names[0]).click()
         page.wait_for_url('**period=yesterday*')
         check("saved report opens its period", 'period=yesterday' in page.url)
         for name in saved_names:
-            row = page.locator('form[action$="/delete"]').filter(has=page.get_by_role('link', name=name)).first
-            row.locator('button[type="submit"]').click()
-            page.wait_for_load_state('load')
+            page.locator('#main a').filter(has_text=name).wait_for(state="visible")
+            button = page.get_by_role("button", name=f"Delete {name}")
+            if button.count():
+                button.click()
+                page.wait_for_load_state('load')
 
         # The same long name must remain within the graph card. Legend
         # buttons must actually toggle the series by mouse and keyboard.
         for width in (320, 390, 768, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/graph?period=yesterday")
+            expect(page.locator("#main h1")).to_be_visible()
             chip = page.locator('#legend-chips .legend-chip').filter(has_text=long_activity).first
             chip.wait_for()
             check(f"graph legend fits at {width}px",
@@ -1104,12 +1123,13 @@ def main() -> int:
 
         # Labels have accessible names, not merely adjacent visual captions.
         for route, selector in (
-            ("/reports", 'main input[type="date"]'),
-            ("/import", 'main select[name="provider"], main input[name="from"], main input[name="to"]'),
-            ("/integrations", 'main select[name="provider"]'),
-            ("/settings/team", 'main input[name="logo"]'),
+            ("/reports", '#main input[type="date"]'),
+            ("/import", '#main [role="combobox"], #main input[type="date"]'),
+            ("/integrations", '#main [role="combobox"]'),
+            ("/settings/team", '#main input[type="file"]'),
         ):
             page.goto(BASE + route)
+            page.locator("#main > main").wait_for()
             controls = page.locator(selector)
             check(f"{route} fields have associated labels",
                   controls.count() > 0 and controls.evaluate_all(

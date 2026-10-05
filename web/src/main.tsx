@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
+import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import type { AuditData, AuthPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 
@@ -102,6 +103,12 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       return false
     } finally { setBusy(false) }
   }
+
+  useEffect(() => {
+    const pauseAll = () => { void mutate("/api/active/pause-all") }
+    window.addEventListener("paratrack:pause-all", pauseAll)
+    return () => window.removeEventListener("paratrack:pause-all", pauseAll)
+  }, [data.CSRFToken])
 
   async function start(event?: React.FormEvent) {
     event?.preventDefault()
@@ -226,6 +233,7 @@ if (root && payload) {
     const restoreFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity"
     createRoot(root).render(
       <StrictMode>
+        <ApplicationShell shell={initial.shell}>
         <Suspense fallback={<div className="min-h-32 animate-pulse rounded-lg bg-muted" aria-hidden="true" />}>
           {"NewProject" in initial.data && initial.data.NewProject
             ? <ProjectCreate data={initial.data as ProjectCreateData} />
@@ -297,6 +305,7 @@ if (root && payload) {
             ? <ProjectList data={initial.data as ProjectListData} />
             : <DashboardApp initial={initial.data as DashboardData} restoreFocus={restoreFocus} />}
         </Suspense>
+        </ApplicationShell>
       </StrictMode>
     )
   } catch (error) {

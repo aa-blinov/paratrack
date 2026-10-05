@@ -3,10 +3,13 @@
 paratrack is a modular Go application shipped as one binary. It has two
 entrypoints into the same product: a command-line interface and an HTTP
 application. PostgreSQL is the durable store. All current full-page routes mount
-React screens built from shadcn components. Go still renders the shared HTML
-shell and per-page bootstrap data, and owns route handling, authorization,
-validation, persistence and business workflows. Go templates also serve
-fragments; HTMX and Alpine remain in targeted fragment and browser behaviors.
+React screens built from shadcn components. Go renders typed per-page and shell
+bootstrap data, and owns route handling, authorization, validation, persistence
+and business workflows. The React application renders the shared navigation,
+account/workspace controls, phone tab bar and screen content; Go templates
+remain as a fallback for non-React utility/error pages and targeted HTML
+fragments. HTMX and Alpine still handle selected fragment refreshes and browser
+behaviors.
 
 `web/src/main.tsx` is the current React entrypoint. The dashboard loads data
 from the authenticated `GET /api/dashboard` endpoint; timer mutations reuse the
@@ -42,10 +45,12 @@ The API-token settings view keeps the same create/delete forms; newly issued raw
 tokens are returned without caching and shown only in that creation response.
 Each screen loads its code as a separate bundle chunk.
 `web/src/components/ui` contains the shadcn-generated Radix primitives, styled
-to the existing Honest Ledger design. `make ui` builds both the legacy
-stylesheet and the React bundle into `internal/web/static`, which is embedded
-in the Go binary. Shared navigation, PWA/offline behavior, and some fragments
-still use the legacy browser stack.
+to the existing Honest Ledger design. `web/src/shell/app-shell.tsx` renders the
+shared chrome from the typed shell portion of the page bootstrap. `make ui`
+builds both the legacy stylesheet and the React bundle into
+`internal/web/static`, which is embedded in the Go binary. The running-session
+minibar, PWA/offline coordination and targeted HTML fragments still use the
+legacy browser stack.
 
 `internal/web/static/js/app.js` is the browser entrypoint. Dedicated modules
 register the live timer/total and invoice-form Alpine components. A small

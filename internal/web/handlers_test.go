@@ -60,6 +60,32 @@ func TestDashboardBootstrapsReactFromEmbeddedAssets(t *testing.T) {
 			t.Errorf("dashboard HTML missing %q", marker)
 		}
 	}
+	if strings.Contains(page.Body.String(), `<header class="appbar`) || strings.Contains(page.Body.String(), `class="tabbar`) {
+		t.Fatal("React route still renders the legacy shared navigation shell")
+	}
+	var pageBootstrap struct {
+		Shell struct {
+			User struct {
+				Email string `json:"email"`
+			} `json:"user"`
+			Lang string `json:"lang"`
+			Tabs []struct {
+				Href string `json:"href"`
+			} `json:"tabs"`
+		} `json:"shell"`
+	}
+	startPayload := strings.Index(page.Body.String(), `<div id="react-page-data" hidden>`)
+	if startPayload < 0 {
+		t.Fatal("dashboard HTML is missing React shell bootstrap")
+	}
+	startPayload += len(`<div id="react-page-data" hidden>`)
+	endPayload := strings.Index(page.Body.String()[startPayload:], `</div>`)
+	if endPayload < 0 || json.Unmarshal([]byte(page.Body.String()[startPayload:startPayload+endPayload]), &pageBootstrap) != nil {
+		t.Fatal("dashboard React shell bootstrap is invalid JSON")
+	}
+	if pageBootstrap.Shell.User.Email == "" || pageBootstrap.Shell.Lang != "ru" || len(pageBootstrap.Shell.Tabs) != 4 {
+		t.Fatalf("dashboard React shell bootstrap is incomplete: %#v", pageBootstrap.Shell)
+	}
 	const importMapOpen = `<script type="importmap">`
 	const importMapClose = `</script>`
 	start := strings.Index(page.Body.String(), importMapOpen)
@@ -336,7 +362,7 @@ func TestTeamSettingsPageBootstrapsReact(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("GET /settings/team status=%d body=%q", response.Code, response.Body.String())
 	}
-	for _, marker := range []string{`id="react-page-data"`, `id="paratrack-react-root"`, `"TeamSettingsReact":true`, `"Currencies"`} {
+	for _, marker := range []string{`id="react-page-data"`, `id="paratrack-react-root"`, `"TeamSettingsReact":true`, `"Currencies"`, `"CreatedAt":`} {
 		if !strings.Contains(response.Body.String(), marker) {
 			t.Errorf("GET /settings/team missing React bootstrap marker %q", marker)
 		}

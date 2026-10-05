@@ -53,6 +53,46 @@ type teamView struct {
 	CreatedAt time.Time
 }
 
+// reactShellData is the deliberately small server-to-browser contract for
+// the shared React application chrome.
+type reactShellData struct {
+	Title       string          `json:"title"`
+	Active      string          `json:"active"`
+	User        *shellUserView  `json:"user"`
+	Team        *shellTeamView  `json:"team"`
+	UserTeams   []shellTeamUser `json:"userTeams"`
+	RequestPath string          `json:"requestPath"`
+	CSRFToken   string          `json:"csrfToken"`
+	Lang        string          `json:"lang"`
+	CanManage   bool            `json:"canManage"`
+	Mods        map[string]bool `json:"mods"`
+	Tabs        []shellNavItem  `json:"tabs"`
+}
+
+type shellUserView struct {
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
+	Name  string `json:"name"`
+}
+
+type shellTeamView struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+type shellTeamUser struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Role string `json:"role"`
+}
+
+type shellNavItem struct {
+	Key   string `json:"key"`
+	Href  string `json:"href"`
+	Icon  string `json:"icon"`
+	Label string `json:"label"`
+}
+
 // projectView contains presentation-safe project fields used by HTML pages.
 // Billing rates stay in page-specific formatted fields and never enter the
 // shared template data graph.

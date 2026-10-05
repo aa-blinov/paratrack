@@ -67,7 +67,8 @@ Start the local service with `make e2e-up` before running them. Set
 | C26. React invite acceptance | invalid, expired, used, anonymous and signed-in states; accept and logout actions retain existing routes |
 | C27. React authentication | login/register and password recovery/reset forms keep CSRF, redirect target, SSO link, validation and error/info states |
 | C28. React completion act | issuer/client details, item totals, VAT/receipt, PDF download and print preserve the invoice document values |
-| D. Stats | period tabs, project/tag filters, saved-reports chips, session rows |
+| C29. React application shell | desktop navigation and More menu; permission/module filtering; workspace switch forms; account/logout links; responsive phone tabs and More sheet; language/theme/install controls; skip link and main landmark |
+| D. Stats | period tabs, project/tag filters, saved reports, session cards |
 | E. Graph | ECharts canvas, series, themed tooltip |
 | F. Tags | create, attach, delete (confirm dialog) |
 | G. Projects | create, estimate card, billable rate |
