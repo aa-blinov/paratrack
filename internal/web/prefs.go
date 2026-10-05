@@ -51,9 +51,12 @@ func widgetOn(r *http.Request, key string) bool { return !has(prefsOf(r).HiddenW
 
 // navItem is a place the phone tab bar can point to.
 type navItem struct {
-	Key, Href, Icon, Label string
-	Module                 string // "" = core, always available
-	Manage                 bool
+	Key    string
+	Href   string
+	Icon   string
+	Label  string
+	Module string // "" = core, always available
+	Manage bool
 }
 
 var navItems = []navItem{

@@ -93,21 +93,8 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 	if wc, ok := data.(widgetsCarrier); ok && authenticated {
 		wc.setWidgets(prefsOf(r).HiddenWidgets)
 	}
-	useReact := false
-	var reactPayload template.HTML
-	if carrier, ok := data.(reactPageCarrier); ok && carrier.usesReactApp() {
-		payload, err := json.Marshal(struct {
-			Data any `json:"data"`
-		}{Data: data})
-		if err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
-		useReact = true
-		// json.Marshal escapes HTML-sensitive characters, so these bytes are
-		// safe to place in a text container and parse as JSON in the client.
-		reactPayload = template.HTML(payload)
-	}
+	carrier, isReactPage := data.(reactPageCarrier)
+	useReact := isReactPage && carrier.usesReactApp()
 	content, err := s.executeTemplate(contentTpl, data)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -124,7 +111,6 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 		Lang:        string(lang),
 		ReactApp:    useReact,
 	}
-	wrapper.ReactPayload = reactPayload
 	if authenticated {
 		wrapper.DurFmt = durFmtOf(r)
 		wrapper.Tabs = s.tabsFor(r, mods)
@@ -149,6 +135,40 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 				})
 			}
 		}
+	}
+	if useReact {
+		shellTeams := make([]shellTeamUser, 0, len(wrapper.UserTeams))
+		for _, team := range wrapper.UserTeams {
+			shellTeams = append(shellTeams, shellTeamUser(team))
+		}
+		shellTabs := make([]shellNavItem, 0, len(wrapper.Tabs))
+		for _, tab := range wrapper.Tabs {
+			shellTabs = append(shellTabs, shellNavItem{Key: tab.Key, Href: tab.Href, Icon: tab.Icon, Label: tab.Label})
+		}
+		var shellUser *shellUserView
+		if wrapper.User != nil {
+			shellUser = &shellUserView{ID: wrapper.User.ID, Email: wrapper.User.Email, Name: wrapper.User.Name}
+		}
+		var shellTeam *shellTeamView
+		if wrapper.Team != nil {
+			shellTeam = &shellTeamView{ID: wrapper.Team.ID, Name: wrapper.Team.Name}
+		}
+		payload, err := json.Marshal(struct {
+			Data  any            `json:"data"`
+			Shell reactShellData `json:"shell"`
+		}{Data: data, Shell: reactShellData{
+			Title: wrapper.Title, Active: wrapper.Active, User: shellUser,
+			Team: shellTeam, UserTeams: shellTeams, RequestPath: wrapper.RequestPath,
+			CSRFToken: wrapper.CSRFToken, Lang: wrapper.Lang, CanManage: wrapper.CanManage,
+			Mods: wrapper.Mods, Tabs: shellTabs,
+		}})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		// json.Marshal escapes HTML-sensitive characters, so these bytes are
+		// safe to place in a text container and parse as JSON in the client.
+		wrapper.ReactPayload = template.HTML(payload)
 	}
 	page, err := s.executeTemplate("base", wrapper)
 	if err != nil {

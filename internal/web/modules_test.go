@@ -18,7 +18,7 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 		e.jar[c.Name] = c.Value
 	}
 	// Before any choice everything is on (existing workspaces keep all).
-	if page := readBody(t, e.do("GET", "/", nil, nil)); !strings.Contains(page, `href="/invoices"`) {
+	if page := readBody(t, e.do("GET", "/", nil, nil)); !strings.Contains(page, `"invoices":true`) {
 		t.Fatal("the owner's menu has no invoices")
 	}
 	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !strings.Contains(w, `name="preset" value="solo"`) {
@@ -32,12 +32,12 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 		t.Errorf("welcome save goes to %q", resp.Header.Get("Location"))
 	}
 	page := readBody(t, e.do("GET", "/", nil, nil))
-	for _, off := range []string{`href="/invoices"`, `href="/payroll"`, `href="/schedule"`} {
+	for _, off := range []string{`"invoices":false`, `"payroll":false`, `"schedule":false`} {
 		if strings.Contains(page, off) {
 			t.Errorf("solo menu still links %s", off)
 		}
 	}
-	if !strings.Contains(page, `href="/graph"`) {
+	if !strings.Contains(page, `"graph":true`) {
 		t.Error("solo menu lost the by-hour graph")
 	}
 	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
@@ -55,13 +55,13 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 	resp = e.do("POST", "/api/team/modules", url.Values{"modules": {"invoices"}}, nil)
 	resp.Body.Close()
 	page = readBody(t, e.do("GET", "/", nil, nil))
-	if !strings.Contains(page, `href="/invoices"`) || strings.Contains(page, `href="/graph"`) {
+	if !strings.Contains(page, `"invoices":true`) || strings.Contains(page, `href="/graph"`) {
 		t.Error("custom set not applied")
 	}
 	// Nothing ticked is a real choice (core only), not "everything".
 	resp = e.do("POST", "/api/team/modules", url.Values{}, nil)
 	resp.Body.Close()
-	if page := readBody(t, e.do("GET", "/", nil, nil)); strings.Contains(page, `href="/invoices"`) {
+	if page := readBody(t, e.do("GET", "/", nil, nil)); strings.Contains(page, `"invoices":true`) {
 		t.Error("an all-off choice fell back to everything")
 	}
 }

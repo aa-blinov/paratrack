@@ -39,7 +39,7 @@
   data-i18n-queue-network-failed="{{.T "pwa.queueNetworkFailed"}}"
   data-i18n-queue-retry="{{.T "pwa.queueRetry"}}"
   data-i18n-queue-discard="{{.T "pwa.queueDiscard"}}">
-  <a href="#main" class="skip-link">{{.T "nav.skip"}}</a>
+  {{if not .ReactApp}}<a href="#main" class="skip-link">{{.T "nav.skip"}}</a>
   <header class="appbar bg-base-100 border-b border-base-300">
     <div class="navbar min-h-12! mx-auto max-w-[90rem] px-2 sm:px-4 gap-1 flex-nowrap items-center">
       <div class="shrink-0 flex items-center mr-2">
@@ -139,17 +139,17 @@
       {{end}}
     </div>
   </header>
+  {{end}}
 
-  <main id="main" tabindex="-1" class="flex-1 mx-auto max-w-6xl px-4 py-6 w-full">
-    {{if .ReactApp}}<div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">{{.ContentHTML}}</div>{{else}}{{.ContentHTML}}{{end}}
-  </main>
+  {{if .ReactApp}}<div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">{{.ContentHTML}}</div>
+  {{else}}<main id="main" tabindex="-1" class="flex-1 mx-auto max-w-6xl px-4 py-6 w-full">{{.ContentHTML}}</main>{{end}}
 
   {{/* Permanent live region: a region inserted together with its text is
        often not announced, so the container stays and only its child changes. */}}
   <div id="toast" role="status" aria-live="polite"></div>
 
 
-  <footer class="{{if .User}}hidden lg:block {{end}}border-t border-base-300 bg-base-100 py-3">
+  {{if not .ReactApp}}<footer class="{{if .User}}hidden lg:block {{end}}border-t border-base-300 bg-base-100 py-3">
     <div class="mx-auto max-w-6xl px-4 flex items-center gap-2 flex-wrap">
       <div class="text-sm opacity-60 flex-1 min-w-0 whitespace-nowrap truncate">
         {{.T "version"}}<span class="hidden sm:inline">{{if .User}} | {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">p</kbd> {{.T "kbd.pause"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
@@ -191,8 +191,13 @@
       </div>
     </div>
   </footer>
+  {{end}}
 
-  {{if .User}}
+  {{if and .ReactApp .User (ne .Active "dashboard")}}
+  <aside id="minibar" class="minibar lg:hidden" aria-label="{{.T "dash.activeSessions"}}" hx-get="/api/minibar"
+       hx-trigger="load, sessions-changed from:body, every 30s" hx-swap="innerHTML"></aside>
+  {{end}}
+  {{if and .User (not .ReactApp)}}
   {{/* Phone / tablet chrome: running-timer bar, bottom tabs, "More" sheet. */}}
   {{if ne .Active "dashboard"}}
   <aside id="minibar" class="minibar lg:hidden" aria-label="{{.T "dash.activeSessions"}}" hx-get="/api/minibar"

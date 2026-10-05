@@ -44,7 +44,7 @@ function ChartRuntime() {
 export function GraphPage({ data }: { data: GraphData }) {
   const lang = data.Lang
   const filtered = Boolean(data.ProjectFilter || data.TagFilter || data.PersonFilter)
-  const canShowGraph = data.Chart.HasData
+  const canShowGraph = data.Chart.hasData
 
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "graph.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.pageBlurb")}</p></header>
@@ -71,7 +71,7 @@ export function GraphPage({ data }: { data: GraphData }) {
               <div id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={t(lang, "graph.subtitle")} />
             </div>
           </div>
-          <p className="mt-3 text-sm"><span className="text-muted-foreground">{t(lang, "graph.totalTracked")} </span><strong className="font-mono tabular-nums">{data.Chart.TotalLabel}</strong></p>
+          <p className="mt-3 text-sm"><span className="text-muted-foreground">{t(lang, "graph.totalTracked")} </span><strong className="font-mono tabular-nums">{data.Chart.totalLabel}</strong></p>
           <ChartRuntime />
         </> : <div className="py-8 text-center">
           <p className="font-medium">{t(lang, "graph.noData")}</p>
@@ -81,8 +81,8 @@ export function GraphPage({ data }: { data: GraphData }) {
     </Card>
 
     {canShowGraph && <Card><CardHeader><CardTitle>{t(lang, "graph.legend")}</CardTitle></CardHeader><CardContent><div className="flex flex-wrap gap-2" id="legend-chips">
-      {data.Chart.Legend.map((item, index) => <button key={`${item.Name}:${index}`} type="button" className="legend-chip inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-muted" data-series-index={index} aria-pressed="true" title={t(lang, "graph.toggleSeries", item.Name)}>
-        <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: item.Color }} /><span className="truncate">{item.Name}</span>
+      {data.Chart.legend.map((item, index) => <button key={`${item.name}:${index}`} type="button" className="legend-chip inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-muted" data-series-index={index} aria-pressed="true" title={t(lang, "graph.toggleSeries", item.name)}>
+        <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><span className="truncate">{item.name}</span>
       </button>)}
     </div></CardContent></Card>}
   </main>

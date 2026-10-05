@@ -41,10 +41,10 @@ func TestPreferences(t *testing.T) {
 	if !strings.Contains(dash, `data-durfmt="clock"`) {
 		t.Error("duration format not on the page")
 	}
-	if strings.Contains(dash, `href="/graph"`) {
+	if strings.Contains(dash, `"graph":true`) {
 		t.Error("a section I hid is still in my menu")
 	}
-	if !strings.Contains(dash, `href="/goals"`) {
+	if !strings.Contains(dash, `"goals":true`) {
 		t.Error("goals vanished though only graph was hidden")
 	}
 	if !strings.Contains(dash, `id="recent" class="card bg-base-100 border border-base-300 mt-4" hidden`) {
