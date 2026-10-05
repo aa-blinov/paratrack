@@ -106,7 +106,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
             <tbody>
               {data.Rows.map(row => {
                 const cells = [
-                  <th key="member" scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name block truncate" title={row.UserName}>{row.UserName}</span><span className="block text-xs font-mono text-muted-foreground">{row.Total} · {row.LoadPct}%</span></th>,
+                  <th key="member" scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name block truncate" title={row.UserName}>{row.UserName}</span><span className="block text-xs font-mono text-muted-foreground">{row.Total}, {row.LoadPct}%</span></th>,
                   ...row.Cells.map(cell => {
                     const key = cellKey(row.UserID, cell.Index)
                     return <td key={cell.Index} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
