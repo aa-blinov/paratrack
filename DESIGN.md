@@ -105,7 +105,21 @@ components:
     height: "24px"
 ---
 
-# Design System: paratrack
+# Current React UI: shadcn/ui
+
+The authenticated React application and React authentication pages use the
+official shadcn/ui `radix-nova` component style. The current source of truth is
+`web/components.json`, `web/src/ui.css`, and the components copied by the
+shadcn CLI into `web/src/components/ui/`. The shared navigation follows the
+official `sidebar-01` block; sign-in follows `login-03`.
+
+Keep these components and blocks as supplied by shadcn. Bind them to paratrack
+data and translations, and remove example-only controls or placeholder data.
+Do not apply the old custom ledger styling to React components. The historical
+guidance below applies only to legacy Go/HTMX surfaces, emails, and documents
+that have not moved to the React UI.
+
+# Previous Design System: paratrack ledger
 
 ## Overview
 
