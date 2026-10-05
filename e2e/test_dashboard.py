@@ -948,7 +948,8 @@ def main() -> int:
         page.locator('form[action="/reports/run"] button').first.click()
         expect(page.locator("#main table")).to_be_visible()
         check("report preview opens without creating a document",
-              '/reports/run?' in page.url and page.locator('#main table').count() == 1)
+              '/reports/run?' in page.url and page.locator('#main table').count() == 1
+              and page.locator('#main h1').count() == 1)
         for width in (320, 390):
             page.set_viewport_size({"width": width, "height": 844})
             for report_id in ("by-project", "by-day", "billable", "utilization"):

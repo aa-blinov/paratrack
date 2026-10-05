@@ -23,9 +23,13 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	resolvedLang := resolveLang(r)
 	location := userLoc(r)
 	now := userNow(r)
-	data := webhooksPage{pageData: pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang, ReactApp: true}, WebhooksReact: true}
+	data := webhooksPage{
+		pageData:      pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang, ReactApp: true},
+		WebhooksReact: true,
+		Items:         make([]webhookRow, 0, len(snapshot.Endpoints)),
+	}
 	for _, h := range snapshot.Endpoints {
-		row := webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active}
+		row := webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active, Deliveries: make([]deliveryRow, 0, len(snapshot.Deliveries[h.ID]))}
 		for _, d := range snapshot.Deliveries[h.ID] {
 			row.Deliveries = append(row.Deliveries, deliveryRow{
 				When: fmtWhen(resolvedLang, d.CreatedAt.In(location), now), Event: d.Event,

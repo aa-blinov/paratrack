@@ -439,6 +439,57 @@ func TestOperationsSettingsPagesBootstrapReact(t *testing.T) {
 	}
 }
 
+func TestEmptyReactCollectionsBootstrapAsArrays(t *testing.T) {
+	for _, tc := range []struct {
+		path   string
+		fields []string
+	}{
+		{path: "/invoices", fields: []string{"Items", "Projects", "Unbilled", "Unassigned"}},
+		{path: "/payroll", fields: []string{"Items"}},
+		{path: "/settings/webhooks", fields: []string{"Items"}},
+	} {
+		t.Run(tc.path, func(t *testing.T) {
+			srv, token := newTestServer(t)
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil)
+			req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+			response := httptest.NewRecorder()
+			srv.routes().ServeHTTP(response, req)
+			if response.Code != http.StatusOK {
+				t.Fatalf("GET %s status=%d body=%q", tc.path, response.Code, response.Body.String())
+			}
+
+			const open = `<div id="react-page-data" hidden>`
+			body := response.Body.String()
+			start := strings.Index(body, open)
+			if start < 0 {
+				t.Fatal("page is missing React bootstrap")
+			}
+			start += len(open)
+			end := strings.Index(body[start:], `</div>`)
+			if end < 0 {
+				t.Fatal("page has unterminated React bootstrap")
+			}
+			var bootstrap struct {
+				Data map[string]json.RawMessage `json:"data"`
+			}
+			if err := json.Unmarshal([]byte(body[start:start+end]), &bootstrap); err != nil {
+				t.Fatalf("decode React bootstrap: %v", err)
+			}
+			for _, field := range tc.fields {
+				t.Run(field, func(t *testing.T) {
+					var values []json.RawMessage
+					if err := json.Unmarshal(bootstrap.Data[field], &values); err != nil {
+						t.Fatalf("%s is not an array: %s (%v)", field, bootstrap.Data[field], err)
+					}
+					if values == nil || len(values) != 0 {
+						t.Fatalf("%s = %s, want an empty array", field, bootstrap.Data[field])
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestHelpAndImportPagesBootstrapReact(t *testing.T) {
 	for _, tc := range []struct {
 		path, marker string

@@ -18,6 +18,9 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 	data := invoicesPage{
 		pageData:      pageData{Title: "Invoices", Active: "invoices", Lang: lang, ReactApp: true},
 		InvoicesReact: true,
+		Items:         make([]invoiceSummary, 0, len(snapshot.Invoices)),
+		Projects:      make([]invoiceProjectOpt, 0, len(snapshot.DraftOptions.Projects)),
+		Unbilled:      make([]unbilledView, 0, len(snapshot.Unbilled)),
 	}
 	for _, item := range snapshot.Invoices {
 		inv := item.Invoice

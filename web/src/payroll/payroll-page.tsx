@@ -36,13 +36,15 @@ export function PayrollPage({ data }: { data: PayrollData }) {
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
     </CardContent></Card>
 
-    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "pay.list")}</CardTitle></CardHeader><CardContent className="overflow-x-auto">
-      <Table>
+    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "pay.list")}</CardTitle></CardHeader><CardContent>
+      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/payroll/${item.ID}`} className="font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><Status lang={lang} status={item.Status} /></div><p className="text-xs text-muted-foreground">{item.Period}</p><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
+      <div className="hidden overflow-x-auto sm:block"><Table>
         <TableHeader><TableRow><TableHead>{t(lang, "inv.number")}</TableHead><TableHead>{t(lang, "inv.period")}</TableHead><TableHead>{t(lang, "inv.hours")}</TableHead><TableHead>{t(lang, "inv.amount")}</TableHead><TableHead>{t(lang, "team.status")}</TableHead></TableRow></TableHeader>
         <TableBody>{data.Items.map(item => <TableRow key={item.ID}>
           <TableCell><a href={`/payroll/${item.ID}`} className="font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><Status lang={lang} status={item.Status} /></TableCell>
         </TableRow>)}</TableBody>
       </Table>
+      </div>
     </CardContent></Card> : <Card><CardContent className="py-8 text-center"><p className="font-medium">{t(lang, "pay.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.emptyHint")}</p></CardContent></Card>}
   </main>
 }
@@ -62,7 +64,8 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
 
     <Card className="print:border-0 print:shadow-none"><CardContent className="space-y-5 p-5 sm:p-7">
       <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.run")} <span className="font-mono">{data.Run.Number}</span></h1><p className="mt-1 font-mono text-sm text-muted-foreground">{data.Run.PeriodLabel}</p></header>
-      <div className="overflow-x-auto"><Table className="doc-table">
+      <div className="grid gap-3 sm:hidden print:hidden">{data.Run.Lines.map((line, index) => <article key={`${line.Label}:${index}`} className="grid gap-3 border-b pb-3 last:border-0 last:pb-0"><h2 className="break-words font-medium">{line.Label}</h2><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{line.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "pay.payRate")}</dt><dd className="font-mono tabular-nums">{line.Rate}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono font-medium tabular-nums">{line.Amount}</dd></div></dl></article>)}<dl className="grid grid-cols-2 gap-x-4 border-t-2 pt-3 text-sm font-semibold"><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")} · {t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{data.Run.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")} · {t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{data.Run.Total}</dd></div></dl></div>
+      <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table">
         <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "pay.payRate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader>
         <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Amount}</TableCell></TableRow>)}</TableBody>
         <tfoot><tr className="border-t-2 font-semibold"><td className="p-2">{t(lang, "pdf.total")}</td><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Hours}</td><td /><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Total}</td></tr></tfoot>
