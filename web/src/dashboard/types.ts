@@ -209,7 +209,7 @@ export interface GraphData {
   Period: { Label: string; Start: string; End: string }
   PeriodStartInput: string
   PeriodEndInput: string
-  Chart: { HasData: boolean; Hours: string[]; Series: Array<{ Name: string; Color: string; Data: number[]; Total: number }>; TotalLabel: string; Legend: Array<{ Name: string; Color: string }> }
+  Chart: { hasData: boolean; hours: string[]; series: Array<{ name: string; color: string; data: number[]; total: number }>; totalLabel: string; legend: Array<{ name: string; color: string }> }
   ChartJSON: string
   ProjectFilter: string
   ProjectName: string
@@ -683,4 +683,5 @@ export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData 
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
+	shell: import("@/shell/app-shell").AppShellData
 }

@@ -69,9 +69,13 @@ document.addEventListener('click', (event) => {
     }
     // On other pages the response refreshes only the minibar, never the dashboard list.
     if (key === 'p' && window.htmx) {
+      if (here === '/') {
+        window.dispatchEvent(new Event('paratrack:pause-all'));
+        return;
+      }
       window.htmx.ajax('POST', '/api/active/pause-all', {
-        target: here === '/' ? '#active-list' : '#minibar',
-        swap: here === '/' ? 'innerHTML' : 'none',
+        target: '#minibar',
+        swap: 'none',
       });
     }
   });

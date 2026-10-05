@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "paratrack UI source — Go templates plus a React and shadcn migration",
+  "description": "paratrack UI source — React and shadcn/ui application with Go-rendered fragments",
   "scripts": {
     "build": "npm run build:legacy && npm run build:react",
     "build:legacy": "tailwindcss -i ./input.css -o ../internal/web/static/css/paratrack.css --minify",

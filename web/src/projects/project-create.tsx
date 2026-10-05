@@ -23,7 +23,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
       <form method="POST" action="/projects/new" className="grid gap-5 sm:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder="EORA RAG" autoFocus /></div>
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9][a-z0-9_\\-]*" className="font-mono" placeholder="eora-rag" /></div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="eora-rag" /></div>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t(lang, "projects.color")}</legend>
           <div className="flex items-center gap-2">

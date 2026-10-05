@@ -6,6 +6,7 @@ const projectRoot = fileURLToPath(new URL(".", import.meta.url))
 
 export default defineConfig({
   root: projectRoot,
+  base: "/static/ui/",
   plugins: [react()],
   resolve: {
     alias: {
