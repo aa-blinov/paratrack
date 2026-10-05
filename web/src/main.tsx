@@ -1,4 +1,4 @@
-import { lazy, StrictMode, Suspense, useEffect, useMemo, useRef, useState } from "react"
+import { lazy, StrictMode, Suspense, startTransition, useEffect, useMemo, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -187,7 +187,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       <div className="hidden overflow-x-auto sm:block"><table className="w-full text-left text-sm"><thead><tr className="border-b text-muted-foreground"><th className="p-2">{t(lang, "dash.activity")}</th><th className="p-2">{t(lang, "dash.startLabel")}</th><th className="p-2">{t(lang, "stats.end")}</th><th className="p-2">{labels.duration}</th><th className="p-2">{labels.note}</th><th className="p-2">{t(lang, "stats.tags")}</th><th className="p-2" /></tr></thead><tbody>{recent.map(session => <tr key={session.ID} className="border-b last:border-0"><td className="p-2"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: session.Color }} /><span className="[overflow-wrap:anywhere]">{session.ActivityName}</span>{session.ProjectName && <div><Badge variant="outline" className="max-w-full whitespace-normal [overflow-wrap:anywhere]">{session.ProjectName}</Badge></div>}</td><td className="whitespace-nowrap p-2 font-mono">{session.StartLocal}</td><td className="whitespace-nowrap p-2 font-mono">{session.EndLocal}</td><td className="whitespace-nowrap p-2 font-mono">{session.Duration}</td><td className="p-2 [overflow-wrap:anywhere]">{session.Note}</td><td className="p-2">{session.Tags?.map(tag => <a key={tag.ID} className="mr-1 inline-block [overflow-wrap:anywhere]" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</td><td className="p-2"><Button variant="ghost" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></td></tr>)}</tbody></table></div>
       <div data-recent-sessions-mobile className="grid gap-2 sm:hidden">{recent.map(session => <article key={session.ID} className="grid min-w-0 gap-2 rounded-md border p-3 text-sm"><div className="flex min-w-0 items-start gap-2"><span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: session.Color }} /><div className="min-w-0"><strong className="break-all">{session.ActivityName}</strong>{session.ProjectName && <div className="mt-1"><Badge variant="outline" className="h-auto max-w-full whitespace-normal break-all">{session.ProjectName}</Badge></div>}</div></div><div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><span>{session.StartLocal}</span><span aria-hidden="true">→</span><span>{session.EndLocal}</span><span className="font-mono text-foreground">{session.Duration}</span></div>{session.Note && <p className="break-words text-muted-foreground">{session.Note}</p>}{session.Tags?.length > 0 && <div className="flex flex-wrap gap-2">{session.Tags.map(tag => <a key={tag.ID} className="text-primary underline-offset-4 hover:underline" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</div>}<Button className="w-fit" variant="outline" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></article>)}</div>
     </CardContent></Card>}
-    {data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex justify-between gap-3 text-sm"><a className="underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours} · {item.Amount}</span></div>)}</CardContent></Card>}
+    {data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex justify-between gap-3 text-sm"><a className="underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours}, {item.Amount}</span></div>)}</CardContent></Card>}
     {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
   </div>
 }
@@ -230,87 +230,206 @@ function LiveClock({ session }: { session: Session }) {
   return <time className="font-mono tabular-nums">{clockLabel(sessionElapsedSeconds(session, now))}</time>
 }
 
+function PageScreen({ bootstrap, restoreFocus, routeKey }: { bootstrap: ReactPageBootstrap; restoreFocus: boolean; routeKey: string }) {
+  const data = bootstrap.data
+  return (
+    <Suspense fallback={<div className="min-h-32 rounded-lg bg-muted" aria-hidden="true" />}>
+      <div key={routeKey}>
+          {"NewProject" in data && data.NewProject
+            ? <ProjectCreate data={data as ProjectCreateData} />
+            : "GoalsReact" in data && data.GoalsReact
+            ? <GoalsPage data={data as GoalsData} />
+            : "ReactTags" in data && data.ReactTags
+            ? <TagsPage data={data as TagsData} />
+            : "GraphReact" in data && data.GraphReact
+            ? <GraphPage data={data as GraphData} />
+            : "TimesheetReact" in data && data.TimesheetReact
+            ? <TimesheetPage initial={data as TimesheetData} />
+            : "PayrollReact" in data && data.PayrollReact
+            ? "PayrollDetail" in data && data.PayrollDetail
+              ? <PayrollDetail data={data as PayrollDetailData} />
+              : <Payroll data={data as PayrollData} />
+            : "ScheduleReact" in data && data.ScheduleReact
+            ? <SchedulePage initial={data as ScheduleData} />
+            : "InvoicesReact" in data && data.InvoicesReact
+            ? <InvoicesPage data={data as InvoicesData} />
+            : (("InvoiceReact" in data && data.InvoiceReact) || ("InvoiceActReact" in data && data.InvoiceActReact))
+            ? "InvoiceActReact" in data && data.InvoiceActReact
+              ? <InvoiceActPage data={data as InvoiceDetailData} />
+              : <InvoiceDetailPage data={data as InvoiceDetailData} />
+            : "ByProject" in data && "Sessions" in data && data.Active === "stats"
+            ? <StatsPage data={data as StatsData} />
+            : "ReportRunReact" in data && data.ReportRunReact
+            ? <ReportRunPage data={data as ReportRunData} />
+            : "ReportsReact" in data && data.ReportsReact
+            ? <ReportsPage data={data as ReportsData} />
+            : "ReportsEnabled" in data
+            ? <ExportPage data={data as ExportData} />
+            : "MarketReact" in data && data.MarketReact
+            ? <MarketplacePage data={data as MarketplaceData} />
+            : "IntegrationReact" in data && data.IntegrationReact
+            ? <IntegrationDetailPage data={data as IntegrationDetailData} />
+            : "IntegrationsReact" in data && data.IntegrationsReact
+            ? <IntegrationsPage data={data as IntegrationsData} />
+            : "TokensReact" in data && data.TokensReact
+            ? <TokensPage data={data as TokensData} />
+            : "ProfileReact" in data && data.ProfileReact
+            ? <ProfilePage data={data as ProfileData} />
+            : "PrefsReact" in data && data.PrefsReact
+            ? <PreferencesPage data={data as PreferencesData} />
+            : "NotificationsReact" in data && data.NotificationsReact
+            ? <NotificationsPage data={data as NotificationsData} />
+            : "TeamSettingsReact" in data && data.TeamSettingsReact
+            ? <TeamSettingsPage data={data as TeamSettingsData} />
+            : "MembersReact" in data && data.MembersReact
+            ? <TeamMembersPage data={data as TeamMembersData} />
+            : "InvitesReact" in data && data.InvitesReact
+            ? <TeamInvitesPage data={data as TeamInvitesData} />
+            : "SectionsReact" in data && data.SectionsReact
+            ? <SectionsPage data={data as SectionsData} />
+            : "WebhooksReact" in data && data.WebhooksReact
+            ? <WebhooksPage data={data as WebhooksData} />
+            : "AuditReact" in data && data.AuditReact
+            ? <AuditPage data={data as AuditData} />
+            : "HelpReact" in data && data.HelpReact
+            ? <HelpPage data={data as HelpData} />
+            : "ImportReact" in data && data.ImportReact
+            ? <ImportPage data={data as ImportData} />
+            : "InviteReact" in data && data.InviteReact
+            ? <InviteAcceptPage data={data as InviteAcceptData} />
+            : "AuthReact" in data && data.AuthReact
+            ? <AuthPage data={data as AuthPageData} />
+            : "Sessions" in data
+            ? <ProjectDetail data={data as ProjectDetailData} />
+            : "ShowArchived" in data
+            ? <ProjectList data={data as ProjectListData} />
+            : <DashboardApp initial={data as DashboardData} restoreFocus={restoreFocus} />}
+      </div>
+    </Suspense>
+  )
+}
+
+function parseBootstrap(html: string): { bootstrap: ReactPageBootstrap; title: string } | null {
+  const document = new DOMParser().parseFromString(html, "text/html")
+  const payload = document.getElementById("react-page-data")
+  if (!payload) return null
+  try {
+    const bootstrap = JSON.parse(payload.textContent || "") as ReactPageBootstrap
+    if (!bootstrap.data || !bootstrap.shell) return null
+    return { bootstrap, title: document.title }
+  } catch {
+    return null
+  }
+}
+
+function AppRouter({ initial }: { initial: ReactPageBootstrap }) {
+  const [route, setRoute] = useState(() => ({
+    bootstrap: initial,
+    key: location.pathname + location.search,
+    restoreFocus: document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity",
+    focusMain: false,
+  }))
+  const request = useRef<AbortController | null>(null)
+  const scrollPositions = useRef(new Map<string, number>())
+
+  useEffect(() => {
+    history.replaceState({ ...history.state, paratrack: true }, "", location.href)
+    const navigate = async (url: URL, mode: "push" | "pop", restoreFocus = false) => {
+      request.current?.abort()
+      const controller = new AbortController()
+      request.current = controller
+      if (mode === "push") {
+        const currentKey = location.pathname + location.search
+        scrollPositions.current.set(currentKey, window.scrollY)
+      }
+      try {
+        const response = await fetch(url, { credentials: "same-origin", signal: controller.signal, headers: { Accept: "text/html" } })
+        if (!response.ok || new URL(response.url).origin !== location.origin) throw new Error("Navigation response unavailable")
+        const result = parseBootstrap(await response.text())
+        if (!result) throw new Error("Navigation did not return a React page")
+        const finalURL = new URL(response.url)
+        if (url.hash) finalURL.hash = url.hash
+        if (mode === "push") history.pushState({ paratrack: true }, "", finalURL.href)
+        document.title = result.title
+        startTransition(() => setRoute({ bootstrap: result.bootstrap, key: finalURL.pathname + finalURL.search, restoreFocus, focusMain: true }))
+        requestAnimationFrame(() => {
+          if (mode === "pop") window.scrollTo(0, scrollPositions.current.get(finalURL.pathname + finalURL.search) || 0)
+          else if (finalURL.hash) document.getElementById(decodeURIComponent(finalURL.hash.slice(1)))?.scrollIntoView()
+          else window.scrollTo(0, 0)
+        })
+      } catch (error) {
+        if (controller.signal.aborted) return
+        location.assign(url.href)
+      }
+    }
+    const click = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+      const target = event.target
+      if (!(target instanceof Element)) return
+      const anchor = target.closest("a[href]")
+      if (!(anchor instanceof HTMLAnchorElement)) return
+      const inReactRoot = root?.contains(anchor) === true
+      const inMobileSidebar = anchor.closest('[data-sidebar="sidebar"]') !== null
+      if (!inReactRoot && !inMobileSidebar) return
+      if (anchor.target && anchor.target !== "_self" || anchor.hasAttribute("download") || anchor.relList.contains("external")) return
+      const url = new URL(anchor.href, location.href)
+      if (url.origin !== location.origin || !["http:", "https:"].includes(url.protocol)) return
+      if (url.pathname === location.pathname && url.search === location.search) return
+      event.preventDefault()
+      void navigate(url, "push")
+    }
+    const submit = (event: SubmitEvent) => {
+      if (event.defaultPrevented) return
+      const form = event.target
+      if (!(form instanceof HTMLFormElement) || !root?.contains(form)) return
+      const submitter = event.submitter instanceof HTMLButtonElement || event.submitter instanceof HTMLInputElement ? event.submitter : null
+      const method = (submitter?.getAttribute("formmethod") || form.method || "get").toLowerCase()
+      const target = submitter?.getAttribute("formtarget") || form.target
+      if (method !== "get" || target && target !== "_self") return
+      const url = new URL(submitter?.getAttribute("formaction") || form.action || location.href, location.href)
+      if (url.origin !== location.origin || !["http:", "https:"].includes(url.protocol)) return
+      if (url.pathname.startsWith("/api/")) return
+      const params = new URLSearchParams()
+      for (const [key, value] of new FormData(form, submitter || undefined)) {
+        if (typeof value === "string") params.append(key, value)
+        else return
+      }
+      url.search = params.toString()
+      event.preventDefault()
+      void navigate(url, "push")
+    }
+    const pop = () => { void navigate(new URL(location.href), "pop") }
+    const customNavigate = (event: Event) => {
+      const navigation = event as CustomEvent<{ url?: string; focusActivity?: boolean }>
+      if (!navigation.detail?.url) return
+      event.preventDefault()
+      const url = new URL(navigation.detail.url, location.href)
+      if (url.origin === location.origin) void navigate(url, "push", navigation.detail.focusActivity === true)
+    }
+    document.addEventListener("click", click)
+    root?.addEventListener("submit", submit)
+    window.addEventListener("popstate", pop)
+    window.addEventListener("paratrack:navigate", customNavigate)
+    return () => {
+      request.current?.abort()
+      document.removeEventListener("click", click)
+      root?.removeEventListener("submit", submit)
+      window.removeEventListener("popstate", pop)
+      window.removeEventListener("paratrack:navigate", customNavigate)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (route.focusMain && !route.restoreFocus) document.getElementById("main")?.focus({ preventScroll: true })
+  }, [route.focusMain, route.key, route.restoreFocus])
+
+  return <ApplicationShell shell={route.bootstrap.shell}><PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} /></ApplicationShell>
+}
+
 if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap
-    const restoreFocus = document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity"
-    createRoot(root).render(
-      <StrictMode>
-        <ApplicationShell shell={initial.shell}>
-        <Suspense fallback={<div className="min-h-32 rounded-lg bg-muted" aria-hidden="true" />}>
-          {"NewProject" in initial.data && initial.data.NewProject
-            ? <ProjectCreate data={initial.data as ProjectCreateData} />
-            : "GoalsReact" in initial.data && initial.data.GoalsReact
-            ? <GoalsPage data={initial.data as GoalsData} />
-            : "ReactTags" in initial.data && initial.data.ReactTags
-            ? <TagsPage data={initial.data as TagsData} />
-            : "GraphReact" in initial.data && initial.data.GraphReact
-            ? <GraphPage data={initial.data as GraphData} />
-            : "TimesheetReact" in initial.data && initial.data.TimesheetReact
-            ? <TimesheetPage initial={initial.data as TimesheetData} />
-            : "PayrollReact" in initial.data && initial.data.PayrollReact
-            ? "PayrollDetail" in initial.data && initial.data.PayrollDetail
-              ? <PayrollDetail data={initial.data as PayrollDetailData} />
-              : <Payroll data={initial.data as PayrollData} />
-            : "ScheduleReact" in initial.data && initial.data.ScheduleReact
-            ? <SchedulePage initial={initial.data as ScheduleData} />
-            : "InvoicesReact" in initial.data && initial.data.InvoicesReact
-            ? <InvoicesPage data={initial.data as InvoicesData} />
-            : (("InvoiceReact" in initial.data && initial.data.InvoiceReact) || ("InvoiceActReact" in initial.data && initial.data.InvoiceActReact))
-            ? "InvoiceActReact" in initial.data && initial.data.InvoiceActReact
-              ? <InvoiceActPage data={initial.data as InvoiceDetailData} />
-              : <InvoiceDetailPage data={initial.data as InvoiceDetailData} />
-            : "ByProject" in initial.data && "Sessions" in initial.data && initial.data.Active === "stats"
-            ? <StatsPage data={initial.data as StatsData} />
-            : "ReportRunReact" in initial.data && initial.data.ReportRunReact
-            ? <ReportRunPage data={initial.data as ReportRunData} />
-            : "ReportsReact" in initial.data && initial.data.ReportsReact
-            ? <ReportsPage data={initial.data as ReportsData} />
-            : "ReportsEnabled" in initial.data
-            ? <ExportPage data={initial.data as ExportData} />
-            : "MarketReact" in initial.data && initial.data.MarketReact
-            ? <MarketplacePage data={initial.data as MarketplaceData} />
-            : "IntegrationReact" in initial.data && initial.data.IntegrationReact
-            ? <IntegrationDetailPage data={initial.data as IntegrationDetailData} />
-            : "IntegrationsReact" in initial.data && initial.data.IntegrationsReact
-            ? <IntegrationsPage data={initial.data as IntegrationsData} />
-            : "TokensReact" in initial.data && initial.data.TokensReact
-            ? <TokensPage data={initial.data as TokensData} />
-            : "ProfileReact" in initial.data && initial.data.ProfileReact
-            ? <ProfilePage data={initial.data as ProfileData} />
-            : "PrefsReact" in initial.data && initial.data.PrefsReact
-            ? <PreferencesPage data={initial.data as PreferencesData} />
-            : "NotificationsReact" in initial.data && initial.data.NotificationsReact
-            ? <NotificationsPage data={initial.data as NotificationsData} />
-            : "TeamSettingsReact" in initial.data && initial.data.TeamSettingsReact
-            ? <TeamSettingsPage data={initial.data as TeamSettingsData} />
-            : "MembersReact" in initial.data && initial.data.MembersReact
-            ? <TeamMembersPage data={initial.data as TeamMembersData} />
-            : "InvitesReact" in initial.data && initial.data.InvitesReact
-            ? <TeamInvitesPage data={initial.data as TeamInvitesData} />
-            : "SectionsReact" in initial.data && initial.data.SectionsReact
-            ? <SectionsPage data={initial.data as SectionsData} />
-            : "WebhooksReact" in initial.data && initial.data.WebhooksReact
-            ? <WebhooksPage data={initial.data as WebhooksData} />
-            : "AuditReact" in initial.data && initial.data.AuditReact
-            ? <AuditPage data={initial.data as AuditData} />
-            : "HelpReact" in initial.data && initial.data.HelpReact
-            ? <HelpPage data={initial.data as HelpData} />
-            : "ImportReact" in initial.data && initial.data.ImportReact
-            ? <ImportPage data={initial.data as ImportData} />
-            : "InviteReact" in initial.data && initial.data.InviteReact
-            ? <InviteAcceptPage data={initial.data as InviteAcceptData} />
-            : "AuthReact" in initial.data && initial.data.AuthReact
-            ? <AuthPage data={initial.data as AuthPageData} />
-            : "Sessions" in initial.data
-            ? <ProjectDetail data={initial.data as ProjectDetailData} />
-            : "ShowArchived" in initial.data
-            ? <ProjectList data={initial.data as ProjectListData} />
-            : <DashboardApp initial={initial.data as DashboardData} restoreFocus={restoreFocus} />}
-        </Suspense>
-        </ApplicationShell>
-      </StrictMode>
-    )
+    createRoot(root).render(<StrictMode><AppRouter initial={initial} /></StrictMode>)
   } catch (error) {
     console.error("Could not initialize dashboard", error)
   }
