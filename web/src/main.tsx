@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { AuditData, AuthPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, AuthPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -144,7 +144,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     </div>
   }
 
-  return <div className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
+  return <main className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
     <h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
@@ -189,7 +189,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     </CardContent></Card>}
     {data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex justify-between gap-3 text-sm"><a className="underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours}, {item.Amount}</span></div>)}</CardContent></Card>}
     {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
-  </div>
+  </main>
 }
 
 function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; failure: { field: string; message: string } | null; onSubmit: (fields: Record<string, string>) => Promise<boolean>; busy: boolean }) {
@@ -322,6 +322,42 @@ function parseBootstrap(html: string): { bootstrap: ReactPageBootstrap; title: s
   }
 }
 
+function preloadInitialPage(data: ReactPageData): Promise<unknown> {
+  if ("NewProject" in data && data.NewProject) return import("@/projects/project-create")
+  if ("GoalsReact" in data && data.GoalsReact) return import("@/goals/goals-page")
+  if ("ReactTags" in data && data.ReactTags) return import("@/tags/tags-page")
+  if ("GraphReact" in data && data.GraphReact) return import("@/graph/graph-page")
+  if ("TimesheetReact" in data && data.TimesheetReact) return import("@/timesheet/timesheet-page")
+  if ("PayrollReact" in data && data.PayrollReact) return import("@/payroll/payroll-page")
+  if ("ScheduleReact" in data && data.ScheduleReact) return import("@/schedule/schedule-page")
+  if ("InvoicesReact" in data && data.InvoicesReact) return import("@/invoices/invoices-page")
+  if (("InvoiceReact" in data && data.InvoiceReact) || ("InvoiceActReact" in data && data.InvoiceActReact)) return import("@/invoices/invoices-page")
+  if ("ByProject" in data && "Sessions" in data && data.Active === "stats") return import("@/stats/stats-page")
+  if ("ReportRunReact" in data && data.ReportRunReact) return import("@/reports/reports-page")
+  if ("ReportsReact" in data && data.ReportsReact) return import("@/reports/reports-page")
+  if ("ReportsEnabled" in data) return import("@/export/export-page")
+  if ("MarketReact" in data && data.MarketReact) return import("@/integrations/integrations-page")
+  if ("IntegrationReact" in data && data.IntegrationReact) return import("@/integrations/integrations-page")
+  if ("IntegrationsReact" in data && data.IntegrationsReact) return import("@/integrations/integrations-page")
+  if ("TokensReact" in data && data.TokensReact) return import("@/settings/tokens-page")
+  if ("ProfileReact" in data && data.ProfileReact) return import("@/settings/profile-page")
+  if ("PrefsReact" in data && data.PrefsReact) return import("@/settings/preferences-page")
+  if ("NotificationsReact" in data && data.NotificationsReact) return import("@/settings/notifications-page")
+  if ("TeamSettingsReact" in data && data.TeamSettingsReact) return import("@/settings/team-settings-page")
+  if ("MembersReact" in data && data.MembersReact) return import("@/settings/team-members-page")
+  if ("InvitesReact" in data && data.InvitesReact) return import("@/settings/team-invites-page")
+  if ("SectionsReact" in data && data.SectionsReact) return import("@/settings/sections-page")
+  if ("WebhooksReact" in data && data.WebhooksReact) return import("@/settings/webhooks-page")
+  if ("AuditReact" in data && data.AuditReact) return import("@/settings/audit-page")
+  if ("HelpReact" in data && data.HelpReact) return import("@/help/help-page")
+  if ("ImportReact" in data && data.ImportReact) return import("@/import/import-page")
+  if ("InviteReact" in data && data.InviteReact) return import("@/settings/invite-accept-page")
+  if ("AuthReact" in data && data.AuthReact) return import("@/auth/auth-page")
+  if ("Sessions" in data) return import("@/projects/project-detail")
+  if ("ShowArchived" in data) return import("@/projects/project-list")
+  return Promise.resolve()
+}
+
 function AppRouter({ initial }: { initial: ReactPageBootstrap }) {
   const [route, setRoute] = useState(() => ({
     bootstrap: initial,
@@ -429,7 +465,9 @@ function AppRouter({ initial }: { initial: ReactPageBootstrap }) {
 if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap
-    createRoot(root).render(<StrictMode><AppRouter initial={initial} /></StrictMode>)
+    void preloadInitialPage(initial.data).then(() => {
+      if (root.isConnected) createRoot(root).render(<StrictMode><AppRouter initial={initial} /></StrictMode>)
+    }).catch(error => console.error("Could not load initial page", error))
   } catch (error) {
     console.error("Could not initialize dashboard", error)
   }

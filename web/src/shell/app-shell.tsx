@@ -31,7 +31,6 @@ function AccountMenu({ shell }: { shell: AppShellData }) {
   return <details className="relative"><summary className="app-shell-account">{shell.user.name}</summary><div className="app-shell-popover right-0"><div className="px-2 pb-2"><div className="text-xs text-muted-foreground">{t(shell.lang, "nav.signedInAs")}</div><div className="truncate text-sm">{shell.user.email}</div></div>{shell.canManage && <a className="app-shell-popover-item" href="/settings/team">{t(shell.lang, "nav.teamSettings")}</a>}<a className="app-shell-popover-item" href="/settings/profile">{t(shell.lang, "nav.profile")}</a><a className="app-shell-popover-item" href="/settings/tokens">{t(shell.lang, "nav.tokens")}</a><a className="app-shell-popover-item" href="/help">{t(shell.lang, "nav.help")}</a>{shell.mods?.integrations !== false && <a className="app-shell-popover-item" href="/integrations">{t(shell.lang, "nav.integrations")}</a>}<button type="button" data-install hidden className="app-shell-popover-item">{t(shell.lang, "pwa.installTitle")}</button><Separator className="my-1" /><form method="post" action="/api/logout"><input type="hidden" name="csrf_token" value={shell.csrfToken} /><button className="app-shell-popover-item" type="submit">{t(shell.lang, "nav.logout")}</button></form></div></details>
 }
 export function ApplicationShell({ shell, children }: { shell: AppShellData; children: ReactNode }) {
-  const Main = shell.active === "dashboard" ? "main" : "div"
   return <TooltipProvider><SidebarProvider className="app-shell-provider min-h-svh bg-background text-foreground">
     <a href="#main" className="app-shell-skip">{t(shell.lang, "nav.skip")}</a>
     {shell.user && <AppSidebar shell={shell} themeControl={<ThemeControl shell={shell} />} />}
@@ -44,7 +43,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
           <div className="app-shell-actions"><AccountMenu shell={shell} /></div>
         </div>
       </header>}
-      <Main id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</Main>
+      <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
       {shell.user && <footer className="app-shell-footer"><span>{t(shell.lang, "version")}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><button type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={t(shell.lang, "nav.language")}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
     </div>
   </SidebarProvider></TooltipProvider>
