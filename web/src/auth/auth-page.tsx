@@ -1,8 +1,9 @@
-import { Link2, LogIn, Mail, Plus } from "lucide-react"
+import { Activity, Mail, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { LoginForm } from "@/components/login-form"
 import { translate as t } from "@/i18n"
 import type { AuthPageData } from "@/dashboard/types"
 
@@ -12,15 +13,17 @@ function nextHref(path: string, next: string) {
 
 export function AuthPage({ data }: { data: AuthPageData }) {
   const lang = data.Lang || "en"
+  if (data.AuthReact === "login") return <main className="flex min-h-svh w-full items-center justify-center bg-muted/30 px-4 py-10 sm:px-6">
+    <div className="flex w-full max-w-sm flex-col gap-6">
+      <a href="/" className="flex items-center justify-center gap-2 self-center font-medium" aria-label="paratrack">
+        <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="size-4" aria-hidden="true" /></span>
+        <span className="text-lg tracking-tight">paratrack</span>
+      </a>
+      <LoginForm data={data} />
+    </div>
+  </main>
   return <main className="mx-auto mt-12 w-full max-w-md">
     <Card><CardContent className="grid gap-3 p-6">
-      {data.AuthReact === "login" && <>
-        <h1 className="text-xl font-semibold">{t(lang, "auth.welcomeBack")}</h1><p className="mb-1 text-sm text-muted-foreground">{t(lang, "auth.signInContinue")}</p>
-        {data.ErrorMsg && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{data.ErrorMsg}</p>}
-        <form method="post" action="/api/login" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="next" value={data.Next} /><div className="grid gap-1.5"><Label htmlFor="email">{t(lang, "auth.email")}</Label><Input id="email" type="email" name="email" required autoComplete="email" defaultValue={data.Email} autoFocus /></div><div className="grid gap-1.5"><Label htmlFor="password">{t(lang, "auth.password")}</Label><Input id="password" type="password" name="password" required autoComplete="current-password" /></div><Button type="submit" className="mt-1 w-full"><LogIn aria-hidden="true" />{t(lang, "auth.signIn")}</Button></form>
-        {data.SSO && <Button asChild variant="ghost" className="w-full"><a href="/sso/login"><Link2 aria-hidden="true" />{t(lang, "auth.sso")}</a></Button>}
-        <p className="mt-2 text-center text-sm text-muted-foreground">{t(lang, "auth.noAccount")} <a href={nextHref("/register", data.Next)} className="underline underline-offset-4">{t(lang, "nav.signup")}</a></p><p className="text-center text-sm"><a href="/forgot-password" className="text-muted-foreground underline underline-offset-4">{t(lang, "auth.forgot")}</a></p>
-      </>}
       {data.AuthReact === "register" && <>
         <h1 className="text-xl font-semibold">{t(lang, "auth.createAccount")}</h1><p className="mb-1 text-sm text-muted-foreground">{t(lang, "auth.registerBlurb")}</p>
         {data.ErrorMsg && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{data.ErrorMsg}</p>}

@@ -142,19 +142,17 @@ def main() -> int:
         nav_text = page.locator(".app-shell-desktop-nav").inner_text()
         for label in ["Dashboard", "Stats"]:
             check(f"nav has '{label}' link", label in nav_text)
-        # Optional sections move into the top bar as width allows; CSV stays
-        # in More. Exactly one visible link should lead to each destination.
-        more = page.locator('.app-shell-desktop-nav .app-shell-more-trigger')
-        more.click()
+        # The shadcn sidebar exposes optional sections directly instead of
+        # nesting destinations behind the former top-bar More menu.
         check("Graph has one visible destination", page.locator('.app-shell-desktop-nav a[href="/graph"]:visible').count() == 1)
-        check("More menu opens export settings", page.locator('.app-shell-desktop-nav a[href="/export"]').count() == 1)
-        page.keyboard.press("Escape")
+        check("sidebar shows export destination", page.locator('.app-shell-desktop-nav a[href="/export"]:visible').count() == 1)
         for width in (1024, 1152, 1280, 1440):
             page.set_viewport_size({"width": width, "height": 900})
             check(
-                f"header destinations fit at {width}px",
+                f"sidebar destinations fit at {width}px",
                 page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
-                and page.locator('.app-shell-desktop-nav .app-shell-more-trigger').is_visible(),
+                and page.locator('.app-shell-desktop-nav').is_visible()
+                and page.locator('.app-shell-desktop-nav a[href="/projects"]').is_visible(),
             )
         page.set_viewport_size({"width": 1280, "height": 900})
         check(
@@ -179,68 +177,41 @@ def main() -> int:
                   and page.locator('table.week-grid').count() == 0)
         page.goto(BASE + "/")
         page.set_viewport_size({"width": 390, "height": 844})
-        more_tab = page.locator('.app-shell-tabbar button')
-        sheet = page.locator('.app-shell-sheet')
-        more_tab.click()
+        sidebar_trigger = page.locator('.app-shell-header [data-sidebar="trigger"]')
+        sheet = page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
+        sidebar_trigger.click()
         expect(sheet).to_be_visible()
-        check("mobile More sheet has one accessible grab-to-close control",
-              sheet.locator('.app-shell-sheet-grab[aria-label="Close"]').count() == 1
-              and sheet.get_attribute('aria-modal') == 'true')
-        page.wait_for_timeout(300)  # Capture the open sheet, not its entrance animation.
-        page.screenshot(path=str(SCREENSHOTS / "01-more-sheet-mobile.png"))
-        sheet.locator('.app-shell-sheet-grab').click()
-        check("mobile More sheet closes by tapping grab", not sheet.is_visible())
-        more_tab.click()
-        page.mouse.click(10, 10)
-        check("mobile More sheet closes via backdrop", not sheet.is_visible())
-        more_tab.click()
+        check("shadcn mobile sidebar is an accessible dialog with all destinations",
+              sheet.get_attribute('role') == 'dialog'
+              and sheet.locator('a[href="/export"]').count() == 1)
+        page.wait_for_timeout(300)
+        page.screenshot(path=str(SCREENSHOTS / "01-sidebar-mobile.png"))
+        sheet.get_by_role("button", name="Close").click()
+        check("mobile sidebar closes from its close button", not sheet.is_visible())
+        sidebar_trigger.click()
+        page.mouse.click(380, 400)
+        check("mobile sidebar closes via backdrop", not sheet.is_visible())
+        sidebar_trigger.click()
         page.keyboard.press("Escape")
-        check("mobile More sheet closes via Escape", not sheet.is_visible())
-        # Real synthesized Chromium touch input: list scroll must not drag
-        # the dialog; only the always-visible handle can dismiss it.
+        check("mobile sidebar closes via Escape", not sheet.is_visible())
         touch_context = browser.new_context(
             viewport={"width": 390, "height": 650}, is_mobile=True,
             has_touch=True, storage_state=context.storage_state(),
         )
         touch_page = touch_context.new_page()
         touch_page.goto(BASE + "/")
-        touch_page.locator('.app-shell-tabbar button').click()
+        touch_page.locator('.app-shell-header [data-sidebar="trigger"]').click()
         touch_page.wait_for_timeout(300)
-        touch_sheet = touch_page.locator('.app-shell-sheet')
-        scroller = touch_sheet.locator('.app-shell-sheet-content')
-        top = touch_sheet.evaluate('el => el.getBoundingClientRect().top')
-        body_scroll = touch_page.evaluate('document.scrollingElement.scrollTop')
-        cdp = touch_context.new_cdp_session(touch_page)
-
-        def swipe(x, y, distance):
-            cdp.send('Input.dispatchTouchEvent', {'type': 'touchStart', 'touchPoints': [{'x': x, 'y': y}]})
-            for step in range(1, 9):
-                cdp.send('Input.dispatchTouchEvent', {'type': 'touchMove',
-                         'touchPoints': [{'x': x, 'y': y + distance * step / 8}]})
-                touch_page.wait_for_timeout(15)
-            cdp.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
-            touch_page.wait_for_timeout(250)
-
-        swipe(185, 530, -330)
-        check("More list scrolls while sheet and page stay put",
-              scroller.evaluate('el => el.scrollTop') > 0
-              and abs(touch_sheet.evaluate('el => el.getBoundingClientRect().top') - top) < 1
-              and touch_page.evaluate('document.scrollingElement.scrollTop') == body_scroll)
-        check("More handle stays visible after scrolling",
-              touch_sheet.locator('.app-shell-sheet-grab').is_visible())
-        scrolled_down = scroller.evaluate('el => el.scrollTop')
-        swipe(185, 350, 250)
-        check("dragging the list back up does not close the sheet",
-              touch_sheet.is_visible()
-              and scroller.evaluate('el => el.scrollTop') < scrolled_down)
-        grab_box = touch_sheet.locator('.app-shell-sheet-grab').bounding_box()
-        swipe(grab_box['x'] + grab_box['width'] / 2,
-              grab_box['y'] + grab_box['height'] / 2, 170)
-        check("handle swipe dismisses the sheet", not touch_sheet.is_visible())
-        touch_page.locator('.app-shell-tabbar button').click()
-        check("reopened More sheet starts at top", scroller.evaluate('el => el.scrollTop') == 0)
+        touch_sheet = touch_page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
+        scroller = touch_sheet.locator('[data-sidebar="content"]')
+        check("shadcn mobile sidebar keeps navigation scrollable without page overflow",
+              scroller.evaluate('el => getComputedStyle(el).overflowY') == 'auto'
+              and touch_sheet.locator('a[href="/export"]').is_visible()
+              and touch_page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+        touch_page.keyboard.press('Escape')
+        check("touch sidebar returns focus after closing", not touch_sheet.is_visible())
         touch_context.close()
-        more_tab.click()
+        sidebar_trigger.click()
         sheet.locator('a[href="/export"]').click()
         expect(page.locator("#main h1")).to_be_visible()
         check("mobile Export explains sessions and offers a summary route",
@@ -371,7 +342,6 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 5
         print("\n== 5. Graph page")
-        page.locator('.app-shell-desktop-nav .app-shell-more-trigger').click()
         page.locator('.app-shell-desktop-nav a[href="/graph"]:visible').click()
         page.wait_for_url("**/graph")
         # The seeded sessions use a synthetic future end; a complete week
@@ -476,7 +446,7 @@ def main() -> int:
         dark_card = project_card.evaluate("el => getComputedStyle(el).backgroundColor")
         dark_text = project_card.locator("h2").evaluate("el => getComputedStyle(el).color")
         check("React project card follows dark theme tokens",
-              dark_card == "rgb(26, 29, 35)" and dark_text == "rgb(229, 231, 235)",
+              dark_card == "oklch(0.205 0 0)" and dark_text == "oklch(0.985 0 0)",
               f"card={dark_card}, text={dark_text}")
         project_card.evaluate("(el, theme) => document.documentElement.dataset.theme = theme", original_theme)
         page.get_by_role("link", name="Show archived").click()
@@ -542,15 +512,16 @@ def main() -> int:
         # on the intermediate layout. Change display text only, then reload.
         for width in (390, 768, 1024, 1280):
             page.set_viewport_size({"width": width, "height": 900})
-            short_width = project_select.evaluate("el => el.getBoundingClientRect().width")
             project_select.evaluate("el => { el.style.maxWidth = '10rem'; el.title = 'A very long project name that must not move the timer columns'; }")
             if width == 768:
                 page.screenshot(path=str(SCREENSHOTS / "11-project-long-name.png"))
+            activity_width = page.locator('#active-list .ledger-activity').last.evaluate(
+                "el => el.getBoundingClientRect().width")
+            select_width = project_select.evaluate("el => el.getBoundingClientRect().width")
+            no_overflow = page.evaluate("document.documentElement.scrollWidth <= innerWidth")
             check(f"long project keeps activity visible at {width}px",
-                  page.locator('#active-list .ledger-activity').last.evaluate(
-                      "el => el.getBoundingClientRect().width > 36")
-                  and project_select.evaluate("el => el.getBoundingClientRect().width <= 160")
-                  and page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
+                  activity_width > 36 and select_width <= 160 and no_overflow,
+                  f"activity={activity_width:.1f}px, project={select_width:.1f}px, no-overflow={no_overflow}")
             project_select.evaluate("el => { el.style.maxWidth = ''; el.removeAttribute('title'); }")
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
@@ -763,12 +734,12 @@ def main() -> int:
         page.reload()
         page.wait_for_load_state("load")
         page.wait_for_timeout(150)
-        page.locator('.app-shell-actions [data-theme-toggle]:visible').click()  # auto → light
+        page.locator('[data-theme-toggle]:visible').click()  # auto → light
         page.wait_for_function(
             "() => document.documentElement.dataset.theme === 'paratrack-light'",
             timeout=2000,
         )
-        page.locator('.app-shell-actions [data-theme-toggle]:visible').click()  # light → dark
+        page.locator('[data-theme-toggle]:visible').click()  # light → dark
         # Wait for the attribute to actually flip before checking.
         page.wait_for_function(
             "() => document.documentElement.dataset.theme === 'paratrack-dark'",
@@ -925,9 +896,13 @@ def main() -> int:
             page.goto(BASE + "/stats?period=month")
             expect(page.locator("#main h1")).to_have_text("Stats")
             breakdown = page.locator('#main [data-slot="card"]').nth(1)
+            available_width = page.locator('#main').evaluate('''el => {
+              const style = getComputedStyle(el);
+              return el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+            }''')
             check(f"stats breakdown uses available width at {width}px",
                   breakdown.count() == 1
-                  and breakdown.evaluate('e => e.getBoundingClientRect().width >= Math.min(innerWidth - 32, 720)')
+                  and breakdown.evaluate('(e, width) => e.getBoundingClientRect().width >= Math.min(width, 720)', available_width)
                   and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         # Mobile tables: report rows must keep every figure readable without
         # enlarging the page; inline date editing must fit on a 320px phone.
@@ -1194,17 +1169,23 @@ def main() -> int:
             page.evaluate('(theme) => document.documentElement.dataset.theme = theme', theme)
             ratio = page.locator('#activity').evaluate('''e => {
               const ctx = document.createElement('canvas').getContext('2d', {willReadFrequently: true});
-              const rgb = color => {
+              const paint = (base, overlay) => {
                 ctx.canvas.width = ctx.canvas.height = 1;
-                ctx.fillStyle = color;
+                ctx.fillStyle = base;
                 ctx.fillRect(0, 0, 1, 1);
+                if (overlay) {
+                  ctx.fillStyle = overlay;
+                  ctx.fillRect(0, 0, 1, 1);
+                }
                 return [...ctx.getImageData(0, 0, 1, 1).data].slice(0, 3);
               };
-              const lum = color => rgb(color).map(c => c / 255)
+              const lum = rgb => rgb.map(c => c / 255)
                 .map(c => c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4)
                 .reduce((sum, c, i) => sum + c * [.2126, .7152, .0722][i], 0);
-              const fg = lum(getComputedStyle(e, '::placeholder').color);
-              const bg = lum(getComputedStyle(e).backgroundColor);
+              const card = e.closest('[data-slot="card"]');
+              const cardColor = card ? getComputedStyle(card).backgroundColor : 'white';
+              const fg = lum(paint('black', getComputedStyle(e, '::placeholder').color));
+              const bg = lum(paint(cardColor, getComputedStyle(e).backgroundColor));
               return (Math.max(fg, bg) + .05) / (Math.min(fg, bg) + .05);
             }''')
             colors = page.locator('#activity').evaluate('''e => ({
