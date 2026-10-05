@@ -183,19 +183,18 @@ func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 			t.Errorf("invoice page lacks %q", want)
 		}
 	}
-	issuer := `class="font-medium">U</dd>`
-	if !strings.Contains(page, issuer) {
-		t.Fatalf("invoice page did not render the personal workspace owner's name: %q", issuer)
+	if reactData[invoiceDetailPage](t, page).Seller != "U" {
+		t.Fatal("invoice bootstrap lacks the personal workspace owner's name")
 	}
 	act := readBody(t, e.do("GET", loc+"/act", nil, nil))
 	if !strings.Contains(act, `"InvoiceActReact":true`) {
 		t.Error("act page did not bootstrap its React view")
 	}
-	if !strings.Contains(act, "Акт выполненных работ") {
+	if !reactData[invoiceDetailPage](t, act).InvoiceActReact {
 		t.Error("act page missing heading")
 	}
-	if !strings.Contains(act, issuer) {
-		t.Errorf("act page did not use the same issuer as the invoice: %q", issuer)
+	if reactData[invoiceDetailPage](t, act).Seller != "U" {
+		t.Error("act page did not use the same issuer as the invoice")
 	}
 	pdf := e.do("GET", loc+"/act.pdf", nil, nil)
 	b := readBody(t, pdf)

@@ -95,10 +95,14 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 	}
 	carrier, isReactPage := data.(reactPageCarrier)
 	useReact := isReactPage && carrier.usesReactApp()
-	content, err := s.executeTemplate(contentTpl, data)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
+	var content []byte
+	if !useReact {
+		var err error
+		content, err = s.executeTemplate(contentTpl, data)
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
 	}
 	wrapper := pageData{
 		CanManage:   canManage(r),

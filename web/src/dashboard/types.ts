@@ -67,6 +67,7 @@ export interface UnbilledItem {
 }
 
 export interface DashboardData {
+  Mode?: "solo" | "freelance" | "studio" | "custom"
   Title: string
   Active: string
   User?: { ID: number; Email: string; Name: string } | null
@@ -144,6 +145,7 @@ export interface ProjectDetailData {
 }
 
 export interface ProjectCreateData {
+  Mods?: Record<string, boolean> | null
   Title: string
   Active: string
   ReactApp: boolean
@@ -228,6 +230,7 @@ export interface TimesheetCell {
 }
 
 export interface TimesheetRow {
+  ProjectID: number
   ActivityID: number
   ActivityName: string
   Color: string
@@ -256,6 +259,7 @@ export interface TimesheetData {
   CSRFToken: string
   Days: TimesheetDay[]
   Rows: TimesheetRow[]
+  ProjectNames: Record<string, string>
   DayTotalLabels: string[]
   GrandTotal: number
   GrandTotalLabel: string

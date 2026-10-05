@@ -1,3 +1,4 @@
+import { requestConfirmation } from "@/components/confirmation-dialog"
 import * as React from "react"
 import { Plus, Tag as TagIcon, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -42,7 +43,7 @@ export function TagsPage({ data }: { data: TagsData }) {
   }
 
   async function remove(tag: TagView) {
-    if (!window.confirm(t(lang, "tags.confirmDelete"))) return
+    if (!await requestConfirmation(t(lang, "tags.confirmDelete"))) return
     setBusy(true); setError("")
     try { await send(`/api/tags?id=${tag.ID}`, "DELETE"); await refresh() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }

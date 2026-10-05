@@ -3,7 +3,7 @@ import { Bell, BellOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { translate as t } from "@/i18n"
-import { SettingsNav } from "@/settings/settings-nav"
+import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { NotificationsData } from "@/dashboard/types"
 
 function vapidBytes(key: string): Uint8Array {
@@ -74,7 +74,7 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
   }
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
+    <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Card><CardHeader><CardTitle>{t(lang, "push.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.blurb")}</p></CardHeader><CardContent className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2"><Button type="button" onClick={() => void enable()} disabled={busy || checking || active}><Bell aria-hidden="true" />{t(lang, "push.enable")}</Button>{active && <Button type="button" variant="outline" onClick={() => void disable()} disabled={busy}><BellOff aria-hidden="true" />{t(lang, "push.disable")}</Button>}</div>

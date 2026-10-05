@@ -21,6 +21,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	data.Mode = presetKeyForModules(s.teamModules(r))
 	s.render(w, r, "dashboard-content", &data)
 }
 
@@ -39,6 +40,7 @@ func (s *Server) handleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalJSONError(w, err)
 		return
 	}
+	data.Mode = presetKeyForModules(s.teamModules(r))
 	data.setManage(canManage(r))
 	data.setModules(s.userModules(r))
 	data.setWidgets(prefsOf(r).HiddenWidgets)

@@ -44,7 +44,8 @@ import { paratrackToast } from '/static/js/app-toast.js';
   }
 
   // Running timers: count on the app icon (installed PWA) and in the tab title.
-  const baseTitle = document.title;
+  let baseTitle = document.title;
+  document.addEventListener('paratrack:languagechange', () => { baseTitle = document.title; sync(); });
   const sync = () => {
     const list = document.getElementById('active-list');
     if (!list) return;

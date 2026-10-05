@@ -21,7 +21,7 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 	if page := readBody(t, e.do("GET", "/", nil, nil)); !strings.Contains(page, `"invoices":true`) {
 		t.Fatal("the owner's menu has no invoices")
 	}
-	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !strings.Contains(w, `name="preset" value="solo"`) {
+	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !reactData[sectionsPage](t, w).Welcome || len(reactData[sectionsPage](t, w).Presets) != 3 {
 		t.Fatal("welcome has no presets")
 	}
 
@@ -32,6 +32,9 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 		t.Errorf("welcome save goes to %q", resp.Header.Get("Location"))
 	}
 	page := readBody(t, e.do("GET", "/", nil, nil))
+	if mode := reactData[dashboardData](t, page).Mode; mode != "solo" {
+		t.Fatalf("dashboard mode = %q, want solo", mode)
+	}
 	for _, off := range []string{`"invoices":false`, `"payroll":false`, `"schedule":false`} {
 		if strings.Contains(page, off) {
 			t.Errorf("solo menu still links %s", off)
@@ -58,10 +61,30 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 	if !strings.Contains(page, `"invoices":true`) || strings.Contains(page, `href="/graph"`) {
 		t.Error("custom set not applied")
 	}
+	if mode := reactData[dashboardData](t, page).Mode; mode != "custom" {
+		t.Fatalf("dashboard mode = %q, want custom", mode)
+	}
 	// Nothing ticked is a real choice (core only), not "everything".
 	resp = e.do("POST", "/api/team/modules", url.Values{}, nil)
 	resp.Body.Close()
 	if page := readBody(t, e.do("GET", "/", nil, nil)); strings.Contains(page, `"invoices":true`) {
 		t.Error("an all-off choice fell back to everything")
+	}
+}
+
+func TestPresetKeyForModules(t *testing.T) {
+	for _, preset := range presets {
+		selected := map[string]bool{}
+		for _, key := range preset.Modules {
+			selected[key] = true
+		}
+		if got := presetKeyForModules(selected); got != preset.Key {
+			t.Errorf("preset %s resolved to %s", preset.Key, got)
+		}
+	}
+	for _, selected := range []map[string]bool{nil, {}, {"invoices": true}, {"schedule": true}} {
+		if got := presetKeyForModules(selected); got != "custom" {
+			t.Errorf("custom set %+v resolved to %s", selected, got)
+		}
 	}
 }

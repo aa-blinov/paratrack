@@ -1,3 +1,4 @@
+import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -20,6 +21,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   const [data, setData] = React.useState(initial)
   const [drafts, setDrafts] = React.useState<Record<string, string>>({})
   const [saving, setSaving] = React.useState<string | null>(null)
+  const [saved, setSaved] = React.useState<{ activity: string; date: string } | null>(null)
   const [error, setError] = React.useState("")
   const [newActivity, setNewActivity] = React.useState("")
   const lang = data.Lang
@@ -30,15 +32,15 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     const key = cellKey(row.ActivityID, cell.Index)
     const minutes = value.trim() === "" ? 0 : Number(value)
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
+      setSaved(null)
       setError(t(lang, "err.invalidInput"))
-      setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
       return
     }
     if (minutes === cell.Min) {
       setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
       return
     }
-    setSaving(key); setError("")
+    setSaving(key); setError(""); setSaved(null)
     const body = new URLSearchParams({ csrf_token: data.CSRFToken, activity_id: String(row.ActivityID), date: cell.ISO, minutes: String(minutes) })
     try {
       const response = await fetch("/api/timesheet/cell", {
@@ -49,6 +51,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       if (!response.ok) throw new Error((await response.text()).replace(/<[^>]*>/g, " ").trim() || response.statusText)
       const update = await response.json() as CellResponse
       if (update.error) throw new Error(update.error)
+      setSaved({ activity: row.ActivityName, date: cell.ISO })
       setData(previous => ({
         ...previous,
         Rows: previous.Rows.map(existing => existing.ActivityID === update.activityId ? {
@@ -65,7 +68,6 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
-      setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
     } finally { setSaving(null) }
   }
 
@@ -88,41 +90,44 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       </nav>
     </header>
 
+    <p className="text-sm text-muted-foreground">{t(lang, "ts.saveHint")}</p>
+    <p role="status" aria-live="polite" className="min-h-5 text-sm">{saving ? t(lang, "ts.saving") : saved ? t(lang, "ts.saved", saved.activity, saved.date) : ""}</p>
+    <p className="text-xs text-muted-foreground sm:hidden">{t(lang, "ts.scrollHint")}</p>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
     {data.Rows.length ? <Card className="overflow-hidden"><CardContent className="overflow-x-auto p-0">
-      <table className="week-grid w-full min-w-[48rem] border-collapse text-sm" aria-busy={saving !== null}>
+      <Table className="week-grid w-full min-w-[48rem] border-collapse text-sm" aria-busy={saving !== null}>
         <colgroup><col className="week-name-col" /><col span={7} /><col className="week-total-col" /></colgroup>
-        <thead><tr className="border-b">
-          <th className="sticky left-0 z-10 bg-card px-3 py-3 text-left font-medium">{t(lang, "dash.activity")}</th>
-          {data.Days.map(day => <th key={day.ISO} className={`px-1 py-2 text-center font-medium ${day.IsToday ? "bg-muted" : ""}`}><span className="block text-xs uppercase tracking-wider text-muted-foreground">{day.Label}</span><span className="font-mono text-base">{day.Date}</span></th>)}
-          <th className="px-3 py-2 text-right font-medium">{t(lang, "stats.total")}</th>
-        </tr></thead>
-        <tbody id="ts-body">
-          {data.Rows.map(row => <tr key={row.ActivityID} id={`ts-row-${row.ActivityID}`} className="border-b last:border-0">
-            <th scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name flex min-w-0 items-center gap-2" title={row.ActivityName}><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} /><span className="truncate">{row.ActivityName}</span></span></th>
+        <TableHeader><TableRow className="border-b">
+          <TableHead className="sticky left-0 z-10 bg-card px-3 py-3 text-left font-medium">{t(lang, "dash.activity")}</TableHead>
+          {data.Days.map(day => <TableHead key={day.ISO} className={`px-1 py-2 text-center font-medium ${day.IsToday ? "bg-muted" : ""}`}><span className="block text-xs uppercase tracking-wider text-muted-foreground">{day.Label}</span><span className="font-mono text-base">{day.Date}</span></TableHead>)}
+          <TableHead className="px-3 py-2 text-right font-medium">{t(lang, "stats.total")}</TableHead>
+        </TableRow></TableHeader>
+        <TableBody id="ts-body">
+          {data.Rows.map(row => <TableRow key={row.ActivityID} id={`ts-row-${row.ActivityID}`} className="border-b last:border-0">
+            <TableHead scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name flex min-w-0 items-center gap-2" title={row.ActivityName}><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} /><span className="min-w-0"><span className="block whitespace-normal [overflow-wrap:anywhere]">{row.ActivityName}</span><span className="block whitespace-normal text-xs font-normal text-muted-foreground [overflow-wrap:anywhere]">{data.ProjectNames?.[row.ProjectID] || t(lang, "dash.uncategorized")}</span></span></span></TableHead>
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
-              return <td key={cell.ISO} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
-                <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${cell.ISO}`} disabled={saving !== null} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onBlur={event => void saveCell(row, cell, event.target.value)} />
-              </td>
+              return <TableCell key={cell.ISO} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
+                <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${data.ProjectNames?.[row.ProjectID] || t(lang, "dash.uncategorized")} — ${cell.ISO}`} disabled={saving !== null} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
+              </TableCell>
             })}
-            <td className="whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{row.RowTotalLabel}</td>
-          </tr>)}
-        </tbody>
-        <tfoot><tr className="border-t-2 font-semibold">
-          <th className="sticky left-0 z-10 bg-card px-3 py-2 text-left">{t(lang, "stats.total")}</th>
-          {data.DayTotalLabels.map((label, index) => <td key={data.Days[index].ISO} className="whitespace-normal px-1 py-2 text-center font-mono leading-tight tabular-nums">{label}</td>)}
-          <td className="whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{data.GrandTotalLabel}</td>
-        </tr></tfoot>
-      </table>
+            <TableCell className="whitespace-normal whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{row.RowTotalLabel}</TableCell>
+          </TableRow>)}
+        </TableBody>
+        <TableFooter><TableRow className="border-t-2 font-semibold">
+          <TableHead className="sticky left-0 z-10 bg-card px-3 py-2 text-left">{t(lang, "stats.total")}</TableHead>
+          {data.DayTotalLabels.map((label, index) => <TableCell key={data.Days[index].ISO} className="whitespace-normal px-1 py-2 text-center font-mono leading-tight tabular-nums">{label}</TableCell>)}
+          <TableCell className="whitespace-normal whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{data.GrandTotalLabel}</TableCell>
+        </TableRow></TableFooter>
+      </Table>
     </CardContent></Card> : <Card><CardContent className="flex flex-col items-center py-8 text-center">
       <p className="font-medium">{t(lang, "ts.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "ts.emptyHint")}</p>
       <Button asChild size="sm" className="mt-3"><a href="/"><Plus aria-hidden="true" />{t(lang, "ts.emptyCta")}</a></Button>
     </CardContent></Card>}
 
     {!!data.Others.length && <div className="flex flex-wrap items-center gap-2">
-      <Select value={newActivity} onValueChange={setNewActivity}><SelectTrigger id="ts-add" className="w-full sm:w-72" aria-label={t(lang, "ts.addRow")}><SelectValue placeholder={`${t(lang, "ts.addRow")}…`} /></SelectTrigger><SelectContent>{data.Others.map(activity => <SelectItem key={activity.ID} value={String(activity.ID)}>{activity.Name}</SelectItem>)}</SelectContent></Select>
+      <Select value={newActivity} onValueChange={setNewActivity}><SelectTrigger id="ts-add" className="w-full sm:w-72" aria-label={t(lang, "ts.addRow")}><SelectValue placeholder={`${t(lang, "ts.addRow")}…`} /></SelectTrigger><SelectContent>{data.Others.map(activity => <SelectItem key={activity.ID} value={String(activity.ID)}>{activity.Name} — {data.ProjectNames?.[activity.ProjectID] || t(lang, "dash.uncategorized")}</SelectItem>)}</SelectContent></Select>
       <Button type="button" size="sm" disabled={!newActivity} onClick={addRow}><Plus aria-hidden="true" />{t(lang, "ts.addRowBtn")}</Button>
       <span className="w-full text-xs text-muted-foreground">{t(lang, "ts.addRowHint")}</span>
     </div>}

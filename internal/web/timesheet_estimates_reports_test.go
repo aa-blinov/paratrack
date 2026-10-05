@@ -180,7 +180,7 @@ func TestEstimateUI(t *testing.T) {
 	resp.Body.Close()
 	resp = e.do("GET", "/projects/budgeted", nil, nil)
 	body := readBody(t, resp)
-	if !strings.Contains(body, string(i18n.T(i18n.Default, "est.vsActual"))) {
+	if reactData[projectDetailData](t, body).EstimateInput != "480" {
 		t.Fatalf("missing estimate card, body snippet: %s", body[len(body)/3:len(body)/3+400])
 	}
 	if !strings.Contains(body, fmtDurL(i18n.Default, 8*3600)) {
@@ -197,8 +197,19 @@ func TestTimesheetCellShowsMinutes(t *testing.T) {
 		"activity": {"reading"}, "start": {"2026-09-22 09:00"}, "end": {"2026-09-22 10:30"},
 	}, nil)
 	resp.Body.Close()
+	var projectID int64
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `INSERT INTO projects (team_id, slug, name, color) SELECT team_id, 'reading-project', 'Reading project', '#123456' FROM activities WHERE name = 'reading' RETURNING id`).Scan(&projectID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE activities SET project_id = ? WHERE name = 'reading'`, projectID); err != nil {
+		t.Fatal(err)
+	}
 	body := readBody(t, e.do("GET", "/timesheet?date=2026-09-22", nil, nil))
-	if !strings.Contains(body, `value="90"`) {
+	page := reactData[timesheetData](t, body)
+	if page.ProjectNames[projectID] != "Reading project" || len(page.Rows) != 1 || page.Rows[0].ProjectID != projectID {
+		t.Fatalf("timesheet must identify each activity's project: %+v", page)
+	}
+	if len(reactData[timesheetData](t, body).Rows) != 1 || reactData[timesheetData](t, body).Rows[0].Cells[1].Min != 90 {
 		t.Errorf("timesheet cell should hold 90 minutes")
 	}
 }
