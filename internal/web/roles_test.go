@@ -158,7 +158,7 @@ func TestSharedThingsAreForManagers(t *testing.T) {
 	if roles[devID] != "owner" || roles[ownerID] != "admin" || teamOwner != devID {
 		t.Errorf("after transfer: roles %v, team owner %s", roles, teamOwner)
 	}
-	if page := readBody(t, dev.do("GET", "/settings/members", nil, nil)); !strings.Contains(page, "/api/team/transfer") {
+	if page := readBody(t, dev.do("GET", "/settings/members", nil, nil)); !reactData[settingsPageData](t, page).IsOwner {
 		t.Error("the new owner has no transfer form")
 	}
 }

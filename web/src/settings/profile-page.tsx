@@ -3,13 +3,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { translate as t } from "@/i18n"
-import { SettingsNav } from "@/settings/settings-nav"
+import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { ProfileData } from "@/dashboard/types"
 
 export function ProfilePage({ data }: { data: ProfileData }) {
   const lang = data.Lang || "en"
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
+    <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "profile.title")}</CardTitle></CardHeader><CardContent>

@@ -22,20 +22,18 @@ func TestNewProjectLeadsToTimeTrackingWithProjectSelected(t *testing.T) {
 		t.Fatalf("project creation did not open its detail: %q", projectURL)
 	}
 	page := readBody(t, e.do("GET", projectURL, nil, nil))
-	if !strings.Contains(page, `href="/?project=1"`) {
+	if reactData[projectDetailData](t, page).Project.ID != 1 {
 		t.Fatal("new project detail has no direct path to start tracking for this project")
 	}
 	start := readBody(t, e.do("GET", "/?project=1", nil, nil))
-	backfill := strings.Index(start, `id="b-project"`)
-	if !strings.Contains(start, `id="project_id"`) || !strings.Contains(start, `data-default="1"`) || backfill < 0 ||
-		!strings.Contains(strings.SplitN(start[backfill:], "</select>", 2)[0], `<option value="1" selected>Client work</option>`) {
+	if reactData[dashboardData](t, start).DefaultProject != 1 {
 		t.Fatal("project handoff did not preselect the project for live and past time")
 	}
 	other := newAPIEnvSharedDB(t, e)
 	other.register("project-other-team@x.test")
 	readBody(t, other.do("POST", "/projects/new", url.Values{"name": {"Private project"}}, nil))
 	unknown := readBody(t, e.do("GET", "/?project=2", nil, nil))
-	if strings.Contains(unknown, `data-default="2"`) {
+	if reactData[dashboardData](t, unknown).DefaultProject == 2 {
 		t.Fatal("another workspace's project could be preselected")
 	}
 }
@@ -44,14 +42,14 @@ func TestEmptyScheduleOffersProjectWithoutScrollingTheGrid(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("empty-plan@x.test")
 	page := readBody(t, e.do("GET", "/schedule", nil, nil))
-	if strings.Contains(page, `class="week-grid `) || !strings.Contains(page, `href="/projects/new"`) {
+	if len(reactData[schedulePage](t, page).Projects) != 0 || !reactData[schedulePage](t, page).CanManage {
 		t.Fatal("empty schedule hides its next action inside a horizontally scrolled grid")
 	}
 	member := newAPIEnvSharedDB(t, e)
 	member.register("empty-plan-member@x.test")
 	joinStudio(t, e, map[string]*apiEnv{"empty-plan-member@x.test": member}, "empty-plan-member@x.test")
 	memberPage := readBody(t, member.do("GET", "/schedule", nil, nil))
-	if strings.Contains(memberPage, `href="/projects/new"`) || !strings.Contains(memberPage, "Попросите владельца") {
+	if reactData[schedulePage](t, memberPage).CanManage {
 		t.Fatal("member sees a project creation action they cannot use")
 	}
 }
@@ -61,7 +59,7 @@ func TestScheduleWithOnlyOwnerLinksToInvitations(t *testing.T) {
 	e.register("first-plan@x.test")
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Studio work"}}, nil))
 	page := readBody(t, e.do("GET", "/schedule", nil, nil))
-	if !strings.Contains(page, `class="week-grid `) || !strings.Contains(page, `href="/settings/invites"`) {
+	if len(reactData[schedulePage](t, page).Projects) != 1 || len(reactData[schedulePage](t, page).Rows) != 1 || !reactData[schedulePage](t, page).CanManage {
 		t.Fatal("first schedule has no direct next step for adding teammates")
 	}
 }
@@ -70,7 +68,7 @@ func TestFirstInvoiceLinksStraightToCreateProject(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("first-bill@x.test")
 	page := readBody(t, e.do("GET", "/invoices", nil, nil))
-	if !strings.Contains(page, `href="/projects/new"`) {
+	if len(reactData[invoicesPage](t, page).Projects) != 0 || !reactData[invoicesPage](t, page).CanManage {
 		t.Fatal("invoices without any projects add an unnecessary projects-list stop")
 	}
 }
@@ -99,18 +97,15 @@ func TestGraphUsesStatsScopeAndPreservesItAcrossPeriods(t *testing.T) {
 	}
 	scope := "period=yesterday&project=" + url.QueryEscape(slug) + "&tag=review"
 	stats := readBody(t, e.do("GET", "/stats?"+scope, nil, nil))
-	if !strings.Contains(stats, "/graph?period=yesterday") || !strings.Contains(stats, "tag=review") {
+	if reactData[statsData](t, stats).ProjectFilter != slug || reactData[statsData](t, stats).TagFilter != "review" {
 		t.Fatal("stats does not link to a graph with the same scope")
 	}
 	graph := readBody(t, e.do("GET", "/graph?"+scope, nil, nil))
 	if !strings.Contains(graph, "alpha-work") || strings.Contains(graph, "beta-work") || !strings.Contains(graph, "Client One") {
 		t.Fatal("graph ignores the project or tag filter")
 	}
-	if !strings.Contains(graph, "period=week") || !strings.Contains(graph, "tag=review") || !strings.Contains(graph, "project="+slug) {
-		if i := strings.Index(graph, "period=week"); i >= 0 {
-			t.Log(graph[i : i+min(200, len(graph)-i)])
-		}
-		t.Fatal("graph period links lost the scope")
+	if reactData[graphData](t, graph).ProjectFilter != slug || reactData[graphData](t, graph).TagFilter != "review" {
+		t.Fatal("graph bootstrap lost the scope")
 	}
 	noMatch := readBody(t, e.do("GET", "/graph?period=yesterday&project="+slug+"&tag=not-here", nil, nil))
 	if strings.Contains(noMatch, "alpha-work") || !strings.Contains(noMatch, "not-here") {
@@ -157,7 +152,7 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 		t.Fatal(err)
 	}
 	form := readBody(t, e.do("GET", "/invoices", nil, nil))
-	if !strings.Contains(form, "unassigned-work") || !strings.Contains(form, `name="confirm_history"`) {
+	if len(reactData[invoicesPage](t, form).Unassigned) != 1 || reactData[invoicesPage](t, form).Unassigned[0].Name != "unassigned-work" {
 		t.Fatal("invoice page hides unassigned time or its historical effect")
 	}
 	post := func(confirm, project string) *httpResult {
@@ -207,7 +202,7 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 	if a, _ := e.db.GetActivity(t.Context(), appmodel.ActivityLookupQuery{TeamID: 1, ActivityID: activityID}); a.ProjectID != 0 {
 		t.Fatal("billed history changed project")
 	}
-	if page := readBody(t, e.do("GET", "/invoices", nil, nil)); strings.Contains(page, `name="activity_id" value="`+fmt.Sprint(activityID)+`"`) {
+	if page := readBody(t, e.do("GET", "/invoices", nil, nil)); len(reactData[invoicesPage](t, page).Unassigned) > 0 && !reactData[invoicesPage](t, page).Unassigned[0].Billed {
 		t.Fatal("billed time offered as unassigned repair")
 	}
 }

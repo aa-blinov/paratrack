@@ -131,6 +131,18 @@
 }
 
 #paratrack-react-root .app-shell-provider { display: flex; width: 100%; min-height: 100vh; }
+#paratrack-react-root .app-boot { display: flex; min-height: 100svh; background: var(--background); }
+#paratrack-react-root .app-boot-sidebar { display: none; }
+#paratrack-react-root .app-boot-content { flex: 1; min-width: 0; }
+#paratrack-react-root .app-boot-header { display: flex; align-items: center; min-height: 3.25rem; padding-inline: 1rem; border-bottom: 1px solid var(--border); }
+#paratrack-react-root .app-boot-main { max-width: 72rem; margin-inline: auto; padding: 1.5rem 1rem; }
+#paratrack-react-root .app-boot-main h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -.025em; }
+#paratrack-react-root .app-boot-main p { margin-top: 1rem; color: var(--muted-foreground); }
+@media (min-width: 768px) {
+  #paratrack-react-root .app-boot-sidebar { display: block; flex: 0 0 16rem; padding: 1.25rem; border-right: 1px solid var(--sidebar-border); background: var(--sidebar); }
+  #paratrack-react-root .app-boot-sidebar + .app-boot-content .app-boot-header .app-shell-brand { display: none; }
+  #paratrack-react-root .app-boot-main { padding-inline: 1.5rem; }
+}
 #paratrack-react-root .app-shell-inset { min-width: 0; min-height: 100vh; }
 #paratrack-react-root .app-shell-header { position: sticky; top: 0; z-index: 40; border-bottom: 1px solid var(--border); background: var(--background); }
 #paratrack-react-root .app-shell-header-inner { display: flex; align-items: center; gap: .75rem; width: min(100%, 90rem); min-height: 3.25rem; margin-inline: auto; padding-inline: 1rem; }
@@ -146,9 +158,11 @@
 #paratrack-react-root .app-shell-skip { position: absolute; left: .75rem; top: -5rem; z-index: 100; border: 1px solid var(--border); border-radius: .375rem; background: var(--background); padding: .5rem .75rem; }
 #paratrack-react-root .app-shell-skip:focus { top: .5rem; }
 #paratrack-react-root .app-shell-workspace, #paratrack-react-root .app-shell-account { display: flex; align-items: center; gap: .45rem; max-width: 14rem; min-height: 2.25rem; cursor: pointer; list-style: none; border-radius: .4rem; padding: .4rem .55rem; font-size: .85rem; }
-#paratrack-react-root .app-shell-workspace-label { overflow: hidden; max-width: 14rem; color: var(--muted-foreground); padding-inline: .5rem; text-overflow: ellipsis; white-space: nowrap; font-size: .85rem; }
+#paratrack-react-root .app-shell-workspace-label { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; max-width: 14rem; color: var(--muted-foreground); padding-inline: .5rem; line-height: 1.3; font-size: .85rem; }
 #paratrack-react-root summary::-webkit-details-marker { display: none; }
-#paratrack-react-root .app-shell-workspace { overflow: hidden; white-space: nowrap; }
+#paratrack-react-root .app-shell-workspace { align-items: flex-start; overflow: hidden; }
+#paratrack-react-root .app-shell-workspace > :first-child { min-width: 0; }
+#paratrack-react-root .app-shell-workspace > :last-child:not(:first-child) { margin-top: .18rem; }
 #paratrack-react-root .app-shell-workspace span { color: var(--muted-foreground); }
 #paratrack-react-root .app-shell-popover { position: absolute; z-index: 55; top: calc(100% + .35rem); left: 0; width: max-content; min-width: 13rem; max-width: 20rem; border: 1px solid var(--border); border-radius: .55rem; background: var(--popover); color: var(--popover-foreground); padding: .5rem; }
 #paratrack-react-root .app-shell-popover-item { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .6rem; border-radius: .35rem; padding: .45rem .5rem; text-align: left; font-size: .85rem; }

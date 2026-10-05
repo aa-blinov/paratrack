@@ -4,14 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
-import { SettingsNav } from "@/settings/settings-nav"
+import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { TeamInvitesData } from "@/dashboard/types"
 
 export function TeamInvitesPage({ data }: { data: TeamInvitesData }) {
   const lang = data.Lang || "en"
   const formatDate = (value: string) => new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value))
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
+    <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "team.inviteTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.inviteBlurb")}</p></CardHeader><CardContent><form method="post" action="/api/team/invites" className="grid items-end gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><div className="grid gap-1.5"><Label htmlFor="invite-email">{t(lang, "invite.email")}</Label><Input id="invite-email" type="email" name="email" autoComplete="off" placeholder="colleague@studio.ru" /></div><Button type="submit"><Link2 aria-hidden="true" />{t(lang, "team.generateInvite")}</Button><p className="text-xs text-muted-foreground sm:col-span-2">{t(lang, "invite.emailHint")}</p></form></CardContent></Card>

@@ -32,6 +32,7 @@ type timesheetDay struct {
 type timesheetRow struct {
 	ActivityID    int64
 	ActivityName  string
+	ProjectID     int64
 	Color         string
 	Secs          [7]int
 	Cells         [7]timesheetDay // copy of day headers + this row's secs
@@ -52,6 +53,7 @@ type timesheetData struct {
 	WeekLabel       string // "Sep 22 – Sep 28"
 	Days            []timesheetDay
 	Rows            []timesheetRow
+	ProjectNames    map[int64]string
 	DayTotals       [7]int
 	DayTotalLabels  [7]string
 	GrandTotal      int
@@ -93,6 +95,15 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	projects, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: true})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	projectNames := make(map[int64]string, len(projects))
+	for _, project := range projects {
+		projectNames[project.ID] = project.Name
+	}
 	days := make([]timesheetDay, 7)
 	for i := 0; i < 7; i++ {
 		d := weekStart.AddDate(0, 0, i)
@@ -113,6 +124,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		row := timesheetRow{
 			ActivityID:    rc.ActivityID,
 			ActivityName:  rc.ActivityName,
+			ProjectID:     rc.ProjectID,
 			Color:         colorFor(rc.ActivityName),
 			Secs:          rc.Secs,
 			RowTotal:      rc.RowTotal,
@@ -147,6 +159,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		NextWeek:        weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
 		Days:            days,
 		Rows:            rows,
+		ProjectNames:    projectNames,
 		DayTotals:       grid.DayTotals,
 		DayTotalLabels:  dayTotalLabels,
 		GrandTotal:      grid.GrandTotal,

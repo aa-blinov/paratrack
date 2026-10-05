@@ -1,3 +1,4 @@
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -96,29 +97,29 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
 
       <Card className="overflow-hidden">
         <CardContent className="overflow-x-auto p-0">
-          <table className="week-grid w-full min-w-[48rem] border-collapse text-sm" aria-busy={saving !== null}>
+          <Table className="week-grid w-full min-w-[48rem] border-collapse text-sm" aria-busy={saving !== null}>
             <colgroup><col className="week-name-col" /><col span={7} /><col className="week-total-col" /></colgroup>
-            <thead><tr className="border-b">{[
-              <th key="member" scope="col" className="sticky left-0 z-10 bg-card px-3 py-3 text-left font-medium">{t(lang, "nav.account")}</th>,
-              ...data.Days.map(day => <th key={day.ISO} scope="col" className={`px-1 py-2 text-center font-medium ${day.IsToday ? "bg-muted" : ""}`}><span className="block text-xs uppercase tracking-wider text-muted-foreground">{day.Label}</span><span className="font-mono text-base tabular-nums">{day.Date}</span></th>),
-              <th key="total" scope="col" className="px-3 py-2 text-right font-medium">{t(lang, "stats.total")}</th>,
-            ]}</tr></thead>
-            <tbody>
+            <TableHeader><TableRow className="border-b">{[
+              <TableHead key="member" scope="col" className="sticky left-0 z-10 bg-card px-3 py-3 text-left font-medium">{t(lang, "nav.account")}</TableHead>,
+              ...data.Days.map(day => <TableHead key={day.ISO} scope="col" className={`px-1 py-2 text-center font-medium ${day.IsToday ? "bg-muted" : ""}`}><span className="block text-xs uppercase tracking-wider text-muted-foreground">{day.Label}</span><span className="font-mono text-base tabular-nums">{day.Date}</span></TableHead>),
+              <TableHead key="total" scope="col" className="px-3 py-2 text-right font-medium">{t(lang, "stats.total")}</TableHead>,
+            ]}</TableRow></TableHeader>
+            <TableBody>
               {data.Rows.map(row => {
                 const cells = [
-                  <th key="member" scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name block truncate" title={row.UserName}>{row.UserName}</span><span className="block text-xs font-mono text-muted-foreground">{row.Total}, {row.LoadPct}%</span></th>,
+                  <TableHead key="member" scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name block truncate" title={row.UserName}>{row.UserName}</span><span className="block text-xs font-mono text-muted-foreground">{row.Total}, {row.LoadPct}%</span></TableHead>,
                   ...row.Cells.map(cell => {
                     const key = cellKey(row.UserID, cell.Index)
-                    return <td key={cell.Index} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
+                    return <TableCell key={cell.Index} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
                       {data.CanManage ? <Input type="number" min={0} max={1440} step={30} inputMode="numeric" className="h-10 min-w-11 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min ? String(cell.Min) : "")} placeholder="—" title={`${cell.ISO}: ${t(lang, "sch.dayAll")} ${cell.Total}`} aria-label={`${row.UserName} ${cell.ISO}`} disabled={saving !== null} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onBlur={event => void saveCell(row, cell, event.target.value)} /> : <span className="font-mono tabular-nums" title={`${t(lang, "sch.dayAll")} ${cell.Total}`}>{cell.Min || "—"}</span>}
-                    </td>
+                    </TableCell>
                   }),
-                  <td key="total" className="px-3 py-2 text-right font-mono tabular-nums">{row.Total}</td>,
+                  <TableCell key="total" className="px-3 py-2 text-right font-mono tabular-nums">{row.Total}</TableCell>,
                 ]
-                return <tr key={row.UserID} className="border-b last:border-0">{cells}</tr>
+                return <TableRow key={row.UserID} className="border-b last:border-0">{cells}</TableRow>
               })}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
       <p className="text-sm text-muted-foreground">{t(lang, "sch.hint")}</p>
