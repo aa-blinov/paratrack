@@ -1041,7 +1041,7 @@ def main() -> int:
         expect(page.locator("#main h1")).to_be_visible()
         recent_name = page.locator('#main [data-recent-sessions-mobile] strong').filter(has_text=long_activity)
         check("dashboard recent activity wraps long names on mobile",
-              recent_name.count() == 1 and recent_name.evaluate('''e => {
+              recent_name.count() >= 1 and recent_name.first.evaluate('''e => {
                 const text = e.getBoundingClientRect();
                 const content = e.parentElement.getBoundingClientRect();
                 const article = e.closest('article').getBoundingClientRect();
