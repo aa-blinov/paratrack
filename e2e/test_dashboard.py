@@ -1032,6 +1032,30 @@ def main() -> int:
         expect(page.locator("#main h1")).to_have_text("Stats")
         check("long activity appears in both stats sections",
               page.locator('#main').get_by_text(long_activity, exact=True).count() >= 2)
+        recent_backfill = api(page, 'post', BASE + '/api/sessions/backfill', form={
+            'activity': long_activity, 'start': '1 minute ago', 'end': 'now',
+        })
+        check("long activity is recent enough for the dashboard list", recent_backfill.status == 200)
+        page.set_viewport_size({"width": 320, "height": 844})
+        page.goto(BASE + "/")
+        expect(page.locator("#main h1")).to_be_visible()
+        recent_name = page.locator('#main [data-recent-sessions-mobile] strong').filter(has_text=long_activity)
+        check("dashboard recent activity wraps long names on mobile",
+              recent_name.count() == 1 and recent_name.evaluate('''e => {
+                const text = e.getBoundingClientRect();
+                const content = e.parentElement.getBoundingClientRect();
+                const article = e.closest('article').getBoundingClientRect();
+                const badgesFit = [...e.closest('article').querySelectorAll('[data-slot="badge"]')]
+                  .every(badge => badge.getBoundingClientRect().right <= article.right + 1
+                    && badge.scrollWidth <= badge.clientWidth + 1);
+                return getComputedStyle(e).wordBreak === 'break-all'
+                  && text.right <= content.right + 1
+                  && badgesFit
+                  && document.documentElement.scrollWidth <= innerWidth;
+              }'''))
+        shot(page, "12-dashboard-mobile-long-activity")
+        page.goto(BASE + "/stats?period=yesterday")
+        expect(page.locator("#main h1")).to_have_text("Stats")
         saved_names = ("A very long saved report for the team", "Another saved report for this period")
         for name in saved_names:
             page.fill('#report-save-name', name)
