@@ -237,7 +237,7 @@ if (root && payload) {
     createRoot(root).render(
       <StrictMode>
         <ApplicationShell shell={initial.shell}>
-        <Suspense fallback={<div className="min-h-32 animate-pulse rounded-lg bg-muted" aria-hidden="true" />}>
+        <Suspense fallback={<div className="min-h-32 rounded-lg bg-muted" aria-hidden="true" />}>
           {"NewProject" in initial.data && initial.data.NewProject
             ? <ProjectCreate data={initial.data as ProjectCreateData} />
             : "GoalsReact" in initial.data && initial.data.GoalsReact
