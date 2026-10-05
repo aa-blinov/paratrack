@@ -11,6 +11,19 @@ import type { IntegrationDetailData, IntegrationsData, MarketplaceData } from "@
 
 const providers = ["github", "gitlab", "jira", "trello", "asana", "clickup", "todoist", "notion"]
 const icons: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = { github: GitBranch, gitlab: Activity, jira: Activity, trello: Folder, asana: Check, clickup: Check, todoist: Check, notion: Folder }
+const marketplaceFavicons: Record<string, string> = {
+  github: "/static/integrations/github.svg",
+  gitlab: "/static/integrations/gitlab.png",
+  jira: "/static/integrations/jira.ico",
+  trello: "/static/integrations/trello.ico",
+  asana: "/static/integrations/asana.ico",
+  clickup: "/static/integrations/clickup.png",
+  todoist: "/static/integrations/todoist.png",
+  notion: "/static/integrations/notion.ico",
+  monday: "/static/integrations/monday.png",
+  basecamp: "/static/integrations/basecamp.svg",
+  slack: "/static/integrations/slack.png",
+}
 
 function Flash({ message, ok }: { message: string; ok: boolean }) {
   if (!message) return null
@@ -47,6 +60,6 @@ export function IntegrationDetailPage({ data }: { data: IntegrationDetailData })
 export function MarketplacePage({ data }: { data: MarketplaceData }) {
   const lang = data.Lang || "en"
   return <main className="mx-auto grid w-full max-w-6xl gap-4"><header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "mkt.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "mkt.blurb")}</p></div><Button asChild variant="outline" size="sm"><a href="/integrations"><Link2 aria-hidden="true" />{t(lang, "mkt.manage")}</a></Button></header>
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{data.Items.map(item => { const Icon = icons[item.ID] || Link2; const secret = t(lang, `mkt.${item.ID}.secret`); const target = t(lang, `mkt.${item.ID}.target`); return <Card key={item.ID}><CardContent className="flex h-full flex-col gap-3 p-4"><div className="flex min-w-0 items-center gap-2"><Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" /><h2 className="min-w-0 flex-1 font-semibold">{item.Name}</h2>{item.Connected && <Badge>{t(lang, "mkt.connected")}</Badge>}{!item.Available && <Badge variant="outline">{t(lang, "mkt.soon")}</Badge>}</div><p className="flex-1 text-sm text-muted-foreground">{t(lang, `mkt.${item.ID}.blurb`)}</p>{item.Available && <><Button asChild size="sm" className="self-start"><a href={`/integrations?provider=${encodeURIComponent(item.ID)}`}><Link2 aria-hidden="true" />{t(lang, "mkt.connect")}</a></Button>{(secret || target) && <p className="text-xs text-muted-foreground">{[secret, target].filter(Boolean).join(", ")}</p>}</>}</CardContent></Card>})}</div>
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{data.Items.map(item => { const Icon = icons[item.ID] || Link2; const favicon = marketplaceFavicons[item.ID]; const secret = t(lang, `mkt.${item.ID}.secret`); const target = t(lang, `mkt.${item.ID}.target`); return <Card key={item.ID}><CardContent className="flex h-full flex-col gap-3 p-4"><div className="flex min-w-0 items-center gap-2">{favicon ? <img src={favicon} alt="" aria-hidden="true" width="24" height="24" className="size-6 shrink-0 object-contain" /> : <Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />}<h2 className="min-w-0 flex-1 font-semibold">{item.Name}</h2>{item.Connected && <Badge>{t(lang, "mkt.connected")}</Badge>}{!item.Available && <Badge variant="outline">{t(lang, "mkt.soon")}</Badge>}</div><p className="flex-1 text-sm text-muted-foreground">{t(lang, `mkt.${item.ID}.blurb`)}</p>{item.Available && <><Button asChild size="sm" className="self-start"><a href={`/integrations?provider=${encodeURIComponent(item.ID)}`}><Link2 aria-hidden="true" />{t(lang, "mkt.connect")}</a></Button>{(secret || target) && <p className="text-xs text-muted-foreground">{[secret, target].filter(Boolean).join(", ")}</p>}</>}</CardContent></Card>})}</div>
   </main>
 }
