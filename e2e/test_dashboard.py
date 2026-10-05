@@ -1166,6 +1166,11 @@ def main() -> int:
         expect(page.locator("#main h1")).to_have_text("Integration marketplace")
         check("integration marketplace loads through in-app navigation",
               page.locator("#main").inner_text().lower().find("marketplace") >= 0)
+        favicons = page.locator('#main img[src^="/static/integrations/"]')
+        check("marketplace uses each provider's original favicon",
+              favicons.count() == 11 and favicons.evaluate_all(
+                  "images => images.every(img => img.complete && img.naturalWidth > 0)"),
+              f"loaded={favicons.count()}/11")
 
         # The footer promises shortcuts on every page, not only the overview.
         page.goto(BASE + "/stats")
