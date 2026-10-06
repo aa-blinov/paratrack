@@ -221,41 +221,59 @@ def main() -> int:
                   and page.locator('table.week-grid').count() == 0)
         page.goto(BASE + "/")
         page.set_viewport_size({"width": 390, "height": 844})
-        sidebar_trigger = page.locator('.app-shell-header [data-sidebar="trigger"]')
-        sheet = page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
-        sidebar_trigger.click()
+        # A phone has no drawer: the fixed bottom bar is the navigation and
+        # «Ещё» opens a bottom sheet with the rest.
+        bar = page.locator('[data-mobile-nav]')
+        expect(bar).to_be_visible()
+        # Compared by address, not by label: this suite switches the interface
+        # language on its way here.
+        check("phone navigation is a bottom bar with four destinations and «Ещё»",
+              bar.locator('a').evaluate_all('items => items.map(item => item.getAttribute("href"))')
+              == ["/", "/timesheet", "/stats", "/graph"]
+              and bar.locator("button").count() == 1)
+        sheet_trigger = bar.locator("button")
+        sheet = page.locator('[role="dialog"]')
+        sheet_trigger.click()
         expect(sheet).to_be_visible()
-        check("shadcn mobile sidebar is an accessible dialog with all destinations",
+        check("the «Ещё» sheet is an accessible dialog with every other destination",
               sheet.get_attribute('role') == 'dialog'
-              and sheet.locator('a[href="/export"]').count() == 1)
+              and sheet.locator('a[href="/export"]').count() == 1
+              and sheet.locator('a[href="/help"]').count() == 1
+              and sheet.locator('form[action="/api/logout"]').count() == 1)
         page.wait_for_timeout(300)
         page.screenshot(path=str(SCREENSHOTS / "01-sidebar-mobile.png"))
         sheet.get_by_role("button", name="Close").click()
-        check("mobile sidebar closes from its close button", not sheet.is_visible())
-        sidebar_trigger.click()
-        page.mouse.click(380, 400)
-        check("mobile sidebar closes via backdrop", not sheet.is_visible())
-        sidebar_trigger.click()
+        check("the sheet closes from its close button", not sheet.is_visible())
+        sheet_trigger.click()
+        # The sheet rises from the bottom, so the backdrop is above it: clicking
+        # beside it would land on the sheet itself.
+        sheet_top = sheet.bounding_box()['y']
+        page.mouse.click(195, max(10, sheet_top - 40))
+        check("the sheet closes via backdrop", not sheet.is_visible())
+        sheet_trigger.click()
         page.keyboard.press("Escape")
-        check("mobile sidebar closes via Escape", not sheet.is_visible())
+        check("the sheet closes via Escape", not sheet.is_visible())
         touch_context = browser.new_context(
             viewport={"width": 390, "height": 650}, is_mobile=True,
             has_touch=True, storage_state=context.storage_state(),
         )
         touch_page = touch_context.new_page()
         touch_page.goto(BASE + "/")
-        touch_page.locator('.app-shell-header [data-sidebar="trigger"]').click()
+        touch_bar = touch_page.locator('[data-mobile-nav]')
+        expect(touch_bar).to_be_visible()
+        touch_bar.locator("button").click()
         touch_page.wait_for_timeout(300)
-        touch_sheet = touch_page.locator('[data-sidebar="sidebar"][data-mobile="true"]')
-        scroller = touch_sheet.locator('[data-sidebar="content"]')
-        check("shadcn mobile sidebar keeps navigation scrollable without page overflow",
-              scroller.evaluate('el => getComputedStyle(el).overflowY') == 'auto'
-              and touch_sheet.locator('a[href="/export"]').is_visible()
+        touch_sheet = touch_page.locator('[role="dialog"]')
+        body = touch_sheet.locator('.mobile-nav-sheet-body')
+        check("the «Ещё» sheet scrolls its own list without overflowing the page",
+              body.evaluate('el => getComputedStyle(el).overflowY') in ('auto', 'scroll')
+              and touch_sheet.locator('a[href="/export"]').count() == 1
               and touch_page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         touch_page.keyboard.press('Escape')
-        check("touch sidebar returns focus after closing", not touch_sheet.is_visible())
+        check("touch sheet closes on Escape", not touch_sheet.is_visible())
         touch_context.close()
-        sidebar_trigger.click()
+        sheet_trigger.click()
+        expect(sheet).to_be_visible()
         page.evaluate("window.__paratrackMobileNavigationProbe = crypto.randomUUID()")
         mobile_navigation_probe = page.evaluate("window.__paratrackMobileNavigationProbe")
         sheet.locator('a[href="/export"]').click()
