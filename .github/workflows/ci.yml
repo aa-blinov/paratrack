@@ -208,6 +208,7 @@ jobs:
           # Preserve the test runner's exit code while capturing its output.
           set -o pipefail
           python e2e/test_dashboard.py 2>&1 | tee /tmp/e2e.log
+          python e2e/qa_full.py 2>&1 | tee /tmp/e2a-full.log
 
       - name: Upload e2e artefacts
         if: always()
