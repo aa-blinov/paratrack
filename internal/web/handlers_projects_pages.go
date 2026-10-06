@@ -24,6 +24,9 @@ type projectsPageData struct {
 	FlashOK      bool
 	CSRFToken    string
 	Lang         string
+	// Creating a project is a manager's action, so the screen that offers it
+	// must know the role; otherwise a member gets a button that answers 403.
+	CanManage bool
 }
 
 func (projectsPageData) isTemplateData()    {}
@@ -78,6 +81,7 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 		ReactApp:     true,
 		Projects:     rows,
 		ShowArchived: showArchived,
+		CanManage:    canManage(r),
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))

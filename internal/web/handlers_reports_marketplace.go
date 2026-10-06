@@ -100,6 +100,14 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	data.DefFrom = now.AddDate(0, 0, -30).Format("2006-01-02")
 	data.DefTo = now.Format("2006-01-02")
+	reports, err := s.loadSavedReports(r)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	data.SavedReports = savedReportViews(reports)
+	data.CanManage = canManage(r)
+	data.MeID = authenticatedUserID(r)
 	s.renderPageForRequest(w, r, "Reports", "reports", "reports", &data)
 }
 
@@ -118,6 +126,12 @@ type reportsPage struct {
 	DefTo        string
 	Flash        string
 	FlashOK      bool
+	// Saved reports are report objects, so their list lives here, on the screen
+	// the "Отчёты" nav entry already points at. /stats keeps the "save this
+	// view" action and links back to this list.
+	SavedReports []savedReportView
+	CanManage    bool
+	MeID         int64
 }
 
 func (p *reportsPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
