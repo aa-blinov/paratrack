@@ -5,6 +5,8 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 ## [Unreleased]
 
 ### Fixed
+- **Сохранённые отчёты статистики** помнят фильтр по проекту и тегу через идентификаторы, а не текстом. Переименование тега больше не обнуляет пресет, а удалённый проект или тег читается как «без фильтра», а не как старое имя. Схема расширена на `saved_reports.project_id` и `tag_id`, перенос старых строк идемпотентен при старте.
+- **`e2e/qa_full.py`** снова проходит: сквозной сюит писался под htmx-разметку до перехода интерфейса на React. Разобран бутстрап страниц вместо прежней разметки, необязательные поля открываются через их раскрытия, разрушительные действия подтверждаются общим диалогом, а две пустые проверки тостов заменены настоящей проверкой переключения темы. Сюит добавлен в CI — пока он не гонялся, он и разошелся с интерфейсом.
 - **Sidebar sections**: the `Separator` primitive styled itself with `data-horizontal:`, which Tailwind v4 compiles to a literal `[data-horizontal]` attribute while Radix emits `data-orientation`. Every separator in the app had zero height and was invisible. They now render.
 - **Workspace chip**: the workspace name is stored with a localized prefix (`Пространство: …`, `…'s workspace`) and was clipped to an ellipsis in the 256px rail. The name now wraps to two lines and the box grows to fit.
 - **Sidebar footer**: language and theme sat in a 2×2 grid where the second column broke the icon gutter every nav item shares. The block is now avatar + name + email, then `Язык · RU` and `Тема · авто`, then separators, with every row on the same icon column.
