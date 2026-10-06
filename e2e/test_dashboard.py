@@ -86,6 +86,22 @@ def api(page, method, url, **kw):
     return getattr(page.request, method)(url, headers=headers, **kw)
 
 
+def open_disclosures(scope, target: str) -> None:
+    """Optional fields live behind Radix disclosures that start closed when the
+    account has nothing to suggest (no default project, no invoicing module).
+    Open only the disclosure that actually holds `target`: the dashboard also
+    has the backfill disclosure, and expanding it is not part of this step."""
+    for _ in range(4):
+        closed = scope.locator(f'[data-disclosure]:has({target}) button[aria-expanded="false"]')
+        if not closed.count():
+            return
+        # Click through the DOM: Playwright retries a click until the element
+        # stops moving, and the retry can land on the project select that slid
+        # into the trigger's old spot — opening it and locking the page.
+        closed.first.evaluate("node => node.click()")
+        scope.page.wait_for_timeout(250)
+
+
 def main() -> int:
     with sync_playwright() as p:
         # Real desktop viewport, with prefers-color-scheme = light by default
@@ -253,6 +269,14 @@ def main() -> int:
         page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Failed', 'error', 10000))")
         check("error toast retains its distinct icon",
               page.locator('#toast .toast-note[role="alert"] svg use[href$="#i-x"]').count() == 1)
+        # The mobile sheet is a Radix dialog: while it is open it takes pointer
+        # events away from the page behind it. The rest of this run drives the
+        # dashboard directly, so wait for that overlay to be released.
+        page.wait_for_function(
+            "() => getComputedStyle(document.body).pointerEvents !== 'none'"
+            " && document.querySelector('[data-radix-popper-content-wrapper], [role=dialog]') === null",
+            timeout=5000,
+        )
         page.goto(BASE + '/settings/sections')
         expect(page.locator("#main h1")).to_be_visible()
         check("preset stays selected without a redundant check",
@@ -300,12 +324,25 @@ def main() -> int:
                     ? '/inter-cyrillic.woff2' : '/inter-latin.woff2'))"""))
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
+        # The shell reflows when the viewport changes width, so wait for the
+        # timer form to settle before typing into it.
+        expect(page.locator("#activity")).to_be_visible()
+        page.wait_for_timeout(400)
 
         # ------------------------------------------------------------------ 2
         print("\n== 2. Start a new activity via the form (UI)")
         before = page.locator(".status-pill.is-active").count()
-        page.fill('input[name="activity"]', "writing")
-        page.fill('form:has(#activity) input[name="note"]', "e2e playwright test")
+        page.fill("#activity", "writing")
+        # The note sits behind the optional-fields disclosure, and a fresh
+        # account has no default project, so that disclosure starts closed.
+        open_disclosures(page.locator("#activity").locator("xpath=ancestor::form"), "#timer-note")
+        page.fill("#timer-note", "e2e playwright test")
+        # A Radix select/menu left open takes pointer events away from the whole
+        # page, and the click below would then hang with no useful message.
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => getComputedStyle(document.body).pointerEvents !== 'none'", timeout=5000,
+        )
         page.click('button[type="submit"]:has-text("Start")')
         # Wait specifically inside #active-list — not the form input —
         # so we know the HTMX swap has happened.
@@ -381,7 +418,10 @@ def main() -> int:
         page.wait_for_load_state("load")
         expect(page.locator("h1")).to_have_text("When you work")
         check("graph mounts the React/shadcn shell",
-              page.locator('#paratrack-react-root .period-tabs a').count() == 6
+              # six preset periods plus the "custom dates" tab, and the print
+              # button sits in the same bar
+              page.locator('#paratrack-react-root .period-tabs a').count() == 7
+              and page.locator('#paratrack-react-root .period-tabs button').count() >= 1
               and page.locator('#paratrack-react-root [data-slot="card"]').count() >= 1)
         # ECharts renders into a <canvas>; wait for that.
         page.wait_for_selector("#echart-canvas canvas", timeout=3000)
@@ -444,9 +484,20 @@ def main() -> int:
         check("project create page mounts React/shadcn form",
               page.locator('#paratrack-react-root form[action="/projects/new"] [data-slot="input"]').count() >= 3)
         page.fill('input[name="name"]', proj_name)
+        # Slug and colour live behind "options", closed without an invoicing module.
+        open_disclosures(page.locator('#new-project-name').locator("xpath=ancestor::form"), 'input[name="slug"]')
         page.fill('input[name="slug"]', proj_slug)
         # Slug blank → auto. Color picker value is the hex text input.
         page.fill('input[name="color"][pattern]', "#7c3aed")
+        # Same guard as on the dashboard: a sheet or menu left open earlier
+        # hides the app root from the accessibility tree, and the button would
+        # then be unreachable for Playwright even though it is visible.
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => { const root = document.getElementById('paratrack-react-root');"
+            " return !root || root.firstElementChild?.getAttribute('aria-hidden') !== 'true'; }",
+            timeout=5000,
+        )
         page.get_by_role("button", name="Create").click()
         page.wait_for_url(f"**/projects/{proj_slug}")
         check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
