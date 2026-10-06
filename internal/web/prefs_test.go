@@ -23,7 +23,7 @@ func TestPreferences(t *testing.T) {
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Лютик"}}, nil))
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:30"}, "project_id": {"1"}}, htmx))
 
-	if page := readBody(t, e.do("GET", "/settings/preferences", nil, nil)); !strings.Contains(page, `name="duration"`) {
+	if page := readBody(t, e.do("GET", "/settings/preferences", nil, nil)); !reactData[prefsPage](t, page).PrefsReact {
 		t.Fatal("no preferences form")
 	}
 	resp := e.do("POST", "/api/me/preferences", url.Values{
@@ -47,10 +47,10 @@ func TestPreferences(t *testing.T) {
 	if !strings.Contains(dash, `"goals":true`) {
 		t.Error("goals vanished though only graph was hidden")
 	}
-	if !strings.Contains(dash, `id="recent" class="card bg-base-100 border border-base-300 mt-4" hidden`) {
+	if reactData[dashboardData](t, dash).Widgets["recent"] {
 		t.Error("recent block not hidden")
 	}
-	if !strings.Contains(dash, `data-default="2"`) {
+	if reactData[dashboardData](t, dash).DefaultProject != 2 {
 		t.Error("default project not preselected")
 	}
 	// Workspace routes still work: hiding is personal, not a lock.
@@ -138,7 +138,7 @@ func TestBillingRules(t *testing.T) {
 	if !strings.Contains(page, "1 500,00") && !strings.Contains(page, "1 500,00") {
 		t.Error("20 min rounded up to 15-min steps should bill 30 min = 1 500,00")
 	}
-	if !strings.Contains(page, `src="data:image/png;base64,`) {
+	if !strings.HasPrefix(string(reactData[invoiceDetailPage](t, page).Inv.Logo), "data:image/png;base64,") {
 		t.Error("logo not on the invoice")
 	}
 	pdf := readBody(t, e.do("GET", loc+"/pdf", nil, nil))

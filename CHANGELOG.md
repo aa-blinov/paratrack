@@ -4,6 +4,25 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 
 ## [Unreleased]
 
+### Fixed
+- **Sidebar sections**: the `Separator` primitive styled itself with `data-horizontal:`, which Tailwind v4 compiles to a literal `[data-horizontal]` attribute while Radix emits `data-orientation`. Every separator in the app had zero height and was invisible. They now render.
+- **Workspace chip**: the workspace name is stored with a localized prefix (`Пространство: …`, `…'s workspace`) and was clipped to an ellipsis in the 256px rail. The name now wraps to two lines and the box grows to fit.
+- **Sidebar footer**: language and theme sat in a 2×2 grid where the second column broke the icon gutter every nav item shares. The block is now avatar + name + email, then `Язык · RU` and `Тема · авто`, then separators, with every row on the same icon column.
+- **Audit log**: a form control named `action` shadowed `HTMLFormElement.action`, so the filter form submitted to `/settings/[object HTMLSelectElement]`. The control is `event` now.
+- **Renaming a tag** no longer empties saved stats presets — they store the tag by name, and the rename now carries them along in the same transaction.
+- **`npm audit`**: `source-map-js` 1.2.1 → 1.2.2 (dev-only, event-loop DoS advisory).
+
+### Added — actions that the screens could not do
+- **Timesheet**: undo the last cell edit (a stack of the 10 most recent, each entry naming the cell it will restore) and clear an activity row for the week with a confirmation. Clearing refuses when the week was already sent on an invoice, and only touches the caller's own sessions.
+- **Tags**: rename a tag in place — the row keeps its id, so tagged sessions, counters and the statistics filter follow — plus `PATCH /api/tags` in the public API.
+- **Audit log**: filter by date range, person and action; the filter lives in the address, the window is 100–400 with "show more events", and a truncated list says so instead of looking complete.
+- **Invites**: copy the invitation link with feedback (and a readable fallback when the browser refuses clipboard access), and remove a spent or expired invitation from the list. Removing it never revokes the access it granted.
+- **Profile**: change the login email at `/settings/profile`, requiring the current password like a password change does, with distinct errors for a wrong password, a taken address and a malformed one. The write is conditional on the address still being the old one, so concurrent changes cannot overwrite each other.
+- **Notifications**: pick which topics you hear about, and send a verification push that reports the real outcome — delivered, no permission, no subscription, or a browser without web push. Existing accounts keep every topic: the new column stores only what you muted.
+- **Webhooks**: "Send test" delivers a signed sample event through the same payload builder and HMAC as a live delivery (the body carries `"action":"test"` so a receiver can tell it apart), and the delivery log now shows the request and response bodies, clipped at 2000 bytes with a "showing the first…" note.
+- **Graph**: a "Custom dates" period with from/to inputs, and a print button that hides the sidebar and header.
+- **Sections**: a set changed by hand is now labelled as such, with a "bring back every section" button instead of a silent blank state.
+
 ### Removed
 - **SQLite**. Postgres is the only database: the CLI and a bare binary need `PARATRACK_DATABASE_URL`, `paratrack migrate-to-postgres` is gone, and the tests run on a throwaway Postgres (`scripts/test.sh`, and inside the image build).
 

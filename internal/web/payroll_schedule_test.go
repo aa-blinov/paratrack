@@ -188,7 +188,7 @@ func TestPayrollOverlapWarns(t *testing.T) {
 	if !strings.Contains(loc, "overlap=") {
 		t.Fatalf("overlapping run created without a warning: %q", loc)
 	}
-	if page := readBody(t, e.do("GET", loc, nil, nil)); !strings.Contains(page, `name="confirm"`) || !strings.Contains(page, "PAY-") {
+	if page := readBody(t, e.do("GET", loc, nil, nil)); !strings.Contains(reactData[payrollPage](t, page).Overlap, "PAY-") {
 		t.Error("warning page has no confirm button or run number")
 	}
 	var n int

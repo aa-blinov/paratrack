@@ -65,6 +65,7 @@ type ActivityStore interface {
 // TimesheetStore provides grid reads and atomic daily-total replacement.
 type TimesheetStore interface {
 	UpsertDayTotal(context.Context, appmodel.TimesheetCellUpdateRequest) error
+	ClearWeekRow(context.Context, appmodel.TimesheetRowClearRequest) error
 	ListTimesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 }
 
@@ -175,6 +176,20 @@ func (s *Service) SetDayTotal(ctx context.Context, request appmodel.TimesheetCel
 	}
 	if err := s.timesheets.UpsertDayTotal(ctx, request); err != nil {
 		return fmt.Errorf("update timesheet cell: %w", err)
+	}
+	return nil
+}
+
+// ClearRow empties one activity row of the weekly grid in one step, so a
+// wrongly added row does not need seven separate cell edits. The persistence
+// adapter applies it atomically and refuses weeks billed on a sent or paid
+// invoice.
+func (s *Service) ClearRow(ctx context.Context, request appmodel.TimesheetRowClearRequest) error {
+	if request.TeamID <= 0 || request.ActivityID <= 0 || request.WeekStart.IsZero() {
+		return ErrInvalidEdit
+	}
+	if err := s.timesheets.ClearWeekRow(ctx, request); err != nil {
+		return fmt.Errorf("clear timesheet row: %w", err)
 	}
 	return nil
 }

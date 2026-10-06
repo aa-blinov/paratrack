@@ -63,6 +63,12 @@ func TestDashboardBootstrapsReactFromEmbeddedAssets(t *testing.T) {
 	if strings.Contains(page.Body.String(), `<header class="appbar`) || strings.Contains(page.Body.String(), `class="tabbar`) {
 		t.Fatal("React route still renders the legacy shared navigation shell")
 	}
+	if !strings.Contains(page.Body.String(), `class="app-boot"`) {
+		t.Fatal("React route must show the current loading shell before JavaScript loads")
+	}
+	if strings.Contains(page.Body.String(), `hx-post="/api/start"`) {
+		t.Fatal("React dashboard must not render legacy page content")
+	}
 	var pageBootstrap struct {
 		Shell struct {
 			User struct {

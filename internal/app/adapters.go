@@ -35,7 +35,7 @@ type trackingPushNotifications struct{ push *push.Service }
 func (n trackingPushNotifications) SessionStopped(_ context.Context, request appmodel.SessionStoppedNotification) error {
 	return n.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: []int64{request.UserID},
-		Notification: push.Notification{Title: "Session stopped", Body: request.ActivityName + " finished", URL: "/stats"},
+		Notification: push.Notification{Title: "Session stopped", Body: request.ActivityName + " finished", URL: "/stats", Topic: appmodel.NotificationTopicSessionStopped},
 	})
 }
 
@@ -48,14 +48,14 @@ func (n trackingPushNotifications) GoalAchieved(ctx context.Context, request app
 	}
 	return n.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: []int64{request.UserID},
-		Notification: push.Notification{Title: "Goal met", Body: request.Goal.ActivityName + ": " + period, URL: "/goals"},
+		Notification: push.Notification{Title: "Goal met", Body: request.Goal.ActivityName + ": " + period, URL: "/goals", Topic: appmodel.NotificationTopicGoalAchieved},
 	})
 }
 
 func (p payrollPushNotifications) EnqueuePayrollPaid(_ context.Context, request appmodel.PayrollPaidNotification) error {
 	return p.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: request.Recipients,
-		Notification: push.Notification{Title: "Payroll paid", Body: "Pay run marked paid", URL: "/stats"},
+		Notification: push.Notification{Title: "Payroll paid", Body: "Pay run marked paid", URL: "/stats", Topic: appmodel.NotificationTopicPayrollPaid},
 	})
 }
 

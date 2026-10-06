@@ -22,7 +22,11 @@ type deliveryPayload struct {
 	Event  webhookport.EventName `json:"event"`
 	TeamID int64                 `json:"team_id"`
 	SentAt string                `json:"sent_at"`
-	Data   json.RawMessage       `json:"data"`
+	// Action marks a delivery the manager asked for by hand. It is omitted from
+	// live events, so a receiver sees the production envelope unchanged and can
+	// still tell a synthetic sample apart by this field.
+	Action string          `json:"action,omitempty"`
+	Data   json.RawMessage `json:"data"`
 }
 
 // dispatchEvent fans a committed event out to its snapshotted endpoints.
@@ -214,7 +218,7 @@ func (s *Service) processQueuedEvent(ctx context.Context, job webhookport.Commit
 
 func (s *Service) deliverQueued(ctx context.Context, job webhookport.DeliveryJob) {
 	deliveryCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	status, err := s.deliverAttempt(deliveryCtx, webhookport.Webhook{
+	status, _, err := s.deliverAttempt(deliveryCtx, webhookport.Webhook{
 		ID: job.WebhookID, TeamID: job.TeamID, URL: job.URL, Secret: job.Secret,
 	}, job.Event, job.Payload)
 	cancel()
@@ -267,7 +271,7 @@ func (s *Service) Shutdown(ctx context.Context) error {
 // deliverWithBackoff sends a signed delivery and retries transient failures.
 func (s *Service) deliverWithBackoff(ctx context.Context, hook webhookport.Webhook, event string, body []byte, backoff []time.Duration) {
 	for attempt := 0; ; attempt++ {
-		status, err := s.deliverAttempt(ctx, hook, event, body)
+		status, _, err := s.deliverAttempt(ctx, hook, event, body)
 		retry := !errors.Is(err, ErrPrivateTarget) && (err != nil || status == 429 || status >= 500)
 		if !retry || attempt >= len(backoff) {
 			return
@@ -282,22 +286,37 @@ func (s *Service) deliverWithBackoff(ctx context.Context, hook webhookport.Webho
 	}
 }
 
-func (s *Service) deliverAttempt(ctx context.Context, hook webhookport.Webhook, event string, body []byte) (int, error) {
+// deliverAttempt signs and sends one request, then records what came back. The
+// same path serves queued deliveries and the manager's test run, so an
+// integrator verifies the signature and payload production actually sends.
+func (s *Service) deliverAttempt(ctx context.Context, hook webhookport.Webhook, event string, body []byte) (int, string, error) {
 	ts := fmt.Sprint(s.now().Unix())
-	status, err := s.deliverer.Deliver(ctx, DeliveryRequest{
+	request := DeliveryRequest{
 		URL: hook.URL, Event: event, Timestamp: ts,
 		Signature:   SignPayload(hook.Secret, body),
 		SignatureV2: SignPayload(hook.Secret, append([]byte(ts+"."), body...)),
 		Body:        body,
-	})
+	}
+	var (
+		status       int
+		responseBody string
+		err          error
+	)
+	// Adapters that can return the receiver's answer let the history show it;
+	// the plain delivery port still works, just with nothing to show.
+	if rich, ok := s.deliverer.(responseDeliverer); ok {
+		status, responseBody, err = rich.DeliverWithResponse(ctx, request)
+	} else {
+		status, err = s.deliverer.Deliver(ctx, request)
+	}
 	message := ""
 	if err != nil {
 		// Delivery summaries are visible to team members. Do not persist network
 		// and adapter details, which may contain the destination URL.
 		message = deliveryFailureMessage(err)
 	}
-	s.logDelivery(ctx, hook.ID, event, status, message)
-	return status, err
+	s.logDelivery(ctx, hook.ID, event, status, message, string(body), responseBody)
+	return status, responseBody, err
 }
 
 func deliveryFailureMessage(err error) string {
@@ -307,7 +326,7 @@ func deliveryFailureMessage(err error) string {
 	return "delivery failed"
 }
 
-func (s *Service) logDelivery(ctx context.Context, webhookID int64, event string, status int, message string) {
+func (s *Service) logDelivery(ctx context.Context, webhookID int64, event string, status int, message, requestBody, responseBody string) {
 	if ctx == nil {
 		s.logger.Printf("webhooks: delivery result for endpoint %d event %s cannot be persisted without a context", webhookID, event)
 		return
@@ -316,6 +335,7 @@ func (s *Service) logDelivery(ctx context.Context, webhookID int64, event string
 	defer cancel()
 	if err := s.store.LogWebhookDelivery(logCtx, appmodel.WebhookDeliveryLogRequest{
 		WebhookID: webhookID, Event: event, Status: status, Error: message,
+		RequestBody: requestBody, ResponseBody: responseBody,
 	}); err != nil {
 		s.logger.Printf("webhooks: log delivery for endpoint %d event %s: %v", webhookID, event, err)
 	}

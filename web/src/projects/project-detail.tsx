@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { ProjectDetailData } from "@/dashboard/types"
 
@@ -21,9 +22,7 @@ function ProjectEdit({ data }: { data: ProjectDetailData }) {
   const [currency, setCurrency] = React.useState(data.Currency || "")
   const inheritValue = "__workspace_currency__"
 
-  return <Card>
-    <CardHeader><CardTitle>{t(data.Lang, "projects.edit")}</CardTitle></CardHeader>
-    <CardContent className="space-y-5">
+  return <DisclosureSection id="project-settings" title={t(data.Lang, "projects.edit")} description={t(data.Lang, "projects.settingsHint")}><div className="space-y-5">
       <form method="POST" action={`/projects/${encodeURIComponent(data.Project.Slug)}`} className="grid gap-4 md:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2"><Label htmlFor="project-name">{t(data.Lang, "projects.name")}</Label><Input id="project-name" name="name" defaultValue={data.Project.Name} placeholder={t(data.Lang, "projects.name")} required /></div>
@@ -31,7 +30,7 @@ function ProjectEdit({ data }: { data: ProjectDetailData }) {
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t(data.Lang, "projects.color")}</legend>
           <div className="flex items-center gap-2">
-            <input type="color" aria-label={t(data.Lang, "projects.colorPicker")} value={color} onChange={event => setColor(event.target.value)} className="size-10 cursor-pointer rounded-md border border-input bg-background p-1" />
+            <Input type="color" aria-label={t(data.Lang, "projects.colorPicker")} value={color} onChange={event => setColor(event.target.value)} className="size-10 cursor-pointer rounded-md border border-input bg-background p-1" />
             <Input name="color" aria-label={t(data.Lang, "projects.colorHex")} value={color} onChange={event => setColor(event.target.value)} pattern="^#[0-9a-fA-F]{6}$" className="font-mono" required />
           </div>
         </fieldset>
@@ -76,8 +75,7 @@ function ProjectEdit({ data }: { data: ProjectDetailData }) {
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <Button variant="destructive" type="submit" className="w-full"><Trash2 aria-hidden="true" />{t(data.Lang, "projects.delete")}</Button>
       </form>
-    </CardContent>
-  </Card>
+    </div></DisclosureSection>
 }
 
 export function ProjectDetail({ data }: { data: ProjectDetailData }) {
@@ -92,7 +90,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
         <span aria-hidden="true" className="mt-2 size-4 shrink-0 rounded-full" style={{ backgroundColor: project.Color }} />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight" title={project.Name}><span className="block truncate">{project.Name}</span></h1>{data.Archived && <Badge variant="secondary">{t(data.Lang, "projects.archivedBadge")}</Badge>}</div>
-          <p className="mt-1 font-mono text-sm text-muted-foreground">{project.Slug}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t(data.Lang, "projects.blurb")}</p>
         </div>
       </div>
       {!data.Archived && <Button asChild size="sm"><a href={`/?project=${project.ID}`}><Play aria-hidden="true" />{t(data.Lang, "projects.trackTime")}</a></Button>}

@@ -95,7 +95,7 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	for time.Now().Before(deadline) {
 		to, letter, files = cm.snapshot()
 		page = readBody(t, e.do("GET", first.loc, nil, nil))
-		if to != "" && strings.Contains(page, "doc-status is-sent") {
+		if to != "" && reactData[invoiceDetailPage](t, page).Inv.Status == "sent" {
 			break
 		}
 		time.Sleep(50 * time.Millisecond)
@@ -106,7 +106,7 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	if !strings.Contains(letter, "К оплате") || !strings.Contains(letter, "9\u00a0000,00") && !strings.Contains(letter, "6\u00a0000,00") {
 		t.Errorf("HTML letter lacks the amount block")
 	}
-	if !strings.Contains(page, "doc-status is-sent") {
+	if reactData[invoiceDetailPage](t, page).Inv.Status != "sent" {
 		t.Error("sending didn't mark the invoice sent")
 	}
 

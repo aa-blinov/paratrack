@@ -255,6 +255,8 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.updated"), true
 	case "password_updated":
 		return i18n.T(lang, "flash.passwordUpdated"), true
+	case "email_updated":
+		return i18n.T(lang, "flash.emailUpdated"), true
 	case "joined":
 		return i18n.T(lang, "flash.joined"), true
 	case "team_deleted":

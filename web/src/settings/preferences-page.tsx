@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
-import { SettingsNav } from "@/settings/settings-nav"
+import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { PreferencesData } from "@/dashboard/types"
 
 export function PreferencesPage({ data }: { data: PreferencesData }) {
@@ -13,7 +13,7 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
   const [selectedTabs, setSelectedTabs] = React.useState(() => data.TabOpts.filter(tab => tab.On).map(tab => tab.Key))
   const toggleTab = (key: string, checked: boolean) => setSelectedTabs(current => checked ? [...current, key].slice(0, 4) : current.filter(item => item !== key))
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
+    <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
     <form method="post" action="/api/me/preferences" className="grid gap-4">

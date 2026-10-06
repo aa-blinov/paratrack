@@ -21,10 +21,8 @@ func TestImportPageAndRun(t *testing.T) {
 		t.Fatalf("import page: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	body := readBody(t, resp)
-	for _, want := range []string{"Toggl", "Harvest", "Clockify"} {
-		if !strings.Contains(body, want) {
-			t.Errorf("missing provider %s", want)
-		}
+	if !reactData[importPage](t, body).ImportReact {
+		t.Fatal("import page did not bootstrap its React screen")
 	}
 	// run with unknown provider → redirect back with error
 	resp = e.do("POST", "/import/run", url.Values{

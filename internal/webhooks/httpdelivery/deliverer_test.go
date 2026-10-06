@@ -104,3 +104,52 @@ func TestNewRejectsNilHTTPClient(t *testing.T) {
 		t.Fatalf("New(nil) error = %v, want %v", err, ErrIncompleteDependencies)
 	}
 }
+
+func TestDeliverWithResponseReturnsTheAnswerBody(t *testing.T) {
+	responseBody := &trackedBody{Reader: strings.NewReader(`{"received":true}`)}
+	var sent *http.Request
+	deliverer, err := New(doerFunc(func(request *http.Request) (*http.Response, error) {
+		sent = request
+		return &http.Response{StatusCode: http.StatusOK, Body: responseBody}, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	message := webhookport.DeliveryRequest{
+		URL: "https://hooks.example.test/events", Event: "session.stopped",
+		Timestamp: "1730000000", Signature: "signature-v1", SignatureV2: "signature-v2",
+		Body: []byte(`{"action":"test"}`),
+	}
+
+	status, body, err := deliverer.DeliverWithResponse(context.Background(), message)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status != http.StatusOK || body != `{"received":true}` {
+		t.Fatalf("answer = (%d, %q), want the status and body the receiver replied", status, body)
+	}
+	if sent == nil || sent.Header.Get("X-Paratrack-Signature") != message.Signature {
+		t.Fatalf("the richer call must send the same signed request, headers = %#v", sent)
+	}
+	if !responseBody.closed {
+		t.Fatal("response body was not closed")
+	}
+}
+
+func TestDeliverWithResponseBoundsWhatAReceiverCanReturn(t *testing.T) {
+	responseBody := &trackedBody{Reader: strings.NewReader(strings.Repeat("x", maxResponseBody*2))}
+	deliverer, err := New(doerFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusOK, Body: responseBody}, nil
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, body, err := deliverer.DeliverWithResponse(context.Background(), webhookport.DeliveryRequest{URL: "https://hooks.example.test/events"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(body) != maxResponseBody {
+		t.Fatalf("stored answer = %d bytes, want the %d byte cap", len(body), maxResponseBody)
+	}
+}

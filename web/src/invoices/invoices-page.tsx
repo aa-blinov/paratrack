@@ -1,3 +1,5 @@
+import { openDisclosure } from "@/components/ui/collapsible"
+import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import * as React from "react"
 import { AlertTriangle, ChevronDown, Download, Link as LinkIcon, Mail, Plus, Printer, RefreshCw, Send, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -9,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
+import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { InvoiceDetailData, InvoicesData } from "@/dashboard/types"
 
@@ -53,7 +56,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
 
   const flash = <InvoiceFlash data={data} />
   return <main className="mx-auto w-full max-w-6xl space-y-5">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div><Button asChild size="sm"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button></header>
     {flash}
 
     {!data.Billable && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
@@ -74,49 +77,27 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
       </ul></CardContent>
     </Card>}
 
-    {!!data.Unassigned.length && <details className="group rounded-lg border bg-card">
-      <summary className="flex cursor-pointer list-none items-start gap-3 p-4 text-sm marker:hidden">
+    {!!data.Unassigned.length && <Disclosure className="group rounded-lg border bg-card">
+      <DisclosureTrigger className="flex cursor-pointer list-none items-start gap-3 p-4 text-sm marker:hidden">
         <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1"><strong>{t(lang, "inv.unassignedTitle")}</strong><span className="mt-1 block text-muted-foreground">{t(lang, "inv.unassignedHint")}</span></span><ChevronDown aria-hidden="true" className="mt-0.5 size-4 shrink-0 transition-transform group-open:rotate-180" />
-      </summary>
+        <span className="min-w-0 flex-1"><strong>{t(lang, "inv.unassignedTitle")}</strong><span className="mt-1 block text-muted-foreground">{t(lang, "inv.unassignedHint")}</span></span><ChevronDown aria-hidden="true" className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+      </DisclosureTrigger>
       <div className="space-y-4 px-4 pb-4">
         {data.Unassigned.map(activity => <div key={activity.ID} className="min-w-0 border-t pt-3">
           <p className="break-words font-medium">{activity.Name} <span className="font-normal text-sm text-muted-foreground">{t(lang, "inv.assignCount", activity.Sessions)}</span></p>
           {activity.Billed ? <p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.assignLocked")}</p> : data.Billable ? <form method="POST" action="/invoices/assign" className="mt-2 flex flex-col items-start gap-3">
             <input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="activity_id" value={activity.ID} />
             <div className="w-full max-w-md space-y-2"><Label htmlFor={`assign-activity-${activity.ID}`}>{t(lang, "inv.assignProject")}</Label>
-              <select id={`assign-activity-${activity.ID}`} name="project_id" required className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
-                <option value="">{t(lang, "inv.assignChoose")}</option>
-                {data.Projects.filter(item => item.Eligible).map(item => <option key={item.ID} value={item.ID}>{item.Name}</option>)}
-              </select>
+              <Select name="project_id" required><SelectTrigger id={`assign-activity-${activity.ID}`}><SelectValue placeholder={t(lang,"inv.assignChoose")}/></SelectTrigger><SelectContent>{data.Projects.filter(item=>item.Eligible).map(item=><SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select>
             </div>
             <label className="flex cursor-pointer items-start gap-2 text-sm"><Checkbox name="confirm_history" value="1" required className="mt-0.5" /><span>{t(lang, "inv.assignHistory")}</span></label>
             <Button type="submit" size="sm">{t(lang, "inv.assignAction")}</Button>
           </form> : <p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.noRateHint")} <a href="/projects/new" className="underline underline-offset-4">{t(lang, "projects.createNew")}</a></p>}
         </div>)}
       </div>
-    </details>}
+    </Disclosure>}
 
-    <Card id="new"><CardHeader><CardTitle>{t(lang, "inv.generate")}</CardTitle></CardHeader><CardContent>
-      <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2">
-        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
-        <input type="hidden" name="project_id" value={project === "__all__" ? "" : project} />
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-project">{t(lang, "dash.projectLabel")}</Label>
-          <Select value={project} onValueChange={setProjectAndPrefill}><SelectTrigger id="inv-project" className="min-h-10 w-full"><SelectValue /></SelectTrigger><SelectContent>
-            <SelectItem value="__all__">{t(lang, "stats.all")}</SelectItem>{data.Projects.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
-          </SelectContent></Select><p className="text-xs text-muted-foreground">{t(lang, "inv.projectHint")}</p>
-        </div>
-        <div className="space-y-2"><Label htmlFor="inv-client">{t(lang, "inv.client")}</Label><Input id="inv-client" type="text" name="client" required placeholder={t(lang, "ph.client")} value={client.name} onChange={event => editClientField("name", event.target.value)} /></div>
-        <div className="space-y-2"><Label htmlFor="inv-email">{t(lang, "inv.clientEmail")} <span className="text-muted-foreground">({t(lang, "projects.optional")})</span></Label><Input id="inv-email" type="email" name="client_email" autoComplete="off" placeholder="buh@romashka.ru" value={client.email} onChange={event => editClientField("email", event.target.value)} /></div>
-        <div className="space-y-2"><Label htmlFor="inv-start">{t(lang, "inv.from")}</Label><Input id="inv-start" type="date" name="start" required defaultValue={data.DefStart} /></div>
-        <div className="space-y-2"><Label htmlFor="inv-end">{t(lang, "inv.to")}</Label><Input id="inv-end" type="date" name="end" required defaultValue={data.DefEnd} /></div>
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-client-details">{t(lang, "inv.clientDetails")} <span className="text-muted-foreground">({t(lang, "projects.optional")})</span></Label><Textarea id="inv-client-details" name="client_details" rows={3} maxLength={2000} placeholder={t(lang, "inv.clientDetailsPh")} value={client.details} onChange={event => editClientField("details", event.target.value)} /></div>
-        <label className="flex cursor-pointer items-start gap-2 text-sm sm:col-span-2"><Checkbox name="by_person" value="1" className="mt-0.5" /><span>{t(lang, "inv.byPerson")}<span className="mt-1 block text-xs text-muted-foreground">{t(lang, "inv.byPersonHint")}</span></span></label>
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-notes">{t(lang, "stats.note")}</Label><Input id="inv-notes" type="text" name="notes" placeholder={t(lang, "inv.notesPh")} /></div>
-        <div className="sm:col-span-2"><Button type="submit"><Plus aria-hidden="true" />{t(lang, "inv.create")}</Button></div>
-      </form>
-      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "inv.rateHint")}</p>
-    </CardContent></Card>
+
 
     {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "inv.list")}</CardTitle></CardHeader><CardContent>
       <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/invoices/${item.ID}`} className="font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><InvoiceStatus lang={lang} status={item.Status} /></div><p className="font-medium">{item.Client}</p><p className="text-xs text-muted-foreground">{item.Period}</p><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
@@ -125,7 +106,33 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         <TableBody>{data.Items.map(item => <TableRow key={item.ID}><TableCell><a href={`/invoices/${item.ID}`} className="whitespace-nowrap font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell>{item.Client}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><InvoiceStatus lang={lang} status={item.Status} /></TableCell></TableRow>)}</TableBody>
       </Table>
       </div>
-    </CardContent></Card> : <div className="py-8 text-center"><p className="font-medium">{t(lang, "inv.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.emptyHint")}</p></div>}
+    </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "inv.empty")}</p>}
+    <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
+      <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2">
+        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+        <input type="hidden" name="project_id" value={project === "__all__" ? "" : project} />
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-project">{t(lang, "dash.projectLabel")}</Label>
+          <Select value={project} onValueChange={setProjectAndPrefill}><SelectTrigger id="inv-project" className="min-h-10 w-full"><SelectValue /></SelectTrigger><SelectContent>
+            <SelectItem value="__all__">{t(lang, "stats.all")}</SelectItem>{data.Projects.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
+          </SelectContent></Select><p className="text-xs text-muted-foreground">{t(lang, "inv.projectHint")}</p>
+        </div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-client">{t(lang, "inv.client")}</Label><Input id="inv-client" type="text" name="client" required placeholder={t(lang, "ph.client")} value={client.name} onChange={event => editClientField("name", event.target.value)} /></div>
+
+        <div className="space-y-2"><Label htmlFor="inv-start">{t(lang, "inv.from")}</Label><Input id="inv-start" type="date" name="start" required defaultValue={data.DefStart} /></div>
+        <div className="space-y-2"><Label htmlFor="inv-end">{t(lang, "inv.to")}</Label><Input id="inv-end" type="date" name="end" required defaultValue={data.DefEnd} /></div>
+        <Disclosure open={Boolean(client.email || client.details)} className="sm:col-span-2">
+          <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "inv.optionalFields")}</DisclosureTrigger>
+          <div className="mt-3 grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2"><Label htmlFor="inv-email">{t(lang, "inv.clientEmail")} <span className="text-muted-foreground">({t(lang, "projects.optional")})</span></Label><Input id="inv-email" type="email" name="client_email" autoComplete="off" placeholder="buh@romashka.ru" value={client.email} onChange={event => editClientField("email", event.target.value)} /></div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-client-details">{t(lang, "inv.clientDetails")} <span className="text-muted-foreground">({t(lang, "projects.optional")})</span></Label><Textarea id="inv-client-details" name="client_details" rows={3} maxLength={2000} placeholder={t(lang, "inv.clientDetailsPh")} value={client.details} onChange={event => editClientField("details", event.target.value)} /></div>
+        <label className="flex cursor-pointer items-start gap-2 text-sm sm:col-span-2"><Checkbox name="by_person" value="1" className="mt-0.5" /><span>{t(lang, "inv.byPerson")}<span className="mt-1 block text-xs text-muted-foreground">{t(lang, "inv.byPersonHint")}</span></span></label>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-notes">{t(lang, "stats.note")}</Label><Input id="inv-notes" type="text" name="notes" placeholder={t(lang, "inv.notesPh")} /></div>
+          </div>
+        </Disclosure>
+        <div className="sm:col-span-2"><Button type="submit"><Plus aria-hidden="true" />{t(lang, "inv.create")}</Button></div>
+      </form>
+      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "inv.rateHint")}</p>
+    </DisclosureSection>
   </main>
 }
 
@@ -179,8 +186,8 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
     <Card className="no-print"><CardHeader><CardTitle className="text-base">{t(lang, "inv.send")}</CardTitle></CardHeader><CardContent className="space-y-5">
       <div>{data.MailReady ? <><form method="POST" action={`/invoices/${inv.ID}/send`} className="flex flex-wrap gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="send-to">{t(lang, "inv.clientEmail")}</Label><Input id="send-to" type="email" name="to" required defaultValue={inv.ClientEmail} placeholder="buh@romashka.ru" className="min-w-56 flex-1" /><Button type="submit" size="sm"><Mail aria-hidden="true" />{t(lang, "inv.send")}</Button></form><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.sendHint")}</p></> : <><Button asChild size="sm" variant="ghost"><a href={data.MailtoURL}><Mail aria-hidden="true" />{t(lang, "inv.sendMailto")}</a></Button><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.mailtoHint")}</p></>}</div>
 
-      {inv.Status === "draft" && <details className="border-t pt-4">
-        <summary className="cursor-pointer font-medium">{t(lang, "inv.edit")}</summary>
+      {inv.Status === "draft" && <Disclosure className="border-t pt-4">
+        <DisclosureTrigger className="cursor-pointer font-medium">{t(lang, "inv.edit")}</DisclosureTrigger>
         <form method="POST" action={`/invoices/${inv.ID}/edit`} className="mt-3 grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
           <div className="space-y-2"><Label htmlFor="edit-client">{t(lang, "inv.client")}</Label><Input id="edit-client" type="text" name="client" required defaultValue={inv.ClientName} /></div>
@@ -190,7 +197,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
           <div className="sm:col-span-2"><Button type="submit" size="sm">{t(lang, "inv.save")}</Button></div>
         </form>
         <form method="POST" action={`/invoices/${inv.ID}/rebuild`} className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant="ghost"><RefreshCw aria-hidden="true" />{t(lang, "inv.rebuild")}</Button><span className="text-xs text-muted-foreground">{t(lang, "inv.rebuildHint")}</span></form>
-      </details>}
+      </Disclosure>}
 
       <form method="POST" action={`/invoices/${inv.ID}/receipt`} className="grid gap-2 border-t pt-4">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label htmlFor="receipt">{t(lang, "inv.receipt")}</Label>

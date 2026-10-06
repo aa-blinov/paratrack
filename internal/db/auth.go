@@ -97,6 +97,29 @@ func (d *DB) UpdateUserName(ctx context.Context, request appmodel.ProfileNameReq
 	return execRequireRows(ctx, d.sql, `UPDATE users SET name = ?, updated_at = ? WHERE id = ?`, request.Name, FormatTime(d.currentTime().UTC()), request.UserID)
 }
 
+func (d *DB) UpdateUserEmail(ctx context.Context, request appmodel.ProfileEmailUpdateRequest) (bool, error) {
+	if request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
+		return false, model.ErrForbidden
+	}
+	result, err := d.sql.ExecContext(ctx,
+		`UPDATE users SET email = ?, updated_at = ? WHERE id = ? AND email = ?`,
+		request.Email, FormatTime(d.currentTime().UTC()), request.UserID, request.ExpectedEmail,
+	)
+	if err != nil {
+		// uniq_users_email rejects the collision for us; translate it so
+		// callers can distinguish "taken" from "malformed".
+		if isUniqueViolation(err) {
+			return false, appmodel.ErrAuthEmailTaken
+		}
+		return false, err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return rows == 1, nil
+}
+
 func (d *DB) UpdateUserPasswordIfHashMatches(ctx context.Context, request appmodel.PasswordHashUpdateRequest) (bool, error) {
 	if request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
 		return false, model.ErrForbidden

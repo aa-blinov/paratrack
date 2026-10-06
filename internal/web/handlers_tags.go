@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -78,6 +79,37 @@ func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(200)
+}
+
+// handleTagsRename relabels a tag by id, keeping the sessions that carry it.
+// Form: id=N&name=…  HTMX callers get the `tags-list` fragment back so the
+// page list refreshes in place; plain requests keep the JSON shape.
+func (s *Server) handleTagsRename(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	id, err := parseID(strings.TrimSpace(r.FormValue("id")))
+	if err != nil {
+		http.Error(w, "id query param required (int64)", 400)
+		return
+	}
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "name is required", 400)
+		return
+	}
+	t, err := s.services.Tagging.Commands.Rename(r.Context(), appmodel.TagRenameRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), TagID: id, Name: name})
+	if err != nil {
+		s.writeTagRenameError(w, r, err)
+		return
+	}
+	s.toastL(w, r, "toast.tagRenamed", t.Name, "success")
+	if isHTMX(r) {
+		s.respondTagsList(w, r)
+		return
+	}
+	s.writeJSON(w, tagFor(t))
 }
 
 // respondTagsList renders the `tags-list` fragment for HTMX swaps.
@@ -158,6 +190,24 @@ func (s *Server) writeTagCreateError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, appmodel.ErrInvalidTagTeam), errors.Is(err, appmodel.ErrInvalidTag):
 		http.Error(w, "invalid tag", http.StatusBadRequest)
+	case errors.Is(err, model.ErrForbidden):
+		http.Error(w, "workspace membership required", http.StatusForbidden)
+	default:
+		s.writeInternalError(w, err)
+	}
+}
+
+// writeTagRenameError keeps the rename conflicts distinguishable: a taken name
+// is the caller's to fix, so it gets a translated sentence instead of the
+// internal error text the React page would otherwise show verbatim.
+func (s *Server) writeTagRenameError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, appmodel.ErrTagNameTaken):
+		http.Error(w, i18n.T(resolveLang(r), "err.tagNameTaken"), http.StatusConflict)
+	case errors.Is(err, appmodel.ErrInvalidTagTeam), errors.Is(err, appmodel.ErrInvalidTag):
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
+	case errors.Is(err, appmodel.ErrTagNotFound):
+		http.Error(w, "tag not found", http.StatusNotFound)
 	case errors.Is(err, model.ErrForbidden):
 		http.Error(w, "workspace membership required", http.StatusForbidden)
 	default:

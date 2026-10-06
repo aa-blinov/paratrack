@@ -125,6 +125,9 @@ func (lifecycleStore) ListWebhookSummaries(context.Context, appmodel.WebhookList
 func (lifecycleStore) ListWebhooks(context.Context, appmodel.WebhookListQuery) ([]webhookport.Webhook, error) {
 	return []webhookport.Webhook{{ID: 1, URL: "https://example.test/hook", Secret: "secret", Events: "*", Active: true}}, nil
 }
+func (lifecycleStore) GetWebhookForDelivery(_ context.Context, request appmodel.WebhookLookupCommand) (webhookport.Webhook, error) {
+	return webhookport.Webhook{ID: request.WebhookID, TeamID: request.TeamID, URL: "https://example.test/hook", Secret: "secret", Events: "*", Active: true}, nil
+}
 func (lifecycleStore) ListRecentWebhookDeliveries(context.Context, appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error) {
 	return map[int64][]webhookport.WebhookDeliverySummary{}, nil
 }

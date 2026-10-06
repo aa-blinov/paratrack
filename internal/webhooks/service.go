@@ -47,6 +47,7 @@ type Store interface {
 	DeleteWebhook(context.Context, appmodel.WebhookDeleteRequest) error
 	ListWebhookSummaries(context.Context, appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error)
 	ListWebhooks(context.Context, appmodel.WebhookListQuery) ([]webhookport.Webhook, error)
+	GetWebhookForDelivery(context.Context, appmodel.WebhookLookupCommand) (webhookport.Webhook, error)
 	ListRecentWebhookDeliveries(context.Context, appmodel.WebhookDeliveryHistoryQuery) (map[int64][]webhookport.WebhookDeliverySummary, error)
 	LogWebhookDelivery(context.Context, appmodel.WebhookDeliveryLogRequest) error
 	EnqueueWebhookDeliveries(context.Context, appmodel.WebhookDeliveryBatchRequest) error
@@ -237,8 +238,10 @@ func (s *Service) Management(ctx context.Context, query appmodel.WebhookManageme
 		views := make([]appmodel.WebhookDeliveryView, 0, len(attempts))
 		for _, attempt := range attempts {
 			views = append(views, appmodel.WebhookDeliveryView{
-				CreatedAt: attempt.CreatedAt, Event: attempt.Event,
+				ID: attempt.ID, CreatedAt: attempt.CreatedAt, Event: attempt.Event,
 				Status: attempt.Status, Error: attempt.Error,
+				RequestBody: attempt.RequestBody, ResponseBody: attempt.ResponseBody,
+				BodyTruncated: attempt.BodyTruncated,
 			})
 		}
 		snapshot.Deliveries[endpointID] = views

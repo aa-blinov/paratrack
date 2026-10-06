@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
-	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
@@ -89,7 +88,7 @@ func TestPushAPI(t *testing.T) {
 		t.Fatalf("notify page: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	page := readBody(t, resp)
-	if !strings.Contains(page, "push-enable") || !strings.Contains(page, string(i18n.T(i18n.Default, "push.devices"))) {
+	if !reactData[notifyPage](t, page).NotificationsReact || reactData[notifyPage](t, page).DeviceCount != 1 {
 		t.Fatalf("page missing controls: %s", page[200:500])
 	}
 	// unsubscribe

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/url"
 	"strings"
 	"testing"
@@ -69,7 +68,7 @@ func TestReportRunAndCSV(t *testing.T) {
 		t.Fatalf("report: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	page := readBody(t, resp)
-	if !strings.Contains(page, string(i18n.T(i18n.Default, "rep.by-activity.name"))) {
+	if reactData[reportRunPage](t, page).VM.Template.ID != "by-activity" {
 		t.Fatalf("missing title")
 	}
 	if !strings.Contains(page, "consulting") {
@@ -99,7 +98,17 @@ func TestReportRunAndCSV(t *testing.T) {
 		t.Fatalf("marketplace: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	m := readBody(t, resp)
-	if !strings.Contains(m, "GitHub") || !strings.Contains(m, string(i18n.T(i18n.Default, "mkt.monday.blurb"))) {
-		t.Fatalf("marketplace content: %s", m[200:500])
+	items := reactData[marketPage](t, m).Items
+	foundGitHub, foundMonday := false, false
+	for _, item := range items {
+		if item.ID == "github" {
+			foundGitHub = item.Available
+		}
+		if item.ID == "monday" {
+			foundMonday = !item.Available
+		}
+	}
+	if !foundGitHub || !foundMonday {
+		t.Fatal("marketplace lacks live GitHub or upcoming Monday")
 	}
 }

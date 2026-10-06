@@ -55,6 +55,17 @@ var columnMigrations = []struct {
 	{"invoice_stripe_sessions", "active", "BIGINT NOT NULL DEFAULT 1"},
 	// Personal preferences (JSON, see web/prefs.go).
 	{"users", "prefs", "TEXT NOT NULL DEFAULT ''"},
+	// Notification topics this person switched off, comma separated (see
+	// db/preferences.go). Empty means nothing is off, which is what every
+	// existing row already means, so no backfill is needed.
+	{"users", "muted_notifications", "TEXT NOT NULL DEFAULT ''"},
+	// Webhook delivery bodies: the request body was already kept as
+	// `payload`; the receiver's response is kept too so an integrator can
+	// see why their endpoint rejected the call. The *_truncated flags say the
+	// stored text was clipped at 2000 bytes.
+	{"webhook_deliveries", "request_truncated", "BIGINT NOT NULL DEFAULT 0"},
+	{"webhook_deliveries", "response", "TEXT NOT NULL DEFAULT ''"},
+	{"webhook_deliveries", "response_truncated", "BIGINT NOT NULL DEFAULT 0"},
 	// Billing rules: round each invoice line to N minutes (0 = 0.01 h),
 	// "up" or "nearest"; invoice number prefix; logo for documents.
 	{"teams", "round_minutes", "BIGINT NOT NULL DEFAULT 0"},

@@ -5,13 +5,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
-import { SettingsNav } from "@/settings/settings-nav"
+import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { TeamMembersData } from "@/dashboard/types"
 
 export function TeamMembersPage({ data }: { data: TeamMembersData }) {
   const lang = data.Lang || "en"
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
+    <header className="flex flex-wrap items-end justify-between gap-3"><h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>{data.CanManage && <Button asChild size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>}</header>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "team.members")} ({data.Members.length})</CardTitle></CardHeader><CardContent className="grid gap-2">
