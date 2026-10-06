@@ -245,10 +245,12 @@ def main() -> int:
         sheet.get_by_role("button", name="Close").click()
         check("the sheet closes from its close button", not sheet.is_visible())
         sheet_trigger.click()
-        # The sheet rises from the bottom, so the backdrop is above it: clicking
-        # beside it would land on the sheet itself.
-        sheet_top = sheet.bounding_box()['y']
-        page.mouse.click(195, max(10, sheet_top - 40))
+        expect(sheet).to_be_visible()
+        # The backdrop is its own element, so click it near its top edge: the
+        # sheet rises from the bottom, and a coordinate measured from the sheet's
+        # own box is a race with its open animation.
+        page.locator('[data-slot="sheet-overlay"]').click(position={"x": 195, "y": 30})
+        expect(sheet).to_be_hidden()
         check("the sheet closes via backdrop", not sheet.is_visible())
         sheet_trigger.click()
         page.keyboard.press("Escape")
