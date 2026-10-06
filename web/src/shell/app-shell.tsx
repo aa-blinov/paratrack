@@ -86,7 +86,9 @@ export function useShellShortcuts() {
         case "p": {
           if (here === "/") { window.dispatchEvent(new Event("paratrack:pause-all")); break }
           // Off the overview nothing listens for that event, so ask the
-          // server directly and reload the view the person is looking at.
+          // server directly. No reload: on the other screens pausing changes
+          // nothing you are looking at, and a reload would throw away the
+          // filters and the scroll position.
           const token = decodeURIComponent(
             document.cookie.match(/(?:^|;\s*)paratrack_csrf=([^;]+)/)?.[1] ?? "",
           )
@@ -94,7 +96,7 @@ export function useShellShortcuts() {
             method: "POST",
             credentials: "same-origin",
             headers: { "X-CSRF-Token": token },
-          }).then(() => { window.location.reload() })
+          })
           break
         }
       }
