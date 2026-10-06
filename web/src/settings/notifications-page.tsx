@@ -1,10 +1,13 @@
 import * as React from "react"
-import { Bell, BellOff } from "lucide-react"
+import { Bell, BellOff, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { NotificationsData } from "@/dashboard/types"
+
+type TopicsAnswer = { muted?: string[]; outcome?: string }
 
 function vapidBytes(key: string): Uint8Array {
   const padded = key + "=".repeat((4 - key.length % 4) % 4)
@@ -18,6 +21,14 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
   const [checking, setChecking] = React.useState(true)
   const [busy, setBusy] = React.useState(false)
   const [status, setStatus] = React.useState("")
+  // The server owns the selection: the checkboxes only move once it confirms.
+  const [muted, setMuted] = React.useState<string[]>(() => (data.Topics || []).filter(topic => topic.Muted).map(topic => topic.Key))
+
+  const post = React.useCallback(async (path: string, body: URLSearchParams): Promise<TopicsAnswer> => {
+    const response = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": data.CSRFToken }, body })
+    if (!response.ok) throw new Error(`${path} answered ${response.status}`)
+    return await response.json() as TopicsAnswer
+  }, [data.CSRFToken])
 
   const refresh = React.useCallback(async () => {
     try {
@@ -73,15 +84,54 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
     } finally { setBusy(false) }
   }
 
+  // The whole selection travels with every save, so clearing the last box
+  // means "every event again" instead of leaving a stale partial answer.
+  async function toggleTopic(key: string, wantsNotifications: boolean) {
+    setBusy(true)
+    try {
+      const next = wantsNotifications ? muted.filter(topic => topic !== key) : [...muted, key]
+      const body = new URLSearchParams({ csrf_token: data.CSRFToken })
+      for (const topic of next) body.append("topic", topic)
+      const answer = await post("/api/push/topics", body)
+      setMuted(Array.isArray(answer.muted) ? answer.muted : next)
+      setStatus(t(lang, "toast.saved"))
+    } catch {
+      setStatus(t(lang, "push.topicsFailed"))
+    } finally { setBusy(false) }
+  }
+
+  // The check names what the channel did instead of reporting a success it
+  // cannot know: permission and this device's subscription are browser facts,
+  // and the server answers whether a device took the message.
+  async function sendTest() {
+    setBusy(true)
+    try {
+      if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) { setStatus(t(lang, "push.testUnsupported")); return }
+      if (Notification.permission !== "granted") { setStatus(t(lang, "push.testNoPermission")); return }
+      const registration = await navigator.serviceWorker.ready
+      if (!(await registration.pushManager.getSubscription())) { setStatus(t(lang, "push.testNoSubscription")); return }
+      const answer = await post("/api/push/test", new URLSearchParams({ csrf_token: data.CSRFToken }))
+      setStatus(t(lang, answer.outcome === "delivered" ? "push.testSent" : answer.outcome === "no_channel" ? "push.testNoDevices" : "push.testFailed"))
+    } catch {
+      setStatus(t(lang, "push.testFailed"))
+    } finally { setBusy(false) }
+  }
+
+  const topics = data.Topics || []
+
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Card><CardHeader><CardTitle>{t(lang, "push.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.blurb")}</p></CardHeader><CardContent className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2"><Button type="button" onClick={() => void enable()} disabled={busy || checking || active}><Bell aria-hidden="true" />{t(lang, "push.enable")}</Button>{active && <Button type="button" variant="outline" onClick={() => void disable()} disabled={busy}><BellOff aria-hidden="true" />{t(lang, "push.disable")}</Button>}</div>
-      <p className="text-xs text-muted-foreground">{t(lang, "push.devices")}: <strong>{data.DeviceCount}</strong></p>
+      <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{t(lang, "push.devices")}: <strong>{data.DeviceCount}</strong></p><Button type="button" variant="outline" size="sm" onClick={() => void sendTest()} disabled={busy} data-notification-test><Send aria-hidden="true" />{t(lang, "push.test")}</Button></div>
       {data.DeviceCount === 0 && <p className="text-xs text-muted-foreground">{t(lang, "push.emptyHint")}</p>}
-      <p className="min-h-4 text-xs text-muted-foreground" role="status" aria-live="polite">{status}</p>
+      <p className="min-h-4 text-xs text-muted-foreground" role="status" aria-live="polite" data-notification-status>{status}</p>
     </CardContent></Card>
-    <Card><CardHeader><CardTitle>{t(lang, "push.events")}</CardTitle></CardHeader><CardContent><ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">{["push.ev1", "push.ev2", "push.ev3", "push.ev4"].map(key => <li key={key}>{t(lang, key)}</li>)}</ul></CardContent></Card>
+    <Card><CardHeader><CardTitle>{t(lang, "push.events")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.topicsHint")}</p></CardHeader><CardContent>
+      <ul className="grid gap-2">{topics.map(topic => <li key={topic.Key}><label className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={!muted.includes(topic.Key)} disabled={busy} onCheckedChange={checked => void toggleTopic(topic.Key, checked === true)} aria-label={t(lang, topic.Label)} /><span>{t(lang, topic.Label)}</span></label></li>)}
+        <li className="flex items-baseline gap-2 text-sm text-muted-foreground"><span>{t(lang, "push.ev2")}</span><span className="text-xs">{t(lang, "push.ev2hint")}</span></li>
+      </ul>
+    </CardContent></Card>
   </main>
 }

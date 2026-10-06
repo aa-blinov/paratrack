@@ -139,6 +139,81 @@ func (d *DB) DeleteTagForManager(ctx context.Context, request appmodel.TagDelete
 	return tx.Commit()
 }
 
+// RenameTagForManager relabels a workspace tag without touching its row
+// identity, so every session already linked through session_tags keeps the
+// tag under its new name. A name another tag already owns is refused instead of
+// collapsing both labels into one.
+func (d *DB) RenameTagForManager(ctx context.Context, request appmodel.TagRenameRequest) (model.Tag, error) {
+	name := strings.ToLower(strings.TrimSpace(request.Name))
+	if name == "" {
+		return model.Tag{}, fmt.Errorf("tag name cannot be empty")
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.Tag{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return model.Tag{}, err
+	}
+	if err := lockTagForRename(ctx, tx, request.TeamID, request.TagID); err != nil {
+		return model.Tag{}, err
+	}
+	var previousName string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT name FROM tags WHERE id = ? AND team_id = ?`, request.TagID, request.TeamID).Scan(&previousName); err != nil {
+		return model.Tag{}, err
+	}
+	var otherID int64
+	switch err := tx.QueryRowContext(ctx,
+		`SELECT id FROM tags WHERE team_id = ? AND name = ? AND id <> ?`, request.TeamID, name, request.TagID).Scan(&otherID); {
+	case err == nil:
+		return model.Tag{}, appmodel.ErrTagNameTaken
+	case !errors.Is(err, sql.ErrNoRows):
+		return model.Tag{}, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE tags SET name = ? WHERE id = ? AND team_id = ?`, name, request.TagID, request.TeamID); err != nil {
+		if isUniqueViolation(err) {
+			// A concurrent rename claimed the name between the check and
+			// the update; report it the same way as a direct collision.
+			return model.Tag{}, appmodel.ErrTagNameTaken
+		}
+		return model.Tag{}, err
+	}
+	tag, err := scanTag(tx.QueryRowContext(ctx,
+		`SELECT id, name, team_id, created_at FROM tags WHERE id = ? AND team_id = ?`, request.TagID, request.TeamID))
+	if err != nil {
+		return model.Tag{}, err
+	}
+	// Saved stats presets remember a tag by name, so they have to follow the
+	// rename or the preset silently starts showing an empty filter.
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE saved_reports SET tag = ? WHERE team_id = ? AND tag = ?`, name, request.TeamID, previousName,
+	); err != nil {
+		return model.Tag{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.Tag{}, err
+	}
+	return tag, nil
+}
+
+// lockTagForRename freezes the tag row so two managers renaming the same tag
+// cannot interleave, and so a tag deleted mid-flight is reported as missing
+// rather than silently recreated by the update.
+func lockTagForRename(ctx context.Context, tx *Tx, teamID, tagID int64) error {
+	var id int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT id FROM tags WHERE id = ? AND team_id = ? FOR UPDATE`, tagID, teamID).Scan(&id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrTagNotFound
+		}
+		return err
+	}
+	return nil
+}
+
 // attachTag links a tag in the legacy unscoped catalog. Workspace writes must
 // use AttachTagForMember.
 

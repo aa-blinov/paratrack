@@ -30,6 +30,7 @@ type UserStore interface {
 	FindUserByID(context.Context, int64) (model.User, error)
 	FindUserIdentitiesByIDs(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
 	UpdateUserName(context.Context, appmodel.ProfileNameRequest) error
+	UpdateUserEmail(context.Context, appmodel.ProfileEmailUpdateRequest) (bool, error)
 	UpdateUserPasswordIfHashMatches(context.Context, appmodel.PasswordHashUpdateRequest) (bool, error)
 }
 
@@ -388,6 +389,51 @@ func (s *Service) ChangePassword(ctx context.Context, request appmodel.PasswordC
 		return ErrBadPassword
 	}
 	s.recordAudit(ctx, requestctx.TeamID(ctx), userID, "auth.password_change", user.Email, "")
+	return nil
+}
+
+// ChangeEmail moves the account to a new login address. Like ChangePassword
+// it requires the current credential: a live session alone must not be enough
+// to hand the account's login to another mailbox. Existing sessions survive,
+// because whoever holds the session already proved the password.
+func (s *Service) ChangeEmail(ctx context.Context, request appmodel.ProfileEmailRequest) error {
+	if request.UserID <= 0 {
+		return ErrNotFound
+	}
+	if request.CallerID <= 0 || request.CallerID != request.UserID {
+		return ErrForbidden
+	}
+	if _, err := mail.ParseAddress(strings.TrimSpace(request.Email)); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidEmail, err)
+	}
+	newEmail := strings.ToLower(strings.TrimSpace(request.Email))
+	user, err := s.findByID(ctx, request.UserID)
+	if err != nil {
+		return err
+	}
+	if err := s.verifyPassword(user, request.CurrentPassword); err != nil {
+		return err
+	}
+	if newEmail == user.Email {
+		// Nothing to do. Reporting this as success keeps the form from
+		// claiming a change that did not happen.
+		return nil
+	}
+	updated, err := s.users.UpdateUserEmail(ctx, appmodel.ProfileEmailUpdateRequest{
+		UserID: user.ID, CallerID: request.CallerID, ExpectedEmail: user.Email, Email: newEmail,
+	})
+	if errors.Is(err, appmodel.ErrAuthEmailTaken) {
+		return appmodel.ErrAuthEmailTaken
+	}
+	if err != nil {
+		return mapStoreNotFound(err)
+	}
+	if !updated {
+		// Someone changed the address between the read and the write; refuse
+		// instead of overwriting whatever they set.
+		return ErrBadPassword
+	}
+	s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.email_change", user.Email, newEmail)
 	return nil
 }
 

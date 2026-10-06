@@ -39,11 +39,32 @@ type WebhookDeliveryBatchRequest struct {
 	Payload       []byte `json:"-"`
 }
 
+// WebhookDeliveryLogRequest records one delivery attempt. Bodies are stored
+// truncated so a chatty receiver cannot grow the history without bound, and the
+// signing secret is never part of them: it only travels in a header.
 type WebhookDeliveryLogRequest struct {
+	WebhookID    int64
+	Event        string
+	Status       int
+	Error        string
+	RequestBody  string `json:"-"`
+	ResponseBody string `json:"-"`
+}
+
+// WebhookLookupCommand resolves one endpoint for an outbound attempt and
+// re-checks the caller's role, because the answer carries the signing secret.
+type WebhookLookupCommand struct {
+	TeamID    int64
+	CallerID  int64
+	WebhookID int64
+}
+
+// WebhookTestRequest asks for one synthetic delivery to an endpoint on demand.
+type WebhookTestRequest struct {
+	TeamID    int64
+	CallerID  int64
 	WebhookID int64
 	Event     string
-	Status    int
-	Error     string
 }
 
 type WebhookDeleteRequest struct {

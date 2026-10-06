@@ -46,7 +46,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
     <ConfirmationDialog lang={shell.lang}/><a href="#main" className="app-shell-skip">{t(shell.lang, "nav.skip")}</a>
     {shell.user && <AppSidebar shell={shell} themeControl={<ThemeControl shell={shell} />} />}
     <div data-slot="sidebar-inset" className="app-shell-inset relative flex w-full min-w-0 flex-1 flex-col bg-background">
-      {shell.user && <header className="app-shell-header">
+      {shell.user && <header className="app-shell-header no-print">
         <div className="app-shell-header-inner">
           <SidebarTrigger className="app-shell-sidebar-trigger" aria-label={t(shell.lang, "nav.menu")} />
           <a href="/" className="app-shell-brand md:hidden">paratrack</a>

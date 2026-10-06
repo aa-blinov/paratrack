@@ -23,7 +23,11 @@ func (d *DB) Audit(ctx context.Context, record model.AuditRecord) error {
 	return err
 }
 
-// ListAudit returns the team's audit trail, newest first.
+// ListAudit returns the team's audit trail, newest first. Unset filters keep
+// the whole trail. Offset lets a wider window extend a list the reader already
+// has instead of restarting it, so a shared link reopens the same events.
+// Event times are compared as text: the column stores UTC RFC3339Nano, and
+// FormatTime writes the same shape, so the team index still serves the range.
 func (d *DB) ListAudit(ctx context.Context, query appmodel.AuditListQuery) ([]AuditEntry, error) {
 	if query.TeamID <= 0 {
 		return nil, ErrNotFound
@@ -31,9 +35,30 @@ func (d *DB) ListAudit(ctx context.Context, query appmodel.AuditListQuery) ([]Au
 	if query.Limit <= 0 || query.Limit > 500 {
 		query.Limit = 100
 	}
-	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, user_id, action, target, meta, ip, created_at
-		 FROM audit_log WHERE team_id = ? ORDER BY id DESC LIMIT ?`, query.TeamID, query.Limit)
+	if query.Offset < 0 {
+		query.Offset = 0
+	}
+	statement := `SELECT id, team_id, user_id, action, target, meta, ip, created_at FROM audit_log WHERE team_id = ?`
+	args := []any{query.TeamID}
+	if !query.From.IsZero() {
+		statement += ` AND created_at >= ?`
+		args = append(args, FormatTime(query.From))
+	}
+	if !query.To.IsZero() {
+		statement += ` AND created_at < ?`
+		args = append(args, FormatTime(query.To))
+	}
+	if query.UserID > 0 {
+		statement += ` AND user_id = ?`
+		args = append(args, query.UserID)
+	}
+	if query.Action != "" {
+		statement += ` AND action = ?`
+		args = append(args, query.Action)
+	}
+	statement += ` ORDER BY id DESC LIMIT ? OFFSET ?`
+	args = append(args, query.Limit, query.Offset)
+	rows, err := d.sql.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, err
 	}
