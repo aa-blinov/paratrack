@@ -1131,5 +1131,7 @@
   "reports.savedTitle": "Saved reports",
   "reports.savedHint": "A saved report is statistics with its period and filters pinned. Open one to come back to that view.",
   "tags.timeByTag": "Time for this tag, this week",
-  "ts.openProject": "Open project"
+  "ts.openProject": "Open project",
+  "dash.newTimer": "Start a timer",
+  "nav.primary": "Primary navigation"
 }

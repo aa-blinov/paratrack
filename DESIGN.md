@@ -284,11 +284,19 @@ space above a heading than below it.
 
 **Responsive.** Three real breakpoints: `sm` 40rem (640px), `md` 48rem (768px),
 `lg` 64rem (1024px).
-- **Below 1024px** the app becomes a phone shell: the header keeps only the
-  wordmark, a fixed tab bar (`.tabbar`, 3.5rem) carries four user-chosen tabs
-  and «Ещё», which opens a bottom sheet (`dialog.sheet`) with every other
-  section; a running timer sits in a bar above the tabs (`.minibar`). Wide edit
-  tables (`.collapse-lg`) turn into cards at this width too.
+- **Below 1024px** the app is a phone shell built on Material's frame. The top
+  app bar keeps the wordmark alone and measures 64px; a fixed bottom bar
+  (`.mobile-nav`, 4rem) carries four destinations — Обзор, Табель, Статистика,
+  По часам — and «Ещё», which opens a bottom sheet with every other section,
+  the workspace switcher when a person belongs to more than one, and the
+  account items the drawer header used to carry. The drawer itself and its
+  trigger belong to the widths above: on a phone there is one navigation, not
+  two. A floating action button (`.mobile-nav-fab`, 56px) appears on the
+  screens whose job is to look at time — Табель, Статистика, По часам — and
+  takes the person to the timer with the caret in the field. Everywhere else
+  the screen already leads with an action of its own, and a second floating
+  button would only cover the control underneath it. Wide edit tables
+  (`.collapse-lg`) turn into cards at this width too.
 - **Below 640px** every data table collapses to labelled cards
   (`.responsive-collapse`); card cells wrap, and cells marked `whitespace-nowrap`
   (times, sums) keep one line. In the stats log card
@@ -296,7 +304,17 @@ space above a heading than below it.
 - Scrollable strips (`period-tabs`, settings tabs) pan horizontally under touch
   (`touch-action: pan-x pan-y`), never swallow vertical scroll, and open with
   the current tab scrolled into view.
-- **Touch** (`pointer: coarse`), measured from `web/input.css`:
+- **Touch** (`pointer: coarse`):
+  - buttons, inputs, selects and textareas reach Material's 48dp minimum, and
+    a button with a label is at least 48px wide — the old rule raised heights
+    only, which left a 28px-wide hamburger under a 44px target;
+  - a focused field is at least 16px tall in type: iOS Safari zooms the page
+    when a field under 16px takes focus and does not always zoom back, leaving
+    the caret in a page the person cannot read;
+  - small filter chips (`a[data-touch-chip]`) keep the size they were drawn at
+    and take a hit area from a centred pseudo-element, so the row does not grow;
+  - with no hover to rely on, `:active` carries the state layer at 55% opacity;
+  - the rest, measured from `web/input.css`:
   - `btn-sm` and `select` draw at 44px;
   - `input-sm`, `input-xs`, `select-sm` and `btn-xs` draw at 36px;
   - `btn-xs` and `btn-circle` also get a 44×44px hit area from a centred

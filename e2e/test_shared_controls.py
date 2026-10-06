@@ -31,9 +31,15 @@ async def main():
    await delete.click();await expect(dialog.get_by_role('button',name='Отмена',exact=True)).to_be_focused();await page.keyboard.press('Escape');await dialog.wait_for(state='hidden');assert not posts
    await delete.click();await dialog.get_by_role('button',name='Подтвердить',exact=True).click()
    await page.wait_for_timeout(150);assert posts==['/invoices/1/delete'],posts
-   if width==390: await page.get_by_role('button',name='Меню',exact=True).click()
-   await page.get_by_role('button',name='Моя команда',exact=True).click()
-   await page.get_by_role('menuitem',name='Вторая команда',exact=False).click()
+   # On a phone the drawer is gone: the switcher lives in the «Ещё» sheet, and
+   # there the spaces are listed outright instead of behind a menu.
+   if width==390:
+    await page.get_by_role('button',name='Ещё',exact=True).click()
+    await page.locator('[role="dialog"]').wait_for()
+    await page.locator('[role="dialog"] form[action="/api/team/switch"] button',has_text='Вторая команда').click()
+   else:
+    await page.get_by_role('button',name='Моя команда',exact=True).click()
+    await page.get_by_role('menuitem',name='Вторая команда',exact=False).click()
    await page.wait_for_timeout(150);assert posts==['/invoices/1/delete','/api/team/switch'],posts
    assert not errors,errors
    print(f'PASS {width}: keyboard menu, cancelled/accepted confirmation, one POST')
