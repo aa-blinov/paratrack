@@ -25,13 +25,14 @@ type persistedPrefs struct {
 	TZ             string           `json:"tz,omitempty"`
 	HiddenWidgets  []string         `json:"widgets_hidden,omitempty"`
 	DefaultProject map[string]int64 `json:"default_project,omitempty"`
+	LastTeam       int64            `json:"last_team,omitempty"`
 }
 
 func (p persistedPrefs) preferences() Prefs {
 	return Prefs{
 		HiddenSections: p.HiddenSections, Tabs: p.Tabs, Duration: p.Duration,
 		WeekStart: p.WeekStart, TZ: p.TZ, HiddenWidgets: p.HiddenWidgets,
-		DefaultProject: p.DefaultProject,
+		DefaultProject: p.DefaultProject, LastTeamID: p.LastTeam,
 	}
 }
 
@@ -39,7 +40,7 @@ func persisted(prefs Prefs) persistedPrefs {
 	return persistedPrefs{
 		HiddenSections: prefs.HiddenSections, Tabs: prefs.Tabs, Duration: prefs.Duration,
 		WeekStart: prefs.WeekStart, TZ: prefs.TZ, HiddenWidgets: prefs.HiddenWidgets,
-		DefaultProject: prefs.DefaultProject,
+		DefaultProject: prefs.DefaultProject, LastTeam: prefs.LastTeamID,
 	}
 }
 

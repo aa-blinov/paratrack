@@ -19,6 +19,7 @@ func (s *Server) handleAPITeamDelete(w http.ResponseWriter, r *http.Request) {
 	// stay signed in. Only a user with no teams left is logged out.
 	if len(remaining) > 0 {
 		setTeamCookie(w, r, remaining[0])
+		s.rememberWorkspace(r, user.ID, remaining[0])
 		http.Redirect(w, r, "/?flash=team_deleted", http.StatusSeeOther)
 		return
 	}
@@ -39,6 +40,7 @@ func (s *Server) handleAPITeamCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setTeamCookie(w, r, team.ID)
+	s.rememberWorkspace(r, user.ID, team.ID)
 	// A new workspace picks its sections like a new account does.
 	http.Redirect(w, r, "/welcome", http.StatusSeeOther)
 }
@@ -60,6 +62,7 @@ func (s *Server) handleAPITeamSwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setTeamCookie(w, r, id)
+	s.rememberWorkspace(r, user.ID, id)
 	next := strings.TrimSpace(r.PostForm.Get("next"))
 	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
 		next = "/"

@@ -81,7 +81,7 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, sess, err := s.services.Auth.SignIn.AuthenticatePassword(operationContext(r), appmodel.PasswordLoginRequest{Email: email, Password: password})
+	user, sess, err := s.services.Auth.SignIn.AuthenticatePassword(operationContext(r), appmodel.PasswordLoginRequest{Email: email, Password: password})
 	if errors.Is(err, appmodel.ErrAuthCredentialsInvalid) {
 		// Same message for "no such user" and "wrong password" — don't
 		// leak which one it was.
@@ -93,12 +93,59 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
+	s.restoreLastWorkspace(w, r, user.ID)
 
 	redirect := "/"
 	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
 		redirect = next
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
+}
+
+// restoreLastWorkspace re-hydrates the workspace cookie from the account
+// right after a login, so the redirect lands in the space the person was
+// working in — including on a device that never held the cookie.
+// A remembered space we cannot honour is ignored here; resolveTeam
+// re-checks membership on every request and falls back to the personal
+// workspace on its own.
+func (s *Server) restoreLastWorkspace(w http.ResponseWriter, r *http.Request, userID int64) {
+	if userID <= 0 {
+		return
+	}
+	prefs, err := s.services.Preferences.Load(r.Context(), userID)
+	if err != nil {
+		s.logInternalError(fmt.Errorf("load preferences to restore workspace: %w", err))
+		return
+	}
+	if prefs.LastTeamID > 0 {
+		setTeamCookie(w, r, prefs.LastTeamID)
+	}
+}
+
+// rememberWorkspace records the workspace someone moved into, so the next
+// login opens it. It is a convenience only: a stale or forged value cannot
+// grant access, because resolveTeam re-checks membership per request.
+//
+// Preferences come from the request context, and a context without them
+// means the load failed — better to skip the write than to overwrite a
+// preference blob we could not read.
+func (s *Server) rememberWorkspace(r *http.Request, userID, teamID int64) {
+	if userID <= 0 || teamID <= 0 {
+		return
+	}
+	prefs, ok := r.Context().Value(prefsKey{}).(Prefs)
+	if !ok {
+		return
+	}
+	if prefs.LastTeamID == teamID {
+		return
+	}
+	prefs.LastTeamID = teamID
+	if err := s.services.Preferences.Save(r.Context(), appmodel.PreferencesSaveRequest{
+		UserID: userID, CallerID: userID, TeamID: teamID, Preferences: prefs,
+	}); err != nil {
+		s.logInternalError(fmt.Errorf("save last workspace: %w", err))
+	}
 }
 
 // handleAPIRegister creates a new user + personal team and logs them
@@ -162,6 +209,11 @@ func (s *Server) handleAPILogout(w http.ResponseWriter, r *http.Request) {
 		s.logInternalError(fmt.Errorf("delete logout session: %w", err))
 	}
 	clearSessionCookie(w)
+	// The workspace cookie is this session's scope pointer. It is also
+	// what the next login re-hydrates from the account, so dropping it
+	// here leaves no previous person's workspace behind on a shared
+	// browser while still restoring the right one on the way back in.
+	clearTeamCookie(w)
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 

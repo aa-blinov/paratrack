@@ -1,0 +1,135 @@
+{
+  "clicks_to_running_timer": 5,
+  "stats_editables": [
+    {
+      "type": "hidden",
+      "name": "csrf_token",
+      "label": "",
+      "value": "nyXuk8o3tFQgU1JFJ2z-rHRrvMxVrFZpUNNlKv07M9E"
+    },
+    {
+      "type": "hidden",
+      "name": "period",
+      "label": "",
+      "value": "week"
+    },
+    {
+      "type": "hidden",
+      "name": "project",
+      "label": "",
+      "value": ""
+    },
+    {
+      "type": "hidden",
+      "name": "tag",
+      "label": "",
+      "value": ""
+    },
+    {
+      "type": null,
+      "name": "name",
+      "label": "",
+      "value": ""
+    },
+    {
+      "type": "datetime-local",
+      "name": null,
+      "label": "Начало — сверка сметы",
+      "value": "2026-10-06T11:36"
+    },
+    {
+      "type": "datetime-local",
+      "name": null,
+      "label": "Конец — сверка сметы",
+      "value": "2026-10-06T11:36"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "Длительность — сверка сметы",
+      "value": "1 с"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "Заметка — сверка сметы",
+      "value": ""
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "+ тег — сверка сметы",
+      "value": ""
+    },
+    {
+      "type": "datetime-local",
+      "name": null,
+      "label": "Начало — макет главной Nordwind",
+      "value": "2026-10-06T11:34"
+    },
+    {
+      "type": "datetime-local",
+      "name": null,
+      "label": "Конец — макет главной Nordwind",
+      "value": "2026-10-06T11:34"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "Длительность — макет главной Nordwind",
+      "value": "1 с"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "Заметка — макет главной Nordwind",
+      "value": ""
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "+ тег — макет главной Nordwind",
+      "value": ""
+    },
+    {
+      "type": "datetime-local",
+      "name": null,
+      "label": "Начало — Правка макета",
+      "value": "2026-10-05T09:00"
+    },
+    {
+      "type": "datetime-local",
+      "name": null,
+      "label": "Конец — Правка макета",
+      "value": "2026-10-05T09:45"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "Длительность — Правка макета",
+      "value": "45 мин"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "Заметка — Правка макета",
+      "value": "timesheet"
+    },
+    {
+      "type": null,
+      "name": null,
+      "label": "+ тег — Правка макета",
+      "value": ""
+    }
+  ],
+  "projects_text": "ект объединяет активности одного клиента или направления. У проекта есть цвет, оценка в часах и ставка для счетов. Показать архивные Новый проект Аудит бюджета Активности 0 Сегодня 0 мин За 30 дней 0 мин Внутренние задачи Активности 0 Сегодня 0 мин За 30 дней 0 мин Сайт для Nordwind Активности 0 Сегодня 0 мин За 30 дней 0 мин v0.1 клавиши: N новая, S статистика, G по часам, P пауза всем, T тема RU",
+  "notes": [
+    "[клики] после входа: 1, пространство: личное",
+    "[клики] от формы входа до идущего таймера: 5 кликов (студия)",
+    "[сессии] ка Сколько времени ушло и на что за выбранный период: по проектам и активностям. Ниже можно исправить сессии, добавить теги и сохранить период с фильтрами. Посмотреть по часам Сегодня Вчера Эта неделя Прошлая неделя Этот месяц Прошлый месяц Разбивка Все Аудит бюджета Внутренние задачи Сайт для Nordwind Без проекта 45 мин, 100.0% Правка макета 45 мин, 99.9% макет главной Nordwind <1 мин, 0.0% сверка сметы <1 мин, 0.0% Итого 45 мин Сохранённые отчёты (0) Сохраните выбранный период и фильтры, чтобы вернуться к ним позже. Сессии (3) Начало, конец, длительность и заметка сохраняются после выхода из",
+    "[поля-правки] [{'type': 'hidden', 'name': 'csrf_token', 'label': '', 'value': 'nyXuk8o3tFQgU1JFJ2z-rHRrvMxVrFZpUNNlKv07M9E'}, {'type': 'hidden', 'name': 'period', 'label': '', 'value': 'week'}, {'type': 'hidden', 'name': 'project', 'label': '', 'value': ''}, {'type': 'hidden', 'name': 'tag', 'label': '', 'value': ''}, {'type': None, 'name': 'name', 'label': '', 'value': ''}, {'type': 'datetime-local', 'name': None, 'label': 'Начало — сверка сметы', 'value': '2026-10-06T11:36'}, {'type': 'datetime-local', 'name': None, 'label': 'Конец — сверка сметы', 'value': '2026-10-06T11:36'}, {'type': None, 'name': None, 'label': 'Длительность — сверка сметы', 'value': '1\\xa0с'}, {'type': None, 'name': None, 'label': 'Заметка — сверка сметы', 'value': ''}, {'type': None, 'name': None, 'label': '+ тег — сверка сметы', 'value': ''}, {'type': 'datetime-local', 'name': None, 'label': 'Начало — макет главной Nordwind', 'value': '2026-10-06T11:34'}, {'type': 'datetime-local', 'name': None, 'label': 'Конец — макет главной Nordwind', 'value': '2026-10-06T11:34'}, {'type': None, 'name': None, 'label': 'Длительность — макет главной Nordwind', 'value': '1\\xa0с'}, {'type': None, 'name': None, 'label': 'Заметка — макет главной Nordwind', 'value': ''}, {'type': None, 'name': None, 'label': '+ тег — макет главной Nordwind', 'value': ''}, {'type': 'datetime-local', 'name': None, 'label': 'Начало — Правка макета', 'value': '2026-10-05T09:00'}, {'type': 'datetime-local', 'name': None, 'label': 'Конец — Правка макета', 'value': '2026-10-05T09:45'}, {'type': None, 'name': None, 'label': 'Длительность — Правка макета', 'value': '45\\xa0мин'}, {'type': None, 'name': None, 'label': 'Заметка — Правка макета', 'value': 'timesheet'}, {'type': None, 'name': None, 'label': '+ тег — Правка макета', 'value': ''}]",
+    "[правка] поле для правки не найдено среди 20",
+    "[ставки] в тексте страницы проектов: []"
+  ],
+  "js_errors": []
+}
