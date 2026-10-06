@@ -95,7 +95,7 @@ export function TagsPage({ data }: { data: TagsData }) {
             {/* The chip is the way into the time this tag carries — the same
                 filter the session row on /stats opens, from the screen that
                 owns the tag instead of from a dashboard the user must find. */}
-            <a href={`/stats?${tagTimeQuery(tag.Name)}`} title={t(lang, "tags.timeByTag")} className="min-w-0 truncate underline-offset-4 hover:underline"><span className="sr-only">{t(lang, "tags.timeByTag")}: </span>#{tag.Name}</a>
+            <a href={`/stats?${tagTimeQuery(tag.Name)}`} title={t(lang, "tags.timeByTag")} aria-label={`${t(lang, "tags.timeByTag")}: #${tag.Name}`} className="min-w-0 truncate underline-offset-4 hover:underline">#{tag.Name}</a>
             <span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono font-semibold tabular-nums" title={t(lang, "tags.countTitle")}>{tag.SessionCount}</span>
             {data.CanManage && <><Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} data-tag-rename ref={node => { if (node) renameButtons.current.set(tag.ID, node); else renameButtons.current.delete(tag.ID) }} aria-expanded={renaming === tag.ID} title={t(lang, "tags.rename")} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} onClick={() => openRename(tag)}><Pencil aria-hidden="true" /></Button>
               <Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} title={t(lang, "tags.delete")} aria-label={`${t(lang, "tags.delete")}: ${tag.Name}`} onClick={() => void remove(tag)}><Trash2 aria-hidden="true" /></Button></>}

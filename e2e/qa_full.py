@@ -210,7 +210,12 @@ def main() -> int:
         pg.fill("#report-save-name", "QA yesterday")
         pg.locator('form[action="/api/reports/save"] button').click()
         pg.wait_for_timeout(1200)
+        # Saving stays on statistics; the list has one home, the reports screen
+        # that the nav entry already opens.
+        pg.goto(BASE + "/reports")
+        pg.wait_for_load_state("load")
         check("saved report chip", pg.locator('a[href*="period=yesterday"]').filter(has_text="QA yesterday").count() >= 1)
+        check("reports screen does not link to itself", pg.locator('main a[href="/reports"]').count() == 0)
         shot(pg, "c4-saved-report")
 
         # ---------- D. Graph ----------
