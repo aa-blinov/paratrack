@@ -181,11 +181,9 @@ func TestRenameTagForManagerCarriesSavedReportsAlong(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("rename tag: %v", err)
 	}
-	var presetTag string
-	if err := d.TestSQL().QueryRowContext(ctx,
-		`SELECT tag FROM saved_reports WHERE team_id = ? AND name = ?`, teamID, "week deep").Scan(&presetTag); err != nil {
-		t.Fatalf("read preset: %v", err)
-	}
+	// The preset points at the tag row, so the rename shows up on its own;
+	// reading it back through the list query is what /stats does.
+	_, presetTag := savedReportFilter(t, d, teamID, "week deep")
 	if presetTag != "deep-work" {
 		t.Fatalf("saved preset filter = %q, want deep-work; a rename must not silently empty it", presetTag)
 	}
