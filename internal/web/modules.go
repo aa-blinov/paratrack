@@ -42,6 +42,22 @@ var presets = []struct {
 	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}},
 }
 
+// The active mode is the exact workspace section preset. Personal menu
+// preferences do not change it; a manually changed set is custom.
+func presetKeyForModules(enabled map[string]bool) string {
+	encoded := appmodel.EncodeSections(enabled)
+	for _, preset := range presets {
+		selected := make(map[string]bool, len(preset.Modules))
+		for _, key := range preset.Modules {
+			selected[key] = true
+		}
+		if appmodel.EncodeSections(selected) == encoded {
+			return preset.Key
+		}
+	}
+	return "custom"
+}
+
 // userModules is what this person's menu shows: the workspace's sections
 // minus the ones they hid for themselves.
 func (s *Server) userModules(r *http.Request) map[string]bool {

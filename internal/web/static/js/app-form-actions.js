@@ -18,7 +18,24 @@ document.addEventListener('click', (event) => {
   if (event.target.closest('[data-print]')) window.print();
 });
 
+const confirmedForms = new WeakSet();
 document.addEventListener('submit', (event) => {
   const form = event.target.closest('form[data-confirm]');
-  if (form && !window.confirm(form.dataset.confirm)) event.preventDefault();
+  if (!form) return;
+  if (confirmedForms.has(form)) { confirmedForms.delete(form); return; }
+  if (!form.closest('#paratrack-react-root')) {
+    if (!window.confirm(form.dataset.confirm)) event.preventDefault();
+    return;
+  }
+  event.preventDefault();
+  const submitter = event.submitter;
+  document.dispatchEvent(new CustomEvent('paratrack:confirm', { detail: {
+    message: form.dataset.confirm,
+    trigger: submitter || document.activeElement,
+    resolve: accepted => {
+      if (!accepted || !form.isConnected) return;
+      confirmedForms.add(form);
+      form.requestSubmit(submitter);
+    },
+  }}));
 }, true);

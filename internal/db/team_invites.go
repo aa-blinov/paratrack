@@ -58,6 +58,12 @@ func (d *DB) ListTeamInvites(ctx context.Context, teamID int64) ([]model.TeamInv
 	return invites, rows.Err()
 }
 
+// DeleteTeamInvite drops an invitation whether it is still live, already spent
+// or expired, so the owner can clean spent rows out of the list. The DELETE is
+// deliberately scoped to the invites table: accepting an invitation writes the
+// access into memberships, and memberships hold no reference to invites, so
+// removing a spent invitation only erases its history row and can never take
+// the access it granted back. Keep this statement free of any membership write.
 func (d *DB) DeleteTeamInvite(ctx context.Context, request appmodel.TeamInviteRevokeRequest) error {
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {

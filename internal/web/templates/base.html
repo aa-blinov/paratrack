@@ -25,7 +25,7 @@
   <script type="importmap">{{appImportMap}}</script>
   <script type="module" src="{{asset "js/app.js"}}"></script>
   <script defer src="{{asset "js/alpine.min.js"}}"></script>
-  {{if .ReactApp}}<script type="module" src="{{asset "ui/app.js"}}"></script>{{end}}
+  {{if .ReactApp}}<script type="module" blocking="render" src="{{asset "ui/app.js"}}"></script>{{end}}
 </head>
 <body class="min-h-screen flex flex-col bg-base-200 text-base-content"
   data-i18n-send-error="{{.T "pwa.sendError"}}"
@@ -143,7 +143,16 @@
   </header>
   {{end}}
 
-  {{if .ReactApp}}<div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">{{.ContentHTML}}</div>
+  {{if .ReactApp}}<div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">
+    <div class="app-boot" role="status" aria-live="polite" aria-busy="true">
+      {{if .User}}<aside class="app-boot-sidebar" aria-hidden="true"><span class="app-shell-brand">paratrack</span></aside>{{end}}
+      <div class="app-boot-content">
+        <div class="app-boot-header"><span class="app-shell-brand">paratrack</span></div>
+        <div class="app-boot-main"><h1>{{.Title}}</h1><p>{{if eq .Lang "ru"}}Загрузка…{{else}}Loading…{{end}}</p></div>
+      </div>
+    </div>
+    <noscript><p class="app-boot-main">{{if eq .Lang "ru"}}Для работы paratrack включите JavaScript в браузере.{{else}}Enable JavaScript in your browser to use paratrack.{{end}}</p></noscript>
+  </div>
   {{else}}<main id="main" tabindex="-1" class="flex-1 mx-auto max-w-6xl px-4 py-6 w-full">{{.ContentHTML}}</main>{{end}}
 
   {{/* Permanent live region: a region inserted together with its text is
@@ -154,7 +163,7 @@
   {{if not .ReactApp}}<footer class="{{if .User}}hidden lg:block {{end}}border-t border-base-300 bg-base-100 py-3">
     <div class="mx-auto max-w-6xl px-4 flex items-center gap-2 flex-wrap">
       <div class="text-sm opacity-60 flex-1 min-w-0 whitespace-nowrap truncate">
-        {{.T "version"}}<span class="hidden sm:inline">{{if .User}} | {{.T "kbd.title"}}: <kbd class="kbd kbd-xs">n</kbd> {{.T "kbd.new"}}, <kbd class="kbd kbd-xs">s</kbd> {{.T "kbd.stats"}}, <kbd class="kbd kbd-xs">g</kbd> {{.T "kbd.graph"}}, <kbd class="kbd kbd-xs">p</kbd> {{.T "kbd.pause"}}, <kbd class="kbd kbd-xs">t</kbd> {{.T "kbd.theme"}}{{end}}</span>
+        {{.T "version"}}
       </div>
       <div class="flex items-center gap-1 shrink-0">
         <button type="button" data-install hidden class="btn btn-ghost btn-xs gap-1" title="{{.T "pwa.installTitle"}}">

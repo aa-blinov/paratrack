@@ -85,6 +85,18 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	data.DeviceCount = deviceCount
+	// Which events to hear about is the person's own choice, not a workspace
+	// setting, so it comes from the push workflow rather than the request
+	// preferences.
+	user, ok := UserFrom(r.Context())
+	if ok {
+		muted, err := s.services.Push.MutedTopics(r.Context(), appmodel.NotificationTopicsQuery{TeamID: teamID(r), UserID: user.ID})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		data.Topics = notificationTopicViews(muted)
+	}
 	s.renderPageForRequest(w, r, "Notifications", "settings-notify", "notifications", &data)
 }
 
@@ -92,6 +104,7 @@ type notifyPage struct {
 	pageData
 	NotificationsReact bool
 	DeviceCount        int
+	Topics             []notificationTopic
 	Flash              string
 	FlashOK            bool
 }

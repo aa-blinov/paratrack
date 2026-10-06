@@ -15,10 +15,24 @@ type WebhookEndpointView struct {
 }
 
 type WebhookDeliveryView struct {
-	CreatedAt time.Time
-	Event     string
-	Status    int
-	Error     string
+	ID            int64
+	CreatedAt     time.Time
+	Event         string
+	Status        int
+	Error         string
+	RequestBody   string
+	ResponseBody  string
+	BodyTruncated bool
+}
+
+// WebhookTestResult is what the receiver answered to a manual test run.
+type WebhookTestResult struct {
+	Event        string
+	Status       int
+	Error        string
+	RequestBody  string
+	ResponseBody string
+	SentAt       time.Time
 }
 
 // TeamMemberManagementSnapshot contains the member directory and payroll

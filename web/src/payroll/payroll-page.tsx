@@ -1,3 +1,4 @@
+import { openDisclosure } from "@/components/ui/collapsible"
 import { ArrowLeft, Printer, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -5,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { PayrollData, PayrollDetailData } from "@/dashboard/types"
 
@@ -16,7 +18,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
   const lang = data.Lang
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     {data.Flash && <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></div><Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button></header>
 
     {!!data.Overlap && <div role="alert" className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
       <span className="min-w-0 flex-1">{t(lang, "pay.overlap", data.Overlap)}</span>
@@ -26,15 +28,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
       </form>
     </div>}
 
-    <Card><CardHeader><CardTitle>{t(lang, "pay.generate")}</CardTitle></CardHeader><CardContent>
-      <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
-        <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><Input id="pay-start" type="date" name="start" required defaultValue={data.DefStart} /></div>
-        <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><Input id="pay-end" type="date" name="end" required defaultValue={data.DefEnd} /></div>
-        <div className="flex min-w-0 items-end gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
-      </form>
-      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
-    </CardContent></Card>
+
 
     {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "pay.list")}</CardTitle></CardHeader><CardContent>
       <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/payroll/${item.ID}`} className="font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><Status lang={lang} status={item.Status} /></div><p className="text-xs text-muted-foreground">{item.Period}</p><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
@@ -45,7 +39,16 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </TableRow>)}</TableBody>
       </Table>
       </div>
-    </CardContent></Card> : <Card><CardContent className="py-8 text-center"><p className="font-medium">{t(lang, "pay.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.emptyHint")}</p></CardContent></Card>}
+    </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "pay.emptyHint")}</p>}
+    <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
+      <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+        <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><Input id="pay-start" type="date" name="start" required defaultValue={data.DefStart} /></div>
+        <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><Input id="pay-end" type="date" name="end" required defaultValue={data.DefEnd} /></div>
+        <div className="flex min-w-0 items-end gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
+      </form>
+      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
+    </DisclosureSection>
   </main>
 }
 

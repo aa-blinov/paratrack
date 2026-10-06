@@ -67,6 +67,7 @@ export interface UnbilledItem {
 }
 
 export interface DashboardData {
+  Mode?: "solo" | "freelance" | "studio" | "custom"
   Title: string
   Active: string
   User?: { ID: number; Email: string; Name: string } | null
@@ -144,6 +145,7 @@ export interface ProjectDetailData {
 }
 
 export interface ProjectCreateData {
+  Mods?: Record<string, boolean> | null
   Title: string
   Active: string
   ReactApp: boolean
@@ -228,6 +230,7 @@ export interface TimesheetCell {
 }
 
 export interface TimesheetRow {
+  ProjectID: number
   ActivityID: number
   ActivityName: string
   Color: string
@@ -256,6 +259,7 @@ export interface TimesheetData {
   CSRFToken: string
   Days: TimesheetDay[]
   Rows: TimesheetRow[]
+  ProjectNames: Record<string, string>
   DayTotalLabels: string[]
   GrandTotal: number
   GrandTotalLabel: string
@@ -551,6 +555,12 @@ export interface PreferencesData {
   FlashOK: boolean
 }
 
+export interface NotificationTopic {
+  Key: string
+  Label: string
+  Muted: boolean
+}
+
 export interface NotificationsData {
   Active: string
   Lang: string
@@ -558,6 +568,7 @@ export interface NotificationsData {
   CanManage: boolean
   NotificationsReact: boolean
   DeviceCount: number
+  Topics: NotificationTopic[]
 }
 
 export interface TeamSettingsData {
@@ -620,7 +631,7 @@ export interface WebhooksData {
   Lang: string
   CSRFToken: string
   WebhooksReact: boolean
-  Items: Array<{ ID: number; URL: string; Events: string; Active: boolean; Deliveries: Array<{ When: string; Event: string; Status: number; OK: boolean; Error: string }> }>
+  Items: Array<{ ID: number; URL: string; Events: string; Active: boolean; Deliveries: Array<{ ID: number; When: string; Event: string; Status: number; OK: boolean; Error: string; RequestBody: string; ResponseBody: string; BodyTruncated: boolean; Test: boolean }> }>
   Flash: string
   FlashOK: boolean
 }
@@ -630,6 +641,19 @@ export interface AuditData {
   Lang: string
   AuditReact: boolean
   Items: Array<{ Time: string; Action: string; Target: string; IP: string }>
+  /** Current filter state, echoed from the address so a shared link reopens the same list. */
+  From: string
+  To: string
+  UserID: number
+  Action: string
+  People: Array<{ ID: number; Name: string }>
+  Actions: string[]
+  /** How many rows this view asked for. */
+  Window: number
+  /** Present when the trail was cut at the window; widens it. */
+  MoreURL?: string
+  Filtered: boolean
+  EmptyFiltered: boolean
 }
 
 export interface ImportData {

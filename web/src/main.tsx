@@ -1,4 +1,7 @@
-import { lazy, StrictMode, Suspense, startTransition, useEffect, useMemo, useRef, useState } from "react"
+import { requestConfirmation } from "@/components/confirmation-dialog"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
+import { createElement, lazy as reactLazy, StrictMode, Suspense, startTransition, useLayoutEffect, useEffect, useMemo, useRef, useState, type ComponentType, type ComponentProps } from "react"
 import { createRoot } from "react-dom/client"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -15,6 +18,15 @@ import type { AuditData, AuthPageData, DashboardData, ExportData, GoalsData, Gra
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
+// React.lazy suspends on its first render even when import() was preloaded.
+// Use the resolved component directly so the first frame has real content.
+function lazy<C extends ComponentType<any>>(load: () => Promise<{ default: C }>) {
+  let loaded: C | undefined
+  let pending: Promise<{ default: C }> | undefined
+  const preload = () => pending ??= load().then(module => { loaded = module.default; return module })
+  const deferred = reactLazy(preload)
+  return Object.assign((props: ComponentProps<C>) => createElement((loaded ?? deferred) as ComponentType<ComponentProps<C>>, props), { preload })
+}
 const ProjectList = lazy(() => import("@/projects/project-list").then(module => ({ default: module.ProjectList })))
 const ProjectDetail = lazy(() => import("@/projects/project-detail").then(module => ({ default: module.ProjectDetail })))
 const ProjectCreate = lazy(() => import("@/projects/project-create").then(module => ({ default: module.ProjectCreate })))
@@ -133,6 +145,8 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const activities = data.Activities ?? []
   const projects = data.Projects ?? []
   const active = data.ActiveSessions ?? []
+  const mode = data.Mode || "custom"
+  const modeTitle = mode === "custom" ? t(lang, "dash.mode.custom") : t(lang, `preset.${mode}`)
   const recent = data.Recent ?? []
   const top = data.TopToday || t(lang, "ledger.none")
 
@@ -144,30 +158,42 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     </div>
   }
 
+  const goalsWidget = data.Widgets?.goals && data.Mods?.goals && data.Goals?.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.goals}</CardTitle><a className="text-sm underline-offset-4 hover:underline" href="/goals">{labels.manage}</a></CardHeader><CardContent className="grid gap-4">{data.Goals.map(goal => <div key={goal.ID} className="grid gap-2"><div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between sm:gap-2"><span className="min-w-0 [overflow-wrap:anywhere]">{goal.ActivityName} <span className="text-muted-foreground">{goal.PeriodRangeLabel}</span></span><span className="shrink-0 font-mono sm:whitespace-nowrap">{goal.AchievedLabel} / {goal.TargetLabel}</span></div><Progress value={Math.min(goal.Percent, 100)} aria-label={goal.ActivityName} /></div>)}</CardContent></Card>
+  const unbilledWidget = data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 text-sm last:border-0 last:pb-0"><a className="min-w-0 [overflow-wrap:anywhere] underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span><Button asChild variant="outline" size="sm"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button></div>)}</CardContent></Card>
+
   return <main className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
-    <h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t(lang, mode === "studio" && !data.CanManage ? "dash.blurb.studioMember" : `dash.blurb.${mode}`)}</p><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{t(lang, "dash.mode", modeTitle)}</a> : <span>{t(lang, "dash.mode", modeTitle)}</span>}</div></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
     <Card>
       <CardContent className="grid gap-5 p-5">
         <form onSubmit={start} className="grid gap-3">
           <Label htmlFor="activity">{labels.what}</Label>
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_12rem_auto]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
             <Input id="activity" name="activity" list="known-activities" autoComplete="off" value={activity} onChange={e => { setActivity(e.target.value); const known = activities.find(item => item.Name.toLocaleLowerCase() === e.target.value.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (project || "0"))) }} placeholder={t(lang, "dash.activityHint")} required />
             <datalist id="known-activities">{activities.map(item => <option key={item.ID} value={item.Name} data-project={item.ProjectID} />)}</datalist>
+            <Button type="submit" disabled={busy}>{labels.start}</Button>
+          </div>
+          <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
+            <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
+            <div className="mt-3 grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+              <div className="grid gap-2"><Label htmlFor="project_id">{labels.project}</Label>
             <Select value={project || "none"} onValueChange={value => { setProject(value === "none" ? "" : value); const known = activities.find(item => item.Name.toLocaleLowerCase() === activity.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (value === "none" ? "0" : value))) }}>
               <SelectTrigger id="project_id" aria-label={labels.project} data-value={project || "0"}><SelectValue placeholder={labels.project} /></SelectTrigger>
               <SelectContent><SelectItem value="none">{labels.uncategorized}</SelectItem>{projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent>
             </Select>
-            <Button type="submit" disabled={busy}>{labels.start}</Button>
-          </div>
-          <Input aria-label={labels.note} name="note" value={note} onChange={e => setNote(e.target.value)} placeholder={t(lang, "dash.noteHint")} />
+              </div>
+              <div className="grid gap-2"><Label htmlFor="timer-note">{labels.note}</Label>
+          <Input id="timer-note" aria-label={labels.note} name="note" value={note} onChange={e => setNote(e.target.value)} placeholder={t(lang, "dash.noteHint")} />
+              </div>
+            </div>
+          </Disclosure>
           <p id="ledger-project-rebind" className="text-xs text-muted-foreground" hidden={!rebindWarning}>{t(lang, "dash.projectHistoryHint")}</p>
         </form>
         <Separator />
         <section id="active-list" aria-labelledby="active-heading" className="grid gap-3">
           <CardTitle id="active-heading" className="text-sm font-medium">{labels.active}</CardTitle>
-          {active.length ? <div className="grid gap-3">{active.length > 1 && <div className="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={busy || data.RunningCount === 0} onClick={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</Button><Button variant="destructive" size="sm" disabled={busy} onClick={() => window.confirm(t(lang, "dash.stopAllConfirm", active.length)) && void mutate("/api/active/stop-all")}>{t(lang, "dash.stopAll")}</Button></div>}{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          {active.length ? <div className="grid gap-3">{active.length > 1 && <div className="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={busy || data.RunningCount === 0} onClick={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</Button><Button variant="destructive" size="sm" disabled={busy} onClick={async () => await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length)) && void mutate("/api/active/stop-all")}>{t(lang, "dash.stopAll")}</Button></div>}{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: session.Color }} /><strong className="ledger-activity min-w-16 truncate">{session.ActivityName}</strong>{projects.length > 0 ? <Select value={String(session.ProjectID || 0)} onValueChange={value => void mutate(`/api/activities/${session.ActivityID}/project`, { project_id: value })}><SelectTrigger aria-label={labels.project} className="ledger-project h-7 w-fit max-w-40 border-0 px-2 text-xs" data-value={session.ProjectID || 0}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">{labels.uncategorized}</SelectItem>{projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select> : session.ProjectName && <Badge variant="outline">{session.ProjectName}</Badge>}</div><div className="mt-1 flex gap-3 text-xs text-muted-foreground"><span className={`status-pill ${session.Paused ? "is-paused" : "is-active"}`} data-state={session.Paused ? "paused" : "running"}>{session.Paused ? t(lang, "dash.statusPaused") : t(lang, "dash.statusActive")}</span><span>{session.StartLocal}</span><LiveClock session={session} /></div></div>
             {sessionActions(session)}
           </div>)}</div> : <div className="py-5 text-center text-sm text-muted-foreground"><p>{labels.noActive}</p><p>{labels.noActiveHint}</p></div>}
@@ -182,13 +208,19 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       </CardContent>
     </Card>
     {!data.HasProject && data.HasSession && showNext && <nav aria-label={t(lang, "onb.next")} className="flex flex-wrap items-center gap-4 rounded-md border px-4 py-3 text-sm"><strong>{t(lang, "onb.next")}</strong><a href="/stats" className="underline-offset-4 hover:underline">{t(lang, "onb.nextStats")}</a>{data.Mods?.invoices && <a href="/projects/new" className="underline-offset-4 hover:underline">{t(lang, "onb.nextProject")}</a>}<Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => setShowNext(false)}>{t(lang, "onb.hide")}</Button></nav>}
-    {data.Widgets?.goals && data.Mods?.goals && data.Goals?.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.goals}</CardTitle><a className="text-sm underline-offset-4 hover:underline" href="/goals">{labels.manage}</a></CardHeader><CardContent className="grid gap-4">{data.Goals.map(goal => <div key={goal.ID} className="grid gap-2"><div className="flex justify-between gap-2 text-sm"><span className="truncate">{goal.ActivityName} <span className="text-muted-foreground">{goal.PeriodRangeLabel}</span></span><span className="whitespace-nowrap font-mono">{goal.AchievedLabel} / {goal.TargetLabel}</span></div><Progress value={Math.min(goal.Percent, 100)} aria-label={goal.ActivityName} /></div>)}</CardContent></Card>}
+    {mode === "studio" && (data.CanManage || data.Mods?.schedule) && <nav aria-label={t(lang, "dash.teamActions")} className="flex flex-wrap items-center gap-2 border-y py-3">
+      {data.Mods?.schedule && <Button asChild variant="outline" size="sm"><a href="/schedule">{t(lang, "nav.schedule")}</a></Button>}
+      {data.CanManage && <><Button asChild variant="outline" size="sm"><a href="/settings/members">{t(lang, "team.members")}</a></Button><Button asChild variant="outline" size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>{data.Mods?.payroll && <Button asChild variant="outline" size="sm"><a href="/payroll">{t(lang, "nav.payroll")}</a></Button>}</>}
+    </nav>}
+    <div data-dashboard-widgets className="grid min-w-0 gap-4 lg:grid-cols-2 [&:has(>_:only-child)]:lg:grid-cols-1">
+    {mode === "freelance" ? <>{unbilledWidget}{goalsWidget}</> : <>{goalsWidget}{unbilledWidget}</>}
+    </div>
+    {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
     {data.Widgets?.recent && recent.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.recent}</CardTitle><a className="text-sm underline-offset-4 hover:underline" href="/stats">{labels.viewAll}</a></CardHeader><CardContent>
-      <div className="hidden overflow-x-auto sm:block"><table className="w-full text-left text-sm"><thead><tr className="border-b text-muted-foreground"><th className="p-2">{t(lang, "dash.activity")}</th><th className="p-2">{t(lang, "dash.startLabel")}</th><th className="p-2">{t(lang, "stats.end")}</th><th className="p-2">{labels.duration}</th><th className="p-2">{labels.note}</th><th className="p-2">{t(lang, "stats.tags")}</th><th className="p-2" /></tr></thead><tbody>{recent.map(session => <tr key={session.ID} className="border-b last:border-0"><td className="p-2"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: session.Color }} /><span className="[overflow-wrap:anywhere]">{session.ActivityName}</span>{session.ProjectName && <div><Badge variant="outline" className="max-w-full whitespace-normal [overflow-wrap:anywhere]">{session.ProjectName}</Badge></div>}</td><td className="whitespace-nowrap p-2 font-mono">{session.StartLocal}</td><td className="whitespace-nowrap p-2 font-mono">{session.EndLocal}</td><td className="whitespace-nowrap p-2 font-mono">{session.Duration}</td><td className="p-2 [overflow-wrap:anywhere]">{session.Note}</td><td className="p-2">{session.Tags?.map(tag => <a key={tag.ID} className="mr-1 inline-block [overflow-wrap:anywhere]" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</td><td className="p-2"><Button variant="ghost" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></td></tr>)}</tbody></table></div>
+      <div className="hidden overflow-x-auto sm:block"><Table className="w-full text-left text-sm"><TableHeader><TableRow className="border-b text-muted-foreground"><TableHead className="p-2">{t(lang, "dash.activity")}</TableHead><TableHead className="p-2">{t(lang, "dash.startLabel")}</TableHead><TableHead className="p-2">{t(lang, "stats.end")}</TableHead><TableHead className="p-2">{labels.duration}</TableHead><TableHead className="p-2">{labels.note}</TableHead><TableHead className="p-2">{t(lang, "stats.tags")}</TableHead><TableHead className="p-2" /></TableRow></TableHeader><TableBody>{recent.map(session => <TableRow key={session.ID} className="border-b last:border-0"><TableCell className="whitespace-normal p-2"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: session.Color }} /><span className="[overflow-wrap:anywhere]">{session.ActivityName}</span>{session.ProjectName && <div><Badge variant="outline" className="max-w-full whitespace-normal [overflow-wrap:anywhere]">{session.ProjectName}</Badge></div>}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.StartLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.EndLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.Duration}</TableCell><TableCell className="whitespace-normal p-2 [overflow-wrap:anywhere]">{session.Note}</TableCell><TableCell className="whitespace-normal p-2">{session.Tags?.map(tag => <a key={tag.ID} className="mr-1 inline-block [overflow-wrap:anywhere]" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</TableCell><TableCell className="whitespace-normal p-2"><Button variant="ghost" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></TableCell></TableRow>)}</TableBody></Table></div>
       <div data-recent-sessions-mobile className="grid gap-2 sm:hidden">{recent.map(session => <article key={session.ID} className="grid min-w-0 gap-2 rounded-md border p-3 text-sm"><div className="flex min-w-0 items-start gap-2"><span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: session.Color }} /><div className="min-w-0"><strong className="break-all">{session.ActivityName}</strong>{session.ProjectName && <div className="mt-1"><Badge variant="outline" className="h-auto max-w-full whitespace-normal break-all">{session.ProjectName}</Badge></div>}</div></div><div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><span>{session.StartLocal}</span><span aria-hidden="true">→</span><span>{session.EndLocal}</span><span className="font-mono text-foreground">{session.Duration}</span></div>{session.Note && <p className="break-words text-muted-foreground">{session.Note}</p>}{session.Tags?.length > 0 && <div className="flex flex-wrap gap-2">{session.Tags.map(tag => <a key={tag.ID} className="text-primary underline-offset-4 hover:underline" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</div>}<Button className="w-fit" variant="outline" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></article>)}</div>
     </CardContent></Card>}
-    {data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex justify-between gap-3 text-sm"><a className="underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours}, {item.Amount}</span></div>)}</CardContent></Card>}
-    {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
+
   </main>
 }
 
@@ -204,7 +236,7 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   const lang = data.Lang
   const set = (key: keyof typeof fields, value: string) => { setFields(previous => ({ ...previous, [key]: value })); setDismissed(previous => [...previous, key]) }
   const fieldError = (key: string) => failure?.field === key && !dismissed.includes(key) ? failure.message : ""
-  return <Card><details id="backfill" open={open} onToggle={event => setOpen(event.currentTarget.open)}><summary className="cursor-pointer list-none p-5 font-medium">{t(lang, "dash.backfillTitle")}</summary><CardContent className="grid gap-3">
+  return <Card><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="cursor-pointer list-none p-5 font-medium">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><CardContent className="grid gap-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
     <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (await onSubmit(fields)) setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) }}>
       <div><Input id="b-activity" aria-label={t(lang, "dash.activity")} list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}</div>
@@ -214,7 +246,7 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
       <Input id="b-note" name="note" aria-label={t(lang, "dash.note")} placeholder={t(lang, "dash.noteShort")} value={fields.note} onChange={event => set("note", event.target.value)} />
       <Button type="submit" disabled={busy}>{t(lang, "dash.addSession")}</Button>
     </form>
-  </CardContent></details></Card>
+  </CardContent></Disclosure></Card>
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
@@ -230,11 +262,16 @@ function LiveClock({ session }: { session: Session }) {
   return <time className="font-mono tabular-nums">{clockLabel(sessionElapsedSeconds(session, now))}</time>
 }
 
-function PageScreen({ bootstrap, restoreFocus, routeKey }: { bootstrap: ReactPageBootstrap; restoreFocus: boolean; routeKey: string }) {
+function PageReady({ onReady }: { onReady?: () => void }) {
+  useEffect(() => { onReady?.() }, [onReady])
+  return null
+}
+
+function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap: ReactPageBootstrap; restoreFocus: boolean; routeKey: string; onReady?: () => void }) {
   const data = bootstrap.data
   return (
     <Suspense fallback={<div className="min-h-32 rounded-lg bg-muted" aria-hidden="true" />}>
-      <div key={routeKey}>
+      <div key={`${routeKey}:${bootstrap.shell.lang}`}>
           {"NewProject" in data && data.NewProject
             ? <ProjectCreate data={data as ProjectCreateData} />
             : "GoalsReact" in data && data.GoalsReact
@@ -304,67 +341,82 @@ function PageScreen({ bootstrap, restoreFocus, routeKey }: { bootstrap: ReactPag
             : "ShowArchived" in data
             ? <ProjectList data={data as ProjectListData} />
             : <DashboardApp initial={data as DashboardData} restoreFocus={restoreFocus} />}
+        <PageReady onReady={onReady} />
       </div>
     </Suspense>
   )
 }
 
-function parseBootstrap(html: string): { bootstrap: ReactPageBootstrap; title: string } | null {
+function parseBootstrap(html: string): { bootstrap: ReactPageBootstrap; title: string; translations: Record<string, string> } | null {
   const document = new DOMParser().parseFromString(html, "text/html")
   const payload = document.getElementById("react-page-data")
   if (!payload) return null
   try {
     const bootstrap = JSON.parse(payload.textContent || "") as ReactPageBootstrap
     if (!bootstrap.data || !bootstrap.shell) return null
-    return { bootstrap, title: document.title }
+    return { bootstrap, title: document.title, translations: Object.fromEntries(Object.entries(document.body.dataset).filter(([key]) => key.startsWith("i18n"))) as Record<string, string> }
   } catch {
     return null
   }
 }
 
 function preloadInitialPage(data: ReactPageData): Promise<unknown> {
-  if ("NewProject" in data && data.NewProject) return import("@/projects/project-create")
-  if ("GoalsReact" in data && data.GoalsReact) return import("@/goals/goals-page")
-  if ("ReactTags" in data && data.ReactTags) return import("@/tags/tags-page")
-  if ("GraphReact" in data && data.GraphReact) return import("@/graph/graph-page")
-  if ("TimesheetReact" in data && data.TimesheetReact) return import("@/timesheet/timesheet-page")
-  if ("PayrollReact" in data && data.PayrollReact) return import("@/payroll/payroll-page")
-  if ("ScheduleReact" in data && data.ScheduleReact) return import("@/schedule/schedule-page")
-  if ("InvoicesReact" in data && data.InvoicesReact) return import("@/invoices/invoices-page")
-  if (("InvoiceReact" in data && data.InvoiceReact) || ("InvoiceActReact" in data && data.InvoiceActReact)) return import("@/invoices/invoices-page")
-  if ("ByProject" in data && "Sessions" in data && data.Active === "stats") return import("@/stats/stats-page")
-  if ("ReportRunReact" in data && data.ReportRunReact) return import("@/reports/reports-page")
-  if ("ReportsReact" in data && data.ReportsReact) return import("@/reports/reports-page")
-  if ("ReportsEnabled" in data) return import("@/export/export-page")
-  if ("MarketReact" in data && data.MarketReact) return import("@/integrations/integrations-page")
-  if ("IntegrationReact" in data && data.IntegrationReact) return import("@/integrations/integrations-page")
-  if ("IntegrationsReact" in data && data.IntegrationsReact) return import("@/integrations/integrations-page")
-  if ("TokensReact" in data && data.TokensReact) return import("@/settings/tokens-page")
-  if ("ProfileReact" in data && data.ProfileReact) return import("@/settings/profile-page")
-  if ("PrefsReact" in data && data.PrefsReact) return import("@/settings/preferences-page")
-  if ("NotificationsReact" in data && data.NotificationsReact) return import("@/settings/notifications-page")
-  if ("TeamSettingsReact" in data && data.TeamSettingsReact) return import("@/settings/team-settings-page")
-  if ("MembersReact" in data && data.MembersReact) return import("@/settings/team-members-page")
-  if ("InvitesReact" in data && data.InvitesReact) return import("@/settings/team-invites-page")
-  if ("SectionsReact" in data && data.SectionsReact) return import("@/settings/sections-page")
-  if ("WebhooksReact" in data && data.WebhooksReact) return import("@/settings/webhooks-page")
-  if ("AuditReact" in data && data.AuditReact) return import("@/settings/audit-page")
-  if ("HelpReact" in data && data.HelpReact) return import("@/help/help-page")
-  if ("ImportReact" in data && data.ImportReact) return import("@/import/import-page")
-  if ("InviteReact" in data && data.InviteReact) return import("@/settings/invite-accept-page")
-  if ("AuthReact" in data && data.AuthReact) return import("@/auth/auth-page")
-  if ("Sessions" in data) return import("@/projects/project-detail")
-  if ("ShowArchived" in data) return import("@/projects/project-list")
+  if ("NewProject" in data && data.NewProject) return ProjectCreate.preload()
+  if ("GoalsReact" in data && data.GoalsReact) return GoalsPage.preload()
+  if ("ReactTags" in data && data.ReactTags) return TagsPage.preload()
+  if ("GraphReact" in data && data.GraphReact) return GraphPage.preload()
+  if ("TimesheetReact" in data && data.TimesheetReact) return TimesheetPage.preload()
+  if ("PayrollReact" in data && data.PayrollReact) return "PayrollDetail" in data && data.PayrollDetail ? PayrollDetail.preload() : Payroll.preload()
+  if ("ScheduleReact" in data && data.ScheduleReact) return SchedulePage.preload()
+  if ("InvoicesReact" in data && data.InvoicesReact) return InvoicesPage.preload()
+  if ("InvoiceActReact" in data && data.InvoiceActReact) return InvoiceActPage.preload()
+  if ("InvoiceReact" in data && data.InvoiceReact) return InvoiceDetailPage.preload()
+  if ("ByProject" in data && "Sessions" in data && data.Active === "stats") return StatsPage.preload()
+  if ("ReportRunReact" in data && data.ReportRunReact) return ReportRunPage.preload()
+  if ("ReportsReact" in data && data.ReportsReact) return ReportsPage.preload()
+  if ("ReportsEnabled" in data) return ExportPage.preload()
+  if ("MarketReact" in data && data.MarketReact) return MarketplacePage.preload()
+  if ("IntegrationReact" in data && data.IntegrationReact) return IntegrationDetailPage.preload()
+  if ("IntegrationsReact" in data && data.IntegrationsReact) return IntegrationsPage.preload()
+  if ("TokensReact" in data && data.TokensReact) return TokensPage.preload()
+  if ("ProfileReact" in data && data.ProfileReact) return ProfilePage.preload()
+  if ("PrefsReact" in data && data.PrefsReact) return PreferencesPage.preload()
+  if ("NotificationsReact" in data && data.NotificationsReact) return NotificationsPage.preload()
+  if ("TeamSettingsReact" in data && data.TeamSettingsReact) return TeamSettingsPage.preload()
+  if ("MembersReact" in data && data.MembersReact) return TeamMembersPage.preload()
+  if ("InvitesReact" in data && data.InvitesReact) return TeamInvitesPage.preload()
+  if ("SectionsReact" in data && data.SectionsReact) return SectionsPage.preload()
+  if ("WebhooksReact" in data && data.WebhooksReact) return WebhooksPage.preload()
+  if ("AuditReact" in data && data.AuditReact) return AuditPage.preload()
+  if ("HelpReact" in data && data.HelpReact) return HelpPage.preload()
+  if ("ImportReact" in data && data.ImportReact) return ImportPage.preload()
+  if ("InviteReact" in data && data.InviteReact) return InviteAcceptPage.preload()
+  if ("AuthReact" in data && data.AuthReact) return AuthPage.preload()
+  if ("Sessions" in data) return ProjectDetail.preload()
+  if ("ShowArchived" in data) return ProjectList.preload()
   return Promise.resolve()
 }
 
-function AppRouter({ initial }: { initial: ReactPageBootstrap }) {
+function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?: () => void }) {
   const [route, setRoute] = useState(() => ({
     bootstrap: initial,
+    title: document.title,
+    translations: Object.fromEntries(Object.entries(document.body.dataset).filter(([key]) => key.startsWith("i18n"))) as Record<string, string>,
     key: location.pathname + location.search,
     restoreFocus: document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity",
     focusMain: false,
   }))
+  useLayoutEffect(() => {
+    document.documentElement.lang = route.bootstrap.shell.lang
+    document.title = route.title
+    Object.assign(document.body.dataset, route.translations)
+    const minibar = document.getElementById("minibar")
+    if (minibar) {
+      minibar.setAttribute("aria-label", t(route.bootstrap.shell.lang, "dash.activeSessions"))
+      document.body.dispatchEvent(new Event("sessions-changed"))
+    }
+    document.dispatchEvent(new Event("paratrack:languagechange"))
+  }, [route.bootstrap.shell.lang, route.title, route.translations])
   const request = useRef<AbortController | null>(null)
   const scrollPositions = useRef(new Map<string, number>())
 
@@ -383,11 +435,14 @@ function AppRouter({ initial }: { initial: ReactPageBootstrap }) {
         if (!response.ok || new URL(response.url).origin !== location.origin) throw new Error("Navigation response unavailable")
         const result = parseBootstrap(await response.text())
         if (!result) throw new Error("Navigation did not return a React page")
+        // Keep the current screen and navigation intact until the next chunk
+        // is ready. A newer navigation must also supersede a pending import.
+        await preloadInitialPage(result.bootstrap.data)
+        if (controller.signal.aborted) return
         const finalURL = new URL(response.url)
         if (url.hash) finalURL.hash = url.hash
         if (mode === "push") history.pushState({ paratrack: true }, "", finalURL.href)
-        document.title = result.title
-        startTransition(() => setRoute({ bootstrap: result.bootstrap, key: finalURL.pathname + finalURL.search, restoreFocus, focusMain: true }))
+        startTransition(() => setRoute({ bootstrap: result.bootstrap, title: result.title, translations: result.translations, key: finalURL.pathname + finalURL.search, restoreFocus, focusMain: true }))
         requestAnimationFrame(() => {
           if (mode === "pop") window.scrollTo(0, scrollPositions.current.get(finalURL.pathname + finalURL.search) || 0)
           else if (finalURL.hash) document.getElementById(decodeURIComponent(finalURL.hash.slice(1)))?.scrollIntoView()
@@ -459,15 +514,18 @@ function AppRouter({ initial }: { initial: ReactPageBootstrap }) {
     if (route.focusMain && !route.restoreFocus) document.getElementById("main")?.focus({ preventScroll: true })
   }, [route.focusMain, route.key, route.restoreFocus])
 
-  return <ApplicationShell shell={route.bootstrap.shell}><PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} /></ApplicationShell>
+  return <ApplicationShell shell={route.bootstrap.shell}><PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} /></ApplicationShell>
 }
 
 if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap
-    void preloadInitialPage(initial.data).then(() => {
-      if (root.isConnected) createRoot(root).render(<StrictMode><AppRouter initial={initial} /></StrictMode>)
-    }).catch(error => console.error("Could not load initial page", error))
+    await preloadInitialPage(initial.data)
+    if (root.isConnected) {
+      await new Promise<void>(resolve => {
+        createRoot(root).render(<StrictMode><AppRouter initial={initial} onReady={resolve} /></StrictMode>)
+      })
+    }
   } catch (error) {
     console.error("Could not initialize dashboard", error)
   }

@@ -63,5 +63,6 @@ export function createOfflineBanner(onAction) {
     }
   }
 
+  document.addEventListener('paratrack:languagechange', () => render(latestState));
   return { render };
 }

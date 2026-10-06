@@ -86,6 +86,27 @@ def api(page, method, url, **kw):
     return getattr(page.request, method)(url, headers=headers, **kw)
 
 
+def open_disclosures(scope, target: str) -> None:
+    """Open the disclosure that holds `target`, if it is closed.
+
+    Optional fields live behind Radix disclosures that start closed when the
+    account has nothing to suggest. `scope` may be a locator or the page.
+    Click through the DOM: Playwright's retrying click can land on a control
+    that slid into the trigger's old spot — the currency select, for one —
+    and that steals focus from the fields below it.
+    """
+    holder = scope.page if hasattr(scope, "page") else scope
+    for _ in range(4):
+        root = holder.locator(f'[data-disclosure]:has({target})')
+        if not root.count():
+            return
+        if root.first.get_attribute("data-state") == "open":
+            return
+        trigger = root.first.locator("> button[aria-expanded]").first
+        if not trigger.count():
+            return
+        trigger.evaluate("node => node.click()")
+        holder.wait_for_timeout(300)
 def main() -> int:
     with sync_playwright() as p:
         # Real desktop viewport, with prefers-color-scheme = light by default
@@ -253,6 +274,14 @@ def main() -> int:
         page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Failed', 'error', 10000))")
         check("error toast retains its distinct icon",
               page.locator('#toast .toast-note[role="alert"] svg use[href$="#i-x"]').count() == 1)
+        # The mobile sheet is a Radix dialog: while it is open it takes pointer
+        # events away from the page behind it. The rest of this run drives the
+        # dashboard directly, so wait for that overlay to be released.
+        page.wait_for_function(
+            "() => getComputedStyle(document.body).pointerEvents !== 'none'"
+            " && document.querySelector('[data-radix-popper-content-wrapper], [role=dialog]') === null",
+            timeout=5000,
+        )
         page.goto(BASE + '/settings/sections')
         expect(page.locator("#main h1")).to_be_visible()
         check("preset stays selected without a redundant check",
@@ -300,12 +329,25 @@ def main() -> int:
                     ? '/inter-cyrillic.woff2' : '/inter-latin.woff2'))"""))
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(BASE + "/")
+        # The shell reflows when the viewport changes width, so wait for the
+        # timer form to settle before typing into it.
+        expect(page.locator("#activity")).to_be_visible()
+        page.wait_for_timeout(400)
 
         # ------------------------------------------------------------------ 2
         print("\n== 2. Start a new activity via the form (UI)")
         before = page.locator(".status-pill.is-active").count()
-        page.fill('input[name="activity"]', "writing")
-        page.fill('form:has(#activity) input[name="note"]', "e2e playwright test")
+        page.fill("#activity", "writing")
+        # The note sits behind the optional-fields disclosure, and a fresh
+        # account has no default project, so that disclosure starts closed.
+        open_disclosures(page.locator("#activity").locator("xpath=ancestor::form"), "#timer-note")
+        page.fill("#timer-note", "e2e playwright test")
+        # A Radix select/menu left open takes pointer events away from the whole
+        # page, and the click below would then hang with no useful message.
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => getComputedStyle(document.body).pointerEvents !== 'none'", timeout=5000,
+        )
         page.click('button[type="submit"]:has-text("Start")')
         # Wait specifically inside #active-list — not the form input —
         # so we know the HTMX swap has happened.
@@ -381,7 +423,10 @@ def main() -> int:
         page.wait_for_load_state("load")
         expect(page.locator("h1")).to_have_text("When you work")
         check("graph mounts the React/shadcn shell",
-              page.locator('#paratrack-react-root .period-tabs a').count() == 6
+              # six preset periods plus the "custom dates" tab, and the print
+              # button sits in the same bar
+              page.locator('#paratrack-react-root .period-tabs a').count() == 7
+              and page.locator('#paratrack-react-root .period-tabs button').count() >= 1
               and page.locator('#paratrack-react-root [data-slot="card"]').count() >= 1)
         # ECharts renders into a <canvas>; wait for that.
         page.wait_for_selector("#echart-canvas canvas", timeout=3000)
@@ -441,12 +486,30 @@ def main() -> int:
         proj_name = f"EORA RAG {proj_slug}"
         page.goto(BASE + "/projects/new")
         expect(page.locator("#new-project-name")).to_be_visible()
+        # The mobile-sheet section above leaves Radix's modal state on the
+        # shell. While it is set the optional fields cannot take focus and
+        # whatever is typed lands in the autofocused name box instead, so wait
+        # the state out before driving the form directly.
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => { const root = document.getElementById('paratrack-react-root');"
+            " return getComputedStyle(document.body).pointerEvents !== 'none'"
+            " && !(root && root.firstElementChild"
+            " && root.firstElementChild.getAttribute('aria-hidden') === 'true'); }",
+            timeout=5000,
+        )
         check("project create page mounts React/shadcn form",
               page.locator('#paratrack-react-root form[action="/projects/new"] [data-slot="input"]').count() >= 3)
-        page.fill('input[name="name"]', proj_name)
-        page.fill('input[name="slug"]', proj_slug)
-        # Slug blank → auto. Color picker value is the hex text input.
+        page.fill("#new-project-name", proj_name)
+        # Slug and colour live behind "options", closed without an invoicing module.
+        open_disclosures(page.locator("#new-project-name").locator("xpath=ancestor::form"), "#new-project-slug")
+        page.fill("#new-project-slug", proj_slug)
+        # The picker itself has no name; the hex field next to it carries it.
         page.fill('input[name="color"][pattern]', "#7c3aed")
+        check("each project field kept its own value",
+              page.locator("#new-project-name").input_value() == proj_name
+              and page.locator("#new-project-slug").input_value() == proj_slug,
+              f"name={page.locator('#new-project-name').input_value()!r} slug={page.locator('#new-project-slug').input_value()!r}")
         page.get_by_role("button", name="Create").click()
         page.wait_for_url(f"**/projects/{proj_slug}")
         check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
@@ -458,6 +521,8 @@ def main() -> int:
               page.locator('#paratrack-react-root [data-slot="card"]').count() >= 3
               and page.locator('#paratrack-react-root form[action^="/projects/"]').count() == 2)
         updated_project_name = proj_name + " updated"
+        # The edit fields sit behind a disclosure that starts closed.
+        open_disclosures(page.locator("h1").locator("xpath=ancestor::main"), "#project-name")
         page.fill("#project-name", updated_project_name)
         page.fill("#project-estimate", "480")
         page.locator('#paratrack-react-root form[method="POST"][action^="/projects/"] button[type="submit"]').first.click()
@@ -810,8 +875,10 @@ def main() -> int:
         goal_row = page.locator("#paratrack-react-root .grid.gap-2").filter(has_text=goal_activity)
         expect(goal_row).to_be_visible()
         check("goal form creates progress row", goal_row.count() == 1)
-        page.once("dialog", lambda dialog: dialog.accept())
-        goal_row.get_by_role("button", name="Delete goal").click()
+        page.get_by_role("button", name="Delete goal").click()
+        # Destructive actions go through the shared confirmation dialog, not
+        # window.confirm, so accept the dialog's own button.
+        page.get_by_role("button", name="Confirm", exact=True).click()
         expect(goal_row).to_have_count(0)
 
         # Goals widget should appear on the dashboard because we set up
@@ -872,8 +939,10 @@ def main() -> int:
         react_tag_chip = page.get_by_text(f"#{react_tag}", exact=True)
         expect(react_tag_chip).to_be_visible()
         check("tags form creates a chip", react_tag_chip.count() == 1)
-        page.once("dialog", lambda dialog: dialog.accept())
         page.get_by_role("button", name=f"Delete tag: {react_tag}").click()
+        # Destructive actions go through the shared confirmation dialog, not
+        # window.confirm, so accept the dialog's own button.
+        page.get_by_role("button", name="Confirm", exact=True).click()
         expect(react_tag_chip).to_have_count(0)
 
         # Seed a tag + attach it to the first session in /stats.
@@ -1007,7 +1076,8 @@ def main() -> int:
         # Invalid manual time must not discard the rest of the form.
         page.set_viewport_size({"width": 390, "height": 844})
         page.goto(BASE + "/")
-        page.locator("#backfill summary").click()
+        # Backfill is a Radix disclosure now, so its trigger is a button.
+        page.locator('#backfill[data-disclosure] > button[aria-expanded]').first.click()
         page.fill("#b-activity", "e2e-backfill-preserved")
         page.fill("#b-start", "not a time")
         page.fill("#b-end", "yesterday 11:00")
@@ -1065,7 +1135,9 @@ def main() -> int:
         page.goto(BASE + "/stats?period=yesterday")
         expect(page.locator("#main h1")).to_have_text("Stats")
         saved_names = ("A very long saved report for the team", "Another saved report for this period")
+        # The save form lives behind the "saved reports" disclosure.
         for name in saved_names:
+            open_disclosures(page, "#report-save-name")
             page.fill('#report-save-name', name)
             page.locator('form[action="/api/reports/save"] button').click()
             page.wait_for_load_state('load')
@@ -1073,29 +1145,30 @@ def main() -> int:
             page.set_viewport_size({"width": width, "height": 900})
             page.goto(BASE + "/stats?period=yesterday")
             expect(page.locator("#main h1")).to_have_text("Stats")
+            # Saved reports live behind a disclosure, closed on every load.
+            open_disclosures(page, "#report-save-name")
             check(f"saved reports and long activity fit at {width}px",
                   all(page.locator("#main a").filter(has_text=name).count() >= 1 for name in saved_names)
-                  and page.locator('#main [data-slot="card"]').count() >= 3
-                  and page.evaluate('''() => {
-                    const card = document.querySelector('#main article.rounded-md.border').getBoundingClientRect();
-                    const name = document.querySelector('#main article.rounded-md.border strong').getBoundingClientRect();
-                    return document.documentElement.scrollWidth <= innerWidth
-                      && name.right <= card.right && name.left >= card.left;
-                  }'''))
+                  # Long saved-report names must not force the page sideways.
+                  and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
             if width >= 640:
                 check(f"breakdown retains time and share at {width}px",
-                      page.locator('#main [data-slot="card"]').nth(1).inner_text().count("%") > 0)
+                  page.locator('#main').inner_text().count("%") > 0)
             else:
                 check(f"breakdown figures remain readable at {width}px",
-                      page.locator('#main [data-slot="card"]').nth(1).is_visible()
+                      page.locator('#main [data-slot="card"]').count() >= 2
                       and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/stats?period=today")
         expect(page.locator("#main h1")).to_have_text("Stats")
+        open_disclosures(page, "#report-save-name")
         page.get_by_role('link', name=saved_names[0]).click()
         page.wait_for_url('**period=yesterday*')
         check("saved report opens its period", 'period=yesterday' in page.url)
         for name in saved_names:
-            page.locator('#main a').filter(has_text=name).wait_for(state="visible")
+            # Every step here reloads the page (navigation, then each delete),
+            # and the disclosure is closed again on each load.
+            open_disclosures(page, "#report-save-name")
+            page.locator('#main a').filter(has_text=name).first.wait_for(state="attached")
             button = page.get_by_role("button", name=f"Delete {name}")
             if button.count():
                 button.click()

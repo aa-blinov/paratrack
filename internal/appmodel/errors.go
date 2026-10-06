@@ -59,6 +59,10 @@ var (
 	ErrAuthSessionInvalid        = errors.New("session invalid")
 	ErrAuthForbidden             = model.ErrForbidden
 	ErrAuthTokenInvalid          = model.ErrTokenInvalid
+	// ErrAuthEmailTaken marks a profile email change that collides with
+	// another account. It is separate from ErrAuthInvalidEmail so the
+	// form can say "already in use" instead of "malformed".
+	ErrAuthEmailTaken = errors.New("email already in use")
 
 	ErrNoBillableTime              = model.ErrNoBillableTime
 	ErrAlreadyBilled               = model.ErrAlreadyBilled
