@@ -453,6 +453,7 @@ export interface StatsData {
   TagFilter: string
   AllTagNames: string[]
   SavedReports: Array<{ ID: number; Name: string; Period: string; ProjectSlug: string; Tag: string; CreatedBy: number }>
+  Elsewhere?: Array<{ Label: string; Count: number; Total: string }>
 }
 
 export interface ReportsData {

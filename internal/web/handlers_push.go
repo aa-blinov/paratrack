@@ -85,6 +85,9 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	data.DeviceCount = deviceCount
+	// Someone without management rights can never see an invoice or a pay run,
+	// so offering those events would promise notifications that never arrive.
+	data.CanManage = canManage(r)
 	// Which events to hear about is the person's own choice, not a workspace
 	// setting, so it comes from the push workflow rather than the request
 	// preferences.

@@ -117,7 +117,10 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
     } finally { setBusy(false) }
   }
 
-  const topics = data.Topics || []
+  // Invoices and pay runs are owner territory: a member gets a 403 on both, so
+  // offering those events would promise notifications that never arrive.
+  const managerOnly = ["payroll.paid", "invoice.paid", "invoice.payment_link"]
+  const topics = (data.Topics || []).filter(topic => data.CanManage || !managerOnly.includes(topic.Key))
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
@@ -130,7 +133,7 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
     </CardContent></Card>
     <Card><CardHeader><CardTitle>{t(lang, "push.events")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.topicsHint")}</p></CardHeader><CardContent>
       <ul className="grid gap-2">{topics.map(topic => <li key={topic.Key}><label className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={!muted.includes(topic.Key)} disabled={busy} onCheckedChange={checked => void toggleTopic(topic.Key, checked === true)} aria-label={t(lang, topic.Label)} /><span>{t(lang, topic.Label)}</span></label></li>)}
-        <li className="flex items-baseline gap-2 text-sm text-muted-foreground"><span>{t(lang, "push.ev2")}</span><span className="text-xs">{t(lang, "push.ev2hint")}</span></li>
+        {data.CanManage && <li className="flex items-baseline gap-2 text-sm text-muted-foreground"><span>{t(lang, "push.ev2")}</span><span className="text-xs">{t(lang, "push.ev2hint")}</span></li>}
       </ul>
     </CardContent></Card>
   </main>
