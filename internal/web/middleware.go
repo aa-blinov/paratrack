@@ -296,6 +296,17 @@ func setTeamCookie(w http.ResponseWriter, r *http.Request, teamID int64) {
 	})
 }
 
+func clearTeamCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     teamCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
 const teamCookieName = "paratrack_team"
 const sessionCookieName = "paratrack_session"
 

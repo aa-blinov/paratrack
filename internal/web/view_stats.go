@@ -29,6 +29,18 @@ type statsData struct {
 	TagFilter     string   // current ?tag= value, empty if unfiltered
 	AllTagNames   []string // for the inline-add input autocomplete
 	SavedReports  []savedReportView
+	// Elsewhere names the switcher periods that hold time when the selected
+	// one holds none; empty while the period itself has sessions.
+	Elsewhere []statsPeriodOption
+}
+
+// statsPeriodOption is one switcher period that holds tracked time, with the
+// time it holds, so the empty state can offer it instead of leaving the reader
+// to hunt through the switcher.
+type statsPeriodOption struct {
+	Label string // "yesterday", "week", … — a ?period= value
+	Count int
+	Total string
 }
 
 func (statsData) usesReactApp() bool { return true }
