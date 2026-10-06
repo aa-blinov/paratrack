@@ -87,6 +87,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"seal secrets", func() error { return d.sealExistingSecretsContext(ctx) }},
 		{"hash invite tokens", func() error { return d.migrateInviteTokensContext(ctx) }},
 		{"assign orphan sessions", func() error { return d.assignOrphanSessions(ctx) }},
+		{"resolve saved report filters", func() error { return d.migrateSavedReportFilterIDs(ctx) }},
 		{"stamp legacy invoices", func() error { return d.stampLegacyInvoices(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {
