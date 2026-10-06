@@ -1,6 +1,6 @@
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import * as React from "react"
-import { Plus, Tag as TagIcon, Trash2 } from "lucide-react"
+import { Check, Pencil, Plus, Tag as TagIcon, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,9 @@ export function TagsPage({ data }: { data: TagsData }) {
   const [tags, setTags] = React.useState(data.Tags)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [renaming, setRenaming] = React.useState<number | null>(null)
+  const [renameError, setRenameError] = React.useState("")
+  const renameButtons = React.useRef(new Map<number, HTMLButtonElement>())
   const lang = data.Lang
 
   async function refresh() {
@@ -50,6 +53,19 @@ export function TagsPage({ data }: { data: TagsData }) {
     finally { setBusy(false) }
   }
 
+  // A typo is fixed in place: the rename keeps the tag row, so the sessions
+  // already carrying it follow the new name instead of losing it.
+  function openRename(tag: TagView) { setRenaming(tag.ID); setRenameError("") }
+  function closeRename(tagID: number) { setRenaming(null); setRenameError(""); renameButtons.current.get(tagID)?.focus() }
+
+  async function rename(tag: TagView, name: string) {
+    if (!name.trim()) return
+    setBusy(true); setRenameError("")
+    try { await send("/api/tags", "PATCH", new URLSearchParams({ id: String(tag.ID), name: name.trim() })); await refresh(); closeRename(tag.ID) }
+    catch (cause) { setRenameError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
+    finally { setBusy(false) }
+  }
+
   React.useEffect(() => {
     const timer = window.setInterval(() => void refresh().catch(() => {}), 60_000)
     return () => window.clearInterval(timer)
@@ -65,13 +81,41 @@ export function TagsPage({ data }: { data: TagsData }) {
       </form>
     </CardContent></Card>
     {tags.length ? <Card><CardHeader><CardTitle>{t(lang, "tags.all")} ({tags.length})</CardTitle></CardHeader><CardContent>
-      <ul className="flex flex-wrap gap-2" aria-label={t(lang, "tags.all")}>
-        {tags.map(tag => <li key={tag.ID} className="inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
-          <TagIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" /><span className="min-w-0 truncate">#{tag.Name}</span><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono font-semibold tabular-nums" title={t(lang, "tags.countTitle")}>{tag.SessionCount}</span>
-          {data.CanManage && <Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} title={t(lang, "tags.delete")} aria-label={`${t(lang, "tags.delete")}: ${tag.Name}`} onClick={() => void remove(tag)}><Trash2 aria-hidden="true" /></Button>}
+      <ul className="flex flex-wrap items-start gap-2" aria-label={t(lang, "tags.all")}>
+        {tags.map(tag => <li key={tag.ID} className="inline-flex max-w-full flex-col gap-1 rounded-full border px-3 py-1.5 text-sm">
+          <span className="flex max-w-full items-center gap-2">
+            <TagIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" /><span className="min-w-0 truncate">#{tag.Name}</span><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono font-semibold tabular-nums" title={t(lang, "tags.countTitle")}>{tag.SessionCount}</span>
+            {data.CanManage && <><Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} data-tag-rename ref={node => { if (node) renameButtons.current.set(tag.ID, node); else renameButtons.current.delete(tag.ID) }} aria-expanded={renaming === tag.ID} title={t(lang, "tags.rename")} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} onClick={() => openRename(tag)}><Pencil aria-hidden="true" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} title={t(lang, "tags.delete")} aria-label={`${t(lang, "tags.delete")}: ${tag.Name}`} onClick={() => void remove(tag)}><Trash2 aria-hidden="true" /></Button></>}
+          </span>
+          {renaming === tag.ID && <RenameTagForm lang={lang} tag={tag} busy={busy} error={renameError} onSubmit={name => void rename(tag, name)} onCancel={() => closeRename(tag.ID)} />}
         </li>)}
       </ul>
       <p className="mt-4 text-sm text-muted-foreground">{t(lang, "tags.filterHint")}</p>
     </CardContent></Card> : <div className="py-8 text-center text-sm text-muted-foreground"><p className="font-medium">{t(lang, "tags.noTags")}</p><p>{t(lang, "tags.noTagsHint")}</p></div>}
   </main>
+}
+
+// The rename editor lives inside the tag it edits, so only that row grows.
+// The error line is always present — empty when there is nothing to say — so
+// a rejected name never shifts the chips around it.
+function RenameTagForm({ lang, tag, busy, error, onSubmit, onCancel }: {
+  lang: string
+  tag: TagView
+  busy: boolean
+  error: string
+  onSubmit: (name: string) => void
+  onCancel: () => void
+}) {
+  const [value, setValue] = React.useState(tag.Name)
+  const input = React.useRef<HTMLInputElement>(null)
+  React.useEffect(() => { input.current?.focus(); input.current?.select() }, [])
+  return <form data-tag-rename-form className="flex min-w-0 flex-col gap-1" onSubmit={event => { event.preventDefault(); onSubmit(value) }} onKeyDown={event => { if (event.key === "Escape") onCancel() }}>
+    <div className="flex min-w-0 items-center gap-1">
+      <Input ref={input} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} aria-invalid={error ? true : undefined} aria-describedby="tag-rename-error" value={value} onChange={event => setValue(event.target.value)} className="h-7 w-48" />
+      <Button type="submit" size="icon-sm" variant="outline" disabled={busy} title={t(lang, "projects.save")} aria-label={`${t(lang, "projects.save")}: ${tag.Name}`}><Check aria-hidden="true" /></Button>
+      <Button type="button" size="icon-sm" variant="ghost" disabled={busy} title={t(lang, "projects.cancel")} aria-label={`${t(lang, "projects.cancel")}: ${tag.Name}`} onClick={onCancel}><X aria-hidden="true" /></Button>
+    </div>
+    <span id="tag-rename-error" role="alert" className="max-w-48 text-xs text-destructive [overflow-wrap:anywhere]">{error}</span>
+  </form>
 }

@@ -1,7 +1,9 @@
 import * as React from "react"
-import { ArrowLeft, Play } from "lucide-react"
+import { ArrowLeft, Play, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
 import type { GraphData } from "@/dashboard/types"
 
@@ -54,7 +56,21 @@ export function GraphPage({ data }: { data: GraphData }) {
       {periods.map(period => <Button key={period} asChild size="sm" variant={data.Period.Label === period ? "secondary" : "ghost"} aria-current={data.Period.Label === period ? "page" : undefined}>
         <a href={queryFor(data, period)}>{t(lang, period === "today" ? "dash.today" : `stats.${period === "last_week" ? "lastWeek" : period === "last_month" ? "lastMonth" : period}`)}</a>
       </Button>)}
+      <Button asChild size="sm" variant={data.Period.Label === "custom" ? "secondary" : "ghost"} aria-current={data.Period.Label === "custom" ? "page" : undefined}>
+        <a href={queryFor(data, "custom")}>{t(lang, "graph.customPeriod")}</a>
+      </Button>
+      <Button type="button" size="sm" variant="ghost" className="ms-auto" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>
     </nav>
+
+    <form method="get" action="/graph" className="no-print flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
+      <div className="grid gap-1.5"><Label htmlFor="graph-start">{t(lang, "graph.customFrom")}</Label><Input id="graph-start" name="start" type="datetime-local" defaultValue={data.PeriodStartInput} required /></div>
+      <div className="grid gap-1.5"><Label htmlFor="graph-end">{t(lang, "graph.customTo")}</Label><Input id="graph-end" name="end" type="datetime-local" defaultValue={data.PeriodEndInput} required /></div>
+      <input type="hidden" name="period" value="custom" />
+      {data.ProjectFilter && <input type="hidden" name="project" value={data.ProjectFilter} />}
+      {data.TagFilter && <input type="hidden" name="tag" value={data.TagFilter} />}
+      {data.PersonFilter > 0 && <input type="hidden" name="person" value={String(data.PersonFilter)} />}
+      <Button type="submit" size="sm">{t(lang, "graph.applyPeriod")}</Button>
+    </form>
 
     {filtered && <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 text-sm">
       <span className="text-muted-foreground">{t(lang, "graph.scope")}</span>{data.ProjectFilter && <strong>{data.ProjectName}</strong>}{data.TagFilter && <strong>#{data.TagFilter}</strong>}{data.PersonFilter > 0 && <strong>{data.PersonName}</strong>}

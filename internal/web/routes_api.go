@@ -33,6 +33,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("GET", "/api/tags", s.handleTagsList)
 	api("POST", "/api/tags", s.handleTagsCreate)
 	api("DELETE", "/api/tags", s.manage(s.handleTagsDelete))
+	api("PATCH", "/api/tags", s.manage(s.handleTagsRename))
 	api("POST", "/api/sessions/{id}/tags", s.handleSessionTagAdd)
 	api("DELETE", "/api/sessions/{id}/tags", s.handleSessionTagRemove)
 
@@ -56,6 +57,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/team/transfer", s.manage(s.handleAPITeamTransfer))
 	api("POST", "/api/invites/{token}/accept", s.handleAPIInviteAccept)
 	api("POST", "/api/profile", s.handleAPIProfileUpdate)
+	api("POST", "/api/profile/email", s.handleAPIProfileEmail)
 	api("POST", "/api/profile/password", s.handleAPIProfilePassword)
 
 	// Project API.
@@ -73,6 +75,8 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("GET", "/api/push/key", s.handlePushKey)
 	api("POST", "/api/push/subscribe", s.handlePushSubscribe)
 	api("POST", "/api/push/unsubscribe", s.handlePushUnsubscribe)
+	api("POST", "/api/push/topics", s.handleNotificationTopics)
+	api("POST", "/api/push/test", s.handleNotificationTest)
 
 	// Versioned public API.
 	api("GET", "/api/v1/sessions", s.handleAPIv1Sessions)

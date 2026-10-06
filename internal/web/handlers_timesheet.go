@@ -198,36 +198,77 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.services.Tracking.Commands.SetDayTotal(r.Context(), appmodel.TimesheetCellUpdateRequest{TeamID: teamID(r), ActivityID: actID, Day: day, TotalSeconds: mins * 60}); err != nil {
-		var lockErr *model.SessionInvoiceLockError
-		if errors.As(err, &lockErr) {
-			// Put the cell back to what the invoice billed.
-			message := fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber)
-			if !wantsJSON(r) {
-				s.toast(w, message, "error")
-			}
-			s.respondTimesheetRow(w, r, actID, day, message)
-			return
-		}
-		if errors.Is(err, appmodel.ErrInvalidSessionEdit) {
-			if wantsJSON(r) {
-				http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
-				return
-			}
-			s.toastL(w, r, "err.invalidInput", "", "error")
-		} else {
-			if wantsJSON(r) {
-				s.writeInternalError(w, err)
-				return
-			}
-			s.logInternalError(err)
-			s.toastL(w, r, "err.internal", "", "error")
-		}
-		w.WriteHeader(200)
+		s.respondTimesheetWriteError(w, r, actID, day, err)
 		return
 	}
 	s.toastL(w, r, "toast.saved", "", "success")
 	// Re-render just the row.
 	s.respondTimesheetRow(w, r, actID, day)
+}
+
+// handleTimesheetRowClear empties one activity row for the whole week that is
+// on screen. Form:
+//
+//	activity_id, date (any day inside the week)
+//
+// It is the row-level twin of handleTimesheetCell: a wrongly added row is
+// cleared in one request and one transaction instead of seven cell edits, and
+// the response is the same recomputed row so day and week totals stay right.
+func (s *Server) handleTimesheetRowClear(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	actID, err := strconv.ParseInt(r.FormValue("activity_id"), 10, 64)
+	if err != nil || actID <= 0 {
+		http.Error(w, "activity_id required", 400)
+		return
+	}
+	dateStr := strings.TrimSpace(r.FormValue("date"))
+	day, err := time.ParseInLocation("2006-01-02", dateStr, userLoc(r))
+	if err != nil {
+		http.Error(w, "bad date", 400)
+		return
+	}
+	weekStart := startOfWeek(r, day)
+	if err := s.services.Tracking.Commands.ClearRow(r.Context(), appmodel.TimesheetRowClearRequest{TeamID: teamID(r), ActivityID: actID, WeekStart: weekStart}); err != nil {
+		s.respondTimesheetWriteError(w, r, actID, weekStart, err)
+		return
+	}
+	s.toastL(w, r, "toast.saved", "", "success")
+	s.respondTimesheetRow(w, r, actID, weekStart)
+}
+
+// respondTimesheetWriteError maps a failed grid write onto the transport the
+// caller used: JSON clients get a status or a message field, the legacy HTMX
+// form gets a toast plus the re-rendered row carrying the same message. Billed
+// time is reported as a refusal, not as a generic failure.
+func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Request, actID int64, day time.Time, err error) {
+	var lockErr *model.SessionInvoiceLockError
+	if errors.As(err, &lockErr) {
+		// Put the row back to what the invoice billed.
+		message := fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber)
+		if !wantsJSON(r) {
+			s.toast(w, message, "error")
+		}
+		s.respondTimesheetRow(w, r, actID, day, message)
+		return
+	}
+	if errors.Is(err, appmodel.ErrInvalidSessionEdit) {
+		if wantsJSON(r) {
+			http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
+			return
+		}
+		s.toastL(w, r, "err.invalidInput", "", "error")
+	} else {
+		if wantsJSON(r) {
+			s.writeInternalError(w, err)
+			return
+		}
+		s.logInternalError(err)
+		s.toastL(w, r, "err.internal", "", "error")
+	}
+	w.WriteHeader(200)
 }
 
 type timesheetCellJSON struct {

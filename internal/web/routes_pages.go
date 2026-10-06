@@ -15,6 +15,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Timesheet and saved reports.
 	pages.HandleFunc("GET /timesheet", s.mine(s.handleTimesheet))
 	pages.HandleFunc("POST /api/timesheet/cell", s.mine(s.handleTimesheetCell))
+	pages.HandleFunc("POST /api/timesheet/row/clear", s.mine(s.handleTimesheetRowClear))
 	pages.HandleFunc("POST /api/reports/save", s.handleSavedReportsCreate)
 	pages.HandleFunc("POST /api/reports/{id}/delete", s.handleSavedReportsDelete)
 
@@ -95,6 +96,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Webhook management and audit history.
 	pages.HandleFunc("GET /settings/webhooks", s.manage(s.handleWebhooksPage))
 	pages.HandleFunc("POST /api/webhooks", s.manage(s.handleWebhookCreate))
+	pages.HandleFunc("POST /api/webhooks/{id}/test", s.manage(s.handleWebhookTest))
 	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.manage(s.handleWebhookDelete))
 	pages.HandleFunc("GET /settings/audit", s.manage(s.handleAuditPage))
 

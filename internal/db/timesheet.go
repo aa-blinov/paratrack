@@ -277,7 +277,7 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 		return err
 	}
 	if teamID > 0 {
-		if err := lockTimesheetCellInvoices(ctx, tx, teamID, activityID, dayStart, dayEnd); err != nil {
+		if err := lockTimesheetInvoiceLocks(ctx, tx, teamID, activityID, dayStart, dayEnd); err != nil {
 			return err
 		}
 	}
@@ -313,7 +313,58 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 	return tx.Commit()
 }
 
-func lockTimesheetCellInvoices(ctx context.Context, tx *Tx, teamID, activityID int64, dayStart, dayEnd time.Time) error {
+// ClearWeekRow empties every cell of one activity for the current actor in a
+// single transaction. It repeats the cell write rules over the whole week —
+// session owner lock, membership check, activity lock and invoice locks — so a
+// row can never lose more than a cell write could, and a week with billed time
+// stays untouched as a whole instead of half-cleared.
+func (d *DB) ClearWeekRow(ctx context.Context, request appmodel.TimesheetRowClearRequest) error {
+	teamID, activityID, week := request.TeamID, request.ActivityID, request.WeekStart
+	if teamID <= 0 {
+		return model.ErrForbidden
+	}
+	if activityID <= 0 || week.IsZero() {
+		return fmt.Errorf("invalid timesheet row clear")
+	}
+	actor := actorID(ctx)
+	if actor <= 0 {
+		return model.ErrForbidden
+	}
+	weekStart := time.Date(week.Year(), week.Month(), week.Day(), 0, 0, 0, 0, week.Location())
+	weekEnd := weekStart.AddDate(0, 0, 7)
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockSessionOwner(ctx, tx, teamID); err != nil {
+		return err
+	}
+	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
+		return err
+	}
+	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
+		return err
+	}
+	if err := lockTimesheetInvoiceLocks(ctx, tx, teamID, activityID, weekStart, weekEnd); err != nil {
+		return err
+	}
+	// Same scope as a cell write: only the actor's own closed sessions, so a
+	// colleague's time on the same activity is never someone else's row to clear.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM sessions
+		  WHERE activity_id = ? AND team_id = ? AND user_id = ?
+		    AND end_at IS NOT NULL AND start_at >= ? AND start_at < ?`,
+		activityID, teamID, actor, FormatTime(weekStart), FormatTime(weekEnd)); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// lockTimesheetInvoiceLocks refuses edits to tracked time that a sent or paid
+// invoice already billed. [from, to) is a day range for a cell write and the
+// whole week for a row clear.
+func lockTimesheetInvoiceLocks(ctx context.Context, tx *Tx, teamID, activityID int64, from, to time.Time) error {
 	query := `SELECT COALESCE(s.invoice_id, 0)
 		FROM sessions s
 		WHERE s.team_id = ? AND s.activity_id = ? AND s.end_at IS NOT NULL
@@ -321,7 +372,7 @@ func lockTimesheetCellInvoices(ctx context.Context, tx *Tx, teamID, activityID i
 		ORDER BY s.id FOR UPDATE OF s`
 	actor := actorID(ctx)
 	rows, err := tx.QueryContext(ctx, query,
-		teamID, activityID, FormatTime(dayStart), FormatTime(dayEnd), actor, actor)
+		teamID, activityID, FormatTime(from), FormatTime(to), actor, actor)
 	if err != nil {
 		return err
 	}

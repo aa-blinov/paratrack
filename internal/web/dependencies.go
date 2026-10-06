@@ -105,6 +105,9 @@ type PushWorkflow interface {
 	Subscribe(context.Context, appmodel.PushSubscribeRequest) error
 	SubscriptionCount(context.Context, int64) (int, error)
 	UnsubscribeForMember(context.Context, appmodel.PushUnsubscribeRequest) error
+	MutedTopics(context.Context, appmodel.NotificationTopicsQuery) ([]string, error)
+	SaveMutedTopics(context.Context, appmodel.NotificationTopicsCommand) error
+	TestNotification(context.Context, appmodel.NotificationTestRequest) (appmodel.NotificationTestResult, error)
 }
 
 // WebhookWorkflow exposes endpoint management and delivery-history reads to
@@ -114,6 +117,7 @@ type WebhookWorkflow interface {
 	Create(context.Context, appmodel.WebhookCreateRequest) (webhookport.WebhookSummary, error)
 	Delete(context.Context, appmodel.WebhookDeleteRequest) error
 	Management(context.Context, appmodel.WebhookManagementQuery) (appmodel.WebhookManagementSnapshot, error)
+	SendTest(context.Context, appmodel.WebhookTestRequest) (appmodel.WebhookTestResult, error)
 }
 
 // InvoiceMailQueue enqueues frozen invoice messages for durable delivery.
@@ -176,6 +180,7 @@ type TagCommands interface {
 	CreateForMember(context.Context, appmodel.TagCreateRequest) (model.Tag, error)
 	Delete(context.Context, appmodel.TagDeleteRequest) error
 	DetachForMember(context.Context, appmodel.SessionTagRequest) error
+	Rename(context.Context, appmodel.TagRenameRequest) (model.Tag, error)
 }
 
 // SessionDecorationBuilding batches optional tag and project metadata for session rows.
@@ -305,6 +310,7 @@ type TrackingQueries interface {
 // TrackingCommands handles direct session and timesheet mutations that do not
 // require the cross-cutting transition coordinator.
 type TrackingCommands interface {
+	ClearRow(context.Context, appmodel.TimesheetRowClearRequest) error
 	Pause(context.Context, appmodel.TimerSessionRequest) (model.Session, error)
 	PauseAll(context.Context, appmodel.TimerStopAllRequest) ([]int64, error)
 	Resume(context.Context, appmodel.TimerSessionRequest) (model.Session, error)
@@ -354,6 +360,7 @@ type PasswordRecoveryWorkflow interface {
 // ProfileWorkflow exposes signed-in profile changes.
 type ProfileWorkflow interface {
 	UpdateName(context.Context, appmodel.ProfileNameRequest) error
+	ChangeEmail(context.Context, appmodel.ProfileEmailRequest) error
 	ChangePassword(context.Context, appmodel.PasswordChangeRequest) error
 }
 

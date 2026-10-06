@@ -56,6 +56,49 @@ func TestMutationsRejectUnscopedWorkspace(t *testing.T) {
 	if err := service.DetachForMember(context.Background(), appmodel.SessionTagRequest{TeamID: 0, CallerID: 1, SessionID: 1, Name: "deep-work"}); !errors.Is(err, ErrInvalidTeam) {
 		t.Fatalf("Detach with no workspace error = %v, want %v", err, ErrInvalidTeam)
 	}
+	if _, err := service.Rename(context.Background(), appmodel.TagRenameRequest{TeamID: 0, CallerID: 1, TagID: 1, Name: "deep-work"}); !errors.Is(err, ErrInvalidTeam) {
+		t.Fatalf("Rename with no workspace error = %v, want %v", err, ErrInvalidTeam)
+	}
+}
+
+type tagRenameStub struct {
+	TagStore
+	request appmodel.TagRenameRequest
+	err     error
+}
+
+func (stub *tagRenameStub) RenameTagForManager(_ context.Context, request appmodel.TagRenameRequest) (model.Tag, error) {
+	stub.request = request
+	if stub.err != nil {
+		return model.Tag{}, stub.err
+	}
+	return model.Tag{ID: request.TagID, Name: request.Name, TeamID: request.TeamID}, nil
+}
+
+func TestRenameNormalizesNameBeforePersistence(t *testing.T) {
+	store := &tagRenameStub{}
+	service := &Service{tags: store}
+	tag, err := service.Rename(context.Background(), appmodel.TagRenameRequest{TeamID: 4, CallerID: 7, TagID: 9, Name: "  Deep-Work "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tag.Name != "deep-work" || store.request.Name != "deep-work" {
+		t.Fatalf("rename reached persistence as %q, want normalized %q", store.request.Name, "deep-work")
+	}
+	if _, err := service.Rename(context.Background(), appmodel.TagRenameRequest{TeamID: 4, CallerID: 7, TagID: 9, Name: "  "}); !errors.Is(err, ErrInvalidTag) {
+		t.Fatalf("rename to a blank name error = %v, want %v", err, ErrInvalidTag)
+	}
+	if _, err := service.Rename(context.Background(), appmodel.TagRenameRequest{TeamID: 4, CallerID: 7, TagID: 0, Name: "deep-work"}); !errors.Is(err, ErrInvalidTagID) {
+		t.Fatalf("rename without a tag id error = %v, want %v", err, ErrInvalidTagID)
+	}
+}
+
+func TestRenameReportsTakenName(t *testing.T) {
+	store := &tagRenameStub{err: ErrTagNameTaken}
+	service := &Service{tags: store}
+	if _, err := service.Rename(context.Background(), appmodel.TagRenameRequest{TeamID: 4, CallerID: 7, TagID: 9, Name: "meetings"}); !errors.Is(err, ErrTagNameTaken) {
+		t.Fatalf("taken rename name error = %v, want %v", err, ErrTagNameTaken)
+	}
 }
 
 func TestTagCatalogQueriesKeepWorkspaceScope(t *testing.T) {
