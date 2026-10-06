@@ -15,10 +15,8 @@ func TestExportExplainsCSVAndFiltersDates(t *testing.T) {
 		t.Fatalf("export page: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	page := readBody(t, resp)
-	for _, want := range []string{"Завершённые сеансы", "Текущие таймеры в выгрузку не входят", "Сводные отчёты", "Выбрать отчёт", `href="/reports"`, "paratrack.csv", `action="/api/reports.csv"`} {
-		if !strings.Contains(page, want) {
-			t.Errorf("export page missing %q", want)
-		}
+	if !reactData[exportPage](t, page).ReportsEnabled {
+		t.Fatal("export bootstrap must enable available reports")
 	}
 
 	for _, session := range []struct{ activity, date string }{
@@ -66,7 +64,7 @@ func TestExportExplainsCSVAndFiltersDates(t *testing.T) {
 	resp.Body.Close()
 	resp = e.do("GET", "/export", nil, nil)
 	page = readBody(t, resp)
-	if !strings.Contains(page, "Включить отчёты") || strings.Contains(page, `href="/reports"`) {
+	if reactData[exportPage](t, page).ReportsEnabled {
 		t.Errorf("disabled Reports needs a setup path, not a broken link")
 	}
 }

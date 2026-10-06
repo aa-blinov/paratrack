@@ -37,6 +37,9 @@ type Store interface {
 	CountPushSubscriptions(context.Context, int64) (int, error)
 	DeletePushSubscription(context.Context, appmodel.PushUnsubscribeRequest) error
 	DeletePushSubscriptionForCleanup(context.Context, appmodel.PushSubscriptionCleanupRequest) error
+	MutedNotificationTopics(context.Context, appmodel.NotificationTopicsQuery) ([]string, error)
+	SetMutedNotificationTopics(context.Context, appmodel.NotificationTopicsCommand) error
+	NotificationTargets(context.Context, appmodel.NotificationTargetsQuery) ([]int64, error)
 }
 
 // Sender owns Web Push protocol details and outbound network policy.
@@ -55,6 +58,10 @@ type Notification struct {
 	Title string
 	Body  string
 	URL   string
+	// Topic is the appmodel topic key this notification belongs to, so a
+	// person who switched that event off is skipped. An empty topic keeps the
+	// pre-setting behavior and reaches everyone the queue selected.
+	Topic string
 }
 
 // EnqueueNotificationRequest identifies the workspace, recipients, and
@@ -197,23 +204,43 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	}
 }
 
-// Notify sends a message to the active endpoints for the selected users.
-// Endpoint delivery failures are isolated; dead endpoints are removed and the
-// remaining recipients still receive the notification.
+// notify reports only whether a queued delivery went through; the delivery
+// worker does not need the device count.
 func (s *Service) notify(ctx context.Context, teamID int64, userIDs []int64, notification Notification) error {
+	_, err := s.deliver(ctx, teamID, userIDs, notification)
+	return err
+}
+
+// deliver sends a message to the active endpoints for the selected users.
+// Recipients who muted the notification's topic are dropped before any network
+// call, so the personal selection on /settings/notifications is what decides
+// who hears about an event. Endpoint delivery failures are isolated; dead
+// endpoints are removed and the remaining recipients still receive the
+// notification. The returned count is how many devices accepted it.
+func (s *Service) deliver(ctx context.Context, teamID int64, userIDs []int64, notification Notification) (int, error) {
 	if teamID <= 0 || len(userIDs) == 0 {
-		return nil
+		return 0, nil
 	}
-	subs, err := s.subscriptions(ctx, teamID, userIDs...)
+	targets, err := s.targets(ctx, teamID, userIDs, notification.Topic)
 	if err != nil {
-		return err
+		return 0, err
+	}
+	// An empty recipient list must not reach the store: listing without a
+	// recipient filter returns every device in the workspace, which is how
+	// "everyone muted this topic" would turn into "everyone is notified".
+	if len(targets) == 0 {
+		return 0, nil
+	}
+	subs, err := s.subscriptions(ctx, teamID, targets...)
+	if err != nil {
+		return 0, err
 	}
 	if len(subs) == 0 {
-		return nil
+		return 0, nil
 	}
 	public, private, err := s.vapidKeys(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	payload, err := json.Marshal(pushPayload{
 		Title: notification.Title,
@@ -222,25 +249,100 @@ func (s *Service) notify(ctx context.Context, teamID int64, userIDs []int64, not
 		Tag:   "paratrack-" + strings.ReplaceAll(notification.Title, " ", "-"),
 	})
 	if err != nil {
-		return fmt.Errorf("encode Web Push payload: %w", err)
+		return 0, fmt.Errorf("encode Web Push payload: %w", err)
 	}
+	delivered := 0
 	var deliveryErrors []error
 	for _, sub := range subs {
 		if err := ctx.Err(); err != nil {
-			return errors.Join(append(deliveryErrors, err)...)
+			return deliveryFailed(delivered, append(deliveryErrors, err))
 		}
 		result, err := s.sender.Send(ctx, sub, public, private, payload)
 		if err != nil {
 			deliveryErrors = append(deliveryErrors, fmt.Errorf("send Web Push to subscription %d: %w", sub.ID, err))
 			continue
 		}
+		delivered++
 		if result.SubscriptionExpired {
 			if err := s.removeExpired(ctx, appmodel.PushSubscriptionCleanupRequest{TeamID: sub.TeamID, UserID: sub.UserID, Endpoint: sub.Endpoint}); err != nil {
 				deliveryErrors = append(deliveryErrors, fmt.Errorf("remove expired Web Push subscription %d: %w", sub.ID, err))
 			}
 		}
 	}
-	return errors.Join(deliveryErrors...)
+	if len(deliveryErrors) > 0 {
+		return deliveryFailed(delivered, deliveryErrors)
+	}
+	return delivered, nil
+}
+
+// deliveryFailed marks a finished attempt the push service refused, so a caller
+// waiting on a real answer can tell "the channel said no" from a broken
+// request of its own.
+func deliveryFailed(delivered int, errs []error) (int, error) {
+	return delivered, errors.Join(append([]error{appmodel.ErrNotificationNotDelivered}, errs...)...)
+}
+
+// targets applies the personal topic selection to one delivery batch.
+func (s *Service) targets(ctx context.Context, teamID int64, userIDs []int64, topic string) ([]int64, error) {
+	if topic == "" {
+		return userIDs, nil
+	}
+	targets, err := s.store.NotificationTargets(ctx, appmodel.NotificationTargetsQuery{
+		TeamID: teamID, UserIDs: userIDs, Topic: topic,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("apply notification topic selection: %w", err)
+	}
+	return targets, nil
+}
+
+// MutedTopics reports which events one person switched off.
+func (s *Service) MutedTopics(ctx context.Context, query appmodel.NotificationTopicsQuery) ([]string, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
+		return nil, model.ErrNotFound
+	}
+	muted, err := s.store.MutedNotificationTopics(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("load muted notification topics: %w", err)
+	}
+	return muted, nil
+}
+
+// SaveMutedTopics replaces the caller's selection. The store repeats the
+// ownership check, so the transport cannot mute somebody else's notifications.
+func (s *Service) SaveMutedTopics(ctx context.Context, command appmodel.NotificationTopicsCommand) error {
+	if command.TeamID <= 0 || command.UserID <= 0 || command.CallerID <= 0 {
+		return model.ErrNotFound
+	}
+	if command.CallerID != command.UserID {
+		return model.ErrForbidden
+	}
+	if err := s.store.SetMutedNotificationTopics(ctx, command); err != nil {
+		return fmt.Errorf("save muted notification topics: %w", err)
+	}
+	return nil
+}
+
+// TestNotification delivers one verification notification to the caller's own
+// devices and reports what the channel did. It ignores the topic selection on
+// purpose: the person asked to see whether this channel works at all, and a
+// muted topic is a choice about events, not about the channel. The attempt is
+// synchronous because the settings screen has to name the result instead of
+// assuming the notification arrived.
+func (s *Service) TestNotification(ctx context.Context, request appmodel.NotificationTestRequest) (appmodel.NotificationTestResult, error) {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.CallerID <= 0 {
+		return appmodel.NotificationTestResult{}, model.ErrNotFound
+	}
+	if request.CallerID != request.UserID {
+		return appmodel.NotificationTestResult{}, model.ErrForbidden
+	}
+	if request.Title == "" {
+		return appmodel.NotificationTestResult{}, ErrInvalidSubscription
+	}
+	delivered, err := s.deliver(ctx, request.TeamID, []int64{request.UserID}, Notification{
+		Title: request.Title, Body: request.Body, URL: request.URL,
+	})
+	return appmodel.NotificationTestResult{Delivered: delivered}, err
 }
 
 func (s *Service) PublicKey(ctx context.Context) (string, error) {

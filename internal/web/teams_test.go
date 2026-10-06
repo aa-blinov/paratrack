@@ -128,17 +128,11 @@ func TestInviteFlowEndToEnd(t *testing.T) {
 	if invitesPage.Code != http.StatusOK {
 		t.Fatalf("GET /settings/invites: want 200, got %d", invitesPage.Code)
 	}
-	const inviteHref = `href="/invites/`
-	start := strings.Index(invitesPage.Body.String(), inviteHref)
-	if start < 0 {
-		t.Fatal("invite page did not render the generated invite link")
+	invites := reactData[settingsPageData](t, invitesPage.Body.String()).Invites
+	if len(invites) != 1 || !invites[0].Live || invites[0].Token == "" {
+		t.Fatal("invite bootstrap lacks a live invite token")
 	}
-	start += len(inviteHref)
-	end := strings.IndexByte(invitesPage.Body.String()[start:], '"')
-	if end < 0 {
-		t.Fatal("invite page rendered an unterminated invite link")
-	}
-	token := invitesPage.Body.String()[start : start+end]
+	token := invites[0].Token
 
 	// Member tries to view the invite-accept page.
 	memberToken := secondUser(t, srv, "bob@example.com", "Bob")

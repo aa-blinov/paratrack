@@ -23,6 +23,9 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	resolvedLang := resolveLang(r)
 	location := userLoc(r)
 	now := userNow(r)
+	// The test run is written to the history like any delivery, so the screen
+	// reopens on the same screen and points at the attempt that was just made.
+	testedWebhookID, _ := strconv.ParseInt(r.URL.Query().Get("test"), 10, 64)
 	data := webhooksPage{
 		pageData:      pageData{Title: "Webhooks", Active: "settings-webhooks", Lang: lang, ReactApp: true},
 		WebhooksReact: true,
@@ -30,10 +33,12 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, h := range snapshot.Endpoints {
 		row := webhookRow{ID: h.ID, URL: h.URL, Events: h.Events, Active: h.Active, Deliveries: make([]deliveryRow, 0, len(snapshot.Deliveries[h.ID]))}
-		for _, d := range snapshot.Deliveries[h.ID] {
+		for position, d := range snapshot.Deliveries[h.ID] {
 			row.Deliveries = append(row.Deliveries, deliveryRow{
-				When: fmtWhen(resolvedLang, d.CreatedAt.In(location), now), Event: d.Event,
+				ID: d.ID, When: fmtWhen(resolvedLang, d.CreatedAt.In(location), now), Event: d.Event,
 				Status: d.Status, OK: d.Status >= 200 && d.Status < 300, Error: d.Error,
+				RequestBody: d.RequestBody, ResponseBody: d.ResponseBody, BodyTruncated: d.BodyTruncated,
+				Test: h.ID == testedWebhookID && position == 0,
 			})
 		}
 		data.Items = append(data.Items, row)
@@ -53,9 +58,13 @@ type webhookRow struct {
 }
 
 type deliveryRow struct {
-	When, Event, Error string
-	Status             int
-	OK                 bool
+	ID                        int64
+	When, Event, Error        string
+	Status                    int
+	OK                        bool
+	RequestBody, ResponseBody string
+	BodyTruncated             bool
+	Test                      bool
 }
 
 type webhooksPage struct {
@@ -97,6 +106,38 @@ func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/settings/webhooks?flash=removed", http.StatusSeeOther)
+}
+
+// handleWebhookTest sends one synthetic event to an endpoint and reopens the
+// screen on the attempt it made, so the answer is read where the button was
+// pressed instead of somewhere in the history.
+func (s *Server) handleWebhookTest(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.Error(w, "bad id", http.StatusBadRequest)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, webhookTestRedirect(id, encodeFlash(false, "bad_request")), http.StatusSeeOther)
+		return
+	}
+	result, err := s.services.Webhooks.SendTest(operationContext(r), appmodel.WebhookTestRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), WebhookID: id,
+		Event: strings.TrimSpace(r.PostForm.Get("event")),
+	})
+	if err != nil {
+		http.Redirect(w, r, webhookTestRedirect(id, encodeFlash(false, s.webhookErrorMessage(r, err))), http.StatusSeeOther)
+		return
+	}
+	flash := "test_sent"
+	if result.Error != "" || result.Status < 200 || result.Status >= 300 {
+		flash = "test_failed"
+	}
+	http.Redirect(w, r, webhookTestRedirect(id, flash), http.StatusSeeOther)
+}
+
+func webhookTestRedirect(webhookID int64, flash string) string {
+	return "/settings/webhooks?test=" + strconv.FormatInt(webhookID, 10) + "&flash=" + flash
 }
 
 func (s *Server) webhookErrorMessage(r *http.Request, err error) string {

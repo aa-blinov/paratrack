@@ -117,6 +117,77 @@ func (d *DB) CountPushSubscriptions(ctx context.Context, teamID int64) (int, err
 	return count, nil
 }
 
+// NotificationTargets keeps the recipients of one delivery batch who have not
+// muted the topic. Only subscribed devices can be reached at all, so the
+// selection starts from the subscriptions and then drops the people who
+// switched this topic off. An empty topic keeps everyone: a producer that does
+// not name one keeps the pre-setting behavior.
+func (d *DB) NotificationTargets(ctx context.Context, query appmodel.NotificationTargetsQuery) ([]int64, error) {
+	if query.TeamID <= 0 || len(query.UserIDs) == 0 {
+		return nil, model.ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT DISTINCT user_id FROM push_subscriptions WHERE team_id = ? AND user_id = ANY(?)`,
+		query.TeamID, query.UserIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var subscribers []int64
+	for rows.Next() {
+		var userID int64
+		if err := rows.Scan(&userID); err != nil {
+			return nil, err
+		}
+		subscribers = append(subscribers, userID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if len(subscribers) == 0 || query.Topic == "" {
+		return subscribers, nil
+	}
+	// One read per candidate is wasteful for a payroll run; read the whole
+	// selection once and keep the topics each person switched off.
+	mutedByUser := make(map[int64][]string, len(subscribers))
+	rows, err = d.sql.QueryContext(ctx, `SELECT id, muted_notifications FROM users WHERE id = ANY(?)`, subscribers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var userID int64
+		var raw string
+		if err := rows.Scan(&userID, &raw); err != nil {
+			return nil, err
+		}
+		mutedByUser[userID] = parseMutedTopics(raw)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	var targets []int64
+	for _, userID := range subscribers {
+		muted := false
+		for _, topic := range mutedByUser[userID] {
+			if topic == query.Topic {
+				muted = true
+				break
+			}
+		}
+		if !muted {
+			targets = append(targets, userID)
+		}
+	}
+	return targets, nil
+}
+
 // DeletePushSubscription removes one of the caller's endpoints. Endpoint
 // alone is not an authorization boundary.
 func (d *DB) DeletePushSubscription(ctx context.Context, request appmodel.PushUnsubscribeRequest) error {

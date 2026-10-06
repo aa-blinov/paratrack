@@ -1,3 +1,4 @@
+import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import * as React from "react"
 import { ArrowLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -23,11 +24,14 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
       <form method="POST" action="/projects/new" className="grid gap-5 sm:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder="EORA RAG" autoFocus /></div>
+        <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
+          <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "projects.options")}</DisclosureTrigger>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="eora-rag" /></div>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t(lang, "projects.color")}</legend>
           <div className="flex items-center gap-2">
-            <input type="color" aria-label={t(lang, "projects.colorPicker")} value={color} onChange={event => setColor(event.target.value)} className="size-10 cursor-pointer rounded-md border border-input bg-background p-1" />
+            <Input type="color" aria-label={t(lang, "projects.colorPicker")} value={color} onChange={event => setColor(event.target.value)} className="size-10 cursor-pointer rounded-md border border-input bg-background p-1" />
             <Input name="color" aria-label={t(lang, "projects.colorHex")} value={color} onChange={event => setColor(event.target.value)} pattern="^#[0-9a-fA-F]{6}$" className="font-mono" required />
           </div>
         </fieldset>
@@ -47,6 +51,8 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
             </SelectContent>
           </Select>
         </div>
+          </div>
+        </Disclosure>
         <div className="flex items-center justify-between gap-2 border-t pt-4 sm:col-span-2">
           <Button asChild variant="ghost" size="sm"><a href="/projects">{t(lang, "projects.cancel")}</a></Button>
           <Button type="submit" size="sm"><Plus aria-hidden="true" />{t(lang, "projects.create")}</Button>

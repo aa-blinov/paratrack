@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
-import { SettingsNav } from "@/settings/settings-nav"
+import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { TokensData } from "@/dashboard/types"
 
 export function TokensPage({ data }: { data: TokensData }) {
@@ -20,7 +20,7 @@ export function TokensPage({ data }: { data: TokensData }) {
     catch { setCopyError(true) }
   }
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "set.title")}</h1>
+    <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
     {data.JustCreated && <Card className="border-primary/50"><CardContent className="grid gap-2 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">{t(lang, "tokens.once")}</p><Button type="button" size="sm" variant="outline" onClick={() => void copyToken()}>{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}{copied ? t(lang, "tokens.copied") : t(lang, "tokens.copy")}</Button></div><code className="block break-all rounded-md bg-muted p-3 text-sm">{data.JustCreated}</code>{copyError && <p role="alert" className="text-xs text-destructive">{t(lang, "err.generic")}</p>}</CardContent></Card>}

@@ -64,11 +64,16 @@ type WebhookSummary struct {
 }
 
 // WebhookDeliverySummary contains safe operational history for settings UI.
+// Bodies are already truncated and never contain the signing secret, which
+// travels in a header rather than in the request body.
 type WebhookDeliverySummary struct {
-	ID        int64
-	WebhookID int64
-	Event     string
-	Status    int
-	Error     string
-	CreatedAt time.Time
+	ID            int64
+	WebhookID     int64
+	Event         string
+	Status        int
+	Error         string
+	RequestBody   string
+	ResponseBody  string
+	BodyTruncated bool
+	CreatedAt     time.Time
 }

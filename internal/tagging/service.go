@@ -17,6 +17,7 @@ import (
 type TagStore interface {
 	CreateTagForMember(context.Context, appmodel.TagCreateRequest) (model.Tag, error)
 	DeleteTagForManager(context.Context, appmodel.TagDeleteRequest) error
+	RenameTagForManager(context.Context, appmodel.TagRenameRequest) (model.Tag, error)
 	AttachTagForMember(context.Context, appmodel.SessionTagRequest) error
 	DetachTagForMember(context.Context, appmodel.SessionTagRequest) error
 	ListTags(context.Context, appmodel.TagListQuery) ([]model.Tag, error)
@@ -58,6 +59,7 @@ var (
 	ErrInvalidTag     = appmodel.ErrInvalidTag
 	ErrInvalidTagID   = errors.New("tag id must be positive")
 	ErrInvalidSession = errors.New("session id must be positive")
+	ErrTagNameTaken   = appmodel.ErrTagNameTaken
 )
 
 // CreateForMember creates or resolves a workspace tag after persistence
@@ -150,6 +152,30 @@ func (s *Service) Delete(ctx context.Context, request appmodel.TagDeleteRequest)
 		return fmt.Errorf("delete tag: %w", err)
 	}
 	return nil
+}
+
+// Rename relabels a workspace tag in place. Persistence rechecks the caller's
+// manager role under the workspace lock and refuses a name another tag owns.
+func (s *Service) Rename(ctx context.Context, request appmodel.TagRenameRequest) (model.Tag, error) {
+	if request.TeamID <= 0 {
+		return model.Tag{}, ErrInvalidTeam
+	}
+	name, err := normalize(request.TeamID, request.Name)
+	if err != nil {
+		return model.Tag{}, err
+	}
+	if request.CallerID <= 0 {
+		return model.Tag{}, ErrInvalidTeam
+	}
+	if request.TagID <= 0 {
+		return model.Tag{}, ErrInvalidTagID
+	}
+	request.Name = name
+	tag, err := s.tags.RenameTagForManager(ctx, request)
+	if err != nil {
+		return model.Tag{}, fmt.Errorf("rename tag: %w", err)
+	}
+	return tag, nil
 }
 
 // AttachForMember is the authenticated workspace path. Persistence rechecks

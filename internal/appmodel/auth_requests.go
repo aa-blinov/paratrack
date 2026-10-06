@@ -60,6 +60,26 @@ type ProfileNameRequest struct {
 	Name     string
 }
 
+// ProfileEmailRequest carries one email change. CurrentPassword is required:
+// a live session alone must not be enough to move the account's login to an
+// address the owner may not control.
+type ProfileEmailRequest struct {
+	UserID          int64
+	CallerID        int64
+	CurrentPassword string `json:"-"`
+	Email           string
+}
+
+// ProfileEmailUpdateRequest is the persistence write behind a profile email
+// change. ExpectedEmail makes the update conditional so two concurrent
+// changes cannot silently overwrite each other.
+type ProfileEmailUpdateRequest struct {
+	UserID        int64
+	CallerID      int64
+	ExpectedEmail string
+	Email         string
+}
+
 // PasswordChangeRequest contains credentials supplied for one password change.
 type PasswordChangeRequest struct {
 	UserID          int64
