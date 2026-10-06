@@ -64,12 +64,39 @@ export function useShellShortcuts() {
         case "s": if (here !== "/stats") { event.preventDefault(); go("/stats") } break
         case "d": if (here !== "/") { event.preventDefault(); go("/") } break
         case "t": document.querySelector<HTMLButtonElement>("[data-theme-toggle]")?.click(); break
-        case "n":
+        case "n": {
           event.preventDefault()
-          if (here === "/") document.querySelector<HTMLInputElement>('input[name="activity"]')?.focus()
-          else go("/")
+          const field = document.querySelector<HTMLInputElement>('input[name="activity"]')
+          if (field) { field.focus(); break }
+          go("/")
+          // The overview arrives through the router, so the field is not in
+          // the DOM yet: focus it as soon as it lands.
+          const focusField = () => {
+            const next = document.querySelector<HTMLInputElement>('input[name="activity"]')
+            if (!next) return false
+            next.focus()
+            return true
+          }
+          if (!focusField()) {
+            const observer = new MutationObserver(() => { if (focusField()) observer.disconnect() })
+            observer.observe(document.body, { childList: true, subtree: true })
+          }
           break
-        case "p": window.dispatchEvent(new Event("paratrack:pause-all")); break
+        }
+        case "p": {
+          if (here === "/") { window.dispatchEvent(new Event("paratrack:pause-all")); break }
+          // Off the overview nothing listens for that event, so ask the
+          // server directly and reload the view the person is looking at.
+          const token = decodeURIComponent(
+            document.cookie.match(/(?:^|;\s*)paratrack_csrf=([^;]+)/)?.[1] ?? "",
+          )
+          void fetch("/api/active/pause-all", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: { "X-CSRF-Token": token },
+          }).then(() => { window.location.reload() })
+          break
+        }
       }
     }
     document.addEventListener("keydown", onKeyDown)
