@@ -78,13 +78,22 @@ func TestDeliveryHistoryKeepsTheResponseBodyAfterMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, statement := range []string{
-		`ALTER TABLE webhook_deliveries ADD COLUMN request_truncated BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE webhook_deliveries ADD COLUMN response TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE webhook_deliveries ADD COLUMN response_truncated BIGINT NOT NULL DEFAULT 0`,
+	// The columns come from the schema migration; assert them rather than
+	// re-adding them, so this test fails loudly if the migration is dropped.
+	for column, dataType := range map[string]string{
+		"request_truncated":  "bigint",
+		"response":           "text",
+		"response_truncated": "bigint",
 	} {
-		if _, err := d.TestSQL().ExecContext(ctx, statement); err != nil {
-			t.Fatal(err)
+		var gotType string
+		if err := d.TestSQL().QueryRowContext(ctx,
+			`SELECT data_type FROM information_schema.columns
+			 WHERE table_name = 'webhook_deliveries' AND column_name = ?`, column,
+		).Scan(&gotType); err != nil {
+			t.Fatalf("column %s: %v", column, err)
+		}
+		if gotType != dataType {
+			t.Fatalf("column %s is %s, want %s", column, gotType, dataType)
 		}
 	}
 	if err := d.LogWebhookDelivery(ctx, appmodel.WebhookDeliveryLogRequest{
