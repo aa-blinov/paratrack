@@ -81,6 +81,9 @@ func (s *Server) handleAPIInviteAccept(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setTeamCookie(w, r, team.ID)
+	// Joining a studio is where someone starts working in it, so it
+	// becomes the space a later login opens.
+	s.rememberWorkspace(r, user.ID, team.ID)
 	http.Redirect(w, r, "/?flash=joined", http.StatusSeeOther)
 }
 

@@ -55,7 +55,7 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	user, _ := UserFrom(r.Context())
 	query := r.URL.Query()
 	query.Set("log", "all")
-	return statsData{
+	data := statsData{
 		SessionsCut:   len(shown) < len(rows),
 		ShowAllURL:    "/stats?" + query.Encode(),
 		MeID:          user.ID,
@@ -73,7 +73,76 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 		TagFilter:     tagFilter,
 		AllTagNames:   statsTagNames(stats.Tags),
 		SavedReports:  savedReportViews(savedReports),
-	}, nil
+	}
+	// "Сегодня" is the default period and matches the dashboard's own
+	// "учтено сегодня" window, so an empty today is a real answer. It still
+	// reads as "nothing was ever tracked" unless the page names the periods
+	// that do hold time, so the empty view pays for that one extra read.
+	if len(rows) == 0 {
+		elsewhere, err := s.statsPeriodsWithTime(r, now, projectFilter, tagFilter, period.Label)
+		if err != nil {
+			// The hint is an addition to an honest empty state, so a failed
+			// read must not replace the page with an error.
+			s.logInternalError(err)
+		} else {
+			data.Elsewhere = elsewhere
+		}
+	}
+	return data, nil
+}
+
+// statsNavPeriods are the periods the /stats switcher offers, in the order
+// the switcher shows them.
+var statsNavPeriods = []string{"today", "yesterday", "week", "last_week", "month", "last_month"}
+
+// statsPeriodsWithTime reports which switcher periods hold tracked time when
+// the selected one holds none, so an empty /stats period does not read as
+// "nothing was tracked". Windows come from parsePeriodAt, so a Sunday-based
+// week preference moves them exactly as it moves the links the hint leads to.
+func (s *Server) statsPeriodsWithTime(r *http.Request, now time.Time, projectSlug, tag, current string) ([]statsPeriodOption, error) {
+	// "last_month" starts before every other switcher window and ends at
+	// "now" for all of them, so one read covers the whole switcher.
+	widest, err := timeparse.ResolvePeriod("last_month", now)
+	if err != nil {
+		return nil, fmt.Errorf("resolve widest stats period: %w", err)
+	}
+	stats, err := s.services.ReportBuilder.BuildStats(r.Context(), appmodel.ReportStatsQuery{
+		TeamID: teamID(r), From: widest.Start, To: now, Now: now,
+		PersonID: requestedReportPerson(r), IncludePeople: canManage(r),
+		ProjectSlug: projectSlug, Tag: tag,
+		Uncategorized: i18n.T(resolveLang(r), "dash.uncategorized"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("build stats periods with time: %w", err)
+	}
+	options := make([]statsPeriodOption, 0, len(statsNavPeriods))
+	for _, label := range statsNavPeriods {
+		if label == current {
+			continue
+		}
+		window := s.periodWindow(r, now, label)
+		count, seconds := 0, 0
+		for _, active := range stats.Sessions {
+			if secs := active.Session.TrackedSecondsInWindow(window.Start, window.End, now); secs > 0 {
+				count++
+				seconds += secs
+			}
+		}
+		if count > 0 {
+			options = append(options, statsPeriodOption{Label: label, Count: count, Total: fmtDur(r, seconds)})
+		}
+	}
+	return options, nil
+}
+
+// periodWindow resolves one named period against the request's week-start
+// preference by replaying it through the same parser the page itself uses.
+func (s *Server) periodWindow(r *http.Request, now time.Time, label string) timeparse.Period {
+	probe := r.Clone(r.Context())
+	query := probe.URL.Query()
+	query.Set("period", label)
+	probe.URL.RawQuery = query.Encode()
+	return s.parsePeriodAt(probe, now)
 }
 
 func (s *Server) buildGraphData(r *http.Request) (graphData, error) {

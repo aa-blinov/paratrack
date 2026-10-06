@@ -78,6 +78,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const [showNext, setShowNext] = useState(true)
   const [backfillFailure, setBackfillFailure] = useState<{ field: string; message: string } | null>(null)
   const [rebindWarning, setRebindWarning] = useState(false)
+  const [activityRequired, setActivityRequired] = useState(false)
   const lang = data.Lang || "en"
 
   useEffect(() => {
@@ -124,7 +125,16 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
 
   async function start(event?: React.FormEvent) {
     event?.preventDefault()
-    if (!activity.trim()) return
+    // The form carries noValidate so the browser stops answering an empty
+    // timer with its own English bubble on a Russian screen. The hint below
+    // the field is ours, sits in #main and is announced; focus lands back on
+    // the field so Enter can be pressed again without reaching for the mouse.
+    if (!activity.trim()) {
+      setActivityRequired(true)
+      document.getElementById("activity")?.focus()
+      return
+    }
+    setActivityRequired(false)
     if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note })) {
       setActivity("")
       setNote("")
@@ -147,6 +157,16 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const active = data.ActiveSessions ?? []
   const mode = data.Mode || "custom"
   const modeTitle = mode === "custom" ? t(lang, "dash.mode.custom") : t(lang, `preset.${mode}`)
+  // The intro has to describe what this person can open, not what the
+  // workspace holds. Mode is the workspace preset, so a member used to read
+  // the owner's line: a freelance member was told about hours left to bill
+  // behind a closed «Счета», and a studio member was told about the team
+  // plan after switching it off in her own menu. Both landed on "Нет
+  // доступа". Only a reachable team plan is worth mentioning.
+  const canSeeTeamPlan = mode === "studio" && data.Mods?.schedule === true
+  const blurbKey = data.CanManage
+    ? `dash.blurb.${mode}`
+    : canSeeTeamPlan ? "dash.blurb.studioMember" : "dash.blurb.member"
   const recent = data.Recent ?? []
   const top = data.TopToday || t(lang, "ledger.none")
 
@@ -162,18 +182,22 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const unbilledWidget = data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 text-sm last:border-0 last:pb-0"><a className="min-w-0 [overflow-wrap:anywhere] underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span><Button asChild variant="outline" size="sm"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button></div>)}</CardContent></Card>
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
-    <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground">{t(lang, mode === "studio" && !data.CanManage ? "dash.blurb.studioMember" : `dash.blurb.${mode}`)}</p><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{t(lang, "dash.mode", modeTitle)}</a> : <span>{t(lang, "dash.mode", modeTitle)}</span>}</div></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground" data-dashboard-blurb>{t(lang, blurbKey)}</p><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{t(lang, "dash.mode", modeTitle)}</a> : <span>{t(lang, "dash.mode", modeTitle)}</span>}</div></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
     <Card>
       <CardContent className="grid gap-5 p-5">
-        <form onSubmit={start} className="grid gap-3">
+        <form onSubmit={start} noValidate className="grid gap-3">
           <Label htmlFor="activity">{labels.what}</Label>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <Input id="activity" name="activity" list="known-activities" autoComplete="off" value={activity} onChange={e => { setActivity(e.target.value); const known = activities.find(item => item.Name.toLocaleLowerCase() === e.target.value.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (project || "0"))) }} placeholder={t(lang, "dash.activityHint")} required />
+            <Input id="activity" name="activity" list="known-activities" autoComplete="off" value={activity} onChange={e => { setActivity(e.target.value); setActivityRequired(false); const known = activities.find(item => item.Name.toLocaleLowerCase() === e.target.value.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (project || "0"))) }} placeholder={t(lang, "dash.activityHint")} required aria-invalid={activityRequired || undefined} aria-describedby={activityRequired ? "activity-required" : undefined} />
             <datalist id="known-activities">{activities.map(item => <option key={item.ID} value={item.Name} data-project={item.ProjectID} />)}</datalist>
             <Button type="submit" disabled={busy}>{labels.start}</Button>
           </div>
+          {/* Always in the DOM and always an alert region: a region that
+              appears with its message is not announced reliably. Empty text
+              adds nothing to the layout. */}
+          <p id="activity-required" role="alert" className="text-sm text-destructive">{activityRequired ? t(lang, "dash.activityRequired") : ""}</p>
           <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
             <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
             <div className="mt-3 grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">

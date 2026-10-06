@@ -1,6 +1,6 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
-import { ArrowLeft, ArrowRight, Plus } from "lucide-react"
+import { ArrowLeft, ArrowRight, Eye, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -72,7 +72,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
 
   return <main className="mx-auto w-full max-w-6xl space-y-4">
     <header className="flex flex-wrap items-end justify-between gap-4">
-      <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "sch.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "sch.blurb")}</p></div>
+      <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "sch.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, data.CanManage ? "sch.blurb" : "sch.blurbMember")}</p></div>
       <nav className="flex items-center gap-1" aria-label={t(lang, "sch.title")}>
         <Button asChild variant="ghost" size="icon" className="text-foreground" title={t(lang, "sch.prev")}><a href={`/schedule?date=${data.PrevWeek}&project=${data.ProjectID}`} aria-label={t(lang, "sch.prev")}><ArrowLeft aria-hidden="true" /></a></Button>
         <span className="whitespace-nowrap px-2 font-mono text-sm">{data.WeekLabel}</span>
@@ -94,6 +94,8 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
       </div>
 
       {data.CanManage && data.Rows.length === 1 && <p className="text-sm text-muted-foreground">{t(lang, "sch.onlyOwner")} <a href="/settings/invites" className="font-medium text-foreground underline underline-offset-4">{t(lang, "sch.inviteTeam")}</a></p>}
+
+      {!data.CanManage && <p data-readonly-note className="flex items-center gap-2 text-sm text-muted-foreground"><Eye aria-hidden="true" className="size-4 shrink-0" />{t(lang, "sch.readOnly")}</p>}
 
       <Card className="overflow-hidden">
         <CardContent className="overflow-x-auto p-0">
@@ -122,7 +124,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
           </Table>
         </CardContent>
       </Card>
-      <p className="text-sm text-muted-foreground">{t(lang, "sch.hint")}</p>
+      <p className="text-sm text-muted-foreground">{t(lang, data.CanManage ? "sch.hint" : "sch.hintMember")}</p>
     </> : <Card><CardContent className="py-7 text-center">
       <p className="font-medium">{t(lang, "sch.empty")}</p>
       <p className="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">{data.CanManage ? t(lang, "sch.emptyHint") : t(lang, "sch.emptyMember")}</p>

@@ -1,6 +1,6 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Download, Flag, Folder, Languages, Link2, LogOut, Settings, Tag, Users, Zap } from "lucide-react"
-import type { ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Sidebar,
@@ -112,8 +112,41 @@ function initials(name: string) {
   return chars.filter(Boolean).join("").toUpperCase()
 }
 
+// The navigation list is taller than a laptop window, and the scroll
+// container Chromium draws for it is an overlay one: it takes no layout
+// space and only shows itself once you scroll. On a 1280x720 window the
+// last row was therefore cut in half with nothing to say the list goes
+// on. Track the overflow so the bottom edge can mark it, and keep a thin
+// scrollbar on screen so the gesture is discoverable before that.
+function useListOverflow(ref: React.RefObject<HTMLElement | null>) {
+  const [below, setBelow] = useState(false)
+  useEffect(() => {
+    const nav = ref.current
+    const scroller = nav?.closest('[data-slot="sidebar-content"]')
+    if (!nav || !scroller) return
+    const update = () => {
+      // Collapsed to icons the container stops scrolling; a marker there
+      // would promise a continuation the rail cannot scroll to.
+      const scrolls = ["auto", "scroll"].includes(getComputedStyle(scroller).overflowY)
+      setBelow(scrolls && scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop > 4)
+    }
+    update()
+    scroller.addEventListener("scroll", update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(scroller)
+    for (const group of Array.from(nav.children)) observer.observe(group)
+    return () => {
+      scroller.removeEventListener("scroll", update)
+      observer.disconnect()
+    }
+  }, [ref])
+  return below
+}
+
 export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; themeControl: ReactNode }) {
   const { setOpenMobile } = useSidebar()
+  const navRef = useRef<HTMLElement>(null)
+  const moreBelow = useListOverflow(navRef)
   return <Sidebar collapsible="icon" variant="sidebar">
     <SidebarHeader className="gap-3 p-3">
       <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight" aria-label="paratrack">
@@ -132,9 +165,13 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
             {shell.canManage && <DropdownMenuItem asChild><a href="/settings/team" onClick={()=>setOpenMobile(false)}>{t(shell.lang,"nav.manageWorkspaces")}</a></DropdownMenuItem>}
           </DropdownMenuContent></DropdownMenu>)}
     </SidebarHeader>
-    <SidebarContent>
-      <nav className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
+    <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
+      <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
         {groups.map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} />) }
+        {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-7 w-full shrink-0 flex-col justify-end">
+          <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
+          <span className="flex h-4 items-center justify-center bg-sidebar"><ChevronDown className="size-4 text-sidebar-foreground/70" /></span>
+        </span>}
       </nav>
     </SidebarContent>
     <SidebarSeparator />
