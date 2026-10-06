@@ -131,7 +131,7 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 		name = strings.SplitN(identity.Email, "@", 2)[0]
 	}
 	teamName := localizedPersonalTeamName(resolveLang(r), name)
-	_, sess, _, err := s.services.Auth.SignIn.AuthenticateSSO(operationContext(r), appmodel.SSOAuthenticationRequest{
+	account, sess, _, err := s.services.Auth.SignIn.AuthenticateSSO(operationContext(r), appmodel.SSOAuthenticationRequest{
 		Email: identity.Email, Name: name, TeamName: teamName, Subject: identity.Subject,
 	})
 	if err != nil {
@@ -143,5 +143,8 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
+	// An SSO sign-in is a sign-in: it returns to the last workspace, and
+	// a first-time SSO account has none to return to.
+	s.restoreLastWorkspace(w, r, account.ID)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
