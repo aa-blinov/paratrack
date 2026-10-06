@@ -1,3 +1,4 @@
+import * as React from "react"
 import { useState, type ReactNode } from "react"
 import { Languages, Moon, Sun, SunMoon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -41,7 +42,43 @@ function AccountMenu({ shell }: { shell: AppShellData }) {
     <DropdownMenuSeparator/><form method="post" action="/api/logout"><input type="hidden" name="csrf_token" value={shell.csrfToken}/><DropdownMenuItem asChild><Button variant="ghost" type="submit" className="w-full">{t(shell.lang,"nav.logout")}</Button></DropdownMenuItem></form>
   </DropdownMenuContent></DropdownMenu>
 }
+// The shortcuts the public docs promise (site/docs/index.md). They were
+// lost with the move off app-navigation.js, so they live with the shell
+// again. Navigation goes through the sidebar links on purpose: the link
+// interceptor in main.tsx then applies the same rules as a real click.
+export function useShellShortcuts() {
+  React.useEffect(() => {
+    function isTyping(target: EventTarget | null) {
+      const el = target as HTMLElement | null
+      return Boolean(el?.closest?.("input, textarea, select, [contenteditable=true]"))
+    }
+    function go(href: string) {
+      const link = document.querySelector<HTMLAnchorElement>(`nav[aria-label] a[href="${href}"]`)
+      link?.click()
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.metaKey || event.ctrlKey || event.altKey || isTyping(event.target)) return
+      const here = window.location.pathname
+      switch (event.key.toLowerCase()) {
+        case "g": if (here !== "/graph") { event.preventDefault(); go("/graph") } break
+        case "s": if (here !== "/stats") { event.preventDefault(); go("/stats") } break
+        case "d": if (here !== "/") { event.preventDefault(); go("/") } break
+        case "t": document.querySelector<HTMLButtonElement>("[data-theme-toggle]")?.click(); break
+        case "n":
+          event.preventDefault()
+          if (here === "/") document.querySelector<HTMLInputElement>('input[name="activity"]')?.focus()
+          else go("/")
+          break
+        case "p": window.dispatchEvent(new Event("paratrack:pause-all")); break
+      }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [])
+}
+
 export function ApplicationShell({ shell, children }: { shell: AppShellData; children: ReactNode }) {
+  useShellShortcuts()
   return <TooltipProvider><SidebarProvider className="app-shell-provider min-h-svh bg-background text-foreground">
     <ConfirmationDialog lang={shell.lang}/><a href="#main" className="app-shell-skip">{t(shell.lang, "nav.skip")}</a>
     {shell.user && <AppSidebar shell={shell} themeControl={<ThemeControl shell={shell} />} />}
@@ -55,7 +92,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
         </div>
       </header>}
       <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
-      {shell.user && <footer className="app-shell-footer"><span>{t(shell.lang, "version")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={t(shell.lang, "nav.language")}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
+      {shell.user && <footer className="app-shell-footer"><span>{t(shell.lang, "version")}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={t(shell.lang, "nav.language")}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
     </div>
   </SidebarProvider></TooltipProvider>
 }
