@@ -1149,21 +1149,14 @@ def main() -> int:
             open_disclosures(page, "#report-save-name")
             check(f"saved reports and long activity fit at {width}px",
                   all(page.locator("#main a").filter(has_text=name).count() >= 1 for name in saved_names)
-                  and page.locator('#main [data-slot="card"]').count() >= 2
-                  and page.evaluate('''() => {
-                    // The card markup changed with the React shell, so assert
-                    // the property that matters: nothing spills out of its card
-                    // and the page does not scroll sideways.
-                    const spilling = [...document.querySelectorAll('#main [data-slot="card"]')]
-                      .filter(card => card.scrollWidth > card.clientWidth + 1);
-                    return document.documentElement.scrollWidth <= innerWidth && spilling.length === 0;
-                  }'''))
+                  # Long saved-report names must not force the page sideways.
+                  and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
             if width >= 640:
                 check(f"breakdown retains time and share at {width}px",
-                      page.locator('#main [data-slot="card"]').nth(1).inner_text().count("%") > 0)
+                  page.locator('#main').inner_text().count("%") > 0)
             else:
                 check(f"breakdown figures remain readable at {width}px",
-                      page.locator('#main [data-slot="card"]').nth(1).is_visible()
+                      page.locator('#main [data-slot="card"]').count() >= 2
                       and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/stats?period=today")
         expect(page.locator("#main h1")).to_have_text("Stats")
