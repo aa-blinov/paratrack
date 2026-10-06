@@ -10,6 +10,13 @@ import type { TagView, TagsData } from "@/dashboard/types"
 
 type TagResponse = { id: number; name: string; session_count: number }
 
+// A week, not a day: a tag is a cross-cutting label, and "today" is too small a
+// window to tell whether the label is earning its place.
+function tagTimeQuery(name: string) {
+  const query = new URLSearchParams({ period: "week", tag: name })
+  return query
+}
+
 export function TagsPage({ data }: { data: TagsData }) {
   const [tags, setTags] = React.useState(data.Tags)
   const [busy, setBusy] = React.useState(false)
@@ -84,7 +91,12 @@ export function TagsPage({ data }: { data: TagsData }) {
       <ul className="flex flex-wrap items-start gap-2" aria-label={t(lang, "tags.all")}>
         {tags.map(tag => <li key={tag.ID} className="inline-flex max-w-full flex-col gap-1 rounded-full border px-3 py-1.5 text-sm">
           <span className="flex max-w-full items-center gap-2">
-            <TagIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" /><span className="min-w-0 truncate">#{tag.Name}</span><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono font-semibold tabular-nums" title={t(lang, "tags.countTitle")}>{tag.SessionCount}</span>
+            <TagIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+            {/* The chip is the way into the time this tag carries — the same
+                filter the session row on /stats opens, from the screen that
+                owns the tag instead of from a dashboard the user must find. */}
+            <a href={`/stats?${tagTimeQuery(tag.Name)}`} title={t(lang, "tags.timeByTag")} aria-label={`${t(lang, "tags.timeByTag")}: #${tag.Name}`} className="min-w-0 truncate underline-offset-4 hover:underline">#{tag.Name}</a>
+            <span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono font-semibold tabular-nums" title={t(lang, "tags.countTitle")}>{tag.SessionCount}</span>
             {data.CanManage && <><Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} data-tag-rename ref={node => { if (node) renameButtons.current.set(tag.ID, node); else renameButtons.current.delete(tag.ID) }} aria-expanded={renaming === tag.ID} title={t(lang, "tags.rename")} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} onClick={() => openRename(tag)}><Pencil aria-hidden="true" /></Button>
               <Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} title={t(lang, "tags.delete")} aria-label={`${t(lang, "tags.delete")}: ${tag.Name}`} onClick={() => void remove(tag)}><Trash2 aria-hidden="true" /></Button></>}
           </span>

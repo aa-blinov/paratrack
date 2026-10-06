@@ -48,6 +48,15 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   // to be read as "the workspace has no projects".
   const unlinkedRows = data.Rows.filter(row => !data.ProjectNames?.[row.ProjectID])
   const projectOf = (row: TimesheetRow) => data.ProjectNames?.[row.ProjectID] || t(lang, "dash.uncategorized")
+  // The project under the activity is the way into that project's own screen,
+  // so the sheet is not a dead end: booked hours lead back to where they went.
+  const projectLabel = (row: TimesheetRow) => {
+    const slug = data.ProjectSlugs?.[row.ProjectID]
+    const name = data.ProjectNames?.[row.ProjectID]
+    if (!name) return t(lang, "dash.uncategorized")
+    if (!slug) return name
+    return <a href={`/projects/${encodeURIComponent(slug)}`} title={t(lang, "ts.openProject")} className="underline-offset-4 hover:underline">{name}</a>
+  }
 
   function cellKey(activityId: number, index: number) { return `${activityId}:${index}` }
 
@@ -205,7 +214,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </TableRow></TableHeader>
         <TableBody id="ts-body">
           {data.Rows.map(row => <TableRow key={row.ActivityID} id={`ts-row-${row.ActivityID}`} className="border-b last:border-0">
-            <TableHead scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name flex min-w-0 items-center gap-2" title={row.ActivityName}><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} /><span className="min-w-0"><span className="block whitespace-normal [overflow-wrap:anywhere]">{row.ActivityName}</span><span className="block whitespace-normal text-xs font-normal text-muted-foreground [overflow-wrap:anywhere]">{projectOf(row)}</span></span></span></TableHead>
+            <TableHead scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name flex min-w-0 items-center gap-2" title={row.ActivityName}><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} /><span className="min-w-0"><span className="block whitespace-normal [overflow-wrap:anywhere]">{row.ActivityName}</span><span className="block whitespace-normal text-xs font-normal text-muted-foreground [overflow-wrap:anywhere]">{projectLabel(row)}</span></span></span></TableHead>
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
               return <TableCell key={cell.ISO} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>

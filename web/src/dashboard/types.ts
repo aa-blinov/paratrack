@@ -117,6 +117,7 @@ export interface ProjectListData {
   ShowArchived: boolean
   Flash: string
   FlashOK: boolean
+  CanManage: boolean
 }
 
 export interface ProjectDetailData {
@@ -260,6 +261,7 @@ export interface TimesheetData {
   Days: TimesheetDay[]
   Rows: TimesheetRow[]
   ProjectNames: Record<string, string>
+  ProjectSlugs: Record<string, string>
   DayTotalLabels: string[]
   GrandTotal: number
   GrandTotalLabel: string
@@ -463,6 +465,10 @@ export interface ReportsData {
   Templates: Array<{ ID: string; Name: string; Blurb: string; Icon: string }>
   DefFrom: string
   DefTo: string
+  CSRFToken: string
+  SavedReports: Array<{ ID: number; Name: string; Period: string; ProjectSlug: string; Tag: string; CreatedBy: number }>
+  CanManage: boolean
+  MeID: number
 }
 
 export interface ReportRunData {
@@ -676,6 +682,7 @@ export interface HelpData {
   Active: string
   Lang: string
   HelpReact: boolean
+  CanManage: boolean
 }
 
 export interface InviteAcceptData {

@@ -10,6 +10,10 @@ type helpPage struct {
 	// flash-banner partial reads these on every page that includes it.
 	Flash   string
 	FlashOK bool
+	// The "where is this configured" card links to real screens. A link the
+	// reader cannot follow is worse than no link, so the page knows the role
+	// and leaves out destinations behind a manager-only guard.
+	CanManage bool
 }
 
 func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
@@ -22,6 +26,7 @@ func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 			ReactApp: true,
 		},
 		HelpReact: true,
+		CanManage: canManage(r),
 	}
 	s.renderPageForRequest(w, r, "Help", "help", "help", &data)
 }
