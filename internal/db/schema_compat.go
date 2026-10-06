@@ -66,6 +66,11 @@ var columnMigrations = []struct {
 	{"webhook_deliveries", "request_truncated", "BIGINT NOT NULL DEFAULT 0"},
 	{"webhook_deliveries", "response", "TEXT NOT NULL DEFAULT ''"},
 	{"webhook_deliveries", "response_truncated", "BIGINT NOT NULL DEFAULT 0"},
+	// Saved /stats presets filter by row id, so a rename keeps the filter and
+	// a deleted row reads back as no filter at all. The text columns stay for
+	// rows written before the migration.
+	{"saved_reports", "project_id", "BIGINT"},
+	{"saved_reports", "tag_id", "BIGINT"},
 	// Billing rules: round each invoice line to N minutes (0 = 0.01 h),
 	// "up" or "nearest"; invoice number prefix; logo for documents.
 	{"teams", "round_minutes", "BIGINT NOT NULL DEFAULT 0"},
