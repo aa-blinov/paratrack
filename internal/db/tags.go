@@ -159,11 +159,6 @@ func (d *DB) RenameTagForManager(ctx context.Context, request appmodel.TagRename
 	if err := lockTagForRename(ctx, tx, request.TeamID, request.TagID); err != nil {
 		return model.Tag{}, err
 	}
-	var previousName string
-	if err := tx.QueryRowContext(ctx,
-		`SELECT name FROM tags WHERE id = ? AND team_id = ?`, request.TagID, request.TeamID).Scan(&previousName); err != nil {
-		return model.Tag{}, err
-	}
 	var otherID int64
 	switch err := tx.QueryRowContext(ctx,
 		`SELECT id FROM tags WHERE team_id = ? AND name = ? AND id <> ?`, request.TeamID, name, request.TagID).Scan(&otherID); {
@@ -184,13 +179,6 @@ func (d *DB) RenameTagForManager(ctx context.Context, request appmodel.TagRename
 	tag, err := scanTag(tx.QueryRowContext(ctx,
 		`SELECT id, name, team_id, created_at FROM tags WHERE id = ? AND team_id = ?`, request.TagID, request.TeamID))
 	if err != nil {
-		return model.Tag{}, err
-	}
-	// Saved stats presets remember a tag by name, so they have to follow the
-	// rename or the preset silently starts showing an empty filter.
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE saved_reports SET tag = ? WHERE team_id = ? AND tag = ?`, name, request.TeamID, previousName,
-	); err != nil {
 		return model.Tag{}, err
 	}
 	if err := tx.Commit(); err != nil {
