@@ -19,9 +19,11 @@ export function ProjectList({ data }: { data: ProjectListData }) {
           <Button asChild variant="outline" size="sm">
             <a href={archivedURL}>{t(data.Lang, data.ShowArchived ? "projects.hideArchived" : "projects.showArchived")}</a>
           </Button>
-          <Button asChild size="sm">
-            <a href="/projects/new"><Plus aria-hidden="true" />{t(data.Lang, "projects.new")}</a>
-          </Button>
+          {data.CanManage && (
+            <Button asChild size="sm">
+              <a href="/projects/new"><Plus aria-hidden="true" />{t(data.Lang, "projects.new")}</a>
+            </Button>
+          )}
         </div>
       </header>
 
@@ -53,7 +55,9 @@ export function ProjectList({ data }: { data: ProjectListData }) {
           <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
             <FolderKanban aria-hidden="true" className="size-5 text-muted-foreground" />
             <p className="text-sm text-muted-foreground">{t(data.Lang, data.ShowArchived ? "projects.emptyArchived" : "projects.empty")}</p>
-            <Button asChild size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(data.Lang, "projects.createNew")}</a></Button>
+            {data.CanManage
+              ? <Button asChild size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(data.Lang, "projects.createNew")}</a></Button>
+              : <p className="max-w-md text-sm text-muted-foreground">{t(data.Lang, "projects.emptyMember")}</p>}
           </CardContent>
         </Card>
       )}

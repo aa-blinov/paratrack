@@ -54,6 +54,7 @@ type timesheetData struct {
 	Days            []timesheetDay
 	Rows            []timesheetRow
 	ProjectNames    map[int64]string
+	ProjectSlugs    map[int64]string
 	DayTotals       [7]int
 	DayTotalLabels  [7]string
 	GrandTotal      int
@@ -101,8 +102,10 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	projectNames := make(map[int64]string, len(projects))
+	projectSlugs := make(map[int64]string, len(projects))
 	for _, project := range projects {
 		projectNames[project.ID] = project.Name
+		projectSlugs[project.ID] = project.Slug
 	}
 	days := make([]timesheetDay, 7)
 	for i := 0; i < 7; i++ {
@@ -160,6 +163,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		Days:            days,
 		Rows:            rows,
 		ProjectNames:    projectNames,
+		ProjectSlugs:    projectSlugs,
 		DayTotals:       grid.DayTotals,
 		DayTotalLabels:  dayTotalLabels,
 		GrandTotal:      grid.GrandTotal,

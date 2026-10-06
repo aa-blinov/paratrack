@@ -1,5 +1,5 @@
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { Activity, BarChart3, CalendarDays, Download, Folder, Users, Zap } from "lucide-react"
+import { Activity, BarChart3, CalendarDays, Download, Folder, Users, X, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,16 @@ import type { ReportRunData, ReportsData } from "@/dashboard/types"
 
 const icons = { folder: Folder, activity: Activity, calendar: CalendarDays, zap: Zap, users: Users } as const
 
+// A saved report is just the statistics screen with its filters pinned, so its
+// row links straight to that view. The list lives here, next to the templates:
+// one screen owns the report objects instead of two hiding each other.
+function savedReportURL(report: { Period: string; ProjectSlug: string; Tag: string }) {
+  const query = new URLSearchParams({ period: report.Period })
+  if (report.ProjectSlug) query.set("project", report.ProjectSlug)
+  if (report.Tag) query.set("tag", report.Tag)
+  return `/stats?${query}`
+}
+
 export function ReportsPage({ data }: { data: ReportsData }) {
   const lang = data.Lang || "en"
   return <main className="mx-auto grid w-full max-w-5xl gap-4">
@@ -18,6 +28,12 @@ export function ReportsPage({ data }: { data: ReportsData }) {
       const Icon = icons[template.Icon as keyof typeof icons] || BarChart3
       return <Card key={template.ID}><CardHeader className="flex-row items-center gap-3 space-y-0"><Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" /><CardTitle className="text-base">{t(lang, `rep.${template.ID}.name`)}</CardTitle></CardHeader><CardContent className="grid gap-4"><p className="text-sm text-muted-foreground">{t(lang, `rep.${template.ID}.blurb`)}</p><form method="get" action="/reports/run" className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end"><input type="hidden" name="id" value={template.ID} /><div className="grid gap-1.5"><Label htmlFor={`report-${template.ID}-from`}>{t(lang, "inv.from")}</Label><Input id={`report-${template.ID}-from`} type="date" name="from" defaultValue={data.DefFrom} /></div><div className="grid gap-1.5"><Label htmlFor={`report-${template.ID}-to`}>{t(lang, "inv.to")}</Label><Input id={`report-${template.ID}-to`} type="date" name="to" defaultValue={data.DefTo} /></div><Button type="submit"><BarChart3 aria-hidden="true" />{t(lang, "rep.run")}</Button></form></CardContent></Card>
     })}</div>
+    <Card><CardHeader><CardTitle>{t(lang, "reports.savedTitle")} ({data.SavedReports.length})</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "reports.savedHint")}</p></CardHeader><CardContent>
+      {data.SavedReports.length ? <ul className="grid gap-2 sm:grid-cols-2" aria-label={t(lang, "reports.savedTitle")}>{data.SavedReports.map(report => <li key={report.ID} className="flex min-w-0 items-center rounded-md border">
+        <a className="min-w-0 flex-1 break-words p-2 text-sm hover:underline" href={savedReportURL(report)}>{report.Name}</a>
+        {(data.CanManage || report.CreatedBy === data.MeID) && <form method="post" action={`/api/reports/${report.ID}/delete`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" aria-label={t(lang, "reports.deleteNamed", report.Name)}><X aria-hidden="true" /></Button></form>}
+      </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "reports.emptyHint")}</p>}
+    </CardContent></Card>
   </main>
 }
 

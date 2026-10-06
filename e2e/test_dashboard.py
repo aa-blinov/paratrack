@@ -1135,7 +1135,8 @@ def main() -> int:
         page.goto(BASE + "/stats?period=yesterday")
         expect(page.locator("#main h1")).to_have_text("Stats")
         saved_names = ("A very long saved report for the team", "Another saved report for this period")
-        # The save form lives behind the "saved reports" disclosure.
+        # Saving stays where the view is: the form is behind the "save this view"
+        # disclosure on the statistics screen.
         for name in saved_names:
             open_disclosures(page, "#report-save-name")
             page.fill('#report-save-name', name)
@@ -1143,13 +1144,19 @@ def main() -> int:
             page.wait_for_load_state('load')
         for width in (320, 390, 768, 1440):
             page.set_viewport_size({"width": width, "height": 900})
-            page.goto(BASE + "/stats?period=yesterday")
-            expect(page.locator("#main h1")).to_have_text("Stats")
-            # Saved reports live behind a disclosure, closed on every load.
-            open_disclosures(page, "#report-save-name")
+            # The list itself has one home: the reports screen.
+            page.goto(BASE + "/reports")
+            expect(page.locator("#main h1")).to_have_text("Reports")
             check(f"saved reports and long activity fit at {width}px",
                   all(page.locator("#main a").filter(has_text=name).count() >= 1 for name in saved_names)
                   # Long saved-report names must not force the page sideways.
+                  and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
+            # The screen that saves a view links to that list without expanding.
+            page.goto(BASE + "/stats?period=yesterday")
+            expect(page.locator("#main h1")).to_have_text("Stats")
+            check(f"statistics points at the saved list at {width}px",
+                  page.locator('#main a[href="/reports"]').count() == 1
+                  and page.locator('form[action="/api/reports/save"]').count() == 1
                   and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
             if width >= 640:
                 check(f"breakdown retains time and share at {width}px",
@@ -1158,16 +1165,16 @@ def main() -> int:
                 check(f"breakdown figures remain readable at {width}px",
                       page.locator('#main [data-slot="card"]').count() >= 2
                       and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
-        page.goto(BASE + "/stats?period=today")
-        expect(page.locator("#main h1")).to_have_text("Stats")
-        open_disclosures(page, "#report-save-name")
+        page.goto(BASE + "/reports")
+        expect(page.locator("#main h1")).to_have_text("Reports")
         page.get_by_role('link', name=saved_names[0]).click()
         page.wait_for_url('**period=yesterday*')
         check("saved report opens its period", 'period=yesterday' in page.url)
         for name in saved_names:
             # Every step here reloads the page (navigation, then each delete),
-            # and the disclosure is closed again on each load.
-            open_disclosures(page, "#report-save-name")
+            # so the list is looked up again on every load.
+            page.goto(BASE + "/reports")
+            expect(page.locator("#main h1")).to_have_text("Reports")
             page.locator('#main a').filter(has_text=name).first.wait_for(state="attached")
             button = page.get_by_role("button", name=f"Delete {name}")
             if button.count():

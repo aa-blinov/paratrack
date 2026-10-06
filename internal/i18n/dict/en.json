@@ -164,7 +164,7 @@
   "tags.confirmDelete": "Delete this tag? It will be detached from its sessions.",
   "tags.noTags": "No tags yet",
   "tags.noTagsHint": "Create a tag above, then add it to a session in Stats.",
-  "tags.filterHint": "The number next to a tag is how many sessions carry it. Tap a tag on a session row and stats shows only those sessions.",
+  "tags.filterHint": "The number beside a tag is how many sessions carry it. Open the tag itself to see this week’s statistics for it alone.",
   "projects.title": "Projects",
   "projects.blurb": "A project groups the activities of one client or area. It has a color, a time budget and an hourly rate for invoices.",
   "projects.hideArchived": "Hide archived",
@@ -1125,5 +1125,11 @@
   "dash.blurb.member": "Track your own time on the team's projects: timers, timesheet and daily totals.",
   "dash.activityRequired": "Say what you are working on and press Start.",
   "common.confirmTitle": "Confirm action",
-  "common.confirmAction": "Confirm"
+  "common.confirmAction": "Confirm",
+  "projects.emptyMember": "A workspace manager creates projects — ask them if one needs adding.",
+  "reports.saveCurrent": "Save this view",
+  "reports.savedTitle": "Saved reports",
+  "reports.savedHint": "A saved report is statistics with its period and filters pinned. Open one to come back to that view.",
+  "tags.timeByTag": "Time for this tag, this week",
+  "ts.openProject": "Open project"
 }
