@@ -81,9 +81,13 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const [activityRequired, setActivityRequired] = useState(false)
   const lang = data.Lang || "en"
 
+  // The phone's floating button sends the person here to start something, so
+  // the caret lands in the field instead of making them find it.
+  const askedForTimer = new URLSearchParams(window.location.search).get("new") === "1"
+
   useEffect(() => {
-    if (restoreFocus) document.getElementById("activity")?.focus()
-  }, [restoreFocus])
+    if (restoreFocus || askedForTimer) document.getElementById("activity")?.focus()
+  }, [restoreFocus, askedForTimer])
 
   async function refresh() {
     const response = await fetch("/api/dashboard", { headers: { Accept: "application/json" }, credentials: "same-origin" })

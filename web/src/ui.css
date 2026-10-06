@@ -326,3 +326,148 @@
   outline: 2px solid var(--ring);
   outline-offset: 2px;
 }
+
+/* ── Phone shell: Material's bottom navigation and touch metrics ──────────
+   The phone keeps the same components as the desktop; only the frame around
+   them changes. 48dp is Material's minimum for anything a finger hits, and a
+   focused field under 16px makes iOS Safari zoom the page out from under the
+   caret, so both are raised here rather than in each screen. */
+/* Phone furniture stays out of the desktop document entirely: the drawer is
+   the desktop navigation, and a bar that only exists in CSS would still be in
+   the accessibility tree and the tab order. */
+#paratrack-react-root .mobile-nav,
+#paratrack-react-root .mobile-nav-fab { display: none; }
+
+@media (max-width: 63.999rem) {
+  #paratrack-react-root .mobile-nav {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 45;
+    display: flex;
+    align-items: stretch;
+    height: 4rem;
+    border-top: 1px solid var(--border);
+    background: var(--background);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  #paratrack-react-root .mobile-nav[hidden] { display: none; }
+  #paratrack-react-root .mobile-nav-item {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: .15rem;
+    border: 0;
+    background: none;
+    padding: .4rem .15rem;
+    color: var(--muted-foreground);
+    font-size: .6875rem;
+    line-height: 1.1;
+    text-align: center;
+    cursor: pointer;
+  }
+  #paratrack-react-root .mobile-nav-item svg { width: 1.35rem; height: 1.35rem; }
+  #paratrack-react-root .mobile-nav-item span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #paratrack-react-root .mobile-nav-item-active { color: var(--foreground); }
+  #paratrack-react-root .mobile-nav-item-active svg { color: var(--primary); }
+
+  /* The primary action sits above the bar, clear of the home indicator. */
+  #paratrack-react-root .mobile-nav-fab {
+    position: fixed;
+    inset-inline-end: 1rem;
+    bottom: calc(4rem + 1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 46;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 999px;
+    padding: 0;
+    box-shadow: 0 6px 16px rgb(0 0 0 / .18);
+  }
+  #paratrack-react-root .mobile-nav-fab svg { width: 1.5rem; height: 1.5rem; }
+
+  /* Room for the bar so the last row of a screen is never under it. */
+  #paratrack-react-root .app-shell-main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  /* A bottom sheet covers at most part of the screen: the page behind stays
+     visible so the person keeps their place while choosing. */
+  #paratrack-react-root .mobile-nav-sheet { max-height: 72svh; }
+  #paratrack-react-root .mobile-nav-sheet-body {
+    max-height: 52svh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+  }
+  #paratrack-react-root .mobile-nav-sheet-label {
+    padding: .75rem .75rem .25rem;
+    color: var(--muted-foreground);
+    font-size: .6875rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  #paratrack-react-root .mobile-nav-row {
+    display: flex;
+    min-height: 3rem;
+    align-items: center;
+    gap: .75rem;
+    border-radius: .625rem;
+    padding: .5rem .75rem;
+    color: var(--foreground);
+    font-size: 1rem;
+    text-align: left;
+    cursor: pointer;
+  }
+  #paratrack-react-root .mobile-nav-row svg { width: 1.15rem; height: 1.15rem; color: var(--muted-foreground); }
+  #paratrack-react-root .mobile-nav-row-active { background: var(--muted); font-weight: 500; }
+
+  /* Material's top app bar. */
+  #paratrack-react-root .app-shell-header-inner { min-height: 4rem; }
+}
+
+@media (pointer: coarse) {
+  #paratrack-react-root button,
+  #paratrack-react-root input,
+  #paratrack-react-root select,
+  #paratrack-react-root textarea {
+    min-height: 48px;
+  }
+  /* Icon-only controls are square on a phone: the old rule raised the height
+     and left a 28px-wide hamburger under a 44px target. */
+  #paratrack-react-root button[aria-label]:not([aria-label=""]),
+  #paratrack-react-root [data-slot="button"][data-size^="icon"] {
+    min-width: 48px;
+  }
+  /* iOS Safari zooms the page when a focused field is under 16px, and does not
+     always zoom back; the caret then sits in a page the person cannot read. */
+  #paratrack-react-root input,
+  #paratrack-react-root textarea,
+  #paratrack-react-root select {
+    font-size: max(1rem, 1em);
+  }
+  /* State layer: with no hover, the press itself is the feedback. */
+  #paratrack-react-root button:active,
+  #paratrack-react-root [role="button"]:active,
+  #paratrack-react-root .mobile-nav-item:active,
+  #paratrack-react-root .mobile-nav-row:active { opacity: .55; }
+}
+
+@media (pointer: coarse) {
+  /* Filter chips stay the size they were drawn at; the finger gets the extra
+     room through a hit area around them, so the row does not grow. */
+  #paratrack-react-root a[data-touch-chip] { position: relative; }
+  #paratrack-react-root a[data-touch-chip]::after {
+    content: "";
+    position: absolute;
+    inset: -12px -4px;
+  }
+}

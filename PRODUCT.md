@@ -6,7 +6,7 @@
 
 web
 
-Installable PWA with a native-feeling phone shell (bottom tab bar, "More" sheet, running-timer bar) below 1024 px and a desktop layout above it. No native apps.
+Installable PWA with a phone shell below 1024 px — a 64px top app bar, a fixed bottom navigation with four destinations and a «Ещё» sheet, Material's 48dp touch floor, 16px fields and a floating action for the timer — and a desktop layout with the drawer above it. No native apps.
 
 ## Users
 
