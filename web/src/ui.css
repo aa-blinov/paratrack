@@ -480,3 +480,19 @@
 #paratrack-react-root [data-collapsible="icon"] [data-sidebar="content"] {
   overflow-y: auto;
 }
+
+/* The week is a grid or a list of days, never a sideways scroll. Measured:
+   the grid needs 768px of content and does not get it at 640 (608px), 768
+   (736px) or 1024 (720px, the rail takes 256), while 900 and 1100+ fit. The
+   rule therefore sits at 1100px: below it the week is a list of days, above it
+   a grid that fits. */
+@media (max-width: 68.75rem) {
+  #paratrack-react-root .ts-day-list { display: grid; }
+  #paratrack-react-root .ts-week-grid-card,
+  #paratrack-react-root .ts-scroll-hint { display: none; }
+}
+@media (min-width: 68.75rem) {
+  #paratrack-react-root .ts-day-list { display: none; }
+  #paratrack-react-root .ts-week-grid-card { display: block; }
+  #paratrack-react-root .ts-scroll-hint { display: block; }
+}
