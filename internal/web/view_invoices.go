@@ -32,6 +32,9 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
 		})
 	}
+	if settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r)); err == nil {
+		data.RoundMinutes, data.RoundMode = settings.Billing.RoundMinutes, settings.Billing.RoundMode
+	}
 	// Default window: this month.
 	now := userNow(r)
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
