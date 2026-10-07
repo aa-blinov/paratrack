@@ -291,7 +291,9 @@ space above a heading than below it.
   the workspace switcher when a person belongs to more than one, and the
   account items the drawer header used to carry. The drawer itself and its
   trigger belong to the widths above: on a phone there is one navigation, not
-  two. A floating action button (`.mobile-nav-fab`, 56px) appears on the
+  two. 1024px is the single breakpoint for the shell — the rail must become an
+  overlay at the same width the bar appears, or a tablet in portrait carries
+  both. A floating action button (`.mobile-nav-fab`, 56px) appears on the
   screens whose job is to look at time — Табель, Статистика, По часам — and
   takes the person to the timer with the caret in the field. Everywhere else
   the screen already leads with an action of its own, and a second floating
