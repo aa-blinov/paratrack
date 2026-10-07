@@ -215,6 +215,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
     <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground" data-dashboard-blurb>{t(lang, blurbKey)}</p><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{modeLine}</a> : <span>{modeLine}</span>}</div></header>
+    {undoWidget}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
     <Card>
@@ -269,7 +270,6 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       {data.CanManage && <><Button asChild variant="outline" size="sm"><a href="/settings/members">{t(lang, "team.members")}</a></Button><Button asChild variant="outline" size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>{data.Mods?.payroll && <Button asChild variant="outline" size="sm"><a href="/payroll">{t(lang, "nav.payroll")}</a></Button>}</>}
     </nav>}
     <div data-dashboard-widgets className="grid min-w-0 gap-4 lg:grid-cols-2 [&:has(>_:only-child)]:lg:grid-cols-1">
-    {undoWidget}
     {mode === "freelance" ? <>{unbilledWidget}{goalsWidget}</> : <>{goalsWidget}{unbilledWidget}</>}
     </div>
     {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
