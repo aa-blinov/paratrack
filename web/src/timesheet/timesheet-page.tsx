@@ -2,7 +2,7 @@ import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableC
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { requestConfirmation } from "@/components/confirmation-dialog"
@@ -200,10 +200,43 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       <p role="status" aria-live="polite" className="min-h-5 text-sm">{saving ? t(lang, "ts.saving") : noticeText}</p>
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
     </div>
-    <p className="text-xs text-muted-foreground sm:hidden">{t(lang, "ts.scrollHint")}</p>
+    <p className="hidden text-xs text-muted-foreground sm:block">{t(lang, "ts.scrollHint")}</p>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
-    {data.Rows.length ? <Card className="overflow-hidden"><CardContent className="overflow-x-auto p-0">
+    {data.Rows.length ? <>
+      {/* A week is seven days wide. On a phone that meant a sideways scroll on
+          every row and two of seven days in view, so below the small
+          breakpoint the sheet becomes one block per day — same inputs, same
+          save path, nothing typed twice. */}
+      <div className="grid gap-3 sm:hidden">
+        {data.Days.map((day, dayIndex) => {
+          const label = `${day.Label} ${day.Date}`
+          return <Card key={day.ISO} className={day.IsToday ? "border-foreground/20" : undefined}>
+            <CardHeader className="flex-row items-center justify-between gap-2 px-3 py-2">
+              <CardTitle className="text-sm">{label}</CardTitle>
+              <span className="font-mono text-sm tabular-nums text-muted-foreground">{data.DayTotalLabels[dayIndex]}</span>
+            </CardHeader>
+            <CardContent className="grid gap-2 px-3 pb-3">
+              {data.Rows.map(row => {
+                const cell = row.Cells[dayIndex]
+                const key = cellKey(row.ActivityID, cell.Index)
+                return <div key={row.ActivityID} className="flex items-center gap-2">
+                  <span className="grid-name flex min-w-0 flex-1 items-center gap-2">
+                    <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} />
+                    <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
+                      <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
+                  </span>
+                  <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${cell.ISO}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
+                  <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={busy} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button>
+                </div>
+              })}
+            </CardContent>
+          </Card>
+        })}
+        <p className="text-sm font-semibold"><span className="text-muted-foreground">{t(lang, "stats.total")}: </span><span className="font-mono tabular-nums">{data.GrandTotalLabel}</span></p>
+      </div>
+
+      <Card className="hidden overflow-hidden sm:block"><CardContent className="overflow-x-auto p-0">
       <Table className="week-grid w-full min-w-[48rem] border-collapse text-sm" aria-busy={busy}>
         <colgroup><col className="week-name-col" /><col span={7} /><col className="week-total-col" /><col className="w-10" /></colgroup>
         <TableHeader><TableRow className="border-b">
@@ -231,7 +264,8 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           <TableCell className="whitespace-normal whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{data.GrandTotalLabel}</TableCell>
         </TableRow></TableFooter>
       </Table>
-    </CardContent></Card> : <Card><CardContent className="flex flex-col items-center py-8 text-center">
+    </CardContent></Card>
+    </> : <Card><CardContent className="flex flex-col items-center py-8 text-center">
       <p className="font-medium">{t(lang, "ts.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "ts.emptyHint")}</p>
       <Button asChild size="sm" className="mt-3"><a href="/"><Plus aria-hidden="true" />{t(lang, "ts.emptyCta")}</a></Button>
     </CardContent></Card>}

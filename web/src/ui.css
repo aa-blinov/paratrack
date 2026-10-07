@@ -471,3 +471,12 @@
     inset: -12px -4px;
   }
 }
+
+/* The collapsed rail hid its overflow, so on a short screen the bottom icons
+   could not be reached: `overflow: hidden` stops wheel and touch scrolling
+   even though the content is taller than the rail. Letting it scroll brings
+   them back and makes the "list continues" marker honest again — it reads the
+   rail's own overflow, which was hidden. */
+#paratrack-react-root [data-collapsible="icon"] [data-sidebar="content"] {
+  overflow-y: auto;
+}

@@ -16,6 +16,7 @@ import json
 
 from playwright.async_api import async_playwright
 
+from test_navigation_map_by_role import timesheet_document
 from test_react_navigation import document, STATIC
 
 BAR_ITEMS = ["Обзор", "Табель", "Статистика", "По часам", "Ещё"]
@@ -371,6 +372,61 @@ async def check_long_names_stay_readable(browser):
         await context.close()
 
 
+async def check_timesheet_is_a_day_list_on_a_phone(browser):
+    """A week does not fit a phone: the grid was 48rem wide, so every row
+    scrolled sideways and two of seven days were in view. Below the small
+    breakpoint the sheet is one block per day, with the same inputs."""
+    for width in (320, 390):
+        context, page, errors = await open_html(browser, timesheet_document({"3": "vnutrennie"}), "/timesheet", width)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(500)
+        shape = await page.evaluate("""() => {
+          const grid = document.querySelector('table.week-grid');
+          const dayCards = [...document.querySelectorAll('main [data-slot="card"]')]
+            .filter(card => card.querySelector('input[type="number"]'));
+          return {page: document.documentElement.scrollWidth, viewport: innerWidth,
+                  gridVisible: grid ? grid.getBoundingClientRect().width > 0 : false,
+                  dayCards: dayCards.length, inputs: document.querySelectorAll('main input[type="number"]').length};
+        }""")
+        assert shape['page'] <= shape['viewport'] + 1, f'{width}px: the sheet scrolls sideways ({shape})'
+        assert not shape['gridVisible'], f'{width}px: the wide grid must give way to the day list'
+        # Seven day blocks; the sheet also has an "add a row" card below them,
+        # which owns an input of its own.
+        assert shape['dayCards'] >= 7, f'{width}px: one block per day, got {shape["dayCards"]}'
+        assert shape['inputs'] > 0, f'{width}px: the day blocks keep the inputs'
+        assert not errors, errors
+        await context.close()
+
+
+async def check_collapsed_rail_scrolls(browser):
+    """Collapsed to icons the rail hid its overflow, so on a 720px screen the
+    bottom icons were out of reach: hidden stops wheel and touch scrolling."""
+    for width, height in ((1280, 720), (1440, 900)):
+        context, page, errors = await open_html(browser, phone_document('/'), '/', width, height)
+        await page.locator('#main h1').wait_for()
+        await page.locator('.app-shell-sidebar-trigger').click()
+        await page.wait_for_timeout(600)
+        state = await page.evaluate("""() => {
+          const rail = document.querySelector('[data-sidebar="sidebar"]');
+          const box = rail.querySelector('[data-sidebar="content"]');
+          const items = [...rail.querySelectorAll('[data-sidebar="menu-button"]')];
+          const bottom = box.getBoundingClientRect().bottom;
+          const lastBefore = items[items.length - 1].getBoundingClientRect().bottom;
+          box.scrollTop = 9999;
+          const lastAfter = items[items.length - 1].getBoundingClientRect().bottom;
+          box.scrollTop = 0;
+          return {overflow: getComputedStyle(box).overflowY, items: items.length,
+                  clipped: lastBefore > bottom + 1, reachable: lastAfter <= bottom + 1,
+                  marker: !!rail.querySelector('[data-nav-more]')};
+        }""")
+        assert state['overflow'] == 'auto', f'{width}x{height}: the rail cannot scroll — {state}'
+        assert not state['clipped'] or state['reachable'], f'{width}x{height}: an icon is out of reach — {state}'
+        if state['clipped']:
+            assert state['marker'], f'{width}x{height}: the list continues and must say so — {state}'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -396,6 +452,10 @@ async def main():
         print('PASS 767–1023px: the drawer is an overlay, so exactly one navigation is on screen')
         await check_long_names_stay_readable(browser)
         print('PASS 131-character names stay readable: wrapped or ellipsis, never sliced')
+        await check_timesheet_is_a_day_list_on_a_phone(browser)
+        print('PASS 320/390px: the week is a list of days, no sideways scroll, inputs intact')
+        await check_collapsed_rail_scrolls(browser)
+        print('PASS collapsed rail at 720px tall: every icon reachable, continuation announced')
         await browser.close()
 
 
