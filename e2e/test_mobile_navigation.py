@@ -314,6 +314,63 @@ async def check_member_card_fits(browser):
         await context.close()
 
 
+LONG_ACTIVITY = 'Проектирование и техническое сопровождение интеграционного контура учёта рабочего времени сразу для нескольких подразделов'
+
+
+async def check_one_navigation_at_every_width(browser):
+    """The drawer and the bottom bar must never be on screen together.
+
+    The sidebar switched to a docked rail at 768px while the phone shell began
+    at 1024px, so a tablet in portrait carried two navigations and the bar lay
+    over the desktop shell."""
+    for width, docked in ((767, False), (768, False), (900, False), (1023, False),
+                          (1024, True), (1440, True)):
+        context, page, errors = await open_html(browser, phone_document('/'), '/', width, 900)
+        await page.locator('#main h1').wait_for()
+        rail = await page.locator('[data-sidebar="sidebar"]').is_visible()
+        bar = await page.locator('[data-mobile-nav]').is_visible()
+        assert rail == docked, f'{width}px: the sidebar is {"docked" if rail else "an overlay"}, expected {"docked" if docked else "an overlay"}'
+        assert bar == (not docked), f'{width}px: the bottom bar must show exactly when the rail does not'
+        assert not (rail and bar), f'{width}px: two navigations at once'
+        assert not errors, errors
+        await context.close()
+
+
+async def check_long_names_stay_readable(browser):
+    """A long activity or project name may wrap or be cut with an ellipsis, but
+    it must never be silently sliced by a fixed-height box."""
+    html = phone_document('/')
+    start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+    end = html.index('</div>', start)
+    payload = json.loads(html[start:end])
+    payload['data'].update(
+        Recent=[{'ID': 1, 'Activity': LONG_ACTIVITY, 'ActivityID': 1, 'Project': LONG_ACTIVITY,
+                 'ProjectSlug': 'x', 'Start': '09:00', 'End': '10:00', 'Seconds': 3600,
+                 'Duration': '1 ч', 'Note': '', 'Tags': [], 'User': '', 'Me': True}],
+        Projects=[{'ID': 1, 'Slug': 'x', 'Name': LONG_ACTIVITY, 'Color': '#7c3aed'}])
+    html = html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+
+    for width in (320, 390, 768, 1440):
+        context, page, errors = await open_html(browser, html, '/', width, 900)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(500)
+        sliced = await page.evaluate("""() => {
+          const out = [];
+          document.querySelectorAll('#main *').forEach(el => {
+            const cs = getComputedStyle(el);
+            if (cs.display === 'none' || cs.overflow !== 'hidden' || cs.overflowY !== 'hidden') return;
+            if (el.scrollHeight <= el.clientHeight + 1 || el.clientHeight === 0) return;
+            if (el.className.toString().includes('sr-only') || el.closest('.sr-only')) return;
+            if (!el.textContent.trim()) return;
+            out.push((el.innerText || '').trim().replace(/\\s+/g, ' ').slice(0, 40));
+          });
+          return [...new Set(out)];
+        }""")
+        assert not sliced, f'{width}px: text sliced by a fixed box — {sliced}'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -335,6 +392,10 @@ async def main():
         print('PASS a long confirmation keeps its button on screen and scrolls the message')
         await check_member_card_fits(browser)
         print('PASS 320/390px: nothing leaves a member card, «Сохранить» stays whole')
+        await check_one_navigation_at_every_width(browser)
+        print('PASS 767–1023px: the drawer is an overlay, so exactly one navigation is on screen')
+        await check_long_names_stay_readable(browser)
+        print('PASS 131-character names stay readable: wrapped or ellipsis, never sliced')
         await browser.close()
 
 

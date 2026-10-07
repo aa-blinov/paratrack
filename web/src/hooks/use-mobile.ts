@@ -1,6 +1,9 @@
 import * as React from "react"
 
-const MOBILE_BREAKPOINT = 768
+// One breakpoint for the whole shell. The phone shell starts at 1024px, so the
+// sidebar has to become an overlay at the same width: at 768–1023px both were
+// on screen at once — a docked rail with the bottom bar over it.
+const MOBILE_BREAKPOINT = 1024
 
 export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState(() =>
