@@ -215,6 +215,105 @@ async def check_desktop_is_untouched(browser):
     await context.close()
 
 
+MEMBERS = [
+    {'UserID': 1, 'Name': 'Пётр Владелец', 'Email': 'owner2@x.test', 'Role': 'owner'},
+    {'UserID': 2, 'Name': 'Маша Участница', 'Email': 'member2@x.test', 'Role': 'member'},
+]
+
+
+def members_document(path='/settings/members', lang='ru'):
+    """The members screen as it arrives in the browser: a card whose pay form is
+    the widest thing on a narrow phone."""
+    html = document(path, lang)
+    start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+    end = html.index('</div>', start)
+    payload = json.loads(html[start:end])
+    payload['shell'].update(active='members', requestPath=path, canManage=True)
+    payload['data'].update(Lang=lang, CanManage=True, IsOwner=True, MembersReact=True, Members=MEMBERS,
+                           Pay={'1': {'Rate': '', 'Capacity': 480}, '2': {'Rate': '', 'Capacity': 480}},
+                           User={'ID': 1}, Flash='', FlashOK=False, CSRFToken='test')
+    return html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+
+
+async def open_html(browser, html, path, width, height=844):
+    context = await browser.new_context(viewport={'width': width, 'height': height}, locale='ru-RU',
+                                  is_mobile=True, has_touch=True)
+    page = await context.new_page()
+    errors = []
+    page.on('pageerror', lambda error: errors.append(str(error)))
+
+    async def respond(route):
+        served = route.request.url.split('/static/', 1)[-1]
+        if '/static/' in route.request.url:
+            file = STATIC / served
+            await route.fulfill(path=str(file)) if file.is_file() else await route.fulfill(status=404)
+        else:
+            await route.fulfill(content_type='text/html; charset=utf-8', body=html)
+    await context.route('**/*', respond)
+    await page.goto(f'http://paratrack.test{path}', wait_until='domcontentloaded')
+    return context, page, errors
+
+
+LONG_MESSAGE = 'Удалить проект? ' + 'Этот проект занимает существенную долю времени команды. ' * 24
+
+
+async def check_confirmation_button_stays_reachable(browser):
+    """A long confirmation message must not push the action off the screen.
+
+    The dialog used to grow without a limit, so on a 844px phone the confirm
+    button sat at y≈1000 — below the fold, with the top of the dialog cut off
+    above the viewport. Title and buttons stay put; the message scrolls."""
+    for width in (320, 390):
+        context, page, errors = await open_html(browser, phone_document('/'), '/', width)
+        await page.locator('#main h1').wait_for()
+        await page.evaluate("""(message) => document.dispatchEvent(new CustomEvent('paratrack:confirm', {
+            detail: {message, resolve: () => {}, trigger: document.activeElement}}))""", LONG_MESSAGE)
+        dialog = page.locator('[role="alertdialog"], [role="dialog"]').last
+        await dialog.wait_for()
+        state = await dialog.evaluate("""el => {
+          const box = el.getBoundingClientRect();
+          const buttons = [...el.querySelectorAll('button')];
+          const action = buttons[buttons.length - 1].getBoundingClientRect();
+          return {top: Math.round(box.top), bottom: Math.round(box.bottom), height: Math.round(box.height),
+                  actionBottom: Math.round(action.bottom), actionTop: Math.round(action.top), viewport: innerHeight};
+        }""")
+        assert state['top'] >= 0, f'{width}px: the dialog starts above the screen at y={state["top"]}'
+        assert state['bottom'] <= state['viewport'], f'{width}px: the dialog ends below the screen at y={state["bottom"]}'
+        assert 0 < state['actionTop'] and state['actionBottom'] <= state['viewport'], \
+            f'{width}px: the confirm button is off screen at y={state["actionTop"]}–{state["actionBottom"]}'
+        if width == 320:
+            await page.screenshot(path='/tmp/paratrack-confirm-long.png')
+        assert not errors, errors
+        await context.close()
+
+
+async def check_member_card_fits(browser):
+    """Nothing on a member card may stick out of it.
+
+    The pay form asked for two 5rem columns plus the button — 272px inside a
+    224px box on a 320px phone, so «Сохранить» and the caption under it were cut
+    off at the card edge."""
+    for width in (320, 390):
+        context, page, errors = await open_html(browser, members_document(), '/settings/members', width)
+        await page.locator('main article').first.wait_for()
+        await page.set_viewport_size({'width': width, 'height': 844})
+        await page.wait_for_timeout(400)
+        overflow = await page.evaluate("""() => {
+          const card = document.querySelector('main article');
+          const right = card.getBoundingClientRect().right;
+          return [...card.querySelectorAll('*')]
+            .filter(el => el.getBoundingClientRect().right > right + 1)
+            .map(el => (el.innerText || el.value || el.tagName).trim().replace(/\\s+/g, ' ').slice(0, 24));
+        }""")
+        assert not overflow, f'{width}px: these leave the member card — {overflow}'
+        save = page.get_by_role('button', name='Сохранить').first
+        assert await save.is_visible(), f'{width}px: «Сохранить» must stay visible'
+        box = await save.bounding_box()
+        assert box['x'] >= 0 and box['x'] + box['width'] <= width, f'{width}px: «Сохранить» is cut at {box}'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -232,6 +331,10 @@ async def main():
         print('PASS 320px: fields are 16px and every control reaches the 48px floor')
         await check_desktop_is_untouched(browser)
         print('PASS desktop keeps the drawer and gains no phone furniture')
+        await check_confirmation_button_stays_reachable(browser)
+        print('PASS a long confirmation keeps its button on screen and scrolls the message')
+        await check_member_card_fits(browser)
+        print('PASS 320/390px: nothing leaves a member card, «Сохранить» stays whole')
         await browser.close()
 
 
