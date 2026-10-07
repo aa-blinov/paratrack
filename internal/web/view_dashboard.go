@@ -68,6 +68,11 @@ type dashboardData struct {
 	ActiveVM     activeListVM // wrapper so active-list can call {{.T}}
 	GoalsVM      goalsListVM  // wrapper so goals-list can call {{.T}}
 
+	// How many sections this workspace has open and how many the full set has:
+	// the mode line says what the mode means, not just its name.
+	SectionsOpen  int
+	SectionsTotal int
+
 	HasProject     bool
 	HasSession     bool
 	Unbilled       []unbilledView // "not invoiced yet", when there is any
