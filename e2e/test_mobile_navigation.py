@@ -22,6 +22,13 @@ from test_react_navigation import document, STATIC
 BAR_ITEMS = ["Обзор", "Табель", "Статистика", "По часам", "Ещё"]
 # Material's minimum for anything a finger hits.
 TOUCH = 48
+# The names that broke «Идут сейчас»: one short, one that exactly filled the old
+# 96px lane, one far past any lane.
+PROJECTS = [{"ID": 1, "Name": "Ремонт"},
+            {"ID": 2, "Name": "Сайт для Nordwind"},
+            {"ID": 3, "Name": "Проектирование и техническое сопровождение интеграционного контура учёта рабочего времени"}]
+PROJECTS_BY_NAME = {project["Name"] for project in PROJECTS}
+ACTIVITIES = ["Разбор сметы", "Созвон с клиентом", "Правка макета"]
 
 MEASURE = """() => {
   const visible = el => {
@@ -465,6 +472,86 @@ async def check_collapsed_rail_scrolls(browser):
         await context.close()
 
 
+def running_document(path, projects):
+    """The shell booted with timers already running, each on its own project."""
+    html = document(path)
+    start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+    end = html.index('</div>', start)
+    payload = json.loads(html[start:end])
+    payload['shell'].update(active=path.strip('/'), requestPath=path)
+    payload['data'].update(
+        Projects=projects,
+        RunningCount=len(ACTIVITIES),
+        ActiveSessions=[
+            {"ID": index + 1, "ActivityID": index + 1, "ActivityName": activity,
+             "Color": "#16a34a", "ProjectID": projects[index]["ID"],
+             "ProjectName": projects[index]["Name"], "ProjectSlug": "",
+             "StartLocal": "сегодня 18:20", "StartISO": "2026-10-07T18:20:00Z",
+             "ResumeISO": "2026-10-07T18:20:00Z", "Clock": "00:06:48",
+             "Paused": False, "AccumulatedSeconds": 408}
+            for index, activity in enumerate(ACTIVITIES)])
+    return html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+
+
+async def check_running_projects_are_readable(browser):
+    """«Идут сейчас» named the project in a chip that could not be read. Measured
+    on a phone: the chip took `min-height: 48px` from the coarse-pointer rule
+    and set the row's height, and `.ledger-project` held it at 96px of a 123px
+    name, cut mid-word with no ellipsis — «Сайт для» instead of «Сайт для
+    Nordwind». Both are checked here: the chip must not dictate the row, and a
+    name that has to be shortened must at least say that it was."""
+    for width in (320, 390):
+        context = await browser.new_context(
+            viewport={'width': width, 'height': 844}, locale='ru-RU', is_mobile=True, has_touch=True)
+        page = await context.new_page()
+        errors = []
+        page.on('pageerror', lambda error: errors.append(str(error)))
+
+        async def respond(route):
+            served = route.request.url.split('/static/', 1)[-1]
+            if '/static/' in route.request.url:
+                await route.fulfill(path=str(STATIC / served))
+            else:
+                await route.fulfill(content_type='text/html; charset=utf-8', body=running_document('/', PROJECTS))
+        await context.route('**/*', respond)
+        await page.goto('http://paratrack.test/')
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(500)
+
+        rows = await page.evaluate("""() => {
+          const cards = [...document.querySelectorAll('#active-list [data-session-id]')];
+          return cards.map(card => {
+            const name = card.querySelector('strong');
+            const chip = card.querySelector('button.ledger-project');
+            const value = chip && chip.querySelector('[data-slot="select-value"]');
+            const clipped = el => !!el && el.scrollWidth > el.clientWidth + 1;
+            return {activity: name ? name.textContent.trim() : '',
+                    activityClipped: clipped(name),
+                    chipHeight: Math.round(chip.getBoundingClientRect().height),
+                    chipLeft: Math.round(chip.getBoundingClientRect().left),
+                    valueClipped: clipped(value),
+                    textOverflow: value ? getComputedStyle(value).textOverflow : '',
+                    project: value ? value.textContent.trim() : ''};
+          });
+        }""")
+        assert rows, f'{width}px: the running timers are on the dashboard'
+        for row in rows:
+            assert not row['activityClipped'], \
+                f'{width}px: «{row["activity"]}» is sliced to make room for its project'
+            if row['valueClipped']:
+                assert row['textOverflow'] == 'ellipsis', \
+                    f'{width}px: «{row["project"]}» is cut with nothing to say so — it needs an ellipsis'
+            else:
+                assert row['project'] in PROJECTS_BY_NAME, \
+                    f'{width}px: «{row["project"]}» fits, so it must be the whole name'
+        assert len({row['chipLeft'] for row in rows}) == 1, \
+            f'{width}px: every project chip starts on the same line — {[r["chipLeft"] for r in rows]}'
+        assert max(row['chipHeight'] for row in rows) < TOUCH, \
+            f'{width}px: the chip must not set the row height — {[r["chipHeight"] for r in rows]}px of a {TOUCH}px target'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -490,6 +577,8 @@ async def main():
         print('PASS 767–1023px: the drawer is an overlay, so exactly one navigation is on screen')
         await check_long_names_stay_readable(browser)
         print('PASS 131-character names stay readable: wrapped or ellipsis, never sliced')
+        await check_running_projects_are_readable(browser)
+        print('PASS 320/390px: «Идут сейчас» names its activity and its project in full')
         await check_the_week_never_scrolls_sideways(browser)
         print('PASS the week is a grid or a list of days — never a sideways scroll, at any width')
         await check_the_mode_says_what_it_opens(browser)
