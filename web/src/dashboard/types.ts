@@ -394,6 +394,8 @@ export interface InvoicesData {
   Unassigned: Array<{ ID: number; Sessions: number; Name: string; Billed: boolean }>
   DefStart: string
   DefEnd: string
+  RoundMinutes: number
+  RoundMode: string
   Flash: string
   FlashOK: boolean
 }

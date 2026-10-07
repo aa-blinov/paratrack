@@ -1142,5 +1142,16 @@
   "stats.editorFolded": "Сами записи дня: их можно поправить или удалить.",
   "stats.editorShow": "Показать",
   "stats.editorHide": "Скрыть",
-  "dash.modeCounts": "Режим: %s — открыто %d из %d разделов"
+  "dash.modeCounts": "Режим: %s — открыто %d из %d разделов",
+  "dash.stopped": "Остановлено: %s, %s",
+  "dash.undo": "Отменить",
+  "dash.fix": "Поправить «%s»",
+  "ts.todayOnly": "Сегодня",
+  "ts.wholeWeek": "Вся неделя",
+  "dash.fixShort": "Поправить",
+  "inv.roundHint": "Деньги считаются от округлённого времени: %s.",
+  "inv.roundNone": "до 0,01 ч на строку",
+  "inv.roundNearest": "до %d мин на строку",
+  "inv.roundUp": "сверху до %d мин на строку",
+  "inv.roundDown": "снизу до %d мин на строку"
 }

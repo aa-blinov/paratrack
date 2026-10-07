@@ -1142,5 +1142,16 @@
   "stats.editorFolded": "The day\\u2019s records themselves: fix or delete them.",
   "stats.editorShow": "Show",
   "stats.editorHide": "Hide",
-  "dash.modeCounts": "Mode: %s — %d of %d sections open"
+  "dash.modeCounts": "Mode: %s — %d of %d sections open",
+  "dash.stopped": "Stopped: %s, %s",
+  "dash.undo": "Undo",
+  "dash.fix": "Fix “%s”",
+  "ts.todayOnly": "Today",
+  "ts.wholeWeek": "Whole week",
+  "dash.fixShort": "Fix",
+  "inv.roundHint": "Money is priced from rounded time: %s.",
+  "inv.roundNone": "to 0.01 h per line",
+  "inv.roundNearest": "to %d min per line",
+  "inv.roundUp": "up to %d min per line",
+  "inv.roundDown": "down to %d min per line"
 }

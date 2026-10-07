@@ -54,10 +54,22 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     setClient(previous => ({ ...previous, [field]: value }))
   }
 
+  // Money is priced from rounded time. Say the rule once, quietly, instead of
+  // letting a person wonder why the amount does not match the hours.
+  const rounding = (() => {
+    if (!data.Billable) return null
+    if (!data.RoundMinutes) return t(lang, "inv.roundHint", t(lang, "inv.roundNone"))
+    const [up, down] = data.RoundMode === "up" ? [true, false] : data.RoundMode === "down" ? [false, true] : [false, false]
+    const rule = t(lang, up ? "inv.roundUp" : down ? "inv.roundDown" : "inv.roundNearest", data.RoundMinutes)
+    return t(lang, "inv.roundHint", rule)
+  })()
+
   const flash = <InvoiceFlash data={data} />
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div><Button asChild size="sm"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button></header>
     {flash}
+
+    {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
 
     {!data.Billable && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
       <AlertTriangle aria-hidden="true" className="size-5 shrink-0 text-amber-700 dark:text-amber-300" />

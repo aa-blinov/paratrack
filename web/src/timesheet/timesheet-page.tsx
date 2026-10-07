@@ -50,6 +50,10 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   const projectOf = (row: TimesheetRow) => data.ProjectNames?.[row.ProjectID] || t(lang, "dash.uncategorized")
   // The project under the activity is the way into that project's own screen,
   // so the sheet is not a dead end: booked hours lead back to where they went.
+  // A phone opens on today: the week is seven days of scrolling for someone who
+  // almost always means "what did I do today". The week is one tap away.
+  const [onlyToday, setOnlyToday] = React.useState(true)
+  const daysShown = onlyToday ? data.Days.filter(day => day.IsToday) : data.Days
   const projectLabel = (row: TimesheetRow) => {
     const slug = data.ProjectSlugs?.[row.ProjectID]
     const name = data.ProjectNames?.[row.ProjectID]
@@ -208,8 +212,13 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           every row and two of seven days in view, so below the small
           breakpoint the sheet becomes one block per day — same inputs, same
           save path, nothing typed twice. */}
+      <div className="ts-day-toggle flex items-center gap-1" role="group" aria-label={t(lang, "ts.thisWeek")}>
+        <button type="button" aria-pressed={onlyToday} onClick={() => setOnlyToday(true)} className={`ts-day-toggle-item ${onlyToday ? "is-on" : ""}`}>{t(lang, "ts.todayOnly")}</button>
+        <button type="button" aria-pressed={!onlyToday} onClick={() => setOnlyToday(false)} className={`ts-day-toggle-item ${onlyToday ? "" : "is-on"}`}>{t(lang, "ts.wholeWeek")}</button>
+      </div>
       <div className="ts-day-list grid gap-3">
-        {data.Days.map((day, dayIndex) => {
+        {daysShown.map(day => {
+          const dayIndex = data.Days.indexOf(day)
           const label = `${day.Label} ${day.Date}`
           return <Card key={day.ISO} className={day.IsToday ? "border-foreground/20" : undefined}>
             <CardHeader className="flex-row items-center justify-between gap-2 px-3 py-2">

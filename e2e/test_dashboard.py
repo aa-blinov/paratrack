@@ -165,6 +165,18 @@ def main() -> int:
         page.goto(BASE + "/")
         expect(page.locator("h1")).to_have_text("Dashboard")
         check("dashboard renders h1=Dashboard", True)
+        # Stopping must leave a way back: the server answers with a reopen
+        # route, and the dashboard is the shell that shows it.
+        if page.get_by_role("button", name="Стоп", exact=True).count() >= 1:
+            page.get_by_role("button", name="Стоп", exact=True).first.click()
+            expect(page.locator("[data-stop-undo]")).to_be_visible(timeout=10000)
+            check("stopped timer offers undo and a way into the record",
+                  page.get_by_role("button", name="Отменить").count() >= 1
+                  and page.locator("[data-stop-undo]").inner_text().find("Остановлено") >= 0)
+            page.get_by_role("button", name="Отменить").first.click()
+            expect(page.locator("[data-stop-undo]")).to_have_count(0, timeout=10000)
+            check("undo puts the timer back to running",
+                  page.get_by_role("button", name="Стоп", exact=True).count() >= 1)
         check("React shell leaves one semantic main landmark",
               page.locator("main").count() == 1 and page.locator("#main").count() == 1)
         nav_text = page.locator(".app-shell-desktop-nav").inner_text()
@@ -661,11 +673,17 @@ def main() -> int:
             else:
                 # Below 640px the week is a list of days: nothing scrolls sideways,
                 # and every day keeps its own inputs.
+                days = page.locator('main [data-slot="card"]').filter(has=page.locator('input[type="number"]'))
+                # A phone opens on today; the week is one tap away.
                 check(f"timesheet becomes a day list at {width}px",
                       page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-                      and page.locator('main [data-slot="card"]').filter(
-                          has=page.locator('input[type="number"]')).count() >= 7
-                      and page.locator('main input[type="number"]').count() > 0)
+                      and days.count() <= 2
+                      and page.locator('.ts-day-toggle-item').count() == 2)
+                page.locator('.ts-day-toggle-item').nth(1).click()
+                page.wait_for_timeout(300)
+                check(f"the whole week opens at {width}px",
+                      page.locator('main [data-slot="card"]').filter(
+                          has=page.locator('input[type="number"]')).count() >= 7)
         page.set_viewport_size({"width": 320, "height": 900})
         page.goto(BASE + "/")
         project_picker = page.locator('#project_id')

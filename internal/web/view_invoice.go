@@ -85,8 +85,12 @@ type invoicesPage struct {
 	Billable      bool
 	DefStart      string
 	DefEnd        string
-	Flash         string
-	FlashOK       bool
+	// Money is priced from rounded time, so the screen has to say so: a person
+	// comparing "1 ч 28 мин" with the amount has to know why they differ.
+	RoundMinutes int
+	RoundMode    string
+	Flash        string
+	FlashOK      bool
 }
 
 func (p *invoicesPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
