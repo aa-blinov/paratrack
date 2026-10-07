@@ -1134,5 +1134,12 @@
   "ts.openProject": "Open project",
   "dash.newTimer": "Start a timer",
   "nav.primary": "Primary navigation",
-  "stats.filterByTag": "Show statistics for this tag only"
+  "stats.filterByTag": "Show statistics for this tag only",
+  "stats.shareOfPeriod": "Each row\\u2019s share is of the period total.",
+  "stats.projectClickHint": "Click a project to keep only its time.",
+  "stats.tagFilter": "Tags:",
+  "stats.editorTitle": "Check and fix",
+  "stats.editorFolded": "The day\\u2019s records themselves: fix or delete them.",
+  "stats.editorShow": "Show",
+  "stats.editorHide": "Hide"
 }
