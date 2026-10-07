@@ -248,6 +248,11 @@ func (s *Server) handleStopAll(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toast(w, fmt.Sprintf(i18n.T(resolveLang(r), "toast.stoppedAll"), len(ids)), "success")
+	// Stopping every timer at once is the most mis-tappable action there is,
+	// so it owes the same way back as a single stop.
+	for _, id := range ids {
+		w.Header().Add("X-Toast-Undo", "/api/sessions/"+strconv.FormatInt(id, 10)+"/reopen")
+	}
 	s.respondActiveList(w, r)
 }
 

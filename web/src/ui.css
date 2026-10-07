@@ -496,3 +496,26 @@
   #paratrack-react-root .ts-week-grid-card { display: block; }
   #paratrack-react-root .ts-scroll-hint { display: block; }
 }
+
+/* The running-timer bar already lives above the tab bar, and it owns «Стоп».
+   A floating start button on top of it covered that stop, so while something
+   runs the floating button steps aside: the primary action is not starting
+   another timer but ending this one. */
+body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: none; }
+
+/* Two ways to look at the same week on a phone. */
+#paratrack-react-root .ts-day-toggle-item {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--background);
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+#paratrack-react-root .ts-day-toggle-item.is-on {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}

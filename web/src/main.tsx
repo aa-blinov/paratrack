@@ -74,6 +74,10 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const [project, setProject] = useState(String(initial.DefaultProject || ""))
   const [note, setNote] = useState("")
   const [busy, setBusy] = useState(false)
+  // The server answers a stop with the way back: X-Toast-Undo points at
+  // reopen for the record it just wrote. Keep the id; the name and length come
+  // from the snapshot that refresh() loads a moment later.
+  const [stopped, setStopped] = useState<{ ids: number[]; message: string } | null>(null)
   const [error, setError] = useState("")
   const [showNext, setShowNext] = useState(true)
   const [backfillFailure, setBackfillFailure] = useState<{ field: string; message: string } | null>(null)
@@ -113,6 +117,12 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         setBackfillFailure({ field: response.headers.get("X-Backfill-Field") || "form", message })
         throw new Error(message)
       }
+      // The server answers a stop with the way back: X-Toast-Undo names the
+      // reopen route for each record it just wrote — one for a single stop, one
+      // per session when every timer was stopped at once.
+      const undoHeader = response.headers.get("X-Toast-Undo") || ""
+      const ids = [...undoHeader.matchAll(/\/sessions\/(\d+)\//g)].map(match => Number(match[1]))
+      setStopped(ids.length ? { ids, message: decodeURIComponent(response.headers.get("X-Toast") || "") } : null)
       await refresh()
       return true
     } catch (cause) {
@@ -187,6 +197,19 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     </div>
   }
 
+  // Stopping is the moment a person is most likely to want it back, and the
+  // moment they are most likely to have written it wrong. Both are one tap.
+  const undoWidget = stopped && <Card data-stop-undo><CardContent className="flex flex-wrap items-center gap-2 p-3">
+    <span className="text-sm">{stopped.message}</span>
+    {stopped.ids.map(id => {
+      const row = recent.find(item => item.ID === id)
+      return <span key={id} className="flex items-center gap-1">
+        <Button variant="outline" size="sm" disabled={busy} onClick={() => void mutate(`/api/sessions/${id}/reopen`)}>{t(lang, "dash.undo")}</Button>
+        <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setStopped(null); window.location.assign(`/stats?log=all&session=${id}`) }}>{row ? t(lang, "dash.fix", row.ActivityName) : t(lang, "dash.fixShort")}</Button>
+      </span>
+    })}
+  </CardContent></Card>
+
   const goalsWidget = data.Widgets?.goals && data.Mods?.goals && data.Goals?.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.goals}</CardTitle><a className="text-sm underline-offset-4 hover:underline" href="/goals">{labels.manage}</a></CardHeader><CardContent className="grid gap-4">{data.Goals.map(goal => <div key={goal.ID} className="grid gap-2"><div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between sm:gap-2"><span className="min-w-0 [overflow-wrap:anywhere]">{goal.ActivityName} <span className="text-muted-foreground">{goal.PeriodRangeLabel}</span></span><span className="shrink-0 font-mono sm:whitespace-nowrap">{goal.AchievedLabel} / {goal.TargetLabel}</span></div><Progress value={Math.min(goal.Percent, 100)} aria-label={goal.ActivityName} /></div>)}</CardContent></Card>
   const unbilledWidget = data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 text-sm last:border-0 last:pb-0"><a className="min-w-0 [overflow-wrap:anywhere] underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span><Button asChild variant="outline" size="sm"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button></div>)}</CardContent></Card>
 
@@ -246,6 +269,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       {data.CanManage && <><Button asChild variant="outline" size="sm"><a href="/settings/members">{t(lang, "team.members")}</a></Button><Button asChild variant="outline" size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>{data.Mods?.payroll && <Button asChild variant="outline" size="sm"><a href="/payroll">{t(lang, "nav.payroll")}</a></Button>}</>}
     </nav>}
     <div data-dashboard-widgets className="grid min-w-0 gap-4 lg:grid-cols-2 [&:has(>_:only-child)]:lg:grid-cols-1">
+    {undoWidget}
     {mode === "freelance" ? <>{unbilledWidget}{goalsWidget}</> : <>{goalsWidget}{unbilledWidget}</>}
     </div>
     {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
