@@ -161,6 +161,11 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const active = data.ActiveSessions ?? []
   const mode = data.Mode || "custom"
   const modeTitle = mode === "custom" ? t(lang, "dash.mode.custom") : t(lang, `preset.${mode}`)
+  // The mode name alone says nothing about what it costs you. Say how many
+  // sections it opens: that is the consequence the person feels.
+  const modeLine = data.SectionsTotal
+    ? t(lang, "dash.modeCounts", modeTitle, data.SectionsOpen ?? 0, data.SectionsTotal)
+    : t(lang, "dash.mode", modeTitle)
   // The intro has to describe what this person can open, not what the
   // workspace holds. Mode is the workspace preset, so a member used to read
   // the owner's line: a freelance member was told about hours left to bill
@@ -186,7 +191,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const unbilledWidget = data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 text-sm last:border-0 last:pb-0"><a className="min-w-0 [overflow-wrap:anywhere] underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span><Button asChild variant="outline" size="sm"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button></div>)}</CardContent></Card>
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
-    <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground" data-dashboard-blurb>{t(lang, blurbKey)}</p><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{t(lang, "dash.mode", modeTitle)}</a> : <span>{t(lang, "dash.mode", modeTitle)}</span>}</div></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><p className="mt-1 max-w-2xl text-sm text-muted-foreground" data-dashboard-blurb>{t(lang, blurbKey)}</p><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{modeLine}</a> : <span>{modeLine}</span>}</div></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
     <Card>
