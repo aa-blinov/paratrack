@@ -1039,6 +1039,10 @@ def main() -> int:
         page.set_viewport_size({"width": 320, "height": 844})
         page.goto(BASE + "/stats?period=month")
         expect(page.locator("#main h1")).to_have_text("Stats")
+        # The session editor starts folded on a phone: open it, then check the
+        # date field has room for the native picker.
+        page.locator('main button[data-slot="button"][aria-expanded]').first.click()
+        page.wait_for_timeout(300)
         date_input = page.locator('#main article.rounded-md.border input[type="datetime-local"]').first
         check("mobile session date has room for the native picker",
               date_input.count() >= 1 and date_input.evaluate('e => e.clientWidth >= 240 && parseFloat(getComputedStyle(e).fontSize) >= 16')

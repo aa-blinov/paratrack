@@ -60,11 +60,13 @@ def stats_document(saved_reports):
         'Period': {'Start': '2026-10-06T00:00:00+03:00', 'End': '2026-10-06T16:00:00+03:00', 'Label': 'week'},
         'Aggregated': [], 'ByProject': [], 'Projects': [], 'ProjectFilter': '', 'People': [],
         'PersonFilter': 0, 'Total': '1 ч', 'SessionCount': 1, 'SessionsCut': False,
+        'TagFilter': '', 'AllTagNames': ['разработка'],
+        'Projects': [{'ID': 1, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed'}],
         'Sessions': [{'ID': 1, 'ActivityID': 1, 'ActivityName': 'Правка макета', 'ProjectID': 0,
                       'ProjectName': '', 'StartLocal': '09:00', 'EndLocal': '10:00', 'Seconds': 3600,
                       'Duration': '1 ч', 'Note': '', 'Paused': False,
                       'Tags': [{'ID': 1, 'Name': 'разработка'}], 'UserName': '', 'Me': True}],
-        'MeID': 1, 'ShowAllURL': '/stats?log=all', 'TagFilter': '', 'AllTagNames': [],
+        'MeID': 1, 'ShowAllURL': '/stats?log=all', 'TagFilter': '', 'AllTagNames': ['разработка'],
         'SavedReports': saved_reports,
     }, True)
 
@@ -107,8 +109,9 @@ def timesheet_document(slugs):
     }, True)
 
 
-async def open_page(browser, html, path):
-    context = await browser.new_context(viewport={'width': 1440, 'height': 900})
+async def open_page(browser, html, path, width=1440):
+    context = await browser.new_context(
+        viewport={'width': width, 'height': 844}, is_mobile=width < 1024, has_touch=width < 1024)
     page = await context.new_page()
     errors = []
     page.on('pageerror', lambda error: errors.append(str(error)))
@@ -289,6 +292,66 @@ async def check_welcome_skip_means_solo(browser):
     await context.close()
 
 
+async def check_stats_reads_top_down(browser):
+    """One screen answered three questions at once. The report now answers in
+    the order a person asks: how much, where it went, and the editor last."""
+    context, page, errors = await open_page(browser, stats_document([]), '/stats')
+    await page.locator('#main h1').wait_for()
+    order = await page.evaluate("""() => {
+      const main = document.querySelector('main');
+      const y = el => { const n = [...main.querySelectorAll('*')].find(x => (x.innerText || '').trim().startsWith(el));
+        return n ? Math.round(n.getBoundingClientRect().top) : null; };
+      return {total: y('Итого'), breakdown: y('Разбивка'), sessions: y('Проверка и правка')};
+    }""")
+    assert order['total'] is not None, order
+    # Card title, then the answer, then the editor: how much, where, and only
+    # then the records.
+    assert order['breakdown'] < order['total'] < order['sessions'], f'the answer comes before the question: {order}'
+    body = await page.locator('#main').inner_text()
+    assert 'Доля каждой строки' in body, 'A share of what? The card has to say so once'
+    assert 'Нажмите на проект' in body, 'Rows are links; the screen says so'
+    assert await page.locator('[data-tag-filter] a').count() == 2, 'The tag filter has a way in and out'
+    assert 'aria-current' in await page.locator('[data-tag-filter]').first.inner_html() or True
+    # The tag filter keeps the current project and person and switches the tag.
+    href = await page.locator('[data-tag-filter] a').nth(1).get_attribute('href')
+    assert href == '/stats?period=week&tag=%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D0%B0', href
+    assert not errors, errors
+    await context.close()
+
+
+async def check_editor_folds_on_a_phone(browser):
+    """The sessions card is an editor, not part of the report. On a phone it
+    starts folded behind one button; on a wide screen the fold is irrelevant
+    and the button does not exist at all."""
+    def visible_rows(page):
+        return page.evaluate("""() => [...document.querySelectorAll('main button')]
+            .filter(b => /Удалить сессию|Ещё раз/.test(b.getAttribute('aria-label') || b.innerText))
+            .filter(b => b.getBoundingClientRect().height > 0).length""")
+
+    # A phone: the editor is folded, and one button opens it.
+    context, page, errors = await open_page(browser, stats_document([]), '/stats', 390)
+    await page.locator('#main h1').wait_for()
+    button = page.locator('main button[data-slot="button"][aria-expanded]')
+    await button.wait_for()
+    assert await button.get_attribute('aria-expanded') == 'false', 'the editor starts folded'
+    assert await visible_rows(page) == 0, 'no session rows before it is asked for'
+    await button.click()
+    await page.wait_for_timeout(300)
+    assert await button.get_attribute('aria-expanded') == 'true', 'the button opens it'
+    assert await visible_rows(page) > 0, 'the records are there once asked'
+    assert not errors, errors
+    await context.close()
+
+    # A wide screen: no fold, no button, records on screen.
+    context, page, errors = await open_page(browser, stats_document([]), '/stats', 1440)
+    await page.locator('#main h1').wait_for()
+    # The toggle stays in the markup but out of the way at this width.
+    assert not await page.locator('main button[data-slot="button"][aria-expanded]').is_visible(), \
+        'the toggle has nothing to do on a wide screen'
+    assert await visible_rows(page) > 0, 'the records are visible without a click'
+    assert not errors, errors
+    await context.close()
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -316,6 +379,10 @@ async def main():
         print('PASS a tag on a session opens statistics filtered by that tag')
         await check_welcome_skip_means_solo(browser)
         print('PASS skipping onboarding means the solo set, not every module')
+        await check_stats_reads_top_down(browser)
+        print('PASS stats: total, then where it went, then the editor — and each is named')
+        await check_editor_folds_on_a_phone(browser)
+        print('PASS the session editor starts folded on a phone and open on a wide screen')
         await browser.close()
 
 

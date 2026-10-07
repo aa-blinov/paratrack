@@ -1134,5 +1134,12 @@
   "ts.openProject": "Открыть проект",
   "dash.newTimer": "Начать таймер",
   "nav.primary": "Основная навигация",
-  "stats.filterByTag": "Показать статистику только по этому тегу"
+  "stats.filterByTag": "Показать статистику только по этому тегу",
+  "stats.shareOfPeriod": "Доля каждой строки — от времени периода.",
+  "stats.projectClickHint": "Нажмите на проект, чтобы оставить только его время.",
+  "stats.tagFilter": "Теги:",
+  "stats.editorTitle": "Проверка и правка",
+  "stats.editorFolded": "Сами записи дня: их можно поправить или удалить.",
+  "stats.editorShow": "Показать",
+  "stats.editorHide": "Скрыть"
 }
