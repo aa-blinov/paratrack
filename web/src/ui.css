@@ -154,6 +154,26 @@
 #paratrack-react-root .app-shell-main { flex: 1 0 auto; width: min(100%, 72rem); min-width: 0; margin-inline: auto; padding: 1.5rem 1rem 2rem; }
 #paratrack-react-root .app-shell-public { width: 100%; max-width: none; min-height: 100svh; margin: 0; padding: 0; }
 #paratrack-react-root .ledger-activity { min-width: 4rem; }
+/* «Идут сейчас»: the project named beside a running activity is read, not
+   decoded. Measured on a phone, two things broke it. The chip inherited
+   `min-height: 48px` from the coarse-pointer rule below, so it — not the name —
+   set the row's height and the activity floated inside a band 48px tall. And
+   `.ledger-project` fixed the width at `clamp(6rem, 14vw, 10rem)`, overriding
+   the `w-fit` on the trigger: 96px of a 123px name, cut mid-word and with no
+   ellipsis, so "Сайт для Nordwind" read as "Сайт для". The activity and its
+   project are 130px and 161px wide; one 286px line cannot hold both, so below
+   `sm` the project takes its own line at full width. The chip says where it
+   stops, and the finger gets its 48px from a hit area, not from the row
+   growing. */
+#paratrack-react-root .ledger-project {
+  width: fit-content;
+  max-width: min(100%, 16rem);
+}
+#paratrack-react-root .ledger-project [data-slot="select-value"] { text-overflow: ellipsis; }
+@media (pointer: coarse) {
+  #paratrack-react-root .ledger-project { position: relative; min-height: 0; }
+  #paratrack-react-root .ledger-project::after { content: ""; position: absolute; inset: -12px -4px; }
+}
 #paratrack-react-root .app-shell-footer { display: none; }
 #paratrack-react-root .app-shell-skip { position: absolute; left: .75rem; top: -5rem; z-index: 100; border: 1px solid var(--border); border-radius: .375rem; background: var(--background); padding: .5rem .75rem; }
 #paratrack-react-root .app-shell-skip:focus { top: .5rem; }
