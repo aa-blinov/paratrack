@@ -22,6 +22,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Mode = presetKeyForModules(s.teamModules(r))
+	data.SectionsOpen, data.SectionsTotal = sectionsCounts(s.teamModules(r))
 	s.render(w, r, "dashboard-content", &data)
 }
 

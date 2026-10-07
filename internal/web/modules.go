@@ -32,6 +32,19 @@ var modules = []moduleDef{
 	{Key: "import", Icon: "download", Label: "nav.import", Hint: "mod.import"},
 }
 
+// sectionsCounts reports how many sections the workspace has open and how many
+// the catalogue holds. The dashboard shows it so the mode line says what the
+// mode means — "5 of 9 sections" — instead of only naming it.
+func sectionsCounts(enabled map[string]bool) (open, total int) {
+	for _, m := range modules {
+		total++
+		if enabled[m.Key] {
+			open++
+		}
+	}
+	return open, total
+}
+
 // presets are the onboarding choices; "all" is the studio.
 var presets = []struct {
 	Key, Title, Blurb, Icon string

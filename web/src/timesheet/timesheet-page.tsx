@@ -200,7 +200,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       <p role="status" aria-live="polite" className="min-h-5 text-sm">{saving ? t(lang, "ts.saving") : noticeText}</p>
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
     </div>
-    <p className="hidden text-xs text-muted-foreground sm:block">{t(lang, "ts.scrollHint")}</p>
+    <p className="ts-scroll-hint text-xs text-muted-foreground">{t(lang, "ts.scrollHint")}</p>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
     {data.Rows.length ? <>
@@ -208,7 +208,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           every row and two of seven days in view, so below the small
           breakpoint the sheet becomes one block per day — same inputs, same
           save path, nothing typed twice. */}
-      <div className="grid gap-3 sm:hidden">
+      <div className="ts-day-list grid gap-3">
         {data.Days.map((day, dayIndex) => {
           const label = `${day.Label} ${day.Date}`
           return <Card key={day.ISO} className={day.IsToday ? "border-foreground/20" : undefined}>
@@ -236,7 +236,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         <p className="text-sm font-semibold"><span className="text-muted-foreground">{t(lang, "stats.total")}: </span><span className="font-mono tabular-nums">{data.GrandTotalLabel}</span></p>
       </div>
 
-      <Card className="hidden overflow-hidden sm:block"><CardContent className="overflow-x-auto p-0">
+      <Card className="ts-week-grid-card overflow-hidden"><CardContent className="overflow-x-auto p-0">
       <Table className="week-grid w-full min-w-[48rem] border-collapse text-sm" aria-busy={busy}>
         <colgroup><col className="week-name-col" /><col span={7} /><col className="week-total-col" /><col className="w-10" /></colgroup>
         <TableHeader><TableRow className="border-b">

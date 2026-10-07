@@ -69,7 +69,7 @@ def phone_document(path, lang="ru", can_manage=True):
     end = html.index('</div>', start)
     payload = json.loads(html[start:end])
     payload['shell'].update(active=path.strip('/'), requestPath=path, canManage=can_manage)
-    payload['data'].update(Lang=lang, CanManage=can_manage)
+    payload['data'].update(Lang=lang, CanManage=can_manage, SectionsOpen=5, SectionsTotal=9)
     return html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
 
 
@@ -372,31 +372,62 @@ async def check_long_names_stay_readable(browser):
         await context.close()
 
 
-async def check_timesheet_is_a_day_list_on_a_phone(browser):
-    """A week does not fit a phone: the grid was 48rem wide, so every row
-    scrolled sideways and two of seven days were in view. Below the small
-    breakpoint the sheet is one block per day, with the same inputs."""
-    for width in (320, 390):
-        context, page, errors = await open_html(browser, timesheet_document({"3": "vnutrennie"}), "/timesheet", width)
+async def check_the_week_never_scrolls_sideways(browser):
+    """The week is a grid or a list of days — never a sideways scroll.
+
+    Measured on a stand: the grid needs 768px of content and does not get it at
+    640 (608px), 768 (736px) or 1024 (720px, the rail takes 256), while 900 and
+    1100+ fit. The rule therefore sits at 1100px."""
+    for width in (320, 640, 768, 900, 1024):
+        context, page, errors = await open_html(browser, timesheet_document({"3": "vnutrennie"}), '/timesheet', width)
         await page.locator('#main h1').wait_for()
         await page.wait_for_timeout(500)
         shape = await page.evaluate("""() => {
           const grid = document.querySelector('table.week-grid');
-          const dayCards = [...document.querySelectorAll('main [data-slot="card"]')]
+          const scroller = grid ? grid.closest('[data-slot="card-content"]') : null;
+          const days = [...document.querySelectorAll('main [data-slot="card"]')]
             .filter(card => card.querySelector('input[type="number"]'));
           return {page: document.documentElement.scrollWidth, viewport: innerWidth,
                   gridVisible: grid ? grid.getBoundingClientRect().width > 0 : false,
-                  dayCards: dayCards.length, inputs: document.querySelectorAll('main input[type="number"]').length};
+                  gridScrolls: scroller ? scroller.scrollWidth > scroller.clientWidth + 1 : false,
+                  dayCards: days.length};
         }""")
         assert shape['page'] <= shape['viewport'] + 1, f'{width}px: the sheet scrolls sideways ({shape})'
-        assert not shape['gridVisible'], f'{width}px: the wide grid must give way to the day list'
-        # Seven day blocks; the sheet also has an "add a row" card below them,
-        # which owns an input of its own.
+        assert not shape['gridVisible'], f'{width}px: the grid does not fit here and must give way to the day list'
         assert shape['dayCards'] >= 7, f'{width}px: one block per day, got {shape["dayCards"]}'
-        assert shape['inputs'] > 0, f'{width}px: the day blocks keep the inputs'
         assert not errors, errors
         await context.close()
 
+    for width in (1280, 1440):
+        context, page, errors = await open_html(browser, timesheet_document({"3": "vnutrennie"}), '/timesheet', width)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(500)
+        shape = await page.evaluate("""() => {
+          const grid = document.querySelector('table.week-grid');
+          const scroller = grid.closest('[data-slot="card-content"]');
+          return {visible: grid.getBoundingClientRect().width > 0,
+                  scrolls: scroller.scrollWidth > scroller.clientWidth + 1,
+                  days: document.querySelectorAll('main [data-slot="card"]').length};
+        }""")
+        assert shape['visible'], f'{width}px: the grid belongs here, it fits'
+        assert not shape['scrolls'], f'{width}px: the grid fits without a sideways scroll ({shape})'
+        assert not errors, errors
+        await context.close()
+
+
+async def check_the_mode_says_what_it_opens(browser):
+    """«Для себя» named a mode and said nothing about its cost. The dashboard
+    line now carries the count: 5 of 9 sections."""
+    context, page, errors = await open_html(browser, phone_document('/'), '/', 1440)
+    await page.locator('#main h1').wait_for()
+    await page.wait_for_timeout(400)
+    line = page.locator('main a[href="/settings/sections"], main span').filter(has_text='Режим').first
+    text = await line.inner_text()
+    assert 'открыто 5 из 9' in text, f'the mode line must say what it opens: {text}'
+    assert await page.locator('main a[href="/settings/sections"]').count() == 1, \
+        'a manager can go straight to the sections from that line'
+    assert not errors, errors
+    await context.close()
 
 async def check_collapsed_rail_scrolls(browser):
     """Collapsed to icons the rail hid its overflow, so on a 720px screen the
@@ -452,8 +483,10 @@ async def main():
         print('PASS 767–1023px: the drawer is an overlay, so exactly one navigation is on screen')
         await check_long_names_stay_readable(browser)
         print('PASS 131-character names stay readable: wrapped or ellipsis, never sliced')
-        await check_timesheet_is_a_day_list_on_a_phone(browser)
-        print('PASS 320/390px: the week is a list of days, no sideways scroll, inputs intact')
+        await check_the_week_never_scrolls_sideways(browser)
+        print('PASS the week is a grid or a list of days — never a sideways scroll, at any width')
+        await check_the_mode_says_what_it_opens(browser)
+        print('PASS the mode line says what it opens: 5 of 9 sections')
         await check_collapsed_rail_scrolls(browser)
         print('PASS collapsed rail at 720px tall: every icon reachable, continuation announced')
         await browser.close()

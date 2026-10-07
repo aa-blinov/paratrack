@@ -68,6 +68,8 @@ export interface UnbilledItem {
 
 export interface DashboardData {
   Mode?: "solo" | "freelance" | "studio" | "custom"
+  SectionsOpen?: number
+  SectionsTotal?: number
   Title: string
   Active: string
   User?: { ID: number; Email: string; Name: string } | null

@@ -1141,5 +1141,6 @@
   "stats.editorTitle": "Check and fix",
   "stats.editorFolded": "The day\\u2019s records themselves: fix or delete them.",
   "stats.editorShow": "Show",
-  "stats.editorHide": "Hide"
+  "stats.editorHide": "Hide",
+  "dash.modeCounts": "Mode: %s — %d of %d sections open"
 }

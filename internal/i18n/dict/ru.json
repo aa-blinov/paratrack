@@ -1141,5 +1141,6 @@
   "stats.editorTitle": "Проверка и правка",
   "stats.editorFolded": "Сами записи дня: их можно поправить или удалить.",
   "stats.editorShow": "Показать",
-  "stats.editorHide": "Скрыть"
+  "stats.editorHide": "Скрыть",
+  "dash.modeCounts": "Режим: %s — открыто %d из %d разделов"
 }
