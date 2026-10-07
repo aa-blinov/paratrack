@@ -59,9 +59,25 @@ def stats_document(saved_reports):
         'Lang': 'ru', 'Active': 'stats', 'CSRFToken': 'test', 'CanManage': True, 'Mods': {'graph': True},
         'Period': {'Start': '2026-10-06T00:00:00+03:00', 'End': '2026-10-06T16:00:00+03:00', 'Label': 'week'},
         'Aggregated': [], 'ByProject': [], 'Projects': [], 'ProjectFilter': '', 'People': [],
-        'PersonFilter': 0, 'Sessions': [], 'Total': '0 мин', 'SessionCount': 0, 'SessionsCut': False,
+        'PersonFilter': 0, 'Total': '1 ч', 'SessionCount': 1, 'SessionsCut': False,
+        'Sessions': [{'ID': 1, 'ActivityID': 1, 'ActivityName': 'Правка макета', 'ProjectID': 0,
+                      'ProjectName': '', 'StartLocal': '09:00', 'EndLocal': '10:00', 'Seconds': 3600,
+                      'Duration': '1 ч', 'Note': '', 'Paused': False,
+                      'Tags': [{'ID': 1, 'Name': 'разработка'}], 'UserName': '', 'Me': True}],
         'MeID': 1, 'ShowAllURL': '/stats?log=all', 'TagFilter': '', 'AllTagNames': [],
         'SavedReports': saved_reports,
+    }, True)
+
+
+def welcome_document():
+    return boot('/welcome', {
+        'Lang': 'ru', 'Active': 'sections', 'SectionsReact': True, 'CSRFToken': 'test',
+        'Welcome': True, 'Flash': '', 'FlashOK': False,
+        'Modules': [{'Key': 'graph', 'Icon': 'bar-chart-3', 'Label': 'По часам', 'Hint': '', 'On': True, 'Manage': False}],
+        'Presets': [{'Key': 'solo', 'Title': 'Для себя', 'Blurb': 'Считаю своё время.',
+                     'Icon': 'user', 'Active': False, 'Names': ['graph', 'goals']},
+                    {'Key': 'studio', 'Title': 'Студия или команда', 'Blurb': 'Несколько человек.',
+                     'Icon': 'users', 'Active': True, 'Names': ['graph', 'goals', 'invoices']}],
     }, True)
 
 
@@ -240,6 +256,39 @@ async def check_timesheet_without_slugs(browser):
     await context.close()
 
 
+async def check_tag_on_a_session_is_a_link(browser):
+    """The screen promises that a tag filters statistics, and a tag you can see
+    in a session row is the obvious way to try it. The badge was plain text."""
+    context, page, errors = await open_page(browser, stats_document([]), '/stats')
+    await page.locator('#main h1').wait_for()
+    link = page.locator('#main a[href*="tag="]').filter(has_text='#разработка').first
+    await link.wait_for()
+    href = await link.get_attribute('href')
+    assert href == '/stats?period=week&tag=%D1%80%D0%B0%D0%B7%D1%80%D0%B0%D0%B1%D0%BE%D1%82%D0%BA%D0%B0', href
+    await link.click()
+    await page.wait_for_url('**/stats?period=week&tag=**')
+    heading = await page.locator('#main h1').inner_text()
+    assert heading == 'Статистика', heading
+    # The remove button beside it stays a button: unlinking a tag is not a jump.
+    assert await page.locator('#main button[aria-label^="снять тег"]').count() >= 1, 'the tag can still be removed'
+    assert not errors, errors
+    await context.close()
+
+
+async def check_welcome_skip_means_solo(browser):
+    """Skipping used to leave every module on, so someone who only wanted their
+    own time landed in the studio set: eighteen items and a blurb about a team.
+    Skipping now means what most skippers meant."""
+    context, page, errors = await open_page(browser, welcome_document(), '/welcome')
+    await page.locator('#main h1').wait_for()
+    skip = page.locator('#main button[type="submit"]').filter(has_text='Пропустить').first
+    await skip.wait_for()
+    values = await skip.evaluate('el => [...new FormData(el.closest("form")).entries()].map(([k, v]) => k + "=" + v)')
+    assert 'preset=solo' in values, values
+    assert 'from=welcome' in values, values
+    await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -263,6 +312,10 @@ async def main():
         print('PASS timesheet: a project in the sheet leads to that project')
         await check_timesheet_without_slugs(browser)
         print('PASS timesheet: without a slug the name stays plain text')
+        await check_tag_on_a_session_is_a_link(browser)
+        print('PASS a tag on a session opens statistics filtered by that tag')
+        await check_welcome_skip_means_solo(browser)
+        print('PASS skipping onboarding means the solo set, not every module')
         await browser.close()
 
 
