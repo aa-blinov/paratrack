@@ -229,9 +229,9 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
               {data.Rows.map(row => {
                 const cell = row.Cells[dayIndex]
                 const key = cellKey(row.ActivityID, cell.Index)
-                return <div key={row.ActivityID} className="flex items-center gap-2">
-                  <span className="grid-name flex min-w-0 flex-1 items-center gap-2">
-                    <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} />
+                return <div key={row.ActivityID} className="flex items-start gap-2">
+                  <span className="grid-name flex min-w-0 flex-1 items-start gap-2">
+                    <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: row.Color }} />
                     <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
                       <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
                   </span>

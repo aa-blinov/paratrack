@@ -16,7 +16,7 @@ import json
 
 from playwright.async_api import async_playwright
 
-from test_navigation_map_by_role import timesheet_document
+from test_navigation_map_by_role import timesheet_document, boot
 from test_react_navigation import document, STATIC
 
 BAR_ITEMS = ["Обзор", "Табель", "Статистика", "По часам", "Ещё"]
@@ -552,6 +552,129 @@ async def check_running_projects_are_readable(browser):
         await context.close()
 
 
+def schedule_document():
+    """The schedule booted with a week and two people to plan."""
+    days = [{'Index': index, 'Label': ('Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс')[index],
+             'Date': 5 + index, 'ISO': f'2026-10-{5 + index:02d}', 'Min': 0,
+             'Total': '0 мин', 'IsToday': index == 2} for index in range(7)]
+    cells = lambda: [dict(day) for day in days]
+    return boot('/schedule', {
+        'Lang': 'ru', 'Active': 'schedule', 'ScheduleReact': True, 'CSRFToken': 'test',
+        'CanManage': True, 'WeekLabel': '5 окт – 11 окт', 'PrevWeek': '2026-09-28',
+        'NextWeek': '2026-10-12', 'ThisWeek': '2026-10-05', 'ProjectID': 1, 'Days': days,
+        'Rows': [{'UserID': index + 1,
+                  'UserName': name,
+                  'Capacity': 2400,
+                  'Cells': cells(),
+                  'Total': '0 мин',
+                  'TotalMin': 0,
+                  'LoadPct': 0} for index, name in enumerate(['Пётр Владелец', 'Маша Участница'])],
+        'Projects': [{'ID': 1, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed'}],
+        'GrandTotal': '0 мин', 'GrandMin': 0,
+    }, True)
+
+
+async def check_the_minutes_column_lines_up(browser):
+    """A wrapped activity name made its row taller, and the minutes input was
+    centred in the row — so the column stepped down 4px at every name that
+    wrapped, and the week read as a staircase. Measured on a 390px stand with
+    seven rows: `inputTop` was 0 for one-line names and 4 for two-line ones."""
+    for width in (320, 390):
+        html = boot('/timesheet', {
+            'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'CSRFToken': 'test',
+            'Days': [{'Index': index, 'Label': 'Пн', 'Date': 5 + index, 'ISO': f'2026-10-{5 + index:02d}',
+                      'Secs': 2700, 'Min': 45, 'Total': '45 мин', 'IsToday': index == 0}
+                     for index in range(7)],
+            'Rows': [{'ActivityID': index + 1, 'ActivityName': name, 'ProjectID': 0, 'Color': '#16a34a',
+                      'Cells': [{'Index': index, 'ISO': f'2026-10-{5 + index:02d}', 'Secs': 2700,
+                                 'Min': 45, 'IsToday': index == 0} for index in range(7)],
+                      'RowTotal': 2700, 'RowTotalLabel': '45 мин'}
+                     for index, name in enumerate(['Кнопки', 'Проверка перекрытия полосы у таймера',
+                                                  'Правка макета', 'Разбор сметы за неделю'])],
+            'ProjectNames': {}, 'ProjectSlugs': {},
+            'DayTotalLabels': ['3 ч'] * 7, 'GrandTotal': 16200, 'GrandTotalLabel': '18 ч',
+            'Others': [], 'Added': [], 'DateISO': '2026-10-05', 'PrevWeek': '2026-09-28',
+            'NextWeek': '2026-10-12', 'WeekLabel': '5 окт – 11 окт',
+        }, True)
+        context, page, errors = await open_html(browser, html, '/timesheet', width)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(600)
+        rows = await page.evaluate("""() => {
+          const cards = [...document.querySelectorAll('.ts-day-list input')]
+            .map(i => i.parentElement).filter(Boolean);
+          return [...new Set(cards)].map(row => {
+            const r = row.getBoundingClientRect();
+            const label = row.querySelector('.grid-name [class*="line-clamp"]');
+            const lines = label ? Math.round(label.getBoundingClientRect().height /
+                                 parseFloat(getComputedStyle(label).lineHeight)) : 1;
+            return {lines, name: label ? label.textContent.trim() : '',
+                    inputTop: Math.round(row.querySelector('input').getBoundingClientRect().top - r.top),
+                    trashTop: Math.round(row.querySelector('button').getBoundingClientRect().top - r.top)};
+          });
+        }""")
+        assert len(rows) >= 4, f'{width}px: the week is on screen — {len(rows)} rows'
+        assert len({row['lines'] for row in rows}) > 1, \
+            f'{width}px: some names must wrap, or this check proves nothing — {[r["name"] for r in rows]}'
+        assert len({row['inputTop'] for row in rows}) == 1, \
+            f'{width}px: the minutes column must line up whatever the name does — {[(r["name"], r["lines"], r["inputTop"]) for r in rows]}'
+        assert len({row['trashTop'] for row in rows}) == 1, \
+            f'{width}px: the delete button must line up too — {[(r["name"], r["trashTop"]) for r in rows]}'
+        assert not errors, errors
+        await context.close()
+
+
+async def check_the_schedule_never_scrolls_sideways(browser):
+    """The schedule was the only screen in the app whose week scrolled sideways:
+    768px of grid in a 358px screen, three of seven days ever visible, and at
+    320px a week nav that did not wrap pushed the whole page 31px wider than the
+    screen — which the bottom bar and the running-timer bar inherited. Same rule
+    as the timesheet: a grid that fits, or a list of days."""
+    for width in (320, 390, 768, 1024):
+        context, page, errors = await open_html(browser, schedule_document(), '/schedule', width)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(600)
+        state = await page.evaluate("""() => {
+          const grid = document.querySelector('table.week-grid');
+          const list = document.querySelector('[data-sched-days]');
+          const over = [];
+          for (const el of document.querySelectorAll('body *')) {
+            const r = el.getBoundingClientRect();
+            if (r.width > 0 && r.right > document.documentElement.clientWidth + 1) over.push(el.tagName);
+          }
+          return {gridVisible: !!(grid && grid.getClientRects().length),
+                  listVisible: !!(list && list.getClientRects().length),
+                  docOver: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+                  scrollers: [...document.querySelectorAll('#paratrack-react-root *')]
+                    .filter(el => /auto|scroll/.test(getComputedStyle(el).overflowX) &&
+                                  el.scrollWidth > el.clientWidth + 1).length,
+                  overflowing: over.length};
+        }""")
+        assert state['listVisible'], f'{width}px: a phone gets one block per day — {state}'
+        assert not state['gridVisible'], f'{width}px: the grid does not fit here, so it must step aside — {state}'
+        assert state['docOver'] <= 1, f'{width}px: the page must not scroll sideways — {state}'
+        assert state['scrollers'] == 0, f'{width}px: nothing inside may scroll sideways — {state}'
+        assert state['overflowing'] == 0, f'{width}px: nothing may leave the screen — {state}'
+        assert not errors, errors
+        await context.close()
+
+    for width in (1280, 1440):
+        context, page, errors = await open_html(browser, schedule_document(), '/schedule', width)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(600)
+        state = await page.evaluate("""() => {
+          const grid = document.querySelector('table.week-grid');
+          const box = grid.closest('.overflow-x-auto');
+          return {gridVisible: !!grid.getClientRects().length,
+                  days: grid.querySelectorAll('thead th').length,
+                  fits: box.scrollWidth <= box.clientWidth + 1};
+        }""")
+        assert state['gridVisible'], f'{width}px: the grid belongs here — {state}'
+        assert state['days'] == 9, f'{width}px: member, seven days and a total — {state}'
+        assert state['fits'], f'{width}px: the grid must fit without a sideways scroll — {state}'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -579,6 +702,10 @@ async def main():
         print('PASS 131-character names stay readable: wrapped or ellipsis, never sliced')
         await check_running_projects_are_readable(browser)
         print('PASS 320/390px: «Идут сейчас» names its activity and its project in full')
+        await check_the_minutes_column_lines_up(browser)
+        print('PASS 320/390px: the minutes column lines up however the name wraps')
+        await check_the_schedule_never_scrolls_sideways(browser)
+        print('PASS the schedule is a grid or a list of days — the last sideways scroll is gone')
         await check_the_week_never_scrolls_sideways(browser)
         print('PASS the week is a grid or a list of days — never a sideways scroll, at any width')
         await check_the_mode_says_what_it_opens(browser)
