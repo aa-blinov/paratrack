@@ -974,7 +974,7 @@
   "nav.sections": "Sections",
   "welcome.title": "How will you use paratrack?",
   "welcome.blurb": "Pick a set and the menu keeps only what you need. Tracking, stats, timesheet and projects are always there. Change your mind any time in settings.",
-  "welcome.skip": "Skip, keep everything",
+  "welcome.skip": "Skip — just me for now",
   "welcome.later": "You can change it later: More → Sections.",
   "stats.viewGraph": "View by hour with these filters",
   "stats.viewGraphAll": "View by hour",
@@ -1133,5 +1133,6 @@
   "tags.timeByTag": "Time for this tag, this week",
   "ts.openProject": "Open project",
   "dash.newTimer": "Start a timer",
-  "nav.primary": "Primary navigation"
+  "nav.primary": "Primary navigation",
+  "stats.filterByTag": "Show statistics for this tag only"
 }

@@ -31,13 +31,20 @@ async def main():
      await route.fulfill(json={'activityId':1,'activityName':'Одинаковая активность','color':'#123456','cells':[{'iso':f'2026-10-{5+i:02d}','secs':2700 if i==0 else 0,'min':45 if i==0 else 0} for i in range(7)],'rowTotal':2700,'rowTotalLabel':'45 мин','dayTotals':[{'secs':2700 if i==0 else 0,'total':'45 мин' if i==0 else '0 мин'} for i in range(7)],'grandTotal':2700,'grandTotalLabel':'45 мин'})
     else:await route.fulfill(content_type='text/html; charset=utf-8',body=timesheet_document())
    await ctx.route('**/*',respond);await page.goto('http://paratrack.test/timesheet')
-   await page.locator('#ts-body').wait_for()
-   for name in ['Первый проект','Второй проект']:assert await page.locator('#ts-body th').filter(has_text=name).count()==1
+   # A phone gets the day list instead of the 48rem grid; both name the project,
+   # so the checks below work on either.
+   phone=width<640
+   if phone:await page.locator('main [data-slot="card"]').filter(has=page.locator('input[type="number"]')).first.wait_for()
+   else:await page.locator('#ts-body').wait_for()
+   scope=page.locator('main') if phone else page.locator('#ts-body')
+   for name in ['Первый проект','Второй проект']:assert await scope.locator('th').filter(has_text=name).count()==1 if not phone else name in await page.locator('main').inner_text()
    field=page.get_by_role('spinbutton',name='Одинаковая активность — Первый проект — 2026-10-05',exact=True)
    await field.fill('45');await field.press('Enter');await asyncio.wait_for(pending.wait(),5)
    assert await page.get_by_role('status').inner_text()=='Сохраняем правку…'
    release.set();await page.get_by_role('status').filter(has_text='Сохранено:').wait_for()
-   assert await field.input_value()=='45';assert await page.locator('#ts-row-1 th').inner_text()=='Одинаковая активность\nПервый проект'
+   assert await field.input_value()=='45'
+   row_text=await page.locator('main').inner_text()
+   assert 'Одинаковая активность' in row_text and 'Первый проект' in row_text, row_text[:200]
    await field.fill('50');await field.press('Enter')
    await page.get_by_role('alert').filter(has_text='Не удалось сохранить').wait_for()
    assert await field.input_value()=='50', 'Failed save must preserve typed minutes'

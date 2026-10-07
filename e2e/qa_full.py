@@ -115,10 +115,10 @@ def main() -> int:
         pg.wait_for_url("**/welcome")
         check("register → onboarding", "/welcome" in pg.url, pg.url)
         shot(pg, "a3-onboarding")
-        # The skip control is the last link to "/" inside the page content: the
-        # shell's own "skip to content" link also matches a plain text search,
-        # and the onboarding link sits below the fold, so click it by target.
-        pg.locator('main a[href="/"]').last.evaluate("node => node.click()")
+        # Skipping now means the solo set, so this run — which exercises
+        # schedule, invoices and reports — picks the studio set on purpose.
+        # The skip control is covered by test_navigation_map_by_role.
+        pg.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]):not([data-welcome-skip]) button').click()
         # The shell routes inside the app, so there is no load event to wait
         # for; wait for the dashboard's own field instead.
         pg.wait_for_timeout(2500)
