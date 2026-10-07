@@ -394,7 +394,14 @@ async def check_the_week_never_scrolls_sideways(browser):
         }""")
         assert shape['page'] <= shape['viewport'] + 1, f'{width}px: the sheet scrolls sideways ({shape})'
         assert not shape['gridVisible'], f'{width}px: the grid does not fit here and must give way to the day list'
-        assert shape['dayCards'] >= 7, f'{width}px: one block per day, got {shape["dayCards"]}'
+        # A phone opens on today; the whole week is one tap away.
+        assert shape['dayCards'] <= 2, f'{width}px: today alone until asked for the week, got {shape["dayCards"]}'
+        toggle = page.locator('.ts-day-toggle-item')
+        assert await toggle.count() == 2, f'{width}px: the week is reachable by one tap'
+        await toggle.nth(1).click()
+        await page.wait_for_timeout(300)
+        assert await page.locator('[data-slot="card"]').filter(has=page.locator('input[type="number"]')).count() >= 7, \
+            f'{width}px: the whole week is seven day blocks'
         assert not errors, errors
         await context.close()
 
