@@ -41,7 +41,7 @@ def register_account(page, name="E2E User", email="e2e@paratrack.test", password
     # dashboard. Pick the smallest useful preset so the walkthrough has the
     # graph and other core discovery paths enabled.
     if page.url.endswith("/welcome"):
-        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="solo"]) button').click()
+        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="solo"]):not([data-welcome-skip]) button').click()
         page.wait_for_url(BASE + "/")
 
 
@@ -651,12 +651,21 @@ def main() -> int:
             check(f"timesheet uses the React/shadcn mount at {width}px",
                   page.locator('#paratrack-react-root h1').count() == 1
                   and page.locator('#paratrack-react-root .week-grid').count() == 1)
-            check(f"timesheet keeps a readable first column at {width}px",
-                  page.locator('.week-grid th').first.evaluate(
-                      "el => el.getBoundingClientRect().width >= 160")
-                  and page.evaluate("document.documentElement.scrollWidth <= innerWidth")
-                  and page.locator('.week-nav-label').evaluate(
-                      "el => getComputedStyle(el).whiteSpace === 'nowrap'"))
+            if page.locator('.week-grid').is_visible():
+                check(f"timesheet keeps a readable first column at {width}px",
+                      page.locator('.week-grid th').first.evaluate(
+                          "el => el.getBoundingClientRect().width >= 160")
+                      and page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                      and page.locator('.week-nav-label').evaluate(
+                          "el => getComputedStyle(el).whiteSpace === 'nowrap'"))
+            else:
+                # Below 640px the week is a list of days: nothing scrolls sideways,
+                # and every day keeps its own inputs.
+                check(f"timesheet becomes a day list at {width}px",
+                      page.evaluate("document.documentElement.scrollWidth <= innerWidth")
+                      and page.locator('main [data-slot="card"]').filter(
+                          has=page.locator('input[type="number"]')).count() >= 7
+                      and page.locator('main input[type="number"]').count() > 0)
         page.set_viewport_size({"width": 320, "height": 900})
         page.goto(BASE + "/")
         project_picker = page.locator('#project_id')
