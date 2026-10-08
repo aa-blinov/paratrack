@@ -29,9 +29,9 @@
       <fieldset class="form-control">
         <legend class="label-text">{{.T "projects.color"}}</legend>
         <div class="flex items-center gap-2">
-          <input type="color" name="color" value="#7c3aed" aria-label="{{.T "projects.colorPicker"}}"
+          <input type="color" name="color" value="{{.SuggestedColor}}" aria-label="{{.T "projects.colorPicker"}}"
                  class="w-10 h-10 rounded border border-base-300 bg-transparent cursor-pointer">
-          <input type="text" name="color" value="#7c3aed" aria-label="{{.T "projects.colorHex"}}"
+          <input type="text" name="color" value="{{.SuggestedColor}}" aria-label="{{.T "projects.colorHex"}}"
                  class="input input-bordered flex-1 min-w-0 font-mono" pattern="^#[0-9a-fA-F]{6}$">
         </div>
       </fieldset>

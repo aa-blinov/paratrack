@@ -16,7 +16,7 @@ import json
 
 from playwright.async_api import async_playwright
 
-from test_navigation_map_by_role import timesheet_document, boot
+from test_navigation_map_by_role import timesheet_document, stats_document, boot
 from test_react_navigation import document, STATIC
 
 BAR_ITEMS = ["Обзор", "Табель", "Статистика", "По часам", "Ещё"]
@@ -675,6 +675,98 @@ async def check_the_schedule_never_scrolls_sideways(browser):
         await context.close()
 
 
+async def check_the_breakdown_holds_a_long_name(browser):
+    """One long activity name blew the whole breakdown out of the screen. The
+    name sat in a flex row with `min-width: auto`, so a 60-character unbroken
+    word kept its full 487px and pushed the section to 641px inside a 288px
+    card — and the card clipped, taking every row's duration with it. Nothing
+    scrolled: the figures were simply gone."""
+    long_name = 'Отладкаинтеграционногоконтураучётарабочевременипереносданных'
+    html = stats_document([])
+    start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+    end = html.index('</div>', start)
+    payload = json.loads(html[start:end])
+    payload['data']['ByProject'] = [{
+        'ProjectID': 1, 'ProjectName': 'Сайт для Nordwind', 'Slug': 'nordwind',
+        'Color': '#7c3aed', 'Duration': '3 ч', 'Share': 100,
+        'Activities': [
+            {'ActivityName': 'Проверка заголовков', 'Color': '#84cc16', 'Duration': '1 ч', 'Share': 33.3},
+            {'ActivityName': long_name, 'Color': '#6366f1', 'Duration': '2 ч', 'Share': 66.7},
+        ]}]
+    html = html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+
+    for width in (320, 390):
+        context, page, errors = await open_html(browser, html, '/stats', width)
+        await page.get_by_role('heading', name='Статистика').wait_for()
+        await page.wait_for_timeout(600)
+        state = await page.evaluate("""(needle) => {
+          const nameEl = [...document.querySelectorAll('main span')]
+            .find(el => el.textContent.trim() === needle);
+          if (!nameEl) return {missing: true};
+          const row = nameEl.closest('div.flex');
+          const section = row.parentElement;
+          const card = section.closest('[data-slot="card-content"]');
+          const rows = [...section.children].filter(el => el.tagName === 'DIV');
+          const limit = document.documentElement.clientWidth;
+          const names = rows.map(r => r.firstElementChild.querySelector('span:last-child'));
+          return {sectionW: Math.round(section.getBoundingClientRect().width),
+                  cardW: Math.round(card.getBoundingClientRect().width),
+                  docOver: document.documentElement.scrollWidth - limit,
+                  rows: rows.length,
+                  valuesVisible: rows.every(r => {
+                    const v = r.lastElementChild.getBoundingClientRect();
+                    return v.width > 0 && v.right <= limit + 1;
+                  }),
+                  values: rows.map(r => (r.lastElementChild.textContent || '').trim()),
+                  clipped: names.some(n => n && n.scrollWidth > n.clientWidth + 1),
+                  lines: names.map(n => n ? Math.round(n.getBoundingClientRect().height /
+                                     parseFloat(getComputedStyle(n).lineHeight)) : 0)};
+        }""", long_name)
+        assert not state.get('missing'), f'{width}px: the breakdown rendered — {state}'
+        assert state['rows'] == 3, f'{width}px: project header plus two activities — {state}'
+        assert state['sectionW'] <= state['cardW'], \
+            f'{width}px: the section must fit its card — {state}'
+        assert state['docOver'] <= 1, f'{width}px: the page must not scroll sideways — {state}'
+        assert state['valuesVisible'], \
+            f'{width}px: every row keeps its duration next to a long name — {state["values"]}'
+        assert not state['clipped'], f'{width}px: the long name wraps, it is not cut — {state}'
+        assert state['lines'][-1] > 1, \
+            f'{width}px: the unbroken word really had to wrap — {state["lines"]}'
+        assert state['values'] == ['3 ч, 100.0%', '1 ч, 33.3%', '2 ч, 66.7%'], \
+            f'{width}px: every row reads its own duration and share — {state["values"]}'
+        assert not errors, errors
+        await context.close()
+
+
+async def check_the_new_project_gets_a_free_color(browser):
+    """The form opened on one constant colour, so every project created
+    without touching the picker came out the same purple and the dot beside
+    its name identified nothing. The form now opens on the first palette
+    colour this team is not already wearing — and the swatch shows exactly
+    what will be saved."""
+    in_use = '#7c3aed'
+    for offered in ('#6366f1', '#14b8a6'):
+        html = boot('/projects/new', {
+            'Lang': 'ru', 'Active': 'projects', 'NewProject': True, 'ReactApp': True,
+            'CSRFToken': 'test', 'Currencies': [], 'TeamCurrency': 'RUB',
+            'SuggestedColor': offered,
+        }, True)
+        context, page, errors = await open_html(browser, html, '/projects/new', 1440)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(400)
+        shown = await page.evaluate("""() => {
+          const hex = document.querySelector('input[name="color"][pattern]');
+          const pick = document.querySelector('input[type="color"]');
+          return {hex: hex && hex.value, picker: pick && pick.value};
+        }""")
+        assert shown['hex'] == offered, f'the form opens on the offered colour — {shown}'
+        assert shown['picker'] == offered, f'the swatch shows the colour that will be saved — {shown}'
+        assert shown['hex'] != in_use, \
+            f'a new project must not open on {in_use}, the colour already in use'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -706,6 +798,10 @@ async def main():
         print('PASS 320/390px: the minutes column lines up however the name wraps')
         await check_the_schedule_never_scrolls_sideways(browser)
         print('PASS the schedule is a grid or a list of days — the last sideways scroll is gone')
+        await check_the_breakdown_holds_a_long_name(browser)
+        print('PASS 320/390px: a 60-character name keeps every row\'s duration on screen')
+        await check_the_new_project_gets_a_free_color(browser)
+        print('PASS a new project opens on a colour the team is not already wearing')
         await check_the_week_never_scrolls_sideways(browser)
         print('PASS the week is a grid or a list of days — never a sideways scroll, at any width')
         await check_the_mode_says_what_it_opens(browser)

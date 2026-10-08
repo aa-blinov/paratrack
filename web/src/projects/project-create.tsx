@@ -10,7 +10,7 @@ import { translate as t } from "@/i18n"
 import type { ProjectCreateData } from "@/dashboard/types"
 
 export function ProjectCreate({ data }: { data: ProjectCreateData }) {
-  const [color, setColor] = React.useState("#7c3aed")
+  const [color, setColor] = React.useState(data.SuggestedColor || "#7c3aed")
   const [currency, setCurrency] = React.useState("__workspace_currency__")
   const lang = data.Lang
 

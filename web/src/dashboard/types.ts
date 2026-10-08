@@ -157,6 +157,8 @@ export interface ProjectCreateData {
   CSRFToken: string
   Currencies: Array<{ Code: string; Label: string }>
   TeamCurrency: string
+  /** The first palette colour this team is not already wearing. */
+  SuggestedColor: string
 }
 
 export interface GoalView {

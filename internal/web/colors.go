@@ -31,6 +31,41 @@ var palette = []string{
 // colorFor hashes the lower-cased activity name and maps it onto the
 // palette so the same activity always renders the same colour, and
 // different activities land on distinguishable slots.
+// projectPalette — the colours a project gets when nobody picks one. The old
+// default was a single constant, so every project created through the form
+// came out the same purple and the dot beside its name identified nothing.
+// These are the same desaturated Tailwind-style hexes as `palette`, ordered so
+// neighbours in the sequence are far apart on the wheel.
+var projectPalette = []string{
+	"#6366f1", // indigo
+	"#14b8a6", // teal
+	"#f59e0b", // amber
+	"#8b5cf6", // violet
+	"#10b981", // emerald
+	"#ec4899", // pink
+	"#0ea5e9", // sky
+	"#84cc16", // lime
+	"#f97316", // orange
+	"#a855f7", // purple
+}
+
+// nextProjectColor returns the first palette colour this team is not already
+// using, so a new project starts out distinguishable from the existing ones.
+// Past len(projectPalette) projects it wraps and the wheel turns over — that
+// is the honest limit of a fixed palette, not something to hide.
+func nextProjectColor(used []string) string {
+	taken := make(map[string]bool, len(used))
+	for _, color := range used {
+		taken[strings.ToLower(strings.TrimSpace(color))] = true
+	}
+	for _, color := range projectPalette {
+		if !taken[color] {
+			return color
+		}
+	}
+	return projectPalette[0]
+}
+
 func colorFor(name string) string {
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(name))))
