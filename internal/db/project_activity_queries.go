@@ -15,7 +15,7 @@ func (d *DB) ListActivitiesForProject(ctx context.Context, query appmodel.Projec
 	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return nil, ErrNotFound
 	}
-	q := `SELECT a.id, a.name, a.team_id, a.project_id, a.archived, a.created_at, a.updated_at
+	q := `SELECT a.id, a.name, a.color, a.team_id, a.project_id, a.archived, a.created_at, a.updated_at
 	        FROM activities a JOIN projects p ON p.id = a.project_id
 	        WHERE a.project_id = ? AND a.team_id = ? AND p.team_id = ?`
 	args := []any{query.ProjectID, query.TeamID, query.TeamID}

@@ -19,7 +19,7 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 		ID:                 s.ID,
 		ActivityID:         s.ActivityID,
 		ActivityName:       a.Name,
-		Color:              colorFor(a.Name),
+		Color:              activityMark(a.Color, a.Name),
 		ProjectID:          a.ProjectID,
 		StartISO:           s.StartAt.UTC().Format(time.RFC3339Nano),
 		ResumeISO:          s.StartAt.UTC().Format(time.RFC3339Nano),

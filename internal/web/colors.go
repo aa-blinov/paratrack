@@ -1,58 +1,21 @@
 package web
 
 import (
-	"hash/fnv"
 	"math"
 	"strings"
 )
 
-// palette — the deterministic backing store for per-activity colours.
-// Same name → same colour across the dashboard, stats and graph; the
-// muted set below avoids the pure red reserved for destructive
-// actions (Stop / Delete).
-//
-// Colours are desaturated Tailwind-style hexes so the activity-marks
-// read as identity cues, not decoration.  Each new activity name
-// hashes to one of these slots; collisions fall back to a tonal
-// mix-blend so the same name still produces the same hue.
-var palette = []string{
-	"#6366f1", // indigo
-	"#0ea5e9", // sky
-	"#14b8a6", // teal
-	"#10b981", // emerald
-	"#84cc16", // lime
-	"#f59e0b", // amber
-	"#f97316", // orange
-	"#8b5cf6", // violet
-	"#a855f7", // purple
-	"#ec4899", // pink
-}
-
-// colorFor hashes the lower-cased activity name and maps it onto the
-// palette so the same activity always renders the same colour, and
-// different activities land on distinguishable slots.
 // projectPalette — the colours a project gets when nobody picks one. The old
 // default was a single constant, so every project created through the form
 // came out the same purple and the dot beside its name identified nothing.
-// These are the same desaturated Tailwind-style hexes as `palette`, ordered so
-// neighbours in the sequence are far apart on the wheel.
 var projectPalette = []string{
-	"#6366f1", // indigo
-	"#14b8a6", // teal
-	"#f59e0b", // amber
-	"#8b5cf6", // violet
-	"#10b981", // emerald
-	"#ec4899", // pink
-	"#0ea5e9", // sky
-	"#84cc16", // lime
-	"#f97316", // orange
-	"#a855f7", // purple
+	"#6366f1", "#14b8a6", "#f59e0b", "#8b5cf6", "#10b981",
+	"#ec4899", "#0ea5e9", "#84cc16", "#f97316", "#a855f7",
 }
 
-// nextProjectColor returns the first palette colour this team is not already
-// using, so a new project starts out distinguishable from the existing ones.
-// Past len(projectPalette) projects it wraps and the wheel turns over — that
-// is the honest limit of a fixed palette, not something to hide.
+// nextProjectColor returns the first palette colour this workspace is not
+// already wearing, so a new project starts out distinguishable. Past the
+// palette the wheel turns over — the same honest limit as the activity marks.
 func nextProjectColor(used []string) string {
 	taken := make(map[string]bool, len(used))
 	for _, color := range used {
@@ -66,11 +29,10 @@ func nextProjectColor(used []string) string {
 	return projectPalette[0]
 }
 
-func colorFor(name string) string {
-	h := fnv.New32a()
-	_, _ = h.Write([]byte(strings.ToLower(strings.TrimSpace(name))))
-	return palette[int(h.Sum32())%len(palette)]
-}
+// Activity marks live in internal/model now: they are stored per activity,
+// not derived from the name, and the backfill that assigned them runs in the
+// database layer. The hash that used to decide a colour is still there as
+// model.ColorForName, because it is what existing rows already look like.
 
 // inkFor returns the foreground (#000 / #fff) with the higher WCAG
 // contrast against the given hex surface. Used for badges and chips

@@ -161,7 +161,7 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 	if graph.Project.ID == 0 {
 		projectFilter = ""
 	}
-	chart := chartDataFromGraph(graph.Graph, period, resolveLang(r))
+	chart := chartDataFromGraph(graph.Graph, period, resolveLang(r), s.activityColors(r))
 	chartJSON, err := json.Marshal(chart)
 	if err != nil {
 		return graphData{}, fmt.Errorf("encode graph chart: %w", err)
@@ -207,16 +207,16 @@ func (s *Server) statsPresentation(
 	}
 	attachSessionProjects(rows, stats.ProjectsByID)
 
-	activities, projects := statsAggregateViews(r, stats.Summary)
+	activities, projects := statsAggregateViews(r, s.activityColors(r), stats.Summary)
 	return rows, activities, projects
 }
 
-func statsAggregateViews(r *http.Request, summary appmodel.ReportStatsSummary) ([]aggRow, []projectAggRow) {
+func statsAggregateViews(r *http.Request, colors map[string]string, summary appmodel.ReportStatsSummary) ([]aggRow, []projectAggRow) {
 	activities := make([]aggRow, 0, len(summary.Activities))
 	for _, activity := range summary.Activities {
 		activities = append(activities, aggRow{
 			ActivityName: activity.Name,
-			Color:        colorFor(activity.Name),
+			Color:        activityColor(colors, activity.Name),
 			Duration:     fmtDur(r, activity.Seconds),
 			Share:        activity.Share,
 		})
@@ -231,7 +231,7 @@ func statsAggregateViews(r *http.Request, summary appmodel.ReportStatsSummary) (
 		for _, activity := range project.Activities {
 			row.Activities = append(row.Activities, aggRow{
 				ActivityName: activity.Name,
-				Color:        colorFor(activity.Name),
+				Color:        activityColor(colors, activity.Name),
 				Duration:     fmtDur(r, activity.Seconds),
 				Share:        activity.Share,
 			})

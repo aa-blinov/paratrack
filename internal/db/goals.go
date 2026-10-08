@@ -55,6 +55,9 @@ func (d *DB) UpsertGoalsForManager(ctx context.Context, request appmodel.GoalSet
 	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(name), request.TeamID).Scan(&activityID); err != nil {
 		return nil, err
 	}
+	if err := d.assignActivityColor(ctx, tx, activityID, request.TeamID); err != nil {
+		return nil, err
+	}
 	goals := make([]model.Goal, 0, len(request.Targets))
 	seenPeriods := make(map[string]struct{}, len(request.Targets))
 	for _, target := range request.Targets {

@@ -128,7 +128,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 			ActivityID:    rc.ActivityID,
 			ActivityName:  rc.ActivityName,
 			ProjectID:     rc.ProjectID,
-			Color:         colorFor(rc.ActivityName),
+			Color:         activityColor(s.activityColors(r), rc.ActivityName),
 			Secs:          rc.Secs,
 			RowTotal:      rc.RowTotal,
 			RowTotalLabel: fmtDur(r, rc.RowTotal),
@@ -318,7 +318,7 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 		}
 		row := timesheetRow{
 			ActivityID: rc.ActivityID, ActivityName: rc.ActivityName,
-			Color: colorFor(rc.ActivityName), Secs: rc.Secs,
+			Color: activityColor(s.activityColors(r), rc.ActivityName), Secs: rc.Secs,
 			RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
 		}
 		for i := 0; i < 7; i++ {
@@ -331,7 +331,7 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 		}
 		if wantsJSON(r) {
 			response := timesheetRowJSON{
-				ActivityID: rc.ActivityID, ActivityName: rc.ActivityName, Color: colorFor(rc.ActivityName),
+				ActivityID: rc.ActivityID, ActivityName: rc.ActivityName, Color: activityColor(s.activityColors(r), rc.ActivityName),
 				Cells: make([]timesheetCellJSON, 0, 7), RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
 				DayTotals: make([]timesheetDayTotalJSON, 0, 7), GrandTotal: grid.GrandTotal, GrandTotalLabel: fmtDur(r, grid.GrandTotal),
 			}

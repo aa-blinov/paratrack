@@ -39,15 +39,15 @@ type chartLegendEntry struct {
 // across activities. Sessions spanning multiple hours are split so a
 // 10:30→13:45 session contributes 30 min to the 10:00 bucket, 60 to
 // 11:00, 60 to 12:00 and 45 to 13:00.
-func buildChartData(sessions []appmodel.ActiveSession, period timeparse.Period, now time.Time, lang i18n.Lang) (ChartData, error) {
+func buildChartData(sessions []appmodel.ActiveSession, period timeparse.Period, now time.Time, lang i18n.Lang, colors map[string]string) (ChartData, error) {
 	graph, err := reportstats.HourlyGraph(sessions, period.Start, period.End, now)
 	if err != nil {
 		return ChartData{}, err
 	}
-	return chartDataFromGraph(graph, period, lang), nil
+	return chartDataFromGraph(graph, period, lang, colors), nil
 }
 
-func chartDataFromGraph(graph appmodel.ReportGraphData, period timeparse.Period, lang i18n.Lang) ChartData {
+func chartDataFromGraph(graph appmodel.ReportGraphData, period timeparse.Period, lang i18n.Lang, colors map[string]string) ChartData {
 	out := ChartData{
 		Hours: make([]string, 24), Series: []chartSeries{}, Period: period.Label,
 		HasData: len(graph.Series) > 0,
@@ -60,7 +60,7 @@ func chartDataFromGraph(graph appmodel.ReportGraphData, period timeparse.Period,
 	}
 	out.TotalLabel = fmtDurL(lang, graph.TotalSeconds)
 	for _, item := range graph.Series {
-		series := chartSeries{Name: item.Name, Color: colorFor(item.Name), Data: make([]int, 24), Total: item.TotalMinutes}
+		series := chartSeries{Name: item.Name, Color: activityColor(colors, item.Name), Data: make([]int, 24), Total: item.TotalMinutes}
 		copy(series.Data, item.HourMinutes[:])
 		out.Series = append(out.Series, series)
 		out.Legend = append(out.Legend, chartLegendEntry{Name: item.Name, Color: series.Color})
