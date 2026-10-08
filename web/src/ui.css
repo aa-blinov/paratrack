@@ -596,3 +596,25 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
     transition-timing-function: var(--m3-easing-emphasized);
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* One surface per screen: a card inside a card is not a card        */
+/* ------------------------------------------------------------------ */
+/* A box drawn inside a box is decoration, not structure — the surface
+   stops reading as one thing, and the ledger DESIGN.md promises turns
+   into a wall of rounded rectangles. Nested cards keep their content
+   and lose their edge: the ink ring and the radius go, a hairline from
+   the same --border token takes the place. Only the outermost card of a
+   group keeps its box. */
+#paratrack-react-root [data-slot="card"] [data-slot="card"] {
+  box-shadow: none;
+  border-radius: 0;
+  background-color: transparent;
+}
+#paratrack-react-root [data-slot="card"] [data-slot="card"] > :first-child {
+  border-top: 0;
+}
+#paratrack-react-root [data-slot="card"] [data-slot="card"] + [data-slot="card"],
+#paratrack-react-root [data-slot="card"] [data-slot="card"]:not(:first-of-type) {
+  border-top: 1px solid var(--border);
+}
