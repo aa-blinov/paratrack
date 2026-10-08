@@ -550,8 +550,11 @@ a.card {
   }
 }
 
-/* Coarse pointer (touch): grow the compact lanes to a 44px hit area
-   without changing the drawn geometry. The pseudo-element is the target. */
+/* Coarse pointer (touch): grow the compact lanes to a 48dp hit area
+   without changing the drawn geometry. The pseudo-element is the target.
+   Material 3 asks for 48×48dp and allows the touchable area to exceed the
+   drawn element (R6.6); 48 is also what the React shell already enforces,
+   so the phone has one floor, not two. */
 @media (pointer: coarse) {
   .btn-xs,
   .btn-circle {
@@ -563,8 +566,8 @@ a.card {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     transform: translate(-50%, -50%);
   }
 
@@ -572,7 +575,7 @@ a.card {
   .btn-sm,
   .input-sm,
   .select {
-    min-height: 44px;
+    min-height: 48px;
   }
 
   .checkbox-xs,
@@ -585,8 +588,8 @@ a.card {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
-    width: 44px;
-    height: 44px;
+    width: 48px;
+    height: 48px;
     transform: translate(-50%, -50%);
   }
 
@@ -982,7 +985,7 @@ header .header-extra { display: none; }
     gap: 0.625rem;
     min-width: 0;
     flex: 1;
-    min-height: 44px;
+    min-height: 48px;
   }
   .minibar-dot { width: 10px; height: 10px; border-radius: 999px; flex-shrink: 0; }
   .minibar-dot.is-live { animation: live-pulse 1.6s ease-in-out infinite; }
@@ -1022,7 +1025,7 @@ header .header-extra { display: none; }
     align-items: center;
     justify-content: center;
     width: 4rem;
-    height: 44px;
+    height: 48px;
     padding: 0;
     border: 0;
     background: transparent;
@@ -1071,17 +1074,23 @@ header .header-extra { display: none; }
 @keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
 @keyframes live-pulse { 50% { opacity: 0.35; } }
 
-/* Touch: no grey tap flash, no double-tap zoom delay, pressed state,
-   and 44 px targets for the controls used many times a day. */
+/* Touch: no grey tap flash, no double-tap zoom delay, a Material state
+   layer on press, and 48dp targets for the controls used many times a
+   day — the same floor the React shell enforces. */
 @media (pointer: coarse) {
-  #activity, form[hx-post="/api/start"] button[type="submit"] { min-height: 44px; }
-  .minibar-card .btn-circle { width: 44px; height: 44px; }
-  details.ledger-more > .ledger-more-summary { min-height: 44px; }
-  .next-steps a, .next-steps button { min-height: 44px; display: inline-flex; align-items: center; }
+  #activity, form[hx-post="/api/start"] button[type="submit"] { min-height: 48px; }
+  .minibar-card .btn-circle { width: 48px; height: 48px; }
+  details.ledger-more > .ledger-more-summary { min-height: 48px; }
+  .next-steps a, .next-steps button { min-height: 48px; display: inline-flex; align-items: center; }
   html { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   .btn, .tabbar, .sheet-list a { -webkit-user-select: none; user-select: none; }
-  .btn:active:not(:disabled), .tabbar > :active { transform: scale(0.96); }
-  .btn { transition: transform 0.08s ease-out; }
+  /* Material presses with a state layer, never by scaling the target: the
+     overlay takes the current ink at 12% over whatever the button is filled
+     with — on-primary for a filled button, on-surface for an outlined one. */
+  .btn:active:not(:disabled), .tabbar > :active {
+    background-image: linear-gradient(color-mix(in oklab, currentColor 12%, transparent),
+                                    color-mix(in oklab, currentColor 12%, transparent));
+  }
 }
 
 /* Page-to-page crossfade (Chromium); the bars stay still. */
@@ -1265,7 +1274,7 @@ header .header-extra { display: none; }
 .week-nav-label { white-space: nowrap; padding-inline: 0.25rem; }
 .week-nav .btn { padding-inline: 0.5rem; }
 @media (pointer: coarse) {
-  .week-nav .btn { min-width: 44px; min-height: 44px; }
+  .week-nav .btn { min-width: 48px; min-height: 48px; }
 }
 @media (min-width: 640px) {
   .week-nav { gap: 0.5rem; }
