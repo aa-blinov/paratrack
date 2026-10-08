@@ -317,15 +317,17 @@
 }
 
 @layer components {
+  /* The pill no longer wears a fill. Seven tinted lozenges on the overview
+     read as seven more boxes, and the tint carried no information the ink
+     does not: the darker token was chosen for contrast against the tint, so
+     on plain paper it is if anything clearer. */
   .status-pill {
-    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5;
+    @apply inline-flex items-center gap-1;
     font-size: var(--step--1);
     font-weight: 550;
   }
-  /* Tint for the fill, a deeper ink for the text: the saturated success
-     and warning hues fail contrast on a light tint (≈2:1). */
-  .status-pill.is-active { @apply bg-success/15; color: var(--ink-success); }
-  .status-pill.is-paused { @apply bg-warning/15; color: var(--ink-warning); }
+  .status-pill.is-active { color: var(--ink-success); }
+  .status-pill.is-paused { color: var(--ink-warning); }
 
   .tag-chip {
     @apply inline-flex items-center gap-1 rounded-full bg-base-200 px-2 py-0.5;
@@ -490,6 +492,22 @@ td, th {
 td .font-mono, dd .font-mono, code, .break-anywhere {
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+/* A card inside a card is not a card. The inner box is decoration, not
+   structure: the surface stops reading as one thing and the ledger turns
+   into a wall of rounded rectangles. Nested cards keep their content and
+   lose their edge — the hairline from --color-base-300 takes its place.
+   Same rule as the React shell's, in web/src/ui.css. */
+.card .card {
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0;
+  background-color: transparent;
+}
+.card .card + .card,
+.card .card:not(:first-of-type) {
+  border-top: 1px solid var(--color-base-300) !important;
 }
 
 /* A card is usually a grid/flex item. Default min-width:auto lets a long
