@@ -991,6 +991,58 @@ async def check_the_dot_sits_on_the_first_line_everywhere(browser):
             await context.close()
 
 
+async def check_material_motion_and_active_state(browser):
+    """Two more Material 3 rules the phone was not following.
+
+    Motion: every transition ran on the Material 2 curve
+    `cubic-bezier(0.4, 0, 0.2, 1)`, inherited from the component defaults
+    rather than chosen here. M3 replaced it with emphasized easing.
+
+    The active destination: M3 marks it twice — the icon takes weight and the
+    item takes an indicator pill (56×32dp in Expressive, 64dp in the baseline).
+    The app only coloured the label, and every icon stayed the same weight."""
+    for path in ('/', '/stats'):
+        context, page, errors = await open_html(browser, document(path), path, 390)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(600)
+        state = await page.evaluate("""() => {
+          const curves = new Set();
+          for (const el of document.querySelectorAll('#paratrack-react-root *')) {
+            const cs = getComputedStyle(el);
+            if (cs.transitionDuration && cs.transitionDuration !== '0s') {
+              curves.add(cs.transitionTimingFunction);
+            }
+          }
+          const items = [...document.querySelectorAll('[data-mobile-nav] a, [data-mobile-nav] button')];
+          const isActive = i => i.getAttribute('aria-current') === 'page' || i.className.includes('active');
+          const active = items.find(isActive);
+          const inactive = items.find(i => !isActive(i));
+          const svg = el => el.querySelector('svg');
+          const pill = active ? getComputedStyle(active, '::before') : null;
+          return {curves: [...curves],
+                  activeLabel: active ? (active.innerText || '').trim() : null,
+                  activeStroke: active && svg(active) ? getComputedStyle(svg(active)).strokeWidth : null,
+                  inactiveStroke: inactive && svg(inactive) ? getComputedStyle(svg(inactive)).strokeWidth : null,
+                  pillWidth: pill ? pill.width : null, pillHeight: pill ? pill.height : null,
+                  pillContent: pill ? pill.content : null};
+        }""")
+        assert state['curves'], f'{path}: the screen has transitions'
+        for curve in state['curves']:
+            assert curve == 'cubic-bezier(0.2, 0, 0, 1)', \
+                f'{path}: Material 3 emphasized easing, not {curve}'
+        assert state['activeLabel'], f'{path}: one destination is active'
+        assert state['pillContent'] != 'none', \
+            f'{path}: the active destination needs its indicator pill — {state}'
+        assert state['pillWidth'] == '56px' and state['pillHeight'] == '32px', \
+            f'{path}: the indicator is 56×32dp in Expressive — {state["pillWidth"]}×{state["pillHeight"]}'
+        heavier = float(state['activeStroke'].replace('px', ''))
+        lighter = float(state['inactiveStroke'].replace('px', ''))
+        assert heavier > lighter, \
+            f'{path}: the active icon carries weight, not just colour — {heavier} vs {lighter}'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -1008,6 +1060,8 @@ async def main():
         print('PASS 48dp everywhere, including the bar that lives outside the React root')
         await check_press_is_a_state_layer(browser)
         print('PASS a press is a state layer, never a scale or a dim')
+        await check_material_motion_and_active_state(browser)
+        print('PASS Material 3 easing, and the active destination takes weight plus a 56×32dp pill')
         await check_touch_metrics(browser)
         print('PASS 320px: fields are 16px and every control reaches the 48px floor')
         await check_desktop_is_untouched(browser)
