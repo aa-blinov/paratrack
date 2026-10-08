@@ -45,6 +45,17 @@
 
 :root {
   color-scheme: light;
+  /* Material 3 motion. The app was running the Material 2 curve —
+     cubic-bezier(0.4, 0, 0.2, 1) — through every transition, inherited from
+     the component defaults. M3 replaced it with emphasized easing and named
+     durations; both are tokens now, so one value changes the whole app. */
+  --m3-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --m3-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --m3-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --m3-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --m3-duration-short4: 200ms;
+  --m3-duration-medium2: 300ms;
+  --m3-duration-long2: 500ms;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -396,8 +407,31 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  /* Material 3 marks the active destination two ways, not one: the icon gets
+     weight and the item gets an indicator pill behind it. The Lucide set has
+     no filled variants, and the spec's own fallback for that is weight — so
+     the active icon gains stroke instead of fill, which on a line icon is
+     what "filled" means. The pill is 56×32dp, the Expressive width (the
+     80dp baseline is wider). */
+  #paratrack-react-root .mobile-nav-item { position: relative; }
   #paratrack-react-root .mobile-nav-item-active { color: var(--foreground); }
-  #paratrack-react-root .mobile-nav-item-active svg { color: var(--primary); }
+  #paratrack-react-root .mobile-nav-item-active svg {
+    color: var(--primary);
+    stroke-width: 2.5;
+    position: relative;
+  }
+  #paratrack-react-root .mobile-nav-item-active span { position: relative; }
+  #paratrack-react-root .mobile-nav-item-active::before {
+    content: "";
+    position: absolute;
+    top: .25rem;
+    left: 50%;
+    width: 3.5rem;
+    height: 2rem;
+    border-radius: 1rem;
+    transform: translateX(-50%);
+    background: color-mix(in oklab, var(--foreground) 12%, transparent);
+  }
 
   /* The primary action sits above the bar, clear of the home indicator. */
   #paratrack-react-root .mobile-nav-fab {
@@ -545,4 +579,20 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
   background: var(--primary);
   border-color: var(--primary);
   color: var(--primary-foreground);
+}
+
+/* ------------------------------------------------------------------ */
+/* Material 3 motion: one easing for the whole phone shell             */
+/* ------------------------------------------------------------------ */
+/* Every transition used to run on the Material 2 curve, inherited from
+   the component defaults rather than chosen here. Timing function only —
+   durations stay where each component set them, because they were tuned
+   per element; changing them blind would move the app, not fix it.
+   Scoped away from `prefers-reduced-motion`, which must stay instant. */
+@media (prefers-reduced-motion: no-preference) {
+  #paratrack-react-root *,
+  #paratrack-react-root *::before,
+  #paratrack-react-root *::after {
+    transition-timing-function: var(--m3-easing-emphasized);
+  }
 }
