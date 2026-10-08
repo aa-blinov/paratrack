@@ -122,6 +122,10 @@ type projectNewPage struct {
 	Lang         string
 	Currencies   []currencyOption
 	TeamCurrency string
+	// SuggestedColor — the first palette colour this team is not already
+	// using. The form opens on it so a project is distinguishable from the
+	// rest before anyone touches the picker.
+	SuggestedColor string
 }
 
 func (projectNewPage) isTemplateData()    {}
@@ -143,7 +147,27 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	data.SuggestedColor, err = s.suggestedProjectColor(r)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	s.renderPageForRequest(w, r, "New project", "projects", "project-new", &data)
+}
+
+// suggestedProjectColor — the first palette colour no project in this team
+// already wears. A failure to read the catalogue must not block the form, so
+// the palette's first colour is the floor.
+func (s *Server) suggestedProjectColor(r *http.Request) (string, error) {
+	list, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r)})
+	if err != nil {
+		return projectPalette[0], nil
+	}
+	used := make([]string, 0, len(list))
+	for _, project := range list {
+		used = append(used, project.Color)
+	}
+	return nextProjectColor(used), nil
 }
 
 // handleProjectCreateForm — POST /projects/new (form-encoded from the
