@@ -767,6 +767,60 @@ async def check_the_new_project_gets_a_free_color(browser):
         await context.close()
 
 
+async def check_colour_dots_sit_on_the_first_line(browser):
+    """The activity dot is a label for the name beside it, so it belongs on the
+    first line — where the eye starts. Inside a centred flex row it floated to
+    the middle of the block: measured on a three-line name, 20px below the
+    first line. The palette itself is fine — no pair under ΔE 10 — so this is
+    placement, not colour choice."""
+    long_name = 'Отладкаинтеграционногоконтураучётарабочевременипереносданных'
+    html = stats_document([])
+    start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+    end = html.index('</div>', start)
+    payload = json.loads(html[start:end])
+    payload['data']['ByProject'] = [{
+        'ProjectID': 1, 'ProjectName': 'Сайт для Nordwind', 'Slug': 'nordwind',
+        'Color': '#7c3aed', 'Duration': '3 ч', 'Share': 100,
+        'Activities': [
+            {'ActivityName': 'Проверка заголовков', 'Color': '#84cc16', 'Duration': '1 ч', 'Share': 33.3},
+            {'ActivityName': long_name, 'Color': '#6366f1', 'Duration': '2 ч', 'Share': 66.7},
+        ]}]
+    html = html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+
+    for width in (320, 390, 1440):
+        context, page, errors = await open_html(browser, html, '/stats', width)
+        await page.get_by_role('heading', name='Статистика').wait_for()
+        await page.wait_for_timeout(600)
+        dots = await page.evaluate("""() => {
+          const out = [];
+          for (const section of document.querySelectorAll('main .rounded-md.border')) {
+            for (const row of section.children) {
+              if (row.tagName !== 'DIV') continue;
+              const label = row.firstElementChild;
+              if (!label) continue;
+              const dot = label.querySelector('span[style*="background-color"]');
+              const name = label.querySelector('span:last-child, a:last-child');
+              if (!dot || !name) continue;
+              const d = dot.getBoundingClientRect();
+              const n = name.getBoundingClientRect();
+              const line = parseFloat(getComputedStyle(name).lineHeight);
+              out.push({name: name.textContent.trim().slice(0, 24),
+                        lines: Math.round(n.height / line),
+                        offset: Math.round(d.top + d.height / 2 - n.top - line / 2)});
+            }
+          }
+          return out;
+        }""")
+        assert dots, f'{width}px: the rows are on screen'
+        for dot in dots:
+            assert abs(dot['offset']) <= 1, \
+                f'{width}px: «{dot["name"]}» — the dot sits {dot["offset"]}px off the first line — {dot}'
+        assert any(dot['lines'] > 1 for dot in dots) or width >= 1440, \
+            f'{width}px: a name really did wrap, or this check proves nothing — {dots}'
+        assert not errors, errors
+        await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -802,6 +856,8 @@ async def main():
         print('PASS 320/390px: a 60-character name keeps every row\'s duration on screen')
         await check_the_new_project_gets_a_free_color(browser)
         print('PASS a new project opens on a colour the team is not already wearing')
+        await check_colour_dots_sit_on_the_first_line(browser)
+        print('PASS 320–1440px: the activity dot sits on the first line, whatever the name does')
         await check_the_week_never_scrolls_sideways(browser)
         print('PASS the week is a grid or a list of days — never a sideways scroll, at any width')
         await check_the_mode_says_what_it_opens(browser)

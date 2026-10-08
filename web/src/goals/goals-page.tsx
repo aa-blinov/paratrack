@@ -81,7 +81,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
     {goals.length ? <Card><CardHeader><CardTitle>{t(lang, "goals.current")}</CardTitle></CardHeader><CardContent className="grid gap-5">
       {goals.map(goal => <div key={`${goal.ActivityName}:${goal.Period}`} className="grid gap-2">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2"><strong className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: goal.Color }} />{goal.ActivityName}</strong><span className="text-muted-foreground">{goal.PeriodRangeLabel} ({goal.PeriodStartLabel} – {goal.PeriodEndLabel})</span></div>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2"><strong className="inline-flex items-start gap-2"><span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full" style={{ backgroundColor: goal.Color }} />{goal.ActivityName}</strong><span className="text-muted-foreground">{goal.PeriodRangeLabel} ({goal.PeriodStartLabel} – {goal.PeriodEndLabel})</span></div>
           <div className="flex items-center gap-2"><span className="whitespace-nowrap font-mono tabular-nums">{goal.AchievedLabel}<span className="text-muted-foreground"> / {goal.TargetLabel}</span></span>{data.CanManage && <Button variant="ghost" size="icon" disabled={busy} title={t(lang, "goals.delete")} aria-label={t(lang, "goals.delete")} onClick={() => void remove(goal)}><Trash2 aria-hidden="true" /></Button>}</div>
         </div>
         <Progress value={Math.min(goal.Percent, 100)} aria-label={`${goal.ActivityName}: ${goal.AchievedLabel} / ${goal.TargetLabel}`} />
