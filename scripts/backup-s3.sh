@@ -4,7 +4,7 @@
 # than KEEP_DAYS. Reads S3_* and the compose project from .env (gitignored).
 #
 # Restore (into the running stack, destructive):
-#   mc cat b2/$S3_BUCKET/daily/<stamp>.sql.gz | gunzip | \
+#   aws s3 cp s3://$S3_BUCKET/daily/<stamp>.sql.gz - | gunzip | \
 #     docker compose exec -T db psql -U paratrack -d paratrack
 # Check a dump without touching prod: scripts/backup-s3.sh --verify
 set -Eeuo pipefail # -E: the ERR trap fires inside functions too
@@ -15,15 +15,22 @@ KEEP_DAYS=${KEEP_DAYS:-30}
 STAMP=$(date -u +%Y%m%d-%H%M%S)
 KEY="daily/$STAMP.sql.gz"
 
-mc() {
-	docker run --rm -i -e K="$S3_KEY_ID" -e SK="$S3_SECRET_KEY" -e EP="$S3_ENDPOINT" \
-		--entrypoint sh minio/mc:latest -c \
-		'mc alias set b2 "$EP" "$K" "$SK" --api S3v4 >/dev/null && mc "$@"' mc "$@"
+# The MinIO client image this used is gone from Docker Hub, so every nightly
+# run failed at the alias step and the bucket silently stopped receiving
+# dumps — 27 September was the last one. The AWS CLI is still published and
+# speaks the same S3 API, so the transfer runs through it instead.
+AWS_CLI_IMAGE=${AWS_CLI_IMAGE:-amazon/aws-cli:2.27.0}
+
+# -i keeps stdin attached: the dump is piped in through it. Without it the
+# upload "succeeds" and writes a zero-byte object that looks like a backup.
+aws() {
+	docker run --rm -i -e AWS_ACCESS_KEY_ID="$S3_KEY_ID" -e AWS_SECRET_ACCESS_KEY="$S3_SECRET_KEY" \
+		"$AWS_CLI_IMAGE" --endpoint-url "$S3_ENDPOINT" "$@"
 }
 
 if [ "${1:-}" = "--verify" ]; then
 	# Restore the newest dump into a throwaway Postgres and compare row counts.
-	latest=$(mc ls "b2/$S3_BUCKET/daily/" | awk '{print $NF}' | sort | tail -1)
+	latest=$(aws s3 ls "s3://$S3_BUCKET/daily/" | awk '{print $NF}' | sort | tail -1)
 	[ -n "$latest" ] || { echo "no dumps in b2/$S3_BUCKET/daily/" >&2; exit 1; }
 	name=paratrack-restore-check
 	docker rm -f "$name" >/dev/null 2>&1 || true
@@ -31,7 +38,7 @@ if [ "${1:-}" = "--verify" ]; then
 	trap 'docker rm -f "$name" >/dev/null 2>&1' EXIT
 	until docker exec "$name" pg_isready -U paratrack -d paratrack >/dev/null 2>&1; do sleep 1; done
 	sleep 2
-	mc cat "b2/$S3_BUCKET/daily/$latest" | gunzip | docker exec -i "$name" psql -q -v ON_ERROR_STOP=1 -U paratrack -d paratrack >/dev/null
+	aws s3 cp "s3://$S3_BUCKET/daily/$latest" - | gunzip | docker exec -i "$name" psql -q -v ON_ERROR_STOP=1 -U paratrack -d paratrack >/dev/null
 	q="SELECT (SELECT count(*) FROM users)||' users, '||(SELECT count(*) FROM sessions)||' sessions'"
 	echo "dump $latest: $(docker exec "$name" psql -tA -U paratrack -d paratrack -c "$q")"
 	echo "live now:     $(docker compose exec -T db psql -tA -U paratrack -d paratrack -c "$q")"
@@ -56,7 +63,17 @@ T0=$(date +%s)
 trap 'checkin error $(( $(date +%s) - T0 ))' ERR
 checkin in_progress
 
-docker compose exec -T db pg_dump -U paratrack -d paratrack | gzip | mc pipe --quiet "b2/$S3_BUCKET/$KEY"
-mc rm --recursive --force --older-than "${KEEP_DAYS}d" "b2/$S3_BUCKET/daily/" >/dev/null || true
+docker compose exec -T db pg_dump -U paratrack -d paratrack | gzip | aws s3 cp - "s3://$S3_BUCKET/$KEY" --quiet
+# Retention without mc's --older-than: the stamps are YYYYMMDD-HHMMSS, which
+# sorts as text, so the cutoff is a plain string comparison.
+cutoff=$(date -u -d "${KEEP_DAYS} days ago" +%Y%m%d-%H%M%S)
+aws s3 ls "s3://$S3_BUCKET/daily/" | awk '{print $NF}' | sort | while read -r old; do
+	case "$old" in
+		*.sql.gz) ;;
+		*) continue ;;
+	esac
+	[ "${old%%.sql.gz}" \< "$cutoff" ] || continue
+	aws s3 rm "s3://$S3_BUCKET/daily/$old" --quiet
+done
 checkin ok $(( $(date +%s) - T0 ))
 echo "$(date -u +%FT%TZ) uploaded $KEY"
