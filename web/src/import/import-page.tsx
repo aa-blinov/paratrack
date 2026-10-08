@@ -16,7 +16,7 @@ export function ImportPage({ data }: { data: ImportData }) {
   const formTZ = typeof Intl !== "undefined" ? Intl.DateTimeFormat().resolvedOptions().timeZone : ""
   const timeLabel = (value: string) => `${value.slice(5, 7)}-${value.slice(8, 10)} ${value.slice(11, 16).replace(":", ":")}`
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <header><h1 className="mb-1 text-2xl font-semibold tracking-tight">{t(lang, "imp.title")}</h1><p className="text-sm text-muted-foreground">{t(lang, "imp.blurb")}</p></header>
+    <header><h1 className="mb-1 text-2xl font-semibold tracking-tight">{t(lang, "imp.title")}</h1><p className="text-sm text-muted-foreground max-w-[50ch]">{t(lang, "imp.blurb")}</p></header>
     {data.Error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{data.Error}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "imp.pick")}</CardTitle></CardHeader><CardContent><form method="post" action="/import/preview" className="grid gap-3 sm:grid-cols-2"><input type="hidden" name="tz" value={formTZ} /><input type="hidden" name="csrf_token" value={data.CSRFToken} />
       <div className="grid gap-1.5"><Label htmlFor="import-provider">{t(lang, "int.provider")}</Label><Select name="provider" value={provider} onValueChange={setProvider}><SelectTrigger id="import-provider"><SelectValue /></SelectTrigger><SelectContent>{providers.map(item => <SelectItem key={item} value={item}>{item === "toggl" ? "Toggl Track" : item === "harvest" ? "Harvest" : "Clockify"}</SelectItem>)}</SelectContent></Select></div>
