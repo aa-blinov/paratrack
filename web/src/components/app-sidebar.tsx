@@ -19,7 +19,7 @@ import {
 import { translate as t } from "@/i18n"
 
 type NavGroup = "core" | "analysis" | "money" | "team" | "data" | "settings"
-export type ShellNavItem = { group: NavGroup; key: string; href: string; icon: string; label: string; module?: string; manage?: boolean }
+export type ShellNavItem = { group: NavGroup; key: string; href: string; icon: string; label: string; module?: string; manage?: boolean; matchPrefix?: string }
 export type AppSidebarShell = {
   active: string
   lang: string
@@ -49,8 +49,11 @@ export const nav: ShellNavItem[] = [
   { group: "data", key: "integrations", href: "/integrations", icon: "link", label: "nav.integrations", module: "integrations" },
   { group: "data", key: "import", href: "/import", icon: "download", label: "nav.import", module: "import" },
   { group: "data", key: "export", href: "/export", icon: "download", label: "nav.csvExport" },
-  { group: "settings", key: "settings-prefs", href: "/settings/preferences", icon: "settings", label: "nav.prefs" },
-  { group: "settings", key: "settings-sections", href: "/settings/sections", icon: "settings", label: "nav.sections", manage: true },
+  // Settings has ten screens behind one tab strip. The panel used to list two
+  // of them — «Под себя» and «Разделы» — under a heading that promised the
+  // rest, so the other eight had no way in from anywhere. One entry now, and
+  // the prefix keeps it lit on every one of the ten.
+  { group: "settings", key: "settings", href: "/settings/profile", matchPrefix: "/settings/", icon: "settings", label: "set.title" },
 ]
 
 const groups: Array<{ key: NavGroup; label: string }> = [
@@ -64,6 +67,15 @@ const groups: Array<{ key: NavGroup; label: string }> = [
 
 export function available(item: ShellNavItem, shell: AppSidebarShell) {
   return (!item.module || shell.mods === null || shell.mods[item.module] === true) && (!item.manage || shell.canManage)
+}
+
+// isCurrent marks the panel entry the open screen belongs to. An item with a
+// matchPrefix stands for a whole section — the settings entry stays lit on all
+// ten settings screens instead of only the one it links to.
+export function isCurrent(item: ShellNavItem, shell: AppSidebarShell) {
+  const path = shell.requestPath.split("?")[0]
+  if (shell.active === item.key || path === item.href) return true
+  return Boolean(item.matchPrefix && path.startsWith(item.matchPrefix))
 }
 
 export function Icon({ name }: { name: string }) {
@@ -91,11 +103,14 @@ function NavigationGroup({ title, items, shell }: { title: string; items: ShellN
   const { setOpenMobile } = useSidebar()
   const visible = items.filter(item => available(item, shell))
   if (!visible.length) return null
+  // A group of one reads better without a heading that repeats it: «Настройки»
+  // above a link also called «Настройки».
+  const heading = visible.length > 1 ? title : null
   return <SidebarGroup>
-    <SidebarGroupLabel>{title}</SidebarGroupLabel>
+    {heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
     <SidebarGroupContent><SidebarMenu>{visible.map(item => <SidebarMenuItem key={item.key}>
-      <SidebarMenuButton asChild isActive={(shell.active === item.key || shell.requestPath.split("?")[0] === item.href)} tooltip={t(shell.lang, item.label)}>
-        <a href={item.href} onClick={() => setOpenMobile(false)} aria-current={(shell.active === item.key || shell.requestPath.split("?")[0] === item.href) ? "page" : undefined}>
+      <SidebarMenuButton asChild isActive={isCurrent(item, shell)} tooltip={t(shell.lang, item.label)}>
+        <a href={item.href} onClick={() => setOpenMobile(false)} aria-current={isCurrent(item, shell) ? "page" : undefined}>
           <Icon name={item.icon} /><span>{t(shell.lang, item.label)}</span>
         </a>
       </SidebarMenuButton>
