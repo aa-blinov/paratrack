@@ -21,7 +21,7 @@ export function ExportPage({ data }: { data: ExportData }) {
     setError("")
   }
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "export.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "export.blurb")}</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "export.title")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "export.blurb")}</p></header>
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <Card><CardHeader><CardTitle>{t(lang, "export.sessions")}</CardTitle></CardHeader><CardContent className="grid gap-4"><div className="grid gap-2 text-sm text-muted-foreground"><p>{t(lang, "export.contents")}</p><p>{t(lang, "export.columns")}</p></div>
         <form method="get" action="/api/reports.csv" className="grid gap-4 border-t pt-4" onSubmit={submit}>

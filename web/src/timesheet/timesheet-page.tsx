@@ -190,7 +190,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 
   return <main className="mx-auto w-full max-w-6xl space-y-4">
     <header className="flex flex-wrap items-end justify-between gap-4">
-      <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "ts.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "ts.blurb")}</p></div>
+      <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "ts.title")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "ts.blurb")}</p></div>
       <nav className="week-nav flex items-center gap-1" aria-label={t(lang, "ts.title")}>
         <Button asChild variant="ghost" size="icon" title={t(lang, "sch.prev")}><a href={`/timesheet?date=${data.PrevWeek}`} aria-label={t(lang, "sch.prev")}><ArrowLeft aria-hidden="true" /></a></Button>
         <span className="week-nav-label whitespace-nowrap px-2 font-mono text-sm">{data.WeekLabel}</span>
@@ -199,12 +199,11 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       </nav>
     </header>
 
-    <p className="text-sm text-muted-foreground">{t(lang, "ts.saveHint")}</p>
+    <p className="text-sm text-muted-foreground max-w-[50ch]">{t(lang, "ts.saveHint")}</p>
     <div className="flex flex-wrap items-center gap-2">
       <p role="status" aria-live="polite" className="min-h-5 text-sm">{saving ? t(lang, "ts.saving") : noticeText}</p>
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
     </div>
-    <p className="ts-scroll-hint text-xs text-muted-foreground">{t(lang, "ts.scrollHint")}</p>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
     {data.Rows.length ? <>
@@ -275,7 +274,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       </Table>
     </CardContent></Card>
     </> : <Card><CardContent className="flex flex-col items-center py-8 text-center">
-      <p className="font-medium">{t(lang, "ts.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "ts.emptyHint")}</p>
+      <p className="font-medium">{t(lang, "ts.empty")}</p><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "ts.emptyHint")}</p>
       <Button asChild size="sm" className="mt-3"><a href="/"><Plus aria-hidden="true" />{t(lang, "ts.emptyCta")}</a></Button>
     </CardContent></Card>}
 
@@ -285,6 +284,6 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       <Button type="button" size="sm" disabled={!newActivity} onClick={addRow}><Plus aria-hidden="true" />{t(lang, "ts.addRowBtn")}</Button>
       <span className="w-full text-xs text-muted-foreground">{t(lang, "ts.addRowHint")}</span>
     </div>}
-    <p className="text-sm text-muted-foreground">{t(lang, "ts.hint")}</p>
+    <p className="text-sm text-muted-foreground max-w-[50ch]">{t(lang, "ts.hint")}</p>
   </main>
 }

@@ -49,7 +49,7 @@ export function GraphPage({ data }: { data: GraphData }) {
   const canShowGraph = data.Chart.hasData
 
   return <main className="mx-auto w-full max-w-6xl space-y-5">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "graph.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.pageBlurb")}</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "graph.title")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "graph.pageBlurb")}</p></header>
     <a href={`/stats${queryFor(data)}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "nav.stats")}</a>
 
     <nav aria-label={t(lang, "goals.period")} className="period-tabs flex flex-wrap gap-1 rounded-lg border bg-card p-1">
@@ -78,7 +78,7 @@ export function GraphPage({ data }: { data: GraphData }) {
     </div>}
 
     <Card>
-      <CardHeader><CardTitle>{t(lang, "graph.subtitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "graph.blurbFull")}</p></CardHeader>
+      <CardHeader><CardTitle>{t(lang, "graph.subtitle")}</CardTitle><p className="text-sm text-muted-foreground max-w-[50ch]">{t(lang, "graph.blurbFull")}</p></CardHeader>
       <CardContent>
         {canShowGraph ? <>
           <div className="echart-wrap min-w-0" id="echart-wrap" data-chart={data.ChartJSON}>

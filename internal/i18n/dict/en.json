@@ -1098,7 +1098,6 @@
   "ts.clearRowConfirm": "Clear the %s row for the week? Every cell becomes empty: this activity's closed sessions for that week are deleted.",
   "ts.rowCleared": "Row cleared: %s.",
   "ts.rowActions": "Actions",
-  "ts.scrollHint": "Scroll the table to the right to see the remaining days and the weekly total.",
   "nav.group.analysis": "Analysis",
   "nav.group.money": "Money",
   "nav.group.team": "Team",

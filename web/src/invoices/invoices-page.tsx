@@ -66,7 +66,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
 
   const flash = <InvoiceFlash data={data} />
   return <main className="mx-auto w-full max-w-6xl space-y-5">
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div><Button asChild size="sm"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button></header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "inv.blurb")}</p></div><Button asChild size="sm"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button></header>
     {flash}
 
     {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
