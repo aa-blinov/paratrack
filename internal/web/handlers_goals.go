@@ -22,7 +22,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	gv := toGoalViews(snapshot.Progress, resolveLang(r))
+	gv := toGoalViews(snapshot.Progress, resolveLang(r), s.activityColors(r))
 	lang := string(resolveLang(r))
 	for i := range gv {
 		gv[i].Lang = lang
@@ -74,7 +74,7 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	views := toGoalViews(progress, resolveLang(r))
+	views := toGoalViews(progress, resolveLang(r), s.activityColors(r))
 	glang := string(resolveLang(r))
 	for i := range views {
 		views[i].Lang = glang
@@ -178,7 +178,7 @@ func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	gv := toGoalViews(progress, resolveLang(r))
+	gv := toGoalViews(progress, resolveLang(r), s.activityColors(r))
 	lang := string(resolveLang(r))
 	for i := range gv {
 		gv[i].Lang = lang
@@ -189,7 +189,7 @@ func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
 
 // toGoalViews renders goal progress as the view-models used by
 // dashboard and /goals pages.
-func toGoalViews(progress []appmodel.GoalProgress, lang i18n.Lang) []goalView {
+func toGoalViews(progress []appmodel.GoalProgress, lang i18n.Lang, colors map[string]string) []goalView {
 	out := make([]goalView, 0, len(progress))
 	for _, p := range progress {
 		// Lang is stamped by the caller after this returns.
@@ -203,7 +203,7 @@ func toGoalViews(progress []appmodel.GoalProgress, lang i18n.Lang) []goalView {
 		out = append(out, goalView{
 			ID:               p.Goal.ID,
 			ActivityName:     p.ActivityName,
-			Color:            colorFor(p.ActivityName),
+			Color:            activityColor(colors, p.ActivityName),
 			Period:           p.Goal.Period,
 			TargetMinutes:    p.Goal.TargetMinutes,
 			TargetLabel:      fmtMinutesL(lang, p.Goal.TargetMinutes),

@@ -38,7 +38,7 @@ func (d *DB) createActivity(ctx context.Context, request legacyActivityRequest) 
 		return model.Activity{}, err
 	}
 	return scanActivity(d.sql.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at
 		 FROM activities WHERE (name_key = ? OR (name_key IS NULL AND name = ?)) AND team_id IS NULL
 		 ORDER BY id LIMIT 1`, strings.ToLower(name), name))
 }
@@ -49,7 +49,7 @@ func (d *DB) GetActivity(ctx context.Context, query appmodel.ActivityLookupQuery
 		return model.Activity{}, ErrNotFound
 	}
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ? AND team_id = ?`, query.ActivityID, query.TeamID)
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ? AND team_id = ?`, query.ActivityID, query.TeamID)
 	return scanActivity(row)
 }
 
@@ -62,7 +62,7 @@ func (d *DB) GetActivity(ctx context.Context, query appmodel.ActivityLookupQuery
 // all teams (legacy / tests).
 func (d *DB) getActivityByName(ctx context.Context, teamID int64, name string) (model.Activity, error) {
 	name = strings.ToLower(strings.TrimSpace(name))
-	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at
+	q := `SELECT id, name, color, team_id, project_id, archived, created_at, updated_at
 		FROM activities WHERE (name_key = ? OR (name_key IS NULL AND name = ?))`
 	args := []any{name, strings.TrimSpace(name)}
 	if teamID > 0 {
@@ -97,7 +97,7 @@ func (d *DB) getOrCreateActivity(ctx context.Context, request legacyActivityRequ
 		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
 	}
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at
 		 FROM activities WHERE (name_key = ? OR (name_key IS NULL AND name = ?)) AND team_id IS NULL
 		 ORDER BY id LIMIT 1`, strings.ToLower(name), name)
 	if a, err := scanActivity(row); err == nil {
@@ -132,7 +132,7 @@ func (d *DB) GetOrCreateActivityForMember(ctx context.Context, request appmodel.
 	}
 	key := strings.ToLower(name)
 	activity, err := scanActivity(tx.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at
 		 FROM activities
 		 WHERE team_id = ? AND (name_key = ? OR (name_key IS NULL AND name = ?))
 		 ORDER BY id LIMIT 1 FOR UPDATE`, teamID, key, name))
@@ -156,7 +156,15 @@ func (d *DB) GetOrCreateActivityForMember(ctx context.Context, request appmodel.
 		return model.Activity{}, err
 	}
 	activity, err = scanActivity(tx.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name_key = ? AND team_id = ? ORDER BY id LIMIT 1`, key, teamID))
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at FROM activities WHERE name_key = ? AND team_id = ? ORDER BY id LIMIT 1`, key, teamID))
+	if err != nil {
+		return model.Activity{}, err
+	}
+	if err := d.assignActivityColor(ctx, tx, activity.ID, teamID); err != nil {
+		return model.Activity{}, err
+	}
+	activity, err = scanActivity(tx.QueryRowContext(ctx,
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ?`, activity.ID))
 	if err != nil {
 		return model.Activity{}, err
 	}
@@ -171,7 +179,7 @@ func (d *DB) ListActivities(ctx context.Context, teamID int64, includeArchived b
 	if teamID <= 0 {
 		return nil, ErrNotFound
 	}
-	q := `SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE team_id = ?`
+	q := `SELECT id, name, color, team_id, project_id, archived, created_at, updated_at FROM activities WHERE team_id = ?`
 	args := []any{teamID}
 	if !includeArchived {
 		q += ` AND archived = 0`
@@ -201,17 +209,21 @@ type row interface {
 func scanActivity(r row) (model.Activity, error) {
 	var (
 		a         model.Activity
+		color     sql.NullString
 		teamID    sql.NullInt64
 		projectID sql.NullInt64
 		archived  int
 		created   string
 		updated   string
 	)
-	if err := r.Scan(&a.ID, &a.Name, &teamID, &projectID, &archived, &created, &updated); err != nil {
+	if err := r.Scan(&a.ID, &a.Name, &color, &teamID, &projectID, &archived, &created, &updated); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Activity{}, ErrNotFound
 		}
 		return model.Activity{}, err
+	}
+	if color.Valid {
+		a.Color = color.String
 	}
 	if teamID.Valid {
 		a.TeamID = teamID.Int64
@@ -237,3 +249,57 @@ var ErrNotFound = model.ErrNotFound
 
 // ErrDuplicate signals a uniqueness conflict on insert.
 var ErrDuplicate = model.ErrAlreadyExists
+
+// assignActivityColor gives a newly created activity the first palette colour
+// its workspace is not already wearing, so a fresh activity starts out
+// distinguishable. It is a no-op for a row that already has one, which keeps
+// the common path — an activity that already exists — free of the extra read.
+// activityColorer is what the assignment needs: the pool or a transaction.
+type activityColorer interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}
+
+func (d *DB) assignActivityColor(ctx context.Context, q activityColorer, activityID, teamID int64) error {
+	return assignActivityColorTx(ctx, q, activityID, teamID)
+}
+
+// assignActivityColorTx is the same assignment for callers that hold a
+// transaction rather than the pool.
+func assignActivityColorTx(ctx context.Context, q activityColorer, activityID, teamID int64) error {
+	var current sql.NullString
+	err := q.QueryRowContext(ctx,
+		`SELECT color FROM activities WHERE id = ?`, activityID).Scan(&current)
+	if err != nil {
+		return fmt.Errorf("read activity colour: %w", err)
+	}
+	if strings.TrimSpace(current.String) != "" {
+		return nil
+	}
+	rows, err := q.QueryContext(ctx,
+		`SELECT color FROM activities WHERE team_id = ? OR (? <= 0 AND team_id IS NULL)`, teamID, teamID)
+	if err != nil {
+		return fmt.Errorf("read workspace colours: %w", err)
+	}
+	defer rows.Close()
+	used := []string{}
+	for rows.Next() {
+		var color sql.NullString
+		if err := rows.Scan(&color); err != nil {
+			return fmt.Errorf("scan workspace colour: %w", err)
+		}
+		if color.Valid && strings.TrimSpace(color.String) != "" {
+			used = append(used, color.String)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("walk workspace colours: %w", err)
+	}
+	if _, err := q.ExecContext(ctx,
+		`UPDATE activities SET color = ? WHERE id = ? AND (color IS NULL OR color = '')`,
+		model.NextColor(used), activityID); err != nil {
+		return fmt.Errorf("write activity colour: %w", err)
+	}
+	return nil
+}
