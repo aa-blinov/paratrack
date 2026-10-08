@@ -73,3 +73,41 @@ func TestColorForNoPureRed(t *testing.T) {
 		}
 	}
 }
+
+func TestNextProjectColorSkipsWhatIsTaken(t *testing.T) {
+	// The old default was one constant, so every project created through the
+	// form came out the same purple. Each new project must get a colour the
+	// team is not already wearing.
+	var used []string
+	seen := map[string]bool{}
+	for i := 0; i < len(projectPalette); i++ {
+		got := nextProjectColor(used)
+		if seen[got] {
+			t.Fatalf("project %d got %q again while %v are still free", i, got, used)
+		}
+		seen[got] = true
+		used = append(used, got)
+	}
+	if len(seen) != len(projectPalette) {
+		t.Errorf("expected the whole palette once, got %d distinct of %d", len(seen), len(projectPalette))
+	}
+}
+
+func TestNextProjectColorIgnoresCaseAndSpace(t *testing.T) {
+	first := projectPalette[0]
+	if got := nextProjectColor([]string{"  " + strings.ToUpper(first) + "  "}); got == first {
+		t.Errorf("nextProjectColor(%q) returned the colour that is already in use", first)
+	}
+}
+
+func TestNextProjectColorWraps(t *testing.T) {
+	// Past the palette the wheel turns over. That is the honest limit of a
+	// fixed palette — it must not panic or return nothing.
+	all := append([]string(nil), projectPalette...)
+	if got := nextProjectColor(all); got != projectPalette[0] {
+		t.Errorf("with every colour taken, want %q, got %q", projectPalette[0], got)
+	}
+	if got := nextProjectColor(nil); got != projectPalette[0] {
+		t.Errorf("with nothing taken, want %q, got %q", projectPalette[0], got)
+	}
+}
