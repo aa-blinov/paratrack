@@ -79,7 +79,7 @@ export function TagsPage({ data }: { data: TagsData }) {
   }, [])
 
   return <main className="mx-auto w-full max-w-4xl space-y-5">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "stats.tags")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "tags.blurbFull")}</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "stats.tags")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "tags.blurbFull")}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "tags.new")}</CardTitle></CardHeader><CardContent>
       <form onSubmit={create} className="flex flex-col gap-3 sm:flex-row sm:items-end" aria-busy={busy}>
@@ -103,7 +103,7 @@ export function TagsPage({ data }: { data: TagsData }) {
           {renaming === tag.ID && <RenameTagForm lang={lang} tag={tag} busy={busy} error={renameError} onSubmit={name => void rename(tag, name)} onCancel={() => closeRename(tag.ID)} />}
         </li>)}
       </ul>
-      <p className="mt-4 text-sm text-muted-foreground">{t(lang, "tags.filterHint")}</p>
+      <p className="mt-4 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "tags.filterHint")}</p>
     </CardContent></Card> : <div className="py-8 text-center text-sm text-muted-foreground"><p className="font-medium">{t(lang, "tags.noTags")}</p><p>{t(lang, "tags.noTagsHint")}</p></div>}
   </main>
 }

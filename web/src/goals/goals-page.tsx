@@ -68,7 +68,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
   }, [])
 
   return <main className="mx-auto w-full max-w-5xl space-y-5">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.goals")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "goals.blurbFull")}{!data.CanManage && ` ${t(lang, "goals.managersSet")}`}</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.goals")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "goals.blurbFull")}{!data.CanManage && ` ${t(lang, "goals.managersSet")}`}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {data.CanManage && <DisclosureSection title={t(lang, "goals.new")} defaultOpen={!goals.length}>
       <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-end" aria-busy={busy}>
