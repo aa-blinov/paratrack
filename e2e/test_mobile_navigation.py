@@ -821,6 +821,99 @@ async def check_colour_dots_sit_on_the_first_line(browser):
         await context.close()
 
 
+def goals_document(name):
+    """Goals booted with one goal on a name long enough to wrap."""
+    return boot('/goals', {
+        'Lang': 'ru', 'Active': 'goals', 'CSRFToken': 'test', 'CanManage': True,
+        'GoalsReact': True,
+        'Activities': [{'ID': 1, 'Name': name, 'Color': '#10b981', 'ProjectID': 0}],
+        'Goals': [{'ID': 1, 'ActivityName': name, 'Period': 'weekly',
+                   'TargetMinutes': 120, 'TargetLabel': '2 ч',
+                   'AchievedMinutes': 0, 'AchievedLabel': '0 мин', 'Percent': 0,
+                   'PeriodStartLabel': '5 окт', 'PeriodEndLabel': '12 окт',
+                   'PeriodRangeLabel': 'на этой неделе', 'Color': '#10b981'}],
+    }, True)
+
+
+def week_grid_document(name):
+    """The week grid on a wide screen, with one name long enough to wrap."""
+    html = timesheet_document({"3": "vnutrennie"})
+    start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+    end = html.index('</div>', start)
+    payload = json.loads(html[start:end])
+    payload['data']['Rows'][0]['ActivityName'] = name
+    return html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+
+
+DOT_OFFSET = """(needle) => {
+  const out = [];
+  for (const dot of document.querySelectorAll('#paratrack-react-root span[style*="background-color"]')) {
+    const row = dot.parentElement;
+    if (!row) continue;
+    // текст, который помечает кружок: первый крупный элемент рядом либо
+    // прямой текстовый узел родителя (как в целях)
+    let text = null;
+    for (const k of row.querySelectorAll('*')) {
+      if (k === dot) continue;
+      const r = k.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0 && (!text || r.height > text.h)) text = {el: k, h: r.height};
+    }
+    const bare = [...row.childNodes].find(n => n.nodeType === 3 && n.textContent.trim());
+    if (!text && bare) {
+      const r = document.createRange(); r.selectNodeContents(bare);
+      const box = r.getBoundingClientRect();
+      text = {el: null, h: box.height, box};
+    } else if (text) {
+      text.box = text.el.getBoundingClientRect();
+    }
+    if (!text || text.h === 0) continue;
+    const line = parseFloat(getComputedStyle(text.el || row).lineHeight) || text.h;
+    const d = dot.getBoundingClientRect();
+    out.push({label: ((text.el || bare).textContent || '').trim().slice(0, 24),
+              lines: Math.round(text.h / line),
+              offset: Math.round(d.top + d.height / 2 - text.box.top - line / 2)});
+  }
+  return out;
+}"""
+
+
+async def check_the_dot_sits_on_the_first_line_everywhere(browser):
+    """The dot labels the name beside it, so it belongs on the first line —
+    where the eye starts. Inside a centred flex row it floated to the middle
+    of the block: measured at 20px below the first line on a three-line name.
+    All three places that had it centred are checked here — the breakdown,
+    the week grid and the goals — so a later edit cannot quietly return one of
+    them to the middle."""
+    long_name = 'Ревизия технического задания и согласование сметы по интеграционному контуру учёта рабочего времени'
+    cases = [
+        ('разбивка', stats_document([]), '/stats', (320, 390, 1440)),
+        ('неделя', week_grid_document(long_name), '/timesheet', (1280, 1440)),
+        ('цели', goals_document(long_name), '/goals', (320, 390, 1440)),
+    ]
+    for label, html, path, widths in cases:
+        if label == 'разбивка':
+            start = html.index('<div id="react-page-data" hidden>') + len('<div id="react-page-data" hidden>')
+            end = html.index('</div>', start)
+            payload = json.loads(html[start:end])
+            payload['data']['ByProject'] = [{
+                'ProjectID': 1, 'ProjectName': 'Сайт для Nordwind', 'Slug': 'nordwind',
+                'Color': '#7c3aed', 'Duration': '3 ч', 'Share': 100,
+                'Activities': [{'ActivityName': long_name, 'Color': '#6366f1',
+                                'Duration': '2 ч', 'Share': 100}]}]
+            html = html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
+        for width in widths:
+            context, page, errors = await open_html(browser, html, path, width)
+            await page.locator('#main h1').wait_for()
+            await page.wait_for_timeout(700)
+            dots = await page.evaluate(DOT_OFFSET, long_name)
+            assert dots, f'{label} @ {width}px: dots are on screen'
+            for dot in dots:
+                assert abs(dot['offset']) <= 1, \
+                    f'{label} @ {width}px: «{dot["label"]}» — the dot sits {dot["offset"]}px off the first line'
+            assert not errors, errors
+            await context.close()
+
+
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
@@ -856,8 +949,8 @@ async def main():
         print('PASS 320/390px: a 60-character name keeps every row\'s duration on screen')
         await check_the_new_project_gets_a_free_color(browser)
         print('PASS a new project opens on a colour the team is not already wearing')
-        await check_colour_dots_sit_on_the_first_line(browser)
-        print('PASS 320–1440px: the activity dot sits on the first line, whatever the name does')
+        await check_the_dot_sits_on_the_first_line_everywhere(browser)
+        print('PASS breakdown, week and goals: the dot sits on the first line, whatever the name does')
         await check_the_week_never_scrolls_sideways(browser)
         print('PASS the week is a grid or a list of days — never a sideways scroll, at any width')
         await check_the_mode_says_what_it_opens(browser)
