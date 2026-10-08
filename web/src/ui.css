@@ -475,10 +475,17 @@
     font-size: max(1rem, 1em);
   }
   /* State layer: with no hover, the press itself is the feedback. */
+/* Material presses with a state layer, not by dimming or scaling the
+     target: the current ink at 12% over whatever the control is filled
+     with. Same rule as the server-rendered shell in input.css, so a press
+     reads the same everywhere on the phone. */
   #paratrack-react-root button:active,
   #paratrack-react-root [role="button"]:active,
   #paratrack-react-root .mobile-nav-item:active,
-  #paratrack-react-root .mobile-nav-row:active { opacity: .55; }
+  #paratrack-react-root .mobile-nav-row:active {
+    background-image: linear-gradient(color-mix(in oklab, currentColor 12%, transparent),
+                                       color-mix(in oklab, currentColor 12%, transparent));
+  }
 }
 
 @media (pointer: coarse) {

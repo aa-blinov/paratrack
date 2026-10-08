@@ -20,8 +20,10 @@ from test_navigation_map_by_role import timesheet_document, stats_document, boot
 from test_react_navigation import document, STATIC
 
 BAR_ITEMS = ["Обзор", "Табель", "Статистика", "По часам", "Ещё"]
-# Material's minimum for anything a finger hits.
+# Material's minimum for anything a finger hits, and the size the FAB is
+# drawn at.
 TOUCH = 48
+FAB = 56
 # The names that broke «Идут сейчас»: one short, one that exactly filled the old
 # 96px lane, one far past any lane.
 PROJECTS = [{"ID": 1, "Name": "Ремонт"},
@@ -179,8 +181,83 @@ async def check_fab_where_it_helps(browser):
         assert found == expected, f'{path}: floating action present={found}, expected={expected}'
         if found:
             box = await page.locator('.mobile-nav-fab').bounding_box()
-            assert box['width'] >= TOUCH and box['height'] >= TOUCH, f'{path}: FAB is {box}'
+            # Material 3 sizes the FAB at 56dp; it was only checked for being
+            # touchable, so a drift to any other round number passed silently.
+            assert box['width'] == FAB and box['height'] == FAB, f'{path}: FAB is {box}, Material 3 says 56dp'
             assert await page.locator('.mobile-nav-fab').get_attribute('aria-label'), f'{path}: the FAB must say what it does'
+        assert not errors, errors
+        await context.close()
+
+
+async def check_one_touch_floor_everywhere(browser):
+    """The phone had two floors: 48dp inside the React shell and 44dp in the
+    server-rendered one, so the running-timer bar's pause and stop sat 4dp
+    under Material's minimum — the only real touch-target violation on the
+    phone. The bar is server-rendered outside the React root, so its markup is
+    injected here exactly as the template writes it; otherwise the check would
+    pass on a page that simply has no bar and prove nothing."""
+    context, page, errors = await open_phone(browser, '/timesheet')
+    await page.locator('#main h1').wait_for()
+    await page.wait_for_timeout(500)
+    await page.evaluate("""() => {
+      const bar = document.createElement('aside');
+      bar.id = 'minibar';
+      bar.className = 'minibar';
+      bar.innerHTML = `
+        <div class="minibar-card">
+          <a href="/" class="minibar-main" aria-label="Обзор">
+            <span class="minibar-dot is-live" style="background-color: #16a34a"></span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-medium">Правка макета</span>
+              <span class="block text-sm opacity-70 font-mono">00:06:48</span>
+            </span>
+          </a>
+          <button class="btn btn-ghost btn-circle" aria-label="Пауза"></button>
+          <button class="btn btn-stop btn-circle" aria-label="Стоп"></button>
+        </div>`;
+      document.body.appendChild(bar);
+    }""")
+    await page.wait_for_timeout(300)
+    measured = await page.evaluate("""() => {
+      const out = [];
+      for (const el of document.querySelectorAll('#minibar button')) {
+        const r = el.getBoundingClientRect();
+        out.push({label: el.getAttribute('aria-label'), w: Math.round(r.width), h: Math.round(r.height)});
+      }
+      return out;
+    }""")
+    assert len(measured) == 2, f'the injected bar rendered its two controls — {measured}'
+    for control in measured:
+        assert max(control['w'], control['h']) >= TOUCH, \
+            f'the timer bar control «{control["label"]}» is {control["w"]}×{control["h"]}px, under Material\'s {TOUCH}dp'
+    assert not errors, errors
+    await context.close()
+
+
+async def check_press_is_a_state_layer(browser):
+    """Material presses with a state layer, never by scaling or dimming the
+    target. The phone did both: `transform: scale(0.96)` in the server-rendered
+    shell and `opacity: .55` in the React one, so the same tap felt different
+    depending on where you were. Now both paint the current ink at 12% and
+    leave the box alone."""
+    for path in ('/', '/stats'):
+        context, page, errors = await open_phone(browser, path)
+        await page.locator('#main h1').wait_for()
+        await page.wait_for_timeout(500)
+        button = page.locator('#paratrack-react-root button:visible').first
+        box = await button.bounding_box()
+        assert box, f'{path}: a visible button to press'
+        await page.mouse.move(box['x'] + box['width'] / 2, box['y'] + box['height'] / 2)
+        await page.mouse.down()
+        await page.wait_for_timeout(250)
+        state = await button.evaluate("""e => {
+          const c = getComputedStyle(e);
+          return {image: c.backgroundImage, transform: c.transform, opacity: c.opacity};
+        }""")
+        await page.mouse.up()
+        assert state['transform'] == 'none', f'{path}: a press must not move the target — {state}'
+        assert state['opacity'] == '1', f'{path}: a press must not dim the target — {state}'
+        assert 'linear-gradient' in state['image'], f'{path}: a press paints a state layer — {state}'
         assert not errors, errors
         await context.close()
 
@@ -926,7 +1003,11 @@ async def main():
         await check_more_sheet_follows_role(browser)
         print('PASS «Ещё» follows the role: no team settings for a member')
         await check_fab_where_it_helps(browser)
-        print('PASS floating action only where there is no primary action of its own')
+        print('PASS floating action only where there is no primary action of its own, 56dp')
+        await check_one_touch_floor_everywhere(browser)
+        print('PASS 48dp everywhere, including the bar that lives outside the React root')
+        await check_press_is_a_state_layer(browser)
+        print('PASS a press is a state layer, never a scale or a dim')
         await check_touch_metrics(browser)
         print('PASS 320px: fields are 16px and every control reaches the 48px floor')
         await check_desktop_is_untouched(browser)
