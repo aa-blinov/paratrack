@@ -59,7 +59,7 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 		Activity: model.Activity{Name: "work"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart, err := buildChartData(sessions, period, end, i18n.En)
+	chart, err := buildChartData(sessions, period, end, i18n.En, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +79,7 @@ func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
 		Activity: model.Activity{Name: "imported"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: start.Add(time.Hour), Label: "today"}
-	chart, err := buildChartData(sessions, period, end, i18n.En)
+	chart, err := buildChartData(sessions, period, end, i18n.En, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func TestChartUsesTrackedTimeAndLocalHourBuckets(t *testing.T) {
 	chart, err := buildChartData([]appmodel.ActiveSession{{
 		Session:  model.Session{StartAt: start.UTC(), EndAt: &end, AccumulatedSeconds: 3600},
 		Activity: model.Activity{Name: "paused-work"},
-	}}, period, end, i18n.En)
+	}}, period, end, i18n.En, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

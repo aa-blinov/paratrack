@@ -136,6 +136,15 @@ func (s *Service) FindActivity(ctx context.Context, query appmodel.ActivityNameQ
 	return activity, nil
 }
 
+// ListActivities exposes the workspace catalogue to HTTP views, which resolve
+// an activity's stored mark by name where they aggregate sessions by name.
+func (s *Service) ListActivities(ctx context.Context, teamID int64, includeArchived bool) ([]model.Activity, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidStart
+	}
+	return s.Activities(ctx, teamID, includeArchived)
+}
+
 // Activities lists workspace activities for command and page selectors.
 func (s *Service) Activities(ctx context.Context, teamID int64, includeArchived bool) ([]model.Activity, error) {
 	if teamID <= 0 {
