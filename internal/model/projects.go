@@ -9,8 +9,11 @@ import "time"
 // ProjectID optionally groups an activity under a project; zero means
 // "Uncategorized". Sessions inherit the project of their activity.
 type Activity struct {
-	ID        int64
-	Name      string
+	ID   int64
+	Name string
+	// Color is the activity's own mark, assigned once and stored — not hashed
+	// from the name, which made different activities share a colour.
+	Color     string
 	TeamID    int64
 	ProjectID int64
 	Archived  bool

@@ -55,7 +55,7 @@ func (d *DB) AssignActivityProject(ctx context.Context, request appmodel.AssignA
 	}
 	if n == 0 {
 		if a, err := scanActivity(tx.QueryRowContext(ctx,
-			`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ?`, request.ActivityID)); err == nil && a.TeamID == request.TeamID {
+			`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ?`, request.ActivityID)); err == nil && a.TeamID == request.TeamID {
 			return ErrAlreadyBilled
 		}
 		return ErrNotFound
@@ -112,7 +112,7 @@ func (d *DB) AssignFirstActivityProject(ctx context.Context, request appmodel.As
 		return tx.Commit()
 	}
 	activity, err := scanActivity(tx.QueryRowContext(ctx,
-		`SELECT id, name, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ?`, request.ActivityID))
+		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at FROM activities WHERE id = ?`, request.ActivityID))
 	if errors.Is(err, ErrNotFound) || (err == nil && activity.TeamID != request.TeamID) {
 		return ErrNotFound
 	}

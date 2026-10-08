@@ -12,6 +12,11 @@ var columnMigrations = []struct {
 	{"sessions", "accumulated_seconds", "BIGINT NOT NULL DEFAULT 0"},
 	{"sessions", "last_resume_at", "TEXT"},
 	{"activities", "project_id", "BIGINT"},
+	// The colour an activity wears. It used to be hashed from the name into
+	// a ten-slot palette, so with more than ten activities two of them
+	// looked identical and the mark identified nothing. Stored now; the
+	// backfill in migrateActivityColors gives every activity its own slot.
+	{"activities", "color", "TEXT"},
 	// Estimates vs actual (Wave 1).
 	{"projects", "estimate_minutes", "BIGINT"},
 	{"projects", "billable_rate_cents", "BIGINT"},

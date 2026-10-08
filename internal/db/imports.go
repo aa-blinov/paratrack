@@ -159,6 +159,13 @@ func (d *DB) ensureImportActivities(ctx context.Context, tx *Tx, teamID int64, e
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	// An import can add a dozen activities at once, so they are marked in one
+	// pass: each takes the first palette colour the workspace is not wearing.
+	for _, id := range activityIDs {
+		if err := assignActivityColorTx(ctx, tx, id, teamID); err != nil {
+			return nil, err
+		}
+	}
 	return activityIDs, nil
 }
 

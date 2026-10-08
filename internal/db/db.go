@@ -84,6 +84,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 	}{
 		{"apply schema", func() error { return d.applySchemaContext(ctx) }},
 		{"activity keys", func() error { return d.migrateActivityKeys(ctx) }},
+		{"activity colours", func() error { return d.migrateActivityColors(ctx) }},
 		{"seal secrets", func() error { return d.sealExistingSecretsContext(ctx) }},
 		{"hash invite tokens", func() error { return d.migrateInviteTokensContext(ctx) }},
 		{"assign orphan sessions", func() error { return d.assignOrphanSessions(ctx) }},

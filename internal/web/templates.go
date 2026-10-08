@@ -51,14 +51,14 @@ func templateFuncs(sentry sentryState) template.FuncMap {
 		"splitComma": func(s string) []string { return strings.Split(s, ",") },
 		// pathesc is for a path segment: urlquery turns spaces into "+", which
 		// a path keeps literally ("Только эта" 404'd on names with spaces).
-		"pathesc":   url.PathEscape,
-		"fmtDurL":   func(lang string, sec int) string { return fmtDurL(i18n.Lang(lang), sec) },
-		"colorFor":  colorFor,
-		"inkFor":    inkFor,
-		"icon":      iconHTML,
-		"sentryDSN": func() string { return sentry.publicDSN() },
-		"sentryEnv": func() string { return sentry.environment },
-		"release":   func() string { return "paratrack@" + assetVersion },
+		"pathesc":      url.PathEscape,
+		"fmtDurL":      func(lang string, sec int) string { return fmtDurL(i18n.Lang(lang), sec) },
+		"inkFor":       inkFor,
+		"activityMark": activityMark,
+		"icon":         iconHTML,
+		"sentryDSN":    func() string { return sentry.publicDSN() },
+		"sentryEnv":    func() string { return sentry.environment },
+		"release":      func() string { return "paratrack@" + assetVersion },
 	}
 }
 

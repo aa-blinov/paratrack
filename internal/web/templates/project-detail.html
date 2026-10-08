@@ -86,7 +86,7 @@
             <ul class="space-y-1">
               {{range .Activities}}
                 <li class="flex items-center gap-2 text-sm min-w-0">
-                  <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{colorFor .Name}}"></span>
+                  <span class="inline-block w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{activityMark .Color .Name}}"></span>
                   <span class="truncate min-w-0">{{.Name}}</span>
                   {{if .Archived}}<span class="badge badge-ghost badge-xs">{{.T "projects.archivedBadge"}}</span>{{end}}
                 </li>

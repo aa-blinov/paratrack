@@ -2,10 +2,12 @@ package db
 
 import (
 	"errors"
-	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -139,5 +141,107 @@ func TestCreateActivity_TrimsAndKeepsCase(t *testing.T) {
 	y, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "вёрстка"})
 	if x.ID != y.ID || y.Name != "Вёрстка" {
 		t.Errorf("Cyrillic case: %d/%q vs %d/%q", x.ID, x.Name, y.ID, y.Name)
+	}
+}
+
+// An activity's mark used to be hashed from its name into ten slots, so a
+// workspace with more than ten activities gave two of them the same colour
+// and the dot stopped meaning anything. Colours are stored now, and a new
+// activity must not repeat one the workspace already wears.
+func TestActivityColorsDoNotRepeatWithinWorkspace(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	team := seedTeam(t, d, "Colour owner", "colour-owner")
+	owner := teamOwner(t, d, team)
+	names := []string{"reading", "writing", "coding", "review", "planning",
+		"standup", "retrospective", "design", "testing", "release"}
+	var ids []int64
+	for _, name := range names {
+		activity, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{
+			TeamID: team, CallerID: owner, Name: name})
+		if err != nil {
+			t.Fatalf("create %q: %v", name, err)
+		}
+		if strings.TrimSpace(activity.Color) == "" {
+			t.Fatalf("%q was created without a colour", name)
+		}
+		ids = append(ids, activity.ID)
+	}
+	seen := map[string]string{}
+	for _, id := range ids {
+		var color string
+		if err := d.TestSQL().QueryRowContext(ctx,
+			`SELECT color FROM activities WHERE id = ?`, id).Scan(&color); err != nil {
+			t.Fatalf("read colour: %v", err)
+		}
+		if other, clash := seen[color]; clash {
+			t.Errorf("activities %q and id %d share %s — the mark identifies nothing", other, id, color)
+		}
+		seen[color] = fmt.Sprint(id)
+	}
+	if len(seen) != len(names) {
+		t.Errorf("expected %d distinct colours, got %d", len(names), len(seen))
+	}
+}
+
+// Before the migration every row has no colour, and the hash gives several of
+// them the same one. The backfill has to leave the workspace with as many
+// distinct marks as the palette allows — and it has to do it without moving
+// the activities whose mark was already unambiguous.
+func TestActivityColorBackfillSeparatesCollidingRows(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	team := seedTeam(t, d, "Backfill owner", "backfill-owner")
+	names := []string{"reading", "writing", "coding", "review", "planning",
+		"standup", "retrospective", "design", "testing", "release", "billing", "onboarding"}
+	for _, name := range names {
+		if _, err := d.TestSQL().ExecContext(ctx,
+			`INSERT INTO activities (name, name_key, team_id, created_at, updated_at)
+			 VALUES (?, ?, ?, '2026-01-01T00:00:00.000', '2026-01-01T00:00:00.000')`,
+			name, strings.ToLower(name), team); err != nil {
+			t.Fatalf("seed %q: %v", name, err)
+		}
+	}
+	// How many collided before the backfill ran.
+	before := map[string]int{}
+	for _, name := range names {
+		before[model.ColorForName(name)]++
+	}
+	shared := 0
+	for _, n := range before {
+		if n > 1 {
+			shared++
+		}
+	}
+	if shared == 0 {
+		t.Skip("this sample happens to hash to distinct slots; nothing to separate")
+	}
+	if err := d.migrateActivityColors(ctx); err != nil {
+		t.Fatalf("backfill: %v", err)
+	}
+	after := map[string]int{}
+	rows, err := d.TestSQL().QueryContext(ctx, `SELECT color FROM activities WHERE team_id = ?`, team)
+	if err != nil {
+		t.Fatalf("read colours: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var color string
+		if err := rows.Scan(&color); err != nil {
+			t.Fatalf("scan colour: %v", err)
+		}
+		after[color]++
+	}
+	// The palette is the ceiling, and it is the honest one: measured, more
+	// colours stop being tellable apart long before they stop repeating. So
+	// the backfill's promise is that every slot is used, not that there are
+	// more marks than the palette has.
+	want := min(len(names), len(model.Palette))
+	if len(after) != want {
+		t.Errorf("expected %d distinct marks for %d activities over a %d-colour palette, got %d",
+			want, len(names), len(model.Palette), len(after))
+	}
+	if len(after) <= shared {
+		t.Errorf("the backfill separated nothing: %d distinct slots before, %d after", shared+1, len(after))
 	}
 }

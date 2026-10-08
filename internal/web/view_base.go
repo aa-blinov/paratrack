@@ -131,7 +131,7 @@ func activityViews(activities []model.Activity, lang string) []activityView {
 	for _, activity := range activities {
 		views = append(views, activityView{
 			ID: activity.ID, Name: activity.Name, ProjectID: activity.ProjectID,
-			Color:    colorFor(activity.Name),
+			Color:    activityMark(activity.Color, activity.Name),
 			Archived: activity.Archived, Lang: lang,
 		})
 	}

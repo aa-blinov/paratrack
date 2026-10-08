@@ -301,6 +301,10 @@ type TrackingQueries interface {
 	Activity(context.Context, int64, int64) (model.Activity, error)
 	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 	FindActivity(context.Context, appmodel.ActivityNameQuery) (model.Activity, error)
+	// ListActivities carries each activity's stored mark, so views that
+	// aggregate by name can resolve colours without threading ids through
+	// every aggregation query.
+	ListActivities(context.Context, int64, bool) ([]model.Activity, error)
 	HasAnySession(context.Context, int64) (bool, error)
 	Session(context.Context, int64, int64) (model.Session, error)
 	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error)

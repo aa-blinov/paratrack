@@ -3,73 +3,75 @@ package web
 import (
 	"strings"
 	"testing"
+
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-func TestColorForDeterministic(t *testing.T) {
+func TestActivityColorForNameDeterministic(t *testing.T) {
 	for _, name := range []string{"reading", "WORK", "deep-work", "morning routine", ""} {
-		if got := colorFor(name); got != colorFor(name) {
-			t.Errorf("colorFor(%q) not deterministic: %q vs %q", name, got, colorFor(name))
+		if got := model.ColorForName(name); got != model.ColorForName(name) {
+			t.Errorf("model.ColorForName(%q) not deterministic: %q vs %q", name, got, model.ColorForName(name))
 		}
 	}
 }
 
-func TestColorForCaseInsensitive(t *testing.T) {
+func TestActivityColorForNameCaseInsensitive(t *testing.T) {
 	// Same activity in different cases → same colour.
 	cases := []string{"Reading", "READING", "readING", "reading"}
-	first := colorFor(cases[0])
+	first := model.ColorForName(cases[0])
 	for _, n := range cases[1:] {
-		if got := colorFor(n); got != first {
-			t.Errorf("colorFor(%q) = %q, want %q", n, got, first)
+		if got := model.ColorForName(n); got != first {
+			t.Errorf("model.ColorForName(%q) = %q, want %q", n, got, first)
 		}
 	}
 }
 
-func TestColorForTrimsWhitespace(t *testing.T) {
+func TestActivityColorForNameTrimsWhitespace(t *testing.T) {
 	// Surrounding whitespace must not shift the hash slot.
-	if a, b := colorFor("reading"), colorFor("  reading\n"); a != b {
+	if a, b := model.ColorForName("reading"), model.ColorForName("  reading\n"); a != b {
 		t.Errorf("whitespace shifts the colour: %q vs %q", a, b)
 	}
 }
 
-func TestColorForInPalette(t *testing.T) {
+func TestActivityColorForNameInPalette(t *testing.T) {
 	for _, name := range []string{
 		"reading", "work", "writing", "exercise", "coding",
 		"study", "deep-work", "morning", "evening", "lunch",
 		"side-project", "1-on-1", "responding-to-slem",
 	} {
-		got := colorFor(name)
+		got := model.ColorForName(name)
 		ok := false
-		for _, p := range palette {
+		for _, p := range model.Palette {
 			if got == p {
 				ok = true
 				break
 			}
 		}
 		if !ok {
-			t.Errorf("colorFor(%q) = %q, not in palette", name, got)
+			t.Errorf("model.ColorForName(%q) = %q, not in model.Palette", name, got)
 		}
 	}
 }
 
-func TestColorForDistributes(t *testing.T) {
+func TestActivityColorForNameDistributes(t *testing.T) {
 	// A handful of unrelated names should not collapse onto one slot,
 	// otherwise the per-activity coding collapses to one colour.
 	seen := map[string]bool{}
 	for _, n := range []string{"reading", "work", "writing", "exercise", "coding"} {
-		seen[colorFor(n)] = true
+		seen[model.ColorForName(n)] = true
 	}
 	if len(seen) < 3 {
 		t.Errorf("expected ≥3 distinct colours across 5 names, got %d", len(seen))
 	}
 }
 
-func TestColorForNoPureRed(t *testing.T) {
+func TestActivityColorForNameNoPureRed(t *testing.T) {
 	// The pure destructive-action red is reserved for Stop / Delete —
 	// a name must never land on a Stop-button red.
 	const destructiveRed = "#e11d48"
 	for _, name := range []string{"reading", "work", "writing", "exercise", "coding", "deep-work"} {
-		if got := colorFor(name); strings.EqualFold(got, destructiveRed) {
-			t.Errorf("colorFor(%q) = %q, must avoid destructive-action red", name, got)
+		if got := model.ColorForName(name); strings.EqualFold(got, destructiveRed) {
+			t.Errorf("model.ColorForName(%q) = %q, must avoid destructive-action red", name, got)
 		}
 	}
 }
@@ -89,7 +91,7 @@ func TestNextProjectColorSkipsWhatIsTaken(t *testing.T) {
 		used = append(used, got)
 	}
 	if len(seen) != len(projectPalette) {
-		t.Errorf("expected the whole palette once, got %d distinct of %d", len(seen), len(projectPalette))
+		t.Errorf("expected the whole model.Palette once, got %d distinct of %d", len(seen), len(projectPalette))
 	}
 }
 
@@ -101,8 +103,8 @@ func TestNextProjectColorIgnoresCaseAndSpace(t *testing.T) {
 }
 
 func TestNextProjectColorWraps(t *testing.T) {
-	// Past the palette the wheel turns over. That is the honest limit of a
-	// fixed palette — it must not panic or return nothing.
+	// Past the model.Palette the wheel turns over. That is the honest limit of a
+	// fixed model.Palette — it must not panic or return nothing.
 	all := append([]string(nil), projectPalette...)
 	if got := nextProjectColor(all); got != projectPalette[0] {
 		t.Errorf("with every colour taken, want %q, got %q", projectPalette[0], got)

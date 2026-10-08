@@ -82,7 +82,7 @@ func buildDashboardData(r *http.Request, now time.Time, snapshot appmodel.Dashbo
 
 	// Goal progress is optional dashboard decoration; failed goal reads have
 	// already been represented by an empty Goals slice in the workflow result.
-	data.Goals = toGoalViews(snapshot.Goals, langValue)
+	data.Goals = toGoalViews(snapshot.Goals, langValue, activityColorsFromActivities(snapshot.Activities))
 	for i := range data.Goals {
 		data.Goals[i].Lang = lang
 		data.Goals[i].PeriodRangeLabel = periodRangeLabel(data.Goals[i].Period, langValue)
