@@ -549,13 +549,11 @@
    a grid that fits. */
 @media (max-width: 68.75rem) {
   #paratrack-react-root .ts-day-list { display: grid; }
-  #paratrack-react-root .ts-week-grid-card,
-  #paratrack-react-root .ts-scroll-hint { display: none; }
+  #paratrack-react-root .ts-week-grid-card { display: none; }
 }
 @media (min-width: 68.75rem) {
   #paratrack-react-root .ts-day-list { display: none; }
   #paratrack-react-root .ts-week-grid-card { display: block; }
-  #paratrack-react-root .ts-scroll-hint { display: block; }
 }
 
 /* The running-timer bar already lives above the tab bar, and it owns «Стоп».
@@ -617,4 +615,16 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 #paratrack-react-root [data-slot="card"] [data-slot="card"] + [data-slot="card"],
 #paratrack-react-root [data-slot="card"] [data-slot="card"]:not(:first-of-type) {
   border-top: 1px solid var(--border);
+}
+
+/* ------------------------------------------------------------------ */
+/* Prose has a measure; a ledger cell does not                          */
+/* ------------------------------------------------------------------ */
+/* The column runs 1152px on a wide screen, and prose left to fill it
+   lands at 158 characters — past the 45–75 a reader can hold. Prose is
+   capped; table cells, grid columns and lists are left alone, because a
+   name in a cell is not a reading line. A short label never reaches the
+   cap, so nothing that fits is affected. */
+@media (min-width: 48rem) {
+  #paratrack-react-root .app-shell-main p:not(td p, th p) { max-width: 50ch; }
 }
