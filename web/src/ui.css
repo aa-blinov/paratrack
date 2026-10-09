@@ -649,3 +649,42 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 #paratrack-react-root .app-shell-main .text-center p {
   margin-inline: auto;
 }
+
+/* The goal form kept its four columns at xl with fixed rem widths, and rem
+   grows with the user's font size: at 200% text two 10rem columns ate the
+   width and the activity column collapsed to zero, hiding its label. The
+   three side columns now size to their content and the activity column
+   takes whatever is left, so the row never overflows — at large text it
+   gets narrower instead of disappearing. */
+#paratrack-react-root .goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: .75rem;
+}
+
+/* The activity field leads and the two narrow inputs follow, the way they
+   read on a wide screen. Flex rather than a fixed-column grid, because a
+   grid cannot wrap: at 200% text the four columns no longer fit and the
+   activity field was left 9px wide with its label on top of its
+   placeholder. Here they simply move to the next row. */
+#paratrack-react-root .goal-form > div {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+#paratrack-react-root .goal-form > div:first-child {
+  flex: 2 1 14rem;
+}
+#paratrack-react-root .goal-form > button {
+  flex: 0 0 auto;
+}
+
+/* Same failure one screen over: the active-timer form split into a fixed
+   12rem label column and a flexible one. At 200% text the label column grew
+   with rem and crowded the field out. The label column now sizes to its
+   content and the field takes the rest; below sm it stays a single column. */
+@media (min-width: 40rem) {
+  #paratrack-react-root .ledger-split {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+}

@@ -71,7 +71,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.goals")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "goals.blurbFull")}{!data.CanManage && ` ${t(lang, "goals.managersSet")}`}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {data.CanManage && <DisclosureSection title={t(lang, "goals.new")} defaultOpen={!goals.length}>
-      <form onSubmit={submit} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_10rem_10rem_auto] sm:items-end" aria-busy={busy}>
+      <form onSubmit={submit} className="goal-form" aria-busy={busy}>
         <div className="space-y-2"><Label htmlFor="goal-activity">{t(lang, "dash.activity")}</Label><Input id="goal-activity" name="activity" list="goal-activities" placeholder={t(lang, "ph.activity")} required /><datalist id="goal-activities">{data.Activities.map(activity => <option key={activity.ID} value={activity.Name} />)}</datalist></div>
         <div className="space-y-2"><Label htmlFor="goal-period">{t(lang, "goals.period")}</Label><Select value={period} onValueChange={setPeriod}><SelectTrigger id="goal-period"><SelectValue /></SelectTrigger><SelectContent>{(["daily", "weekly", "monthly"] as const).map(item => <SelectItem key={item} value={item}>{t(lang, `goals.${item}`)}</SelectItem>)}</SelectContent></Select></div>
         <div className="space-y-2"><Label htmlFor="goal-minutes">{t(lang, "goals.minutes")}</Label><Input id="goal-minutes" name="minutes" type="number" min="1" max="10000" required placeholder="120" /></div>
