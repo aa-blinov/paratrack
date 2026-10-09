@@ -130,15 +130,23 @@ jobs:
       - name: go test
         run: |
           go_packages="$(scripts/go-packages.sh)"
-          go test -race -count=1 -p 1 $go_packages
+          # -p 8, not -p 1: every test that touches the database creates its
+          # own schema and points search_path at it (internal/testutil/db.go),
+          # so packages do not collide and can run concurrently. Measured on
+          # this tree: 693s serial vs 333s at -p 8, same 60 packages, no
+          # failures and no data races either way.
+          go test -race -count=1 -p 8 $go_packages
 
       - name: Coverage
-        run: go test -cover -p 1 ./internal/db ./internal/web ./internal/timeparse
+        run: go test -cover -p 8 ./internal/db ./internal/web ./internal/timeparse
 
   e2e:
     name: Playwright E2E
     runs-on: ubuntu-24.04
-    needs: [ui, architecture, unit]
+    # Not waiting on `unit`: this job builds the UI and the server itself, so
+    # the only thing gating it was the test suite's runtime. Running the two
+    # at once takes the two minutes back without weakening anything.
+    needs: [ui, architecture]
     services:
       postgres:
         image: postgres:17-alpine
