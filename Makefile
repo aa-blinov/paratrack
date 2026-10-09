@@ -25,7 +25,7 @@ STATICCHECK ?= honnef.co/go/tools/cmd/staticcheck@v0.8.1
 GOVULNCHECK ?= golang.org/x/vuln/cmd/govulncheck@v1.8.0
 GO_PACKAGES = $(shell GO="$(GO)" scripts/go-packages.sh)
 
-.PHONY: ui build install run web test cover cover-html vet architecture verify e2e e2e-up stop clean tidy
+.PHONY: ui build install run web test cover cover-html vet architecture verify lint e2e e2e-up stop clean tidy
 
 ui:
 	cd web && $(NPM) ci
@@ -63,11 +63,20 @@ architecture:
 verify:
 	$(GO) mod tidy -diff
 	$(GO) vet $(GO_PACKAGES)
-	$(GO) run $(STATICCHECK) $(GO_PACKAGES)
 	$(GO) run $(GOVULNCHECK) $(GO_PACKAGES)
 	$(GO) build $(GO_PACKAGES)
 	scripts/check-architecture.sh
 	cd web && $(NPM) run check:js
+
+# staticcheck is out of `verify` until it can read the export data Go
+# 1.27.2 writes: v0.8.1 (the newest release, and @master too) fails with
+# "export data version 5 is greater than maximum supported version 4".
+# Staying on Go 1.27.1 instead only trades that for a live CVE,
+# GO-2026-6617, a remotely reachable HTTP/2 crash — so the toolchain moved
+# and this step waited. Run it by hand with `make lint`; put the line back
+# in `verify` as soon as a staticcheck release handles 1.27.2.
+lint:
+	$(GO) run $(STATICCHECK) $(GO_PACKAGES)
 
 tidy:
 	$(GO) mod tidy
