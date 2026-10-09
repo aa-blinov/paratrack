@@ -11,6 +11,7 @@
 #   make verify       run static, security, architecture and JS checks (no tests)
 #   make e2e          Playwright suite (requires a running server on :8888)
 #   make e2e-up       start the server in the background, then run e2e
+#   make qa           preferred: throwaway DB + server + suite + teardown, one command
 #   make clean        remove built binary + temporary server log
 #   make tidy         go mod tidy
 #
@@ -25,7 +26,7 @@ STATICCHECK ?= honnef.co/go/tools/cmd/staticcheck@v0.8.1
 GOVULNCHECK ?= golang.org/x/vuln/cmd/govulncheck@v1.8.0
 GO_PACKAGES = $(shell GO="$(GO)" scripts/go-packages.sh)
 
-.PHONY: ui build install run web test cover cover-html vet architecture verify lint e2e e2e-up stop clean tidy
+.PHONY: ui build install run web test cover cover-html vet architecture verify lint e2e e2e-up qa stop clean tidy
 
 ui:
 	cd web && $(NPM) ci
@@ -102,6 +103,13 @@ stop:
 	else \
 	  pkill -f "paratrack web --addr $(ADDR)"; \
 	fi
+
+# One command, nothing left behind: a throwaway Postgres, a server built from
+# the working tree, the Playwright suite, then a teardown that happens whether
+# the run passed, failed or was interrupted. Use this rather than e2e-up,
+# which needs a server and a database prepared by hand.
+qa:
+	@scripts/qa-env.sh cycle
 
 clean:
 	rm -f $(BIN) $(SERVER_LOG) /tmp/paratrack.pid
