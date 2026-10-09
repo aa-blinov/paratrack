@@ -15,7 +15,7 @@ export function ProjectList({ data }: { data: ProjectListData }) {
           <h1 className="text-2xl font-semibold tracking-tight">{t(data.Lang, "nav.projects")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t(data.Lang, "projects.blurb")}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline" size="sm">
             <a href={archivedURL}>{t(data.Lang, data.ShowArchived ? "projects.hideArchived" : "projects.showArchived")}</a>
           </Button>
