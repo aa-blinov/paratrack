@@ -637,3 +637,15 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 #paratrack-react-root .app-shell-main p:not(td p, th p, [role="alert"], [role="status"]) {
   max-width: 50ch;
 }
+
+/* text-align: centre moves the glyphs inside the block, not the block
+   itself. A capped paragraph inside a centred container therefore sits
+   pinned to the left while its text looks centred — measured on the empty
+   dashboard: the box centred at x=565 inside a card whose centre is 848.
+   Centring the box as well keeps the cap and the alignment in agreement.
+   Left-aligned prose is untouched: for a block at full width, auto inline
+   margins compute to zero. */
+#paratrack-react-root .app-shell-main p.text-center,
+#paratrack-react-root .app-shell-main .text-center p {
+  margin-inline: auto;
+}
