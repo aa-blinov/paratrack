@@ -208,8 +208,13 @@ def main() -> int:
         pg.wait_for_load_state("load")
         open_disclosures(pg, "#report-save-name")
         pg.fill("#report-save-name", "QA yesterday")
-        pg.locator('form[action="/api/reports/save"] button').click()
-        pg.wait_for_timeout(1200)
+        # Wait for the POST itself, not for a fixed sleep. A 1200ms wait was
+        # enough on a warm box and too short on a loaded one, which left the
+        # chip check racing the save.
+        with pg.expect_response(lambda r: "/api/reports/save" in r.url) as saved:
+            pg.locator('form[action="/api/reports/save"] button').click()
+        check("saved report accepted", saved.value.status < 400, f"status={saved.value.status}")
+        pg.wait_for_load_state("load")
         # Saving stays on statistics; the list has one home, the reports screen
         # that the nav entry already opens.
         pg.goto(BASE + "/reports")
