@@ -669,7 +669,10 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
    activity field was left 9px wide with its label on top of its
    placeholder. Here they simply move to the next row. */
 #paratrack-react-root .goal-form > div {
-  flex: 1 1 10rem;
+  /* The two narrow inputs keep their size; the activity field is the one
+     that should absorb the slack. Growing all three evenly made them
+     226px each while the activity field shrank from 487 to 356. */
+  flex: 0 1 10rem;
   min-width: 0;
 }
 #paratrack-react-root .goal-form > div:first-child {
