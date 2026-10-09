@@ -618,13 +618,22 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 }
 
 /* ------------------------------------------------------------------ */
-/* Prose has a measure; a ledger cell does not                          */
+/* Prose has a measure; a box does not                                  */
 /* ------------------------------------------------------------------ */
 /* The column runs 1152px on a wide screen, and prose left to fill it
    lands at 158 characters — past the 45–75 a reader can hold. Prose is
    capped; table cells, grid columns and lists are left alone, because a
    name in a cell is not a reading line. A short label never reaches the
-   cap, so nothing that fits is affected. */
-@media (min-width: 48rem) {
-  #paratrack-react-root .app-shell-main p:not(td p, th p) { max-width: 50ch; }
+   cap, so nothing that fits is affected.
+
+   No media query: max-width never sets a width. A phone column is about
+   343px, well under the cap, so the rule is inert there and the measure
+   does not switch on and off at some width.
+
+   role="alert" and role="status" are excluded because those paragraphs
+   are boxes — they carry a border and a background — and a box that
+   stops at 445px inside a 1120px column reads as cut off, not as prose.
+   Every bordered paragraph in the app has one of those two roles. */
+#paratrack-react-root .app-shell-main p:not(td p, th p, [role="alert"], [role="status"]) {
+  max-width: 50ch;
 }

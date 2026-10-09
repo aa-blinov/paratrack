@@ -157,7 +157,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
       <p className="text-sm text-muted-foreground">{t(lang, data.CanManage ? "sch.hint" : "sch.hintMember")}</p>
     </> : <Card><CardContent className="py-7 text-center">
       <p className="font-medium">{t(lang, "sch.empty")}</p>
-      <p className="mx-auto mt-1 max-w-prose text-sm text-muted-foreground">{data.CanManage ? t(lang, "sch.emptyHint") : t(lang, "sch.emptyMember")}</p>
+      <p className="mx-auto mt-1 text-sm text-muted-foreground">{data.CanManage ? t(lang, "sch.emptyHint") : t(lang, "sch.emptyMember")}</p>
       {data.CanManage && <Button asChild size="sm" className="mt-4"><a href="/projects/new"><Plus aria-hidden="true" />{t(lang, "sch.emptyCta")}</a></Button>}
     </CardContent></Card>}
   </main>
