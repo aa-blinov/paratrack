@@ -44,6 +44,18 @@ wait_for_port() {
 	return 1
 }
 
+# An open port is not a ready database: postgres accepts TCP while it is still
+# running initdb, and the first schema apply then dies on a reset connection.
+wait_for_pg() {
+	for _ in $(seq 150); do
+		if docker exec "$QA_NAME-pg" pg_isready -U t -d qa >/dev/null 2>&1; then
+			return 0
+		fi
+		sleep 0.2
+	done
+	return 1
+}
+
 cmd_up() {
 	cmd_down >/dev/null 2>&1 || true
 
@@ -60,6 +72,7 @@ cmd_up() {
 		-e POSTGRES_USER=t -e POSTGRES_PASSWORD=t -e POSTGRES_DB=qa \
 		-p "127.0.0.1:$QA_DB_PORT:5432" postgres:17-alpine >/dev/null
 
+	wait_for_pg || fail "postgres did not become ready on $QA_DB_PORT"
 	wait_for_port "$QA_DB_PORT" 150 || fail "postgres did not accept connections on $QA_DB_PORT"
 
 	log "building server from the working tree"
