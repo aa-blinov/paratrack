@@ -233,7 +233,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
           <p id="activity-required" role="alert" className="text-sm text-destructive">{activityRequired ? t(lang, "dash.activityRequired") : ""}</p>
           <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
             <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
-            <div className="mt-3 grid gap-3 sm:grid-cols-[12rem_minmax(0,1fr)]">
+            <div className="ledger-split grid mt-3 gap-3">
               <div className="grid gap-2"><Label htmlFor="project_id">{labels.project}</Label>
             <Select value={project || "none"} onValueChange={value => { setProject(value === "none" ? "" : value); const known = activities.find(item => item.Name.toLocaleLowerCase() === activity.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (value === "none" ? "0" : value))) }}>
               <SelectTrigger id="project_id" aria-label={labels.project} data-value={project || "0"}><SelectValue placeholder={labels.project} /></SelectTrigger>
