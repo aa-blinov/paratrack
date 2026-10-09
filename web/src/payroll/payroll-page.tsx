@@ -18,7 +18,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
   const lang = data.Lang
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     {data.Flash && <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground max-w-[50ch]">{t(lang, "pay.blurb")}</p></div><Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button></header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></div><Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button></header>
 
     {!!data.Overlap && <div role="alert" className="flex flex-wrap items-start gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
       <span className="min-w-0 flex-1">{t(lang, "pay.overlap", data.Overlap)}</span>
@@ -39,7 +39,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </TableRow>)}</TableBody>
       </Table>
       </div>
-    </CardContent></Card> : <p className="text-sm text-muted-foreground max-w-[50ch]">{t(lang, "pay.emptyHint")}</p>}
+    </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "pay.emptyHint")}</p>}
     <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
