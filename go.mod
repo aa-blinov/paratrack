@@ -1,6 +1,6 @@
 module github.com/aa-blinov/paratrack
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
