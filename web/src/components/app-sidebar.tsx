@@ -165,7 +165,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
   return <Sidebar collapsible="icon" variant="sidebar">
     <SidebarHeader className="gap-3 p-3">
       <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight" aria-label="paratrack">
-        <span className="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="size-4" aria-hidden="true" /></span>
+        <span className="flex size-7 items-center justify-center rounded-md bg-brand text-brand-foreground"><Activity className="size-4" aria-hidden="true" /></span>
         <span className="text-base group-data-[collapsible=icon]:hidden">paratrack</span>
       </a>
       {shell.team && (shell.userTeams.length < 2
