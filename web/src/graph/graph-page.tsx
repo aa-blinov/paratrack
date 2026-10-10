@@ -50,7 +50,7 @@ export function GraphPage({ data }: { data: GraphData }) {
 
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "graph.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.pageBlurb")}</p></header>
-    <a href={`/stats${queryFor(data)}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "nav.stats")}</a>
+    <a href={`/stats${queryFor(data)}`} className="inline-flex items-center gap-1 py-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "nav.stats")}</a>
 
     <nav aria-label={t(lang, "goals.period")} className="period-tabs flex flex-wrap gap-1 rounded-lg border bg-card p-1">
       {periods.map(period => <Button key={period} asChild size="sm" variant={data.Period.Label === period ? "secondary" : "ghost"} aria-current={data.Period.Label === period ? "page" : undefined}>
