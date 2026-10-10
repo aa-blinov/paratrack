@@ -241,7 +241,7 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	subj, ev := invoiceEmail(lang, vm, seller)
-	msg, err := s.buildEmail(to, subj, ev, mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
+	msg, err := s.buildEmail(r, to, subj, ev, mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
 	if err != nil {
 		s.logInternalError(err)
 		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))

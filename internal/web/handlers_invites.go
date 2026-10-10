@@ -24,7 +24,7 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 	if to := strings.TrimSpace(r.FormValue("email")); to != "" {
 		if _, err := netmail.ParseAddress(to); err == nil && mailport.Available(s.runtime.Mailer) {
 			subj, ev := inviteEmail(lang, user.Name, team.Name, link)
-			if msg, err := s.buildEmail(to, subj, ev); err == nil && s.deliverPostcommit(r.Context(), msg) == nil {
+			if msg, err := s.buildEmail(r, to, subj, ev); err == nil && s.deliverPostcommit(r.Context(), msg) == nil {
 				redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteMailed")+" "+to+".", link)
 				return
 			}
