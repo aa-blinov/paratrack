@@ -59,7 +59,7 @@ func (s *Server) handleAPIPasswordForgot(w http.ResponseWriter, r *http.Request)
 		base := s.publicBaseURL(r)
 		link := base + "/reset-password?token=" + url.QueryEscape(token)
 		subj, ev := resetEmail(resolveLang(r), user.Name, user.Email, link, humanTTL(resolveLang(r), appmodel.ResetTTL))
-		msg, err := s.buildEmail(user.Email, subj, ev)
+		msg, err := s.buildEmail(r, user.Email, subj, ev)
 		if err != nil {
 			s.logger.Printf("password recovery: build reset email: %v", err)
 		} else if err := s.deliverPostcommit(r.Context(), msg); err != nil {

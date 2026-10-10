@@ -16,6 +16,7 @@ import (
 // clients and emailText for plain ones (both carry the same content).
 type emailVM struct {
 	Lang        string
+	LogoURL     string // hosted mark, so the letter carries the same sign as the app
 	Preheader   string // inbox preview line
 	Heading     string
 	Paras       []string
@@ -36,7 +37,12 @@ type emailFact struct {
 	Mono       bool
 }
 
-func (s *Server) buildEmail(to, subject string, vm emailVM, files ...mailport.Attachment) (mailport.Message, error) {
+func (s *Server) buildEmail(r *http.Request, to, subject string, vm emailVM, files ...mailport.Attachment) (mailport.Message, error) {
+	// A relative image URL does not resolve in a mail client, so the mark is
+	// absolutised here where the deployment's own base URL is known.
+	if vm.LogoURL != "" {
+		vm.LogoURL = s.publicBaseURL(r) + vm.LogoURL
+	}
 	html, err := s.executeTemplate("email", vm)
 	if err != nil {
 		return mailport.Message{}, err
@@ -97,6 +103,7 @@ func invoiceEmail(lang i18n.Lang, vm invoiceVM, seller string) (string, emailVM)
 	subj := T("inv.invoice") + " " + vm.Number + ", " + seller
 	ev := emailVM{
 		Lang:        string(lang),
+		LogoURL:     "/static/icon192.png",
 		Preheader:   fmt.Sprintf(T("mail.inv.pre"), vm.Number, vm.Total),
 		Heading:     T("inv.invoice") + " " + vm.Number,
 		Paras:       []string{T("mail.inv.hello"), fmt.Sprintf(T("mail.inv.body"), seller)},
@@ -124,6 +131,7 @@ func resetEmail(lang i18n.Lang, name, email, link, ttl string) (string, emailVM)
 	T := func(k string) string { return i18n.T(lang, k) }
 	return T("mail.reset.subject"), emailVM{
 		Lang:        string(lang),
+		LogoURL:     "/static/icon192.png",
 		Preheader:   T("mail.reset.pre"),
 		Heading:     T("mail.reset.heading"),
 		Paras:       []string{fmt.Sprintf(T("mail.hi"), name), fmt.Sprintf(T("mail.reset.body"), email)},
@@ -137,6 +145,7 @@ func inviteEmail(lang i18n.Lang, inviter, team, link string) (string, emailVM) {
 	T := func(k string) string { return i18n.T(lang, k) }
 	return fmt.Sprintf(T("mail.invite.subject"), team), emailVM{
 		Lang:        string(lang),
+		LogoURL:     "/static/icon192.png",
 		Preheader:   fmt.Sprintf(T("mail.invite.pre"), inviter, team),
 		Heading:     fmt.Sprintf(T("mail.invite.heading"), team),
 		Paras:       []string{fmt.Sprintf(T("mail.invite.body"), inviter, team), T("mail.invite.what")},
