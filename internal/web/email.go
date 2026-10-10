@@ -161,7 +161,11 @@ func (s *Server) handleEmailPreview(w http.ResponseWriter, r *http.Request) {
 		_, ev = invoiceEmail(lang, invoiceVM{
 			Number: "INV-2026-001", PeriodLabel: "1 сен 2026 – 27 сен 2026", Hours: fmtHoursL(lang, 350),
 			Total: moneyL(lang, 875175, "RUB"), ClientName: "ООО «Ромашка»", VATNote: "НДС не облагается (УСН)",
-			PaymentURL: "https://pay.example.ru/inv-2026-001",
+			// The real link comes from the invoice's own payment field, which the
+			// person setting up the invoice fills in. The preview points at this
+			// deployment like the reset and invite previews do — pay.example.ru
+			// was a dead third-party domain and made the sample look broken.
+			PaymentURL: s.publicBaseURL(r) + "/invoices/INV-2026-001",
 		}, "Анна Фрилансер")
 	}
 	if r.URL.Query().Get("text") == "1" {

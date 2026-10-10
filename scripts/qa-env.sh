@@ -33,8 +33,15 @@ fail() { printf '\033[31m%s\033[0m\n' "$*" >&2; exit 1; }
 # Wait for a TCP port to answer, or give up. Sleeps are the usual reason a
 # stand gets half-started: the first request lands before the listener exists.
 wait_for_port() {
-	local port=$1 tries=${2:-100}
+	local port=$1 pid=$2 tries=${3:-100}
 	for _ in $(seq "$tries"); do
+		# The port being open is not proof that *our* server is on it: a
+		# leftover process from an earlier run answers just as well, and the
+		# stand then silently serves stale code. Check the port and our own
+		# process together.
+		if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then
+			return 2
+		fi
 		if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
 			exec 3<&- 3>&-
 			return 0
@@ -73,7 +80,7 @@ cmd_up() {
 		-p "127.0.0.1:$QA_DB_PORT:5432" postgres:17-alpine >/dev/null
 
 	wait_for_pg || fail "postgres did not become ready on $QA_DB_PORT"
-	wait_for_port "$QA_DB_PORT" 150 || fail "postgres did not accept connections on $QA_DB_PORT"
+	wait_for_port "$QA_DB_PORT" "" 150 || fail "postgres did not accept connections on $QA_DB_PORT"
 
 	log "building server from the working tree"
 	go build -o "/tmp/$QA_NAME-server" ./cmd/paratrack
@@ -84,7 +91,13 @@ cmd_up() {
 		>"/tmp/$QA_NAME.log" 2>&1 &
 	server_pid=$!
 
-	wait_for_port "$QA_PORT" 100 || { tail -20 "/tmp/$QA_NAME.log" >&2; fail "stand did not start on $QA_PORT"; }
+	wait_for_port "$QA_PORT" "$server_pid" 100
+	case $? in
+	0) ;;
+	2) tail -20 "/tmp/$QA_NAME.log" >&2
+		fail "the server exited during startup — see /tmp/$QA_NAME.log" ;;
+	*) fail "nothing is listening on $QA_PORT — see /tmp/$QA_NAME.log" ;;
+	esac
 
 	cat >"$STATE" <<EOF
 QA_NAME=$QA_NAME
