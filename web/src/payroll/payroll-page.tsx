@@ -11,7 +11,9 @@ import { translate as t } from "@/i18n"
 import type { PayrollData, PayrollDetailData } from "@/dashboard/types"
 
 function Status({ lang, status }: { lang: string; status: string }) {
-  return <Badge variant={status === "paid" ? "default" : "secondary"} className={`doc-status is-${status}`}>{t(lang, `status.${status}`)}</Badge>
+  // Same reason as the invoice status: the colour belongs to the role in
+  // ui.css, so the variant must not paint a background of its own.
+  return <Badge variant="secondary" className={`doc-status is-${status}`}>{t(lang, `status.${status}`)}</Badge>
 }
 
 export function PayrollPage({ data }: { data: PayrollData }) {

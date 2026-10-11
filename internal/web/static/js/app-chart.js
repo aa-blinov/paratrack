@@ -65,6 +65,39 @@ document.addEventListener('alpine:init', () => {
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
     })[char]);
     const cssVar = (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+    // A bar is painted on a canvas, where var() resolves to nothing, so a
+    // series has to be handed a literal colour. The Go palette still decides
+    // *which* colour an activity wears — that mapping is the product's
+    // memory — but the paint comes from the interface tokens, so a bar is
+    // the same mark as the dot beside the same activity and follows the
+    // theme instead of sitting outside it.
+    //
+    // Measured: before this, the ten --activity-* tokens did not exist, the
+    // graph painted raw hex from the server, and the legend dot in React
+    // painted the same hex inline — two places deciding colour, one of them
+    // unable to see the theme at all.
+    const ACTIVITY_TOKENS = [
+      '--activity-1', '--activity-2', '--activity-3', '--activity-4', '--activity-5',
+      '--activity-6', '--activity-7', '--activity-8', '--activity-9', '--activity-10',
+    ];
+    const PALETTE_HEX = [
+      '#6366f1', '#0ea5e9', '#14b8a6', '#10b981', '#84cc16',
+      '#d97706', '#f97316', '#8b5cf6', '#a855f7', '#ec4899',
+    ];
+    const seriesColor = (hex) => {
+      // Only a hex may be painted. This value is interpolated into an inline
+      // `background:` in the tooltip, so anything else has to fall back —
+      // measured: the escaping test caught 'red;position:absolute' reaching
+      // the style attribute when this guard was missing.
+      const wanted = typeof hex === 'string' && /^#[0-9a-f]{3,8}$/i.test(hex.trim())
+        ? hex.trim().toLowerCase()
+        : '';
+      if (!wanted) return 'currentColor';
+      const index = PALETTE_HEX.findIndex(p => p === wanted);
+      if (index < 0) return wanted;
+      return cssVar(ACTIVITY_TOKENS[index]) || wanted;
+    };
     let chart;
     const build = () => {
       const old = echarts.getInstanceByDom(canvas);
@@ -85,8 +118,8 @@ document.addEventListener('alpine:init', () => {
             if (!ps || !ps.length) return '';
             const minuteUnit = durationUnits()[1];
             const rows = ps.filter(p => p.value > 0).map(p => {
-              const color = typeof p.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(p.color) ? p.color : 'currentColor';
-              return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + color + ';margin-right:6px"></span>' +
+              const mark = seriesColor(p.color);
+              return '<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:' + mark + ';margin-right:6px"></span>' +
                 escapeHTML(p.seriesName) + ': <b>' + p.value + minuteUnit + '</b>';
             });
             const total = ps.reduce((a, p) => a + (p.value || 0), 0);
@@ -134,7 +167,7 @@ document.addEventListener('alpine:init', () => {
           type: 'bar',
           stack: 'hour',
           data: hiddenSeries.has(index) ? s.data.map(() => 0) : s.data,
-          itemStyle: { color: s.color, borderRadius: [4, 4, 0, 0], borderColor: cssVar('--color-base-100') || '#fff', borderWidth: 0.5 },
+          itemStyle: { color: seriesColor(s.color), borderRadius: [4, 4, 0, 0], borderColor: cssVar('--color-base-100') || '#fff', borderWidth: 0.5 },
           barMaxWidth: 22,
           barCategoryGap: '28%',
           emphasis: { focus: 'series' },

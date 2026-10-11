@@ -698,8 +698,17 @@ def main() -> int:
         # The duration PATCH closes a running session; a second stop would
         # correctly return "already stopped".
         new_sid = page.locator(f'#active-list [data-session-id]:has-text("{activity_name}")').get_attribute("data-session-id")
+        # Pin the start inside today's own day. It used to be "20 minutes ago",
+        # which lands in yesterday whenever the suite runs in the first 20
+        # minutes after midnight: the session then falls outside period=today,
+        # the graph below renders its empty state and has no canvas at all.
+        # Measured on a run at 00:10 — reproduced on an unmodified tree, so
+        # the suite had a time-of-day dependency, not a product bug.
         started_at = page.evaluate("""() => {
-            const d = new Date(Date.now() - 20 * 60 * 1000);
+            const now = new Date();
+            // Midnight plus 10 minutes, so the stamp is early in the day and
+            // still before "now" whatever hour the suite starts at.
+            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 10, 0);
             const pad = n => String(n).padStart(2, '0');
             return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
         }""")

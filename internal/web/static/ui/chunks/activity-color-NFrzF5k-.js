@@ -1,0 +1,1 @@
+var e=[`#6366f1`,`#0ea5e9`,`#14b8a6`,`#10b981`,`#84cc16`,`#d97706`,`#f97316`,`#8b5cf6`,`#a855f7`,`#ec4899`];function t(t){let n=String(t??``).trim().toLowerCase(),r=e.indexOf(n);return r<0?null:`var(--activity-${r+1})`}function n(e){let n=typeof e==`string`?e.trim().toLowerCase():``;return/^#[0-9a-f]{3,8}$/.test(n)?t(n)??n:``}export{n as t};
