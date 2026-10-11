@@ -265,7 +265,7 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, token string) {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSiteFor(r),
 		MaxAge:   int(appmodel.SessionTTL.Seconds()),
 		Secure:   isSecureRequest(r),
 	})
@@ -290,7 +290,7 @@ func setTeamCookie(w http.ResponseWriter, r *http.Request, teamID int64) {
 		Value:    intToString(teamID),
 		Path:     "/",
 		HttpOnly: true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSiteFor(r),
 		MaxAge:   int(appmodel.SessionTTL.Seconds()),
 		Secure:   isSecureRequest(r),
 	})
