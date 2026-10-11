@@ -17,6 +17,7 @@ import (
 // with a dynamic name, so we render the page-specific block into a
 // buffer first and pass the safe HTML into the layout.
 type pageData struct {
+	AppVersion    string // stamped at build time, shown in the footer
 	Title         string
 	Active        string
 	ContentHTML   template.HTML
@@ -56,6 +57,7 @@ type teamView struct {
 // reactShellData is the deliberately small server-to-browser contract for
 // the shared React application chrome.
 type reactShellData struct {
+	AppVersion  string          `json:"appVersion"`
 	Title       string          `json:"title"`
 	Active      string          `json:"active"`
 	User        *shellUserView  `json:"user"`

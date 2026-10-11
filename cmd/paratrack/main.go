@@ -22,6 +22,15 @@ import (
 	"github.com/aa-blinov/paratrack/internal/web"
 )
 
+// Version is stamped at build time:
+//
+//	make build VERSION=0.0.1
+//
+// It used to live only in the translation dictionary, which meant the
+// version in the footer could not be trusted: nothing tied it to the binary
+// that was actually running.
+var Version = "dev"
+
 func main() {
 	location, err := loadCLITimezone()
 	if err != nil {
