@@ -1152,5 +1152,9 @@
   "inv.roundNone": "to 0.01 h per line",
   "inv.roundNearest": "to %d min per line",
   "inv.roundUp": "up to %d min per line",
-  "inv.roundDown": "down to %d min per line"
+  "inv.roundDown": "down to %d min per line",
+  "int.confirmDisconnect": "Disconnect the integration? The link stops working and its history cannot be recovered.",
+  "rep.confirmDelete": "Delete this saved report?",
+  "tok.confirmRevoke": "Revoke this token? Anything using it stops working.",
+  "hook.confirmDelete": "Delete this webhook? Events will stop arriving."
 }
