@@ -18,6 +18,9 @@ func TestNewProjectLeadsToTimeTrackingWithProjectSelected(t *testing.T) {
 	created := e.do("POST", "/projects/new", url.Values{"name": {"Client work"}, "rate": {"1500"}}, nil)
 	projectURL := created.Header.Get("Location")
 	created.Body.Close()
+	// The redirect carries the "created" confirmation in its query, like every
+	// other successful write in the app; the detail page is what matters
+	// here, so the query is allowed for.
 	if !strings.HasPrefix(projectURL, "/projects/") {
 		t.Fatalf("project creation did not open its detail: %q", projectURL)
 	}
