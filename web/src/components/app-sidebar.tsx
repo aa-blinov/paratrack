@@ -1,7 +1,7 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Download, Flag, Folder, Languages, Link2, LogOut, Settings, Tag, Users, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
-import { Button } from "@/components/ui/button"
+import { Button, sidebarRow } from "@/components/ui/button"
 import {
   Sidebar,
   SidebarContent,
@@ -200,7 +200,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           </span>
         </div>
       )}
-      <Button asChild variant="ghost" size="sm" className="h-8 w-full justify-start gap-2 rounded-md px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center" title={t(shell.lang, "nav.language")}>
+      <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}>
         <a onClick={() => setOpenMobile(false)} href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`}>
           <Languages className="size-4" aria-hidden="true" />
           <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "nav.language")}</span>
@@ -215,7 +215,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           </div>
           <form method="post" action="/api/logout">
             <input type="hidden" name="csrf_token" value={shell.csrfToken} />
-            <Button type="submit" variant="ghost" size="sm" className="h-8 w-full justify-start gap-2 rounded-md px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center" title={t(shell.lang, "nav.logout")}>
+            <Button type="submit" variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.logout")}>
               <LogOut className="size-4" aria-hidden="true" />
               <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "nav.logout")}</span>
             </Button>
