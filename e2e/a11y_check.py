@@ -28,6 +28,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).parent))
 from target import BASE_URL as BASE  # noqa: E402
+from browser import engine_name, launch
 from color_audit import contrast, over, parse, register, seed  # noqa: E402
 
 ROUTES = [
@@ -49,14 +50,28 @@ JS = """
     const d = x.getImageData(0, 0, 1, 1).data;
     return [d[0], d[1], d[2], d[3] / 255];
   };
+  // Composite the background down the tree instead of stopping at the first
+  // opaque layer. Skipping a translucent one is wrong: the button's own
+  // `hover:bg-primary/80` is 80% opaque, so a walk that requires alpha > 0.9
+  // walks straight past it, lands on the white card, and reports white text on
+  // a white background at 1.04:1 — a finding that never existed. Measured in
+  // Firefox with the pointer resting on the button; Chromium reported the same
+  // element fully opaque and stayed silent about a real defect.
   const bgOf = el => {
+    const layers = [];
     let n = el;
     while (n && n !== document.documentElement) {
       const c = px(getComputedStyle(n).backgroundColor);
-      if (c[3] > 0.9) return c;
+      if (c[3] > 0) layers.push(c);
+      if (c[3] >= 0.999) break;
       n = n.parentElement;
     }
-    return px(getComputedStyle(document.body).backgroundColor);
+    let out = px(getComputedStyle(document.body).backgroundColor);
+    for (let i = layers.length - 1; i >= 0; i--) {
+      const [r, g, b, a] = layers[i];
+      out = [r * a + out[0] * (1 - a), g * a + out[1] * (1 - a), b * a + out[2] * (1 - a), 1];
+    }
+    return out;
   };
   const root = document.getElementById('paratrack-react-root');
   const text = [], controls = [], names = [];
@@ -119,7 +134,7 @@ JS = """
 def main() -> int:
     text_fails, control_fails, name_fails = [], [], []
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = launch(p)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         register(page)
         seed(page)
@@ -150,7 +165,11 @@ def main() -> int:
                         large = item["size"] >= 24 or (item["size"] >= 18.66 and item["weight"] >= 700)
                         need = 3.0 if large else 4.5
                         if ratio + 0.005 < need:
-                            text_fails.append((round(ratio, 2), need, theme, where, item["what"]))
+                            # Keep the raw pair: a contrast number without the
+                            # colours it came from cannot be checked by whoever
+                            # reads the report.
+                            text_fails.append((round(ratio, 2), need, theme, where,
+                                                item["what"], item["fg"], item["bg"]))
                     for item in res["controls"]:
                         bc = parse(item["border"]); bg = parse(item["bg"])
                         if not bc or not bg:
@@ -165,6 +184,7 @@ def main() -> int:
     print(f"text below AA:      {len(text_fails)}")
     for f in text_fails[:15]:
         print(f"   {f[0]}:1 (need {f[1]}) {f[2]} {f[3]} {f[4]!r}")
+        print(f"        fg={f[5]} on bg={f[6]}")
     print(f"control edge < 3:1: {len(control_fails)}")
     seen = set()
     for f in control_fails:

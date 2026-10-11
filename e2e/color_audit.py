@@ -27,6 +27,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).parent))
 from target import BASE_URL as BASE  # noqa: E402
+from browser import engine_name, launch
 
 OUT = Path(os.environ.get("PARATRACK_AUDIT_OUT", "/tmp/color-audit"))
 OUT.mkdir(parents=True, exist_ok=True)
@@ -376,7 +377,7 @@ def register(page):
 def main() -> int:
     report = {"base": BASE, "themes": {}}
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = launch(p)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         register(page)
         seed(page)

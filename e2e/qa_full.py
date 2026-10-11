@@ -11,6 +11,7 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 from target import BASE_URL as BASE
+from browser import launch
 
 OUT = Path(__file__).parent / "screenshots" / "qa"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -70,7 +71,7 @@ def main() -> int:
     ts = f"{time.time():.0f}"
     email = f"qa-{ts}@x.test"
     with sync_playwright() as p:
-        br = p.chromium.launch()
+        br = launch(p)
         ctx = br.new_context(viewport={"width": 1280, "height": 900}, device_scale_factor=2, locale="en-US")
         pg = ctx.new_page()
         pg.on("console", lambda m: console_errors.append(f"{m.type}: {m.text}") if m.type == "error" else None)
@@ -80,7 +81,15 @@ def main() -> int:
         # ---------- A. Auth ----------
         print("== A. Auth")
         # --- default locale is Russian (no cookie, no Accept-Language) ---
-        anon = br.new_context(viewport={"width": 1280, "height": 800})
+        # "No Accept-Language" has to be stated, not assumed. Chromium's
+        # Playwright build omitted the header and the check passed; Firefox
+        # sent en-US and a visitor correctly got English — which is the app
+        # behaving properly, not a defect. Pinning the header empty makes the
+        # precondition real in every engine.
+        anon = br.new_context(
+            viewport={"width": 1280, "height": 800},
+            extra_http_headers={"Accept-Language": ""},
+        )
         apg = anon.new_page()
         apg.goto(BASE + "/login", wait_until="networkidle")
         html_lang = apg.evaluate("() => document.documentElement.lang")
