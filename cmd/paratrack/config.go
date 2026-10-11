@@ -181,6 +181,7 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 		},
 		web: web.Config{
 			Logger:          logger,
+			AppVersion:      Version,
 			Now:             now,
 			PublicURL:       publicURL,
 			OIDCEnabled:     oidcConfig.Issuer != "" && oidcConfig.ClientID != "",

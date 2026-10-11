@@ -46,6 +46,7 @@ func (d RuntimeDependencies) Close() {
 // this immutable snapshot instead of consulting environment variables.
 type Config struct {
 	Logger          *log.Logger
+	AppVersion      string // stamped at build time; shown in the footer
 	Now             func() time.Time
 	OIDCEnabled     bool
 	PublicURL       string
