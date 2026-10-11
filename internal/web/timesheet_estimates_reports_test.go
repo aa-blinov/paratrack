@@ -184,7 +184,7 @@ func TestReportHeadingNamesTheCoveredDays(t *testing.T) {
 	resp.Body.Close()
 
 	// `to` in the query is the last day the person asked for, and the handler
-// turns it into an exclusive bound before building. The heading used to print
+	// turns it into an exclusive bound before building. The heading used to print
 	// that bound, so asking for 1–11 October produced a document headed
 	// "1 October – 12 October" over data that stopped on the 11th — in the
 	// document a freelancer sends to a client.
