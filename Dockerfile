@@ -31,7 +31,11 @@ RUN apk add --no-cache postgresql17 postgresql17-contrib >/dev/null \
  && mkdir -p /run/postgresql /tmp/pg && chown postgres /run/postgresql /tmp/pg \
  && su postgres -c "initdb -D /tmp/pg -U t --auth=trust >/dev/null && pg_ctl -D /tmp/pg -o '-h 127.0.0.1' -w -l /tmp/pg.log start >/dev/null" \
  && PARATRACK_TEST_PG='postgres://t@127.0.0.1:5432/postgres?sslmode=disable' go test -p 1 ./...
-RUN go build -trimpath -ldflags="-s -w" -o /out/paratrack ./cmd/paratrack
+# VERSION is stamped so the footer shows the build that is actually running.
+# It used to live in the translation dictionary, where nothing tied it to
+# this binary.
+ARG VERSION=dev
+RUN go build -trimpath -ldflags="-s -w -X main.Version=${VERSION}" -o /out/paratrack ./cmd/paratrack
 
 FROM alpine:3.20
 RUN apk add --no-cache ca-certificates tzdata
