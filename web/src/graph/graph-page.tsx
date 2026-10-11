@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
 import type { GraphData } from "@/dashboard/types"
+import { activityColor } from "@/lib/activity-color"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"] as const
 
@@ -98,7 +99,7 @@ export function GraphPage({ data }: { data: GraphData }) {
 
     {canShowGraph && <Card><CardHeader><CardTitle>{t(lang, "graph.legend")}</CardTitle></CardHeader><CardContent><div className="flex flex-wrap gap-2" id="legend-chips">
       {data.Chart.legend.map((item, index) => <Button variant="ghost" key={`${item.name}:${index}`} type="button" className="legend-chip inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-sm hover:bg-muted" data-series-index={index} aria-pressed="true" title={t(lang, "graph.toggleSeries", item.name)}>
-        <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: item.color }} /><span className="truncate">{item.name}</span>
+        <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: activityColor(item.color) }} /><span className="truncate">{item.name}</span>
       </Button>)}
     </div></CardContent></Card>}
   </main>

@@ -16,7 +16,11 @@ import { translate as t } from "@/i18n"
 import type { InvoiceDetailData, InvoicesData } from "@/dashboard/types"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
-  return <Badge variant={status === "paid" ? "default" : "secondary"} className={`doc-status is-${status}`}>{t(lang, `status.${status}`)}</Badge>
+  // The badge variant stays neutral on purpose: `variant` paints a utility
+  // background that outranks the role styles in ui.css, and a paid invoice
+  // measured as a near-black pill because of exactly that. The word stays,
+  // the colour comes from .doc-status.
+  return <Badge variant="secondary" className={`doc-status is-${status}`}>{t(lang, `status.${status}`)}</Badge>
 }
 
 function InvoiceFlash({ data }: { data: { Flash: string; FlashOK: boolean } }) {
