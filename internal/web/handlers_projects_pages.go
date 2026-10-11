@@ -109,6 +109,12 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := s.buildProjectDetailPage(r, snapshot)
+	// This page never read a flash before. Creating redirects here, so the
+	// "created" confirmation had nowhere to render: the query arrived and was
+	// dropped. Every other page that redirects to itself reads it.
+	if flash := r.URL.Query().Get("flash"); flash != "" {
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
+	}
 	s.renderPageForRequest(w, r, data.Title, "projects", "project-detail", &data)
 }
 
@@ -201,7 +207,16 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/projects/"+p.Slug, http.StatusSeeOther)
+	// Errors have always flashed here; success went silent, so a person who
+	// created a project could not tell a saved one from a failed one.
+	//
+	// The flash travels as a code, not as text — every other flash does this,
+	// and it is not a convention for tidiness: http.Redirect percent-encodes
+	// non-ASCII but leaves a raw space, and a space in the query makes the
+	// request 400. Measured: passing the Russian message directly produced
+	// "/projects/client-work?flash=%d0%9f…%20%d1%81…" and a 400 Bad Request.
+	// A code is ASCII, and the page translates it in the reader's language.
+	http.Redirect(w, r, "/projects/"+p.Slug+"?flash="+encodeFlash(true, "project_created"), http.StatusSeeOther)
 }
 
 // handleProjectUpdateForm — POST /projects/{slug} (rename / color / archive).

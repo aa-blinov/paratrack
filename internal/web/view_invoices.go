@@ -15,6 +15,13 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		return invoicesPage{}, fmt.Errorf("build invoice index: %w", err)
 	}
 	lang := string(resolveLang(r))
+	// Money the workspace is owed. A client says "we paid 50 000" and the
+	// only way to answer is to add up what is still sent and unpaid — which
+	// the list could not do, because every row carried its own amount and
+	// nothing carried the sum. Grouped by currency the same way reports do,
+	// so a workspace invoicing in two currencies does not get one wrong total.
+	outstanding := map[string]int{}
+	paid := map[string]int{}
 	data := invoicesPage{
 		pageData:      pageData{Title: "Invoices", Active: "invoices", Lang: lang, ReactApp: true},
 		InvoicesReact: true,
@@ -24,6 +31,12 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 	}
 	for _, item := range snapshot.Invoices {
 		inv := item.Invoice
+		switch inv.Status {
+		case "paid":
+			paid[inv.Currency] += item.TotalCents
+		case "sent":
+			outstanding[inv.Currency] += item.TotalCents
+		}
 		data.Items = append(data.Items, invoiceSummary{
 			ID: inv.ID, Number: inv.Number, Client: inv.ClientName, Status: inv.Status,
 			Total: moneyL(resolveLang(r), item.TotalCents, inv.Currency),
@@ -32,6 +45,9 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
 		})
 	}
+	data.Outstanding = moneyByCurrency(resolveLang(r), outstanding)
+	data.Paid = moneyByCurrency(resolveLang(r), paid)
+	data.HasOutstanding = len(outstanding) > 0
 	if settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r)); err == nil {
 		data.RoundMinutes, data.RoundMode = settings.Billing.RoundMinutes, settings.Billing.RoundMode
 	}
