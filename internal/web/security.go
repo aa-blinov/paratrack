@@ -65,7 +65,7 @@ func issueCSRF(w http.ResponseWriter, r *http.Request) string {
 		Value:    token,
 		Path:     "/",
 		HttpOnly: false, // JS must read it for hx-headers
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSiteFor(r),
 		MaxAge:   int(appmodel.SessionTTL.Seconds()),
 		Secure:   r != nil && isSecureRequest(r),
 	})

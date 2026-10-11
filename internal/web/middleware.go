@@ -283,7 +283,8 @@ func clearSessionCookie(w http.ResponseWriter) {
 }
 
 // setTeamCookie remembers the user's chosen team across requests.
-// SameSite=Lax so it still flows on top-level navigations.
+// Attributes follow sameSiteFor: this cookie decides which team is current
+// and has to arrive with every request, not only top-level navigations.
 func setTeamCookie(w http.ResponseWriter, r *http.Request, teamID int64) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     teamCookieName,
