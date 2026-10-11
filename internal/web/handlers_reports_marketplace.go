@@ -75,11 +75,22 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		})
 	}
 
+	// `to` is the exclusive end of the window: the builder receives it as-is
+	// and the exported `To` below already steps back from it. The heading is
+	// the one place that had not — it printed the boundary itself, so a run
+	// for 1–11 October read "1 October – 12 October" over data that stopped
+	// on the 11th. A report is the document a freelancer sends a client, so
+	// the heading has to name the days the rows actually cover.
+	//
+	// The last covered day is derived once and used for both the heading and
+	// the `To` field, so the two cannot drift apart again.
+	lastDay := to.Add(-time.Second)
+
 	return reportVM{
 		Template:    tpl,
-		PeriodLabel: fmtDate(resolveLang(r), from) + " – " + fmtDate(resolveLang(r), to),
+		PeriodLabel: fmtDate(resolveLang(r), from) + " – " + fmtDate(resolveLang(r), lastDay),
 		From:        from.Format("2006-01-02"),
-		To:          to.Add(-time.Second).Format("2006-01-02"),
+		To:          lastDay.Format("2006-01-02"),
 		Rows:        rows,
 		Total:       reportHours(r, tpl.Billable, result.TotalSeconds),
 		TotalSecs:   result.TotalSeconds,

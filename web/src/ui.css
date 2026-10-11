@@ -86,7 +86,13 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  /* The boundary of a form control, not a divider. WCAG 1.4.11 asks 3:1 for
+     the edge you have to see in order to identify a control; a divider only
+     has to separate, so --border stays pale on purpose. Measured at the old
+     value: #e5e5e5 on white is 1.26:1 — the field was identifiable by its
+     label and its focus ring, but its edge itself was nearly invisible.
+     0.66 is rgb(146,146,146), 3.11:1 against the card. */
+  --input: oklch(0.66 0 0);
   --ring: oklch(0.55 0.16 284);
   /* The activity palette as tokens. These ten are the same hues the Go
      palette has always handed out (#6366f1 … #ec4899) — same name, same
@@ -157,7 +163,10 @@
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
+  /* 3:1 against the dark card, same requirement as the light theme. The old
+     15% white measured 1.57:1. 0.51 is rgb(102,102,102), 3.12:1 on the
+     oklch(0.205) card. */
+  --input: oklch(0.51 0 0);
   --ring: oklch(0.68 0.14 284);
   /* Same ten identities, lifted for a near-black background. Measured: the
      light theme's #6366f1 sits at L≈0.585 and #0ea5e9 at L≈0.68 — on a
