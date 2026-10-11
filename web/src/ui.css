@@ -718,6 +718,31 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 /* ------------------------------------------------------------------ */
 /* Material 3 motion: one easing for the whole phone shell             */
 /* ------------------------------------------------------------------ */
+/* Motion scale.
+   One duration everywhere is not the goal — it is the usual mistake. The
+   duration should follow the size of what changed, which is what Material 3
+   says and what the body of this app already half-did: measured before this
+   block, every transition was 0.15s (Tailwind's default, so unnamed and
+   accidental), the select entered at 0.1s and the sheet at 0.2s. Nothing
+   recorded why, so the next element had no guidance and invented its own.
+
+   Three steps, used by size of change:
+     quick    — colour, opacity, hover, press. Small affordances.
+     base     — a panel arriving or leaving: dropdown, tooltip, menu, sheet.
+     thorough — a container moving: the sidebar opening and closing.
+   Anything that does not fit these three is not a duration problem, it is
+   usually a layout problem (see the sidebar: it animates width, not layout).
+
+   Skeletons are a loop, not a transition, so they keep their own period —
+   `loop` — and share the curve with everything else. */
+:root {
+  --motion-quick: 150ms;
+  --motion-base: 250ms;
+  --motion-thorough: 400ms;
+  --motion-loop: 1.6s;
+}
+
+/* ------------------------------------------------------------------ */
 /* Every transition used to run on the Material 2 curve, inherited from
    the component defaults rather than chosen here. Timing function only —
    durations stay where each component set them, because they were tuned
@@ -737,6 +762,19 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
     transition-timing-function: var(--m3-easing-emphasized);
     animation-timing-function: var(--m3-easing-emphasized);
   }
+}
+
+/* A skeleton that pulses is telling you content is coming. Under reduced
+   motion it becomes a still placeholder, which says the same thing without
+   moving. */
+@media (prefers-reduced-motion: no-preference) {
+  #paratrack-react-root [data-slot="skeleton"] {
+    animation: skeleton-breathe var(--motion-loop) var(--m3-easing-emphasized) infinite;
+  }
+}
+@keyframes skeleton-breathe {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
 }
 
 /* ------------------------------------------------------------------ */
