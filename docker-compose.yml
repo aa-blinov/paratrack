@@ -12,7 +12,11 @@ x-logging: &logging
 
 services:
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Stamped into the binary; the footer shows what is actually running.
+        VERSION: ${PARATRACK_VERSION:-dev}
     image: paratrack:latest
     container_name: paratrack
     restart: unless-stopped
