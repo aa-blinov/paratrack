@@ -32,8 +32,13 @@ ui:
 	cd web && $(NPM) ci
 	cd web && $(NPM) run build
 
+# VERSION is stamped into the binary so the footer shows what is actually
+# running. Override for a release:  make build VERSION=0.0.1
+VERSION ?= dev
+LDFLAGS := -X main.Version=$(VERSION)
+
 build: ui
-	$(GO) build -o $(BIN) ./cmd/paratrack
+	$(GO) build -ldflags "$(LDFLAGS)" -o $(BIN) ./cmd/paratrack
 
 install:
 	$(GO) install ./cmd/paratrack

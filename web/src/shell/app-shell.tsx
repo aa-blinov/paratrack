@@ -14,7 +14,7 @@ import { translate as t } from "@/i18n"
 type ShellUser = { id: number; name: string; email: string } | null
 type ShellTeam = { id: number; name: string } | null
 type ShellTeamMembership = { id: number; name: string; role: string }
-export type AppShellData = { title: string; active: string; user: ShellUser; team: ShellTeam; userTeams: ShellTeamMembership[]; requestPath: string; csrfToken: string; lang: string; canManage: boolean; mods: Record<string, boolean> | null; tabs: ShellNavItem[] }
+export type AppShellData = { title: string; active: string; user: ShellUser; team: ShellTeam; userTeams: ShellTeamMembership[]; requestPath: string; csrfToken: string; lang: string; canManage: boolean; mods: Record<string, boolean> | null; tabs: ShellNavItem[]; appVersion: string }
 function ThemeControl({ shell }: { shell: AppShellData }) {
   const [mode, setMode] = useState(() => document.documentElement.dataset.themeMode || "auto")
   const labelKey = mode === "light" ? "theme.light" : mode === "dark" ? "theme.dark" : "theme.auto"
@@ -123,7 +123,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
       </header>}
       <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
       {shell.user && <MobileNav shell={shell} />}
-      {shell.user && <footer className="app-shell-footer"><span>{t(shell.lang, "version")}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
+      {shell.user && <footer className="app-shell-footer"><span>{shell.appVersion}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
     </div>
   </SidebarProvider></TooltipProvider>
 }

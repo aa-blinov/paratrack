@@ -25,6 +25,7 @@ import (
 // Server is the HTTP front-end for paratrack.
 type Server struct {
 	config      Config
+	appVersion  string
 	sentry      sentryState
 	services    Dependencies
 	runtime     RuntimeDependencies
@@ -94,13 +95,14 @@ func New(services Dependencies, addr string, config Config, runtime RuntimeDepen
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
 	s := &Server{
-		config:   config,
-		sentry:   sentry,
-		services: serviceGraph,
-		runtime:  runtime,
-		logger:   config.Logger,
-		addr:     addr,
-		tmpl:     tmpl,
+		config:     config,
+		appVersion: config.AppVersion,
+		sentry:     sentry,
+		services:   serviceGraph,
+		runtime:    runtime,
+		logger:     config.Logger,
+		addr:       addr,
+		tmpl:       tmpl,
 	}
 	handler := s.routes()
 	if sentry.hub != nil {
