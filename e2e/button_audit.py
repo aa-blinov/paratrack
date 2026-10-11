@@ -24,6 +24,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, str(Path(__file__).parent))
 from target import BASE_URL as BASE  # noqa: E402
+from browser import engine_name, launch
 from color_audit import open_disclosures, register, seed  # noqa: E402
 
 OUT = Path(os.environ.get("PARATRACK_BTN_OUT", "/tmp/button-audit"))
@@ -79,7 +80,7 @@ def shape(item):
 def main() -> int:
     findings = defaultdict(list)
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        browser = launch(p)
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         register(page)
         seed(page)

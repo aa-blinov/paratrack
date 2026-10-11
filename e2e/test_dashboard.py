@@ -21,6 +21,7 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from target import BASE_URL as BASE
+from browser import engine_name, launch, new_context_kwargs
 
 SCREENSHOTS = Path(os.environ.get("PARATRACK_SCREENSHOTS", Path(__file__).parent / "screenshots"))
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
@@ -111,7 +112,7 @@ def main() -> int:
     with sync_playwright() as p:
         # Real desktop viewport, with prefers-color-scheme = light by default
         # so we can exercise the theme toggle visually.
-        browser = p.chromium.launch()
+        browser = launch(p)
         context = browser.new_context(
             viewport={"width": 1280, "height": 900},
             color_scheme="light",
@@ -270,10 +271,13 @@ def main() -> int:
         sheet_trigger.click()
         page.keyboard.press("Escape")
         expect(sheet).not_to_be_visible()
-        touch_context = browser.new_context(
+        # is_mobile/has_touch exist only in Chromium; Firefox and WebKit reject
+        # the options outright, so a cross-engine run would die on the option
+        # rather than on a finding.
+        touch_context = browser.new_context(**new_context_kwargs(
             viewport={"width": 390, "height": 650}, is_mobile=True,
             has_touch=True, storage_state=context.storage_state(),
-        )
+        ))
         touch_page = touch_context.new_page()
         touch_page.goto(BASE + "/")
         touch_bar = touch_page.locator('[data-mobile-nav]')
