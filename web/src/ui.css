@@ -722,12 +722,20 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
    the component defaults rather than chosen here. Timing function only —
    durations stay where each component set them, because they were tuned
    per element; changing them blind would move the app, not fix it.
-   Scoped away from `prefers-reduced-motion`, which must stay instant. */
+   Scoped away from `prefers-reduced-motion`, which must stay instant.
+
+   `animation-timing-function` rides along with it. It is a different CSS
+   property from `transition-timing-function`, and setting only the latter
+   left the entrance animations on tw-animate-css's fallback `ease` — so a
+   tooltip appeared on one curve while the button beside it pressed on
+   another. Measured: `var(--tw-ease,ease)` in the bundle against
+   cubic-bezier(0.2,0,0,1) everywhere else. One curve for the app. */
 @media (prefers-reduced-motion: no-preference) {
   #paratrack-react-root *,
   #paratrack-react-root *::before,
   #paratrack-react-root *::after {
     transition-timing-function: var(--m3-easing-emphasized);
+    animation-timing-function: var(--m3-easing-emphasized);
   }
 }
 
