@@ -21,15 +21,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
@@ -41,8 +34,6 @@
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) * 1.4);
-  --radius-2xl: calc(var(--radius) * 1.8);
-  --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
@@ -67,15 +58,17 @@
   color-scheme: light;
   /* Material 3 motion. The app was running the Material 2 curve —
      cubic-bezier(0.4, 0, 0.2, 1) — through every transition, inherited from
-     the component defaults. M3 replaced it with emphasized easing and named
-     durations; both are tokens now, so one value changes the whole app. */
-  --m3-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+     the component defaults. M3 replaced it with emphasized easing, which is
+     a token so one value changes the whole app.
+
+     M3's other named curves and durations were here too — standard,
+     emphasized-decelerate, emphasized-accelerate, short4/medium2/long2.
+     They are gone: measured, nothing referenced them, because the one rule
+     that sets motion (the block at the foot of this file) needs a single
+     timing function, not seven. Duration stayed per component, tuned where
+     the element is. Keeping unused tokens is how a token set stops
+     describing anything. */
   --m3-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
-  --m3-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
-  --m3-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
-  --m3-duration-short4: 200ms;
-  --m3-duration-medium2: 300ms;
-  --m3-duration-long2: 500ms;
   --radius: 0.625rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -95,17 +88,17 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.55 0.16 284);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
   /* The activity palette as tokens. These ten are the same hues the Go
      palette has always handed out (#6366f1 … #ec4899) — same name, same
      mark, so a person who learned them on the dashboard still recognises
      them on the graph. The colours live here too, because a bar painted on
      a canvas cannot read a var() and would otherwise sit outside the theme.
-     Each pair is tuned for the background it is painted on. */
+     Each pair is tuned for the background it is painted on.
+
+     shadcn's --chart-1..5 went here: the graph has never drawn a series
+     from them, because every series is an activity and takes its mark from
+     this palette instead. Verified against the compiled bundle — no
+     bg-chart-* or text-chart-* utility is emitted at all. */
   --activity-1: #6366f1;
   --activity-2: #0ea5e9;
   --activity-3: #14b8a6;
@@ -135,14 +128,8 @@
      they need to read as a state rather than as missing text. */
   --draft-ink: oklch(0.47 0 0);
   --draft-wash: oklch(0.955 0 0);
-  --status-running: var(--positive);
-  --status-running-on: var(--positive-ink);
-  --status-paused: var(--pending);
-  --status-paused-on: var(--pending-ink);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: var(--brand-foreground);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
@@ -172,11 +159,6 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.68 0.14 284);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
   /* Same ten identities, lifted for a near-black background. Measured: the
      light theme's #6366f1 sits at L≈0.585 and #0ea5e9 at L≈0.68 — on a
      card at L=0.205 the darker one loses its edge, so each mark steps up
@@ -206,14 +188,8 @@
   --pending-wash: oklch(0.30 0.050 78);
   --draft-ink: oklch(0.78 0 0);
   --draft-wash: oklch(0.27 0 0);
-  --status-running: var(--positive);
-  --status-running-on: var(--positive-ink);
-  --status-paused: var(--pending);
-  --status-paused-on: var(--pending-ink);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: var(--brand);
-  --sidebar-primary-foreground: var(--brand-foreground);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
