@@ -20,6 +20,28 @@ results: list[tuple[str, bool, str]] = []
 console_errors: list[str] = []
 
 
+
+def wait_ready(pg, timeout=10000):
+    """Wait for the React app to have actually rendered.
+
+    `wait_for_load_state("load")` only says the document arrived; the tree
+    that `inner_text` then reads is painted a moment later, and how much
+    later depends on the engine. Chromium is quick enough that the reads
+    landed anyway; Firefox and WebKit are not, so the same checks failed
+    there — and with a different set of names on each run.
+
+    This waits for content, not for time. An empty `#paratrack-react-root`
+    is exactly the state that made those reads wrong.
+    """
+    pg.wait_for_function(
+        """() => {
+            const root = document.getElementById('paratrack-react-root');
+            return !!root && root.children.length > 0 && root.innerText.trim().length > 0;
+        }""",
+        timeout=timeout,
+    )
+
+
 def check(name: str, ok: bool, detail: str = "") -> None:
     results.append((name, ok, detail))
     print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
@@ -112,6 +134,7 @@ def main() -> int:
         pg.fill('input[name="email"]', "qa-nobody@x.test")
         pg.click('button[type="submit"]')
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("forgot (anon) accepts", "sent" in pg.url or "on its way" in pg.inner_text("body").lower() or "already" in pg.inner_text("body").lower())
         shot(pg, "a2-forgot")
 
@@ -131,8 +154,6 @@ def main() -> int:
         # The shell routes inside the app, so there is no load event to wait
         # for; wait for the dashboard's own field instead.
         pg.wait_for_timeout(2500)
-        print("DBG2 url", pg.url, "| #activity", pg.locator("#activity").count(),
-              "| h1", pg.locator("h1").all_inner_texts()[:2])
         pg.wait_for_selector("#activity", timeout=10000)
         check("onboarding skipped → dashboard", "/register" not in pg.url and "/welcome" not in pg.url, pg.url)
         check("lang switcher in the shell footer", pg.locator('a[href^="/lang/"]').count() >= 1)
@@ -181,6 +202,7 @@ def main() -> int:
         print("== C. Stats")
         pg.goto(BASE + "/stats?period=yesterday")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         body = pg.inner_text("body")
         check("stats has consulting row", "consulting" in body)
         check("stats 2h 30m", "2h 30m" in body)
@@ -207,6 +229,7 @@ def main() -> int:
         # tag filter
         pg.goto(BASE + "/stats?tag=deep-work&period=yesterday")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         pg.wait_for_timeout(300)
         tb = pg.inner_text("body")
         check("tag filter banner", "filtered by" in tb.lower() or "фильтр" in tb.lower(), tb[:60].replace("\n", " "))
@@ -215,6 +238,7 @@ def main() -> int:
         # saved report
         pg.goto(BASE + "/stats?period=yesterday")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         open_disclosures(pg, "#report-save-name")
         pg.fill("#report-save-name", "QA yesterday")
         # Wait for the POST itself, not for a fixed sleep. A 1200ms wait was
@@ -224,10 +248,12 @@ def main() -> int:
             pg.locator('form[action="/api/reports/save"] button').click()
         check("saved report accepted", saved.value.status < 400, f"status={saved.value.status}")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         # Saving stays on statistics; the list has one home, the reports screen
         # that the nav entry already opens.
         pg.goto(BASE + "/reports")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("saved report chip", pg.locator('a[href*="period=yesterday"]').filter(has_text="QA yesterday").count() >= 1)
         check("reports screen does not link to itself", pg.locator('main a[href="/reports"]').count() == 0)
         shot(pg, "c4-saved-report")
@@ -249,6 +275,7 @@ def main() -> int:
         print("== E. Goals")
         pg.goto(BASE + "/goals")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         open_disclosures(pg, "#goal-activity")
         pg.fill("#goal-activity", "reading")
         # The period is a Radix select now, not a native <select>.
@@ -275,6 +302,7 @@ def main() -> int:
         print("== F. Tags")
         pg.goto(BASE + "/tags")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         pg.fill("#new-tag-name", "qa-tag")
         pg.click('button:has-text("Add")')
         pg.wait_for_timeout(600)
@@ -294,6 +322,7 @@ def main() -> int:
         # confirmation code. Waiting on the bare path would never match.
         pg.wait_for_url(f"**/projects/qa-client-{ts}?flash=*")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("project created", f"qa-client-{ts}" in pg.url)
         check("project creation confirms itself",
               bool(pg.locator('p[role="status"]').filter(has_text="Project created").count()))
@@ -303,6 +332,7 @@ def main() -> int:
         pg.fill("#project-rate", "100")
         pg.locator('#project-settings form[method="POST"] button[type="submit"]').first.click()
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         body = pg.inner_text("body")
         check("estimate card", "planned vs actual" in body.lower() or "план и факт" in body.lower())
         check("rate saved", "100.00" in pg.content() or "10h" in body)
@@ -312,6 +342,7 @@ def main() -> int:
         print("== H. Timesheet")
         pg.goto(BASE + "/timesheet")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("timesheet grid", pg.locator("#ts-body tr").count() >= 1)
         cell = pg.locator('#ts-body input[type="number"]').first
         if cell.count():
@@ -325,6 +356,7 @@ def main() -> int:
         print("== I. Schedule")
         pg.goto(BASE + "/schedule")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("schedule grid", pg.locator('main table tbody tr').count() >= 1)
         scell = pg.locator('main table tbody input[type="number"]').first
         if scell.count():
@@ -405,6 +437,7 @@ def main() -> int:
         if pg.locator('button:has-text("Mark paid")').count():
             pg.locator('button:has-text("Mark paid")').first.click()
             pg.wait_for_load_state("load")
+            wait_ready(pg)
             check("mark paid", "paid" in pg.inner_text("body").lower())
         else:
             check("mark paid", False, "no button")
@@ -438,6 +471,7 @@ def main() -> int:
         print("== L. Reports")
         pg.goto(BASE + "/reports")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("report templates", pg.locator('input[name="id"]').count() >= 5)
         shot(pg, "l1-reports")
         # Report rows come from tracked time, so run them over the window the
@@ -446,6 +480,7 @@ def main() -> int:
         for rid, label in [("by-project", "project"), ("by-activity", "activity"), ("by-day", "day"), ("billable", "billable")]:
             pg.goto(BASE + f"/reports/run?id={rid}{win}")
             pg.wait_for_load_state("load")
+            wait_ready(pg)
             try:  # the shell renders the table only once React paints
                 pg.wait_for_selector("main table", timeout=5000)
             except Exception:
@@ -467,6 +502,7 @@ def main() -> int:
         print("== M. Marketplace / Integrations")
         pg.goto(BASE + "/integrations/marketplace")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         mb = pg.inner_text("body")
         check("marketplace 8+ live", all(x in mb for x in ["GitHub", "GitLab", "Jira", "Trello", "Asana", "ClickUp", "Todoist", "Notion"]))
         check("marketplace coming soon", "coming soon" in mb)
@@ -495,23 +531,28 @@ def main() -> int:
         print("== O. Settings")
         pg.goto(BASE + "/settings/tokens")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         pg.fill('input[name="name"]', "qa-token")
         pg.click('button:has-text("Create token")')
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("API token created", "pt_" in pg.inner_text("body") or "only once" in pg.inner_text("body").lower() or "один раз" in pg.inner_text("body"))
         shot(pg, "o1-tokens")
 
         pg.goto(BASE + "/settings/webhooks")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         pg.fill('input[name="url"]', "https://example.com/qa-hook")
         pg.fill('input[name="secret"]', "shhh")
         pg.click('button:has-text("Add webhook")')
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("webhook added", "example.com/qa-hook" in pg.inner_text("body"))
         shot(pg, "o2-webhooks")
 
         pg.goto(BASE + "/settings/audit")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         wait_app(pg)
         ab = pg.inner_text("body")
         # Audit rows are cards, not a table: each carries its action code as the
@@ -521,6 +562,7 @@ def main() -> int:
 
         pg.goto(BASE + "/settings/team")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         wait_app(pg)
         # The payments block (and its Stripe key field) is a closed disclosure.
         open_disclosures(pg, 'input[name="stripe_key"]')
@@ -530,6 +572,7 @@ def main() -> int:
 
         pg.goto(BASE + "/settings/profile")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         wait_app(pg)
         # Email change and password change both ask for the current password.
         check("current password required",
@@ -541,11 +584,13 @@ def main() -> int:
         print("== P. i18n / theme")
         pg.goto(BASE + "/lang/ru?next=/")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         rb = pg.inner_text("body")
         check("RU dashboard", "Обзор" in rb or "Новая активность" in rb)
         shot(pg, "p1-ru")
         pg.goto(BASE + "/lang/en?next=/")
         pg.wait_for_load_state("load")
+        wait_ready(pg)
         check("EN dashboard", "Dashboard" in pg.inner_text("h1"))
         # The theme control moved into the React shell, which marks it with
         # data-theme-toggle instead of the server-rendered .theme-btn class.
@@ -589,6 +634,7 @@ def main() -> int:
         for path, name in [("/", "s1-mobile-dash"), ("/stats?period=yesterday", "s2-mobile-stats"), ("/invoices", "s3-mobile-invoices")]:
             pg.goto(BASE + path)
             pg.wait_for_load_state("load")
+            wait_ready(pg)
             wait_app(pg)
             over = pg.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
             check(f"mobile no h-overflow {path}", over <= 2, f"over={over}")
