@@ -1,7 +1,7 @@
 import * as React from "react"
 import { useState, type ReactNode } from "react"
 import { Languages, Moon, Sun, SunMoon } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Button, sidebarRow } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { ConfirmationDialog } from "@/components/confirmation-dialog"
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
@@ -28,7 +28,7 @@ function ThemeControl({ shell }: { shell: AppShellData }) {
     document.documentElement.dataset.theme = dark ? "paratrack-dark" : "paratrack-light"
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", dark ? "#090909" : "#ffffff"))
   }
-  return <Button type="button" variant="ghost" size="sm" data-theme-toggle className="h-8 w-full justify-start gap-2 rounded-md px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center" title={`${t(shell.lang, "nav.theme")}: ${t(shell.lang, labelKey)}`} aria-label={`${t(shell.lang, "nav.theme")}: ${t(shell.lang, labelKey)}`} onClick={cycle}>
+  return <Button type="button" variant="ghost" size="sm" data-theme-toggle className={sidebarRow} title={`${t(shell.lang, "nav.theme")}: ${t(shell.lang, labelKey)}`} aria-label={`${t(shell.lang, "nav.theme")}: ${t(shell.lang, labelKey)}`} onClick={cycle}>
     <Icon className="size-4" />
     <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "nav.theme")}</span>
     <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/55">{t(shell.lang, labelKey)}</span>
