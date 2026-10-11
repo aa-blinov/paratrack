@@ -189,6 +189,29 @@ func securityHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// sameSiteFor picks the cookie attribute for the current request.
+//
+// It used to be Lax everywhere. Measured in WebKit — the engine behind
+// Safari and every iPhone — the cookie jar was not attached at all to the
+// POST that submits the onboarding preset: no `Cookie` header on the wire,
+// so the server saw no cookie, minted a fresh CSRF token and compared it
+// against the stale one already rendered into the form. The answer was 403
+// and a new user never got past the welcome screen. Chromium and Firefox
+// sent the cookie and never saw the failure.
+//
+// Lax is right only while the browser is certain the request is same-site.
+// Nothing here needs that certainty: this is a single-origin app, and the
+// token in the form is the actual defence — the cookie is the second factor
+// the server compares against. None is what makes the cookie travel at all.
+// Browsers reject None without Secure, so over plain HTTP (the local stand)
+// this stays Lax, which is why only the HTTPS origin can demonstrate the fix.
+func sameSiteFor(r *http.Request) http.SameSite {
+	if isSecureRequest(r) {
+		return http.SameSiteNoneMode
+	}
+	return http.SameSiteLaxMode
+}
+
 // isSecureRequest reports whether the client spoke TLS directly or via
 // a configured, trusted TLS-terminating proxy that sets X-Forwarded-Proto.
 func isSecureRequest(r *http.Request) bool {
