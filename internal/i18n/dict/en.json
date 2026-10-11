@@ -272,7 +272,7 @@
   "flash.badTeam": "That team doesn't exist (or you're not in it).",
   "flash.sent": "If that address has an account, a reset link is on its way. Check your inbox (and the server log if mail is not configured).",
   "kbd.title": "keyboard",
-  "kbd.new": "new",
+  "kbd.new": "to the activity field",
   "kbd.stats": "stats",
   "kbd.graph": "by hour",
   "kbd.theme": "theme",
@@ -1156,5 +1156,8 @@
   "int.confirmDisconnect": "Disconnect the integration? The link stops working and its history cannot be recovered.",
   "rep.confirmDelete": "Delete this saved report?",
   "tok.confirmRevoke": "Revoke this token? Anything using it stops working.",
-  "hook.confirmDelete": "Delete this webhook? Events will stop arriving."
+  "hook.confirmDelete": "Delete this webhook? Events will stop arriving.",
+  "inv.outstanding": "Outstanding",
+  "flash.projectCreated": "Project created.",
+  "kbd.overview": "overview"
 }

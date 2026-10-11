@@ -396,6 +396,12 @@ export interface InvoicesData {
   Unassigned: Array<{ ID: number; Sessions: number; Name: string; Billed: boolean }>
   DefStart: string
   DefEnd: string
+  // What the client still owes, and what has been collected. Grouped by
+  // currency on the server; HasOutstanding is false when there is nothing
+  // to chase, which is when the total stays hidden.
+  Outstanding: string
+  Paid: string
+  HasOutstanding: boolean
   RoundMinutes: number
   RoundMode: string
   Flash: string
