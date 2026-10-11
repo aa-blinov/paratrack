@@ -105,6 +105,7 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 		}
 	}
 	wrapper := pageData{
+		AppVersion:  s.appVersion,
 		CanManage:   canManage(r),
 		Mods:        mods,
 		Title:       pageTitle(lang, title),
@@ -164,7 +165,7 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 			Title: wrapper.Title, Active: wrapper.Active, User: shellUser,
 			Team: shellTeam, UserTeams: shellTeams, RequestPath: wrapper.RequestPath,
 			CSRFToken: wrapper.CSRFToken, Lang: wrapper.Lang, CanManage: wrapper.CanManage,
-			Mods: wrapper.Mods, Tabs: shellTabs,
+			Mods: wrapper.Mods, Tabs: shellTabs, AppVersion: wrapper.AppVersion,
 		}})
 		if err != nil {
 			s.writeInternalError(w, err)
