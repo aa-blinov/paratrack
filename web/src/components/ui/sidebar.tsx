@@ -272,7 +272,14 @@ function SidebarTrigger({
       {...props}
     >
       <PanelLeftIcon />
-      <span className="sr-only">Toggle Sidebar</span>
+      {/*
+        The visible text and the accessible name have to be the same string.
+        This used to hardcode "Toggle Sidebar" here while the app passed
+        aria-label="Меню", so a voice-control user who said the visible word
+        was looking for the wrong control — WCAG 2.5.3. Read the name from the
+        same prop the caller sets and speak it in both places.
+      */}
+      <span className="sr-only">{props["aria-label"] ?? "Toggle Sidebar"}</span>
     </Button>
   )
 }

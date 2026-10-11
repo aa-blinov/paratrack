@@ -217,6 +217,11 @@ jobs:
           set -o pipefail
           python e2e/test_dashboard.py 2>&1 | tee /tmp/e2e.log
           python e2e/qa_full.py 2>&1 | tee /tmp/e2a-full.log
+          # Contrast, control edges and label-in-name, measured on the live
+          # DOM. The impeccable detector scans HTML and CSS but not .tsx, so
+          # the React tree was never covered — "detector clean" said nothing.
+          # This fails the build instead of being noticed by eye.
+          python e2e/a11y_check.py 2>&1 | tee /tmp/e2e-a11y.log
 
       - name: Upload e2e artefacts
         if: always()

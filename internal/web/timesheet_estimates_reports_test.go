@@ -164,6 +164,82 @@ func TestTimesheetAndSavedReportHTTPFlows(t *testing.T) {
 	resp.Body.Close()
 }
 
+// A report heading must name the days the rows actually cover.
+//
+// The window's `to` is exclusive — the builder receives it as-is, and the
+// exported `To` steps back from it. The heading used to print the boundary
+// itself, so a run for 1–11 October read "1 October – 12 October" above
+// data that stopped on the 11th, in the document a freelancer sends to a
+// client. Comparing the heading against the exported `To` is what pins it:
+// they are the same day by construction now.
+func TestReportHeadingNamesTheCoveredDays(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("report-period@x.test")
+	// /reports/run sits behind the module gate, and a fresh account starts on
+	// the solo preset, which does not include reports.
+	resp := e.do("POST", "/api/team/modules", url.Values{"preset": {"studio"}}, nil)
+	if resp.StatusCode != 303 {
+		t.Fatalf("enable studio preset: %d", resp.StatusCode)
+	}
+	resp.Body.Close()
+
+	// `to` in the query is the last day the person asked for, and the handler
+	// turns it into an exclusive bound before building. The heading used to print
+	// that bound, so asking for 1–11 October produced a document headed
+	// "1 October – 12 October" over data that stopped on the 11th — in the
+	// document a freelancer sends to a client.
+	resp = e.do("GET", "/reports/run?id=by-activity&from=2026-10-01&to=2026-10-11", nil, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("report: %d %s", resp.StatusCode, readBody(t, resp))
+	}
+	defer resp.Body.Close()
+	body := readBody(t, resp)
+
+	// The heading and the export name the same days. They used to disagree by
+	// one: the export stepped back from the exclusive bound, the heading did
+	// not, so the document claimed a day it had no data for.
+	var payload struct {
+		Data struct {
+			VM reportVM `json:"VM"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(extractJSONPayload(t, body)), &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	vm := payload.Data.VM
+
+	if vm.To != "2026-10-11" {
+		t.Fatalf("exported To should be the last covered day 2026-10-11, got %q", vm.To)
+	}
+	// "to=2026-10-11" asks for data through 11 October. A heading that shows
+	// the 12th is naming the internal boundary, not the covered day.
+	if !strings.HasSuffix(vm.PeriodLabel, "11 окт 2026") {
+		t.Errorf("heading %q must end on the last covered day (11 October), not one past it",
+			vm.PeriodLabel)
+	}
+	if strings.Contains(vm.PeriodLabel, "12 окт") {
+		t.Errorf("heading %q leaked the exclusive boundary — it claims a day the rows do not cover",
+			vm.PeriodLabel)
+	}
+}
+
+// extractJSONPayload pulls the react-page-data block out of a page. It is a
+// hidden div, not a script tag — see templates/base.html.
+func extractJSONPayload(t *testing.T, body string) string {
+	t.Helper()
+	const marker = `<div id="react-page-data" hidden>`
+	i := strings.Index(body, marker)
+	if i < 0 {
+		t.Fatalf("react-page-data payload not found in the response")
+	}
+	rest := body[i+len(marker):]
+	j := strings.Index(rest, "</div>")
+	if j < 0 {
+		t.Fatalf("react-page-data payload is not closed")
+	}
+	return rest[:j]
+}
+
 func TestEstimateUI(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("estui@x.test")

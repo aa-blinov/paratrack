@@ -254,8 +254,8 @@ function InvoiceLineCards({ data }: { data: InvoiceDetailData }) {
       </dl>
     </article>)}
     <dl className="grid grid-cols-2 gap-x-4 border-t-2 pt-3 text-sm font-semibold">
-      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}, {t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{invoice.Hours}</dd></div>
-      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}, {t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{invoice.Total}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.hours")}</span>{invoice.Hours}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.amount")}</span>{invoice.Total}</dd></div>
     </dl>
   </div>
 }

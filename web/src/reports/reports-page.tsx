@@ -31,7 +31,7 @@ export function ReportsPage({ data }: { data: ReportsData }) {
     <Card><CardHeader><CardTitle>{t(lang, "reports.savedTitle")} ({data.SavedReports.length})</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "reports.savedHint")}</p></CardHeader><CardContent>
       {data.SavedReports.length ? <ul className="grid gap-2 sm:grid-cols-2" aria-label={t(lang, "reports.savedTitle")}>{data.SavedReports.map(report => <li key={report.ID} className="flex min-w-0 items-center rounded-md border">
         <a className="min-w-0 flex-1 break-words p-2 text-sm hover:underline" href={savedReportURL(report)}>{report.Name}</a>
-        {(data.CanManage || report.CreatedBy === data.MeID) && <form method="post" action={`/api/reports/${report.ID}/delete`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" aria-label={t(lang, "reports.deleteNamed", report.Name)}><X aria-hidden="true" /></Button></form>}
+        {(data.CanManage || report.CreatedBy === data.MeID) && <form method="post" action={`/api/reports/${report.ID}/delete`} data-confirm={t(data.Lang, "rep.confirmDelete")}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" aria-label={t(lang, "reports.deleteNamed", report.Name)}><X aria-hidden="true" /></Button></form>}
       </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "reports.emptyHint")}</p>}
     </CardContent></Card>
   </main>

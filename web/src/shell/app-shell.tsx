@@ -28,10 +28,10 @@ function ThemeControl({ shell }: { shell: AppShellData }) {
     document.documentElement.dataset.theme = dark ? "paratrack-dark" : "paratrack-light"
     document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", dark ? "#090909" : "#ffffff"))
   }
-  return <Button type="button" variant="ghost" size="sm" data-theme-toggle className={sidebarRow} title={`${t(shell.lang, "nav.theme")}: ${t(shell.lang, labelKey)}`} aria-label={`${t(shell.lang, "nav.theme")}: ${t(shell.lang, labelKey)}`} onClick={cycle}>
+  return <Button type="button" variant="ghost" size="sm" data-theme-toggle className={sidebarRow} title={`${t(shell.lang, "nav.theme")} ${t(shell.lang, labelKey)}`} aria-label={`${t(shell.lang, "nav.theme")} ${t(shell.lang, labelKey)}`} onClick={cycle}>
     <Icon className="size-4" />
     <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "nav.theme")}</span>
-    <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/55">{t(shell.lang, labelKey)}</span>
+    <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/60">{t(shell.lang, labelKey)}</span>
   </Button>
 }
 function AccountMenu({ shell }: { shell: AppShellData }) {
@@ -123,7 +123,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
       </header>}
       <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
       {shell.user && <MobileNav shell={shell} />}
-      {shell.user && <footer className="app-shell-footer"><span>{t(shell.lang, "version")}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={t(shell.lang, "nav.language")}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
+      {shell.user && <footer className="app-shell-footer"><span>{t(shell.lang, "version")}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button><a href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`} aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}><Languages className="inline size-4" /> {shell.lang.toUpperCase()}</a></footer>}
     </div>
   </SidebarProvider></TooltipProvider>
 }

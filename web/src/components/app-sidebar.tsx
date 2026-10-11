@@ -196,15 +196,16 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-[.7rem] font-semibold text-sidebar-accent-foreground" aria-hidden="true">{initials(shell.user.name)}</span>
           <span className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-medium leading-tight">{shell.user.name}</span>
-            <span className="truncate text-xs leading-tight text-sidebar-foreground/55">{shell.user.email}</span>
+            <span className="truncate text-xs leading-tight text-sidebar-foreground/60">{shell.user.email}</span>
           </span>
         </div>
       )}
-      <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}>
+      <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}
+        aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}>
         <a onClick={() => setOpenMobile(false)} href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`}>
           <Languages className="size-4" aria-hidden="true" />
           <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "nav.language")}</span>
-          <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/55">{shell.lang.toUpperCase()}</span>
+          <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/60">{shell.lang.toUpperCase()}</span>
         </a>
       </Button>
       {themeControl}
