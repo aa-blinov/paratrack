@@ -19,18 +19,30 @@ const buttonVariants = cva(
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         link: "text-primary underline-offset-4 hover:underline",
       },
+      // One radius per size, taken from the token scale: everything smaller
+      // than the default action keeps the tighter --radius-md corner, the
+      // default keeps --radius. Measured before this: at 32px the same
+      // height carried both — the icon buttons were rounded at 10px while a
+      // button resized to 32px elsewhere in the header was rounded at 8px,
+      // and the two stood next to each other.
+      //
+      // The sizes below used to write that corner as
+      // `rounded-[min(var(--radius-md),Npx)]`, which is not a clamp: with
+      // --radius at 10px, --radius-md is 8px, and min(8,10) and min(8,12)
+      // are the same 8px written two ways. The guard it pretended to give
+      // could never fire.
+      //
+      // `lg` is gone. It was h-9, identical to `default` to the character —
+      // a second name for the size that already had one, and unused.
+      // `xs` and `icon-lg` were unused too. The scale is now 24 / 28 / 32 /
+      // 36 with nothing between and nothing duplicated.
       size: {
         default:
           "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
-        icon: "size-8",
-        "icon-xs":
-          "size-6 rounded-[min(var(--radius-md),10px)] in-data-[slot=button-group]:rounded-lg [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm":
-          "size-7 rounded-[min(var(--radius-md),12px)] in-data-[slot=button-group]:rounded-lg",
-        "icon-lg": "size-9",
+        sm: "h-7 gap-1 rounded-md px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        icon: "size-8 rounded-md",
+        "icon-xs": "size-6 rounded-md [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-7 rounded-md",
       },
     },
     defaultVariants: {
@@ -63,4 +75,20 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+/**
+ * A full-width row in the sidebar footer: language, theme, sign out.
+ *
+ * It used to be written out three times — theme toggle, language, logout —
+ * each with its own copy of `h-8 … rounded-md`. Measured: that override is
+ * what made `size="sm"` render at both 28px and 32px, and its `rounded-md`
+ * fought the size's own corner. Repeating a control's shape in three places
+ * is how they drift apart.
+ *
+ * The height stays because the row sits on the navigation line beside it; the
+ * corner does not, because `size="sm"` already rounds at --radius-md and this
+ * control is now 32px tall like the icon buttons in the header.
+ */
+const sidebarRow =
+  "h-8 w-full justify-start gap-2 px-2 group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center"
+
+export { Button, buttonVariants, sidebarRow }
