@@ -85,6 +85,11 @@ type invoicesPage struct {
 	Billable      bool
 	DefStart      string
 	DefEnd        string
+	// Money still owed and money already collected, each grouped by currency.
+	// A client pays a number; this is the number to compare it against.
+	Outstanding    string
+	Paid           string
+	HasOutstanding bool
 	// Money is priced from rounded time, so the screen has to say so: a person
 	// comparing "1 ч 28 мин" with the amount has to know why they differ.
 	RoundMinutes int

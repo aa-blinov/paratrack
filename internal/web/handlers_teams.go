@@ -261,6 +261,8 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.joined"), true
 	case "team_deleted":
 		return i18n.T(lang, "flash.teamDeleted"), true
+	case "project_created":
+		return i18n.T(lang, "flash.projectCreated"), true
 	case "bad_request":
 		return i18n.T(lang, "flash.badRequest"), false
 	case "forbidden":

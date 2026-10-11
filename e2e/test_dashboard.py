@@ -543,8 +543,15 @@ def main() -> int:
               and page.locator("#new-project-slug").input_value() == proj_slug,
               f"name={page.locator('#new-project-name').input_value()!r} slug={page.locator('#new-project-slug').input_value()!r}")
         page.get_by_role("button", name="Create").click()
-        page.wait_for_url(f"**/projects/{proj_slug}")
+        # Creating now confirms like updating does: errors always flashed
+        # here, success was silent, and a person could not tell a saved
+        # project from a failed one. The confirmation is part of the
+        # contract, so it is asserted rather than merely waited for.
+        page.wait_for_url(f"**/projects/{proj_slug}?flash=*")
         check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
+        # Scoped to the paragraph, not role=status in general: the toast and
+        # the hidden offline banner carry that role too.
+        expect(page.locator('p[role="status"]', has_text="Project created")).to_be_visible()
 
         # Detail page renders the right title.
         expect(page.locator("h1")).to_contain_text(proj_name)

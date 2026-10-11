@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
@@ -116,10 +116,15 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
 
 
     {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "inv.list")}</CardTitle></CardHeader><CardContent>
-      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/invoices/${item.ID}`} className="py-1 font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><InvoiceStatus lang={lang} status={item.Status} /></div><p className="font-medium">{item.Client}</p><p className="text-xs text-muted-foreground">{item.Period}</p><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
+      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/invoices/${item.ID}`} className="py-1 font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><InvoiceStatus lang={lang} status={item.Status} /></div><p className="font-medium">{item.Client}</p><p className="text-xs text-muted-foreground">{item.Period}</p><dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>{data.HasOutstanding ? <p className="flex items-baseline justify-between gap-2 border-t-2 pt-3 text-sm font-semibold sm:hidden"><span className="text-xs text-muted-foreground">{t(lang, "inv.outstanding")}</span><span className="font-mono tabular-nums">{data.Outstanding}</span></p> : null}
       <div className="hidden overflow-x-auto sm:block"><Table>
         <TableHeader><TableRow><TableHead>{t(lang, "inv.number")}</TableHead><TableHead>{t(lang, "inv.client")}</TableHead><TableHead>{t(lang, "inv.period")}</TableHead><TableHead>{t(lang, "inv.hours")}</TableHead><TableHead>{t(lang, "inv.amount")}</TableHead><TableHead>{t(lang, "team.status")}</TableHead></TableRow></TableHeader>
         <TableBody>{data.Items.map(item => <TableRow key={item.ID}><TableCell><a href={`/invoices/${item.ID}`} className="whitespace-nowrap font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell>{item.Client}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><InvoiceStatus lang={lang} status={item.Status} /></TableCell></TableRow>)}</TableBody>
+        {/* What the client still owes. Every row carried its own amount and
+            nothing carried the sum, so "they say they paid 50 000" had no
+            answer on this screen. Footer only when something is outstanding —
+            a paid-up list does not need a reminder. */}
+        {data.HasOutstanding ? <TableFooter><TableRow className="border-t-2 font-semibold"><TableCell colSpan={5}>{t(lang, "inv.outstanding")}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums text-right">{data.Outstanding}</TableCell></TableRow></TableFooter> : null}
       </Table>
       </div>
     </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "inv.empty")}</p>}
