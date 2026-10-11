@@ -87,7 +87,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
       <div className="flex flex-wrap items-center gap-2">
         <Label htmlFor="sch-project" className="text-sm text-muted-foreground">{t(lang, "sch.planning")}</Label>
         <Select value={String(data.ProjectID)} onValueChange={project => window.location.assign(`/schedule?date=${data.ThisWeek}&project=${project}`)}>
-          <SelectTrigger id="sch-project" className="min-h-10 w-full bg-background text-foreground sm:w-64"><SelectValue /></SelectTrigger>
+          <SelectTrigger id="sch-project" className="w-full bg-background text-foreground sm:w-64"><SelectValue /></SelectTrigger>
           <SelectContent>{data.Projects.map(project => <SelectItem key={project.ID} value={String(project.ID)}>{project.Name}</SelectItem>)}</SelectContent>
         </Select>
         <span className="text-xs text-muted-foreground">{t(lang, "sch.planningHint")}</span>
