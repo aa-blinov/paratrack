@@ -83,21 +83,8 @@ def chroma(rgb):
 # keeps oklch() as oklch() in getComputedStyle, and canvas only accepts it as a
 # string but paints it correctly — so the pixel is the ground truth here.
 # Measured: oklch(0.52 0.185 284) → [97, 80, 205], which is #6150cd, the same
-# brand colour the email template uses.
-JS_RESOLVE = """
-(css) => {
-  const c = document.createElement('canvas');
-  c.width = c.height = 1;
-  const x = c.getContext('2d', { willReadFrequently: true });
-  x.clearRect(0, 0, 1, 1);
-  x.fillStyle = '#000';
-  x.fillStyle = css;
-  x.fillRect(0, 0, 1, 1);
-  const d = x.getImageData(0, 0, 1, 1).data;
-  if (d[3] === 0) return [0, 0, 0, 0];
-  return [d[0], d[1], d[2], d[3] / 255];
-}
-"""
+# brand colour the email template uses. JS_PROBE below carries its own
+# resolver; a shared one here went unused.
 
 JS_PROBE = """
 () => {
