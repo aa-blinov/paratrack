@@ -43,7 +43,7 @@ func setLangCookie(w http.ResponseWriter, r *http.Request, lang i18n.Lang) {
 		Name:     langCookieName,
 		Value:    string(lang),
 		Path:     "/",
-		SameSite: http.SameSiteLaxMode,
+		SameSite: sameSiteFor(r),
 		MaxAge:   365 * 24 * 3600,
 		Secure:   isSecureRequest(r),
 	})
