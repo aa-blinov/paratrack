@@ -255,7 +255,10 @@ def main() -> int:
         page.wait_for_timeout(300)
         page.screenshot(path=str(SCREENSHOTS / "01-sidebar-mobile.png"))
         sheet.get_by_role("button", name="Close").click()
-        check("the sheet closes from its close button", not sheet.is_visible())
+        # The sheet animates out now — it always did, but the exit class
+        # never matched, so it vanished instantly. Asserting visibility the
+        # instant after the click raced the animation.
+        expect(sheet).not_to_be_visible()
         sheet_trigger.click()
         expect(sheet).to_be_visible()
         # The backdrop is its own element, so click it near its top edge: the
@@ -266,7 +269,7 @@ def main() -> int:
         check("the sheet closes via backdrop", not sheet.is_visible())
         sheet_trigger.click()
         page.keyboard.press("Escape")
-        check("the sheet closes via Escape", not sheet.is_visible())
+        expect(sheet).not_to_be_visible()
         touch_context = browser.new_context(
             viewport={"width": 390, "height": 650}, is_mobile=True,
             has_touch=True, storage_state=context.storage_state(),
@@ -284,7 +287,7 @@ def main() -> int:
               and touch_sheet.locator('a[href="/export"]').count() == 1
               and touch_page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         touch_page.keyboard.press('Escape')
-        check("touch sheet closes on Escape", not touch_sheet.is_visible())
+        expect(touch_sheet).not_to_be_visible()
         touch_context.close()
         sheet_trigger.click()
         expect(sheet).to_be_visible()
