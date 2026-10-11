@@ -281,9 +281,13 @@ def main() -> int:
         pg.fill("#new-project-slug", f"qa-client-{ts}")
         pg.fill('input[name="color"][pattern]', "#7c3aed")
         pg.get_by_role("button", name="Create", exact=True).click()
-        pg.wait_for_url(f"**/projects/qa-client-{ts}")
+        # Creating confirms like updating does, so the redirect carries the
+        # confirmation code. Waiting on the bare path would never match.
+        pg.wait_for_url(f"**/projects/qa-client-{ts}?flash=*")
         pg.wait_for_load_state("load")
         check("project created", f"qa-client-{ts}" in pg.url)
+        check("project creation confirms itself",
+              bool(pg.locator('p[role="status"]').filter(has_text="Project created").count()))
         # The settings block is a closed disclosure on the detail page.
         open_disclosures(pg, "#project-estimate")
         pg.fill("#project-estimate", "600")

@@ -14,7 +14,7 @@ import { translate as t } from "@/i18n"
 import type { ProjectDetailData } from "@/dashboard/types"
 
 function SummaryCard({ title, value }: { title: string; value: string }) {
-  return <Card><CardContent className="space-y-2 p-5"><h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3><p className="font-mono text-3xl tabular-nums">{value}</p></CardContent></Card>
+  return <Card><CardContent className="space-y-2 p-5"><h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</h3><p className="font-mono text-3xl tabular-nums">{value}</p></CardContent></Card>
 }
 
 function ProjectEdit({ data }: { data: ProjectDetailData }) {
@@ -102,7 +102,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
       <SummaryCard title={t(data.Lang, "projects.last30")} value={data.MonthTotal} />
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>
+        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>
         <p className="font-mono text-lg tabular-nums">{data.EstimateLabel} <span className="text-muted-foreground">/</span> {data.Total}</p>
         <Progress value={percent} aria-label={t(data.Lang, "est.vsActual")} />
         <p className="text-xs text-muted-foreground">{data.EstimatePercent}%</p>

@@ -162,11 +162,47 @@ func TestAPIProjects_FullCRUD(t *testing.T) {
 	}
 }
 
+// A flash that lands on the page the person is looking at.
+//
+// Two things had to be true and neither was: the detail page never read a
+// flash at all, so the confirmation was dropped; and the message itself was
+// passed as free Russian text, which http.Redirect percent-encodes except
+// for the space — a raw space in the query makes the follow-up request 400.
+// The flash now travels as a code and the page translates it.
+func TestProjectCreationConfirmsOnTheDetailPage(t *testing.T) {
+	e := newProjectTestEnv(t)
+	form := url.Values{"name": {"Alpha"}, "slug": {"alpha"}, "rate": {"100"}}
+	w := e.do("POST", "/projects/new", []byte(form.Encode()), "application/x-www-form-urlencoded")
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("create: %d", w.Code)
+	}
+	location := w.Header().Get("Location")
+
+	// The redirect target must be a URL a strict client can request.
+	parsed, err := url.Parse(location)
+	if err != nil || strings.ContainsAny(parsed.RawQuery, " ") {
+		t.Fatalf("redirect location is not a usable URL: %q", location)
+	}
+	got := e.do("GET", location, nil, "")
+	page := got.Body.String()
+	if strings.Contains(page, "400 Bad Request") {
+		t.Fatalf("redirect target answered 400: %q", location)
+	}
+	detail := reactData[projectDetailData](t, page)
+	if detail.Flash == "" || !detail.FlashOK {
+		t.Fatalf("creation confirmation did not render on the detail page: flash=%q ok=%v",
+			detail.Flash, detail.FlashOK)
+	}
+}
+
 func TestProjectPageMutationsResolveSlugInWorkflow(t *testing.T) {
 	e := newProjectTestEnv(t)
 	create := url.Values{"name": {"Alpha"}, "color": {"#7c8499"}}
 	w := e.do("POST", "/projects/new", []byte(create.Encode()), "application/x-www-form-urlencoded")
-	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/projects/alpha" {
+	// Creating confirms like updating does: errors always flashed here and
+	// success was silent, so a person could not tell a saved project from a
+	// failed one. Same prefix the update branch below asserts.
+	if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/projects/alpha?flash=") {
 		t.Fatalf("create project page: status=%d location=%q", w.Code, w.Header().Get("Location"))
 	}
 
