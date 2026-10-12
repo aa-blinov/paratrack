@@ -131,10 +131,7 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
 
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "clients.heading")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t(lang, "clients.intro")}</p>
-      </div>
+      <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "clients.heading")}</h1>
       <div className="flex flex-wrap items-center gap-2">
         <Button asChild variant="outline" size="sm">
           <a href={archivedURL}>{t(lang, data.ShowArchived ? "clients.hideArchived" : "clients.showArchived")}</a>
