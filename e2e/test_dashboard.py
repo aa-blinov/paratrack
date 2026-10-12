@@ -21,10 +21,14 @@ from pathlib import Path
 from playwright.sync_api import expect, sync_playwright
 
 from target import BASE_URL as BASE
+from color_audit import wait_for_chart
 from browser import engine_name, launch, new_context_kwargs
 
 SCREENSHOTS = Path(os.environ.get("PARATRACK_SCREENSHOTS", Path(__file__).parent / "screenshots"))
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
+
+
+
 
 
 def register_account(page, name="E2E User", email="e2e@paratrack.test", password="longenoughpw") -> None:
@@ -468,7 +472,7 @@ def main() -> int:
               and page.locator('#paratrack-react-root .period-tabs button').count() >= 1
               and page.locator('#paratrack-react-root [data-slot="card"]').count() >= 1)
         # ECharts renders into a <canvas>; wait for that.
-        page.wait_for_selector("#echart-canvas canvas", timeout=3000)
+        wait_for_chart(page)
         series_count = page.evaluate(
             """
             () => {
@@ -755,7 +759,7 @@ def main() -> int:
         check("stats links to a graph with its project filter",
               graph_link.count() == 1 and f"project={proj_slug}" in graph_link.get_attribute('href'))
         graph_link.click()
-        page.wait_for_selector('#echart-canvas canvas')
+        wait_for_chart(page)
         check("graph scope reflects filtered stats",
               page.locator('.legend-chip').filter(has_text=activity_name).count() == 1
               and page.locator('.legend-chip').filter(has_text='writing').count() == 0
@@ -798,7 +802,7 @@ def main() -> int:
         # ------------------------------------------------------------------ 10
         print("\n== 10. ECharts graph — canvas renders, tooltip shows real values")
         page.goto(BASE + "/graph?period=month")
-        page.wait_for_selector("#echart-canvas canvas", timeout=3000)
+        wait_for_chart(page)
         page.wait_for_timeout(600)  # let the chart finish animating in
         canvas_count = page.locator("#echart-canvas canvas").count()
         check("ECharts rendered a <canvas>", canvas_count >= 1, f"{canvas_count} canvas")
@@ -1267,7 +1271,7 @@ def main() -> int:
                   chip.get_attribute('aria-pressed') == 'true'
                   and page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                   and chip.evaluate('e => e.getBoundingClientRect().right <= innerWidth'))
-        page.wait_for_selector('#echart-canvas canvas', timeout=3000)
+        wait_for_chart(page)
         chip.click()
         check("graph legend hides its series on click",
               chip.get_attribute('aria-pressed') == 'false'
