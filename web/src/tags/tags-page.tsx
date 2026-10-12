@@ -89,7 +89,7 @@ export function TagsPage({ data }: { data: TagsData }) {
     </CardContent></Card>
     {tags.length ? <Card><CardHeader><CardTitle>{t(lang, "tags.all")} ({tags.length})</CardTitle></CardHeader><CardContent>
       <ul className="flex flex-wrap items-start gap-2" aria-label={t(lang, "tags.all")}>
-        {tags.map(tag => <li key={tag.ID} className="inline-flex max-w-full flex-col gap-1 rounded-full border px-3 py-1.5 text-sm">
+        {tags.map(tag => <li key={tag.ID} className="inline-flex max-w-full flex-col gap-1 rounded-lg border px-3 py-1.5 text-sm">
           <span className="flex max-w-full items-center gap-2">
             <TagIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
             {/* The chip is the way into the time this tag carries — the same

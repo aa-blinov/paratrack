@@ -321,11 +321,14 @@
   white-space: nowrap;
 }
 
+/* The stadium shape (999px) made a 22px label read as a pill rather than a
+   tag. Corners now scale with the element, the same way the motion scale
+   scales duration with the size of the change. */
 #paratrack-react-root .status-pill {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
-  border-radius: 999px;
+  border-radius: 0.375rem;
   padding: 0.15rem 0.55rem;
   font-size: 0.75rem;
   font-weight: 600;
@@ -671,10 +674,15 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 
 /* Two ways to look at the same week on a phone. */
 #paratrack-react-root .ts-day-toggle-item {
+  /* was 999px: a stadium. These are ~32px tall, so the corner carries the
+     same weight as a button, not a capsule. */
   min-height: 2.75rem;
   padding: 0 1rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  /* 999px made a 44px target a stadium. This is now the same corner a
+     default-size button carries, so a toggle and a button of the same
+     height read as the same family. */
+  border-radius: var(--radius);
   background: var(--background);
   color: var(--muted-foreground);
   font-size: 0.875rem;
