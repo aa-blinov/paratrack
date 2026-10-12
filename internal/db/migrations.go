@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/model"
 )
@@ -147,4 +148,96 @@ func writeActivityColor(ctx context.Context, tx *Tx, id int64, color string) err
 		return fmt.Errorf("write activity colour: %w", err)
 	}
 	return nil
+}
+
+// migrateProjectsToClients turns the free-text recipient columns that used to
+// live on a project into real client cards.
+//
+// Before this, "who is billed" was three columns on the project, so two
+// projects for the same customer were two unrelated records and every
+// invoice retyped the address. Each distinct recipient name per workspace
+// becomes one card, and every project carrying that name is linked to it.
+//
+// Deliberate details:
+//   - Names are matched case-insensitively, because clients.name is CITEXT:
+//     "ООО Кошелька" and "ооо кошелька" are the same customer and must not
+//     become two cards that each claim half of the history.
+//   - The first spelling and the first non-empty email/address win. The
+//     snapshot columns on the project are left untouched, so an invoice that
+//     was already sent still shows what it showed.
+//   - Runs once, under the shared migration lock, and inside the startup
+//     sequence — after the schema step that adds the new columns.
+func (d *DB) migrateProjectsToClients(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261012_projects_to_clients", func(tx *Tx) error {
+		rows, err := tx.QueryContext(ctx,
+			`SELECT team_id, client_name, client_email, client_details FROM projects
+			  WHERE TRIM(client_name) <> '' ORDER BY id`)
+		if err != nil {
+			return fmt.Errorf("read projects for client backfill: %w", err)
+		}
+		type seed struct {
+			teamID  int64
+			name    string
+			email   string
+			details string
+		}
+		var order []string
+		seeds := map[string]*seed{}
+		for rows.Next() {
+			var teamID int64
+			var name, email, details string
+			if err := rows.Scan(&teamID, &name, &email, &details); err != nil {
+				rows.Close()
+				return fmt.Errorf("scan project for client backfill: %w", err)
+			}
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			key := fmt.Sprintf("%d\x00%s", teamID, strings.ToLower(name))
+			existing, seen := seeds[key]
+			if !seen {
+				seeds[key] = &seed{teamID: teamID, name: name, email: strings.TrimSpace(email), details: strings.TrimSpace(details)}
+				order = append(order, key)
+				continue
+			}
+			// Same customer written differently: keep what we already have
+			// and only fill the blanks.
+			if existing.email == "" {
+				existing.email = strings.TrimSpace(email)
+			}
+			if existing.details == "" {
+				existing.details = strings.TrimSpace(details)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			rows.Close()
+			return fmt.Errorf("walk projects for client backfill: %w", err)
+		}
+		rows.Close()
+
+		now := FormatTime(d.currentTime().UTC())
+		for _, key := range order {
+			s := seeds[key]
+			if _, err := tx.ExecContext(ctx,
+				`INSERT INTO clients (team_id, name, email, details, currency, notes, created_at, updated_at)
+				 VALUES (?, ?, ?, ?, '', '', ?, ?)
+				 ON CONFLICT (team_id, name) DO NOTHING`,
+				s.teamID, s.name, s.email, s.details, now, now); err != nil {
+				return fmt.Errorf("create client %q during backfill: %w", s.name, err)
+			}
+			var clientID int64
+			if err := tx.QueryRowContext(ctx,
+				`SELECT id FROM clients WHERE team_id = ? AND name = ?`, s.teamID, s.name).Scan(&clientID); err != nil {
+				return fmt.Errorf("read back client %q after backfill: %w", s.name, err)
+			}
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE projects SET client_id = ? WHERE team_id = ? AND client_id IS NULL AND LOWER(TRIM(client_name)) = ?`,
+				clientID, s.teamID, strings.ToLower(s.name)); err != nil {
+				return fmt.Errorf("link projects to client %q: %w", s.name, err)
+			}
+		}
+		return nil
+	})
+	return err
 }

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { AuditData, AuthPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, AuthPageData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 
 const root = document.getElementById("paratrack-react-root")
@@ -31,6 +31,7 @@ function lazy<C extends ComponentType<any>>(load: () => Promise<{ default: C }>)
 const ProjectList = lazy(() => import("@/projects/project-list").then(module => ({ default: module.ProjectList })))
 const ProjectDetail = lazy(() => import("@/projects/project-detail").then(module => ({ default: module.ProjectDetail })))
 const ProjectCreate = lazy(() => import("@/projects/project-create").then(module => ({ default: module.ProjectCreate })))
+const ClientsPage = lazy(() => import("@/clients/clients-page").then(module => ({ default: module.ClientsPage })))
 const GoalsPage = lazy(() => import("@/goals/goals-page").then(module => ({ default: module.GoalsPage })))
 const TagsPage = lazy(() => import("@/tags/tags-page").then(module => ({ default: module.TagsPage })))
 const GraphPage = lazy(() => import("@/graph/graph-page").then(module => ({ default: module.GraphPage })))
@@ -332,6 +333,10 @@ function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap:
       <div key={`${routeKey}:${bootstrap.shell.lang}`}>
           {"NewProject" in data && data.NewProject
             ? <ProjectCreate data={data as ProjectCreateData} />
+            // Список клиентов делит с проектами поле ShowArchived, поэтому его
+            // проверку надо держать раньше общей ветки проектов.
+            : "ClientsReact" in data && data.ClientsReact
+            ? <ClientsPage data={data as ClientsPageData} />
             : "GoalsReact" in data && data.GoalsReact
             ? <GoalsPage data={data as GoalsData} />
             : "ReactTags" in data && data.ReactTags
@@ -420,6 +425,7 @@ function parseBootstrap(html: string): { bootstrap: ReactPageBootstrap; title: s
 
 function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   if ("NewProject" in data && data.NewProject) return ProjectCreate.preload()
+  if ("ClientsReact" in data && data.ClientsReact) return ClientsPage.preload()
   if ("GoalsReact" in data && data.GoalsReact) return GoalsPage.preload()
   if ("ReactTags" in data && data.ReactTags) return TagsPage.preload()
   if ("GraphReact" in data && data.GraphReact) return GraphPage.preload()
