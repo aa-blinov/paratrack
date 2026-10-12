@@ -29,7 +29,7 @@ function ProjectRow({ lang, project }: { lang: string; project: ClientDetailProj
     <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
       <div className="flex items-baseline gap-1"><dt>{t(lang, "clients.tracked")}</dt><dd className="font-mono tabular-nums text-foreground">{project.TrackedLabel}</dd></div>
       {project.BudgetLabel && <div className="flex items-baseline gap-1"><dt>{t(lang, "budget.amount")}</dt><dd className="font-mono tabular-nums text-foreground">{project.BudgetLabel}</dd></div>}
-      {project.BudgetLabel && <div className="flex items-baseline gap-1"><dt>{t(lang, "budget.spent")}</dt><dd className="font-mono tabular-nums text-foreground">{project.SpentLabel}</dd></div>}
+      {project.BudgetLabel && <div className="flex items-baseline gap-1"><dt>{t(lang, "budget.spentShort")}</dt><dd className="font-mono tabular-nums text-foreground">{project.SpentLabel}</dd></div>}
     </dl>
   </a>
 }

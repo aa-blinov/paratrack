@@ -7,8 +7,10 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
@@ -218,5 +220,69 @@ func TestClientFlashCodes_TranslateAndKeepPolarity(t *testing.T) {
 		if msg == c.code || strings.HasPrefix(msg, "e:") || strings.Contains(msg, ".") {
 			t.Errorf("%s was not translated, got %q", c.code, msg)
 		}
+	}
+}
+
+// A customer with a dollar project and a rouble project has two sums, not one.
+// The page used to add the cents together and label the result with whichever
+// currency it read first — while the project rows on the same page disagreed.
+func TestClientDetail_DoesNotAddCurrenciesTogether(t *testing.T) {
+	e := newProjectTestEnv(t)
+	ctx := context.Background()
+	var owner int64
+	if err := e.db.TestSQL().QueryRowContext(ctx,
+		`SELECT owner_id FROM teams WHERE id = ?`, e.teamID).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+
+	card, err := e.db.CreateClient(ctx, appmodel.ClientCreateRequest{
+		TeamID: e.teamID, CallerID: owner, Name: "Смешанный",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rate := 10_000 // 100.00 an hour
+	rubles, err := e.db.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: e.teamID, CallerID: owner, Name: "Рублёвый", ClientID: card.ID, RateCents: &rate,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dollars, err := e.db.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: e.teamID, CallerID: owner, Name: "Долларовый", ClientID: card.ID, Currency: "USD", RateCents: &rate,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One hour at 100.00 an hour, so the two projects differ only by currency.
+	for _, project := range []int64{rubles.ID, dollars.ID} {
+		now := db.FormatTime(time.Now())
+		var activityID int64
+		if err := e.db.TestSQL().QueryRowContext(ctx,
+			`INSERT INTO activities (name, team_id, project_id, color, created_at, updated_at)
+			 VALUES ('work', ?, ?, '#7c8499', ?, ?) RETURNING id`,
+			e.teamID, project, now, now).Scan(&activityID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.db.TestSQL().ExecContext(ctx,
+			`INSERT INTO sessions (activity_id, team_id, start_at, end_at, accumulated_seconds, created_at, updated_at)
+			 VALUES (?, ?, '2026-10-01T09:00:00.000', '2026-10-01T10:00:00.000', 3600, ?, ?)`,
+			activityID, e.teamID, now, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	w := e.do("GET", "/clients/"+fmt.Sprint(card.ID), nil, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET client page: code=%d body=%s", w.Code, w.Body.String())
+	}
+	page := reactData[map[string]any](t, w.Body.String())
+	row, _ := page["Client"].(map[string]any)
+	if row == nil {
+		t.Fatalf("client row missing from payload: %v", page["Client"])
+	}
+	unbilled, _ := row["UnbilledLabel"].(string)
+	if !strings.Contains(unbilled, "₽") || !strings.Contains(unbilled, "$") {
+		t.Fatalf("unbilled summary hides one of the currencies: %q", unbilled)
 	}
 }

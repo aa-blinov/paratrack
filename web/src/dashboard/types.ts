@@ -221,6 +221,8 @@ export interface ProjectBudget {
   /** Ceiling formatted for the form without the currency symbol; "" when unset. */
   BudgetInput: string
   HasRate: boolean
+  /** Which rule chose the currency — client, project or workspace. */
+  CurrencySourceLabel?: string
 }
 
 export interface ProjectDetailData {

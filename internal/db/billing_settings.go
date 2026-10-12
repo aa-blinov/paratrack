@@ -167,9 +167,21 @@ type ProjectClient = model.ProjectClient
 
 // ListProjectClients loads invoice defaults for a team's non-archived
 // projects in one query, for invoice-form rendering.
+//
+// A linked client card outranks the project's own snapshot columns: that
+// snapshot predates cards and stays empty on every project a person attached
+// a customer to afterwards. Reading only the snapshot produced an invoice with
+// no recipient address — a mailto with no addressee and a PDF with no VAT
+// number, which is exactly the document the customer is supposed to trust.
 func (d *DB) ListProjectClients(ctx context.Context, teamID int64) (map[int64]model.ProjectClient, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, client_name, client_details, client_email FROM projects WHERE team_id = ? AND archived = 0`, teamID)
+		`SELECT p.id,
+		        COALESCE(NULLIF(cl.name, ''), p.client_name),
+		        COALESCE(NULLIF(cl.details, ''), p.client_details),
+		        COALESCE(NULLIF(cl.email, ''), p.client_email)
+		 FROM projects p
+		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
+		 WHERE p.team_id = ? AND p.archived = 0`, teamID)
 	if err != nil {
 		return nil, err
 	}
@@ -186,10 +198,16 @@ func (d *DB) ListProjectClients(ctx context.Context, teamID int64) (map[int64]mo
 	return clients, rows.Err()
 }
 
-// ProjectCurrency returns the project currency, or an empty value when it inherits.
+// ProjectCurrency returns the project currency, or an empty value when it
+// inherits. A client card outranks the project's own column, matching the
+// rule the invoice itself uses.
 func (d *DB) ProjectCurrency(ctx context.Context, query appmodel.ProjectScopeQuery) (string, error) {
 	var cur string
-	err := d.sql.QueryRowContext(ctx, `SELECT currency FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID).Scan(&cur)
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), '')
+		 FROM projects p
+		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
+		 WHERE p.id = ? AND p.team_id = ?`, query.ProjectID, query.TeamID).Scan(&cur)
 	return cur, err
 }
 
