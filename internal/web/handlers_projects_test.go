@@ -262,3 +262,29 @@ func TestAPIProjects_UnauthenticatedRejected(t *testing.T) {
 		t.Errorf("expected redirect/unauth without session, got %d", w.Code)
 	}
 }
+
+// Saving a project that already has a budget sends the field back as it was
+// displayed — grouped, with kopecks ("600 000,00"). That amount used to be
+// read as a plain decimal and rejected, so the second save of any project with
+// a ceiling failed, blaming the rate, which had not changed.
+func TestProjectUpdate_AcceptsFormattedBudgetFromTheForm(t *testing.T) {
+	e := newProjectTestEnv(t)
+	project := createProject(t, e, "Сайт", "sait")
+
+	form := url.Values{"name": {"Сайт"}, "color": {"#7c8499"}, "budget": {"600 000,00"}}
+	w := e.do("POST", "/projects/"+project, []byte(form.Encode()), "application/x-www-form-urlencoded")
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("save: code=%d", w.Code)
+	}
+	if location := w.Header().Get("Location"); strings.Contains(location, "e%3A") || strings.Contains(location, "flash=e:") {
+		t.Fatalf("a budget displayed back at the user must save, got %q", location)
+	}
+	var budget *int
+	if err := e.db.TestSQL().QueryRowContext(t.Context(),
+		`SELECT budget_cents FROM projects WHERE slug = ?`, project).Scan(&budget); err != nil {
+		t.Fatal(err)
+	}
+	if budget == nil || *budget != 600_000_00 {
+		t.Fatalf("budget = %v, want %d cents", budget, 600_000_00)
+	}
+}

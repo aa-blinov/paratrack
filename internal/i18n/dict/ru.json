@@ -1216,5 +1216,6 @@
   "budget.spentShort": "Освоено",
   "clients.currencySource": "Валюта клиента",
   "proj.currencySource": "Валюта проекта",
-  "team.currencySource": "Валюта пространства"
+  "team.currencySource": "Валюта пространства",
+  "budget.badAmount": "Бюджет должен быть числом, например 250000 или 250000,50"
 }

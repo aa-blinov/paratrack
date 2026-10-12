@@ -321,6 +321,18 @@ func (d *DB) backfillClientCards(ctx context.Context, tx *Tx, sources clientSeed
 				clientID, s.teamID, s.teamID, strings.ToLower(s.name)); err != nil {
 				return fmt.Errorf("link invoiced projects to client %q: %w", s.name, err)
 			}
+			// Fill the project's own snapshot from the card it now points at.
+			// The snapshot is what an invoice printed, and leaving it empty
+			// meant a project attached to a customer carried no recipient at
+			// all — the form fell back to blanks and the PDF had no VAT line.
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE projects
+				    SET client_name = ?, client_details = ?, client_email = ?
+				  WHERE team_id = ? AND client_id = ?
+				    AND (TRIM(client_name) = '' OR TRIM(client_email) = '')`,
+				s.name, s.details, s.email, s.teamID, clientID); err != nil {
+				return fmt.Errorf("fill project snapshot for client %q: %w", s.name, err)
+			}
 		}
 		return nil
 	}

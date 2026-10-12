@@ -11,7 +11,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
-	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // projectsPageData is the envelope for the /projects list page.
@@ -270,15 +269,19 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	}
 	// A present-but-empty budget field removes the ceiling (see db layer);
 	// an absent field means the form never showed one, so nothing changes.
+	// Through the same parser as the hourly rate, because the field comes
+	// back pre-filled with a grouped amount ("600 000,00"): reading it as a
+	// plain decimal made every second save of a project fail with a complaint
+	// about the rate, which had not changed at all.
 	if _, sent := r.Form["budget"]; sent {
 		raw := strings.TrimSpace(r.Form.Get("budget"))
 		if raw == "" {
 			zero := 0
 			update.BudgetCents = &zero
 		} else {
-			cents, parseErr := money.ParseCents(raw)
-			if parseErr != nil {
-				http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+			cents, hasBudget, parseErr := formCents(r, "budget")
+			if parseErr != nil || !hasBudget {
+				http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "budget.badAmount")), http.StatusSeeOther)
 				return
 			}
 			update.BudgetCents = &cents
