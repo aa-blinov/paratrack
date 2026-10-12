@@ -1216,5 +1216,6 @@
   "budget.spentShort": "Spent",
   "clients.currencySource": "Client currency",
   "proj.currencySource": "Project currency",
-  "team.currencySource": "Workspace currency"
+  "team.currencySource": "Workspace currency",
+  "budget.badAmount": "Budget must be an amount, e.g. 250000 or 250000.50"
 }

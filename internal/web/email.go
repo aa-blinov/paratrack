@@ -174,7 +174,9 @@ func (s *Server) handleEmailPreview(w http.ResponseWriter, r *http.Request) {
 			// person setting up the invoice fills in. The preview points at this
 			// deployment like the reset and invite previews do — pay.example.ru
 			// was a dead third-party domain and made the sample look broken.
-			PaymentURL: s.publicBaseURL(r) + "/invoices/INV-2026-001",
+			// Numeric id: /invoices/{id} is the only route there is, so a
+			// number-like invoice number in the preview was a dead link.
+			PaymentURL: s.publicBaseURL(r) + "/invoices/1",
 		}, "Анна Фрилансер")
 	}
 	if r.URL.Query().Get("text") == "1" {

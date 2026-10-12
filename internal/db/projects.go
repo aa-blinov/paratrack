@@ -190,7 +190,14 @@ func (d *DB) ProjectCurrencies(ctx context.Context, teamID int64) (map[int64]str
 	if teamID <= 0 {
 		return nil, ErrNotFound
 	}
-	rows, err := d.sql.QueryContext(ctx, `SELECT id, COALESCE(currency, '') FROM projects WHERE team_id = ?`, teamID)
+	// A client card may carry its own currency, which outranks the project's
+	// exactly as it does on an invoice. Reading only the project column made
+	// dollar customers report in roubles wherever this map was used.
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT p.id, COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), '')
+		 FROM projects p
+		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
+		 WHERE p.team_id = ?`, teamID)
 	if err != nil {
 		return nil, err
 	}

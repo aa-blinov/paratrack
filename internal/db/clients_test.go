@@ -381,3 +381,78 @@ func TestClientCurrency_OutranksProjectAndWorkspace(t *testing.T) {
 		t.Fatalf("budget currency = %q from %q, want %q from client", got.Currency, got.CurrencySource, usd)
 	}
 }
+
+// A card's currency outranks the project's for anything that reports money by
+// project — the report engine reads this map. Reading the project column only
+// made dollar customers report in roubles and land in the workspace total.
+func TestProjectCurrencies_FollowClientCard(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "T", "t")
+	owner := teamOwner(t, d, teamID)
+
+	card, err := d.CreateClient(ctx, appmodel.ClientCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "Dollar Corp", Currency: "USD",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rubles, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "Site",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	dollars, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "Support", ClientID: card.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	currencies, err := d.ProjectCurrencies(ctx, teamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if currencies[rubles.ID] != "" {
+		t.Errorf("a project with no card and no currency must stay empty, got %q", currencies[rubles.ID])
+	}
+	if currencies[dollars.ID] != "USD" {
+		t.Errorf("project currency = %q, want the client's USD", currencies[dollars.ID])
+	}
+}
+
+// An invoice addressed to a customer must carry that customer's address and
+// VAT line, even though the project has no snapshot of its own — which is the
+// state of every project somebody attached a card to.
+func TestListProjectClients_FallsBackToClientCard(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "T", "t")
+	owner := teamOwner(t, d, teamID)
+
+	card, err := d.CreateClient(ctx, appmodel.ClientCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "ООО Ромашка",
+		Email: "buh@romashka.ru", Details: "ИНН 7701234567",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	project, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "Site", ClientID: card.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clients, err := d.ListProjectClients(ctx, teamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := clients[project.ID]
+	if !ok {
+		t.Fatalf("project %d missing from invoice defaults", project.ID)
+	}
+	if got.Email != "buh@romashka.ru" || got.Details != "ИНН 7701234567" {
+		t.Fatalf("invoice recipient from an empty snapshot: %+v", got)
+	}
+}

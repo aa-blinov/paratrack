@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
@@ -91,17 +92,22 @@ func (s *Server) handleClientsList(w http.ResponseWriter, r *http.Request) {
 		}
 		agg := rollup[p.ClientID]
 		if agg == nil {
-			agg = &clientRollup{}
+			agg = &clientRollup{spent: map[string]int{}, unbilled: map[string]int{}}
 			rollup[p.ClientID] = agg
 		}
 		agg.projects++
 		if b, ok := budgets[p.ID]; ok {
 			agg.seconds += b.TrackedSeconds
-			agg.spent += b.SpentCents
-			agg.unbilled += b.UnbilledCents
-			if agg.currency == "" {
-				agg.currency = b.Currency
+			// Per-currency sums. Adding cents of two currencies together is
+			// not a total, it is a number that means nothing: a card with one
+			// dollar project and one rouble project would be labelled by
+			// whichever project happened to be read first.
+			currency := b.Currency
+			if currency == "" {
+				currency = "RUB"
 			}
+			agg.spent[currency] += b.SpentCents
+			agg.unbilled[currency] += b.UnbilledCents
 		}
 	}
 
@@ -115,9 +121,9 @@ func (s *Server) handleClientsList(w http.ResponseWriter, r *http.Request) {
 			row.Projects = agg.projects
 			row.TrackedLabel = fmtDur(r, int(agg.seconds))
 			// Invoiced money is what is left once the unbilled part is taken
-			// out — the same subtraction the project screen shows.
-			row.BilledLabel = moneyOrDash(lang, agg.spent-agg.unbilled, agg.displayCurrency(c.Currency))
-			row.UnbilledLabel = moneyOrDash(lang, agg.unbilled, agg.displayCurrency(c.Currency))
+			// out — the same subtraction the project screen shows, per currency.
+			row.BilledLabel = moneyByCurrencyOrDash(lang, agg.billedPerCurrency(c.Currency))
+			row.UnbilledLabel = moneyByCurrencyOrDash(lang, mergeCurrencies(agg.unbilled, c.Currency))
 		} else {
 			row.TrackedLabel = fmtDur(r, 0)
 			row.BilledLabel = "—"
@@ -146,20 +152,53 @@ func (s *Server) handleClientsList(w http.ResponseWriter, r *http.Request) {
 type clientRollup struct {
 	projects int
 	seconds  int64
-	spent    int
-	unbilled int
-	// currency is the one the client's projects are billed in. A client card
-	// may override it; otherwise the projects decide, and a client with no
-	// billable project yet simply shows dashes rather than a guessed amount.
-	currency string
+	// Money is kept per currency: a customer can have a dollar retainer and a
+	// rouble project, and their cents are not one number.
+	spent    map[string]int
+	unbilled map[string]int
 }
 
-// displayCurrency prefers the card's own currency over the projects'.
-func (r *clientRollup) displayCurrency(card string) string {
-	if card != "" {
-		return card
+// billedPerCurrency is what is already on an invoice: spent minus unbilled,
+// currency by currency, never across.
+func (r *clientRollup) billedPerCurrency(cardCurrency string) map[string]int {
+	out := map[string]int{}
+	for currency, spent := range r.spent {
+		spent -= r.unbilled[currency]
+		if spent < 0 {
+			spent = 0
+		}
+		if spent > 0 {
+			out[currency] = spent
+		}
 	}
-	return r.currency
+	// A card currency with nothing in it still belongs in the list, otherwise
+	// a client whose only project has no tracked time shows no currency at all.
+	if len(out) == 0 && cardCurrency != "" {
+		out[cardCurrency] = 0
+	}
+	return out
+}
+
+// mergeCurrencies tags a zero total with the card's own currency so an
+// untouched client reads "0 ₽" for a dollar customer, not a bare dash.
+func mergeCurrencies(sums map[string]int, cardCurrency string) map[string]int {
+	if len(sums) == 0 && cardCurrency != "" {
+		return map[string]int{cardCurrency: 0}
+	}
+	return sums
+}
+
+// moneyByCurrencyOrDash prints per-currency sums, or a dash when there is
+// nothing at all — a zero with a currency on it would read like a real amount.
+func moneyByCurrencyOrDash(lang i18n.Lang, sums map[string]int) string {
+	total := 0
+	for _, cents := range sums {
+		total += cents
+	}
+	if total == 0 {
+		return "—"
+	}
+	return moneyByCurrency(lang, sums)
 }
 
 // handleClientCreate — POST /clients
@@ -406,6 +445,9 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 	return extras, nil
 }
 
+// invoiceTimeLayout is how invoices store their period bounds.
+const invoiceTimeLayout = "2006-01-02T15:04:05.000"
+
 // clientDetailData is the envelope for /clients/{id}: one customer with the
 // work and the documents that belong to them.
 type clientDetailData struct {
@@ -499,18 +541,22 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currency := card.Currency
 	projectRows := make([]clientProjectRow, 0, len(projects))
 	var seconds int64
-	var spent, unbilled, billedTotal int
+	// Per-currency sums, same reasoning as the catalogue: a dollar retainer and
+	// a rouble project are two numbers, not one.
+	spentByCurrency := map[string]int{}
+	unbilledByCurrency := map[string]int{}
+	invoicedByCurrency := map[string]int{}
 	for _, p := range projects {
 		b := budgets[p.ID]
-		if b.Currency != "" && currency == "" {
-			currency = b.Currency
+		currency := b.Currency
+		if currency == "" {
+			currency = "RUB"
 		}
 		seconds += b.TrackedSeconds
-		spent += b.SpentCents
-		unbilled += b.UnbilledCents
+		spentByCurrency[currency] += b.SpentCents
+		unbilledByCurrency[currency] += b.UnbilledCents
 		row := clientProjectRow{
 			Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
 			TrackedLabel: fmtDur(r, int(b.TrackedSeconds)),
@@ -523,17 +569,34 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		projectRows = append(projectRows, row)
 	}
 	for _, inv := range invoices {
-		billedTotal += inv.TotalCents
+		currency := inv.Currency
+		if currency == "" {
+			currency = "RUB"
+		}
+		invoicedByCurrency[currency] += inv.TotalCents
 	}
 
 	invoiceRows := make([]clientInvoiceRow, 0, len(invoices))
 	for _, inv := range invoices {
-		invoiceRows = append(invoiceRows, clientInvoiceRow{
+		row := clientInvoiceRow{
 			ID: inv.ID, Number: inv.Number,
-			Period: inv.PeriodStart + " — " + inv.PeriodEnd,
 			Status: inv.Status, Currency: inv.Currency,
 			TotalLabel: moneyL(lang, inv.TotalCents, inv.Currency),
-		})
+		}
+		// Stored as ISO strings; printed like every other period in the app.
+		// The end is exclusive, hence the day pulled back — an invoice for
+		// "1 – 31 August" reads "1 – 31 August", not "1 – 1 сентября".
+		from, fromErr := time.Parse(invoiceTimeLayout, inv.PeriodStart)
+		to, toErr := time.Parse(invoiceTimeLayout, inv.PeriodEnd)
+		switch {
+		case fromErr == nil && toErr == nil:
+			row.Period = fmtDate(lang, from) + " – " + fmtDate(lang, to.AddDate(0, 0, -1))
+		case fromErr == nil:
+			row.Period = fmtDate(lang, from)
+		default:
+			row.Period = inv.PeriodStart
+		}
+		invoiceRows = append(invoiceRows, row)
 	}
 
 	data := clientDetailData{
@@ -548,9 +611,9 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 			ID: card.ID, Name: card.Name, Email: card.Email, Details: card.Details,
 			Notes: card.Notes, Currency: card.Currency, Archived: card.Archived,
 			TrackedLabel:  fmtDur(r, int(seconds)),
-			BilledLabel:   moneyOrDash(lang, spent-unbilled, currency),
-			UnbilledLabel: moneyOrDash(lang, unbilled, currency),
-			BilledTotal:   moneyOrDash(lang, billedTotal, currency),
+			BilledLabel:   moneyByCurrencyOrDash(lang, subtractPerCurrency(spentByCurrency, unbilledByCurrency)),
+			UnbilledLabel: moneyByCurrencyOrDash(lang, unbilledByCurrency),
+			BilledTotal:   moneyByCurrencyOrDash(lang, invoicedByCurrency),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -569,4 +632,17 @@ func currencySourceLabel(lang i18n.Lang, source string) string {
 	default:
 		return i18n.T(lang, "team.currencySource")
 	}
+}
+
+// subtractPerCurrency returns what is already on an invoice: spent minus
+// unbilled, currency by currency.
+func subtractPerCurrency(spent, unbilled map[string]int) map[string]int {
+	out := map[string]int{}
+	for currency, amount := range spent {
+		amount -= unbilled[currency]
+		if amount > 0 {
+			out[currency] = amount
+		}
+	}
+	return out
 }
