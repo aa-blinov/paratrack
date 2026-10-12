@@ -250,3 +250,62 @@ func TestMigrateProjectsToClients_IsRepeatable(t *testing.T) {
 		t.Fatalf("repeat run changed the cards: %d -> %d", len(first), len(second))
 	}
 }
+
+// Measured on a production database: 54 of 54 invoices carried a recipient
+// while 0 of 78 projects did. Reading only the project columns therefore
+// created no cards at all, and the directory opened empty on an
+// installation that had been invoicing for months.
+func TestMigrateInvoiceRecipients_CreatesCardsFromInvoices(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "T", "t")
+
+	project, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: teamID, CallerID: teamOwner(t, d, teamID), Name: "Site",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := FormatTime(d.currentTime().UTC())
+	if _, err := d.sql.ExecContext(ctx,
+		`INSERT INTO invoices (team_id, number, client_name, client_email, client_details,
+		                       project_id, period_start, period_end, status, created_at)
+		 VALUES (?, 'INV-1', 'Acme Corp', 'ap@acme.test', '77 Buckingham St', ?, '2026-10-01', '2026-10-31', 'sent', ?)`,
+		teamID, project.ID, now); err != nil {
+		t.Fatalf("seed invoice: %v", err)
+	}
+
+	if _, err := d.sql.ExecContext(ctx, `DELETE FROM paratrack_migrations WHERE name = $1`,
+		"20261012_invoice_recipients_to_clients"); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.migrateInvoiceRecipientsToClients(ctx); err != nil {
+		t.Fatalf("backfill: %v", err)
+	}
+
+	cards, err := d.ListClients(ctx, appmodel.ClientCatalogQuery{TeamID: teamID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cards) != 1 || cards[0].Name != "Acme Corp" {
+		t.Fatalf("invoice recipient became no card: %+v", cards)
+	}
+	if cards[0].Email != "ap@acme.test" || cards[0].Details != "77 Buckingham St" {
+		t.Errorf("card lost the recipient details: email=%q details=%q", cards[0].Email, cards[0].Details)
+	}
+	linked, err := d.GetProjectInTeam(ctx, appmodel.ProjectScopeQuery{TeamID: teamID, ProjectID: project.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if linked.ClientID != cards[0].ID {
+		t.Errorf("invoiced project not linked: client_id=%d, want %d", linked.ClientID, cards[0].ID)
+	}
+	// The invoice keeps its own copy: a sent document must not change.
+	var nameAfter string
+	if err := d.sql.QueryRowContext(ctx, `SELECT client_name FROM invoices WHERE number = 'INV-1'`).Scan(&nameAfter); err != nil {
+		t.Fatal(err)
+	}
+	if nameAfter != "Acme Corp" {
+		t.Errorf("invoice recipient changed to %q", nameAfter)
+	}
+}
