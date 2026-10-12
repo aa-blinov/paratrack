@@ -27,7 +27,7 @@
 /e2e/screenshots/echart-*.png
 /e2e/screenshots/clients-*.png
 /e2e/screenshots/client-detail.png
-/e2e/screenshots/prod-demo-*.png
+/e2e/screenshots/prod-*.png
 /e2e/screenshots/seed-demo*.png
 /e2e/screenshots/demo-overbudget.png
 /e2e/screenshots/demo-*.png
