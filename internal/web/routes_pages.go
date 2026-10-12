@@ -84,6 +84,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Clients. Reading the directory is open to every member; filing cards
 	// is a manager's action, so writes sit behind s.manage.
 	pages.HandleFunc("GET /clients", s.handleClientsList)
+	pages.HandleFunc("GET /clients/{id}", s.handleClientDetail)
 	pages.HandleFunc("POST /clients", s.manage(s.handleClientCreate))
 	pages.HandleFunc("POST /clients/{id}", s.manage(s.handleClientUpdate))
 	pages.HandleFunc("POST /clients/{id}/archive", s.manage(s.handleClientArchive))

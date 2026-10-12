@@ -86,3 +86,21 @@ func (s *Service) Budgets(ctx context.Context, query appmodel.ProjectBudgetQuery
 	}
 	return s.budgets.ProjectBudgetSummaries(ctx, query)
 }
+
+// Projects lists the work attached to a client card.
+func (s *Service) Projects(ctx context.Context, query appmodel.ClientScopeQuery) ([]appmodel.ClientProject, error) {
+	if query.TeamID <= 0 || query.ClientID <= 0 {
+		return nil, appmodel.ErrInvalidClientTeam
+	}
+	return s.directory.ClientProjects(ctx, query)
+}
+
+// Invoices lists the documents addressed to a client. clientName is the
+// card's own name and is needed for the legacy match: invoices written
+// before cards existed name their recipient and nothing else.
+func (s *Service) Invoices(ctx context.Context, query appmodel.ClientScopeQuery, clientName string) ([]appmodel.ClientInvoice, error) {
+	if query.TeamID <= 0 || query.ClientID <= 0 {
+		return nil, appmodel.ErrInvalidClientTeam
+	}
+	return s.directory.ClientInvoices(ctx, query, clientName)
+}

@@ -58,14 +58,18 @@ type budgetView struct {
 	HasBudget   bool
 	// Percent is the measured share of the ceiling, already clamped at 100
 	// for the bar; OverByLabel carries the overflow itself.
-	Percent        int
-	BudgetLabel    string
-	SpentLabel     string
-	UnbilledLabel  string
-	RemainingLabel string
-	Over           bool
-	OverByLabel    string
-	Currency       string
+	Percent int
+	// CurrencySourceLabel names the rule that chose the currency, so a
+	// manager can tell "bills in dollars because the client says so" from
+	// "because the workspace defaults to dollars".
+	CurrencySourceLabel string
+	BudgetLabel         string
+	SpentLabel          string
+	UnbilledLabel       string
+	RemainingLabel      string
+	Over                bool
+	OverByLabel         string
+	Currency            string
 }
 
 // projectDetailExtras carries what the detail page needs but the project
