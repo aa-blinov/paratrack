@@ -35,7 +35,7 @@ function BudgetCard({ data }: { data: ProjectDetailData }) {
     <CardContent className="grid gap-4">
       {budget.HasBudget ? <dl className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
         <div><dt>{t(lang, "budget.amount")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.BudgetLabel}</dd></div>
-        <div><dt>{t(lang, "budget.spent")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.SpentLabel}</dd></div>
+        <div><dt>{t(lang, "budget.spent")}{budget.CurrencySourceLabel && <span className="ml-1 font-normal text-muted-foreground">· {budget.CurrencySourceLabel}</span>}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.SpentLabel}</dd></div>
         {/* Перерасход — предупреждение, поэтому янтарный, а не разрушающий красный. */}
         <div><dt>{t(lang, budget.Over ? "budget.overBy" : "budget.remaining")}</dt><dd className={`mt-1 font-mono text-base font-medium tabular-nums ${budget.Over ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>{budget.Over ? budget.OverByLabel : budget.RemainingLabel}</dd></div>
         <div><dt>{t(lang, "inv.unbilled")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.UnbilledLabel}</dd></div>
@@ -190,7 +190,11 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
 
       <aside className="grid min-w-0 gap-4">
         <Card><CardHeader><CardTitle>{t(data.Lang, "clients.heading")}</CardTitle></CardHeader><CardContent>
-          <p className="text-sm [overflow-wrap:anywhere]">{clientName || t(data.Lang, "project.noClient")}</p>
+          {/* A link, not a label: the customer's page holds the projects you
+              cannot see from here, and the notes about how they pay. */}
+          {clientName
+            ? <a href={`/clients/${data.Client!.ID}`} className="text-sm [overflow-wrap:anywhere] hover:underline">{clientName}</a>
+            : <p className="text-sm [overflow-wrap:anywhere]">{t(data.Lang, "project.noClient")}</p>}
         </CardContent></Card>
 
         <BudgetCard data={data} />
