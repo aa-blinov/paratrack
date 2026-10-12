@@ -1101,6 +1101,7 @@
   "nav.group.money": "Money",
   "nav.group.team": "Team",
   "nav.group.data": "Data",
+  "nav.group.prefs": "Preferences",
   "dash.blurb": "Start timers, manage current work, and add time you forgot to track.",
   "dash.optionalFields": "Project and note (optional)",
   "inv.optionalFields": "Billing details, email and additional fields",
