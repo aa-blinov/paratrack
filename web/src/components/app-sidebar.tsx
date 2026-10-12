@@ -200,6 +200,13 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           </span>
         </div>
       )}
+      {/* Language and theme are preferences, not destinations. They already
+          sit together; what was missing is saying so. Every other band of the
+          sidebar carries a label, and these two were the only rows without
+          one. */}
+      <p className="px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+        {t(shell.lang, "nav.group.prefs")}
+      </p>
       <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}
         aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}>
         <a onClick={() => setOpenMobile(false)} href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`}>
