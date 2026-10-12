@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -307,5 +308,76 @@ func TestMigrateInvoiceRecipients_CreatesCardsFromInvoices(t *testing.T) {
 	}
 	if nameAfter != "Acme Corp" {
 		t.Errorf("invoice recipient changed to %q", nameAfter)
+	}
+}
+
+// A client's own currency must win over the project's, and the project's over
+// the workspace's. Without this rule a USD customer is billed in roubles
+// because nobody set a currency on the project, which is the default state.
+func TestClientCurrency_OutranksProjectAndWorkspace(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "T", "t")
+	owner := teamOwner(t, d, teamID)
+
+	usd := "USD"
+	card, err := d.CreateClient(ctx, appmodel.ClientCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "Dollar Corp", Currency: usd,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	rate := 150_000 // 1500.00 per hour
+	project, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{
+		TeamID: teamID, CallerID: owner, Name: "Site", RateCents: &rate, ClientID: card.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var projectCurrency string
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT currency FROM projects WHERE id = ?`, project.ID).Scan(&projectCurrency); err != nil {
+		t.Fatal(err)
+	}
+	if projectCurrency != "" {
+		t.Fatalf("project should still inherit, got currency %q", projectCurrency)
+	}
+
+	now := FormatTime(d.currentTime().UTC())
+	var activityID int64
+	if err := d.TestSQL().QueryRowContext(ctx,
+		`INSERT INTO activities (name, team_id, project_id, color, created_at, updated_at)
+		 VALUES ('work', ?, ?, '#7c8499', ?, ?) RETURNING id`,
+		teamID, project.ID, now, now).Scan(&activityID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, accumulated_seconds, created_at, updated_at)
+		 VALUES (?, ?, '2026-10-01T09:00:00.000', '2026-10-01T10:00:00.000', 3600, ?, ?)`,
+		activityID, teamID, now, now); err != nil {
+		t.Fatal(err)
+	}
+
+	start := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	lines, err := d.BuildInvoiceLinesFor(ctx, teamID, start, start.AddDate(0, 0, 1), project.ID, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 {
+		t.Fatalf("expected one invoice line, got %d", len(lines))
+	}
+	if lines[0].Currency != usd {
+		t.Fatalf("invoice line currency = %q, want the client's %q", lines[0].Currency, usd)
+	}
+
+	budgets, err := d.ProjectBudgetSummaries(ctx, appmodel.ProjectBudgetQuery{TeamID: teamID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, ok := budgets[project.ID]
+	if !ok {
+		t.Fatal("project missing from budget summary")
+	}
+	if got.Currency != usd || got.CurrencySource != "client" {
+		t.Fatalf("budget currency = %q from %q, want %q from client", got.Currency, got.CurrencySource, usd)
 	}
 }

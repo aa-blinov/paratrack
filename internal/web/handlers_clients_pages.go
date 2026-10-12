@@ -377,6 +377,7 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 		return extras, nil
 	}
 	extras.Budget.Currency = b.Currency
+	extras.Budget.CurrencySourceLabel = currencySourceLabel(lang, b.CurrencySource)
 	// A ceiling is measured against a rate; without one the number would be
 	// zero for a reason the person did not cause, so say so explicitly.
 	extras.Budget.HasRate = project.BillableRateCents != nil && *project.BillableRateCents > 0
@@ -403,4 +404,169 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 	}
 	extras.Budget.RemainingLabel = moneyL(lang, *project.BudgetCents-b.SpentCents, b.Currency)
 	return extras, nil
+}
+
+// clientDetailData is the envelope for /clients/{id}: one customer with the
+// work and the documents that belong to them.
+type clientDetailData struct {
+	Title             string
+	Active            string
+	ReactApp          bool
+	ClientDetailReact bool
+	Client            clientDetailRow
+	Projects          []clientProjectRow
+	Invoices          []clientInvoiceRow
+	Flash             string
+	FlashOK           bool
+	CSRFToken         string
+	Lang              string
+	CanManage         bool
+}
+
+func (clientDetailData) isTemplateData()    {}
+func (clientDetailData) usesReactApp() bool { return true }
+
+func (p *clientDetailData) setCSRF(t string)   { p.CSRFToken = t }
+func (p *clientDetailData) setLang(l string)   { p.Lang = l }
+func (p clientDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
+
+type clientDetailRow struct {
+	ID            int64
+	Name          string
+	Email         string
+	Details       string
+	Notes         string
+	Currency      string
+	Archived      bool
+	TrackedLabel  string
+	BilledLabel   string
+	UnbilledLabel string
+	BilledTotal   string
+}
+
+type clientProjectRow struct {
+	Slug         string
+	Name         string
+	Color        string
+	Archived     bool
+	TrackedLabel string
+	BudgetLabel  string
+	SpentLabel   string
+	Over         bool
+}
+
+type clientInvoiceRow struct {
+	ID         int64
+	Number     string
+	Period     string
+	Status     string
+	Currency   string
+	TotalLabel string
+}
+
+// handleClientDetail — GET /clients/{id}
+func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
+	lang := resolveLang(r)
+	id, ok := clientIDFromPath(r)
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	scope := appmodel.ClientScopeQuery{TeamID: teamID(r), ClientID: id}
+	card, err := s.services.Clients.GetInTeam(r.Context(), scope)
+	if errors.Is(err, model.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+
+	projects, err := s.services.Clients.Projects(r.Context(), scope)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	invoices, err := s.services.Clients.Invoices(r.Context(), scope, card.Name)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	budgets, err := s.services.Clients.Budgets(r.Context(), appmodel.ProjectBudgetQuery{TeamID: scope.TeamID})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+
+	currency := card.Currency
+	projectRows := make([]clientProjectRow, 0, len(projects))
+	var seconds int64
+	var spent, unbilled, billedTotal int
+	for _, p := range projects {
+		b := budgets[p.ID]
+		if b.Currency != "" && currency == "" {
+			currency = b.Currency
+		}
+		seconds += b.TrackedSeconds
+		spent += b.SpentCents
+		unbilled += b.UnbilledCents
+		row := clientProjectRow{
+			Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
+			TrackedLabel: fmtDur(r, int(b.TrackedSeconds)),
+			SpentLabel:   moneyL(lang, b.SpentCents, b.Currency),
+		}
+		if p.BudgetCents != nil && *p.BudgetCents > 0 {
+			row.BudgetLabel = moneyL(lang, *p.BudgetCents, b.Currency)
+			row.Over = b.OverBudget
+		}
+		projectRows = append(projectRows, row)
+	}
+	for _, inv := range invoices {
+		billedTotal += inv.TotalCents
+	}
+
+	invoiceRows := make([]clientInvoiceRow, 0, len(invoices))
+	for _, inv := range invoices {
+		invoiceRows = append(invoiceRows, clientInvoiceRow{
+			ID: inv.ID, Number: inv.Number,
+			Period: inv.PeriodStart + " — " + inv.PeriodEnd,
+			Status: inv.Status, Currency: inv.Currency,
+			TotalLabel: moneyL(lang, inv.TotalCents, inv.Currency),
+		})
+	}
+
+	data := clientDetailData{
+		Title:             card.Name,
+		Active:            "clients",
+		ReactApp:          true,
+		ClientDetailReact: true,
+		Projects:          projectRows,
+		Invoices:          invoiceRows,
+		CanManage:         canManage(r),
+		Client: clientDetailRow{
+			ID: card.ID, Name: card.Name, Email: card.Email, Details: card.Details,
+			Notes: card.Notes, Currency: card.Currency, Archived: card.Archived,
+			TrackedLabel:  fmtDur(r, int(seconds)),
+			BilledLabel:   moneyOrDash(lang, spent-unbilled, currency),
+			UnbilledLabel: moneyOrDash(lang, unbilled, currency),
+			BilledTotal:   moneyOrDash(lang, billedTotal, currency),
+		},
+	}
+	if flash := r.URL.Query().Get("flash"); flash != "" {
+		data.Flash, data.FlashOK = decodeFlash(flash, lang)
+	}
+	s.renderPageForRequest(w, r, card.Name, "clients", "clients", &data)
+}
+
+// currencySourceLabel names the rule that produced a document's currency.
+func currencySourceLabel(lang i18n.Lang, source string) string {
+	switch source {
+	case "client":
+		return i18n.T(lang, "clients.currencySource")
+	case "project":
+		return i18n.T(lang, "proj.currencySource")
+	default:
+		return i18n.T(lang, "team.currencySource")
+	}
 }

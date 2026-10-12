@@ -1210,5 +1210,11 @@
   "budget.overBy": "Перерасход",
   "budget.unset": "Бюджет не задан",
   "budget.clear": "Убрать бюджет",
-  "budget.noRate": "Без ставки бюджет не посчитать"
+  "budget.noRate": "Без ставки бюджет не посчитать",
+  "clients.noProjects": "У этого клиента пока нет проектов",
+  "clients.noInvoices": "Счетов этому клиенту ещё не выставляли",
+  "budget.spentShort": "Освоено",
+  "clients.currencySource": "Валюта клиента",
+  "proj.currencySource": "Валюта проекта",
+  "team.currencySource": "Валюта пространства"
 }

@@ -156,6 +156,57 @@ export interface ClientsPageData {
   Currencies: CurrencyOption[]
 }
 
+export interface ClientDetailClient {
+  ID: number
+  Name: string
+  Email: string
+  Details: string
+  Notes: string
+  Currency: string
+  Archived: boolean
+  /** Every money label here is already formatted, or "—" when there is nothing to show. */
+  TrackedLabel: string
+  BilledLabel: string
+  UnbilledLabel: string
+  BilledTotal: string
+}
+
+export interface ClientDetailProject {
+  Slug: string
+  Name: string
+  Color: string
+  Archived: boolean
+  TrackedLabel: string
+  /** Empty while the project has no ceiling — the row then shows no money. */
+  BudgetLabel: string
+  SpentLabel: string
+  Over: boolean
+}
+
+export interface ClientDetailInvoice {
+  ID: number
+  Number: string
+  /** Ready to print, e.g. "2026-10-01 — 2026-10-31". */
+  Period: string
+  Status: string
+  Currency: string
+  TotalLabel: string
+}
+
+export interface ClientDetailData {
+  Title: string
+  Active: string
+  ClientDetailReact: true
+  Lang: string
+  CSRFToken: string
+  Flash: string
+  FlashOK: boolean
+  CanManage: boolean
+  Client: ClientDetailClient
+  Projects: ClientDetailProject[]
+  Invoices: ClientDetailInvoice[]
+}
+
 /** Money summary for the project budget. Every label is already formatted. */
 export interface ProjectBudget {
   HasBudget: boolean
@@ -779,7 +830,7 @@ export interface AuthPageData {
   SSO: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ClientsPageData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
+export type ReactPageData = DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
