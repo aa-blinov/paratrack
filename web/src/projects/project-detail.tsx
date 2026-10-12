@@ -35,7 +35,8 @@ function BudgetCard({ data }: { data: ProjectDetailData }) {
     <CardContent className="grid gap-4">
       {budget.HasBudget ? <dl className="grid grid-cols-2 gap-3 text-xs text-muted-foreground">
         <div><dt>{t(lang, "budget.amount")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.BudgetLabel}</dd></div>
-        <div><dt>{t(lang, "budget.spent")}{budget.CurrencySourceLabel && <span className="ml-1 font-normal text-muted-foreground">· {budget.CurrencySourceLabel}</span>}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.SpentLabel}</dd></div>
+        {/* Источник валюты — отдельной строкой под суммой. Разделитель «·» перед подписью выглядел как случайный символ и переносился по словам. */}
+        <div><dt>{t(lang, "budget.spent")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.SpentLabel}</dd>{budget.CurrencySourceLabel && <p className="mt-0.5 font-normal text-muted-foreground">{budget.CurrencySourceLabel}</p>}</div>
         {/* Перерасход — предупреждение, поэтому янтарный, а не разрушающий красный. */}
         <div><dt>{t(lang, budget.Over ? "budget.overBy" : "budget.remaining")}</dt><dd className={`mt-1 font-mono text-base font-medium tabular-nums ${budget.Over ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>{budget.Over ? budget.OverByLabel : budget.RemainingLabel}</dd></div>
         <div><dt>{t(lang, "inv.unbilled")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.UnbilledLabel}</dd></div>
@@ -154,7 +155,6 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
         <span aria-hidden="true" className="mt-2 size-4 shrink-0 rounded-full" style={{ backgroundColor: project.Color }} />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight" title={project.Name}><span className="block truncate">{project.Name}</span></h1>{data.Archived && <Badge variant="secondary">{t(data.Lang, "projects.archivedBadge")}</Badge>}</div>
-          <p className="mt-1 text-sm text-muted-foreground">{t(data.Lang, "projects.blurb")}</p>
         </div>
       </div>
       {!data.Archived && <Button asChild size="sm"><a href={`/?project=${project.ID}`}><Play aria-hidden="true" />{t(data.Lang, "projects.trackTime")}</a></Button>}
