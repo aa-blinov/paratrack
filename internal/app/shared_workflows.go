@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/aa-blinov/paratrack/internal/audit"
+	"github.com/aa-blinov/paratrack/internal/clients"
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/goals"
 	"github.com/aa-blinov/paratrack/internal/projects"
@@ -16,6 +17,7 @@ import (
 // the same project, tracking, tagging, goal, and audit behavior.
 type sharedWorkflows struct {
 	Projects *projects.Service
+	Clients  *clients.Service
 	Tracking *tracking.Service
 	Tagging  *tagging.Service
 	Goals    *goals.Service
@@ -34,6 +36,13 @@ func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
 	auditService, err := audit.New(database)
 	if err != nil {
 		return sharedWorkflows{}, fmt.Errorf("construct audit service: %w", err)
+	}
+
+	clientService, err := clients.NewService(clients.Dependencies{
+		Directory: database, Writes: database, Budgets: database,
+	})
+	if err != nil {
+		return sharedWorkflows{}, fmt.Errorf("construct clients service: %w", err)
 	}
 
 	trackingService, err := tracking.New(tracking.Dependencies{
@@ -60,6 +69,7 @@ func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
 
 	return sharedWorkflows{
 		Projects: projectService,
+		Clients:  clientService,
 		Tracking: trackingService,
 		Tagging:  taggingService,
 		Goals:    goalService,

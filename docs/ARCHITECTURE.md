@@ -977,7 +977,7 @@ New code follows these rules:
 
 The codebase has feature workflow packages and one SQL adapter. HTTP handlers
 and CLI commands use named persistence operations instead of issuing SQL
-themselves. Auth, teams, goals, projects, tagging, tracking, invoicing and
+themselves. Auth, teams, goals, projects, clients, tagging, tracking, invoicing and
 integrations divide persistence needs into capability-specific ports; cohesive
 single-workflow adapters use a compact store interface. Transaction boundaries
 stay in `internal/db`. The CLI project commands resolve typed project errors

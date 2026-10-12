@@ -28,6 +28,7 @@ func (d *DB) CreateProjectWithBilling(ctx context.Context, request appmodel.Proj
 	teamID, callerID := request.TeamID, request.CallerID
 	name, slug, color := request.Name, request.Slug, request.Color
 	rateCents, currency := request.RateCents, request.Currency
+	clientID, budgetCents := request.ClientID, request.BudgetCents
 	if teamID <= 0 || callerID <= 0 {
 		return model.Project{}, ErrNotFound
 	}
@@ -84,8 +85,30 @@ func (d *DB) CreateProjectWithBilling(ctx context.Context, request appmodel.Proj
 			return model.Project{}, err
 		}
 	}
+	// A client card may only come from the same workspace. Without this the
+	// form would happily link a project to another team's client id.
+	if clientID > 0 {
+		if err := checkClientInTeam(ctx, tx, clientID, teamID); err != nil {
+			return model.Project{}, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE projects SET client_id = ? WHERE id = ? AND team_id = ?`, clientID, id, teamID); err != nil {
+			return model.Project{}, err
+		}
+	}
+	if budgetCents != nil {
+		// Zero is how a form says "remove the ceiling". Storing 0 would
+		// instead read as "this project may not be billed at all", which is
+		// the opposite of what the person who cleared the field meant.
+		value := any(nil)
+		if *budgetCents > 0 {
+			value = *budgetCents
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE projects SET budget_cents = ? WHERE id = ? AND team_id = ?`, value, id, teamID); err != nil {
+			return model.Project{}, err
+		}
+	}
 	project, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE id = ? AND team_id = ?`, id, teamID))
+		`SELECT `+projectColumns+` FROM projects WHERE id = ? AND team_id = ?`, id, teamID))
 	if err != nil {
 		return model.Project{}, err
 	}
@@ -100,7 +123,7 @@ func (d *DB) CreateProjectWithBilling(ctx context.Context, request appmodel.Proj
 // HTTP and application workflows should use GetProjectInTeam.
 func (d *DB) GetProjectByID(ctx context.Context, id int64) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE id = ?`, id)
+		`SELECT `+projectColumns+` FROM projects WHERE id = ?`, id)
 	return scanProject(row)
 }
 
@@ -110,7 +133,7 @@ func (d *DB) GetProjectInTeam(ctx context.Context, query appmodel.ProjectScopeQu
 		return model.Project{}, ErrNotFound
 	}
 	return scanProject(d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID))
+		`SELECT `+projectColumns+` FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID))
 }
 
 func (d *DB) TeamOwnerID(ctx context.Context, teamID int64) (int64, error) {
@@ -124,7 +147,7 @@ func (d *DB) TeamOwnerID(ctx context.Context, teamID int64) (int64, error) {
 // GetProjectBySlug looks up by team + slug (the URL-friendly handle).
 func (d *DB) GetProjectBySlug(ctx context.Context, query appmodel.ProjectSlugQuery) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at
+		`SELECT `+projectColumns+`
 		   FROM projects WHERE team_id = ? AND slug = ?`, query.TeamID, strings.ToLower(query.Slug))
 	return scanProject(row)
 }
@@ -187,8 +210,14 @@ func (d *DB) ProjectCurrencies(ctx context.Context, teamID int64) (map[int64]str
 // ListProjects returns projects in teamID. By default archived rows
 // are hidden — set includeArchived=true to surface them too (used by
 // the "Show archived" toggle on /projects).
+// projectColumns is the single source of truth for reading a project. scanProject
+// scans exactly this list in this order, so a column added here without widening
+// the matching SELECT (or the other way round) fails loudly at the first read
+// instead of silently returning a project.
+const projectColumns = `id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at`
+
 func (d *DB) ListProjects(ctx context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
-	q := `SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at FROM projects WHERE team_id = ?`
+	q := `SELECT ` + projectColumns + ` FROM projects WHERE team_id = ?`
 	if !query.IncludeArchived {
 		q += ` AND archived = 0`
 	}
@@ -223,7 +252,7 @@ func (d *DB) UpdateProjectWithOptions(ctx context.Context, request appmodel.Proj
 		return model.Project{}, err
 	}
 	current, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at
+		`SELECT `+projectColumns+`
 		 FROM projects WHERE id = ? AND team_id = ? FOR UPDATE`, request.ProjectID, request.TeamID))
 	if err != nil {
 		return model.Project{}, err
@@ -272,13 +301,35 @@ func (d *DB) UpdateProjectWithOptions(ctx context.Context, request appmodel.Proj
 		query += `, currency = ?`
 		args = append(args, *request.Update.Currency)
 	}
+	if request.Update.BudgetCents != nil {
+		if *request.Update.BudgetCents < 0 {
+			return model.Project{}, fmt.Errorf("budget must be >= 0")
+		}
+		query += `, budget_cents = ?`
+		if *request.Update.BudgetCents > 0 {
+			args = append(args, *request.Update.BudgetCents)
+		} else {
+			// A cleared field removes the ceiling instead of setting it to
+			// zero — see the note in CreateProjectWithBilling.
+			args = append(args, nil)
+		}
+	}
+	if request.Update.ClientID != nil {
+		if *request.Update.ClientID > 0 {
+			if err := checkClientInTeam(ctx, tx, *request.Update.ClientID, request.TeamID); err != nil {
+				return model.Project{}, err
+			}
+		}
+		query += `, client_id = ?`
+		args = append(args, *request.Update.ClientID)
+	}
 	query += ` WHERE id = ? AND team_id = ?`
 	args = append(args, request.ProjectID, request.TeamID)
 	if _, err := tx.ExecContext(ctx, query, args...); err != nil {
 		return model.Project{}, err
 	}
 	updated, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at
+		`SELECT `+projectColumns+`
 		 FROM projects WHERE id = ? AND team_id = ?`, request.ProjectID, request.TeamID))
 	if err != nil {
 		return model.Project{}, err
@@ -324,11 +375,13 @@ func scanProject(r row) (model.Project, error) {
 		archived int
 		estimate sql.NullInt64
 		rate     sql.NullInt64
+		budget   sql.NullInt64
+		client   sql.NullInt64
 		billable int
 		created  string
 		updated  string
 	)
-	if err := r.Scan(&p.ID, &p.TeamID, &p.Slug, &p.Name, &p.Color, &archived, &estimate, &rate, &billable, &created, &updated); err != nil {
+	if err := r.Scan(&p.ID, &p.TeamID, &p.Slug, &p.Name, &p.Color, &archived, &estimate, &rate, &billable, &client, &budget, &created, &updated); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Project{}, ErrNotFound
 		}
@@ -342,6 +395,13 @@ func scanProject(r row) (model.Project, error) {
 	if rate.Valid {
 		v := int(rate.Int64)
 		p.BillableRateCents = &v
+	}
+	if budget.Valid {
+		v := int(budget.Int64)
+		p.BudgetCents = &v
+	}
+	if client.Valid {
+		p.ClientID = client.Int64
 	}
 	p.Billable = billable != 0
 	createdAt, err := ScanTime(created)

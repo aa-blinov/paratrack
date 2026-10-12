@@ -123,6 +123,7 @@ cmd_check() {
 	[ -d .venv ] || fail "no .venv — run: scripts/setup_e2e.sh"
 
 	PARATRACK_BASE="$BASE_URL" .venv/bin/python e2e/test_dashboard.py
+	PARATRACK_BASE="$BASE_URL" .venv/bin/python e2e/test_clients.py
 	PARATRACK_BASE="$BASE_URL" .venv/bin/python e2e/qa_full.py
 }
 
