@@ -4,6 +4,8 @@ Run:  . .venv/bin/activate && python e2e/qa_full.py
 """
 from __future__ import annotations
 
+from color_audit import wait_for_chart
+
 import re
 import time
 from pathlib import Path
@@ -261,7 +263,7 @@ def main() -> int:
         # ---------- D. Graph ----------
         print("== D. Graph")
         pg.goto(BASE + "/graph?period=yesterday")
-        pg.wait_for_timeout(1000)
+        wait_for_chart(pg)
         g = pg.evaluate("""() => ({
           canvas: !!document.querySelector('#echart-canvas canvas'),
           echarts: typeof echarts !== 'undefined',

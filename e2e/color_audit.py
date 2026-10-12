@@ -430,3 +430,26 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+def wait_for_chart(page, timeout=20000):
+    """Wait until ECharts has actually initialised on the graph page.
+
+    Waiting for `#echart-canvas canvas` asks for the wrong thing and is
+    fragile twice over: the canvas appears a beat before the instance does,
+    so the first paint is asserted against nothing, and short budgets make
+    it a coin flip on a loaded CI runner. That is not theoretical — the same
+    selector timed out on 30s in CI and passed minutes later on a rerun, on
+    a branch that touched no chart code.
+
+    The instance is the honest signal: it exists only once the chart has
+    data and the render has run.
+    """
+    page.wait_for_function(
+        """() => {
+            const el = document.getElementById('echart-canvas');
+            return !!el && typeof echarts !== 'undefined' &&
+                   !!echarts.getInstanceByDom(el);
+        }""",
+        timeout=timeout,
+    )
