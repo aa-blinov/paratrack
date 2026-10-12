@@ -81,16 +81,22 @@ def sign_up_or_in(page: Page) -> None:
         page.click('button[type="submit"]')
         page.wait_for_load_state("load")
     if page.url.endswith("/welcome"):
-        # Pick the freelancer set by its visible title and then confirm it
-        # took: selecting a set by clicking its hidden input is exactly the kind
-        # of thing that silently does nothing and leaves a seed with no
-        # invoices section to look at.
-        chosen = page.get_by_role("button", name=re.compile("Фрилансер")).first
-        if chosen.count():
-            chosen.click()
-        else:
-            page.locator('form[action="/api/team/modules"]:has(input[value="freelance"]) button').first.click()
-        page.wait_for_url(lambda url: "/welcome" not in url, timeout=20000)
+        # Choose the freelancer section set. The button is inside the form that
+        # carries the preset value, so target that rather than the button's
+        # wording — and if the click still leaves us on /welcome, post the same
+        # form directly with its CSRF token rather than seeding a workspace
+        # where invoices and reports are switched off.
+        form = page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="freelance"])')
+        if form.count():
+            form.first.locator("button").first.click()
+            page.wait_for_timeout(1500)
+        if page.url.endswith("/welcome"):
+            token = page.locator('form[action="/api/team/modules"] input[name="csrf_token"]').first.input_value()
+            page.request.post(f"{BASE}/api/team/modules",
+                              form={"csrf_token": token, "preset": "freelance", "from": "welcome"},
+                              headers={"X-CSRF-Token": token})
+            page.goto(f"{BASE}/settings/sections", wait_until="networkidle")
+            page.wait_for_timeout(400)
         page.goto(f"{BASE}/settings/sections", wait_until="networkidle")
         page.wait_for_timeout(400)
         sections = page.locator("main").inner_text()
