@@ -6,6 +6,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/audit"
 	"github.com/aa-blinov/paratrack/internal/auth"
 	"github.com/aa-blinov/paratrack/internal/billing"
+	"github.com/aa-blinov/paratrack/internal/clients"
 	"github.com/aa-blinov/paratrack/internal/dashboard"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/goals"
@@ -56,6 +57,7 @@ type Services struct {
 	Preferences             *preferences.Service
 	Scheduling              *scheduling.Service
 	Projects                *projects.Service
+	Clients                 *clients.Service
 	ProjectPages            *projectpages.Builder
 	Reports                 *savedreports.Service
 	ReportBuilder           *savedreports.Builder

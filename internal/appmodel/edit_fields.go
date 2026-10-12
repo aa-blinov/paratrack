@@ -12,6 +12,13 @@ type ProjectUpdate struct {
 	RateCents       *int
 	Billable        *bool
 	Currency        *string
+	// ClientID links the project to a client card; nil leaves the link
+	// alone, 0 detaches it (the project keeps its recipient snapshot).
+	ClientID *int64
+	// BudgetCents sets the monetary ceiling; nil leaves it, and a non-nil
+	// pointer to 0 clears it — an explicit 0 ceiling is meaningless, so
+	// the workflow layer normalises it to nil before it reaches SQL.
+	BudgetCents *int
 }
 
 // SessionUpdate is the explicit set of editable session fields. Nil time and

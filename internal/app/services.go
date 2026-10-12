@@ -271,6 +271,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Preferences:             preferenceService,
 		Scheduling:              schedulingService,
 		Projects:                projectService,
+		Clients:                 shared.Clients,
 		ProjectPages:            projectPageBuilder,
 		Reports:                 reportService,
 		ReportBuilder:           reportBuilder,

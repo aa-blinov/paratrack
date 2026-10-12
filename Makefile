@@ -90,6 +90,7 @@ tidy:
 e2e:
 	@if [ ! -d .venv ]; then echo "no .venv — run scripts/setup_e2e.sh first"; exit 1; fi
 	. .venv/bin/activate && python e2e/test_dashboard.py
+	. .venv/bin/activate && python e2e/test_clients.py
 
 e2e-up: build
 	@pgrep -f "paratrack web --addr $(ADDR)" >/dev/null && \

@@ -122,6 +122,56 @@ export interface ProjectListData {
   CanManage: boolean
 }
 
+/** Shared currency picker entry. Label is display-ready, e.g. "RUB (₽)". */
+export interface CurrencyOption {
+  Code: string
+  Label: string
+}
+
+export interface ClientRow {
+  ID: number
+  Name: string
+  Email: string
+  Details: string
+  Notes: string
+  Currency: string
+  Archived: boolean
+  Projects: number
+  TrackedLabel: string
+  BilledLabel: string
+  UnbilledLabel: string
+}
+
+export interface ClientsPageData {
+  Title: string
+  Active: string
+  ClientsReact: true
+  Lang: string
+  CSRFToken: string
+  Flash: string
+  FlashOK: boolean
+  CanManage: boolean
+  ShowArchived: boolean
+  Clients: ClientRow[]
+  Currencies: CurrencyOption[]
+}
+
+/** Money summary for the project budget. Every label is already formatted. */
+export interface ProjectBudget {
+  HasBudget: boolean
+  BudgetLabel: string
+  SpentLabel: string
+  UnbilledLabel: string
+  /** Empty once the budget is blown — the page shows OverByLabel instead. */
+  RemainingLabel: string
+  Over: boolean
+  OverByLabel: string
+  Currency: string
+  /** Ceiling formatted for the form without the currency symbol; "" when unset. */
+  BudgetInput: string
+  HasRate: boolean
+}
+
 export interface ProjectDetailData {
   Title: string
   Active: string
@@ -145,6 +195,12 @@ export interface ProjectDetailData {
   CSRFToken: string
   CanManage: boolean
   Unbilled: UnbilledItem[]
+  /** ID is 0 when the project belongs to nobody. Optional so a payload
+      without the client block still renders the page. */
+  Client?: { ID: number; Name: string } | null
+  /** Empty for members, who never pick a client. */
+  ClientOptions?: Array<{ ID: number; Name: string }>
+  Budget?: ProjectBudget
 }
 
 export interface ProjectCreateData {
@@ -723,7 +779,7 @@ export interface AuthPageData {
   SSO: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
+export type ReactPageData = DashboardData | ProjectListData | ClientsPageData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // projectsPageData is the envelope for the /projects list page.
@@ -108,7 +109,12 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		s.writeProjectLookupError(w, r, err)
 		return
 	}
-	data := s.buildProjectDetailPage(r, snapshot)
+	extras, err := s.buildProjectExtras(r, snapshot.Detail.Project)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	data := s.buildProjectDetailPage(r, snapshot, extras)
 	// This page never read a flash before. Creating redirects here, so the
 	// "created" confirmation had nowhere to render: the query arrived and was
 	// dropped. Every other page that redirects to itself reads it.
@@ -252,6 +258,32 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	}
 	billable := r.Form.Get("billable") == "1" || r.Form.Get("billable") == "on" || r.Form.Get("billable") == "true"
 	update.Billable = &billable
+	// The client picker is always present in the project form, so an empty
+	// value means "detach" rather than "leave as is".
+	if _, sent := r.Form["client_id"]; sent {
+		clientID, convErr := strconv.ParseInt(strings.TrimSpace(r.Form.Get("client_id")), 10, 64)
+		if convErr != nil || clientID < 0 {
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, "bad client"), http.StatusSeeOther)
+			return
+		}
+		update.ClientID = &clientID
+	}
+	// A present-but-empty budget field removes the ceiling (see db layer);
+	// an absent field means the form never showed one, so nothing changes.
+	if _, sent := r.Form["budget"]; sent {
+		raw := strings.TrimSpace(r.Form.Get("budget"))
+		if raw == "" {
+			zero := 0
+			update.BudgetCents = &zero
+		} else {
+			cents, parseErr := money.ParseCents(raw)
+			if parseErr != nil {
+				http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+				return
+			}
+			update.BudgetCents = &cents
+		}
+	}
 	if _, sent := r.Form["currency"]; sent {
 		cur := r.Form.Get("currency")
 		if cur != "" && !validCurrency(cur) {

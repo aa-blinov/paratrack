@@ -33,6 +33,47 @@ type projectDetailData struct {
 	Lang            string
 	Unbilled        []unbilledView
 	CanManage       bool // rates, client and settings are for managers only
+	Client          *clientRef
+	ClientOptions   []clientRef
+	Budget          budgetView
+}
+
+// clientRef is the picker's option shape for linking a project to a card.
+type clientRef struct {
+	ID   int64
+	Name string
+}
+
+// budgetView is the money view of a project ceiling.
+//
+// Every figure here is a measurement of tracked time, never an estimate: the
+// product promise is that the registry is what actually happened, and a
+// budget read off an estimate would quietly break it.
+type budgetView struct {
+	// BudgetInput is the ceiling pre-filled in the edit form, blank when
+	// unset. Without it the field would render empty and look like the
+	// project had no budget even after one was saved.
+	BudgetInput string
+	HasRate     bool
+	HasBudget   bool
+	// Percent is the measured share of the ceiling, already clamped at 100
+	// for the bar; OverByLabel carries the overflow itself.
+	Percent        int
+	BudgetLabel    string
+	SpentLabel     string
+	UnbilledLabel  string
+	RemainingLabel string
+	Over           bool
+	OverByLabel    string
+	Currency       string
+}
+
+// projectDetailExtras carries what the detail page needs but the project
+// snapshot does not know about: the client directory and the budget read.
+type projectDetailExtras struct {
+	Client        *clientRef
+	ClientOptions []clientRef
+	Budget        budgetView
 }
 
 func (projectDetailData) isTemplateData()    {}
@@ -43,7 +84,7 @@ func (p *projectDetailData) setManage(v bool)   { p.CanManage = v }
 func (p *projectDetailData) setLang(l string)   { p.Lang = l }
 func (p projectDetailData) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 
-func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.ProjectPageSnapshot) projectDetailData {
+func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.ProjectPageSnapshot, extras projectDetailExtras) projectDetailData {
 	detail := snapshot.Detail
 	p := detail.Project
 	now := userNow(r)
@@ -85,6 +126,9 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 		data.Unbilled = unbilledViewsFrom(snapshot.Unbilled, r)
 	}
 	data.TeamCurrency = snapshot.TeamCurrency
+	data.Client = extras.Client
+	data.ClientOptions = extras.ClientOptions
+	data.Budget = extras.Budget
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}

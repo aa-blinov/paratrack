@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Download, Flag, Folder, Languages, Link2, LogOut, Settings, Tag, Users, Zap } from "lucide-react"
+import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, Flag, Folder, Languages, Link2, LogOut, Settings, Tag, Users, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, sidebarRow } from "@/components/ui/button"
 import {
@@ -90,6 +90,7 @@ export function Icon({ name }: { name: string }) {
     case "tag": return <Tag {...props} />
     case "zap": return <Zap {...props} />
     case "users": return <Users {...props} />
+    case "contact": return <Contact {...props} />
     case "link": return <Link2 {...props} />
     case "download": return <Download {...props} />
     case "settings": return <Settings {...props} />

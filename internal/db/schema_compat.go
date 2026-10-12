@@ -44,6 +44,12 @@ var columnMigrations = []struct {
 	{"invoices", "seller_details", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "client_details", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "vat_note", "TEXT NOT NULL DEFAULT ''"},
+	// A project points at a client card (0 = keep using the snapshot columns
+	// above) and carries a monetary ceiling. The snapshot columns are left in
+	// place on purpose: they are what an already-sent invoice was addressed to,
+	// and renaming a client must not rewrite history.
+	{"projects", "client_id", "BIGINT"},
+	{"projects", "budget_cents", "BIGINT"},
 	// Freelancer flow: a project remembers its client (name, details,
 	// email) for the next invoice; a billed session points at its invoice
 	// so it isn't billed twice and can't change under a sent document;

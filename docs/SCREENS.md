@@ -26,7 +26,8 @@
 | Экран | Маршрут | Документ | Самый дорогой путь, кликов |
 |---|---|---|---|
 | Обзор | `/` | [dashboard.md](screens/dashboard.md) | 3 (стоп всем) |
-| Проекты | `/projects` | [projects.md](screens/projects.md) | 5 (ставка, план, переименование, архив, удаление) |
+| Проекты | `/projects` | [projects.md](screens/projects.md) | 6 (ставка, бюджет, клиент, план, переименование, архив) |
+| Клиенты | `/clients` | [clients.md](screens/clients.md) | не измерено (экран новый) |
 | Табель | `/timesheet` | [timesheet.md](screens/timesheet.md) | 8 (заполнить неделю подряд) |
 | Статистика | `/stats` | [stats.md](screens/stats.md) | 3 |
 | По часам | `/graph` | [graph.md](screens/graph.md) | 4 (сбросить фильтры) |
