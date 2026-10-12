@@ -108,7 +108,7 @@ func (d *DB) CreateProjectWithBilling(ctx context.Context, request appmodel.Proj
 		}
 	}
 	project, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at FROM projects WHERE id = ? AND team_id = ?`, id, teamID))
+		`SELECT `+projectColumns+` FROM projects WHERE id = ? AND team_id = ?`, id, teamID))
 	if err != nil {
 		return model.Project{}, err
 	}
@@ -123,7 +123,7 @@ func (d *DB) CreateProjectWithBilling(ctx context.Context, request appmodel.Proj
 // HTTP and application workflows should use GetProjectInTeam.
 func (d *DB) GetProjectByID(ctx context.Context, id int64) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at FROM projects WHERE id = ?`, id)
+		`SELECT `+projectColumns+` FROM projects WHERE id = ?`, id)
 	return scanProject(row)
 }
 
@@ -133,7 +133,7 @@ func (d *DB) GetProjectInTeam(ctx context.Context, query appmodel.ProjectScopeQu
 		return model.Project{}, ErrNotFound
 	}
 	return scanProject(d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID))
+		`SELECT `+projectColumns+` FROM projects WHERE id = ? AND team_id = ?`, query.ProjectID, query.TeamID))
 }
 
 func (d *DB) TeamOwnerID(ctx context.Context, teamID int64) (int64, error) {
@@ -147,7 +147,7 @@ func (d *DB) TeamOwnerID(ctx context.Context, teamID int64) (int64, error) {
 // GetProjectBySlug looks up by team + slug (the URL-friendly handle).
 func (d *DB) GetProjectBySlug(ctx context.Context, query appmodel.ProjectSlugQuery) (model.Project, error) {
 	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at
+		`SELECT `+projectColumns+`
 		   FROM projects WHERE team_id = ? AND slug = ?`, query.TeamID, strings.ToLower(query.Slug))
 	return scanProject(row)
 }
@@ -210,8 +210,14 @@ func (d *DB) ProjectCurrencies(ctx context.Context, teamID int64) (map[int64]str
 // ListProjects returns projects in teamID. By default archived rows
 // are hidden — set includeArchived=true to surface them too (used by
 // the "Show archived" toggle on /projects).
+// projectColumns is the single source of truth for reading a project. scanProject
+// scans exactly this list in this order, so a column added here without widening
+// the matching SELECT (or the other way round) fails loudly at the first read
+// instead of silently returning a project.
+const projectColumns = `id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at`
+
 func (d *DB) ListProjects(ctx context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
-	q := `SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at FROM projects WHERE team_id = ?`
+	q := `SELECT ` + projectColumns + ` FROM projects WHERE team_id = ?`
 	if !query.IncludeArchived {
 		q += ` AND archived = 0`
 	}
@@ -246,7 +252,7 @@ func (d *DB) UpdateProjectWithOptions(ctx context.Context, request appmodel.Proj
 		return model.Project{}, err
 	}
 	current, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at
+		`SELECT `+projectColumns+`
 		 FROM projects WHERE id = ? AND team_id = ? FOR UPDATE`, request.ProjectID, request.TeamID))
 	if err != nil {
 		return model.Project{}, err
@@ -323,7 +329,7 @@ func (d *DB) UpdateProjectWithOptions(ctx context.Context, request appmodel.Proj
 		return model.Project{}, err
 	}
 	updated, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at
+		`SELECT `+projectColumns+`
 		 FROM projects WHERE id = ? AND team_id = ?`, request.ProjectID, request.TeamID))
 	if err != nil {
 		return model.Project{}, err

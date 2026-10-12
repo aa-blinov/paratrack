@@ -165,7 +165,7 @@ func (d *DB) AssignUnassignedActivityForBilling(ctx context.Context, request app
 		return err
 	}
 	p, err := scanProject(tx.QueryRowContext(ctx,
-		`SELECT id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, created_at, updated_at
+		`SELECT `+projectColumns+`
 		 FROM projects WHERE id = ? AND team_id = ? FOR UPDATE`, projectID, teamID))
 	if err != nil {
 		return err
