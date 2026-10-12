@@ -76,7 +76,12 @@ function ClientCard({ client, lang, csrf, currencies, canManage, editing, onTogg
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <h2 className="min-w-0 truncate text-base font-medium" title={client.Name}>{client.Name}</h2>
+            {/* The name is the way into the client's own page: its projects,
+                its documents and the notes that only make sense there. Without
+                this the page exists but nothing leads to it. */}
+            <h2 className="min-w-0 truncate text-base font-medium" title={client.Name}>
+              <a href={`/clients/${client.ID}`} className="hover:underline">{client.Name}</a>
+            </h2>
             {client.Archived && <Badge variant="secondary">{t(lang, "projects.archivedBadge")}</Badge>}
           </div>
           {client.Email && <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Email}</p>}

@@ -35,6 +35,11 @@ export type AppSidebarShell = {
 export const nav: ShellNavItem[] = [
   { group: "core", key: "dashboard", href: "/", icon: "activity", label: "nav.dashboard" },
   { group: "core", key: "projects", href: "/projects", icon: "folder", label: "nav.projects" },
+  // Sits next to Projects because a project is where a client is picked, and
+  // the two are read together. It was missing from this table once already —
+  // the Go-side navItems only feed the mobile tabs and the settings screen,
+  // so a route registered there alone is unreachable from the desktop menu.
+  { group: "core", key: "clients", href: "/clients", icon: "contact", label: "nav.clients" },
   { group: "core", key: "timesheet", href: "/timesheet", icon: "calendar", label: "nav.timesheet" },
   { group: "core", key: "stats", href: "/stats", icon: "chart", label: "nav.stats" },
   { group: "analysis", key: "graph", href: "/graph", icon: "clock", label: "nav.graph", module: "graph" },

@@ -85,6 +85,8 @@ type ClientWorkflow interface {
 	Archive(context.Context, appmodel.ClientUpdateRequest) (model.Client, error)
 	Restore(context.Context, appmodel.ClientUpdateRequest) (model.Client, error)
 	Budgets(context.Context, appmodel.ProjectBudgetQuery) (map[int64]appmodel.ProjectBudget, error)
+	Projects(context.Context, appmodel.ClientScopeQuery) ([]appmodel.ClientProject, error)
+	Invoices(context.Context, appmodel.ClientScopeQuery, string) ([]appmodel.ClientInvoice, error)
 }
 
 // AuditWorkflow is the audit query and recording surface used by HTTP routes.

@@ -114,7 +114,11 @@ def fill_client(page: Page, scope: str, name: str, email: str, details: str = ""
 
 
 def main() -> int:
-    client_name = 'ООО «Ромашка»'
+    # Unique per run: the stand keeps its database between runs, and the
+    # duplicate check later needs a name that already exists. Without this the
+    # directory ends up with several cards called the same thing and the page
+    # under test is whichever one happens to be first.
+    client_name = f'ООО «Ромашка» {int(time.time())}'
     # The client name must repeat — refusing a duplicate is one of the checks
     # — but the project name must not, or a re-run on a kept database fails on
     # a slug it used last time.
@@ -217,6 +221,31 @@ def main() -> int:
         empty_budget = page.locator("#project-budget").input_value()
         check("a cleared budget stays cleared", empty_budget.strip() == "", repr(empty_budget))
         check("the page admits there is no budget", "Бюджет не задан" in page.content())
+
+        # ---------------------------------------------------------------- 6
+        print("\n== 6. The client page shows the work and the documents")
+        page.goto(f"{BASE}/clients", wait_until="networkidle")
+        # The card title is a link to the client's own page; take it by href,
+        # since the name also appears inside the (collapsed) edit form.
+        card_link = page.locator('a[href^="/clients/"]').filter(has_text=client_name)
+        expect(card_link.first).to_be_visible(timeout=5000)
+        card_link.first.click()
+        # Wait for the destination itself: networkidle can settle before the
+        # navigation starts, and the URL is what this check is about.
+        page.wait_for_url(lambda url: "/clients/" in url, timeout=10000)
+        page.wait_for_load_state("networkidle")
+        check("the client page opened", "/clients/" in page.url, page.url)
+        # Wait for the row itself: the URL settles before React has mounted the
+        # page, and reading the HTML at that point says nothing about it.
+        project_row = page.locator("main").get_by_text(project_name).first
+        expect(project_row).to_be_visible(timeout=10000)
+        check("the project it is linked to is listed", project_row.is_visible(), page.url)
+        # The budget was cleared in the previous step, so what must be here is
+        # the client's own details — proof the card's data came along, not
+        # just a route that renders.
+        check("the client's own details are on the page",
+              "buh@romashka.ru" in page.content(), page.url)
+        page.screenshot(path=str(SHOTS / "client-detail.png"), full_page=True)
 
         check("no page errors", not errors, "; ".join(errors[:3]))
         context.close()

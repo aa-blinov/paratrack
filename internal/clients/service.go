@@ -16,6 +16,8 @@ type ClientDirectoryStore interface {
 	ListClients(context.Context, appmodel.ClientCatalogQuery) ([]model.Client, error)
 	GetClientInTeam(context.Context, appmodel.ClientScopeQuery) (model.Client, error)
 	GetClientForProject(context.Context, appmodel.ProjectScopeQuery) (model.Client, error)
+	ClientProjects(context.Context, appmodel.ClientScopeQuery) ([]appmodel.ClientProject, error)
+	ClientInvoices(context.Context, appmodel.ClientScopeQuery, string) ([]appmodel.ClientInvoice, error)
 }
 
 // ClientWriteStore provides atomic client mutations. Authorization is

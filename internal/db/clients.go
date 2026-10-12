@@ -237,10 +237,15 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 		return nil, ErrNotFound
 	}
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT p.id, p.budget_cents, COALESCE(NULLIF(p.currency, ''), t.currency, 'RUB'),
-		        COALESCE(p.billable_rate_cents, 0), x.total_secs, x.unbilled_secs
+		`SELECT p.id, p.budget_cents,
+		        COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), t.currency, 'RUB'),
+		        COALESCE(p.billable_rate_cents, 0), x.total_secs, x.unbilled_secs,
+		        CASE WHEN COALESCE(NULLIF(cl.currency, ''), '') <> '' THEN 'client'
+		             WHEN COALESCE(NULLIF(p.currency, ''), '') <> '' THEN 'project'
+		             ELSE 'team' END
 		 FROM projects p
 		 JOIN teams t ON t.id = p.team_id
+		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		 LEFT JOIN (
 		     SELECT a.project_id AS pid,
 		            SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
@@ -273,7 +278,7 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 			unbilledSecs sql.NullInt64
 			rate         int
 		)
-		if err := rows.Scan(&budget.ProjectID, &budgetCents, &budget.Currency, &rate, &totalSecs, &unbilledSecs); err != nil {
+		if err := rows.Scan(&budget.ProjectID, &budgetCents, &budget.Currency, &rate, &totalSecs, &unbilledSecs, &budget.CurrencySource); err != nil {
 			return nil, err
 		}
 		if budgetCents.Valid {
@@ -318,4 +323,70 @@ func priceProjectSeconds(seconds, rate int, rules BillingRules) (int, error) {
 		return 0, err
 	}
 	return money.AddCents(0, amount)
+}
+
+// ClientProjects lists the work attached to a client card.
+func (d *DB) ClientProjects(ctx context.Context, query appmodel.ClientScopeQuery) ([]appmodel.ClientProject, error) {
+	if query.TeamID <= 0 || query.ClientID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT `+projectColumns+` FROM projects
+		  WHERE team_id = ? AND client_id = ? ORDER BY archived ASC, name`,
+		query.TeamID, query.ClientID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []appmodel.ClientProject
+	for rows.Next() {
+		p, err := scanProject(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, appmodel.ClientProject{
+			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
+			BudgetCents: p.BudgetCents,
+		})
+	}
+	return out, rows.Err()
+}
+
+// ClientInvoices lists documents addressed to a client.
+//
+// Two ways an invoice can belong to a customer, and both are real: it either
+// points at one of that customer's projects, or it names them — the second
+// covers every invoice written before client cards existed, and the one the
+// backfill had to read to build the cards in the first place.
+func (d *DB) ClientInvoices(ctx context.Context, query appmodel.ClientScopeQuery, clientName string) ([]appmodel.ClientInvoice, error) {
+	if query.TeamID <= 0 || query.ClientID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT i.id, i.number, i.period_start, i.period_end, i.status,
+		        COALESCE(NULLIF(i.currency, ''), t.currency, 'RUB'),
+		        COALESCE((SELECT SUM(l.amount_cents) FROM invoice_lines l WHERE l.invoice_id = i.id), 0)
+		 FROM invoices i
+		 JOIN teams t ON t.id = i.team_id
+		 WHERE i.team_id = ?
+		   AND (i.project_id IN (SELECT id FROM projects WHERE client_id = ?)
+		        OR LOWER(TRIM(i.client_name)) = LOWER(?))
+		 ORDER BY i.period_end DESC, i.id DESC`,
+		query.TeamID, query.ClientID, strings.TrimSpace(clientName))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []appmodel.ClientInvoice
+	for rows.Next() {
+		var inv appmodel.ClientInvoice
+		var total int64
+		if err := rows.Scan(&inv.ID, &inv.Number, &inv.PeriodStart, &inv.PeriodEnd,
+			&inv.Status, &inv.Currency, &total); err != nil {
+			return nil, err
+		}
+		inv.TotalCents = int(total)
+		out = append(out, inv)
+	}
+	return out, rows.Err()
 }
