@@ -36,6 +36,7 @@ type Dependencies struct {
 	Preferences          PreferenceWorkflow
 	Scheduling           SchedulingWorkflow
 	Projects             ProjectDependencies
+	Clients              ClientWorkflow
 	ProjectPages         ProjectPageBuilding
 	Reports              SavedReportWorkflow
 	ReportBuilder        ReportBuilding
@@ -70,6 +71,20 @@ type TeamDependencies struct {
 type ProjectDependencies struct {
 	Queries  ProjectQueries
 	Commands ProjectCommands
+}
+
+// ClientWorkflow is the client directory surface used by HTTP routes. It also
+// carries the budget read, because a project screen and a client screen must
+// not be able to disagree about how much a project has consumed.
+type ClientWorkflow interface {
+	List(context.Context, appmodel.ClientCatalogQuery) ([]model.Client, error)
+	GetInTeam(context.Context, appmodel.ClientScopeQuery) (model.Client, error)
+	ForProject(context.Context, appmodel.ProjectScopeQuery) (model.Client, error)
+	Create(context.Context, appmodel.ClientCreateRequest) (model.Client, error)
+	Update(context.Context, appmodel.ClientUpdateRequest) (model.Client, error)
+	Archive(context.Context, appmodel.ClientUpdateRequest) (model.Client, error)
+	Restore(context.Context, appmodel.ClientUpdateRequest) (model.Client, error)
+	Budgets(context.Context, appmodel.ProjectBudgetQuery) (map[int64]appmodel.ProjectBudget, error)
 }
 
 // AuditWorkflow is the audit query and recording surface used by HTTP routes.

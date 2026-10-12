@@ -37,9 +37,20 @@ type Project struct {
 	// BillableRateCents is the hourly rate in cents (nil = unset).
 	BillableRateCents *int
 	// Billable marks the project as invoiceable (default true).
-	Billable  bool
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Billable bool
+	// ClientID links the project to a client card (0 = not linked yet).
+	// The client_* columns below stay as a snapshot so that a project still
+	// names its recipient when no card exists, and so that editing a card
+	// never rewrites what an already-sent invoice was addressed to.
+	ClientID int64
+	// BudgetCents is the monetary ceiling for this project (nil = unset).
+	// It is deliberately money, not minutes: EstimateMinutes answers "how
+	// much work did we agree on", this answers "how much of it may I bill".
+	// Denominated in the project's currency (ProjectCurrency), falling back
+	// to the workspace default.
+	BudgetCents *int
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 // ProjectClient stores the default invoice recipient details associated with

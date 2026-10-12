@@ -16,6 +16,10 @@ type ProjectCreateRequest struct {
 	Color     string
 	RateCents *int
 	Currency  string
+	// ClientID links the new project to a client card (0 = none yet).
+	ClientID int64
+	// BudgetCents is the monetary ceiling for the project (nil = unset).
+	BudgetCents *int
 }
 
 // PayrollDraftRequest identifies the workspace, actor and period for a new

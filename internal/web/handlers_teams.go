@@ -263,6 +263,28 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.teamDeleted"), true
 	case "project_created":
 		return i18n.T(lang, "flash.projectCreated"), true
+	// Client directory. These carry the "e:" prefix because they are
+	// refusals: the default branch strips it and reports the message as a
+	// success, which would show a refused duplicate in the success colour.
+	// Listed explicitly so both the wording and the polarity are decided here.
+	case "e:clients.nameTaken":
+		return i18n.T(lang, "clients.nameTaken"), false
+	case "e:clients.nameRequired":
+		return i18n.T(lang, "clients.nameRequired"), false
+	case "e:clients.invalidEmail":
+		return i18n.T(lang, "clients.invalidEmail"), false
+	case "e:clients.notFound":
+		return i18n.T(lang, "clients.notFound"), false
+	case "e:clients.saveFailed":
+		return i18n.T(lang, "clients.saveFailed"), false
+	case "clients.created":
+		return i18n.T(lang, "clients.created"), true
+	case "clients.updated":
+		return i18n.T(lang, "clients.updated"), true
+	case "clients.archived":
+		return i18n.T(lang, "clients.archived"), true
+	case "clients.restored":
+		return i18n.T(lang, "clients.restored"), true
 	case "bad_request":
 		return i18n.T(lang, "flash.badRequest"), false
 	case "forbidden":
