@@ -169,6 +169,40 @@ func writeActivityColor(ctx context.Context, tx *Tx, id int64, color string) err
 //     sequence — after the schema step that adds the new columns.
 func (d *DB) migrateProjectsToClients(ctx context.Context) error {
 	_, err := d.runDataMigration(ctx, "20261012_projects_to_clients", func(tx *Tx) error {
+		return d.backfillClientCards(ctx, tx, clientSeedSources{
+			projects: true,
+		})
+	})
+	return err
+}
+
+// migrateInvoiceRecipientsToClients finishes the backfill from the other end.
+//
+// Measured on a production database where 54 of 54 invoices carried a
+// recipient while 0 of 78 projects did: the recipient was written on the
+// invoice, and the project columns were only ever filled when a person
+// created a project from inside an invoice flow. Reading only projects
+// therefore created no cards at all. This second pass reads the invoices,
+// so an existing installation ends up with a directory it can actually use.
+func (d *DB) migrateInvoiceRecipientsToClients(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261012_invoice_recipients_to_clients", func(tx *Tx) error {
+		return d.backfillClientCards(ctx, tx, clientSeedSources{
+			projects: true, invoices: true,
+		})
+	})
+	return err
+}
+
+// clientSeedSources selects which legacy columns feed the card backfill.
+type clientSeedSources struct {
+	projects bool
+	invoices bool
+}
+
+// backfillClientCards turns legacy free-text recipients into client cards and
+// links the projects that named them.
+func (d *DB) backfillClientCards(ctx context.Context, tx *Tx, sources clientSeedSources) error {
+	{
 		rows, err := tx.QueryContext(ctx,
 			`SELECT team_id, client_name, client_email, client_details FROM projects
 			  WHERE TRIM(client_name) <> '' ORDER BY id`)
@@ -216,6 +250,45 @@ func (d *DB) migrateProjectsToClients(ctx context.Context) error {
 		}
 		rows.Close()
 
+		if sources.invoices {
+			invoices, err := tx.QueryContext(ctx,
+				`SELECT team_id, client_name, client_email, client_details FROM invoices
+				  WHERE TRIM(client_name) <> '' ORDER BY id`)
+			if err != nil {
+				return fmt.Errorf("read invoices for client backfill: %w", err)
+			}
+			for invoices.Next() {
+				var teamID int64
+				var name, email, details string
+				if err := invoices.Scan(&teamID, &name, &email, &details); err != nil {
+					invoices.Close()
+					return fmt.Errorf("scan invoice for client backfill: %w", err)
+				}
+				name = strings.TrimSpace(name)
+				if name == "" {
+					continue
+				}
+				key := fmt.Sprintf("%d\x00%s", teamID, strings.ToLower(name))
+				existing, seen := seeds[key]
+				if !seen {
+					seeds[key] = &seed{teamID: teamID, name: name, email: strings.TrimSpace(email), details: strings.TrimSpace(details)}
+					order = append(order, key)
+					continue
+				}
+				if existing.email == "" {
+					existing.email = strings.TrimSpace(email)
+				}
+				if existing.details == "" {
+					existing.details = strings.TrimSpace(details)
+				}
+			}
+			if err := invoices.Err(); err != nil {
+				invoices.Close()
+				return fmt.Errorf("walk invoices for client backfill: %w", err)
+			}
+			invoices.Close()
+		}
+
 		now := FormatTime(d.currentTime().UTC())
 		for _, key := range order {
 			s := seeds[key]
@@ -236,8 +309,19 @@ func (d *DB) migrateProjectsToClients(ctx context.Context) error {
 				clientID, s.teamID, strings.ToLower(s.name)); err != nil {
 				return fmt.Errorf("link projects to client %q: %w", s.name, err)
 			}
+			// A card seeded from an invoice names nobody on a project, so
+			// nothing gets linked by the update above. Where an invoice
+			// points at a project, that project is this customer's work.
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE projects SET client_id = ?
+				  WHERE team_id = ? AND client_id IS NULL
+				    AND id IN (SELECT project_id FROM invoices
+				                 WHERE project_id IS NOT NULL AND team_id = ?
+				                   AND LOWER(TRIM(client_name)) = ?)`,
+				clientID, s.teamID, s.teamID, strings.ToLower(s.name)); err != nil {
+				return fmt.Errorf("link invoiced projects to client %q: %w", s.name, err)
+			}
 		}
 		return nil
-	})
-	return err
+	}
 }
