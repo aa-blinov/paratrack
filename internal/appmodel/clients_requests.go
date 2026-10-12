@@ -63,6 +63,11 @@ type ProjectBudget struct {
 	// number is a measurement, and clamping it would hide how far past the
 	// line the work went.
 	Percent int
+	// CurrencySource names which rule produced Currency: the client card, the
+	// project, or the workspace. A number without its provenance is the kind
+	// of thing that gets trusted by mistake when a customer pays in dollars
+	// and the screen said roubles.
+	CurrencySource string
 }
 
 // ProjectBudgetQuery scopes a budget read to one workspace's projects.
@@ -114,4 +119,31 @@ type ClientListItem struct {
 	BilledCents    int
 	UnbilledCents  int
 	CreatedAt      time.Time
+}
+
+// ClientProject is one project attached to a client, as shown on the
+// client's own page.
+type ClientProject struct {
+	ID       int64
+	Slug     string
+	Name     string
+	Color    string
+	Archived bool
+	// BudgetCents and SpentCents repeat the project's own figures so the
+	// client page does not have to walk into every project to answer
+	// "how much of this customer's work is done".
+	BudgetCents  *int
+	SpentCents   int
+	TrackedLabel string
+}
+
+// ClientInvoice is one document addressed to this client.
+type ClientInvoice struct {
+	ID          int64
+	Number      string
+	PeriodStart string
+	PeriodEnd   string
+	Status      string
+	Currency    string
+	TotalCents  int
 }

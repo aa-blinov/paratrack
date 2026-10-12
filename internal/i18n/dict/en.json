@@ -1210,5 +1210,11 @@
   "budget.overBy": "Over by",
   "budget.unset": "No budget set",
   "budget.clear": "Remove budget",
-  "budget.noRate": "Set an hourly rate to measure the budget"
+  "budget.noRate": "Set an hourly rate to measure the budget",
+  "clients.noProjects": "No projects for this client yet",
+  "clients.noInvoices": "No invoices have been issued to this client",
+  "budget.spentShort": "Spent",
+  "clients.currencySource": "Client currency",
+  "proj.currencySource": "Project currency",
+  "team.currencySource": "Workspace currency"
 }
