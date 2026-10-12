@@ -34,7 +34,7 @@ ui:
 
 # VERSION is stamped into the binary so the footer shows what is actually
 # running. Override for a release:  make build VERSION=0.0.1
-VERSION ?= dev
+VERSION ?= 0.1.0
 LDFLAGS := -X main.Version=$(VERSION)
 
 build: ui

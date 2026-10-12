@@ -2,29 +2,146 @@
 
 All notable changes to paratrack. Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+**Как этим пользоваться.** Секция `[Unreleased]` — то, что уже сделано,
+но ещё не выпущено; при релизе её содержимое переезжает в заголовок версии
+с датой. Версия в репозитории одна: `PARATRACK_VERSION` в `.env`, и она
+же показывается в подвале — расхождение с этим файлом означает, что
+релиз собрали не из того состояния.
+
 ## [Unreleased]
 
-### Changed
+_(пусто)_
+
+## [0.1.0] — 2026-10-11
+
+Первый релиз, который можно отдавать людям. Ниже — всё, что вошло в
+версию, сгруппированное по тому, что человек почувствует.
+
+### Деньги — самое важное
+
+- **Заголовок периода в отчёте больше не врёт на день.** Граница периода
+  в запросе включительная, обработник делал из неё исключительную, а шапка
+  печатала её как есть: попросишь 1–11 октября — получишь документ с
+  шапкой «1 окт – 12 окт» над данными, которые обрываются 11-го. Это
+  документ, который фрилансер отправляет клиенту. Счета и выплаты
+  вычитали день, отчёты — нет. Теперь последний покрытый день считается
+  один раз и идёт и в шапку, и в экспорт.
+- **Список счетов отвечает, сколько должны.** Суммы были в каждой строке,
+  но итога не было нигде, а вопрос «мы оплатили 50 тысяч» на этом экране
+  закрыть было нечем. Добавлена строка «К оплате» — сумма отправленных и
+  неоплаченных счетов, сгруппированная по валютам. Показывается, когда
+  есть что предъявлять.
+- **Подпись «Итого, Часы» на телефоне.** Слепленная из двух кусков словаря,
+  число оставалось без пояснения. Сведено к раздельным подписи и
+  значению, как в отчётах.
+
+### Регистрация с iPhone не работала вообще
+
+- **Куки не доезжали до POST в WebKit** — движке Safari и всего iPhone.
+  Ни одного заголовка `Cookie` на проводе: сервер куки не видел, минтил
+  новый CSRF-токен и сверял его со stale-значением, уже отрисованным в
+  форме. Ответ 403, новый человек оставался на экране онбординга и в
+  приложение не попадал. Chromium и Firefox отправляли куки и ничего не
+  замечали.
+- Обе куки — сессионная и CSRF — теперь `SameSite=None` + `Secure` по
+  TLS. Защита CSRF не ослаблена: её носитель — токен в форме, кука
+  остаётся вторым множителем для сверки.
+
+### Цвет перестал быть случайным
+
+- **Статус денег потерял цвет.** «Оплачен» красился почти чёрным — тем же,
+  что обычная кнопка, и был неотличим от любой плашки. Причина была не в
+  стиле: правила `.doc-status` компилировались в legacy-бандл, а в
+  React-бандл их не попадало вовсе. Классы на элементах остались,
+  правила к ним — нет.
+- **Роли вместо палитры.** Одна зелёная шкала на всё «хорошее» — идущий
+  таймер и оплаченный счёт; янтарь на «ждёт»; красный остался за
+  разрушающими действиями. Мерялось: 5,18:1 при пороге 4,5.
+- **Главное действие получило фиолетовый бренд.** «Старт» было тем же
+  углём, что «Сохранить», и стоило ровно столько же внимания.
+- **Палитра активностей переехала в токены.** Go по-прежнему решает, какой
+  цвет у активности, — это память продукта; красит теперь интерфейс, так
+  что точка и столбец графика — один знак в одной теме.
+
+### Единая форма
+
+- **Кнопки.** Одна высота — два радиуса: в шапке рядом стояли иконки с
+  углом 10px и кнопки с углом 8px. Теперь радиус следует за размером и
+  берётся из шкалы токенов. Строка сайдбара (тема, язык, выход)
+  написана один раз вместо трёх копий.
+- **Поля.** Два селекта на «Расписании» и «Счетах» были на 4px выше
+  всех остальных без объяснения — убрано.
+- **Движение.** Переходы держали одну кривую и одну длительность,
+  анимации появления шли своим путём — и **не запускались никогда**:
+  класс появления был написан через `data-open` (соглашение ToggleGroup),
+  а Radix выставляет `data-state`, поэтому селектор не срабатывал. Выпадающие
+  списки, шторка и подсказки просто появлялись мгновенно. Теперь — одна
+  кривая на всё и шкала длительностей: 150 мс на мелочи, 250 мс на панели,
+  400 мс на контейнер.
+
+### Доступность
+
+- **Рамка поля.** Была 1,26:1 при пороге 3,1 — поле опознавалось по
+  подписи и кольцу фокуса, а его собственный край почти не читался.
+  Теперь 3,11:1 на карточке и 3,34:1 на приглушённой строке, где живут
+  компактные поля табеля и расписания.
+- **Приглушённый текст сайдбара** был 4,35:1 — ниже AA. Поднят до 5,18:1.
+- **Доступное имя содержало невидимый текст.** Кнопка меню называла
+  «Меню», а надпись была зашитой в компонент «Toggle Sidebar».
+- **Опасные действия спрашивали постфактум.** Отзыв API-токена и удаление
+  вебхука рвут интеграции молча — теперь спрашивают.
+- **В CI появилась проверка контраста, фокуса и имён.** Раньше эти
+  числа снимали руками, и ничто не мешало им разъехаться.
+
+### Проверено
+
+- **Три движка, не два.** Firefox и WebKit стоят и гоняются
+  (`PARATRACK_BROWSER=…`). Регистрация проходит во всех трёх; именно
+  WebKit нашёл блокировку с iPhone, которую два зелёных движка пропустили.
+- **Нагрузка впервые измерена.** 100 одновременных пользователей: 465
+  запросов/с, 0 пятисоток на 1000 запросов, p95 таймера 120 мс.
+  Пропускная способность упирается в ~465/с — дальше сервер покупает
+  скорость задержкой, а не падает.
+- **Бэкап действительно поднимается.** Свежий дамп из B2 откатывается в
+  одноразовый Postgres и сверяется с живой базой: сессии совпали до
+  единицы.
+
+### Инструменты
+
+- **Версия приходит из сборки.** Раньше она жила в переводах и ничего не
+  связывало её с бинарём. Теперь `make build VERSION=0.1.0` штампует её
+  через `-ldflags`, и в Docker-сборку релизного образа тоже.
+- **Нагрузочная проба на HTTP**, без браузера: браузерная мерила рендеринг,
+  а не сервер.
+- **Ожидание содержимого вместо таймаутов.** 26 мест в наборе читали DOM
+  сразу после загрузки документа; в Firefox и WebKit это давало разный
+  набор провалов при каждом прогоне.
+- **19 мёртвых токенов** удалены вместе с собственным неиспользуемым кодом.
+
+
+### Ранее в этом релизе
+
+#### Changed
 - **Остановка таймера оставляет путь назад.** Сервер и раньше отвечал на остановку маршрутом отмены, но React-оболочка его теряла: тост показывала только старая система. Теперь под обзором появляется строка «Остановлено: …» с кнопками «Отменить» (снова идёт) и «Поправить» (прямо в запись). «Стоп всем» тоже отдаёт отмену для каждого таймера — это самое легко промахнуть действие.
 - **На телефоне неделя открывается на «сегодня».** Семь дней — это прокрутка ради вопроса «сколько сегодня». Переключатель «Сегодня / Вся неделя» стоит над списком дней.
 - **Деньги на счетах объясняют своё округление.** Правило пространства округляет время построчно, но интерфейс об этом молчал: человек сравнивал «1 ч 28 мин» с суммой и не понимал расхождения. Теперь под шапкой счетов одна строка о том, как именно считается.
 
-### Fixed
+#### Fixed
 - **Плавающая кнопка закрывала «Стоп» в полосе идущего таймера.** Пока что-то идёт, плавающая кнопка уходит: главное действие сейчас — не начать ещё один таймер, а закончить этот.
 
-### Changed (ранее)
+#### Changed (ранее)
 - **Неделя в табеле больше не прокручивается вбок.** Замер на восьми ширинах показал, что сетка не помещается на 640px (608px места), 768px (736px) и 1024px (720px, рельс забирает 256) и помещается на 900px и от 1100. Теперь правило одно: ниже 1100px неделя раскладывается по дням, выше — сетка. Плата: на 900–1099px список дней там, где сетка поместилась бы, — выбрано «никогда не прокручивается» вместо «совпадает с порогом шелла».
 - **Режим на обзоре говорит, что открывает.** «Режим: Для себя» называл режим и ничего не говорил о цене; теперь строка звучит как «Режим: Для себя — открыто 5 из 9 разделов», и счётчик берётся с сервера из того же каталога, который правит страница разделов.
 - **Статистика отвечает в порядке вопросов.** Экран отвечал сразу на три вопроса — «сколько», «куда» и «где ошибка», — и человек с вопросом «куда ушло время» не мог отличить ответ от редактора. Теперь итог стоит первым в карточке разбивки и всегда в первом экране (замерено: `y=272` при окне 900, `y=404` при 844), доля названа один раз под заголовком, а строки объяснены как ссылки. Блок «Сессии» стал «Проверкой и правкой» и на телефоне начинается свёрнутым под кнопкой «Показать».
 - **Фильтр по тегу вернулся на статистику.** Путь «тег → время» был односторонним: зайти с `/tags` и отфильтровать можно было, вернуться к списку по тегу на самом экране — нет. Теперь рядом с чипсами проектов есть строка «Теги:», и она показывается, только когда в пространстве есть теги.
 
-### Fixed
+#### Fixed
 - **Доля строки объяснялась один раз, а не в каждой.** Числа вроде «50,0%» нигде не пояснялись.
 
 - **Телефонный каркас по заветам Material.** Ниже 1024px вместо сайдбара-листа с кнопкой 28px — фиксированная нижняя панель 64px с четырьмя направлениями и «Ещё», а «Ещё» открывает нижний лист с остальными разделами, переключателем пространств, пунктами аккаунта и выходом. Верхняя панель 64px, плавающая кнопка 56px на экранах чтения времени. Компоненты прежние: shadcn, без новых зависимостей.
 - **Эргономика под палец.** Цели касания не ниже 48dp, ширина кнопки с подписью — не меньше 48px, поля ввода не меньше 16px (иначе iOS Safari зумит страницу при фокусе), мелкие чипы фильтров берут зону касания псевдоэлементом, нажатие даёт состояние.
 
-### Fixed
+#### Fixed
 - **Бейдж тега в строке сессии стал ссылкой.** Экран обещает, что по тегу фильтруется статистика, а тег в строке сессии был обычным текстом. Теперь `#тег` открывает `/stats` с тем же периодом и этим тегом, а кнопка снятия рядом осталась кнопкой.
 - **Табель на телефоне — список дней вместо прокрутки вбок.** Неделя это 48rem: на 320px было видно два дня из семи, и каждая строка требовала прокрутки. Ниже 640px неделя раскладывается по карточкам дня с теми же полями и тем же сохранением; с 640px прежняя сетка.
 - **Свёрнутый рельс прятал нижние иконки.** `overflow: hidden` останавливает прокрутку колесом и пальцем, поэтому на экране 720px часть из 18 пунктов была недостижима. Теперь рельс прокручивается, и подпись «список продолжается» появляется честно.
@@ -37,11 +154,11 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Карта переходов по ролям.** Обход всех экранов стенда (32 страницы владельцем, 30 участницей) нашёл две ссылки, которые ведут в отказ: у участницы `/projects` показывал «Новый проект» (а `/projects/new` закрыт правами), а справка предлагала «Вебхуки» из карточки «Где это настроить» (а `/settings/webhooks` закрыт правами). Обе кнопки теперь за `CanManage`; вместо кнопки на пустом списке проектов объясняется, что проекты создаёт руководитель. Проверка — `e2e/test_navigation_map_by_role.py`.
 - **Сохранённые отчёты получили свой экран.** Список жил внутри свёрнутого блока на `/stats`, а пункт меню «Отчёты» открывал `/reports` с одними шаблонами — объект без своего дома. Теперь список на `/reports` и ведёт в статистику с закреплённым периодом и фильтрами; на `/stats` остались действие «Сохранить текущий срез» и видимая строка «Сохранённые отчёты (N)» со ссылкой на список.
 
-### Changed
+#### Changed
 - **Тег ведёт в своё время.** `#тег` на `/tags` — ссылка на `/stats?period=week&tag=…`, а не текст; подсказка под списком об этом говорит. Раньше единственный путь к фильтру по тегу был через таблицу последних сессий на обзоре или вручную правкой адреса.
 - **Проект в табеле — ссылка.** Название проекта под активностью в недельной сетке ведёт в проект, если сервер прислал слаг; для строки без проекта подпись прежняя.
 
-### Fixed
+#### Fixed
 - **Сохранённые отчёты статистики** помнят фильтр по проекту и тегу через идентификаторы, а не текстом. Переименование тега больше не обнуляет пресет, а удалённый проект или тег читается как «без фильтра», а не как старое имя. Схема расширена на `saved_reports.project_id` и `tag_id`, перенос старых строк идемпотентен при старте.
 - **`e2e/qa_full.py`** снова проходит: сквозной сюит писался под htmx-разметку до перехода интерфейса на React. Разобран бутстрап страниц вместо прежней разметки, необязательные поля открываются через их раскрытия, разрушительные действия подтверждаются общим диалогом, а две пустые проверки тостов заменены настоящей проверкой переключения темы. Сюит добавлен в CI — пока он не гонялся, он и разошелся с интерфейсом.
 - **Sidebar sections**: the `Separator` primitive styled itself with `data-horizontal:`, which Tailwind v4 compiles to a literal `[data-horizontal]` attribute while Radix emits `data-orientation`. Every separator in the app had zero height and was invisible. They now render.
@@ -51,7 +168,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Renaming a tag** no longer empties saved stats presets — they store the tag by name, and the rename now carries them along in the same transaction.
 - **`npm audit`**: `source-map-js` 1.2.1 → 1.2.2 (dev-only, event-loop DoS advisory).
 
-### Added — actions that the screens could not do
+#### Added — actions that the screens could not do
 - **Timesheet**: undo the last cell edit (a stack of the 10 most recent, each entry naming the cell it will restore) and clear an activity row for the week with a confirmation. Clearing refuses when the week was already sent on an invoice, and only touches the caller's own sessions.
 - **Tags**: rename a tag in place — the row keeps its id, so tagged sessions, counters and the statistics filter follow — plus `PATCH /api/tags` in the public API.
 - **Audit log**: filter by date range, person and action; the filter lives in the address, the window is 100–400 with "show more events", and a truncated list says so instead of looking complete.
@@ -62,10 +179,10 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Graph**: a "Custom dates" period with from/to inputs, and a print button that hides the sidebar and header.
 - **Sections**: a set changed by hand is now labelled as such, with a "bring back every section" button instead of a silent blank state.
 
-### Removed
+#### Removed
 - **SQLite**. Postgres is the only database: the CLI and a bare binary need `PARATRACK_DATABASE_URL`, `paratrack migrate-to-postgres` is gone, and the tests run on a throwaway Postgres (`scripts/test.sh`, and inside the image build).
 
-### Added — product waves 1 to 9
+#### Added — product waves 1 to 9
 - **Timesheet** (`/timesheet`): week grid of activity × days, a cell holds that day's minutes, `0` clears it. Writes collapse the day into one synthetic `note="timesheet"` session so reads and writes agree.
 - **Estimates vs actual**: `projects.estimate_minutes` plus a card on the project page comparing tracked time against it.
 - **Saved reports**: named filter presets on `/stats`, shown as chips.
@@ -83,7 +200,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Webhooks** with HMAC-SHA256 signatures (`X-Paratrack-Signature`) and a delivery log; **audit log** at `/settings/audit`; **OIDC SSO** at `/sso/login` when `PARATRACK_OIDC_*` is set.
 - **PWA** (manifest + service worker at `/sw.js`, root scope), **offline queue** that buffers mutations and replays them on reconnect, **web push** (VAPID, `/settings/notifications`).
 
-### Added — interface
+#### Added — interface
 - **Russian is the default language**, English is one click away. Dictionaries carry 572 keys per locale and every user-visible string goes through them.
 - **Loading skeletons** only where there is a real wait: the graph canvas and HTMX list swaps. A thin top progress bar tracks every HTMX request. Both are deferred 180 ms so a fast request never flashes.
 - **Empty states with a next action** on every data screen: timesheet, schedule, invoices, payroll, reports, integrations, audit, push and the rest.
@@ -93,19 +210,19 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Button geometry unified** to a 40 / 32 / 24 px ladder with a single class order (`btn → variant → size → shape → gap → layout → state`).
 - **Site copy** reviewed with humanizer-ru: em-dashes and CLI wording removed, HARD BANS clean.
 
-### Changed — typography and icons
+#### Changed — typography and icons
 - **Type scale restored**: DaisyUI 5 resets `h1..h6` to `font-size: inherit`, which flattened the whole UI to one size. A minor-third scale (`--step--2` … `--step-4`) is now defined on `:root` and applied to headings, card titles, labels and meta.
 - **UI font is Inter** (variable, latin + latin-ext + cyrillic) replacing Manrope. Body is pinned to 16px with `font-optical-sizing: auto`.
 - **Logo wordmark is Fraunces** (variable "full" cut with SOFT/WONK axes) — used only for `.wordmark` "paratrack", with a Lucide `timer` glyph beside it. JetBrains Mono stays for code, kbd and timestamps.
 - **Lucide icon set** (ISC) vendored as an SVG sprite at `/static/icons.svg` (35 symbols) and exposed as `{{icon "play"}}`. Replaces the hand-drawn ▶/⏸/☰/● glyphs in nav, status pills and session actions (Focus/Pause/Resume/Stop/Start/Add).
 
-### Changed
+#### Changed
 - **Typography and icons**: minor-third type scale on `:root` (DaisyUI 5 resets headings to `inherit`), Inter as the UI face, Fraunces for the wordmark only, JetBrains Mono for code and figures. Lucide replaces hand-drawn glyphs, vendored as one SVG sprite.
 - **Theme resolves before first paint** and the toggle icons are driven by CSS against `data-theme-mode`, so nothing flashes when the page loads. `:root` no longer transitions its background.
 - **Activity names render as a colour swatch beside neutral text** instead of coloured text, which used to fail contrast on pale hues. `inkFor` computes contrast-safe ink for any user-authored colour used as a background.
 - **`/settings/members`** collapses to cards below 640 px and its table scrolls instead of widening the page.
 
-### Added — production hardening
+#### Added — production hardening
 - **CSRF double-submit** on every state-changing request. A readable `paratrack_csrf` cookie is echoed via hidden form fields and the `X-CSRF-Token` header (HTMX gets it from `htmx:configRequest`, `fetch` from `paratrackCSRF()`). Missing/incorrect token → 403.
 - **Security headers** on every response: `Content-Security-Policy` (self + the inline/eval relaxations Alpine 3 requires), `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, and HSTS when the request arrived over TLS.
 - **Secure cookies** — `Secure` is set on session / team / CSRF cookies when the request is HTTPS (direct TLS or `X-Forwarded-Proto: https`).
@@ -116,7 +233,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - Toast sits under the topbar (no longer covers the nav).
 - Tests: `saas_test.go` (CSRF reject, security headers, full reset flow with spy mailer, rate-limit 429, backfill) and `rl_test.go` (limiter window accounting).
 
-### Fixed
+#### Fixed
 - **No more flicker on load**: fonts use `font-display: block`, the theme is set by an inline bootstrap in `<head>`, and loading feedback waits before appearing.
 - **Long words no longer break mid-word** in tables (`Demo` used to render as `Dem/o`); only genuine run-together tokens wrap.
 - **Same-day invoices and pay runs are accepted** (a one-day period used to be rejected as `bad period`).
@@ -154,19 +271,16 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Primary CTAs on /projects** toned to `btn-neutral` to match the rest of the app.
 - Slug input `pattern` made a valid HTML5 regular expression (the `-` placement broke the `/v` unicode-classes parser in Chromium).
 
-
-
-
-## [0.1.0] — earlier work
+#### Более ранние волны
 
 Первые релизы до волн 1-9: аутентификация, командные пространства,
 DaisyUI-интерфейс, цели, теги, график, CSV.
 
-### Added
+#### Added
 - Regression tests for the duration ladder, `DurationSecs`, graph total units, tag filter, `pageMeta` coverage, HTMX/JSON dual shape, and cross-team session isolation.
 - **API contract suite** (`internal/web/api_contract_test.go`) covering session lifecycle + pause-aware CSV durations, goals HTMX-fragment vs JSON shapes with spaced names, tag team-scope deletes, CSV project-name column, duplicate-start 409, and inline duration edit round-trip.
 
-### Added
+#### Added
 - **DaisyUI v5 + Tailwind v4 CSS pipeline** in `web/`. `make ui` (or `make build`) installs npm deps and produces `internal/web/static/css/paratrack.css` (~16 KB minified, embedded via `go:embed`). Two custom themes: `paratrack-light` (default) and `paratrack-dark`.
 - **Per-activity goals**: `paratrack goal set/list/unset` + `/api/goals`. Dashboard widget with live progress; period windows (daily / ISO-week / monthly) computed in UTC.
 - **Free-form tags**: `paratrack tag add/list/attach/detach`. Inline "+ tag" input on stats rows; `/stats?tag=…` filter. Auto-create on first attach.
@@ -180,7 +294,7 @@ DaisyUI-интерфейс, цели, теги, график, CSV.
 - **Multi-tenant data layer**: every domain row (activities, sessions, tags, goals) carries `team_id`; all db helpers take `teamID int64` as their first arg, supplied by the auth middleware via `teamID(r)`. CLI / tests can still pass `0` to opt out of scoping.
 - **86 Go unit tests** + **47 Playwright E2E checks** covering dashboard, stats, graph, theme, keyboard, ECharts, CSV, goals, tags, auth gate, workspace switcher.
 
-### Changed
+#### Changed
 - **Whole UI on DaisyUI v5.** Every page uses `card`, `btn`, `input`, `table`, `badge`, `alert`, `progress`, `stat`, `kbd` — replacing the hand-rolled `app.css` (deleted). Light/dark parity is now driven entirely by `data-theme`.
 - **Case-insensitive activity and tag names.** `COLLATE NOCASE` on the `name` columns; inserts/lookups lowercase on the Go side. `Work`, `work`, `WORK` resolve to one row.
 - Stats tables collapse to a card-list on phones via `.responsive-collapse`.
@@ -193,7 +307,7 @@ DaisyUI-интерфейс, цели, теги, график, CSV.
 - Light/dark via CSS variables; focus-visible ring; `prefers-reduced-motion` short-circuit.
 - Toast is a solid colored alert with a glyph (✓/✕).
 
-### Fixed
+#### Fixed
 - Inline-edit duration recomputes `end_at` server-side.
 - ECharts hover events no longer eaten by Alpine's reactive proxy.
 - Tooltip on empty graph hour shows zeros, not the previous hour's values.
@@ -202,7 +316,7 @@ DaisyUI-интерфейс, цели, теги, график, CSV.
 - `tags` table gains `UNIQUE (team_id, name)` so `CreateTag`'s `ON CONFLICT(team_id, name) DO NOTHING` actually resolves and the existing tag is returned (was failing with 400 before).
 - `clipSeconds` rounds sub-second overlaps up with `math.Ceil`, so a session that literally just started (or one whose end was clamped to "now") no longer disappears from `/stats` due to `int(0.1s) = 0` truncation.
 
-### Removed
+#### Removed
 - Legacy Python implementation deleted. Go binary is the only runtime.
 
 ## Migration notes
