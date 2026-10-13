@@ -56,7 +56,8 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
   const close = React.useCallback(() => setOpen(false), [])
   const visible = React.useMemo(() => nav.filter(item => available(item, shell)), [shell])
   const primary = PRIMARY.map(key => visible.find(item => item.key === key)).filter(Boolean) as ShellNavItem[]
-  const rest = visible.filter(item => !PRIMARY.includes(item.key))
+  // The settings group is already listed below as «Настройки» → profile, tokens, help; listing it here too sent the same profile link twice.
+  const rest = visible.filter(item => !PRIMARY.includes(item.key) && item.group !== "settings")
   const ThemeIcon = mode === "dark" ? Moon : mode === "light" ? Sun : SunMoon
 
   return <>

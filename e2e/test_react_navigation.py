@@ -101,8 +101,8 @@ async def check(browser, width):
     else:
         nav = page.locator('[data-sidebar="sidebar"]:visible')
         assert await nav.locator('[data-slot="sidebar-menu-button"][data-active]').count() == 1
-        assert await nav.locator('[data-slot="sidebar-menu-button"]').evaluate_all('items => items.slice(0,4).map(item => item.textContent)') == ['Обзор','Проекты','Табель','Статистика']
-        assert await nav.locator('[data-slot="sidebar-group-label"]').all_text_contents() == ['Меню','Анализ','Деньги','Команда','Данные','Настройки']
+        assert await nav.locator('[data-slot="sidebar-menu-button"]').evaluate_all('items => items.slice(0,4).map(item => item.textContent)') == ['Обзор','Проекты','Клиенты','Табель']
+        assert await nav.locator('[data-slot="sidebar-group-label"]').all_text_contents() == ['Меню','Анализ','Деньги','Команда','Данные']  # «Настройки» is a group of one: no heading, by design
         active = nav.locator('[aria-current="page"]')
         inactive = nav.locator('a[href="/projects"]')
         target = ("/projects", "Проекты")
@@ -187,7 +187,7 @@ async def check_member_menu(browser):
     # nothing a member cannot open.
     assert await nav.locator('a.mobile-nav-row').evaluate_all(
         'items => items.map(item => item.getAttribute("href"))') == [
-            '/projects', '/schedule', '/export', '/settings/preferences', '/settings/profile',
+            '/projects', '/clients', '/schedule', '/export', '/settings/profile',
             '/settings/tokens', '/help', '/lang/en?next=%2F']
     assert '/settings/team' not in await nav.locator('a.mobile-nav-row').evaluate_all(
         'items => items.map(item => item.getAttribute("href"))'), 'a member is not offered a screen that answers 403'
