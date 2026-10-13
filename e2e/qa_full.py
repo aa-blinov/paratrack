@@ -18,6 +18,11 @@ from browser import launch
 OUT = Path(__file__).parent / "screenshots" / "qa"
 OUT.mkdir(parents=True, exist_ok=True)
 
+# The screens the alignment rule is checked on: every one of them has a card
+# with a title, which is what makes the rule visible.
+ALIGN_PAGES = ["/", "/projects", "/clients", "/stats", "/graph", "/goals",
+               "/reports", "/invoices", "/export", "/tags", "/integrations"]
+
 results: list[tuple[str, bool, str]] = []
 console_errors: list[str] = []
 
@@ -641,6 +646,36 @@ def main() -> int:
             over = pg.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")
             check(f"mobile no h-overflow {path}", over <= 2, f"over={over}")
             shot(pg, name)
+
+        # A card whose body is centred while its own title is left reads as a
+        # mistake: two decisions stacked. Empty states outside any titled card
+        # stay centred — there is nothing for them to disagree with.
+        #
+        # The selector is data-slot="card" on purpose: the shadcn card paints
+        # with a ring, so a detector that looks for a border-width finds no
+        # cards at all and reports a clean sweep.
+        print("== T. Card alignment")
+        pg.set_viewport_size({"width": 1440, "height": 1000})
+        for path in ALIGN_PAGES:
+            pg.goto(BASE + path)
+            pg.wait_for_load_state("load")
+            wait_ready(pg)
+            wait_app(pg)
+            mixed = pg.evaluate("""() => {
+              const out = [];
+              document.querySelectorAll('[data-slot="card"]').forEach(card => {
+                const title = card.querySelector('[data-slot="card-title"], .card-title, h2, h3');
+                const body = card.querySelector('[data-slot="card-content"]');
+                if (!title || !body) return;
+                const centred = getComputedStyle(body).textAlign === 'center'
+                  || [...body.querySelectorAll('p,div')].some(el => getComputedStyle(el).textAlign === 'center' && el.textContent.trim());
+                if (!centred) return;
+                if (getComputedStyle(title).textAlign === 'center') return;
+                out.push(title.textContent.trim().slice(0, 40));
+              });
+              return out;
+            }""")
+            check(f"card title and body agree on {path}", not mixed, f"{mixed}")
 
         br.close()
 

@@ -90,7 +90,9 @@ export function GraphPage({ data }: { data: GraphData }) {
           </div>
           <p className="mt-3 text-sm"><span className="text-muted-foreground">{t(lang, "graph.totalTracked")} </span><strong className="font-mono tabular-nums">{data.Chart.totalLabel}</strong></p>
           <ChartRuntime />
-        </> : <div className="py-8 text-center">
+        </> : <div className="py-8">
+          {/* Без text-center: заголовок карточки стоит слева, и пустое
+              состояние по центру под ним читалось как ошибка вёрстки. */}
           <p className="font-medium">{t(lang, "graph.noData")}</p>
           {filtered ? <><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.noDataFiltered")}</p><Button asChild variant="ghost" size="sm" className="mt-3"><a href={queryFor(data, data.Period.Label, false)}>{t(lang, "stats.clearFilters")}</a></Button></> : <><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.noDataHint")}</p><Button asChild size="sm" className="mt-3"><a href="/"><Play aria-hidden="true" />{t(lang, "graph.noDataCta")}</a></Button></>}
         </div>}

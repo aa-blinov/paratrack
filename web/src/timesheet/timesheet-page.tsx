@@ -191,7 +191,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 
   return <main className="mx-auto w-full max-w-6xl space-y-4">
     <header className="flex flex-wrap items-end justify-between gap-4">
-      <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "ts.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "ts.blurb")}</p></div>
+      <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "ts.title")}</h1></div>
       <nav className="week-nav flex items-center gap-1" aria-label={t(lang, "ts.title")}>
         <Button asChild variant="ghost" size="icon" title={t(lang, "sch.prev")}><a href={`/timesheet?date=${data.PrevWeek}`} aria-label={t(lang, "sch.prev")}><ArrowLeft aria-hidden="true" /></a></Button>
         <span className="week-nav-label whitespace-nowrap px-2 font-mono text-sm">{data.WeekLabel}</span>

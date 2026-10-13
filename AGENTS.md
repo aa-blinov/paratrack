@@ -32,6 +32,22 @@ Paragraphs that restate the visible interface are slop and are gone
 Hints that carry meaning stay: empty states, dangerous actions, and places
 where the interface is not self-explanatory.
 
+A hint that restates its own card's title is slop too — under «Часы по дням»
+there is nothing to add with «Итоги за каждый день периода». Keep the
+sentence that says what a number means, what a control does, or what will
+happen; cut the one the screen already says.
+
+## Alignment inside a card
+
+A card's title and its own body must agree. Empty states used to be centred
+while every card title is left-aligned, so a single card read as two
+decisions stacked on top of each other. Measured across every tab: 4 cards
+disagreed, now 0. A page-level empty state with no card title above it stays
+centred — there is nothing for it to disagree with.
+
+Note that the shadcn `Card` paints with a ring, not a border: a detector that
+looks for `border-width` finds no cards at all and reports a clean sweep.
+
 ## Lists of things: table, not tiles
 
 `/projects` is a table with rows that open into their activities. It was a
