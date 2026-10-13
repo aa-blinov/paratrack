@@ -142,6 +142,7 @@ def main() -> int:
 
         # ---------------------------------------------------------------- 2
         print("\n== 2. A client card is filed")
+        page.evaluate("document.querySelector('details#client-new') && (document.querySelector('details#client-new').open = true)")
         fill_client(page, 'form[action="/clients"]', client_name, "buh@romashka.ru", "ИНН 7701234567")
         submit_form(page, 'form[action="/clients"]')
         check("card is listed", client_name in page.content(), page.url)
@@ -150,6 +151,7 @@ def main() -> int:
 
         # ---------------------------------------------------------------- 3
         print("\n== 3. A duplicate name is refused in plain language")
+        page.evaluate("document.querySelector('details#client-new') && (document.querySelector('details#client-new').open = true)")
         fill_client(page, 'form[action="/clients"]', client_name, "second@romashka.ru")
         submit_form(page, 'form[action="/clients"]')
         check("duplicate refused", "уже есть" in page.content(), page.url)

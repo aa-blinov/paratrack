@@ -1,6 +1,6 @@
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import * as React from "react"
-import { ArrowLeft, Plus } from "lucide-react"
+import { ArrowLeft, ChevronDown, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -25,7 +25,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder="EORA RAG" autoFocus /></div>
         <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
-          <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "projects.options")}</DisclosureTrigger>
+          <DisclosureTrigger className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4" /></DisclosureTrigger>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="eora-rag" /></div>
         <fieldset className="space-y-2">
