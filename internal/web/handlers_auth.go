@@ -93,11 +93,15 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	setSessionCookie(w, r, sess.Token)
-	s.restoreLastWorkspace(w, r, user.ID)
+	created := s.restoreLastWorkspace(w, r, user)
 
 	redirect := "/"
 	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
 		redirect = next
+	} else if created {
+		// A workspace that was just recreated answers the same question a new
+		// account does: which sections are wanted.
+		redirect = "/welcome"
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
@@ -108,18 +112,46 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 // A remembered space we cannot honour is ignored here; resolveTeam
 // re-checks membership on every request and falls back to the personal
 // workspace on its own.
-func (s *Server) restoreLastWorkspace(w http.ResponseWriter, r *http.Request, userID int64) {
-	if userID <= 0 {
-		return
+func (s *Server) restoreLastWorkspace(w http.ResponseWriter, r *http.Request, user appmodel.UserIdentity) bool {
+	if user.ID <= 0 {
+		return false
 	}
-	prefs, err := s.services.Preferences.Load(r.Context(), userID)
+	prefs, err := s.services.Preferences.Load(r.Context(), user.ID)
 	if err != nil {
 		s.logInternalError(fmt.Errorf("load preferences to restore workspace: %w", err))
-		return
+		return false
 	}
 	if prefs.LastTeamID > 0 {
 		setTeamCookie(w, r, prefs.LastTeamID)
+		return false
 	}
+	// An account with no workspace at all cannot enter the app: every page
+	// resolves one, and /welcome — the page whose whole job is to create the
+	// first one — sits behind that same check. Deleting your last workspace
+	// therefore locked you out for good, with no way back but a database edit.
+	//
+	// The product already promises every account a personal workspace, so give
+	// it one here and send the person to the section picker.
+	memberships, err := s.services.Teams.Directory.MembershipsForUser(r.Context(), user.ID)
+	if err != nil {
+		s.logInternalError(fmt.Errorf("check memberships to restore workspace: %w", err))
+		return false
+	}
+	if len(memberships) > 0 {
+		// resolveTeam falls back to the first membership on its own.
+		return false
+	}
+	team, err := s.services.Teams.Administration.Create(r.Context(), appmodel.TeamCreateRequest{
+		OwnerID: user.ID,
+		Name:    localizedPersonalTeamName(resolveLang(r), user.Name),
+	})
+	if err != nil {
+		s.logInternalError(fmt.Errorf("recreate personal workspace: %w", err))
+		return false
+	}
+	setTeamCookie(w, r, team.ID)
+	s.rememberWorkspace(r, user.ID, team.ID)
+	return true
 }
 
 // rememberWorkspace records the workspace someone moved into, so the next
