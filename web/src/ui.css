@@ -29,6 +29,15 @@
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
   --color-brand-soft: var(--brand-soft);
+  /* Two roles, not four palettes. An over-budget project, an expired
+     invitation and an unpaid invoice all say the same thing, so they all
+     borrow one amber and one green instead of picking from the palette each
+     time. `-ink` is the text that clears AA; the mark takes alpha for
+     washes and borders. */
+  --color-warning: var(--warning);
+  --color-warning-ink: var(--warning-ink);
+  --color-positive: var(--positive);
+  --color-positive-ink: var(--positive-ink);
   --color-sidebar-ring: var(--sidebar-ring);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
@@ -129,6 +138,9 @@
   --positive: oklch(0.55 0.128 163);
   --positive-ink: oklch(0.38 0.092 163);
   --positive-wash: oklch(0.955 0.026 163);
+  /* Same amber the cards used to write out longhand. */
+  --warning: oklch(0.769 0.188 70.08);
+  --warning-ink: oklch(0.666 0.161 58.928);
   /* Money in flight: sent, sending, a paused timer. Amber says "waiting",
      which is not the same as "wrong" — red stays with destructive actions. */
   --pending: oklch(0.72 0.155 70);
@@ -194,6 +206,8 @@
      that lightened the light theme would glare, so the ink rises and the
      wash becomes a low-chroma tint of the same hue instead. */
   --positive: oklch(0.62 0.125 163);
+  --warning: oklch(0.769 0.188 70.08);
+  --warning-ink: oklch(0.879 0.169 91.605);
   --positive-ink: oklch(0.86 0.115 163);
   --positive-wash: oklch(0.28 0.045 163);
   --pending: oklch(0.75 0.145 74);
@@ -672,28 +686,6 @@
    another timer but ending this one. */
 body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: none; }
 
-/* Two ways to look at the same week on a phone. */
-#paratrack-react-root .ts-day-toggle-item {
-  /* was 999px: a stadium. These are ~32px tall, so the corner carries the
-     same weight as a button, not a capsule. */
-  min-height: 2.75rem;
-  padding: 0 1rem;
-  border: 1px solid var(--border);
-  /* 999px made a 44px target a stadium. This is now the same corner a
-     default-size button carries, so a toggle and a button of the same
-     height read as the same family. */
-  border-radius: var(--radius);
-  background: var(--background);
-  color: var(--muted-foreground);
-  font-size: 0.875rem;
-  cursor: pointer;
-}
-#paratrack-react-root .ts-day-toggle-item.is-on {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: var(--primary-foreground);
-}
-
 /* ── The one action that starts the product ──────────────────────────
    Starting a timer is the first thing a person does here, all day, on
    every device. It was the same charcoal as every other primary button,
@@ -720,8 +712,7 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 }
 /* The selected period is where the person is looking, not a neutral chip;
    it takes the same brand the primary action does, one step quieter. */
-#paratrack-react-root .period-tabs [data-variant="secondary"],
-#paratrack-react-root .period-tabs .ts-day-toggle-item.is-on {
+#paratrack-react-root .period-tabs [data-variant="secondary"] {
   background: var(--brand-soft);
   color: var(--brand);
   border-color: color-mix(in oklab, var(--brand) 28%, transparent);
@@ -884,4 +875,15 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
   #paratrack-react-root .ledger-split {
     grid-template-columns: auto minmax(0, 1fr);
   }
+}
+
+/* A press paints, it does not move.
+   The server shell has done this since it shipped: `.btn:active` lays the
+   current ink at 12 % over the button and leaves the box where it was. The
+   React button used to shift a pixel instead, so the same tap felt different
+   depending on which half of the screen you were in. Same twelve percent,
+   same rule, one place. */
+#paratrack-react-root button:not(:disabled):active {
+  background-image: linear-gradient(color-mix(in oklab, currentColor 12%, transparent),
+                                     color-mix(in oklab, currentColor 12%, transparent));
 }

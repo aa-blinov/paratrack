@@ -218,6 +218,11 @@ jobs:
           python e2e/test_dashboard.py 2>&1 | tee /tmp/e2e.log
           python e2e/test_clients.py 2>&1 | tee /tmp/e2e-clients.log
           python e2e/qa_full.py 2>&1 | tee /tmp/e2a-full.log
+          # The phone shell. It was written and then never wired here, so it
+          # drifted for as long as it sat unused — it still pointed at a class
+          # that had been deleted, and the press-state rule it protects was
+          # only half implemented. Now that it runs, it keeps holding.
+          python e2e/test_mobile_navigation.py 2>&1 | tee /tmp/e2e-mobile.log
           # Contrast, control edges and label-in-name, measured on the live
           # DOM. The impeccable detector scans HTML and CSS but not .tsx, so
           # the React tree was never covered — "detector clean" said nothing.

@@ -1,11 +1,14 @@
 ---
 version: 1
-slug: "internal-web-templates-export-html"
-primary_target: "internal/web/templates/export.html"
-related_targets: []
+slug: "web-export-page"
+primary_target: "web/src/export/export-page.tsx"
+related_targets:
+  - "internal/web/templates/export.html"
 ---
 
 Scope: authenticated /export page reached from desktop and mobile More, and from the statistics session log. Mode: Operate. The user chooses between exporting individual sessions and finding an existing summary report, and knows what each CSV contains before downloading.
+
+The React page is what ships: `internal/web/templates/export.html` is kept in the tree but never rendered in this build — every such handler sets `ReactApp: true` — so it is listed here only so nobody mistakes it for the surface again.
 
 Audience and task: a person exporting their own time records for inspection or spreadsheet use. Preserve the existing raw CSV format and the direct /api/reports.csv URL for API clients. No new export formats or claims.
 
