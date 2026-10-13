@@ -105,22 +105,28 @@ export function Icon({ name }: { name: string }) {
   }
 }
 
-function NavigationGroup({ title, items, shell }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell }) {
+function NavigationGroup({ title, items, shell, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean }) {
   const { setOpenMobile } = useSidebar()
   const visible = items.filter(item => available(item, shell))
+  // A collapsible group starts folded unless the person is inside it, so the
+  // menu fits a 900px-high screen and no heading is cut by the scroll edge.
+  const holdsCurrent = visible.some(item => isCurrent(item, shell))
+  const [expanded, setExpanded] = useState(false)
   if (!visible.length) return null
+  const open = !collapsible || holdsCurrent || expanded
   // A group of one reads better without a heading that repeats it: «Настройки»
   // above a link also called «Настройки».
   const heading = visible.length > 1 ? title : null
-  return <SidebarGroup>
-    {heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
-    <SidebarGroupContent><SidebarMenu>{visible.map(item => <SidebarMenuItem key={item.key}>
+  // Tighter vertical padding between groups: six groups at p-2 push the folded menu past a 900px screen.
+  return <SidebarGroup className="py-1">
+    {heading && collapsible && !holdsCurrent ? <SidebarGroupLabel asChild><button type="button" aria-expanded={open} className="flex w-full items-center justify-between" onClick={() => setExpanded(value => !value)}>{heading}<ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /></button></SidebarGroupLabel> : heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
+    {open && <SidebarGroupContent><SidebarMenu>{visible.map(item => <SidebarMenuItem key={item.key}>
       <SidebarMenuButton asChild isActive={isCurrent(item, shell)} tooltip={t(shell.lang, item.label)}>
         <a href={item.href} onClick={() => setOpenMobile(false)} aria-current={isCurrent(item, shell) ? "page" : undefined}>
           <Icon name={item.icon} /><span>{t(shell.lang, item.label)}</span>
         </a>
       </SidebarMenuButton>
-    </SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent>
+    </SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent>}
   </SidebarGroup>
 }
 
@@ -169,7 +175,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
   const navRef = useRef<HTMLElement>(null)
   const moreBelow = useListOverflow(navRef)
   return <Sidebar collapsible="icon" variant="sidebar">
-    <SidebarHeader className="gap-3 p-3">
+    <SidebarHeader className="gap-2 px-3 py-2">
       <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight" aria-label="paratrack">
         <span className="flex size-7 items-center justify-center rounded-md bg-brand text-brand-foreground"><Activity className="size-4" aria-hidden="true" /></span>
         <span className="text-base group-data-[collapsible=icon]:hidden">paratrack</span>
@@ -188,7 +194,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
     </SidebarHeader>
     <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
       <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
-        {groups.map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} />) }
+        {groups.map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} />) }
         {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-7 w-full shrink-0 flex-col justify-end">
           <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
           <span className="flex h-4 items-center justify-center bg-sidebar"><ChevronDown className="size-4 text-sidebar-foreground/70" /></span>
@@ -196,7 +202,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
       </nav>
     </SidebarContent>
     <SidebarSeparator />
-    <SidebarFooter className="gap-0.5 p-3">
+    <SidebarFooter className="gap-0.5 px-3 py-2">
       {shell.user && (
         <div className="mb-1 flex min-w-0 items-center gap-2 rounded-md px-2 py-1 group-data-[collapsible=icon]:hidden" title={shell.user.email}>
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-[.7rem] font-semibold text-sidebar-accent-foreground" aria-hidden="true">{initials(shell.user.name)}</span>
