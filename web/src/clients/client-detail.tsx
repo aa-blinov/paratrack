@@ -23,7 +23,7 @@ function ProjectRow({ lang, project }: { lang: string; project: ClientDetailProj
       <span className="min-w-0 truncate font-medium underline-offset-4 group-hover:underline" title={project.Name}>{project.Name}</span>
       {project.Archived && <Badge variant="secondary">{t(lang, "projects.archivedBadge")}</Badge>}
       {/* Перерасход — предупреждение, поэтому янтарный, а не разрушающий красный. */}
-      {project.Over && <span className="shrink-0 text-xs font-medium text-amber-700 dark:text-amber-300">{t(lang, "budget.over")}</span>}
+      {project.Over && <span className="shrink-0 text-xs font-medium text-warning-ink">{t(lang, "budget.over")}</span>}
     </div>
     {/* Денег нет, пока не задан потолок: пустой блок читался бы как ноль. */}
     <dl className="flex flex-wrap items-baseline gap-x-4 gap-y-1 text-xs text-muted-foreground">
