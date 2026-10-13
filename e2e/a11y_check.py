@@ -138,9 +138,16 @@ def main() -> int:
         page = browser.new_page(viewport={"width": 1280, "height": 900})
         register(page)
         seed(page)
+        # The app transitions colours. Measuring 200ms after flipping
+        # data-theme caught the middle of the transition: a dark background
+        # with the light theme's near-black text still in flight, reported as
+        # 1.1:1 for the whole sidebar. The wait cannot fix it — only the
+        # runner's speed decides — so the transitions are switched off for the
+        # duration of the measurement.
         for route in ROUTES:
             page.goto(BASE + route)
             page.wait_for_load_state("networkidle")
+            page.add_style_tag(content="*,*::before,*::after{transition:none!important;animation:none!important}")
             page.wait_for_timeout(250)
             # Both widths: the bottom navigation exists only on a phone and the
             # sidebar footer only on a desktop, so each viewport reveals a
