@@ -70,6 +70,16 @@ Two rules the component holds to, both learned the hard way:
 pin the traps: 3/4/2026 is 4 March in English and 3 April in Russian, and
 31 February must be refused rather than rolled into March.
 
+Two more traps in the same component, both found by looking rather than by
+reading:
+
+- The `Card` paints with `overflow-hidden`, so a calendar rendered inside it
+  loses its bottom half. It is portalled out and placed against the field —
+  and it opens **upwards** when there is no room below.
+- That portal targets `#paratrack-react-root`, **not** `document.body`: the
+  interface CSS is scoped under that id, so a calendar sent to the body comes
+  out unstyled and transparent, sitting on the text behind it.
+
 ## Lists of things: table, not tiles
 
 `/projects` is a table with rows that open into their activities. It was a

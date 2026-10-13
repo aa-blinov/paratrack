@@ -1,4 +1,5 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -116,7 +117,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
   const show = kind === "date" ? formatDate : formatDateTime
 
   const root = React.useRef<HTMLDivElement>(null)
+  const panel = React.useRef<HTMLDivElement>(null)
   const [open, setOpen] = React.useState(false)
+  const [anchor, setAnchor] = React.useState<{ top: number; left: number } | null>(null)
   // Every page sets <html lang>, and a prop here would be one more thing a
   // screen could forget to pass.
   const lang = typeof document !== "undefined" ? document.documentElement.lang === "en" ? "en" : "ru" : "ru"
@@ -125,9 +128,45 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
   const [text, setText] = React.useState(() => show(defaultValue, lang))
   const [broken, setBroken] = React.useState(false)
 
+  // The card paints with overflow-hidden, so a grid rendered inside it loses
+  // its bottom half. It goes on the React root instead and is placed against
+  // the field, following it while the page scrolls.
+  //
+  // The portal target is the React root, not <body>: the interface CSS is
+  // scoped under #paratrack-react-root, so a grid sent to the body would come
+  // out unstyled and transparent.
+  const portalRoot = typeof document !== "undefined"
+    ? document.getElementById("paratrack-react-root")
+    : null
+  const place = React.useCallback(() => {
+    const box = root.current?.getBoundingClientRect()
+    if (!box) return
+    const width = 256
+    const height = 296
+    const left = Math.min(Math.max(8, box.left), window.innerWidth - width - 8)
+    // Near the bottom of the window the grid opens upwards rather than below,
+    // where half of it would hang off the screen.
+    const below = box.bottom + 4
+    const fits = below + height <= window.innerHeight - 8
+    setAnchor({ top: fits ? below : Math.max(8, box.top - height - 4), left })
+  }, [])
+
+  React.useEffect(() => {
+    if (!open) return
+    place()
+    window.addEventListener("scroll", place, true)
+    window.addEventListener("resize", place)
+    return () => {
+      window.removeEventListener("scroll", place, true)
+      window.removeEventListener("resize", place)
+    }
+  }, [open, place])
+
   React.useEffect(() => {
     const onDown = (event: MouseEvent) => {
-      if (root.current && !root.current.contains(event.target as Node)) setOpen(false)
+      const target = event.target as Node
+      if (root.current?.contains(target) || panel.current?.contains(target)) return
+      setOpen(false)
     }
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false) }
     document.addEventListener("mousedown", onDown)
@@ -195,8 +234,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         <CalendarDays aria-hidden="true" className="size-4" />
       </Button>
     </div>
-    {open && <div className="absolute z-50 mt-1 start-0">
-      <MonthGrid
+    {open && anchor && portalRoot && createPortal(
+      <div ref={panel} className="fixed z-50" style={{ top: anchor.top, left: anchor.left }}>
+        <MonthGrid
         lang={lang}
         selected={iso.slice(0, 10)}
         onPick={day => {
@@ -211,8 +251,10 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
           setOpen(false)
           onCommit?.()
         }}
-      />
-    </div>}
+        />
+      </div>,
+      portalRoot,
+    )}
   </div>
 }
 
