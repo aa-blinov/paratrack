@@ -19,7 +19,9 @@ function ActivitiesCell({ lang, project }: { lang: string; project: ProjectListR
   if (!project.ActivityNames?.length) {
     return <span className="text-sm text-muted-foreground">{t(lang, "projects.noActivities")}</span>
   }
-  return <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
+  // Отступ равен префиксу первой ячейки (шеврон + цветной значок + промежутки),
+  // чтобы активности встали ровно под названием проекта, а не левее него.
+  return <ul className="flex flex-wrap gap-x-4 gap-y-1.5 ps-[3.375rem]">
     {project.ActivityNames.map((activity, index) => <li key={`${activity.Name}:${index}`} className="flex min-w-0 items-center gap-1.5 text-sm">
       <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: activityColor(activity.Color) }} />
       <span className="[overflow-wrap:anywhere]">{activity.Name}</span>
