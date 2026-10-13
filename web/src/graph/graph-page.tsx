@@ -7,6 +7,7 @@ import { translate as t } from "@/i18n"
 import type { GraphData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { DateTimeField } from "@/components/date-field"
+import { SegmentedControl } from "@/components/segmented"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"] as const
 
@@ -53,15 +54,13 @@ export function GraphPage({ data }: { data: GraphData }) {
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "graph.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.pageBlurb")}</p></header>
     <a href={`/stats${queryFor(data)}`} className="inline-flex items-center gap-1 py-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "nav.stats")}</a>
 
-    <nav aria-label={t(lang, "goals.period")} className="period-tabs flex flex-wrap gap-1 rounded-lg border bg-card p-1">
-      {periods.map(period => <Button key={period} asChild size="sm" variant={data.Period.Label === period ? "secondary" : "ghost"} aria-current={data.Period.Label === period ? "page" : undefined}>
-        <a href={queryFor(data, period)}>{t(lang, period === "today" ? "dash.today" : `stats.${period === "last_week" ? "lastWeek" : period === "last_month" ? "lastMonth" : period}`)}</a>
-      </Button>)}
-      <Button asChild size="sm" variant={data.Period.Label === "custom" ? "secondary" : "ghost"} aria-current={data.Period.Label === "custom" ? "page" : undefined}>
-        <a href={queryFor(data, "custom")}>{t(lang, "graph.customPeriod")}</a>
-      </Button>
-      <Button type="button" size="sm" variant="ghost" className="ms-auto" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>
-    </nav>
+    <SegmentedControl
+      label={t(lang, "goals.period")}
+      value={data.Period.Label}
+      options={[...periods.map(period => ({ key: period, label: t(lang, period === "today" ? "dash.today" : `stats.${period === "last_week" ? "lastWeek" : period === "last_month" ? "lastMonth" : period}`), href: queryFor(data, period) })),
+        { key: "custom", label: t(lang, "graph.customPeriod"), href: queryFor(data, "custom") }]}
+      trailing={<Button type="button" size="sm" variant="ghost" className="ms-auto h-11" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>}
+    />
 
     <form method="get" action="/graph" className="no-print flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
       <div className="grid gap-1.5"><Label htmlFor="graph-start">{t(lang, "graph.customFrom")}</Label><DateTimeField id="graph-start" name="start" defaultValue={data.PeriodStartInput} required /></div>

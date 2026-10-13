@@ -38,11 +38,11 @@ function BudgetCard({ data }: { data: ProjectDetailData }) {
         {/* Источник валюты — отдельной строкой под суммой. Разделитель «·» перед подписью выглядел как случайный символ и переносился по словам. */}
         <div><dt>{t(lang, "budget.spent")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.SpentLabel}</dd>{budget.CurrencySourceLabel && <p className="mt-0.5 font-normal text-muted-foreground">{budget.CurrencySourceLabel}</p>}</div>
         {/* Перерасход — предупреждение, поэтому янтарный, а не разрушающий красный. */}
-        <div><dt>{t(lang, budget.Over ? "budget.overBy" : "budget.remaining")}</dt><dd className={`mt-1 font-mono text-base font-medium tabular-nums ${budget.Over ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>{budget.Over ? budget.OverByLabel : budget.RemainingLabel}</dd></div>
+        <div><dt>{t(lang, budget.Over ? "budget.overBy" : "budget.remaining")}</dt><dd className={`mt-1 font-mono text-base font-medium tabular-nums ${budget.Over ? "text-warning-ink" : "text-positive-ink"}`}>{budget.Over ? budget.OverByLabel : budget.RemainingLabel}</dd></div>
         <div><dt>{t(lang, "inv.unbilled")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.UnbilledLabel}</dd></div>
       </dl> : <p className="text-sm text-muted-foreground">{t(lang, "budget.unset")}</p>}
       {!budget.HasRate && <p className="text-sm text-muted-foreground">{t(lang, "budget.noRate")}</p>}
-      {budget.Over && <p role="status" className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-700 dark:text-amber-300">{t(lang, "budget.over")}</p>}
+      {budget.Over && <p role="status" className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm text-warning-ink">{t(lang, "budget.over")}</p>}
     </CardContent>
   </Card>
 }
