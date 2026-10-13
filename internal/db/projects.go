@@ -214,6 +214,37 @@ func (d *DB) ProjectCurrencies(ctx context.Context, teamID int64) (map[int64]str
 	return out, rows.Err()
 }
 
+// ProjectClientNames returns the recipient each project is billed to, keyed by
+// project ID. A client card wins over the project's own snapshot column, the
+// same order the invoice uses, and an unlinked project is simply absent from
+// the map. Archived projects are included: the list screen shows them behind
+// the "Show archived" toggle and still has to say who they were for.
+func (d *DB) ProjectClientNames(ctx context.Context, teamID int64) (map[int64]string, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT p.id, COALESCE(NULLIF(cl.name, ''), p.client_name)
+		 FROM projects p
+		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
+		 WHERE p.team_id = ? AND (p.client_id > 0 OR NULLIF(p.client_name, '') IS NOT NULL)`,
+		teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]string{}
+	for rows.Next() {
+		var id int64
+		var name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		out[id] = name
+	}
+	return out, rows.Err()
+}
+
 // ListProjects returns projects in teamID. By default archived rows
 // are hidden — set includeArchived=true to surface them too (used by
 // the "Show archived" toggle on /projects).
