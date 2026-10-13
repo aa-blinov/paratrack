@@ -48,6 +48,28 @@ centred — there is nothing for it to disagree with.
 Note that the shadcn `Card` paints with a ring, not a border: a detector that
 looks for `border-width` finds no cards at all and reports a clean sweep.
 
+## Dates
+
+Never reach for `<input type="date">` or `datetime-local` again. The browser
+draws them in *its* locale and no attribute moves it, which is how a Russian
+screen ended up offering «10/13/2026». Use `DateField` / `DateTimeField` from
+`@/components/date-field`: they read the document language, carry a hidden
+input with the same ISO value the server always received, and accept both the
+screen's own order and ISO in either language.
+
+Two rules the component holds to, both learned the hard way:
+
+- A value that could not be read submits **nothing**, not the previous one. A
+  half-typed period must never become an invoice period.
+- `--text-base` is 14px in this theme, so a field that must stay at 16px on a
+  phone (iOS zooms below that) says so through the `style` prop. A Tailwind
+  `text-base` class will not do it: it resolves to the same 14px token.
+
+`web/src/lib/date-format.ts` holds the parsing and is covered by
+`date-format.test.ts` — run it with `npm run test:unit` in `web/`. The tests
+pin the traps: 3/4/2026 is 4 March in English and 3 April in Russian, and
+31 February must be refused rather than rolled into March.
+
 ## Lists of things: table, not tiles
 
 `/projects` is a table with rows that open into their activities. It was a
