@@ -11,6 +11,7 @@ import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { Session, StatsData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
+import { DateTimeField } from "@/components/date-field"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"]
 
@@ -70,8 +71,8 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   }
 
   const fields = <>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-0`} className="text-xs">{t(data.Lang, "dash.startLabel")}</Label><Input id={`session-${session.ID}-0`} type="datetime-local" style={{ fontSize: 16 }} aria-label={`${t(data.Lang, "dash.startLabel")} — ${session.ActivityName}`} value={start} onChange={event => setStart(event.target.value)} onBlur={() => { if (start !== session.StartInput) void save() }} /></div>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-1`} className="text-xs">{t(data.Lang, "stats.end")}</Label><Input id={`session-${session.ID}-1`} type="datetime-local" style={{ fontSize: 16 }} aria-label={`${t(data.Lang, "stats.end")} — ${session.ActivityName}`} value={end} onChange={event => setEnd(event.target.value)} onBlur={() => { if (end !== session.EndInput) void save() }} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-0`} className="text-xs">{t(data.Lang, "dash.startLabel")}</Label><DateTimeField id={`session-${session.ID}-0`} style={{ fontSize: 16 }} onValueChange={setStart} onCommit={() => { if (start !== session.StartInput) void save() }} defaultValue={session.StartInput || ""} ariaLabel={`${t(data.Lang, "dash.startLabel")} — ${session.ActivityName}`} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-1`} className="text-xs">{t(data.Lang, "stats.end")}</Label><DateTimeField id={`session-${session.ID}-1`} style={{ fontSize: 16 }} onValueChange={setEnd} onCommit={() => { if (end !== session.EndInput) void save() }} defaultValue={session.EndInput || ""} ariaLabel={`${t(data.Lang, "stats.end")} — ${session.ActivityName}`} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-2`} className="text-xs">{t(data.Lang, "dash.duration")}</Label><Input id={`session-${session.ID}-2`} aria-label={`${t(data.Lang, "dash.duration")} — ${session.ActivityName}`} title={t(data.Lang, "stats.durationTitle")} placeholder={t(data.Lang, "ph.duration")} value={duration} onChange={event => setDuration(event.target.value)} onBlur={() => { if (duration !== session.DurationInput) void save() }} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-3`} className="text-xs">{t(data.Lang, "stats.note")}</Label><Input id={`session-${session.ID}-3`} aria-label={`${t(data.Lang, "stats.note")} — ${session.ActivityName}`} placeholder={t(data.Lang, "dash.noteShort")} value={note} onChange={event => setNote(event.target.value)} onBlur={() => { if (note !== session.Note) void save() }} /></div>
   </>
