@@ -139,7 +139,8 @@ func (s *Server) module(key string, h http.HandlerFunc) http.HandlerFunc {
 		if canManage(r) {
 			to = "/settings/sections"
 		}
-		http.Redirect(w, r, to+"?flash="+url.QueryEscape(encodeFlash(false, msg)), http.StatusSeeOther)
+		// Not a failure: the person followed a link to a section that is switched off.
+		http.Redirect(w, r, to+"?flash="+url.QueryEscape(encodeFlash(true, msg)), http.StatusSeeOther)
 	}
 }
 
