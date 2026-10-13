@@ -144,7 +144,7 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
 
     {data.Flash && <p className={data.FlashOK ? "text-sm text-foreground" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
 
-    {data.CanManage && <Card id="client-new"><CardContent className="p-5 sm:p-6">
+    {data.CanManage && <details id="client-new" open={!clients.length} className="group rounded-xl border bg-card text-card-foreground"><summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium marker:hidden"><Plus aria-hidden="true" className="size-4" />{t(lang, "clients.new")}</summary><div className="p-5 pt-0 sm:p-6 sm:pt-0">
       <form method="POST" action="/clients" className="grid gap-5 sm:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <ClientFields id="new-client" lang={lang} currencies={data.Currencies} values={blankClient} autoFocus={!clients.length} />
@@ -152,7 +152,7 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
           <Button type="submit"><Plus aria-hidden="true" />{t(lang, "clients.save")}</Button>
         </div>
       </form>
-    </CardContent></Card>}
+    </div></details>}
 
     {clients.length ? <section aria-label={t(lang, "clients.heading")} className="grid gap-4">
       {clients.map(client => <ClientCard key={client.ID}

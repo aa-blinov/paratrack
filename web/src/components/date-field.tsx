@@ -86,7 +86,7 @@ function MonthGrid({ lang, selected, onPick }: { lang: string; selected: string;
         <ChevronRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
-    <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-[11px] text-muted-foreground">
+    <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-xs text-muted-foreground">
       {weekdayLabels(lang).map(label => <span key={label}>{label}</span>)}
     </div>
     <div className="grid grid-cols-7 gap-0.5">
