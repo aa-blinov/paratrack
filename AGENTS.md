@@ -31,3 +31,15 @@ Paragraphs that restate the visible interface are slop and are gone
 (dashboard, projects, stats, export, reports, integrations, clients).
 Hints that carry meaning stay: empty states, dangerous actions, and places
 where the interface is not self-explanatory.
+
+## Lists of things: table, not tiles
+
+`/projects` is a table with rows that open into their activities. It was a
+tile grid, and the tile was the wrong shape: it spent a quarter of the screen
+per project to show three numbers that could not be compared across projects,
+and it had nowhere to put the client the project is billed to.
+
+When a list grows a column that a tile cannot carry, make it a table rather
+than adding a fifth number to the card. On phones the table drops its columns
+and stacks what is left under the name — measured, not guessed: at 375px a
+name plus three numeric columns truncated to «Або…».
