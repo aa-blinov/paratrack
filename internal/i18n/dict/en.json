@@ -192,6 +192,7 @@
   "projects.delete": "Delete project",
   "projects.confirmDelete": "Delete project? Activities in it become Uncategorized.",
   "projects.noActivities": "No activities in this project yet.",
+  "projects.toggleActivities": "Show or hide activities: %s",
   "projects.archived": "archived",
   "team.current": "Current workspace",
   "team.switchHint": "If you have several workspaces, choose one from the workspace menu in the sidebar. On a phone, open the menu at the top of the screen first.",

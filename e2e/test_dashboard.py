@@ -582,22 +582,37 @@ def main() -> int:
         check("React project edit form persists name and estimate", proj_name in page.content()
               and page.locator('#paratrack-react-root [data-slot="progress"]').count() == 1)
 
-        # Project cards and archive filtering are rendered by the React app.
+        # The project list is a table whose row opens into its activities.
         page.goto(BASE + "/projects")
-        project_card = page.locator('#paratrack-react-root [data-slot="card"]').filter(has_text=proj_name).first
-        expect(project_card).to_contain_text(proj_name)
-        check("project list mounts the React/shadcn card", project_card.count() > 0)
+        project_row = page.locator('#paratrack-react-root tbody tr').filter(has_text=proj_name).first
+        expect(project_row).to_contain_text(proj_name)
+        check("project list mounts the React/shadcn table", project_row.count() > 0
+              and page.locator('#paratrack-react-root table').count() == 1)
+        # A row starts closed and opens on demand: the activities are what the
+        # card used to reduce to a bare count.
+        toggle = project_row.locator('button[aria-controls^="project-activities-"]')
+        check("the row's activity toggle starts closed", toggle.get_attribute("aria-expanded") == "false")
+        activities_panel = page.locator("#project-activities-" + toggle.get_attribute("aria-controls").removeprefix("project-activities-"))
+        check("activities stay hidden until asked for", activities_panel.count() == 0)
+        toggle.click()
+        check("the row opens into its activities", toggle.get_attribute("aria-expanded") == "true"
+              and activities_panel.count() == 1)
+        toggle.click()
+        check("the row closes again", toggle.get_attribute("aria-expanded") == "false"
+              and activities_panel.count() == 0)
         original_theme = page.locator("html").get_attribute("data-theme")
-        project_card.evaluate("el => document.documentElement.dataset.theme = 'paratrack-dark'")
-        dark_card = project_card.evaluate("el => getComputedStyle(el).backgroundColor")
-        dark_text = project_card.locator("h2").evaluate("el => getComputedStyle(el).color")
-        check("React project card follows dark theme tokens",
-              dark_card == "oklch(0.205 0 0)" and dark_text == "oklch(0.985 0 0)",
-              f"card={dark_card}, text={dark_text}")
-        project_card.evaluate("(el, theme) => document.documentElement.dataset.theme = theme", original_theme)
+        page.locator('#paratrack-react-root [data-slot="table"]').first.evaluate("el => document.documentElement.dataset.theme = 'paratrack-dark'")
+        # The table has no paint of its own: it sits on a card, so the token
+        # that has to follow the theme is the wrapper's.
+        dark_card = page.locator('#paratrack-react-root [data-slot="table"]').first.evaluate(
+            # Table wraps itself in a scroll container, so the card is two levels up.
+            "el => getComputedStyle(el.parentElement.parentElement).backgroundColor")
+        check("React project table follows dark theme tokens",
+              dark_card == "oklch(0.205 0 0)", f"card={dark_card}")
+        page.locator("html").evaluate("(el, theme) => document.documentElement.dataset.theme = theme", original_theme)
         page.get_by_role("link", name="Show archived").click()
         page.wait_for_url("**/projects?archived=1")
-        expect(page.locator('#paratrack-react-root [data-slot="card"]').filter(has_text=proj_name).first).to_contain_text(proj_name)
+        expect(page.locator('#paratrack-react-root tbody tr').filter(has_text=proj_name).first).to_contain_text(proj_name)
         check("project list archive filter keeps projects visible", proj_name in page.content())
         shot(page, "11-project-list-react")
         page.get_by_role("link", name="Hide archived").click()

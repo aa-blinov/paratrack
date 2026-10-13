@@ -61,6 +61,7 @@ type detailBillingStub struct {
 type projectListCatalogStub struct {
 	ProjectCatalogStore
 	projects        []model.Project
+	activities      []model.Activity
 	teamID          int64
 	includeArchived bool
 }
@@ -68,6 +69,22 @@ type projectListCatalogStub struct {
 func (stub *projectListCatalogStub) ListProjects(_ context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	stub.teamID, stub.includeArchived = query.TeamID, query.IncludeArchived
 	return stub.projects, nil
+}
+
+func (stub *projectListCatalogStub) ListActivities(_ context.Context, teamID int64, _ bool) ([]model.Activity, error) {
+	stub.teamID = teamID
+	return stub.activities, nil
+}
+
+type projectListBillingStub struct {
+	ProjectBillingStore
+	names map[int64]string
+	team  int64
+}
+
+func (stub *projectListBillingStub) ProjectClientNames(_ context.Context, teamID int64) (map[int64]string, error) {
+	stub.team = teamID
+	return stub.names, nil
 }
 
 type projectListUsageStub struct {
@@ -137,9 +154,18 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 	monthStart := start.AddDate(0, 0, -30)
 	ended := start.Add(2 * time.Hour)
 	project := model.Project{ID: 7, TeamID: 3, Slug: "alpha", Name: "Alpha", Archived: true}
-	catalog := &projectListCatalogStub{projects: []model.Project{project}}
+	catalog := &projectListCatalogStub{
+		projects: []model.Project{project},
+		activities: []model.Activity{
+			{ID: 1, Name: "Design", Color: "#6366f1", ProjectID: 7},
+			{ID: 2, Name: "Old", Color: "#0ea5e9", ProjectID: 7, Archived: true},
+			{ID: 3, Name: "Unassigned", Color: "#14b8a6"},
+		},
+	}
+	billing := &projectListBillingStub{names: map[int64]string{7: "Acme"}}
 	service := &Service{
 		catalog: catalog,
+		billing: billing,
 		usage: projectListUsageStub{
 			counts: map[int64]int{7: 2},
 			spans: []appmodel.ProjectSessionSpan{{ProjectID: 7, Session: model.Session{
@@ -170,6 +196,26 @@ func TestListWithUsageAssemblesScopedProjectSnapshot(t *testing.T) {
 	}
 	if got := snapshot.Usage[7]; got.ActivityCount != 2 || got.TodaySeconds != 7200 || got.MonthSeconds != 7200 {
 		t.Fatalf("project usage = %+v, want count 2 and 7200 seconds", got)
+	}
+	// The list screen opens a row into its activities and names the client the
+	// project is billed to, so both have to arrive with the same read.
+	if billing.team != 3 || snapshot.ClientNames[7] != "Acme" {
+		t.Fatalf("client names = %+v for team %d, want Acme for team 3", snapshot.ClientNames, billing.team)
+	}
+	activities := snapshot.ActivitiesByProject[7]
+	if len(activities) != 2 {
+		t.Fatalf("activities for project 7 = %+v, want the two that belong to it", activities)
+	}
+	if activities[0].Name != "Design" || activities[0].Color != "#6366f1" || activities[0].Hidden {
+		t.Fatalf("first activity = %+v, want the live Design mark", activities[0])
+	}
+	// An archived activity still holds hours, so the row has to show it as
+	// hidden rather than drop it.
+	if !activities[1].Hidden || activities[1].Name != "Old" {
+		t.Fatalf("second activity = %+v, want archived Old", activities[1])
+	}
+	if _, ok := snapshot.ActivitiesByProject[0]; ok {
+		t.Fatalf("an activity with no project must not create a bucket")
 	}
 }
 
