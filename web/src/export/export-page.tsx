@@ -2,10 +2,10 @@ import * as React from "react"
 import { BarChart3, Download, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
 import type { ExportData } from "@/dashboard/types"
+import { DateField } from "@/components/date-field"
 
 export function ExportPage({ data }: { data: ExportData }) {
   const lang = data.Lang || "en"
@@ -25,7 +25,7 @@ export function ExportPage({ data }: { data: ExportData }) {
     <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
       <Card><CardHeader><CardTitle>{t(lang, "export.sessions")}</CardTitle></CardHeader><CardContent className="grid gap-4"><div className="grid gap-2 text-sm text-muted-foreground"><p>{t(lang, "export.contents")}</p><p>{t(lang, "export.columns")}</p></div>
         <form method="get" action="/api/reports.csv" className="grid gap-4 border-t pt-4" onSubmit={submit}>
-          <fieldset className="grid gap-3"><legend className="mb-2 font-semibold">{t(lang, "export.period")}</legend><div className="grid gap-3 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="export-from">{t(lang, "export.from")}</Label><Input id="export-from" type="date" name="from" value={from} onChange={event => { setFrom(event.target.value); setError("") }} /></div><div className="grid gap-1.5"><Label htmlFor="export-to">{t(lang, "export.to")}</Label><Input id="export-to" type="date" name="to" value={to} onChange={event => { setTo(event.target.value); setError("") }} /></div></div><p className="text-sm text-muted-foreground">{t(lang, "export.periodHint")}</p></fieldset>
+          <fieldset className="grid gap-3"><legend className="mb-2 font-semibold">{t(lang, "export.period")}</legend><div className="grid gap-3 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="export-from">{t(lang, "export.from")}</Label><DateField id="export-from" name="from" onValueChange={next => { setFrom(next); setError("") }} /></div><div className="grid gap-1.5"><Label htmlFor="export-to">{t(lang, "export.to")}</Label><DateField id="export-to" name="to" onValueChange={next => { setTo(next); setError("") }} /></div></div><p className="text-sm text-muted-foreground">{t(lang, "export.periodHint")}</p></fieldset>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-wrap items-center gap-3"><Button type="submit"><Download aria-hidden="true" />{t(lang, "export.download")}</Button><span className="font-mono text-sm text-muted-foreground">paratrack.csv</span></div>
         </form>

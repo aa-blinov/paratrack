@@ -9,6 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { PayrollData, PayrollDetailData } from "@/dashboard/types"
+import { DateField } from "@/components/date-field"
 
 function Status({ lang, status }: { lang: string; status: string }) {
   // Same reason as the invoice status: the colour belongs to the role in
@@ -45,8 +46,8 @@ export function PayrollPage({ data }: { data: PayrollData }) {
     <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
-        <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><Input id="pay-start" type="date" name="start" required defaultValue={data.DefStart} /></div>
-        <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><Input id="pay-end" type="date" name="end" required defaultValue={data.DefEnd} /></div>
+        <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><DateField id="pay-start" name="start" required defaultValue={data.DefStart} /></div>
+        <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><DateField id="pay-end" name="end" required defaultValue={data.DefEnd} /></div>
         <div className="flex min-w-0 items-end gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
       </form>
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>

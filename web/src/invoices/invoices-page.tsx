@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { InvoiceDetailData, InvoicesData } from "@/dashboard/types"
+import { DateField } from "@/components/date-field"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // The badge variant stays neutral on purpose: `variant` paints a utility
@@ -139,8 +140,8 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         </div>
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-client">{t(lang, "inv.client")}</Label><Input id="inv-client" type="text" name="client" required placeholder={t(lang, "ph.client")} value={client.name} onChange={event => editClientField("name", event.target.value)} /></div>
 
-        <div className="space-y-2"><Label htmlFor="inv-start">{t(lang, "inv.from")}</Label><Input id="inv-start" type="date" name="start" required defaultValue={data.DefStart} /></div>
-        <div className="space-y-2"><Label htmlFor="inv-end">{t(lang, "inv.to")}</Label><Input id="inv-end" type="date" name="end" required defaultValue={data.DefEnd} /></div>
+        <div className="space-y-2"><Label htmlFor="inv-start">{t(lang, "inv.from")}</Label><DateField id="inv-start" name="start" required defaultValue={data.DefStart} /></div>
+        <div className="space-y-2"><Label htmlFor="inv-end">{t(lang, "inv.to")}</Label><DateField id="inv-end" name="end" required defaultValue={data.DefEnd} /></div>
         <Disclosure open={Boolean(client.email || client.details)} className="sm:col-span-2">
           <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "inv.optionalFields")}</DisclosureTrigger>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
