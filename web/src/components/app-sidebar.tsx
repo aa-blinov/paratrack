@@ -120,13 +120,15 @@ function NavigationGroup({ title, items, shell, collapsible = false }: { title: 
   // Tighter vertical padding between groups: six groups at p-2 push the folded menu past a 900px screen.
   return <SidebarGroup className="py-1">
     {heading && collapsible && !holdsCurrent ? <SidebarGroupLabel asChild><button type="button" aria-expanded={open} className="flex w-full items-center justify-between" onClick={() => setExpanded(value => !value)}>{heading}<ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /></button></SidebarGroupLabel> : heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
-    {open && <SidebarGroupContent><SidebarMenu>{visible.map(item => <SidebarMenuItem key={item.key}>
+    {/* A folded group keeps its links in the page but out of sight: height 0 with the
+        contents clipped, and inert so they neither take focus nor reach assistive tech. */}
+    <div className={`grid ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`} inert={!open}><div className="min-h-0 overflow-hidden"><SidebarGroupContent><SidebarMenu>{visible.map(item => <SidebarMenuItem key={item.key}>
       <SidebarMenuButton asChild isActive={isCurrent(item, shell)} tooltip={t(shell.lang, item.label)}>
         <a href={item.href} onClick={() => setOpenMobile(false)} aria-current={isCurrent(item, shell) ? "page" : undefined}>
           <Icon name={item.icon} /><span>{t(shell.lang, item.label)}</span>
         </a>
       </SidebarMenuButton>
-    </SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent>}
+    </SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></div></div>
   </SidebarGroup>
 }
 
