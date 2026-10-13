@@ -80,6 +80,21 @@ reading:
   interface CSS is scoped under that id, so a calendar sent to the body comes
   out unstyled and transparent, sitting on the text behind it.
 
+## Measuring colour
+
+The app transitions colours, so anything that reads computed styles has to
+switch transitions off first. `a11y_check.py` measured 200 ms after flipping
+`data-theme` and caught the middle of the transition — a dark background with
+the light theme's near-black text still in flight, reported as 1.1:1 for the
+whole sidebar. It passed locally and failed on CI, and a re-run confirmed it
+was a race rather than a regression.
+
+Measured, when it was pinned down: right after the switch the text is
+`oklab(0.145 0 0)`, and by 50 ms it is already `oklch(0.985 0 0)`. A fixed
+wait only loses on a slow runner. Inject
+`*,*::before,*::after{transition:none!important;animation:none!important}`
+after each navigation — `add_style_tag` does not survive a `goto`.
+
 ## Lists of things: table, not tiles
 
 `/projects` is a table with rows that open into their activities. It was a
