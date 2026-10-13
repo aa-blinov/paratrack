@@ -23,7 +23,7 @@ export function settingsTitle(lang: string, active: string) {
 export function SettingsNav({ active, lang, canManage }: { active: string; lang: string; canManage: boolean }) {
   const links = [...tabs.slice(0, 3), ...(canManage ? managerTabs.slice(0, 4) : []), tabs[3], ...(canManage ? managerTabs.slice(4) : [])]
   return <>
-    <nav aria-label={t(lang, "set.title")} className="flex gap-1 overflow-x-auto border-b">
+    <nav aria-label={t(lang, "set.title")} className="flex gap-1 overflow-x-auto border-b max-sm:[mask-image:linear-gradient(to_right,#000_86%,transparent)]">
       {links.map(([id, href, key]) => <a key={id} href={href} aria-current={active === id ? "page" : undefined} className={`shrink-0 border-b-2 px-2 py-2 text-sm ${active === id ? "border-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{t(lang, key)}</a>)}
     </nav>
     <p className="text-sm text-muted-foreground">{t(lang, `set.desc.${active}`)}</p>

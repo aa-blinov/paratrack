@@ -85,11 +85,13 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     {!!data.Unbilled.length && <Card>
       <CardHeader><CardTitle className="text-base">{t(lang, "inv.unbilled")}</CardTitle></CardHeader>
       <CardContent><ul className="divide-y">
-        {data.Unbilled.map(item => <li key={item.ProjectID} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 first:pt-0 last:pb-0">
-          <a href={`/projects/${item.Slug}`} className="min-w-0 max-w-full truncate py-2 font-medium underline-offset-4 hover:underline">{item.ProjectName}</a>
-          <span className="whitespace-nowrap font-mono tabular-nums">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span>
-          <span className="text-xs text-muted-foreground">{t(lang, "inv.since")} {item.Since}</span>
-          <Button asChild size="sm" className="ml-auto"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>
+        {data.Unbilled.map(item => <li key={item.ProjectID} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+          <div className="grid min-w-0 flex-1">
+            <a href={`/projects/${item.Slug}`} className="min-w-0 truncate py-1 font-medium underline-offset-4 hover:underline">{item.ProjectName}</a>
+            <span className="whitespace-nowrap font-mono tabular-nums">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span>
+            <span className="text-xs text-muted-foreground">{t(lang, "inv.since")} {item.Since}</span>
+          </div>
+          <Button asChild size="sm" className="shrink-0"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>
         </li>)}
       </ul></CardContent>
     </Card>}
