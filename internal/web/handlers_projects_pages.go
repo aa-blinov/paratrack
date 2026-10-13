@@ -47,6 +47,17 @@ type projectListRow struct {
 	MonthSecs  int
 	TodayLabel string // in the user's duration format
 	MonthLabel string
+	// ClientName is who this project is billed to. Empty when unlinked.
+	ClientName string
+	// ActivityNames are the activities behind the Activities count. The row
+	// opens into them instead of asking the user to visit the project page.
+	ActivityNames []projectListActivity
+}
+
+type projectListActivity struct {
+	Name   string
+	Color  string
+	Hidden bool
 }
 
 // handleProjectsList — GET /projects?archived=1
@@ -70,8 +81,12 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 		row := projectListRow{
 			ID: p.ID, Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
 			Activities: snapshot.Usage[p.ID].ActivityCount, TodaySecs: snapshot.Usage[p.ID].TodaySeconds, MonthSecs: snapshot.Usage[p.ID].MonthSeconds,
+			ClientName: snapshot.ClientNames[p.ID],
 		}
 		row.TodayLabel, row.MonthLabel = fmtDur(r, row.TodaySecs), fmtDur(r, row.MonthSecs)
+		for _, a := range snapshot.ActivitiesByProject[p.ID] {
+			row.ActivityNames = append(row.ActivityNames, projectListActivity{Name: a.Name, Color: a.Color, Hidden: a.Hidden})
+		}
 		rows = append(rows, row)
 	}
 

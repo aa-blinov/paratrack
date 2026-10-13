@@ -64,9 +64,23 @@ type SessionDecorationRowSnapshot struct {
 
 // ProjectListSnapshot combines projects with the workflow-calculated usage
 // values displayed beside them.
+//
+// ClientNames and ActivitiesByProject are what a table-shaped list needs and
+// a card could not fit: the client a project is billed to, and the activity
+// names behind the count. Both are one workspace-wide read each, not a read
+// per project.
 type ProjectListSnapshot struct {
-	Projects []model.Project
-	Usage    map[int64]ProjectUsage
+	Projects            []model.Project
+	Usage               map[int64]ProjectUsage
+	ClientNames         map[int64]string
+	ActivitiesByProject map[int64][]ProjectActivityRef
+}
+
+// ProjectActivityRef is one activity name and colour inside the project list.
+type ProjectActivityRef struct {
+	Name   string
+	Color  string
+	Hidden bool // archived activity, still linked to its sessions
 }
 
 // ProjectCatalogSnapshot combines projects with their activity counts for

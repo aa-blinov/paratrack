@@ -99,6 +99,12 @@ export interface DashboardData {
   DefaultProject: number
 }
 
+export interface ProjectListActivity {
+  Name: string
+  Color: string
+  Hidden: boolean
+}
+
 export interface ProjectListRow {
   ID: number
   Slug: string
@@ -110,6 +116,10 @@ export interface ProjectListRow {
   MonthSecs: number
   TodayLabel: string
   MonthLabel: string
+  /** Who this project is billed to. Empty when it is not linked to a client. */
+  ClientName: string
+  /** Activities behind the count; a row opens into them. */
+  ActivityNames: ProjectListActivity[]
 }
 
 export interface ProjectListData {
