@@ -2,11 +2,11 @@ import { Filter, Link2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { AuditData } from "@/dashboard/types"
+import { DateField } from "@/components/date-field"
 
 // Native controls in one GET form: the whole filter works from the keyboard
 // and submits without JavaScript, and the resulting address carries the state,
@@ -39,8 +39,8 @@ export function AuditPage({ data }: { data: AuditData }) {
       <form method="get" action="/settings/audit" className="grid gap-3">
         <fieldset className="grid gap-3"><legend className="mb-1.5 text-sm font-medium">{t(lang, "audit.filters")}</legend>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="grid gap-1.5"><Label htmlFor="audit-from">{t(lang, "inv.from")}</Label><Input id="audit-from" name="from" type="date" defaultValue={from} /></div>
-            <div className="grid gap-1.5"><Label htmlFor="audit-to">{t(lang, "inv.to")}</Label><Input id="audit-to" name="to" type="date" defaultValue={to} /></div>
+            <div className="grid gap-1.5"><Label htmlFor="audit-from">{t(lang, "inv.from")}</Label><DateField id="audit-from" name="from" defaultValue={from} /></div>
+            <div className="grid gap-1.5"><Label htmlFor="audit-to">{t(lang, "inv.to")}</Label><DateField id="audit-to" name="to" defaultValue={to} /></div>
             <div className="grid gap-1.5"><Label htmlFor="audit-user">{t(lang, "stats.person")}</Label><select id="audit-user" name="user" defaultValue={String(userID)} className={selectClass}><option value="">{t(lang, "stats.everyone")}</option>{people.map(person => <option key={person.ID} value={String(person.ID)}>{person.Name}</option>)}</select></div>
             <div className="grid gap-1.5"><Label htmlFor="audit-action">{t(lang, "audit.action")}</Label><select id="audit-action" name="event" defaultValue={action} className={selectClass}><option value="">{t(lang, "stats.all")}</option>{actions.map(code => <option key={code} value={code}>{actionLabel(code)}</option>)}</select></div>
           </div>

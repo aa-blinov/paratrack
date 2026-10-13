@@ -307,8 +307,8 @@ def main() -> int:
                 else:
                     page.keyboard.press("Escape")
                 page.wait_for_timeout(200)
-            page.locator('form[action="/invoices"] input[type="date"]').first.fill(first_day.isoformat())
-            page.locator('form[action="/invoices"] input[type="date"]').nth(1).fill(last_day.isoformat())
+            page.locator('form[action="/invoices"] input[data-date-input="start"]').first.fill(first_day.isoformat())
+            page.locator('form[action="/invoices"] input[data-date-input="end"]').first.fill(last_day.isoformat())
             submit_form(page, 'form[action="/invoices"]')
             made = "/invoices/" in page.url and not page.url.rstrip("/").endswith("/invoices")
             check(f"invoice created for {project_name}", made, page.url)

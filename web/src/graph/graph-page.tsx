@@ -2,11 +2,11 @@ import * as React from "react"
 import { ArrowLeft, Play, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
 import type { GraphData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
+import { DateTimeField } from "@/components/date-field"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"] as const
 
@@ -64,8 +64,8 @@ export function GraphPage({ data }: { data: GraphData }) {
     </nav>
 
     <form method="get" action="/graph" className="no-print flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
-      <div className="grid gap-1.5"><Label htmlFor="graph-start">{t(lang, "graph.customFrom")}</Label><Input id="graph-start" name="start" type="datetime-local" defaultValue={data.PeriodStartInput} required /></div>
-      <div className="grid gap-1.5"><Label htmlFor="graph-end">{t(lang, "graph.customTo")}</Label><Input id="graph-end" name="end" type="datetime-local" defaultValue={data.PeriodEndInput} required /></div>
+      <div className="grid gap-1.5"><Label htmlFor="graph-start">{t(lang, "graph.customFrom")}</Label><DateTimeField id="graph-start" name="start" defaultValue={data.PeriodStartInput} required /></div>
+      <div className="grid gap-1.5"><Label htmlFor="graph-end">{t(lang, "graph.customTo")}</Label><DateTimeField id="graph-end" name="end" defaultValue={data.PeriodEndInput} required /></div>
       <input type="hidden" name="period" value="custom" />
       {data.ProjectFilter && <input type="hidden" name="project" value={data.ProjectFilter} />}
       {data.TagFilter && <input type="hidden" name="tag" value={data.TagFilter} />}

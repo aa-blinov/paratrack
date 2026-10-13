@@ -407,8 +407,8 @@ def main() -> int:
         # Bill the window the tracked time actually falls in; the form's own
         # defaults (month start → today) drift off it as the run goes on.
         if assign.get("from") and assign.get("to"):
-            pg.fill('input[name="start"]', assign["from"])
-            pg.fill('input[name="end"]', assign["to"])
+            pg.fill('input[data-date-input="start"]', assign["from"])
+            pg.fill('input[data-date-input="end"]', assign["to"])
         pg.locator('form[action="/invoices"] button[type="submit"]').click()
         pg.wait_for_url("**/invoices/*")
         # The shell renders the document from JSON, so the page chrome is there
@@ -465,8 +465,8 @@ def main() -> int:
         open_disclosures(pg, 'form[action="/payroll"] button[type="submit"]')
         # A pay run bills tracked time, so use the same window section J billed.
         if assign.get("from") and assign.get("to"):
-            pg.fill('input[name="start"]', assign["from"])
-            pg.fill('input[name="end"]', assign["to"])
+            pg.fill('input[data-date-input="start"]', assign["from"])
+            pg.fill('input[data-date-input="end"]', assign["to"])
         pg.locator('form[action="/payroll"] button[type="submit"]').click()
         pg.wait_for_url("**/payroll/*")
         pg.wait_for_selector('main h1:has-text("PAY-")')
