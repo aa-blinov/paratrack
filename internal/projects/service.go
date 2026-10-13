@@ -14,6 +14,7 @@ import (
 // ProjectCatalogStore provides project and activity lookups.
 type ProjectCatalogStore interface {
 	ListProjects(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
+	ListActivities(context.Context, int64, bool) ([]model.Activity, error)
 	ListActivitiesForProject(context.Context, appmodel.ProjectActivityCatalogQuery) ([]model.Activity, error)
 	GetProjectInTeam(context.Context, appmodel.ProjectScopeQuery) (model.Project, error)
 	GetProjectBySlug(context.Context, appmodel.ProjectSlugQuery) (model.Project, error)
@@ -33,6 +34,7 @@ type ProjectUsageStore interface {
 type ProjectBillingStore interface {
 	ProjectCurrency(context.Context, appmodel.ProjectScopeQuery) (string, error)
 	ProjectCurrencies(context.Context, int64) (map[int64]string, error)
+	ProjectClientNames(context.Context, int64) (map[int64]string, error)
 }
 
 // ProjectAuthorizationReader resolves the caller's current workspace role.

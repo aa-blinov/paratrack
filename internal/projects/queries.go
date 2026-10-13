@@ -60,7 +60,30 @@ func (s *Service) ListWithUsage(ctx context.Context, query appmodel.ProjectUsage
 	if err != nil {
 		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project usage summary: %w", err)
 	}
-	return appmodel.ProjectListSnapshot{Projects: catalog.Projects, Usage: usage}, nil
+	// The list screen shows who a project is billed to and which activities it
+	// holds, so that a row can open into its details without a second read.
+	// Archived activities stay in: their sessions still carry the hours.
+	activities, err := s.catalog.ListActivities(ctx, query.Catalog.TeamID, true)
+	if err != nil {
+		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project activities: %w", err)
+	}
+	byProject := make(map[int64][]appmodel.ProjectActivityRef, len(catalog.Projects))
+	for _, a := range activities {
+		if a.ProjectID <= 0 {
+			continue
+		}
+		byProject[a.ProjectID] = append(byProject[a.ProjectID], appmodel.ProjectActivityRef{
+			Name: a.Name, Color: a.Color, Hidden: a.Archived,
+		})
+	}
+	clientNames, err := s.billing.ProjectClientNames(ctx, query.Catalog.TeamID)
+	if err != nil {
+		return appmodel.ProjectListSnapshot{}, fmt.Errorf("load project client names: %w", err)
+	}
+	return appmodel.ProjectListSnapshot{
+		Projects: catalog.Projects, Usage: usage,
+		ClientNames: clientNames, ActivitiesByProject: byProject,
+	}, nil
 }
 
 func (s *Service) usageSummaryWithCounts(ctx context.Context, teamID int64, todayStart, monthStart, now time.Time, counts map[int64]int) (map[int64]appmodel.ProjectUsage, error) {
