@@ -76,8 +76,8 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
 
     {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
 
-    {!data.Billable && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-sm">
-      <AlertTriangle aria-hidden="true" className="size-5 shrink-0 text-amber-700 dark:text-amber-300" />
+    {!data.Billable && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
+      <AlertTriangle aria-hidden="true" className="size-5 shrink-0 text-warning-ink" />
       <div className="min-w-0 flex-1"><p className="font-medium">{t(lang, "inv.noRateTitle")}</p><p className="text-muted-foreground">{t(lang, "inv.noRateHint")}</p></div>
       <Button asChild size="sm" className="ml-auto shrink-0"><a href={data.Projects.length ? "/projects" : "/projects/new"}>{data.Projects.length ? t(lang, "inv.noRateCta") : t(lang, "inv.createProject")}</a></Button>
     </div>}
@@ -184,7 +184,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
 
     <Card className="print:border-0"><CardContent className="space-y-5 p-5 sm:p-7">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>{inv.Logo && <img src={inv.Logo} alt="" className="mb-3 h-12 max-w-48 object-contain" />}<h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.invoice")} <span className="font-mono">{inv.Number}</span></h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pdf.issued")} {inv.IssuedLabel}</p></div>
+        <div>{inv.Logo && <img src={inv.Logo} alt="" width={192} height={48} className="mb-3 h-12 w-48 object-contain" />}<h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.invoice")} <span className="font-mono">{inv.Number}</span></h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pdf.issued")} {inv.IssuedLabel}</p></div>
       </header>
       <dl className="grid gap-4 sm:grid-cols-2">
         <div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.from")}</dt><dd className="font-medium">{data.Seller}</dd>{inv.SellerDetails && <dd className="mt-1 whitespace-pre-line text-sm">{inv.SellerDetails}</dd>}</div>
@@ -235,7 +235,7 @@ export function InvoiceActPage({ data }: { data: InvoiceDetailData }) {
   return <main className="mx-auto grid w-full max-w-4xl gap-4">
     <div className="no-print flex flex-wrap items-center gap-2"><a href={`/invoices/${invoice.ID}`} className="text-sm text-muted-foreground underline underline-offset-4">{t(lang, "inv.invoice")} {invoice.Number}</a><a href={`/invoices/${invoice.ID}/act.pdf`} className="ms-auto inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted"><Download aria-hidden="true" />PDF</a><Button type="button" size="sm" variant="ghost" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button></div>
     <Card className="print:border-0"><CardContent className="grid gap-4 p-6">
-      {invoice.Logo && <img src={invoice.Logo} alt="" className="h-12 max-w-48 self-start object-contain" />}
+      {invoice.Logo && <img src={invoice.Logo} alt="" width={192} height={48} className="h-12 w-48 self-start object-contain" />}
       <h1 className="text-2xl font-semibold">{t(lang, "act.heading")} <span className="font-mono">{invoice.Number}</span></h1>
       <p className="text-sm text-muted-foreground">{t(lang, "pdf.issued")} {invoice.IssuedLabel}, {t(lang, "inv.period")}: {invoice.PeriodLabel}</p>
       <dl className="grid gap-4 text-sm sm:grid-cols-2"><div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.from")}</dt><dd className="font-medium">{seller}</dd>{invoice.SellerDetails && <dd className="mt-1 whitespace-pre-line">{invoice.SellerDetails}</dd>}</div><div><dt className="text-xs text-muted-foreground">{t(lang, "pdf.billedTo")}</dt><dd className="font-medium">{invoice.ClientName}</dd>{invoice.ClientDetails && <dd className="mt-1 whitespace-pre-line">{invoice.ClientDetails}</dd>}</div></dl>

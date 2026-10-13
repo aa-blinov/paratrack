@@ -9,6 +9,7 @@ import { requestConfirmation } from "@/components/confirmation-dialog"
 import { translate as t } from "@/i18n"
 import type { TimesheetData, TimesheetRow } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
+import { SegmentedControl } from "@/components/segmented"
 
 type CellResponse = {
   activityId: number; activityName: string; color: string
@@ -212,10 +213,14 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           every row and two of seven days in view, so below the small
           breakpoint the sheet becomes one block per day — same inputs, same
           save path, nothing typed twice. */}
-      <div className="ts-day-toggle flex items-center gap-1" role="group" aria-label={t(lang, "ts.thisWeek")}>
-        <button type="button" aria-pressed={onlyToday} onClick={() => setOnlyToday(true)} className={`ts-day-toggle-item ${onlyToday ? "is-on" : ""}`}>{t(lang, "ts.todayOnly")}</button>
-        <button type="button" aria-pressed={!onlyToday} onClick={() => setOnlyToday(false)} className={`ts-day-toggle-item ${onlyToday ? "" : "is-on"}`}>{t(lang, "ts.wholeWeek")}</button>
-      </div>
+      <SegmentedControl
+        label={t(lang, "ts.thisWeek")}
+        value={onlyToday ? "today" : "week"}
+        options={[
+          { key: "today", label: t(lang, "ts.todayOnly"), onSelect: () => setOnlyToday(true) },
+          { key: "week", label: t(lang, "ts.wholeWeek"), onSelect: () => setOnlyToday(false) },
+        ]}
+      />
       <div className="ts-day-list grid gap-3">
         {daysShown.map(day => {
           const dayIndex = data.Days.indexOf(day)

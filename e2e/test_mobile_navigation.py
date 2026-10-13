@@ -480,7 +480,7 @@ async def check_the_week_never_scrolls_sideways(browser):
         assert not shape['gridVisible'], f'{width}px: the grid does not fit here and must give way to the day list'
         # A phone opens on today; the whole week is one tap away.
         assert shape['dayCards'] <= 2, f'{width}px: today alone until asked for the week, got {shape["dayCards"]}'
-        toggle = page.locator('.ts-day-toggle-item')
+        toggle = page.locator('main .period-tabs button[aria-pressed]')
         assert await toggle.count() == 2, f'{width}px: the week is reachable by one tap'
         await toggle.nth(1).click()
         await page.wait_for_timeout(300)

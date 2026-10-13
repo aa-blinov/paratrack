@@ -707,12 +707,16 @@ def main() -> int:
                 # Below 640px the week is a list of days: nothing scrolls sideways,
                 # and every day keeps its own inputs.
                 days = page.locator('main [data-slot="card"]').filter(has=page.locator('input[type="number"]'))
-                # A phone opens on today; the week is one tap away.
+                # A phone opens on today; the week is one tap away. The picker is
+                # the shared SegmentedControl now, so it is found by its two
+                # pressed-state buttons rather than by a class that used to
+                # live only on this screen.
+                week_toggle = page.locator('main .period-tabs button[aria-pressed]')
                 check(f"timesheet becomes a day list at {width}px",
                       page.evaluate("document.documentElement.scrollWidth <= innerWidth")
                       and days.count() <= 2
-                      and page.locator('.ts-day-toggle-item').count() == 2)
-                page.locator('.ts-day-toggle-item').nth(1).click()
+                      and week_toggle.count() == 2)
+                week_toggle.nth(1).click()
                 page.wait_for_timeout(300)
                 check(f"the whole week opens at {width}px",
                       page.locator('main [data-slot="card"]').filter(
@@ -1349,6 +1353,13 @@ def main() -> int:
         check("integration marketplace loads through in-app navigation",
               page.locator("#main").inner_text().lower().find("marketplace") >= 0)
         favicons = page.locator('#main img[src^="/static/integrations/"]')
+        # The count is instant, the decode is not: reading naturalWidth the
+        # moment the nodes exist reports an image as empty and fails a check
+        # that has nothing wrong with it. Wait for the decode first.
+        favicons.evaluate_all(
+            "images => Promise.all(images.map(img => img.complete && img.naturalWidth > 0"
+            " ? null : new Promise(res => { img.addEventListener('load', res, {once:true});"
+            " img.addEventListener('error', res, {once:true}); })))")
         check("marketplace uses each provider's original favicon",
               favicons.count() == 11 and favicons.evaluate_all(
                   "images => images.every(img => img.complete && img.naturalWidth > 0)"),
