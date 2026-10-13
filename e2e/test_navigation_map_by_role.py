@@ -331,7 +331,9 @@ async def check_editor_folds_on_a_phone(browser):
     # A phone: the editor is folded, and one button opens it.
     context, page, errors = await open_page(browser, stats_document([]), '/stats', 390)
     await page.locator('#main h1').wait_for()
-    button = page.locator('main button[data-slot="button"][aria-expanded]')
+    # Other folds on the page (saved snapshots, sections) also carry aria-expanded
+    # but are hidden on a phone; the session editor is the visible one.
+    button = page.locator('main button[data-slot="button"][aria-expanded]').first
     await button.wait_for()
     assert await button.get_attribute('aria-expanded') == 'false', 'the editor starts folded'
     assert await visible_rows(page) == 0, 'no session rows before it is asked for'
@@ -346,7 +348,7 @@ async def check_editor_folds_on_a_phone(browser):
     context, page, errors = await open_page(browser, stats_document([]), '/stats', 1440)
     await page.locator('#main h1').wait_for()
     # The toggle stays in the markup but out of the way at this width.
-    assert not await page.locator('main button[data-slot="button"][aria-expanded]').is_visible(), \
+    assert not await page.locator('main button[data-slot="button"][aria-expanded]').first.is_visible(), \
         'the toggle has nothing to do on a wide screen'
     assert await visible_rows(page) > 0, 'the records are visible without a click'
     assert not errors, errors
