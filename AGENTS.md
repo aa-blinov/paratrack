@@ -95,6 +95,21 @@ wait only loses on a slow runner. Inject
 `*,*::before,*::after{transition:none!important;animation:none!important}`
 after each navigation — `add_style_tag` does not survive a `goto`.
 
+## Dates
+
+Every page resolves a workspace before its handler runs, and `/welcome` — the
+screen whose whole job is to pick the sections for a *new* space — sits behind
+that same check. So an account with no workspace cannot reach the one screen
+that would fix it, and signing in bounced `/ → /login → /`: deleting your last
+workspace locked the account out for good, and re-registering fails because
+the address is taken.
+
+Registration creates a personal workspace as part of signing up; login now
+does the same for an account that has none, and sends the person to
+`/welcome`. The rule to keep: **an account must never be able to strand
+itself.** `qa_full.py` section U walks delete → sign in → pick sections →
+work, so the lockout cannot come back quietly.
+
 ## Lists of things: table, not tiles
 
 `/projects` is a table with rows that open into their activities. It was a

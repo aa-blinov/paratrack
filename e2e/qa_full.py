@@ -677,6 +677,38 @@ def main() -> int:
             }""")
             check(f"card title and body agree on {path}", not mixed, f"{mixed}")
 
+        # Deleting the last workspace used to end the account: every page
+        # resolves a workspace, and /welcome — the screen whose whole job is to
+        # create the first one — sits behind that same check, so the sign-in
+        # bounced between / and /login forever. Signing in must hand the person
+        # a fresh personal workspace instead.
+        print("== U. Account with no workspace")
+        pg.goto(BASE + "/settings/team")
+        wait_ready(pg); wait_app(pg)
+        pg.locator("[data-disclosure] > button").last.click()
+        pg.wait_for_timeout(300)
+        pg.locator('form[action="/api/team/delete"] button[type="submit"]').click()
+        pg.wait_for_timeout(400)
+        pg.get_by_role("button", name=re.compile(r"confirm|подтвердить", re.I)).click()
+        pg.wait_for_load_state("load")
+        pg.wait_for_timeout(600)
+        check("deleting the last workspace ends the session",
+              "/register" in pg.url, pg.url)
+        pg.goto(BASE + "/login", wait_until="networkidle")
+        pg.fill("#email", email)
+        pg.fill("#password", "longenoughpw")
+        pg.click('button[type="submit"]')
+        pg.wait_for_load_state("networkidle")
+        pg.wait_for_timeout(600)
+        check("signing in again lands on the section picker, not a login loop",
+              "/welcome" in pg.url, pg.url)
+        pg.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="freelance"]) button').first.click()
+        pg.wait_for_load_state("networkidle")
+        pg.wait_for_timeout(800)
+        pg.goto(BASE + "/projects", wait_until="networkidle")
+        check("the recreated workspace is usable",
+              "/login" not in pg.url and pg.locator("#main h1").count() == 1, pg.url)
+
         br.close()
 
     print("\n" + "=" * 60)
