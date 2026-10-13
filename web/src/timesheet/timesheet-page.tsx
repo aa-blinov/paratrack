@@ -272,7 +272,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
             <TableCell className="px-1 py-2 text-right"><Button type="button" variant="ghost" size="icon" disabled={busy} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button></TableCell>
           </TableRow>)}
         </TableBody>
-        <TableFooter><TableRow className="border-t-2 font-semibold">
+        <TableFooter><TableRow className="border-t font-semibold">
           <TableHead className="sticky left-0 z-10 bg-card px-3 py-2 text-left">{t(lang, "stats.total")}</TableHead>
           {data.DayTotalLabels.map((label, index) => <TableCell key={data.Days[index].ISO} className="whitespace-normal px-1 py-2 text-center font-mono leading-tight tabular-nums">{label}</TableCell>)}
           <TableCell className="whitespace-normal whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{data.GrandTotalLabel}</TableCell>

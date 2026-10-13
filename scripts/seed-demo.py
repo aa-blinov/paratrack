@@ -108,6 +108,8 @@ def sign_up_or_in(page: Page) -> None:
 
 def add_client(page: Page, name: str, email: str, details: str, notes: str, currency: str | None) -> None:
     page.goto(f"{BASE}/clients", wait_until="networkidle")
+    # The new-client form is a disclosure once there are clients; open it like a person would.
+    page.evaluate("document.querySelector('details#client-new') && (document.querySelector('details#client-new').open = true)")
     page.fill('form[action="/clients"] input[name="name"]', name)
     page.fill('form[action="/clients"] input[name="email"]', email)
     page.fill('form[action="/clients"] textarea[name="details"]', details)
