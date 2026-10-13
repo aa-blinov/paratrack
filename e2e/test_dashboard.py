@@ -450,7 +450,7 @@ def main() -> int:
         rows = page.locator(".stats-breakdown-table tbody tr, article.rounded-md.border").count()
         check("stats shows session rows", rows >= 1, f"{rows} rows")
         # Edit duration inline: change first row duration to 45m
-        first_dur = page.locator("article.rounded-md.border input").nth(2)
+        first_dur = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2)
         first_dur.fill("45m")
         first_dur.press("Tab")
         page.wait_for_timeout(500)
@@ -788,13 +788,13 @@ def main() -> int:
         print("\n== 8. Active session edit (PATCH via duration)")
         # Go back to dashboard; start something fresh via API for speed.
         page.goto(BASE + "/stats?period=week")
-        page.wait_for_selector("article.rounded-md.border input")
-        before = page.locator("article.rounded-md.border input").nth(2).input_value()
-        d_in = page.locator("article.rounded-md.border input").nth(2)
+        page.wait_for_selector("article.rounded-md.border input[data-slot=\"input\"]")
+        before = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2).input_value()
+        d_in = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2)
         d_in.fill("2h 30m")
         d_in.press("Tab")
         page.wait_for_timeout(700)  # HTMX PATCH + swap
-        after = page.locator("article.rounded-md.border input").nth(2).input_value()
+        after = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2).input_value()
         check(
             "duration edit applied (2h 30m)",
             after == "2h 30m",
@@ -1103,9 +1103,11 @@ def main() -> int:
         # date field has room for the native picker.
         page.locator('main button[data-slot="button"][aria-expanded]').first.click()
         page.wait_for_timeout(300)
-        date_input = page.locator('#main article.rounded-md.border input[type="datetime-local"]').first
-        check("mobile session date has room for the native picker",
-              date_input.count() >= 1 and date_input.evaluate('e => e.clientWidth >= 240 && parseFloat(getComputedStyle(e).fontSize) >= 16')
+        date_input = page.locator('#main article.rounded-md.border input[data-date-input]').first
+        # 16px keeps iOS from zooming the page when the field takes focus, and
+        # a tap target under 40px is a tap target people miss.
+        check("mobile session date is usable with a finger",
+              date_input.count() >= 1 and date_input.evaluate('e => e.clientWidth >= 120 && parseFloat(getComputedStyle(e).fontSize) >= 16 && e.getBoundingClientRect().height >= 36')
               and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/settings/sections")
         expect(page.locator("#main h1")).to_be_visible()
@@ -1113,8 +1115,8 @@ def main() -> int:
         page.goto(BASE + "/reports")
         expect(page.locator("#main h1")).to_be_visible()
         check("report action says it opens a read-only result",
-              page.locator('form[action="/reports/run"] button').count() == 5)
-        page.locator('form[action="/reports/run"] button').first.click()
+              page.locator('form[action="/reports/run"] button[type="submit"]').count() == 5)
+        page.locator('form[action="/reports/run"] button[type="submit"]').first.click()
         expect(page.locator("#main table")).to_be_visible()
         check("report preview opens without creating a document",
               '/reports/run?' in page.url and page.locator('#main table').count() == 1
@@ -1328,8 +1330,8 @@ def main() -> int:
 
         # Labels have accessible names, not merely adjacent visual captions.
         for route, selector in (
-            ("/reports", '#main input[type="date"]'),
-            ("/import", '#main [role="combobox"], #main input[type="date"]'),
+            ("/reports", '#main input[data-date-input]'),
+            ("/import", '#main [role="combobox"], #main input[data-date-input]'),
             ("/integrations", '#main [role="combobox"]'),
             ("/settings/team", '#main input[type="file"]'),
         ):
