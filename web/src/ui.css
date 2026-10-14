@@ -912,7 +912,6 @@ body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: 
 .sk,.sk-chart>span{background-image:none!important;background-color:var(--border)!important;animation:none!important}
 }
 #legend-chips .legend-chip{white-space:normal;text-align:start;cursor:pointer;align-items:flex-start;min-width:0;max-width:min(100%,28rem);height:auto;min-height:2.5rem;padding:.5rem .75rem}
-#legend-chips .legend-chip>[aria-hidden]{margin-top:.35rem}
 @media (pointer:coarse) {
 #legend-chips .legend-chip{min-height:48px}
 }

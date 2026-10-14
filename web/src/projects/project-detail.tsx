@@ -152,8 +152,9 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
     <a href="/projects" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" />{t(data.Lang, "nav.projects")}</a>
 
     <header className="flex flex-wrap items-start justify-between gap-4">
-      <div className="flex min-w-0 items-start gap-3">
-        <ColorMark color={project.Color} />
+      <div className="flex min-w-0 items-start gap-2">
+        {/* The name is text-2xl, so the mark matches that line rather than the body line. */}
+        <ColorMark className="!h-8" color={project.Color} />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight" title={project.Name}><span className="block truncate">{project.Name}</span></h1>{data.Archived && <Badge variant="secondary">{t(data.Lang, "projects.archivedBadge")}</Badge>}</div>
         </div>
