@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { translate as t } from "@/i18n"
 import type { ProjectListData, ProjectListRow } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
+import { ColorMark } from "@/components/color-mark"
 
 // Список проектов — таблица, а не плитки. Плитка на четверть экрана
 // показывала четыре числа и не давала ни сравнить проекты между собой, ни
@@ -23,7 +24,7 @@ function ActivitiesCell({ lang, project }: { lang: string; project: ProjectListR
   // чтобы активности встали ровно под названием проекта, а не левее него.
   return <ul className="flex flex-wrap gap-x-4 gap-y-1.5 ps-[3.375rem]">
     {project.ActivityNames.map((activity, index) => <li key={`${activity.Name}:${index}`} className="flex min-w-0 items-center gap-1.5 text-sm">
-      <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: activityColor(activity.Color) }} />
+      <ColorMark color={activityColor(activity.Color)} />
       <span className="[overflow-wrap:anywhere]">{activity.Name}</span>
       {activity.Hidden && <Badge variant="secondary" className="h-5">{t(lang, "projects.archivedBadge")}</Badge>}
     </li>)}
@@ -56,7 +57,7 @@ function ProjectRow({ data, project, open, onToggle }: {
           >
             <ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
           </Button>
-          <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: project.Color }} />
+          <ColorMark color={project.Color} />
           <a href={href} title={project.Name} className="min-w-0 truncate font-medium underline-offset-4 hover:underline">{project.Name}</a>
           {project.Archived && <Badge variant="secondary" className="shrink-0">{t(lang, "projects.archivedBadge")}</Badge>}
         </div>
