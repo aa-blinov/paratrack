@@ -968,8 +968,9 @@ body {
   #paratrack-react-root .app-shell-brand { min-height: 44px; display: inline-flex; align-items: center; }
 }
 
-/* Text links inside a phone screen get a 44px hit area without moving the text:
-   the padding adds the height and the negative margin takes it back. */
+/* Text links inside a phone screen get a 44px hit area from a pseudo-element, so
+   the link's own box (which the row alignment is measured on) does not change. */
 @media (max-width: 1023px) {
-  #paratrack-react-root main a:not([data-slot="button"]) { padding-block: 0.95rem; margin-block: -0.95rem; }
+  #paratrack-react-root main a:not([data-slot="button"]) { position: relative; }
+  #paratrack-react-root main a:not([data-slot="button"])::after { content: ""; position: absolute; inset: -0.95rem 0; }
 }
