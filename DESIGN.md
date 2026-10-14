@@ -264,7 +264,9 @@ as a response to a layer that floats above the page.
 **Material 3 on the phone.** The phone shell follows Material 3 at the baseline
 sizes: the navigation bar (80dp), the top app bar (64dp), the emphasized
 easing for every transition, pill buttons (40dp), pill segmented tabs, the
-bottom sheet and the dialog at a 28dp corner, text fields at a 4dp corner.
+bottom sheet and the dialog at a 28dp corner, text fields 56dp tall at a 4dp corner
+(compact table cells keep their size), assist and filter chips 32dp at an 8dp corner,
+and the timer button a 56dp FAB at a 16dp corner.
 On the phone the colour roles and the type scale are Material 3 too. Primary is
 the brand violet (`--brand`, white ink on light, pale violet on dark), cards are
 tonal surfaces (`--card` as a surface container, no ring), and the type roles are
