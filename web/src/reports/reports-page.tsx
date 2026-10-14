@@ -24,7 +24,7 @@ export function ReportsPage({ data }: { data: ReportsData }) {
   const lang = data.Lang || "en"
   return <main className="mx-auto grid w-full max-w-5xl gap-4">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "rep.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "rep.blurb")}</p></header>
-    <div className="grid gap-4 sm:grid-cols-2">{data.Templates.map(template => {
+    <div className="grid gap-4 sm:grid-cols-2 [&>:last-child:nth-child(odd)]:sm:col-span-2">{data.Templates.map(template => {
       const Icon = icons[template.Icon as keyof typeof icons] || BarChart3
       // Не у каждого шаблона есть своя подпись: у «Часы по дням» она бы
       // повторяла заголовок. Нет ключа — нет и абзаца, а не пустая строка.
