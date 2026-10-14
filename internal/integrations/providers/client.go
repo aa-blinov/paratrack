@@ -44,11 +44,6 @@ type Client struct {
 
 var ErrIncompleteDependencies = errors.New("integration provider client requires an HTTP client")
 
-// New creates a provider client with bounded default rate-limit retries.
-func New(client *http.Client) (*Client, error) {
-	return NewConfigured(client, Config{})
-}
-
 // NewConfigured creates a provider client with bounded default retries and
 // process-wide site defaults supplied by the composition root.
 func NewConfigured(client *http.Client, config Config) (*Client, error) {

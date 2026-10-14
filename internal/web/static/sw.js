@@ -7,7 +7,6 @@ const SHELL = [
   OFFLINE,
   "/static/fonts/inter-latin.woff2",
   "/static/fonts/inter-cyrillic.woff2",
-  "/static/fonts/fraunces-latin.woff2",
   "/static/icons.svg",
   "/static/icon192.png",
   "/static/badge96.png",
