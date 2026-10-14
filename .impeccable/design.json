@@ -1,658 +1,570 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-09-28T05:43:00Z",
+  "generatedAt": "2026-10-14T05:55:28Z",
   "title": "Design System: paratrack",
   "extensions": {
     "colorMeta": {
-      "ink-indigo": {
-        "role": "primary",
-        "displayName": "Indigo Ink",
-        "canonical": "#6366f1",
-        "tonalRamp": [
-          "#1d1e48",
-          "#34357f",
-          "#4a4db6",
-          "#6164ed",
-          "#8486f4",
-          "#a8a9f7",
-          "#cbccfa",
-          "#efeffd"
-        ],
-        "usage": "The signature: identity, the current place (active phone tab), focus ring, sent status, toast action, selection. Never the main button. Dark: #818cf8."
-      },
-      "ink-violet": {
-        "role": "secondary",
-        "displayName": "Violet Ink",
-        "canonical": "#8b5cf6",
-        "tonalRamp": [
-          "#291b49",
-          "#493082",
-          "#6945ba",
-          "#895af2",
-          "#a37ef7",
-          "#bea4f9",
-          "#d8c9fc",
-          "#f3eefe"
-        ],
-        "usage": "Theme secondary, kept but unused by any screen today. Dark: #a78bfa."
-      },
-      "ledger-white": {
-        "role": "neutral",
-        "displayName": "Ledger White",
-        "canonical": "#ffffff",
-        "tonalRamp": [
-          "#4c4c4c",
-          "#868686",
-          "#c1c1c1",
-          "#fbfbfb",
-          "#ffffff",
-          "#ffffff",
-          "#ffffff",
-          "#ffffff"
-        ],
-        "usage": "The sheet: card and input surfaces (base-100, light). Dark sheet #1a1d23."
-      },
-      "ledger-paper": {
+      "background": {
         "role": "neutral",
         "displayName": "Ledger Paper",
-        "canonical": "#f9fafb",
+        "canonical": "oklch(0.975 0.012 85)",
         "tonalRamp": [
-          "#4a4b4b",
-          "#838484",
-          "#bcbdbe",
-          "#f5f6f7",
-          "#fafbfb",
-          "#fbfcfc",
-          "#fdfdfd",
-          "#fefefe"
-        ],
-        "usage": "The desk: page background (base-200), badge fills, quiet chips, main-button ink. Dark page #232730."
+          "oklch(15.0% 0.012 85.0)",
+          "oklch(26.4% 0.012 85.0)",
+          "oklch(37.9% 0.012 85.0)",
+          "oklch(49.3% 0.012 85.0)",
+          "oklch(60.7% 0.012 85.0)",
+          "oklch(72.1% 0.012 85.0)",
+          "oklch(83.6% 0.012 85.0)",
+          "oklch(95.0% 0.012 85.0)"
+        ]
       },
-      "ledger-rule": {
-        "role": "neutral",
-        "displayName": "Ledger Rule",
-        "canonical": "#e5e7eb",
-        "tonalRamp": [
-          "#444546",
-          "#797a7c",
-          "#adaeb1",
-          "#e1e3e7",
-          "#eaecef",
-          "#f0f1f3",
-          "#f6f7f8",
-          "#fcfcfd"
-        ],
-        "usage": "Hairlines, dividers, table rules, input strokes (base-300). Dark rule #2d3139."
-      },
-      "ledger-ink": {
+      "foreground": {
         "role": "neutral",
         "displayName": "Ledger Ink",
-        "canonical": "#1a1d23",
+        "canonical": "oklch(0.17 0.008 75)",
         "tonalRamp": [
-          "#07080a",
-          "#0d0f12",
-          "#13151a",
-          "#191c22",
-          "#4b4d52",
-          "#7f8184",
-          "#b3b4b6",
-          "#e8e8e9"
-        ],
-        "usage": "All primary text (base-content, light). Dark ink #e5e7eb."
+          "oklch(15.0% 0.008 75.0)",
+          "oklch(26.4% 0.008 75.0)",
+          "oklch(37.9% 0.008 75.0)",
+          "oklch(49.3% 0.008 75.0)",
+          "oklch(60.7% 0.008 75.0)",
+          "oklch(72.1% 0.008 75.0)",
+          "oklch(83.6% 0.008 75.0)",
+          "oklch(95.0% 0.008 75.0)"
+        ]
       },
-      "ledger-charcoal": {
+      "card": {
         "role": "neutral",
-        "displayName": "Ledger Charcoal",
-        "canonical": "#1f2937",
+        "displayName": "Card Sheet",
+        "canonical": "oklch(0.99 0.008 85)",
         "tonalRamp": [
-          "#090c10",
-          "#10151d",
-          "#171f29",
-          "#1e2836",
-          "#4f5661",
-          "#82878f",
-          "#b5b8bd",
-          "#e8e9eb"
-        ],
-        "usage": "The main button fill (btn-neutral) and dark-neutral blocks. Dark: #e5e7eb fill with #0f1115 ink."
+          "oklch(15.0% 0.008 85.0)",
+          "oklch(26.4% 0.008 85.0)",
+          "oklch(37.9% 0.008 85.0)",
+          "oklch(49.3% 0.008 85.0)",
+          "oklch(60.7% 0.008 85.0)",
+          "oklch(72.1% 0.008 85.0)",
+          "oklch(83.6% 0.008 85.0)",
+          "oklch(95.0% 0.008 85.0)"
+        ]
       },
-      "info-cyan": {
-        "role": "status",
-        "displayName": "Info Cyan",
-        "canonical": "#06b6d4",
+      "muted": {
+        "role": "neutral",
+        "displayName": "Quiet Fill",
+        "canonical": "oklch(0.945 0.013 85)",
         "tonalRamp": [
-          "#01363f",
-          "#036070",
-          "#0489a0",
-          "#05b3d0",
-          "#3bc5dd",
-          "#74d6e7",
-          "#ade7f0",
-          "#e6f7fa"
-        ],
-        "usage": "Informational notices only. Dark: #22d3ee."
+          "oklch(15.0% 0.013 85.0)",
+          "oklch(26.4% 0.013 85.0)",
+          "oklch(37.9% 0.013 85.0)",
+          "oklch(49.3% 0.013 85.0)",
+          "oklch(60.7% 0.013 85.0)",
+          "oklch(72.1% 0.013 85.0)",
+          "oklch(83.6% 0.013 85.0)",
+          "oklch(95.0% 0.013 85.0)"
+        ]
       },
-      "verdict-green": {
-        "role": "status",
-        "displayName": "Verdict Green",
-        "canonical": "#10b981",
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "canonical": "oklch(0.49 0.01 75)",
         "tonalRamp": [
-          "#043726",
-          "#086144",
-          "#0c8c61",
-          "#0fb67f",
-          "#43c89c",
-          "#79d8b8",
-          "#b0e8d5",
-          "#e7f8f2"
-        ],
-        "usage": "Paid, done, active, on-track. Text on its tint uses --ink-success #047857 (light). Dark: #34d399."
+          "oklch(15.0% 0.010 75.0)",
+          "oklch(26.4% 0.010 75.0)",
+          "oklch(37.9% 0.010 75.0)",
+          "oklch(49.3% 0.010 75.0)",
+          "oklch(60.7% 0.010 75.0)",
+          "oklch(72.1% 0.010 75.0)",
+          "oklch(83.6% 0.010 75.0)",
+          "oklch(95.0% 0.010 75.0)"
+        ]
       },
-      "caution-amber": {
-        "role": "status",
-        "displayName": "Caution Amber",
-        "canonical": "#f59e0b",
+      "border": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "oklch(0.922 0 0)",
         "tonalRamp": [
-          "#492f03",
-          "#815305",
-          "#b97708",
-          "#f19b0a",
-          "#f7b23f",
-          "#f9c877",
-          "#fbdfae",
-          "#fef5e6"
-        ],
-        "usage": "Paused, near-limit, needs attention. Text on its tint uses --ink-warning #b45309 (light). Dark: #fbbf24."
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
       },
-      "verdict-red": {
-        "role": "status",
-        "displayName": "Verdict Red",
-        "canonical": "#dc2626",
+      "primary": {
+        "role": "primary",
+        "displayName": "Charcoal Action",
+        "canonical": "oklch(0.205 0 0)",
         "tonalRamp": [
-          "#420b0b",
-          "#741414",
-          "#a61c1c",
-          "#d82525",
-          "#e35454",
-          "#eb8686",
-          "#f3b7b7",
-          "#fbe9e9"
-        ],
-        "usage": "Destructive and failed; white ink 4.83:1. Stop and quiet-danger write in it as ink. Dark: #f87171."
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "destructive": {
+        "role": "error",
+        "displayName": "Stop Red",
+        "canonical": "oklch(0.577 0.245 27.325)",
+        "tonalRamp": [
+          "oklch(15.0% 0.245 27.3)",
+          "oklch(26.4% 0.245 27.3)",
+          "oklch(37.9% 0.245 27.3)",
+          "oklch(49.3% 0.245 27.3)",
+          "oklch(60.7% 0.245 27.3)",
+          "oklch(72.1% 0.245 27.3)",
+          "oklch(83.6% 0.245 27.3)",
+          "oklch(95.0% 0.245 27.3)"
+        ]
+      },
+      "brand": {
+        "role": "accent",
+        "displayName": "Brand Violet",
+        "canonical": "oklch(0.52 0.185 284)",
+        "tonalRamp": [
+          "oklch(15.0% 0.185 284.0)",
+          "oklch(26.4% 0.185 284.0)",
+          "oklch(37.9% 0.185 284.0)",
+          "oklch(49.3% 0.185 284.0)",
+          "oklch(60.7% 0.185 284.0)",
+          "oklch(72.1% 0.185 284.0)",
+          "oklch(83.6% 0.185 284.0)",
+          "oklch(95.0% 0.185 284.0)"
+        ]
+      },
+      "positive": {
+        "role": "status",
+        "displayName": "Running Green",
+        "canonical": "oklch(0.55 0.128 163)",
+        "tonalRamp": [
+          "oklch(15.0% 0.128 163.0)",
+          "oklch(26.4% 0.128 163.0)",
+          "oklch(37.9% 0.128 163.0)",
+          "oklch(49.3% 0.128 163.0)",
+          "oklch(60.7% 0.128 163.0)",
+          "oklch(72.1% 0.128 163.0)",
+          "oklch(83.6% 0.128 163.0)",
+          "oklch(95.0% 0.128 163.0)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Waiting Amber",
+        "canonical": "oklch(0.769 0.188 70.08)",
+        "tonalRamp": [
+          "oklch(15.0% 0.188 70.1)",
+          "oklch(26.4% 0.188 70.1)",
+          "oklch(37.9% 0.188 70.1)",
+          "oklch(49.3% 0.188 70.1)",
+          "oklch(60.7% 0.188 70.1)",
+          "oklch(72.1% 0.188 70.1)",
+          "oklch(83.6% 0.188 70.1)",
+          "oklch(95.0% 0.188 70.1)"
+        ]
+      },
+      "pending": {
+        "role": "status",
+        "displayName": "Pending Amber",
+        "canonical": "oklch(0.72 0.155 70)",
+        "tonalRamp": [
+          "oklch(15.0% 0.155 70.0)",
+          "oklch(26.4% 0.155 70.0)",
+          "oklch(37.9% 0.155 70.0)",
+          "oklch(49.3% 0.155 70.0)",
+          "oklch(60.7% 0.155 70.0)",
+          "oklch(72.1% 0.155 70.0)",
+          "oklch(83.6% 0.155 70.0)",
+          "oklch(95.0% 0.155 70.0)"
+        ]
+      },
+      "activity-1": {
+        "role": "activity",
+        "displayName": "Activity Indigo",
+        "canonical": "oklch(58.5% 0.204 277.1)",
+        "tonalRamp": [
+          "oklch(15.0% 0.204 277.1)",
+          "oklch(26.4% 0.204 277.1)",
+          "oklch(37.9% 0.204 277.1)",
+          "oklch(49.3% 0.204 277.1)",
+          "oklch(60.7% 0.204 277.1)",
+          "oklch(72.1% 0.204 277.1)",
+          "oklch(83.6% 0.204 277.1)",
+          "oklch(95.0% 0.204 277.1)"
+        ]
+      },
+      "activity-2": {
+        "role": "activity",
+        "displayName": "Activity Sky",
+        "canonical": "oklch(68.5% 0.148 237.3)",
+        "tonalRamp": [
+          "oklch(15.0% 0.148 237.3)",
+          "oklch(26.4% 0.148 237.3)",
+          "oklch(37.9% 0.148 237.3)",
+          "oklch(49.3% 0.148 237.3)",
+          "oklch(60.7% 0.148 237.3)",
+          "oklch(72.1% 0.148 237.3)",
+          "oklch(83.6% 0.148 237.3)",
+          "oklch(95.0% 0.148 237.3)"
+        ]
+      },
+      "activity-3": {
+        "role": "activity",
+        "displayName": "Activity Teal",
+        "canonical": "oklch(70.4% 0.123 182.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.123 182.5)",
+          "oklch(26.4% 0.123 182.5)",
+          "oklch(37.9% 0.123 182.5)",
+          "oklch(49.3% 0.123 182.5)",
+          "oklch(60.7% 0.123 182.5)",
+          "oklch(72.1% 0.123 182.5)",
+          "oklch(83.6% 0.123 182.5)",
+          "oklch(95.0% 0.123 182.5)"
+        ]
+      },
+      "activity-4": {
+        "role": "activity",
+        "displayName": "Activity Emerald",
+        "canonical": "oklch(69.6% 0.149 162.5)",
+        "tonalRamp": [
+          "oklch(15.0% 0.149 162.5)",
+          "oklch(26.4% 0.149 162.5)",
+          "oklch(37.9% 0.149 162.5)",
+          "oklch(49.3% 0.149 162.5)",
+          "oklch(60.7% 0.149 162.5)",
+          "oklch(72.1% 0.149 162.5)",
+          "oklch(83.6% 0.149 162.5)",
+          "oklch(95.0% 0.149 162.5)"
+        ]
+      },
+      "activity-5": {
+        "role": "activity",
+        "displayName": "Activity Lime",
+        "canonical": "oklch(76.8% 0.204 130.8)",
+        "tonalRamp": [
+          "oklch(15.0% 0.204 130.8)",
+          "oklch(26.4% 0.204 130.8)",
+          "oklch(37.9% 0.204 130.8)",
+          "oklch(49.3% 0.204 130.8)",
+          "oklch(60.7% 0.204 130.8)",
+          "oklch(72.1% 0.204 130.8)",
+          "oklch(83.6% 0.204 130.8)",
+          "oklch(95.0% 0.204 130.8)"
+        ]
+      },
+      "activity-6": {
+        "role": "activity",
+        "displayName": "Activity Amber",
+        "canonical": "oklch(66.6% 0.157 58.3)",
+        "tonalRamp": [
+          "oklch(15.0% 0.157 58.3)",
+          "oklch(26.4% 0.157 58.3)",
+          "oklch(37.9% 0.157 58.3)",
+          "oklch(49.3% 0.157 58.3)",
+          "oklch(60.7% 0.157 58.3)",
+          "oklch(72.1% 0.157 58.3)",
+          "oklch(83.6% 0.157 58.3)",
+          "oklch(95.0% 0.157 58.3)"
+        ]
+      },
+      "activity-7": {
+        "role": "activity",
+        "displayName": "Activity Orange",
+        "canonical": "oklch(70.5% 0.187 47.6)",
+        "tonalRamp": [
+          "oklch(15.0% 0.187 47.6)",
+          "oklch(26.4% 0.187 47.6)",
+          "oklch(37.9% 0.187 47.6)",
+          "oklch(49.3% 0.187 47.6)",
+          "oklch(60.7% 0.187 47.6)",
+          "oklch(72.1% 0.187 47.6)",
+          "oklch(83.6% 0.187 47.6)",
+          "oklch(95.0% 0.187 47.6)"
+        ]
+      },
+      "activity-8": {
+        "role": "activity",
+        "displayName": "Activity Violet",
+        "canonical": "oklch(60.6% 0.219 292.7)",
+        "tonalRamp": [
+          "oklch(15.0% 0.219 292.7)",
+          "oklch(26.4% 0.219 292.7)",
+          "oklch(37.9% 0.219 292.7)",
+          "oklch(49.3% 0.219 292.7)",
+          "oklch(60.7% 0.219 292.7)",
+          "oklch(72.1% 0.219 292.7)",
+          "oklch(83.6% 0.219 292.7)",
+          "oklch(95.0% 0.219 292.7)"
+        ]
+      },
+      "activity-9": {
+        "role": "activity",
+        "displayName": "Activity Purple",
+        "canonical": "oklch(62.7% 0.233 303.9)",
+        "tonalRamp": [
+          "oklch(15.0% 0.233 303.9)",
+          "oklch(26.4% 0.233 303.9)",
+          "oklch(37.9% 0.233 303.9)",
+          "oklch(49.3% 0.233 303.9)",
+          "oklch(60.7% 0.233 303.9)",
+          "oklch(72.1% 0.233 303.9)",
+          "oklch(83.6% 0.233 303.9)",
+          "oklch(95.0% 0.233 303.9)"
+        ]
+      },
+      "activity-10": {
+        "role": "activity",
+        "displayName": "Activity Pink",
+        "canonical": "oklch(65.6% 0.212 354.3)",
+        "tonalRamp": [
+          "oklch(15.0% 0.212 354.3)",
+          "oklch(26.4% 0.212 354.3)",
+          "oklch(37.9% 0.212 354.3)",
+          "oklch(49.3% 0.212 354.3)",
+          "oklch(60.7% 0.212 354.3)",
+          "oklch(72.1% 0.212 354.3)",
+          "oklch(83.6% 0.212 354.3)",
+          "oklch(95.0% 0.212 354.3)"
+        ]
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "Dark Ground",
+        "canonical": "oklch(0.145 0 0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "dark-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Ink",
+        "canonical": "oklch(0.985 0 0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Quiet Fill",
+        "canonical": "oklch(0.269 0 0)",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "dark-destructive": {
+        "role": "error",
+        "displayName": "Dark Stop Red",
+        "canonical": "oklch(0.704 0.191 22.216)",
+        "tonalRamp": [
+          "oklch(15.0% 0.191 22.2)",
+          "oklch(26.4% 0.191 22.2)",
+          "oklch(37.9% 0.191 22.2)",
+          "oklch(49.3% 0.191 22.2)",
+          "oklch(60.7% 0.191 22.2)",
+          "oklch(72.1% 0.191 22.2)",
+          "oklch(83.6% 0.191 22.2)",
+          "oklch(95.0% 0.191 22.2)"
+        ]
       }
-    },
-    "textInks": [
-      {
-        "name": "--ink-primary",
-        "light": "#4f46e5",
-        "dark": "var(--color-primary) (#818cf8)",
-        "purpose": "Indigo written as text on a tint: sent document status, toast action."
-      },
-      {
-        "name": "--ink-success",
-        "light": "#047857",
-        "dark": "var(--color-success) (#34d399)",
-        "purpose": "Green written as text on its 15% tint: active status pill, paid document."
-      },
-      {
-        "name": "--ink-warning",
-        "light": "#b45309",
-        "dark": "var(--color-warning) (#fbbf24)",
-        "purpose": "Amber written as text on its 15% tint: paused status pill."
-      }
-    ],
-    "themes": {
-      "source": "web/input.css daisyUI themes paratrack-light (default) and paratrack-dark (prefersdark)",
-      "roles": [
-        {
-          "role": "Page (base-200)",
-          "light": "#f9fafb",
-          "dark": "#232730"
-        },
-        {
-          "role": "Sheet (base-100)",
-          "light": "#ffffff",
-          "dark": "#1a1d23"
-        },
-        {
-          "role": "Rule (base-300)",
-          "light": "#e5e7eb",
-          "dark": "#2d3139"
-        },
-        {
-          "role": "Ink (base-content)",
-          "light": "#1a1d23",
-          "dark": "#e5e7eb"
-        },
-        {
-          "role": "Signature (primary)",
-          "light": "#6366f1",
-          "dark": "#818cf8"
-        },
-        {
-          "role": "Main button (neutral)",
-          "light": "#1f2937 fill, #f9fafb ink",
-          "dark": "#e5e7eb fill, #0f1115 ink"
-        },
-        {
-          "role": "Success / warning / error",
-          "light": "#10b981 / #f59e0b / #dc2626",
-          "dark": "#34d399 / #fbbf24 / #f87171"
-        },
-        {
-          "role": "Info",
-          "light": "#06b6d4",
-          "dark": "#22d3ee"
-        },
-        {
-          "role": "Secondary (unused)",
-          "light": "#8b5cf6",
-          "dark": "#a78bfa"
-        }
-      ]
     },
     "typographyMeta": {
-      "display": {
-        "displayName": "Display",
-        "purpose": "The paratrack wordmark and nothing else. Fraunces, the seal on the ledger cover."
-      },
-      "headline": {
-        "displayName": "Headline",
-        "purpose": "Page h1 (--step-3). Exactly one per page. Section h2 sits at 620, 1.44rem (--step-2), lh 1.2, -0.015em."
-      },
-      "title": {
-        "displayName": "Title",
-        "purpose": "Card titles and h3 (--step-1)."
-      },
       "body": {
         "displayName": "Body",
-        "purpose": "All running text (--step-0). 65-75ch measure held by container width."
+        "purpose": "Everything read: labels, sentences, headings on cards. 16px, line height 1.55."
       },
-      "label": {
-        "displayName": "Label",
-        "purpose": "A ledger strip's own name (.ledger-label, .stat-title), uppercase --step--2 at 0.08em. Names the block; never a kicker above a separate heading."
+      "figures": {
+        "displayName": "Figures",
+        "purpose": "Durations, money, times and counts a person compares down a column. Always tabular-nums."
       },
-      "mono": {
-        "displayName": "Mono",
-        "purpose": "Every measured figure: durations, money, times, counts, IDs. Tabular numerals."
+      "wordmark": {
+        "displayName": "Wordmark",
+        "purpose": "The paratrack name in the header. Inter 750, tight tracking, nothing else."
       }
-    },
-    "typeScale": {
-      "ratio": 1.2,
-      "anchor": "--step-0 = 1rem",
-      "steps": [
-        "0.694rem",
-        "0.833rem",
-        "1rem",
-        "1.2rem",
-        "1.44rem",
-        "1.728rem",
-        "2.074rem"
-      ],
-      "floor": "Nothing interactive or readable under 12px; daisyUI xs sizes raised to 0.75rem."
     },
     "shadows": [
       {
-        "name": "inset-hairline",
-        "value": "inset 0 0 0 1px var(--color-base-300)",
-        "purpose": "The one allowed box-shadow: draws a hairline without shifting layout (the active period tab; the chosen preset card uses the same ring in base-content). Never elevation (--depth: 0 in both themes)."
+        "name": "float-md",
+        "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+        "purpose": "Date calendar and toasts. Floating layers only, never a resting card."
+      },
+      {
+        "name": "float-lg",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "Confirmation dialog, above a 50% black scrim."
+      },
+      {
+        "name": "fab",
+        "value": "0 6px 16px rgb(0 0 0 / .18)",
+        "purpose": "Phone timer button, the one shadow a thumb reaches for."
       }
     ],
-    "rules": [
-      {
-        "name": "hairline",
-        "value": "1px solid base-300",
-        "purpose": "Card edges, table rows, dividers, input strokes. Same weight everywhere."
-      },
-      {
-        "name": "total-rule",
-        "value": "2px solid base-300 (top)",
-        "purpose": "Only where a sum is marked: a table's total row, the ledger strip's «Сегодня» line, the amount on a letter."
-      }
-    ],
-    "radii": [
-      {
-        "name": "selector",
-        "value": "6px",
-        "purpose": "daisyUI badges (project badge, tag link), checkboxes, toggles, kbd caps."
-      },
-      {
-        "name": "field / box",
-        "value": "10px",
-        "purpose": "Every field and container: buttons, inputs, selects, cards, dropdowns, alerts."
-      },
-      {
-        "name": "phone-shell",
-        "value": "20px (1.25rem) sheet top corners; 16px minibar card; 12px sheet rows; 4px chart loading bar tops",
-        "purpose": "The only corners outside 6 / 10 / 999, all on the touch shell (plus the chart skeleton)."
-      },
-      {
-        "name": "round",
-        "value": "999px",
-        "purpose": "Status pills, tag chips, document statuses, colour dots, icon-only btn-circle."
-      }
-    ],
-    "touch": [
-      {
-        "target": "btn-sm, select",
-        "value": "draws at 44px",
-        "purpose": "pointer: coarse"
-      },
-      {
-        "target": "input-sm, input-xs, select-sm, btn-xs",
-        "value": "draws at 36px",
-        "purpose": "pointer: coarse"
-      },
-      {
-        "target": "btn-xs, btn-circle, checkbox-xs",
-        "value": "44x44px hit area from a centred pseudo-element",
-        "purpose": "pointer: coarse"
-      },
-      {
-        "target": "period tabs",
-        "value": "draws at 40px",
-        "purpose": "pointer: coarse"
-      },
-      {
-        "target": "badges and table links",
-        "value": "drawn size kept; hit area 10px taller on each side (about 40px) from a pseudo-element",
-        "purpose": "pointer: coarse"
-      },
-      {
-        "target": "period-tabs, settings tabs",
-        "value": "touch-action: pan-x pan-y",
-        "purpose": "Scroll strips never swallow vertical scroll; open with the current tab in view."
-      }
-    ],
-    "shell": {
-      "desktop": "1024px and up: one 48px header row, wordmark · workspace switcher · links · «Ещё» · account. Workspace name truncates (full name in tooltip). Link cluster is not a scroll container. Links are 32px ghost buttons with an icon; active page is btn-active.",
-      "phone": "Below 1024px: header is the wordmark alone. Fixed tab bar (.tabbar, 3.5rem, base-100 with a base-300 top hairline) carries four user-chosen tabs plus «Ещё»; the current tab is indigo, the rest ink at 60%. «Ещё» opens a bottom sheet (dialog.sheet) with every other section, workspaces and account. A running timer sits in a minibar above the tabs. Wide edit tables (.collapse-lg) become cards. Sheet group headings: 0.75rem, weight 600, uppercase, tracking 0.05em, at 55% ink.",
-      "footer": "Language and theme on both. Current language is a non-link span with a check; theme cycles auto / light / dark.",
-      "stacking": "Header carries its own z-index because its view-transition-name makes it a stacking context."
-    },
     "motion": [
       {
-        "name": "ease-standard",
-        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
-        "purpose": "Default easing for state transitions."
+        "name": "ease-emphasized",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "The single timing function for every transition and entrance."
       },
       {
-        "name": "duration-standard",
-        "value": "0.15s",
-        "purpose": "State transition duration (colour, background)."
+        "name": "motion-quick",
+        "value": "150ms",
+        "purpose": "Small state changes: hover, press, tooltip."
       },
       {
-        "name": "duration-slow",
-        "value": "0.2s",
-        "purpose": "Button and dropdown transitions."
+        "name": "motion-base",
+        "value": "250ms",
+        "purpose": "A panel arriving or leaving: dropdown, sheet, toast."
       },
       {
-        "name": "reduced-motion",
-        "value": "0.01ms",
-        "purpose": "prefers-reduced-motion: reduce — kill duration and movement, keep state change."
+        "name": "motion-thorough",
+        "value": "400ms",
+        "purpose": "A container moving: the sidebar opening and closing."
       },
       {
-        "name": "sheet-up",
-        "value": "0.24s cubic-bezier(0.2, 0.8, 0.2, 1)",
-        "purpose": "Phone bottom sheet entrance; removed under reduced motion."
-      },
-      {
-        "name": "press",
-        "value": "transform: scale(0.96), 0.08s ease-out",
-        "purpose": "Touch press feedback on .btn and tab bar items; removed under reduced motion."
+        "name": "motion-loop",
+        "value": "1.6s",
+        "purpose": "Skeleton breathing. Still under prefers-reduced-motion."
       }
     ],
     "breakpoints": [
       {
-        "name": "xs",
-        "value": "400px"
+        "name": "phone-max",
+        "value": "1023px",
+        "purpose": "Below this: bottom tab bar, sheet navigation, 48dp touch floor."
       },
       {
-        "name": "sm",
-        "value": "640px"
-      },
-      {
-        "name": "md",
-        "value": "768px"
-      },
-      {
-        "name": "lg",
-        "value": "1024px"
+        "name": "data-fold",
+        "value": "999px",
+        "purpose": "Below this height the Данные group folds unless the person is inside it."
       }
-    ],
-    "email": {
-      "layout": "One layout, templates/email.html, previewed at /settings/email-preview (?kind=invoice|reset|invite, &text=1 for the plain part).",
-      "sheet": "Tables and inline styles only; 560px sheet on #f3f4f6; white card with a 1px #e5e7eb hairline, 12px radius; color-scheme: light.",
-      "type": "Body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Arial, sans-serif. Figures: system mono stack. Wordmark: Georgia.",
-      "button": "One dark button (#1a1d23, white 15px/600) with the raw link under it. Invoice amount sits under the 2px total rule. Every letter ships an identical plain-text part."
-    },
-    "publicSite": {
-      "source": "site/ (landing and docs), one stylesheet site/assets/site.css. Same ledger, not a second world.",
-      "darkGround": "Dark page #15171c, one step below the app's darkest base, so #1a1d23 sheets read on it with a #2d3139 hairline; also the dark theme-color.",
-      "headings": "Inter 700. Landing h1 clamp(2.1rem, 1.3rem + 3vw, 3.4rem), lh 1.06, -0.035em, one per page. Section h2 clamp(1.6rem, 1.1rem + 1.8vw, 2.3rem), -0.025em. Docs h1 clamp(1.9rem, 1.4rem + 1.6vw, 2.5rem). Fraunces on the wordmark only.",
-      "liveFigures": "Figures fed by the demo timers are bold ink, never indigo. Indigo stays for focus, selection and link hover.",
-      "emptyCells": "Stroked minus icon in --ink-3 with aria-label=\"нет\". Never a bare dash or a blank cell."
-    },
-    "focus": {
-      "value": "outline: 2px solid var(--color-primary); outline-offset: 2px",
-      "toast": "outline-offset: 1px inside a toast, where the action sits against the toast's edge",
-      "purpose": "The focus ring is an outline, not a shadow."
-    },
-    "overlay": {
-      "name": "bottom-sheet",
-      "value": "native <dialog>, border 0, ::backdrop rgb(0 0 0 / 0.4)",
-      "purpose": "The one overlay that dims the page, because it takes the whole screen's attention. Dropdowns and menus use a border and a tonal step."
-    }
+    ]
   },
   "components": [
     {
-      "name": "CTA Button",
+      "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "btn-neutral. The one call to action per form. 40px lane, charcoal fill, paper ink. Never indigo.",
-      "html": "<button class=\"ds-btn-cta\">Начать</button>",
-      "css": ".ds-btn-cta { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 40px; padding: 0 16px; font-size: 14px; background: #1f2937; color: #f9fafb; border: 1px solid #1f2937; transition: background-color .2s cubic-bezier(.4,0,.2,1), border-color .2s; }\n.ds-btn-cta:hover { background: #111827; border-color: #111827; }\n.ds-btn-cta:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }\n.ds-btn-cta:disabled { opacity: .2; pointer-events: none; }"
+      "description": "The one charcoal action on a form. Default size, 36px tall.",
+      "html": "<button class=\"ds-btn-primary\">Старт</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; height: 36px; padding: 0 10px; border-radius: 10px; background: oklch(0.205 0 0); color: oklch(0.985 0 0); font: 500 14px/1 Inter, sans-serif; border: 0; transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-primary:hover { background: oklch(0.205 0 0 / 0.8); } .ds-btn-primary:focus-visible { outline: 3px solid oklch(0.55 0.16 284 / 0.5); outline-offset: 0; }"
     },
     {
-      "name": "Row Button",
+      "name": "Outline Button",
       "kind": "button",
-      "refersTo": "button-row",
-      "description": "btn-ghost btn-sm. Navigation, toolbars, row actions. 32px lane.",
-      "html": "<button class=\"ds-btn-row\">Пауза</button>",
-      "css": ".ds-btn-row { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: transparent; color: #1a1d23; border: 1px solid transparent; transition: background-color .15s cubic-bezier(.4,0,.2,1); }\n.ds-btn-row:hover { background: #f9fafb; }\n.ds-btn-row.ds-active { background: #e5e7eb; }\n.ds-btn-row:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+      "refersTo": "button-outline",
+      "description": "Secondary action beside the primary one, on paper.",
+      "html": "<button class=\"ds-btn-outline\">Пауза всем</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid oklch(0.922 0 0); background: oklch(0.99 0.008 85); color: oklch(0.17 0.008 75); font: 500 14px/1 Inter, sans-serif; transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-outline:hover { background: oklch(0.945 0.013 85); } .ds-btn-outline:focus-visible { outline: 3px solid oklch(0.55 0.16 284 / 0.5); outline-offset: 0; }"
     },
     {
-      "name": "Stop Button",
+      "name": "Ghost Button",
       "kind": "button",
-      "refersTo": "button-row",
-      "description": ".btn-stop. Stop is instant and undoable from its toast, so it reads as a line item: transparent, hairline base-300 border, verdict-red ink, tint only on hover. 32px lane.",
-      "html": "<button class=\"ds-btn-stop\">Стоп</button>",
-      "css": ".ds-btn-stop { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: transparent; color: #dc2626; border: 1px solid #e5e7eb; transition: background-color .15s, border-color .15s; }\n@media (hover: hover) { .ds-btn-stop:hover { background: color-mix(in oklab, #dc2626 8%, transparent); border-color: color-mix(in oklab, #dc2626 40%, #e5e7eb); } }\n.ds-btn-stop:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
-    },
-    {
-      "name": "Destructive Button",
-      "kind": "button",
-      "refersTo": "button-destructive",
-      "description": "btn-error. Irreversible Delete only. 32px, verdict red with white ink (4.83:1). Never decorative.",
-      "html": "<button class=\"ds-btn-danger\">Удалить</button>",
-      "css": ".ds-btn-danger { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: #dc2626; color: #ffffff; border: 1px solid #dc2626; transition: background-color .15s cubic-bezier(.4,0,.2,1); }\n.ds-btn-danger:hover { background: #b91c1c; border-color: #b91c1c; }\n.ds-btn-danger:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
-    },
-    {
-      "name": "Quiet-danger Button",
-      "kind": "button",
-      "refersTo": "button-row",
-      "description": "btn-ghost + text-error. Row-level removals: red ink on transparent, 32px lane.",
-      "html": "<button class=\"ds-btn-quiet-danger\">Убрать</button>",
-      "css": ".ds-btn-quiet-danger { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; background: transparent; color: #dc2626; border: 1px solid transparent; transition: background-color .15s; }\n.ds-btn-quiet-danger:hover { background: #f9fafb; }\n.ds-btn-quiet-danger:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
-    },
-    {
-      "name": "Chip Button",
-      "kind": "button",
-      "refersTo": "button-chip",
-      "description": "btn-ghost btn-xs. Filter chips, tag remove, inline toggles. 24px micro lane, 4px gap, 12px floor on text.",
-      "html": "<button class=\"ds-btn-chip ds-active\">Все</button><button class=\"ds-btn-chip\">Неделя</button>",
-      "css": ".ds-btn-chip { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; font-weight: 600; line-height: 1; gap: 4px; height: 24px; padding: 0 8px; font-size: 12px; background: transparent; color: #1a1d23; border: 1px solid transparent; transition: background-color .15s cubic-bezier(.4,0,.2,1); }\n.ds-btn-chip:hover { background: #f9fafb; }\n.ds-btn-chip.ds-active { background: #e5e7eb; }\n.ds-btn-chip:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
-    },
-    {
-      "name": "Quick Start Button",
-      "kind": "button",
-      "refersTo": "button-row",
-      "description": "btn-sm btn-quick. The example activities under an empty «Идут сейчас»: transparent, hairline base-300 border, weight 500; one tap starts that timer. 32px lane.",
-      "html": "<button class=\"ds-btn-quick\">работа</button> <button class=\"ds-btn-quick\">чтение</button>",
-      "css": ".ds-btn-quick { display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; cursor: pointer; font-family: 'Inter', system-ui, sans-serif; line-height: 1; gap: 6px; height: 32px; padding: 0 12px; font-size: 12px; font-weight: 500; background: transparent; color: #1a1d23; border: 1px solid #e5e7eb; transition: background-color .15s; }\n.ds-btn-quick:hover { background: #f9fafb; }\n.ds-btn-quick:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
+      "refersTo": "button-ghost",
+      "description": "Row actions inside a list: Только эта, Пауза, Стоп. Stop takes the destructive ink.",
+      "html": "<button class=\"ds-btn-ghost\">Стоп</button> <button class=\"ds-btn-ghost ds-btn-stop\">Стоп</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 8px; border: 0; background: transparent; color: oklch(0.17 0.008 75); font: 500 14px/1 Inter, sans-serif; transition: background-color 150ms cubic-bezier(0.2, 0, 0, 1); } .ds-btn-ghost:hover { background: oklch(0.945 0.013 85); } .ds-btn-stop { color: oklch(0.577 0.245 27.325); } .ds-btn-stop:hover { background: oklch(0.577 0.245 27.325 / 0.1); } .ds-btn-ghost:focus-visible { outline: 3px solid oklch(0.55 0.16 284 / 0.5); outline-offset: 0; }"
     },
     {
       "name": "Text Input",
       "kind": "input",
       "refersTo": "input",
-      "description": "A ledger cell you can type into. 40px, base-content stroke at 20%, 10px radius, 12px padding.",
-      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"чтение, работа, спорт…\">",
-      "css": ".ds-input { height: 40px; padding: 0 12px; width: 100%; max-width: 20rem; background: #ffffff; color: #1a1d23; border: 1px solid rgba(26,29,35,.2); border-radius: 10px; font: 400 14px/1 'Inter', system-ui, sans-serif; caret-color: #1a1d23; }\n.ds-input::placeholder { color: rgba(26,29,35,.5); }\n.ds-input:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; border-color: #1a1d23; }\n.ds-input[aria-invalid=true] { border-color: #dc2626; }\n.ds-input:disabled { background: #f9fafb; color: rgba(26,29,35,.4); cursor: not-allowed; }"
+      "description": "The one field a person types into. 36px tall, 16px text on a phone so iOS does not zoom.",
+      "html": "<input class=\"ds-input\" placeholder=\"чтение, работа, спорт…\" />",
+      "css": ".ds-input { width: 100%; height: 36px; padding: 4px 10px; border-radius: 10px; border: 1px solid oklch(0.62 0 0); background: transparent; color: oklch(0.17 0.008 75); font: 16px/1.5 Inter, sans-serif; outline: none; } @media (min-width: 768px) { .ds-input { font-size: 14px; } } .ds-input::placeholder { color: oklch(0.49 0.01 75); } .ds-input:focus-visible { border-color: oklch(0.55 0.16 284); box-shadow: 0 0 0 3px oklch(0.55 0.16 284 / 0.5); }"
     },
     {
-      "name": "Card",
+      "name": "Ledger Card",
       "kind": "card",
       "refersTo": "card",
-      "description": "A sheet on the desk. Flat, 1px base-300 hairline, 10px radius, 24px padding, no shadow; a sum sits under the 2px total rule.",
-      "html": "<div class=\"ds-card\"><h2 class=\"ds-card-title\">Идут сейчас</h2><p class=\"ds-card-body\">Два таймера.</p><div class=\"ds-card-total\"><span>Сегодня</span><span class=\"ds-num\">3:15</span></div></div>",
-      "css": ".ds-card { background: #ffffff; color: #1a1d23; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; }\n.ds-card-title { margin: 0 0 12px; font: 600 19.2px/1.3 'Inter', system-ui, sans-serif; letter-spacing: -0.01em; }\n.ds-card-body { margin: 0; font: 400 16px/1.55 'Inter', system-ui, sans-serif; color: rgba(26,29,35,.72); }\n.ds-card-total { display: flex; gap: 24px; align-items: baseline; margin-top: 20px; padding-top: 14px; border-top: 2px solid #e5e7eb; font: 400 14px/1.55 'Inter', system-ui, sans-serif; }\n.ds-num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }"
+      "description": "A sheet on the paper, separated by a ring, never a heavy border. Title and body share one alignment.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-card-title\">Идут сейчас</h2><p class=\"ds-card-body\">Таймер появится здесь.</p></section>",
+      "css": ".ds-card { display: grid; gap: 16px; padding: 16px; border-radius: 14px; background: oklch(0.99 0.008 85); box-shadow: 0 0 0 1px oklch(0 0 0 / 0.1); } .ds-card-title { margin: 0; font: 600 14px/1.3 Inter, sans-serif; color: oklch(0.17 0.008 75); } .ds-card-body { margin: 0; font: 14px/1.55 Inter, sans-serif; color: oklch(0.49 0.01 75); }"
     },
     {
-      "name": "Pills and Chips",
-      "kind": "chip",
-      "refersTo": "badge",
-      "description": "Round (999px) tokens: .status-pill tinted 15% and written in the deeper status ink; .tag-chip on base-200; .doc-status reads by word and ink (sent in --ink-primary, paid in --ink-success).",
-      "html": "<span class=\"ds-pill ds-pill-active\">Активна</span> <span class=\"ds-pill ds-pill-paused\">Пауза</span> <span class=\"ds-tag\">клиент</span> <span class=\"ds-doc ds-doc-sent\">Отправлен</span> <span class=\"ds-doc ds-doc-paid\">Оплачен</span>",
-      "css": ".ds-pill, .ds-tag, .ds-doc { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font: 550 13.3px/1.2 'Inter', system-ui, sans-serif; color: #1a1d23; }\n.ds-pill-active { background: color-mix(in srgb, #10b981 15%, transparent); color: #047857; }\n.ds-pill-paused { background: color-mix(in srgb, #f59e0b 15%, transparent); color: #b45309; }\n.ds-tag { background: #f9fafb; font-weight: 400; }\n.ds-doc { font-size: 12px; font-weight: 500; border: 1px solid #e5e7eb; }\n.ds-doc-sent { color: #4f46e5; border-color: color-mix(in oklab, #4f46e5 40%, #e5e7eb); }\n.ds-doc-paid { color: #047857; background: color-mix(in oklab, #10b981 12%, transparent); border-color: transparent; }"
-    },
-    {
-      "name": "Project Badge",
-      "kind": "chip",
-      "refersTo": "badge",
-      "description": "daisyUI badge, 6px radius. Filled with the project's colour and written in computed ink (inkFor); a long name truncates inside a max-width badge.",
-      "html": "<span class=\"ds-badge\" style=\"background:#d9f99d;color:#1a1d23\"><span class=\"ds-truncate\">Очень длинное название проекта клиента</span></span>",
-      "css": ".ds-badge { display: inline-flex; align-items: center; max-width: 12rem; height: 24px; padding: 0 8px; border-radius: 6px; font: 500 12px/1 'Inter', system-ui, sans-serif; }\n.ds-truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }"
-    },
-    {
-      "name": "Desktop Header",
-      "kind": "nav",
-      "refersTo": "navigation",
-      "description": "1024px and up: one 48px row, wordmark · workspace switcher · links · «Ещё» · account. Only the workspace name gives up width. Never wraps, never scrolls.",
-      "html": "<nav class=\"ds-nav\"><span class=\"ds-wordmark\">paratrack</span><span class=\"ds-ws\">Очень длинное имя рабочего пространства</span><a class=\"ds-nav-link ds-active\" href=\"#\">Таймер</a><a class=\"ds-nav-link\" href=\"#\">Отчёты</a><a class=\"ds-nav-link\" href=\"#\">Ещё</a></nav>",
-      "css": ".ds-nav { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; height: 48px; padding: 0 16px; background: #ffffff; border-bottom: 1px solid #e5e7eb; }\n.ds-wordmark { font: 620 21.6px/1 'Fraunces', 'Iowan Old Style', Georgia, serif; font-variation-settings: 'SOFT' 40, 'WONK' 1, 'opsz' 48; letter-spacing: -0.03em; flex-shrink: 0; margin-right: 8px; }\n.ds-ws { min-width: 0; flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 500 13.3px/1 'Inter', system-ui, sans-serif; margin-right: 8px; }\n.ds-nav-link { display: inline-flex; align-items: center; flex-shrink: 0; gap: 6px; height: 32px; padding: 0 12px; border-radius: 10px; font: 600 12px/1 'Inter', system-ui, sans-serif; color: #1a1d23; text-decoration: none; white-space: nowrap; transition: background-color .15s; }\n.ds-nav-link:hover { background: #f9fafb; }\n.ds-nav-link.ds-active { background: #e5e7eb; }\n.ds-nav-link:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }"
-    },
-    {
-      "name": "Phone Tab Bar",
-      "kind": "nav",
-      "refersTo": "navigation",
-      "description": "Below 1024px: fixed 3.5rem tab bar, four user-chosen tabs plus «Ещё». The current tab is indigo (the signature marks the place); the rest are ink at 60%. Flat: base-100 with a top hairline, no blur.",
-      "html": "<nav class=\"ds-tabbar\"><a class=\"ds-tab ds-active\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 2\"/></svg>Таймер</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 20V10M10 20V4M16 20v-7M22 20H2\"/></svg>Отчёты</a><a class=\"ds-tab\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"22\" height=\"22\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M3 6h18M3 12h18M3 18h18\"/></svg>Ещё</a></nav>",
-      "css": ".ds-tabbar { display: grid; grid-template-columns: repeat(3, 1fr); background: #ffffff; border-top: 1px solid #e5e7eb; }\n.ds-tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 3.5rem; font: 500 12px/1.2 'Inter', system-ui, sans-serif; color: color-mix(in srgb, #1a1d23 60%, transparent); text-decoration: none; }\n.ds-tab.ds-active { color: #6366f1; }\n.ds-tab:active { transform: scale(0.96); }\n.ds-tab:focus-visible { outline: 2px solid #6366f1; outline-offset: -2px; }"
-    },
-    {
-      "name": "Data Table",
+      "name": "Running Timer Row",
       "kind": "custom",
-      "refersTo": "table",
-      "description": "The ruled column. Hairline rules, base-200 zebra, sentence-case heads at 600, mono tabular figures, 2px total rule, «—» for an empty measured cell.",
-      "html": "<table class=\"ds-table\"><thead><tr><th>Занятие</th><th>Длительность</th></tr></thead><tbody><tr><td>Работа</td><td class=\"ds-num\">2:30</td></tr><tr><td>Чтение</td><td class=\"ds-num\">—</td></tr></tbody><tfoot><tr><td>Итого</td><td class=\"ds-num\">2:30</td></tr></tfoot></table>",
-      "css": ".ds-table { width: 100%; border-collapse: collapse; font: 400 14px/1.55 'Inter', system-ui, sans-serif; color: #1a1d23; }\n.ds-table th { text-align: left; padding: 12px 16px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }\n.ds-table td { padding: 12px 16px; border-bottom: 1px solid #e5e7eb; }\n.ds-table tbody tr:nth-child(even) { background: #f9fafb; }\n.ds-table tfoot td { border-top: 2px solid #e5e7eb; border-bottom: 0; font-weight: 600; }\n.ds-num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-size: .92em; }"
+      "refersTo": "timer-row",
+      "description": "One live activity in the Идут сейчас list. The 3px spine carries the activity colour; the clock is a tabular figure.",
+      "html": "<div class=\"ds-timer-row\"><span class=\"ds-spine\" style=\"background:#6366f1\"></span><div><strong>чтение</strong><div class=\"ds-clock\">00:12:04</div></div></div>",
+      "css": ".ds-timer-row { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid oklch(0.922 0 0 / 0.7); } .ds-timer-row:first-child { border-top: 0; } .ds-spine { width: 3px; height: 20px; border-radius: 999px; flex-shrink: 0; } .ds-clock { font: 13px/1.2 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; color: oklch(0.49 0.01 75); }"
+    },
+    {
+      "name": "Phone Timer Button",
+      "kind": "custom",
+      "refersTo": "fab",
+      "description": "The floating timer button on the timesheet, statistics and graph. 56px, a pill, the only shadow a thumb reaches for.",
+      "html": "<button class=\"ds-fab\" aria-label=\"Старт\"><svg width=\"24\" height=\"24\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" aria-hidden=\"true\"><path d=\"M12 6v6l4 2\"/><circle cx=\"12\" cy=\"12\" r=\"9\"/></svg></button>",
+      "css": ".ds-fab { position: fixed; right: 16px; bottom: 80px; width: 56px; height: 56px; border-radius: 999px; border: 0; display: inline-flex; align-items: center; justify-content: center; background: oklch(0.205 0 0); color: oklch(0.985 0 0); box-shadow: 0 6px 16px rgb(0 0 0 / .18); } .ds-fab:focus-visible { outline: 3px solid oklch(0.55 0.16 284 / 0.5); outline-offset: 2px; }"
     }
   ],
   "narrative": {
-    "northStar": "The Honest Ledger",
-    "overview": "paratrack is a book of accounts for time. Every surface behaves like a well-kept ledger: the numbers line up, the rules are visible, and nothing is claimed that cannot be checked. The interface is a measuring instrument, not a stage — it reports, it does not persuade. Where marketing software shouts, this one states.\n\nThe visual world is **strict and high-contrast**. Type is large enough to read at a glance, boundaries are explicit, and the ink is dark on paper. Density is deliberate: an operator scanning a timesheet at 09:00 wants the figures, not atmosphere. This is an anti-reference to marketing gloss and to the purple gradient AI aesthetic — the accent here is a *signature*, applied once and meaningly, never as decoration.\n\nDepth is **flat**. Surfaces are separated by tone and by a hairline rule, the way a ledger separates columns. There are no floating cards, no ambient glows, no drop shadows pretending to be material. If something is on top of something else, a 1px border says so.",
+    "northStar": "The Ledger Sheet",
+    "overview": "paratrack is a ledger of where time goes. The page is a warm sheet of paper with ink on it. Figures stand in columns, rules separate rows, and the only colour belongs to the person's own activities. Running work is a short list of live lines, each with its own spine and its own stop. Nothing decorates; the numbers have to be trusted, so they are set plainly.",
     "keyCharacteristics": [
-      "Flat surfaces; depth from tonal layering (`base-100 / 200 / 300`) and hairline rules only",
-      "High contrast ink-on-paper in both themes",
-      "Tabular numerals everywhere digits must align in a column",
-      "One accent (indigo ink), used for identity, the current place and focus, never for the main button",
-      "A measured type scale (1.2 ratio) with negative tracking on headings",
-      "A single radius language: 6px for small selectors, 10px for fields and containers, fully round for status pills and chips; the phone shell's sheet and cards round a little more",
-      "Every control has a fixed geometric lane — 40 / 32 / 24 px, grown for touch"
+      "Warm paper ground in light, neutral in dark, with a hue of 85 at low chroma",
+      "Figures in JetBrains Mono with tabular numerals, always in columns",
+      "One colour per activity, shown as a 3px spine beside the name",
+      "Flat at rest; shadows only on floating layers",
+      "One easing curve and three durations for all motion"
     ],
     "rules": [
       {
-        "name": "The Signature Rule",
-        "body": "The primary accent occupies ≤10% of any screen. It marks identity, the current place and focus. The main action is charcoal, so indigo never has to shout. If indigo appears on a figure or a decoration, it is wrong.",
+        "name": "The Ledger Paper Rule",
+        "body": "The page is a warm sheet, never pure white. The warmth is a low-chroma hue of 85, and the activity colours stay the only chroma on a screen.",
         "section": "colors"
       },
       {
-        "name": "The No-Fake-Ink Rule",
-        "body": "A user-authored colour (project colour, activity colour) is never used as text ink. It appears as a swatch beside neutral text, or with an explicitly computed contrast-safe ink (`inkFor`). A pale lime project name must still be readable.",
-        "section": "colors"
-      },
-      {
-        "name": "The Two-Theme Rule",
-        "body": "Every semantic colour means the same thing in both themes. Green is a verdict in both; amber is caution in both. Only the lightness shifts.",
-        "section": "colors"
-      },
-      {
-        "name": "The One Headline Rule",
-        "body": "Exactly one `h1` per page, and it names the page. Cards open with `h2`/`h3`, never with a heading level jump.",
-        "section": "typography"
-      },
-      {
-        "name": "The Wordmark Lock",
-        "body": "Fraunces is the logo face. A heading, a stat, or a card title set in Fraunces is a bug — the seal does not do the writing.",
-        "section": "typography"
-      },
-      {
-        "name": "The Ruled Column Rule",
-        "body": "Any figure a user compares vertically (durations, money, timestamps, counts) renders in JetBrains Mono with `tabular-nums`. Ragged digits in a column are a defect, not a style.",
-        "section": "typography"
-      },
-      {
-        "name": "The One-Row Rule",
-        "body": "The header never wraps onto a second line. At 1024px and up it is wordmark · workspace switcher · links · «Ещё» · account; the workspace name is the one item that gives up width (it truncates, the full name is in its tooltip). The link cluster is not a scroll container, because overflow would clip its dropdowns. Below 1024px the header is the wordmark alone. A crooked header is the first thing a user sees.",
-        "section": "layout"
-      },
-      {
-        "name": "The Shrink-to-Truncate Rule",
-        "body": "A grid or flex item that carries a name must allow itself to shrink (`min-width: 0`) so `truncate` can work. A 200-character project name must never widen the page.",
-        "section": "layout"
-      },
-      {
-        "name": "The No-Shadow Rule",
-        "body": "Surfaces do not cast shadows. `box-shadow` has one allowed use: an inset 1px ring that draws a hairline without shifting layout (the active period tab, the chosen preset card). The focus ring is an `outline`, not a shadow. Shadows are never used for elevation (`--depth: 0` in both themes). If a component looks like it needs a shadow to separate from its background, the background tone is wrong.",
-        "section": "elevation"
-      },
-      {
-        "name": "The Hairline Rule",
-        "body": "A `1px` solid `base-300` rule is the separator. It is used for card edges, table rows, dividers and input strokes — the same weight everywhere. A 2px rule appears only as a total rule, where it marks a sum (a table's total row, the ledger strip's «Сегодня» line, the amount on a letter).",
-        "section": "elevation"
-      },
-      {
-        "name": "The Ladder Rule",
-        "body": "A button's height states its rank. 40px = do this now, 32px = act on this row, 24px = tweak this chip. Mixing ranks in one cluster is a defect.",
+        "name": "The Spine Rule",
+        "body": "An activity's colour is a 3px spine beside its name. It is never the ink of a label.",
         "section": "components"
       },
       {
-        "name": "The Fixed Order Rule",
-        "body": "Classes read `btn → variant → size → shape → gap → layout → state`. Scrambled order is a signal the system was not consulted.",
-        "section": "components"
+        "name": "The Figures Rule",
+        "body": "Every figure a person compares down a column is JetBrains Mono with tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Resting Flat Rule",
+        "body": "Cards and rows are flat at rest. A shadow appears only on a layer that floats above the page.",
+        "section": "elevation"
       }
     ],
     "dos": [
-      "**Do** keep depth flat: tone and hairlines only. A `1px base-300` rule separates everything; only the phone's bottom sheet dims the page.",
-      "**Do** render every comparable figure in JetBrains Mono with `tabular-nums` — durations, money, times, counts.",
-      "**Do** put exactly one `h1` on a page and one `btn-neutral` CTA in a form; keep indigo off that button.",
-      "**Do** use a colour swatch beside neutral text for user-authored colours; compute contrast-safe ink (`inkFor`) when a colour becomes a background.",
-      "**Do** keep the primary accent under 10% of a screen. One signature per page.",
-      "**Do** measure the button lanes: 40 / 32 / 24 px, 10px radius, 6px icon gap.",
-      "**Do** let names truncate: `min-width: 0` on the container, `truncate` on the name.",
-      "**Do** theme browser surfaces: `::selection`, `caret-color`, `text-underline-offset`, `scrollbar-color`.",
-      "**Do** hold body measure to 65–75ch and set labels in uppercase `--step--2` with 0.08em tracking."
+      "Do set running timers as a list of live lines, each with its own pause and stop.",
+      "Do keep 48dp touch targets for every control a phone user presses.",
+      "Do name the action on a button and what it will do."
     ],
     "donts": [
-      "**Don't** use box-shadow for elevation. Its one use is the inset 1px hairline ring; focus is an outline.",
-      "**Don't** use Fraunces anywhere but the wordmark. The seal does not do the writing.",
-      "**Don't** paint user-authored colours as text ink. A lime activity name on white is a defect.",
-      "**Don't** wrap the header onto a second row: truncate the workspace name, and below 1024px move links to the tab bar.",
-      "**Don't** hard-code `#fff` ink on a user-coloured background — compute it.",
-      "**Don't** mix button lanes in one cluster, or scramble the class order.",
-      "**Don't** rely on hover for anything a touch user must reach; give compact controls a 44px hit area.",
-      "**Don't** add gradient text, glassmorphism, decorative blur, or thick accent borders on cards. The ledger does not shimmer.",
-      "**Don't** drop `prefers-reduced-motion`: kill duration and movement, keep state change and hierarchy."
+      "Don't use gradients, glass, or decorative blur in the app.",
+      "Don't colour a label with an activity colour.",
+      "Don't let a timer row carry a shadow at rest."
     ]
   }
 }
