@@ -265,8 +265,12 @@ as a response to a layer that floats above the page.
 sizes: the navigation bar (80dp), the top app bar (64dp), the emphasized
 easing for every transition, pill buttons (40dp), pill segmented tabs, the
 bottom sheet and the dialog at a 28dp corner, text fields at a 4dp corner.
-The colour system and the type scale are not Material's: colour is the
-neutral paper with the activity colours, and type is Inter at the sizes above.
+On the phone the colour roles and the type scale are Material 3 too. Primary is
+the brand violet (`--brand`, white ink on light, pale violet on dark), cards are
+tonal surfaces (`--card` as a surface container, no ring), and the type roles are
+the M3 baseline sizes in Inter: headline small 24/32, title medium 16/24 medium,
+label large 14/20 medium, label medium 12/16 medium. The desktop keeps the neutral
+ledger. The activity colours are not M3 roles; they stay as the person's marks.
 
 For each component: the character line first, then shape, colour and states.
 
