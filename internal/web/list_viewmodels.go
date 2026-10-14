@@ -27,8 +27,6 @@ func (activeListVM) isTemplateData() {}
 
 func (activeListVM) isJSONResponse() {}
 
-func (activeListVM) isFragmentTemplateData() {}
-
 func (v activeListVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }
 
 func countRunning(views []sessionView) int {

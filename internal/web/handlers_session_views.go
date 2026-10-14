@@ -10,14 +10,3 @@ import (
 func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
-
-// handleMiniBar renders the phone "now tracking" bar shown above the tab
-// bar on every page but the dashboard. Empty body when nothing runs.
-func (s *Server) handleMiniBar(w http.ResponseWriter, r *http.Request) {
-	vm, err := s.buildMiniBarVM(r)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	s.renderFragment(w, "minibar", vm)
-}

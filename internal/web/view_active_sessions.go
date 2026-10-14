@@ -8,7 +8,6 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
-	"sort"
 )
 
 func (s *Server) buildActiveListVM(r *http.Request) (activeListVM, error) {
@@ -37,22 +36,4 @@ func activeSessionViews(active []appmodel.ActiveSession, periodStart, periodEnd,
 		views = append(views, toSessionView(item.Session, item.Activity, periodStart, periodEnd, now, lang, durationFormat))
 	}
 	return views
-}
-
-func (s *Server) buildMiniBarVM(r *http.Request) (activeListVM, error) {
-	ctx := r.Context()
-	now := userNow(r)
-	today, err := timeparse.ResolvePeriod("today", now)
-	if err != nil {
-		return activeListVM{}, fmt.Errorf("resolve mini-bar day period: %w", err)
-	}
-	active, err := s.services.Tracking.Queries.ActiveSessions(ctx, teamID(r))
-	if err != nil {
-		return activeListVM{}, err
-	}
-	lang := resolveLang(r)
-	views := activeSessionViews(active, today.Start, today.End, now, lang, durFmtOf(r))
-	// Running first: the bar shows the timer that is actually ticking.
-	sort.SliceStable(views, func(i, j int) bool { return !views[i].Paused && views[j].Paused })
-	return activeListVM{Lang: string(lang), Items: views}, nil
 }

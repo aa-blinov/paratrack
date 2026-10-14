@@ -4,11 +4,8 @@ import (
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"html/template"
 	"io/fs"
-	"sync"
 )
 
 //go:embed templates/*.html static/*
@@ -45,50 +42,4 @@ func computeAssetVersion(source fs.FS) (string, error) {
 		return "", fmt.Errorf("no embedded static assets")
 	}
 	return hex.EncodeToString(h.Sum(nil))[:10], nil
-}
-
-var appImportMapCache struct {
-	once  sync.Once
-	value template.HTML
-	err   error
-}
-
-type appImportMapResponse struct {
-	Imports map[string]string `json:"imports"`
-}
-
-// appImportMap includes every embedded frontend module so new local imports
-// receive the same content hash as ordinary asset URLs without a second
-// hand-maintained module list.
-func appImportMap() (template.HTML, error) {
-	appImportMapCache.once.Do(func() {
-		if assetVersionErr != nil {
-			appImportMapCache.err = fmt.Errorf("hash embedded static assets: %w", assetVersionErr)
-			return
-		}
-		imports := map[string]string{}
-		modules, err := fs.Glob(assets, "static/js/*.js")
-		if err != nil {
-			appImportMapCache.err = fmt.Errorf("list frontend modules: %w", err)
-			return
-		}
-		if len(modules) == 0 {
-			appImportMapCache.err = fmt.Errorf("no frontend modules embedded")
-			return
-		}
-		for _, file := range modules {
-			urlPath := "/" + file
-			imports[urlPath] = urlPath + "?v=" + assetVersion
-		}
-		data, err := json.Marshal(appImportMapResponse{Imports: imports})
-		if err != nil {
-			appImportMapCache.err = fmt.Errorf("encode frontend import map: %w", err)
-			return
-		}
-		// The browser expects raw JSON inside <script type="importmap">.
-		// The bytes come from json.Marshal over embedded asset paths and the
-		// content hash, so they are safe to emit without HTML entity escaping.
-		appImportMapCache.value = template.HTML(data)
-	})
-	return appImportMapCache.value, appImportMapCache.err
 }

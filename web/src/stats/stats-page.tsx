@@ -31,8 +31,8 @@ function queryFor(data: StatsData, period = data.Period.Label, project = data.Pr
   return `/stats?${query}`
 }
 
-async function send(url: string, method: string, body: URLSearchParams | undefined, csrf: string, htmx = false) {
-  const response = await fetch(url, { method, credentials: "same-origin", body, headers: { "X-CSRF-Token": csrf, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}), ...(htmx ? { "HX-Request": "true" } : {}) } })
+async function send(url: string, method: string, body: URLSearchParams | undefined, csrf: string) {
+  const response = await fetch(url, { method, credentials: "same-origin", body, headers: { "X-CSRF-Token": csrf, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}) } })
   if (!response.ok) throw new Error(await responseMessage(response))
 }
 
@@ -50,7 +50,7 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     const body = new URLSearchParams({ start_at: start, end_at: end, duration, note, ...patch })
     busy.current = true
     setError("")
-    try { await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken, true); window.location.reload() }
+    try { await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken); window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
     finally { busy.current = false }
   }
@@ -59,12 +59,12 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     event?.preventDefault()
     const name = tag.trim()
     if (!name) return
-    try { await send(`/api/sessions/${session.ID}/tags`, "POST", new URLSearchParams({ name }), data.CSRFToken, true); window.location.reload() }
+    try { await send(`/api/sessions/${session.ID}/tags`, "POST", new URLSearchParams({ name }), data.CSRFToken); window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
   }
 
   async function removeTag(name: string) {
-    try { await send(`/api/sessions/${session.ID}/tags?name=${encodeURIComponent(name)}`, "DELETE", undefined, data.CSRFToken, true); window.location.reload() }
+    try { await send(`/api/sessions/${session.ID}/tags?name=${encodeURIComponent(name)}`, "DELETE", undefined, data.CSRFToken); window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
   }
 
@@ -93,7 +93,7 @@ export function StatsPage({ data }: { data: StatsData }) {
   // wide screen the fold is irrelevant and the content is always shown.
   const [editorOpen, setEditorOpen] = React.useState(false)
   async function removeSession(id: number) {
-    try { await send(`/api/sessions/${id}`, "DELETE", undefined, data.CSRFToken, true); window.location.reload() }
+    try { await send(`/api/sessions/${id}`, "DELETE", undefined, data.CSRFToken); window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
   }
   const graphQuery = new URLSearchParams({ period: data.Period.Label })

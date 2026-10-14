@@ -5,14 +5,10 @@
   "version": "0.0.0",
   "description": "paratrack UI source — React and shadcn/ui application with Go-rendered fragments",
   "scripts": {
-    "build": "npm run build:legacy && npm run build:react",
-    "build:legacy": "tailwindcss -i ./input.css -o ../internal/web/static/css/paratrack.css --minify",
+    "build": "npm run build:react",
     "build:react": "vite build && tailwindcss -i ./src/ui.css -o ../internal/web/static/ui/app.css --minify && node ./scripts/scope-react-css.mjs",
     "typecheck": "tsc --noEmit",
-    "test:unit": "vitest run src/**/*.test.ts",
-    "check:js": "for f in ../internal/web/static/js/app*.js; do node --check \"$f\" || exit 1; done && cd .. && eslint --config eslint.config.js internal/web/static/js/app*.js && cd web && node ./scripts/check-js-imports.mjs && npm audit",
-    "test:js": "node --test ./scripts/*.test.mjs",
-    "watch": "tailwindcss -i ./input.css -o ../internal/web/static/css/paratrack.css --watch"
+    "test:unit": "vitest run src/**/*.test.ts"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.3",
