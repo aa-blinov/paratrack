@@ -11,6 +11,7 @@ import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import { durationLabel } from "@/dashboard/time"
 import type { GoalView, GoalsData } from "@/dashboard/types"
+import { responseMessage } from "@/lib/response-message"
 
 type ProgressItem = { goal: { id: number; activity_id: number; period: string; target_minutes: number }; activity_name: string; achieved_minutes: number; percent_complete: number; period_start: string; period_end: string }
 
@@ -27,7 +28,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
 
   async function request(url: string, method: string, body?: URLSearchParams) {
     const response = await fetch(url, { method, credentials: "same-origin", headers: { "X-CSRF-Token": data.CSRFToken, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}) }, body })
-    if (!response.ok) throw new Error((await response.text()).replace(/<[^>]*>/g, " ").trim() || response.statusText)
+    if (!response.ok) throw new Error(await responseMessage(response))
   }
 
   async function refresh() {

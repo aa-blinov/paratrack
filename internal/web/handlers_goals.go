@@ -65,23 +65,11 @@ func (s *Server) handleGoalsList(w http.ResponseWriter, r *http.Request) {
 // handleGoalsProgress returns goal + current-period progress for each
 // configured goal. Powers the dashboard widget.
 //
-// When the request comes from HTMX (HX-Request header), the response is
-// the rendered `goals-list` fragment so it can be swapped into the
-// page directly. Plain GET returns JSON for tooling / scripts.
+// The response is JSON for the page and for scripts.
 func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 	progress, err := s.services.Goals.Progress(r.Context(), appmodel.GoalProgressQuery{TeamID: teamID(r), Now: userNow(r)})
 	if err != nil {
 		s.writeInternalError(w, err)
-		return
-	}
-	views := toGoalViews(progress, resolveLang(r), s.activityColors(r))
-	glang := string(resolveLang(r))
-	for i := range views {
-		views[i].Lang = glang
-		views[i].PeriodRangeLabel = periodRangeLabel(views[i].Period, i18n.Lang(glang))
-	}
-	if isHTMX(r) {
-		s.renderFragment(w, "goals-list", goalsListVM{Lang: glang, Goals: views, CanManage: canManage(r)})
 		return
 	}
 	if progress == nil {
@@ -95,9 +83,6 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 //	activity   (required)
 //	period     required — daily | weekly | monthly
 //	minutes    required — integer target in minutes
-//
-// HTMX callers get the refreshed `goals-list` fragment; plain requests
-// keep the JSON shape.
 func (s *Server) handleGoalsUpsert(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "invalid form", http.StatusBadRequest)
@@ -125,10 +110,6 @@ func (s *Server) handleGoalsUpsert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.saved", activityName, "success")
-	if isHTMX(r) {
-		s.respondGoalsList(w, r)
-		return
-	}
 	s.writeJSON(w, goalFor(g))
 }
 
@@ -157,10 +138,6 @@ func (s *Server) handleGoalsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.deleted", activityName, "success")
-	if isHTMX(r) {
-		s.respondGoalsList(w, r)
-		return
-	}
 	w.WriteHeader(200)
 }
 
@@ -169,22 +146,6 @@ func isGoalValidationError(err error) bool {
 		errors.Is(err, appmodel.ErrInvalidGoalActivity) ||
 		errors.Is(err, appmodel.ErrInvalidGoalPeriod) ||
 		errors.Is(err, appmodel.ErrInvalidGoalTarget)
-}
-
-// respondGoalsList renders the `goals-list` fragment for HTMX swaps.
-func (s *Server) respondGoalsList(w http.ResponseWriter, r *http.Request) {
-	progress, err := s.services.Goals.Progress(r.Context(), appmodel.GoalProgressQuery{TeamID: teamID(r), Now: userNow(r)})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	gv := toGoalViews(progress, resolveLang(r), s.activityColors(r))
-	lang := string(resolveLang(r))
-	for i := range gv {
-		gv[i].Lang = lang
-		gv[i].PeriodRangeLabel = periodRangeLabel(gv[i].Period, i18n.Lang(lang))
-	}
-	s.renderFragment(w, "goals-list", goalsListVM{Lang: string(resolveLang(r)), Goals: gv, CanManage: canManage(r)})
 }
 
 // toGoalViews renders goal progress as the view-models used by

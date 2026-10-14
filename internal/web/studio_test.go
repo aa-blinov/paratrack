@@ -47,7 +47,7 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	if strings.Contains(ownerList, "вёрстка") {
 		t.Fatal("owner's dashboard shows the developer's timer")
 	}
-	ownerID := regexp.MustCompile(`sessions/(\d+)/stop`).FindStringSubmatch(ownerList)[1]
+	ownerID := regexp.MustCompile(`"ID": (\d+)`).FindStringSubmatch(ownerList)[1]
 	resp = dev.do("POST", "/api/sessions/"+ownerID+"/stop", nil, htmx)
 	resp.Body.Close()
 	if resp.StatusCode == 200 {

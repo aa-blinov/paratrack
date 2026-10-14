@@ -297,7 +297,7 @@ func TestTimesheetCellJSONReturnsUpdatedRowAndTotals(t *testing.T) {
 	resp := e.do("POST", "/api/sessions/backfill", url.Values{
 		"activity": {"react-grid-work"}, "start": {day + " 09:00"}, "end": {day + " 10:00"},
 	}, nil)
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("seed session: status %d body=%q", resp.StatusCode, readBody(t, resp))
 	}
 	resp.Body.Close()

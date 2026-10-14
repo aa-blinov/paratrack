@@ -162,13 +162,8 @@ func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, project stri
 // handleScheduleCell writes one plan cell.
 // Form: user_id, project_id, date (YYYY-MM-DD), minutes.
 func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
-	wantsJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
 	if err := r.ParseForm(); err != nil {
-		if wantsJSON {
-			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
-		} else {
-			http.Error(w, "invalid form", http.StatusBadRequest)
-		}
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
 		return
 	}
 	uid, err1 := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)
@@ -178,59 +173,41 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 		var err error
 		pid, err = strconv.ParseInt(projectValue, 10, 64)
 		if err != nil || pid < 0 {
-			http.Error(w, "bad project_id", http.StatusBadRequest)
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "bad project_id"})
 			return
 		}
 	}
 	mins, err3 := strconv.Atoi(strings.TrimSpace(r.PostForm.Get("minutes")))
 	day := strings.TrimSpace(r.PostForm.Get("date"))
 	if err1 != nil || uid <= 0 || err3 != nil || day == "" {
-		http.Error(w, "user_id, date, minutes required", 400)
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "user_id, date, minutes required"})
 		return
 	}
 	parsedDay, err := time.Parse("2006-01-02", day)
 	if err != nil || parsedDay.Format("2006-01-02") != day {
-		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "date must be YYYY-MM-DD"})
 		return
 	}
 	if err := s.services.Scheduling.SetCell(r.Context(), appmodel.ScheduleCellRequest{
 		TeamID: teamID(r), ActorID: authenticatedUserID(r), UserID: uid, ProjectID: pid,
 		Day: parsedDay, Minutes: mins,
 	}); err != nil {
-		if errors.Is(err, appmodel.ErrNoScheduleProjects) {
-			if wantsJSON {
-				s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.needProject")})
-			} else {
-				s.toastL(w, r, "err.needProject", "", "error")
-				w.WriteHeader(http.StatusOK)
-			}
-			return
-		}
-		if errors.Is(err, appmodel.ErrInvalidScheduleCell) {
-			if wantsJSON {
-				s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
-			} else {
-				s.toastL(w, r, "err.invalidInput", "", "error")
-			}
-		} else {
-			if wantsJSON {
-				s.writeInternalJSONError(w, err)
-			} else {
-				s.logInternalError(err)
-				s.toastL(w, r, "err.internal", "", "error")
-			}
-		}
-		if !wantsJSON {
-			w.WriteHeader(http.StatusOK)
+		switch {
+		case errors.Is(err, appmodel.ErrNoScheduleProjects):
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.needProject")})
+		case errors.Is(err, appmodel.ErrInvalidScheduleCell):
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+		default:
+			s.writeInternalJSONError(w, err)
 		}
 		return
 	}
 	s.toastL(w, r, "toast.saved", "", "success")
-	// Re-render the person's row.
-	s.respondScheduleRow(w, r, uid, day)
+	// The grid reloads the week from the JSON answer below.
+	s.respondScheduleRow(w, r, day)
 }
 
-func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid int64, day string) {
+func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, day string) {
 	t, err := time.Parse("2006-01-02", day)
 	if err != nil {
 		http.Error(w, "bad date", 400)
@@ -238,26 +215,12 @@ func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, uid 
 	}
 	schedule, err := s.scheduleRows(r, startOfWeek(r, t), r.PostForm.Get("project_id"))
 	if err != nil {
-		if strings.Contains(r.Header.Get("Accept"), "application/json") {
-			s.writeInternalJSONError(w, err)
-		} else {
-			s.writeInternalError(w, err)
-		}
+		s.writeInternalJSONError(w, err)
 		return
 	}
-	if strings.Contains(r.Header.Get("Accept"), "application/json") {
-		s.writeJSON(w, scheduleCellResponse{
-			Rows: schedule.Rows, GrandTotal: fmtDur(r, schedule.TotalMinutes*60), GrandMin: schedule.TotalMinutes,
-		})
-		return
-	}
-	for _, row := range schedule.Rows {
-		if row.UserID == uid {
-			s.renderFragment(w, "schedule-row", schedRowVM{Row: row, Projects: schedule.Projects, ProjectID: schedule.ProjectID, CanManage: canManage(r), Lang: string(resolveLang(r))})
-			return
-		}
-	}
-	http.NotFound(w, r)
+	s.writeJSON(w, scheduleCellResponse{
+		Rows: schedule.Rows, GrandTotal: fmtDur(r, schedule.TotalMinutes*60), GrandMin: schedule.TotalMinutes,
+	})
 }
 
 type scheduleCellResponse struct {
@@ -277,7 +240,6 @@ type schedRowVM struct {
 	Lang      string
 }
 
-func (schedRowVM) isTemplateData()         {}
-func (schedRowVM) isFragmentTemplateData() {}
+func (schedRowVM) isTemplateData() {}
 
 func (v schedRowVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

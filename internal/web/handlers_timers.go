@@ -14,7 +14,12 @@ import (
 )
 
 func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
-	s.respondActiveList(w, r)
+	vm, err := s.buildActiveListVM(r)
+	if err != nil {
+		s.writeInternalJSONError(w, err)
+		return
+	}
+	s.writeJSON(w, vm)
 }
 
 // actionTime is when a timer action happened: the client's click time

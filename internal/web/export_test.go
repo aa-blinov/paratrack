@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 	"testing"
@@ -26,7 +27,7 @@ func TestExportExplainsCSVAndFiltersDates(t *testing.T) {
 		resp = e.do("POST", "/api/sessions/backfill", url.Values{
 			"activity": {session.activity}, "start": {session.date + " 09:00"}, "end": {session.date + " 10:00"},
 		}, map[string]string{"HX-Request": "true"})
-		if resp.StatusCode != 200 {
+		if resp.StatusCode != http.StatusNoContent {
 			t.Fatalf("backfill %s: %d %s", session.activity, resp.StatusCode, readBody(t, resp))
 		}
 		resp.Body.Close()
