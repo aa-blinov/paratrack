@@ -239,7 +239,9 @@
   min-width: 0;
 }
 
-#paratrack-react-root .app-shell-provider { display: flex; width: 100%; min-height: 100vh; }
+/* The provider is the page: the inset main sheet sits on it with an 8px gutter,
+   and that gutter must be paper too, not the canvas white behind the app. */
+#paratrack-react-root .app-shell-provider { display: flex; width: 100%; min-height: 100vh; background: var(--background); }
 #paratrack-react-root .app-boot { display: flex; min-height: 100svh; background: var(--background); }
 #paratrack-react-root .app-boot-sidebar { display: none; }
 #paratrack-react-root .app-boot-content { flex: 1; min-width: 0; }
