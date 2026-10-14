@@ -132,7 +132,7 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
       <p className="min-h-4 text-xs text-muted-foreground" role="status" aria-live="polite" data-notification-status>{status}</p>
     </CardContent></Card>
     <Card><CardHeader><CardTitle>{t(lang, "push.events")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.topicsHint")}</p></CardHeader><CardContent>
-      <ul className="grid gap-2">{topics.map(topic => <li key={topic.Key}><label className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={!muted.includes(topic.Key)} disabled={busy} onCheckedChange={checked => void toggleTopic(topic.Key, checked === true)} aria-label={t(lang, topic.Label)} /><span>{t(lang, topic.Label)}</span></label></li>)}
+      <ul className="grid gap-2">{topics.map(topic => <li key={topic.Key} data-list-item="1"><label className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={!muted.includes(topic.Key)} disabled={busy} onCheckedChange={checked => void toggleTopic(topic.Key, checked === true)} aria-label={t(lang, topic.Label)} /><span>{t(lang, topic.Label)}</span></label></li>)}
         {data.CanManage && <li className="flex items-baseline gap-2 text-sm text-muted-foreground"><span>{t(lang, "push.ev2")}</span><span className="text-xs">{t(lang, "push.ev2hint")}</span></li>}
       </ul>
     </CardContent></Card>

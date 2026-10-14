@@ -42,7 +42,7 @@ function ProjectRow({ data, project, open, onToggle }: {
   const panelID = `project-activities-${project.ID}`
 
   return <>
-    <TableRow className={open ? "bg-muted/40" : undefined}>
+    <TableRow data-list-item="2" className={open ? "bg-muted/40" : undefined}>
       <TableCell className="align-middle">
         <div className="flex min-w-0 items-center gap-2">
           <Button
