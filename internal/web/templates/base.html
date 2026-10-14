@@ -22,7 +22,7 @@
   <script src="{{asset "js/sentry-init.js"}}"></script>{{end}}
   <script type="module" blocking="render" src="{{asset "ui/app.js"}}"></script>
 </head>
-<body class="min-h-screen flex flex-col">
+<body class="min-h-screen flex flex-col" style="margin:0">
   <div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">
     <div class="app-boot" role="status" aria-live="polite" aria-busy="true">
       {{if .User}}<aside class="app-boot-sidebar" aria-hidden="true"><span class="app-shell-brand">paratrack</span></aside>{{end}}
