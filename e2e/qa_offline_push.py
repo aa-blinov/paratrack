@@ -6,6 +6,7 @@ Saves screenshots to e2e/screenshots/offline-push/.
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 import time
 
@@ -44,6 +45,9 @@ def main() -> int:
         pg.fill("input[name=email]", email)
         pg.fill("input[name=password]", "longenoughpw")
         pg.click("button[type=submit]")
+        # A new account picks its sections first (the /welcome screen), then lands on the dashboard.
+        pg.wait_for_url(f"{BASE}/welcome", timeout=15000)
+        pg.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="freelance"]) button').first.click()
         pg.wait_for_url(f"{BASE}/", timeout=15000)
         check("register + land on dashboard", True)
 
@@ -65,8 +69,8 @@ def main() -> int:
         pg.evaluate("window.dispatchEvent(new Event('offline'))")
         pg.wait_for_timeout(300)
         banner = pg.evaluate("""() => {
-          const el = document.getElementById("offline-banner");
-          return el ? {text: el.textContent.trim(), visible: el.style.display !== "none"} : null;
+          const el = document.querySelector("[data-offline-banner]");
+          return el ? {text: el.textContent.trim(), visible: el.offsetParent !== null || el.getClientRects().length > 0} : null;
         }""")
         check("offline banner appears", bool(banner and banner.get("visible")), str(banner))
         pg.screenshot(path=str(OUT / "b1-offline-banner.png"), full_page=True)
@@ -86,7 +90,9 @@ def main() -> int:
         }""")
         pg.wait_for_timeout(600)
         q = pg.evaluate("() => JSON.parse(localStorage.getItem('paratrack-offline-queue') || '[]')")
-        has_body = isinstance(q, list) and len(q) >= 1 and (q[0].get("body") or {}).get("activity") == "offline-push-qa-task"
+        # Form bodies are stored as [key, value] pairs; the activity must be among them.
+        has_body = isinstance(q, list) and len(q) >= 1 and any(
+            pair == ["activity", "offline-push-qa-task"] for pair in (q[0].get("body") or []))
         check("offline mutation enters the queue (with body)", has_body, f"queued={q}")
         pg.screenshot(path=str(OUT / "b2-offline-queued.png"), full_page=True)
 
@@ -124,21 +130,16 @@ def main() -> int:
 
         # ---- push settings page ----
         pg.goto(f"{BASE}/settings/notifications", wait_until="networkidle")
+        enable = pg.get_by_role("button", name=re.compile(r"Включить|Enable", re.I))
         check("push controls are present",
-              pg.locator('#push-enable[data-push-action="enable"]').count() == 1
-              and pg.locator('#push-status[role="status"]').count() == 1)
-        check("push behavior stays module-scoped",
-              pg.evaluate("typeof window.paratrackPush === 'undefined'"))
-        ds = pg.eval_on_selector("#push-status", "el => ({a: el.dataset.msgActive, o: el.dataset.msgOff, d: el.dataset.msgDenied, f: el.dataset.msgFailed})")
-        check("push status messages are bound (data-msg-*)",
-              all(ds.get(k) for k in ("a", "o", "d", "f")), str(ds))
+              enable.count() == 1 and pg.locator('[data-notification-status][role="status"]').count() == 1)
         pg.screenshot(path=str(OUT / "c1-push-settings.png"), full_page=True)
 
         # click Enable — headless chrome has notification permission denied by default,
         # so the status must show the localized denied message (not stay empty).
-        pg.click("#push-enable")
+        enable.click()
         pg.wait_for_timeout(800)
-        st = pg.eval_on_selector("#push-status", "el => el.textContent.trim()")
+        st = pg.locator('[data-notification-status]').inner_text().strip()
         check("Enable push updates status (no silent click)", len(st) > 0, repr(st))
         pg.screenshot(path=str(OUT / "c2-push-status.png"), full_page=True)
 
@@ -148,8 +149,8 @@ def main() -> int:
           const body = new URLSearchParams({
             csrf_token: csrf,
             endpoint: "https://fcm.googleapis.com/fcm/send/offline-push-qa-endpoint",
-            p256dh: "BPtestp256dh",
-            auth: "testauth",
+            p256dh: "BEySIZ6MribL38vxpV1AmLd1W8FQgpzStp82iGoa7ySI-ukRzVS9Pl4JgHm0GfgqbO164V9xj7CkMqiGr-j4vqE",
+            auth: "x8l7J3zUIEoq7Yq21mqoTg",
           });
           const r = await fetch("/api/push/subscribe", {
             method: "POST", credentials: "same-origin",

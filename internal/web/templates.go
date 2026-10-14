@@ -38,9 +38,8 @@ func templateFuncs(sentry sentryState) template.FuncMap {
 	return template.FuncMap{
 		// fmtDuration is the shared smart formatter from dto.go — keep the
 		// template name in lock-step so cards and tables always agree.
-		"fmtDuration":  fmtDuration,
-		"asset":        func(p string) string { return "/static/" + p + "?v=" + assetVersion },
-		"appImportMap": appImportMap,
+		"fmtDuration": fmtDuration,
+		"asset":       func(p string) string { return "/static/" + p + "?v=" + assetVersion },
 		// tOr translates key, or returns fallback when the key is missing.
 		"tOr": func(lang, key, fallback string) string {
 			if t := i18n.T(i18n.Lang(lang), key); t != key {

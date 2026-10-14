@@ -8,6 +8,7 @@ import type { GraphData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { DateTimeField } from "@/components/date-field"
 import { SegmentedControl } from "@/components/segmented"
+import { mountTimeline, type TimelineData } from "./timeline-chart"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"] as const
 
@@ -25,28 +26,51 @@ function queryFor(data: GraphData, period = data.Period.Label, keepFilters = tru
   return `?${query}`
 }
 
-function ChartRuntime() {
-  React.useEffect(() => {
-    const ready = () => document.dispatchEvent(new Event("paratrack:graph-ready"))
-    if ("echarts" in window) { ready(); return }
-    const existing = document.querySelector<HTMLScriptElement>('script[data-paratrack-react-echarts]')
+// ECharts is a shared script: loaded once for the page, whichever mounts first.
+function loadECharts(): Promise<void> {
+  if ("echarts" in window) return Promise.resolve()
+  const existing = document.querySelector<HTMLScriptElement>('script[data-paratrack-react-echarts]')
+  return new Promise(resolve => {
     if (existing) {
-      existing.addEventListener("load", ready, { once: true })
-      return () => existing.removeEventListener("load", ready)
+      existing.addEventListener("load", () => resolve(), { once: true })
+      return
     }
     const script = document.createElement("script")
     script.src = "/static/js/echarts.min.js"
     script.async = true
     script.dataset.paratrackReactEcharts = "true"
-    script.addEventListener("load", ready, { once: true })
+    script.addEventListener("load", () => resolve(), { once: true })
     document.head.appendChild(script)
-    return () => script.removeEventListener("load", ready)
-  }, [])
-  return null
+  })
+}
+
+function parseTimeline(json: string): TimelineData {
+  try {
+    const parsed = JSON.parse(json) as Partial<TimelineData>
+    return { hasData: Boolean(parsed.hasData), hours: parsed.hours ?? [], series: parsed.series ?? [] }
+  } catch {
+    return { hasData: false, hours: [], series: [] }
+  }
 }
 
 export function GraphPage({ data }: { data: GraphData }) {
   const lang = data.Lang
+  const canvasRef = React.useRef<HTMLDivElement>(null)
+  const legendRef = React.useRef<HTMLDivElement>(null)
+  const [chartBuilt, setChartBuilt] = React.useState(false)
+  const timeline = React.useMemo(() => parseTimeline(data.ChartJSON), [data.ChartJSON])
+  const hasChart = timeline.hasData
+  React.useEffect(() => {
+    if (!hasChart) return
+    let cleanup: (() => void) | undefined
+    let alive = true
+    void loadECharts().then(() => {
+      if (alive && canvasRef.current) {
+        cleanup = mountTimeline(canvasRef.current, timeline, legendRef.current, lang, () => setChartBuilt(true))
+      }
+    })
+    return () => { alive = false; cleanup?.() }
+  }, [hasChart, timeline, lang])
   const filtered = Boolean(data.ProjectFilter || data.TagFilter || data.PersonFilter)
   const canShowGraph = data.Chart.hasData
 
@@ -81,14 +105,13 @@ export function GraphPage({ data }: { data: GraphData }) {
       <CardHeader><CardTitle>{t(lang, "graph.subtitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "graph.blurbFull")}</p></CardHeader>
       <CardContent>
         {canShowGraph ? <>
-          <div className="echart-wrap min-w-0" id="echart-wrap" data-chart={data.ChartJSON}>
+          <div className="echart-wrap min-w-0" id="echart-wrap">
             <div className="relative min-w-0">
-              <div id="echart-skeleton" className="sk-chart" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>
-              <div id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={t(lang, "graph.subtitle")} />
+              {!chartBuilt && <div id="echart-skeleton" className="sk-chart" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>}
+              <div ref={canvasRef} id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={t(lang, "graph.subtitle")} />
             </div>
           </div>
           <p className="mt-3 text-sm"><span className="text-muted-foreground">{t(lang, "graph.totalTracked")} </span><strong className="font-mono tabular-nums">{data.Chart.totalLabel}</strong></p>
-          <ChartRuntime />
         </> : <div className="py-8">
           {/* Без text-center: заголовок карточки стоит слева, и пустое
               состояние по центру под ним читалось как ошибка вёрстки. */}
@@ -98,7 +121,7 @@ export function GraphPage({ data }: { data: GraphData }) {
       </CardContent>
     </Card>
 
-    {canShowGraph && <Card><CardHeader><CardTitle>{t(lang, "graph.legend")}</CardTitle></CardHeader><CardContent><div className="flex flex-wrap gap-2" id="legend-chips">
+    {canShowGraph && <Card><CardHeader><CardTitle>{t(lang, "graph.legend")}</CardTitle></CardHeader><CardContent><div ref={legendRef} className="flex flex-wrap gap-2" id="legend-chips">
       {data.Chart.legend.map((item, index) => <Button variant="ghost" key={`${item.name}:${index}`} type="button" className="legend-chip inline-flex max-w-full items-center gap-2 rounded-lg border px-3 py-1.5 text-sm hover:bg-muted" data-series-index={index} aria-pressed="true" title={t(lang, "graph.toggleSeries", item.name)}>
         <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: activityColor(item.color) }} /><span className="truncate">{item.name}</span>
       </Button>)}

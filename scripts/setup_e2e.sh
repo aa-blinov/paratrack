@@ -17,7 +17,7 @@ pip install --quiet playwright
 python -m playwright install chromium
 
 # UI source: build the Tailwind/DaisyUI bundle so the embedded
-# paratrack.css is fresh. Re-run `make ui` if you edit web/input.css.
+# UI bundle is fresh. Re-run `make ui` after changing web/src.
 if [ -d web ] && command -v npm >/dev/null 2>&1; then
   ( cd web && npm install --no-fund --no-audit )
   ( cd web && npm run build )

@@ -1,5 +1,10 @@
 import type { AccessDeniedData } from "@/access-denied/access-denied-page"
 import { requestConfirmation } from "@/components/confirmation-dialog"
+import { installOffline, startOffline } from "@/offline/controller"
+import { installConfirmForms } from "@/confirm-forms"
+import { MiniBar } from "@/offline/mini-bar"
+import { OfflineBanner } from "@/offline/offline-banner"
+import { ToastStack } from "@/offline/toast"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import { createElement, lazy as reactLazy, StrictMode, Suspense, startTransition, useLayoutEffect, useEffect, useMemo, useRef, useState, type ComponentType, type ComponentProps } from "react"
@@ -110,7 +115,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       const body = new URLSearchParams({ csrf_token: data.CSRFToken, ...fields })
       const response = await fetch(url, {
         method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken, "HX-Request": "true" },
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
         body,
       })
       if (!response.ok) throw new Error(await messageFrom(response))
@@ -470,11 +475,6 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
     document.documentElement.lang = route.bootstrap.shell.lang
     document.title = route.title
     Object.assign(document.body.dataset, route.translations)
-    const minibar = document.getElementById("minibar")
-    if (minibar) {
-      minibar.setAttribute("aria-label", t(route.bootstrap.shell.lang, "dash.activeSessions"))
-      document.body.dispatchEvent(new Event("sessions-changed"))
-    }
     document.dispatchEvent(new Event("paratrack:languagechange"))
   }, [route.bootstrap.shell.lang, route.title, route.translations])
   const request = useRef<AbortController | null>(null)
@@ -574,9 +574,14 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
     if (route.focusMain && !route.restoreFocus) document.getElementById("main")?.focus({ preventScroll: true })
   }, [route.focusMain, route.key, route.restoreFocus])
 
-  return <ApplicationShell shell={route.bootstrap.shell}><PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} /></ApplicationShell>
+  const { shell } = route.bootstrap
+  return <ApplicationShell shell={shell}><PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} /><OfflineBanner lang={shell.lang} /><ToastStack />{shell.user && shell.active !== "dashboard" && <MiniBar lang={shell.lang} />}</ApplicationShell>
 }
 
+// The offline layer wraps fetch before any page request goes out.
+installOffline()
+startOffline()
+installConfirmForms()
 if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap

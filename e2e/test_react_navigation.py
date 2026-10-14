@@ -31,7 +31,7 @@ def document(path, lang="ru"):
     return f'''<!doctype html><html lang="{lang}" data-theme="paratrack-light"><head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{shell['title']}</title><link rel="stylesheet" href="/static/css/paratrack.css">
+    <title>{shell['title']}</title>
     <link rel="stylesheet" href="/static/ui/app.css">
     <script type="module" blocking="render" src="/static/ui/app.js"></script></head><body data-i18n-undo="{'Undo' if lang == 'en' else 'Отменить'}">
     <div id="react-page-data" hidden>{payload}</div><div id="paratrack-react-root"><div class="app-boot"><h1>Загрузка…</h1></div></div>

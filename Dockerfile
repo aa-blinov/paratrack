@@ -1,28 +1,22 @@
 # paratrack: everything builds inside Docker, the host needs nothing but
-# docker compose. Stages: CSS (Tailwind) -> tests + static Go binary ->
-# a small runtime image.
+# docker compose. Stages: the React UI (Tailwind + Vite) -> tests + static Go
+# binary -> a small runtime image.
 
 FROM node:22-alpine AS css
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
-COPY web/input.css ./
 COPY web/vite.config.ts web/tsconfig.json web/components.json ./
 COPY web/scripts ./scripts
 COPY web/src ./src
-# Tailwind scans these for class names (@source in input.css).
-COPY internal/web/templates ../internal/web/templates
-COPY internal/web/static/js/app.js ../internal/web/static/js/app.js
 COPY internal/i18n/dict ../internal/i18n/dict
-RUN npx tailwindcss -i ./input.css -o /out/paratrack.css --minify \
- && npm run build:react
+RUN npm run build:react
 
 FROM golang:1.27-alpine AS build
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-COPY --from=css /out/paratrack.css internal/web/static/css/paratrack.css
 COPY --from=css /src/internal/web/static/ui internal/web/static/ui
 ENV CGO_ENABLED=0
 # A red test suite never becomes an image. Tests need a Postgres: a

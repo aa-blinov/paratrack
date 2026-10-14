@@ -11,7 +11,6 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 		mux.Handle(method+" "+path, apiAuth(h))
 	}
 
-	api("GET", "/api/minibar", s.mine(s.handleMiniBar))
 	api("GET", "/api/active", s.mine(s.handleAPIActive))
 	api("GET", "/api/dashboard", s.mine(s.handleAPIDashboard))
 	api("GET", "/api/reports.csv", s.handleCSV)

@@ -92,23 +92,6 @@ func TestDashboardBootstrapsReactFromEmbeddedAssets(t *testing.T) {
 	if pageBootstrap.Shell.User.Email == "" || pageBootstrap.Shell.Lang != "ru" || len(pageBootstrap.Shell.Tabs) != 4 {
 		t.Fatalf("dashboard React shell bootstrap is incomplete: %#v", pageBootstrap.Shell)
 	}
-	const importMapOpen = `<script type="importmap">`
-	const importMapClose = `</script>`
-	start := strings.Index(page.Body.String(), importMapOpen)
-	if start < 0 {
-		t.Fatal("dashboard HTML is missing the frontend import map")
-	}
-	start += len(importMapOpen)
-	end := strings.Index(page.Body.String()[start:], importMapClose)
-	if end < 0 {
-		t.Fatal("dashboard HTML has an unterminated frontend import map")
-	}
-	var importMap map[string]map[string]string
-	if err := json.Unmarshal([]byte(page.Body.String()[start:start+end]), &importMap); err != nil {
-		snippet := page.Body.String()[start : start+min(end, 100)]
-		t.Fatalf("dashboard frontend import map is invalid JSON: %v; starts with %q", err, snippet)
-	}
-
 	data := request("/api/dashboard")
 	if data.Code != http.StatusOK || !strings.Contains(data.Body.String(), `"data"`) {
 		t.Fatalf("GET /api/dashboard status=%d body=%q", data.Code, data.Body.String())

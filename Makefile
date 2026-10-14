@@ -72,7 +72,6 @@ verify:
 	$(GO) run $(GOVULNCHECK) $(GO_PACKAGES)
 	$(GO) build $(GO_PACKAGES)
 	scripts/check-architecture.sh
-	cd web && $(NPM) run check:js
 
 # staticcheck is out of `verify` until it can read the export data Go
 # 1.27.2 writes: v0.8.1 (the newest release, and @master too) fails with

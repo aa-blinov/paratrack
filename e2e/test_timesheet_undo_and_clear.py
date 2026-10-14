@@ -37,7 +37,7 @@ def timesheet_document(minutes=45):
     return f'''<!doctype html><html lang="ru" data-theme="paratrack-light"><head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>Табель</title><link rel="stylesheet" href="/static/css/paratrack.css">
+    <title>Табель</title>
     <link rel="stylesheet" href="/static/ui/app.css">
     <script type="module" blocking="render" src="/static/ui/app.js"></script></head><body data-i18n-undo="Отменить">
     <div id="react-page-data" hidden>{json.dumps(boot, ensure_ascii=False)}</div>

@@ -198,35 +198,23 @@ async def check_one_touch_floor_everywhere(browser):
     pass on a page that simply has no bar and prove nothing."""
     context, page, errors = await open_phone(browser, '/timesheet')
     await page.locator('#main h1').wait_for()
-    await page.wait_for_timeout(500)
-    await page.evaluate("""() => {
-      const bar = document.createElement('aside');
-      bar.id = 'minibar';
-      bar.className = 'minibar';
-      bar.innerHTML = `
-        <div class="minibar-card">
-          <a href="/" class="minibar-main" aria-label="Обзор">
-            <span class="minibar-dot is-live" style="background-color: #16a34a"></span>
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">Правка макета</span>
-              <span class="block text-sm opacity-70 font-mono">00:06:48</span>
-            </span>
-          </a>
-          <button class="btn btn-ghost btn-circle" aria-label="Пауза"></button>
-          <button class="btn btn-stop btn-circle" aria-label="Стоп"></button>
-        </div>`;
-      document.body.appendChild(bar);
-    }""")
-    await page.wait_for_timeout(300)
+    # The running timer comes from the live list; the React bar polls it on
+    # every sync, so the list is answered here and the bar re-reads it.
+    await page.route('**/api/active', lambda route: route.fulfill(
+        content_type='application/json',
+        body=json.dumps({'Items': [{'ID': 7, 'ActivityName': 'Правка макета', 'ProjectName': '', 'Color': '#16a34a',
+                                    'ProjectColor': '', 'Paused': False, 'Clock': '00:06:48'}]})))
+    await page.evaluate("window.dispatchEvent(new Event('paratrack:synced'))")
+    await page.locator('aside button[aria-label="Пауза"]').wait_for()
     measured = await page.evaluate("""() => {
       const out = [];
-      for (const el of document.querySelectorAll('#minibar button')) {
+      for (const el of document.querySelectorAll('aside button')) {
         const r = el.getBoundingClientRect();
         out.push({label: el.getAttribute('aria-label'), w: Math.round(r.width), h: Math.round(r.height)});
       }
       return out;
     }""")
-    assert len(measured) == 2, f'the injected bar rendered its two controls — {measured}'
+    assert len(measured) == 2, f'the running-timer bar rendered its two controls — {measured}'
     for control in measured:
         assert max(control['w'], control['h']) >= TOUCH, \
             f'the timer bar control «{control["label"]}» is {control["w"]}×{control["h"]}px, under Material\'s {TOUCH}dp'

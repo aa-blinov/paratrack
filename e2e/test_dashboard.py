@@ -310,13 +310,13 @@ def main() -> int:
               and 'paratrack.csv' in page.locator('#main').inner_text()
               and page.locator("#main h1").inner_text() == "Export"
               and page.evaluate("window.__paratrackMobileNavigationProbe") == mobile_navigation_probe)
-        page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Saved', 'success', 10000))")
-        check("success toast is readable without a decorative check",
-              page.locator('#toast .toast-note').inner_text() == 'Saved'
-              and page.locator('#toast .toast-note svg').count() == 0)
-        page.evaluate("import('/static/js/app-toast.js').then(m => m.paratrackToast('Failed', 'error', 10000))")
-        check("error toast retains its distinct icon",
-              page.locator('#toast .toast-note[role="alert"] svg use[href$="#i-x"]').count() == 1)
+        # Confirmations come from the server's X-Toast header; the React layer shows them.
+        page.evaluate("window.dispatchEvent(new CustomEvent('paratrack:toast', {detail: {message: 'Saved', kind: 'success'}}))")
+        check("success toast is readable",
+              page.locator('[role="status"] [data-toast="success"]').inner_text() == 'Saved')
+        page.evaluate("window.dispatchEvent(new CustomEvent('paratrack:toast', {detail: {message: 'Failed', kind: 'error'}}))")
+        check("error toast is shown as an error",
+              page.locator('[role="status"] [data-toast="error"]').inner_text() == 'Failed')
         # The mobile sheet is a Radix dialog: while it is open it takes pointer
         # events away from the page behind it. The rest of this run drives the
         # dashboard directly, so wait for that overlay to be released.

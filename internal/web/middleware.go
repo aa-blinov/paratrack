@@ -333,11 +333,11 @@ func (s *Server) manage(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		msg := i18n.T(resolveLang(r), "err.managersOnly")
-		if strings.HasPrefix(r.URL.Path, "/api/") && r.Header.Get("HX-Request") == "" {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
 			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: msg})
 			return
 		}
-		if r.Method == http.MethodGet && r.Header.Get("HX-Request") == "" {
+		if r.Method == http.MethodGet {
 			s.renderAccessDenied(w, r)
 			return
 		}
