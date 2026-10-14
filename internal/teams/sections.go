@@ -8,13 +8,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-func IsKnownSection(key string) bool { return appmodel.IsKnownSection(key) }
-
-// EncodeSections returns the canonical persisted form. Empty storage remains
-// the legacy all-enabled default; "none" represents an explicit all-disabled
-// selection.
-func EncodeSections(selected map[string]bool) string { return appmodel.EncodeSections(selected) }
-
 func DecodeSections(stored string) map[string]bool { return appmodel.DecodeSections(stored) }
 
 func (s *Service) SectionModules(ctx context.Context, teamID int64) (map[string]bool, error) {

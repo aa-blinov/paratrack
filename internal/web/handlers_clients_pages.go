@@ -362,13 +362,6 @@ func (s *Server) clientFlashError(err error, lang i18n.Lang) string {
 	}
 }
 
-func moneyOrDash(lang i18n.Lang, cents int, currency string) string {
-	if cents <= 0 {
-		return "—"
-	}
-	return moneyL(lang, cents, currency)
-}
-
 // buildProjectExtras assembles the client link and the budget read for the
 // project detail screen.
 //
