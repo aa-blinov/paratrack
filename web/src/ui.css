@@ -1035,7 +1035,7 @@ body {
    on the shell was ink-black in the light theme (the preflight that would have
    reset it is not loaded). The hairline is the default; a class that names a
    colour still wins, since it is more specific than the universal selector. */
-#paratrack-react-root *,
-#paratrack-react-root ::before,
-#paratrack-react-root ::after { border-color: var(--border); }
+:where(#paratrack-react-root) *,
+:where(#paratrack-react-root) *::before,
+:where(#paratrack-react-root) *::after { border-color: var(--border); }
 
