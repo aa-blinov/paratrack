@@ -1166,10 +1166,13 @@ def main() -> int:
                 if items.count() < 2:
                     check(f"{name} layout has two blocks at {width}px", False)
                     continue
-                first, second = items.nth(0).bounding_box(), items.nth(1).bounding_box()
-                same_row = abs(first["y"] - second["y"]) < 2
+                # Two columns means some block sits beside the first one,
+                # whatever the reading order: help flows as masonry, so its
+                # second block can sit under the first in the left column.
+                boxes = [items.nth(i).bounding_box() for i in range(items.count())]
+                two_columns = any(abs(box["x"] - boxes[0]["x"]) > 2 for box in boxes)
                 check(f"{name} uses {'two columns' if width == 1024 else 'one column'} at {width}px",
-                      same_row == (width == 1024)
+                      two_columns == (width == 1024)
                       and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
 
         # Invalid manual time must not discard the rest of the form.
