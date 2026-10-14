@@ -28,5 +28,5 @@ func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 		HelpReact: true,
 		CanManage: canManage(r),
 	}
-	s.renderPageForRequest(w, r, "Help", "help", "help", &data)
+	s.renderPageForRequest(w, r, "Help", "help", &data)
 }

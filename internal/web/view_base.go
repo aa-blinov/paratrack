@@ -10,7 +10,7 @@ import (
 )
 
 // pageData is the common envelope every HTML page needs: title for the
-// <title> tag, the nav-highlight flag, and a pre-rendered ContentHTML
+// <title> tag, the nav-highlight flag, and a pre-rendered content
 // fragment that base.html drops into the layout.
 //
 // Why pre-rendered: Go html/template does not allow `{{template .X .}}`
@@ -20,7 +20,6 @@ type pageData struct {
 	AppVersion    string // stamped at build time, shown in the footer
 	Title         string
 	Active        string
-	ContentHTML   template.HTML
 	User          *userView       // nil for /login, /register
 	Team          *teamView       // current team (personal or shared)
 	UserTeams     []teamsView     // every team the user belongs to (workspace switcher)

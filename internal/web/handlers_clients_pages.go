@@ -145,7 +145,7 @@ func (s *Server) handleClientsList(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, lang)
 	}
-	s.renderPageForRequest(w, r, "Clients", "clients", "clients", &data)
+	s.renderPageForRequest(w, r, "Clients", "clients", &data)
 }
 
 // clientRollup accumulates per-project figures for one client.
@@ -619,7 +619,7 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, lang)
 	}
-	s.renderPageForRequest(w, r, card.Name, "clients", "clients", &data)
+	s.renderPageForRequest(w, r, card.Name, "clients", &data)
 }
 
 // currencySourceLabel names the rule that produced a document's currency.

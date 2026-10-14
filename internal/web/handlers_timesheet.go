@@ -172,7 +172,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		Added:           added,
 		DateISO:         weekStart.Format("2006-01-02"),
 	}
-	s.renderPageForRequest(w, r, "Timesheet", "timesheet", "timesheet", &data)
+	s.renderPageForRequest(w, r, "Timesheet", "timesheet", &data)
 }
 
 // handleTimesheetCell writes one grid cell. Form:

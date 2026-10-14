@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -32,18 +33,10 @@ type reactPageCarrier interface {
 	usesReactApp() bool
 }
 
-// renderPage is the canonical two-step page renderer:
-//  1. Execute the page-specific content template into a buffer.
-//  2. Wrap the result in the base.html layout, with the buffer as
-//     ContentHTML (template.HTML keeps the renderer from re-escaping).
-//
-// The same data struct is passed to both renders so per-page fields
-// like .Period, .Sessions etc. are still in scope when the content
-// block runs.
 // renderPage renders a public (pre-auth) page and injects request-scoped CSRF
 // and language values through the page model's required contract.
-func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, active, contentTpl string, data pageTemplateData) {
-	s.renderPageStatus(w, r, http.StatusOK, title, active, contentTpl, data, false)
+func (s *Server) renderPage(w http.ResponseWriter, r *http.Request, title, active string, data pageTemplateData) {
+	s.renderPageStatus(w, r, http.StatusOK, title, active, data, false)
 }
 
 // pageTitle translates a handler's English page title ("Dashboard")
@@ -60,18 +53,18 @@ func pageTitle(lang i18n.Lang, title string) string {
 // authenticated User and current Team out of r.Context() and puts
 // them in the wrapper so base.html can render the user menu and the
 // current-team switcher. Handlers wrapped by RequireAuth call this.
-func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, title, active, contentTpl string, data pageTemplateData) {
-	s.renderPageForRequestStatus(w, r, http.StatusOK, title, active, contentTpl, data)
+func (s *Server) renderPageForRequest(w http.ResponseWriter, r *http.Request, title, active string, data pageTemplateData) {
+	s.renderPageForRequestStatus(w, r, http.StatusOK, title, active, data)
 }
 
-func (s *Server) renderPageForRequestStatus(w http.ResponseWriter, r *http.Request, status int, title, active, contentTpl string, data pageTemplateData) {
-	s.renderPageStatus(w, r, status, title, active, contentTpl, data, true)
+func (s *Server) renderPageForRequestStatus(w http.ResponseWriter, r *http.Request, status int, title, active string, data pageTemplateData) {
+	s.renderPageStatus(w, r, status, title, active, data, true)
 }
 
 // renderPageStatus shares template preparation and layout execution across
 // public and authenticated pages. Authenticated pages add request-scoped
 // navigation and preference data to the common wrapper.
-func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status int, title, active, contentTpl string, data pageTemplateData, authenticated bool) {
+func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status int, title, active string, data pageTemplateData, authenticated bool) {
 	token := ensureCSRF(w, r)
 	lang := resolveLang(r)
 	data.setCSRF(token)
@@ -95,14 +88,11 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 	}
 	carrier, isReactPage := data.(reactPageCarrier)
 	useReact := isReactPage && carrier.usesReactApp()
-	var content []byte
 	if !useReact {
-		var err error
-		content, err = s.executeTemplate(contentTpl, data)
-		if err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
+		// Every page is a React screen now. A page without one must fail loudly here,
+		// not fall through to the dashboard the React entry shows by default.
+		s.writeInternalError(w, fmt.Errorf("page %q has no React screen", title))
+		return
 	}
 	wrapper := pageData{
 		AppVersion:  s.appVersion,
@@ -110,7 +100,6 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 		Mods:        mods,
 		Title:       pageTitle(lang, title),
 		Active:      active,
-		ContentHTML: template.HTML(content),
 		RequestPath: r.URL.Path,
 		CSRFToken:   token,
 		Lang:        string(lang),
@@ -219,13 +208,13 @@ func teamID(r *http.Request) int64 {
 // signature; it derives title/active from the view-model and pulls the
 // authenticated User + Team out of r.Context() so the base layout can
 // render the user menu and workspace switcher.
-func (s *Server) render(w http.ResponseWriter, r *http.Request, contentTpl string, data pageTemplateData) {
+func (s *Server) render(w http.ResponseWriter, r *http.Request, data pageTemplateData) {
 	title := ""
 	active := ""
 	if pm, ok := data.(pageMeta); ok {
 		title, active = pm.pageInfo()
 	}
-	s.renderPageForRequest(w, r, title, active, contentTpl, data)
+	s.renderPageForRequest(w, r, title, active, data)
 }
 
 // toastL is toast() with a dictionary key + optional detail, resolved

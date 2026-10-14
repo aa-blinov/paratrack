@@ -36,7 +36,7 @@ func (s *Server) handleGoals(w http.ResponseWriter, r *http.Request) {
 	}
 	data.ReactApp = true
 	data.GoalsReact = true
-	s.renderPageForRequest(w, r, data.Title, data.Active, "goals-content", &data)
+	s.renderPageForRequest(w, r, data.Title, data.Active, &data)
 }
 
 type goalsPageData struct {

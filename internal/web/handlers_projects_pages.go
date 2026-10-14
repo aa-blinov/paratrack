@@ -101,7 +101,7 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Projects", "projects", "projects", &data)
+	s.renderPageForRequest(w, r, "Projects", "projects", &data)
 }
 
 // handleProjectDetail — GET /projects/{slug}
@@ -135,7 +135,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, data.Title, "projects", "project-detail", &data)
+	s.renderPageForRequest(w, r, data.Title, "projects", &data)
 }
 
 // projectNewPage is the create form envelope. T() exposes i18n.
@@ -178,7 +178,7 @@ func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	s.renderPageForRequest(w, r, "New project", "projects", "project-new", &data)
+	s.renderPageForRequest(w, r, "New project", "projects", &data)
 }
 
 // suggestedProjectColor — the first palette colour no project in this team
