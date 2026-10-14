@@ -1039,3 +1039,16 @@ body {
 :where(#paratrack-react-root) *::before,
 :where(#paratrack-react-root) *::after { border-color: var(--border); }
 
+/* Material 3 specs the shell still had at its own sizes, on the phone only:
+   outlined text fields are 56dp (compact table cells keep their size: they are
+   not text fields), assist and filter chips are 32dp with an 8dp corner and a
+   48dp hit area, and the timer button is a FAB with the 16dp corner, not a circle. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-slot="input"]:not(:is(td, th) *) { height: 56px; }
+  #paratrack-react-root [data-chip][data-slot="button"],
+  #paratrack-react-root [data-touch-chip] { position: relative; height: 32px; min-height: 32px; border-radius: 8px; }
+  #paratrack-react-root [data-chip][data-slot="button"]::after,
+  #paratrack-react-root [data-touch-chip]::after { inset: -8px; }
+  #paratrack-react-root .mobile-nav-fab { border-radius: 16px; }
+}
+
