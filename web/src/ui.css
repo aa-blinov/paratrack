@@ -1004,3 +1004,30 @@ body {
   #paratrack-react-root .mobile-nav-item-active::before { width: 4rem; }
 }
 
+/* Material 3 colour and type on the phone shell. The desktop keeps its neutral
+   ledger; the phone takes the M3 roles so the two read as one design system.
+   Primary is the brand violet (the M3 baseline primary), its ink is white on
+   light and a pale violet on dark. Cards are tonal surfaces, not rings.
+   Type uses the M3 baseline scale, with Inter at the same sizes. */
+@media (max-width: 1023px) {
+  #paratrack-react-root {
+    --primary: var(--brand);
+    --primary-foreground: oklch(0.99 0 0);
+    --card: oklch(0.955 0.012 85);
+    --card-foreground: oklch(0.17 0.008 75);
+  }
+  [data-theme="paratrack-dark"] #paratrack-react-root {
+    --primary: oklch(0.82 0.11 284);
+    --primary-foreground: oklch(0.25 0.08 284);
+    --card: oklch(0.24 0.01 284);
+    --card-foreground: oklch(0.985 0 0);
+  }
+  /* M3 type roles: headline small 24/32, title medium 16/24 medium,
+     label large 14/20 medium, label medium 12/16 medium. */
+  #paratrack-react-root h1 { font-size: 1.5rem; line-height: 2rem; font-weight: 500; letter-spacing: 0; }
+  #paratrack-react-root [data-slot="card-title"] { font-size: 1rem; line-height: 1.5rem; font-weight: 500; }
+  #paratrack-react-root [data-slot="button"] { font-size: .875rem; line-height: 1.25rem; font-weight: 500; }
+  #paratrack-react-root .mobile-nav-item span { font-size: .75rem; line-height: 1rem; font-weight: 500; }
+  #paratrack-react-root [data-slot="card"] { box-shadow: none; --tw-ring-color: transparent; }
+}
+
