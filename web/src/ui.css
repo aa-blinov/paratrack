@@ -1031,3 +1031,11 @@ body {
   #paratrack-react-root [data-slot="card"] { box-shadow: none; --tw-ring-color: transparent; }
 }
 
+/* A border with no colour class took the text colour, so every plain `border`
+   on the shell was ink-black in the light theme (the preflight that would have
+   reset it is not loaded). The hairline is the default; a class that names a
+   colour still wins, since it is more specific than the universal selector. */
+#paratrack-react-root *,
+#paratrack-react-root ::before,
+#paratrack-react-root ::after { border-color: var(--border); }
+
