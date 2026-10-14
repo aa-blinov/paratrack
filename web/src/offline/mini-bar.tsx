@@ -3,6 +3,7 @@ import { Pause, Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { translate as t } from "@/i18n"
 import { scheduleBadge, subscribeOffline } from "./controller"
+import { ColorMark } from "@/components/color-mark"
 
 type RunningItem = {
   ID: number
@@ -62,7 +63,7 @@ export function MiniBar({ lang }: { lang: string }) {
   return <aside aria-label={t(lang, "dash.activeSessions")} className="fixed inset-x-0 bottom-16 z-20 border-t border-border bg-background px-3 py-2 lg:hidden">
     <div className="flex items-center gap-2">
       <a href="/" className="flex min-w-0 flex-1 items-center gap-2" aria-label={t(lang, "nav.dashboard")}>
-        <span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: current.Color || current.ProjectColor }} />
+        <ColorMark color={current.Color || current.ProjectColor} />
         <span className="min-w-0 flex-1 truncate font-medium">{current.ActivityName}</span>
         {current.ProjectName && <span className="truncate text-xs text-muted-foreground">{current.ProjectName}</span>}
         <span className="shrink-0 font-mono text-sm tabular-nums">{current.Clock}</span>
