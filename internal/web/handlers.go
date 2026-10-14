@@ -24,13 +24,27 @@ type pageTemplateData interface {
 	setLang(string)
 }
 
+type reactPageCarrier interface {
+	usesReactApp() bool
+}
+
 type fragmentTemplateData interface {
 	templateData
 	isFragmentTemplateData()
 }
 
-type reactPageCarrier interface {
-	usesReactApp() bool
+// renderFragment renders a self-contained template (not wrapped in base) for
+// an htmx swap. The phone mini bar is the only one left.
+func (s *Server) renderFragment(w http.ResponseWriter, name string, data fragmentTemplateData) {
+	fragment, err := s.executeTemplate(name, data)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if _, err := w.Write(fragment); err != nil {
+		s.logger.Printf("web: write rendered fragment %q: %v", name, err)
+	}
 }
 
 // renderPage renders a public (pre-auth) page and injects request-scoped CSRF
@@ -173,24 +187,6 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 	w.WriteHeader(status)
 	if _, err := w.Write(page); err != nil {
 		s.logger.Printf("web: write rendered page: %v", err)
-	}
-}
-
-// renderFragment renders a self-contained template (not wrapped in base).
-// Used for HTMX swap targets like active-list and session-row.
-func (s *Server) renderFragment(w http.ResponseWriter, name string, data fragmentTemplateData) {
-	fragment, err := s.executeTemplate(name, data)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if name == "active-list" {
-		// Every timer action lands here; the "Today" card listens and refreshes.
-		w.Header().Set("HX-Trigger", "sessions-changed")
-	}
-	if _, err := w.Write(fragment); err != nil {
-		s.logger.Printf("web: write rendered fragment %q: %v", name, err)
 	}
 }
 

@@ -10,6 +10,7 @@ import { translate as t } from "@/i18n"
 import type { TimesheetData, TimesheetRow } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { SegmentedControl } from "@/components/segmented"
+import { responseMessage } from "@/lib/response-message"
 
 type CellResponse = {
   activityId: number; activityName: string; color: string
@@ -101,7 +102,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken,
         }, body,
       })
-      if (!response.ok) throw new Error((await response.text()).replace(/<[^>]*>/g, " ").trim() || response.statusText)
+      if (!response.ok) throw new Error(await responseMessage(response))
       const update = await response.json() as CellResponse
       if (update.error) throw new Error(update.error)
       applyRow(update)
@@ -165,7 +166,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken,
         }, body,
       })
-      if (!response.ok) throw new Error((await response.text()).replace(/<[^>]*>/g, " ").trim() || response.statusText)
+      if (!response.ok) throw new Error(await responseMessage(response))
       const update = await response.json() as CellResponse
       if (update.error) throw new Error(update.error)
       applyRow(update)

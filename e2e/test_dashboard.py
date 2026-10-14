@@ -163,9 +163,9 @@ def main() -> int:
         # /api/stop without arg requires interactive multi-select, so use
         # the stop-on-each-active trick: list via /api/active, then POST
         # stop for each id.
-        active_html = page.request.get(BASE + "/api/active").text()
+        active_json = page.request.get(BASE + "/api/active").text()
         import re as _re
-        for sid in _re.findall(r"/api/sessions/(\d+)/(?:stop|pause|resume)", active_html):
+        for sid in _re.findall(r'"ID": (\d+)', active_json):
             api(page, 'post', BASE + f"/api/sessions/{sid}/stop")
         page.goto(BASE + "/")
         expect(page.locator("h1")).to_have_text("Dashboard")
@@ -421,8 +421,8 @@ def main() -> int:
         # clipSeconds() would drop a 0-second row — give each session a
         # 10-minute duration via PATCH so it shows up.
         import re as _seed_re
-        active_html = page.request.get(BASE + "/api/active").text()
-        for sid in _seed_re.findall(r"/api/sessions/(\d+)/(?:stop|pause|resume)", active_html):
+        active_json = page.request.get(BASE + "/api/active").text()
+        for sid in _seed_re.findall(r'"ID": (\d+)', active_json):
             api(page, 'post', BASE + f"/api/sessions/{sid}/stop")
             api(page, 'patch', 
                 BASE + f"/api/sessions/{sid}",
@@ -640,7 +640,7 @@ def main() -> int:
         with page.expect_response("**/api/start") as start_resp_info:
             page.click('button[type="submit"]:has-text("Start")')
         start_resp = start_resp_info.value
-        check("start POST 200", start_resp.status == 200, f"status={start_resp.status}")
+        check("start POST 204", start_resp.status == 204, f"status={start_resp.status}")
         # Wait for the new session row to land in the active-list fragment.
         page.wait_for_selector(f'#active-list:has-text("{activity_name}")', timeout=3000)
         check("dashboard shows new active session", True)
@@ -1204,7 +1204,7 @@ def main() -> int:
         created = api(page, 'post', BASE + '/api/sessions/backfill', form={
             'activity': long_activity, 'start': 'yesterday 09:00', 'end': 'yesterday 10:00',
         })
-        check("long activity is saved", created.status == 200)
+        check("long activity is saved", created.status == 204)
         page.goto(BASE + "/stats?period=yesterday")
         expect(page.locator("#main h1")).to_have_text("Stats")
         check("long activity appears in both stats sections",
@@ -1212,7 +1212,7 @@ def main() -> int:
         recent_backfill = api(page, 'post', BASE + '/api/sessions/backfill', form={
             'activity': long_activity, 'start': '1 minute ago', 'end': 'now',
         })
-        check("long activity is recent enough for the dashboard list", recent_backfill.status == 200)
+        check("long activity is recent enough for the dashboard list", recent_backfill.status == 204)
         page.set_viewport_size({"width": 320, "height": 844})
         page.goto(BASE + "/")
         expect(page.locator("#main h1")).to_be_visible()
@@ -1378,7 +1378,7 @@ def main() -> int:
         with page.expect_response(lambda response: response.url.endswith('/api/active/pause-all')) as pause:
             page.keyboard.press("p")
         check("p pauses timers from stats without leaving the page",
-              pause.value.status == 200 and page.url.endswith('/stats')
+              pause.value.status == 204 and page.url.endswith('/stats')
               and 'e2e-pause-shortcut' in page.request.get(BASE + '/api/active').text())
 
         # A rejected start must not discard what the person typed.

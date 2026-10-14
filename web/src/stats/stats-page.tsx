@@ -13,6 +13,7 @@ import type { Session, StatsData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { DateTimeField } from "@/components/date-field"
 import { SegmentedControl } from "@/components/segmented"
+import { responseMessage } from "@/lib/response-message"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"]
 
@@ -32,11 +33,7 @@ function queryFor(data: StatsData, period = data.Period.Label, project = data.Pr
 
 async function send(url: string, method: string, body: URLSearchParams | undefined, csrf: string, htmx = false) {
   const response = await fetch(url, { method, credentials: "same-origin", body, headers: { "X-CSRF-Token": csrf, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}), ...(htmx ? { "HX-Request": "true" } : {}) } })
-  if (!response.ok) {
-    const text = await response.text()
-    const message = new DOMParser().parseFromString(text, "text/html").body.textContent?.trim()
-    throw new Error(message || response.statusText)
-  }
+  if (!response.ok) throw new Error(await responseMessage(response))
 }
 
 function EditableSession({ data, session, onRemove }: { data: StatsData; session: Session; onRemove: (id: number) => void }) {

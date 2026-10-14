@@ -32,7 +32,7 @@ func (s *Server) handleTagsList(w http.ResponseWriter, r *http.Request) {
 
 // handleTagsCreate adds a tag (or returns the existing one if the
 // name is already taken). JSON body: {"name": "..."}.
-// HTMX callers get the `tags-list` fragment back so the page list
+// The page list is read from the JSON endpoint, so the response is JSON only
 // refreshes in place; plain requests keep the JSON shape.
 func (s *Server) handleTagsCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -50,10 +50,6 @@ func (s *Server) handleTagsCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.tagReady", t.Name, "success")
-	if isHTMX(r) {
-		s.respondTagsList(w, r)
-		return
-	}
 	s.writeJSON(w, tagFor(t))
 }
 
@@ -74,10 +70,6 @@ func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.tagDeleted", "", "success")
-	if isHTMX(r) {
-		s.respondTagsList(w, r)
-		return
-	}
 	w.WriteHeader(200)
 }
 
@@ -105,33 +97,11 @@ func (s *Server) handleTagsRename(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.tagRenamed", t.Name, "success")
-	if isHTMX(r) {
-		s.respondTagsList(w, r)
-		return
-	}
 	s.writeJSON(w, tagFor(t))
 }
 
-// respondTagsList renders the `tags-list` fragment for HTMX swaps.
-func (s *Server) respondTagsList(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	views := make([]tagWithCount, 0, len(tags))
-	for _, t := range tags {
-		views = append(views, tagWithCount{
-			tagChip:      tagChip{ID: t.ID, Name: t.Name},
-			SessionCount: t.SessionCount,
-			Lang:         string(resolveLang(r)),
-		})
-	}
-	s.renderFragment(w, "tags-list", tagsListVM{Lang: string(resolveLang(r)), Tags: views, CanManage: canManage(r)})
-}
-
 // handleSessionTagAdd attaches a tag (auto-created if new) to a session.
-// Body: name=...  HTMX swaps the response into the session row.
+// Body: name=...  The stats page reloads once it succeeds, so there is no body.
 func (s *Server) handleSessionTagAdd(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
@@ -152,7 +122,7 @@ func (s *Server) handleSessionTagAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.tagged", name, "success")
-	s.respondSessionRow(w, r, id)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // handleSessionTagRemove detaches a tag from a session. Query: ?name=...
@@ -172,7 +142,7 @@ func (s *Server) handleSessionTagRemove(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.toastL(w, r, "toast.untagged", name, "success")
-	s.respondSessionRow(w, r, id)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) writeTagSessionError(w http.ResponseWriter, err error) {
@@ -215,36 +185,6 @@ func (s *Server) writeTagRenameError(w http.ResponseWriter, r *http.Request, err
 	}
 }
 
-// respondSessionRow re-renders one stats table row (tags + project
-// badge included) so HTMX outerHTML swaps keep the row intact.
-func (s *Server) respondSessionRow(w http.ResponseWriter, r *http.Request, id int64) {
-	ctx := r.Context()
-	snapshot, err := s.services.SessionDecorations.BuildRow(ctx, appmodel.SessionLookupQuery{TeamID: teamID(r), SessionID: id})
-	if err != nil {
-		if errors.Is(err, model.ErrNotFound) {
-			http.NotFound(w, r)
-			return
-		}
-		s.writeInternalError(w, err)
-		return
-	}
-	now := userNow(r)
-	period := s.parsePeriodAt(r, now)
-	views := []sessionView{toSessionView(snapshot.Session.Session, snapshot.Session.Activity, period.Start, period.End, now, resolveLang(r), durFmtOf(r))}
-	attachSessionTags(views, snapshot.Decorations.TagsBySession)
-	attachSessionProjects(views, snapshot.Decorations.ProjectsByID)
-	views[0].Lang = string(resolveLang(r))
-	fragment, err := s.executeTemplate("session-row", views[0])
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := w.Write(fragment); err != nil {
-		s.logger.Printf("web: write session row: %v", err)
-	}
-}
-
 // handleTagsPage serves /tags.
 func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
@@ -270,23 +210,4 @@ func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data.ReactApp = true
 	s.renderPageForRequest(w, r, data.Title, data.Active, data)
-}
-
-// handleTagsFragment returns the inner `tags-list` template so HTMX
-// can swap it without a full page reload.
-func (s *Server) handleTagsFragment(w http.ResponseWriter, r *http.Request) {
-	tags, err := s.services.Tagging.Queries.ListWithCounts(r.Context(), appmodel.TagListQuery{TeamID: teamID(r)})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	views := make([]tagWithCount, 0, len(tags))
-	for _, t := range tags {
-		views = append(views, tagWithCount{
-			tagChip:      tagChip{ID: t.ID, Name: t.Name},
-			SessionCount: t.SessionCount,
-			Lang:         string(resolveLang(r)),
-		})
-	}
-	s.renderFragment(w, "tags-list", tagsListVM{Lang: string(resolveLang(r)), Tags: views, CanManage: canManage(r)})
 }

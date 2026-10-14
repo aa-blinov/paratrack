@@ -40,8 +40,7 @@ type timesheetRow struct {
 	RowTotalLabel string
 }
 
-func (timesheetRow) isTemplateData()         {}
-func (timesheetRow) isFragmentTemplateData() {}
+func (timesheetRow) isTemplateData() {}
 
 type timesheetData struct {
 	pageData
@@ -62,10 +61,6 @@ type timesheetData struct {
 	Others          []activityView // big workspace: activities not on the sheet
 	Added           []int64        // rows added by hand this visit
 	DateISO         string
-}
-
-func wantsJSON(r *http.Request) bool {
-	return strings.Contains(r.Header.Get("Accept"), "application/json")
 }
 
 // handleTimesheet renders the weekly grid. ?date= any day inside the
@@ -243,36 +238,26 @@ func (s *Server) handleTimesheetRowClear(w http.ResponseWriter, r *http.Request)
 	s.respondTimesheetRow(w, r, actID, weekStart)
 }
 
-// respondTimesheetWriteError maps a failed grid write onto the transport the
-// caller used: JSON clients get a status or a message field, the legacy HTMX
-// form gets a toast plus the re-rendered row carrying the same message. Billed
-// time is reported as a refusal, not as a generic failure.
+// respondTimesheetWriteError maps a failed grid write onto a JSON status. Billed
+// time is reported as a refusal with the invoice number, not as a generic failure.
 func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Request, actID int64, day time.Time, err error) {
 	var lockErr *model.SessionInvoiceLockError
 	if errors.As(err, &lockErr) {
-		// Put the row back to what the invoice billed.
+		// Put the row back to what the invoice billed; the page shows why.
 		message := fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber)
-		if !wantsJSON(r) {
-			s.toast(w, message, "error")
-		}
 		s.respondTimesheetRow(w, r, actID, day, message)
 		return
 	}
-	if errors.Is(err, appmodel.ErrInvalidSessionEdit) {
-		if wantsJSON(r) {
-			http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
-			return
-		}
-		s.toastL(w, r, "err.invalidInput", "", "error")
-	} else {
-		if wantsJSON(r) {
-			s.writeInternalError(w, err)
-			return
-		}
-		s.logInternalError(err)
-		s.toastL(w, r, "err.internal", "", "error")
+	switch {
+	case errors.Is(err, appmodel.ErrInvalidSessionEdit):
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+	case errors.Is(err, model.ErrNotFound):
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "activity not found"})
+	case errors.Is(err, model.ErrForbidden):
+		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "workspace membership required"})
+	default:
+		s.writeInternalJSONError(w, err)
 	}
-	w.WriteHeader(200)
 }
 
 type timesheetCellJSON struct {
@@ -316,40 +301,23 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 		if rc.ActivityID != actID {
 			continue
 		}
-		row := timesheetRow{
-			ActivityID: rc.ActivityID, ActivityName: rc.ActivityName,
-			Color: activityColor(s.activityColors(r), rc.ActivityName), Secs: rc.Secs,
-			RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
+		response := timesheetRowJSON{
+			ActivityID: rc.ActivityID, ActivityName: rc.ActivityName, Color: activityColor(s.activityColors(r), rc.ActivityName),
+			Cells: make([]timesheetCellJSON, 0, 7), RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
+			DayTotals: make([]timesheetDayTotalJSON, 0, 7), GrandTotal: grid.GrandTotal, GrandTotalLabel: fmtDur(r, grid.GrandTotal),
 		}
 		for i := 0; i < 7; i++ {
 			d := weekStart.AddDate(0, 0, i)
-			row.Cells[i] = timesheetDay{
-				Index: i, ISO: d.Format("2006-01-02"),
-				Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i]),
-				IsToday: sameDay(d, now),
-			}
+			response.Cells = append(response.Cells, timesheetCellJSON{ISO: d.Format("2006-01-02"), Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i])})
+			response.DayTotals = append(response.DayTotals, timesheetDayTotalJSON{Secs: grid.DayTotals[i], Total: fmtDur(r, grid.DayTotals[i])})
 		}
-		if wantsJSON(r) {
-			response := timesheetRowJSON{
-				ActivityID: rc.ActivityID, ActivityName: rc.ActivityName, Color: activityColor(s.activityColors(r), rc.ActivityName),
-				Cells: make([]timesheetCellJSON, 0, 7), RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
-				DayTotals: make([]timesheetDayTotalJSON, 0, 7), GrandTotal: grid.GrandTotal, GrandTotalLabel: fmtDur(r, grid.GrandTotal),
-			}
-			for i := 0; i < 7; i++ {
-				d := weekStart.AddDate(0, 0, i)
-				response.Cells = append(response.Cells, timesheetCellJSON{ISO: d.Format("2006-01-02"), Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i])})
-				response.DayTotals = append(response.DayTotals, timesheetDayTotalJSON{Secs: grid.DayTotals[i], Total: fmtDur(r, grid.DayTotals[i])})
-			}
-			if len(failure) > 0 {
-				response.Error = failure[0]
-			}
-			s.writeJSON(w, response)
-			return
+		if len(failure) > 0 {
+			response.Error = failure[0]
 		}
-		s.renderFragment(w, "timesheet-row", row)
+		s.writeJSON(w, response)
 		return
 	}
-	// Activity vanished from the grid — render an empty row shell.
+	// The activity is no longer in the grid.
 	http.Error(w, "row not found", 404)
 }
 
