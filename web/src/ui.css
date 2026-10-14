@@ -954,3 +954,12 @@ body {
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
 }
+
+/* Phone touch floor. The DESIGN floor is 44px for a pressed control on a phone;
+   the small button sizes (28px and 32px) were under it. The desktop sizes stay. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-slot="button"] { min-height: 44px; }
+  #paratrack-react-root [data-slot="button"][class*="size-7"],
+  #paratrack-react-root [data-slot="button"][class*="size-8"] { min-width: 44px; }
+  #paratrack-react-root .app-shell-brand { min-height: 44px; display: inline-flex; align-items: center; }
+}
