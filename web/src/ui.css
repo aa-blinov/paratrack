@@ -689,7 +689,11 @@
    A floating start button on top of it covered that stop, so while something
    runs the floating button steps aside: the primary action is not starting
    another timer but ending this one. */
-body:has(#minibar:not(:empty)) #paratrack-react-root .mobile-nav-fab { display: none; }
+/* The timer button steps aside for the running-timer bar, and for any field being
+   typed in: both sit where the button would cover them. The bar's old id is gone,
+   so this selects the bar by its own attribute. */
+#paratrack-react-root:has([data-minibar]) .mobile-nav-fab,
+#paratrack-react-root:has(input:focus, textarea:focus, select:focus) .mobile-nav-fab { display: none; }
 
 /* ── The one action that starts the product ──────────────────────────
    Starting a timer is the first thing a person does here, all day, on
@@ -962,4 +966,10 @@ body {
   #paratrack-react-root [data-slot="button"][class*="size-7"],
   #paratrack-react-root [data-slot="button"][class*="size-8"] { min-width: 44px; }
   #paratrack-react-root .app-shell-brand { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* Text links inside a phone screen get a 44px hit area without moving the text:
+   the padding adds the height and the negative margin takes it back. */
+@media (max-width: 1023px) {
+  #paratrack-react-root main a:not([data-slot="button"]) { padding-block: 0.95rem; margin-block: -0.95rem; }
 }
