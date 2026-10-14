@@ -60,7 +60,7 @@ export function MiniBar({ lang }: { lang: string }) {
   const current = items[0]
   if (!current) return null
 
-  return <aside aria-label={t(lang, "dash.activeSessions")} className="fixed inset-x-0 bottom-16 z-20 border-t border-border bg-background px-3 py-2 lg:hidden">
+  return <aside data-minibar aria-label={t(lang, "dash.activeSessions")} className="fixed inset-x-0 bottom-16 z-20 border-t border-border bg-background px-3 py-2 lg:hidden">
     <div className="flex items-center gap-2">
       <a href="/" className="flex min-w-0 flex-1 items-center gap-2" aria-label={t(lang, "nav.dashboard")}>
         <ColorMark color={current.Color || current.ProjectColor} />
