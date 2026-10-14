@@ -66,18 +66,18 @@ func TestPWAAssets(t *testing.T) {
 		}
 		resp.Body.Close()
 	}
-	// The page loads app.js, which imports app-pwa.js where SW registration lives.
+	// The React bundle carries the manifest link and the service worker registration.
 	resp := e.do("GET", "/login", nil, nil)
 	page := readBody(t, resp)
 	if !strings.Contains(page, "manifest.webmanifest") {
 		t.Error("login missing manifest link")
 	}
-	if !strings.Contains(page, "app.js") {
-		t.Error("login missing app module")
+	if !strings.Contains(page, "ui/app.js") {
+		t.Error("login missing the React app module")
 	}
-	resp = e.do("GET", "/static/js/app-pwa.js", nil, nil)
-	pwa := readBody(t, resp)
-	if resp.StatusCode != 200 || !strings.Contains(pwa, "serviceWorker.register('/sw.js'") {
-		t.Error("PWA module missing service worker registration")
+	resp = e.do("GET", "/static/ui/app.js", nil, nil)
+	bundle := readBody(t, resp)
+	if resp.StatusCode != 200 || !strings.Contains(bundle, "/sw.js") {
+		t.Error("React bundle missing service worker registration")
 	}
 }

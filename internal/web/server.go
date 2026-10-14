@@ -85,10 +85,6 @@ func New(services Dependencies, addr string, config Config, runtime RuntimeDepen
 		sentry.close()
 		return nil, fmt.Errorf("load translations: %w", err)
 	}
-	if _, err := appImportMap(); err != nil {
-		sentry.close()
-		return nil, fmt.Errorf("build frontend import map: %w", err)
-	}
 	tmpl, err := parseTemplates(sentry)
 	if err != nil {
 		sentry.close()
