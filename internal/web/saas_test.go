@@ -135,7 +135,7 @@ func TestBackfillCreatesClosedSession(t *testing.T) {
 		"end":      {"yesterday 11:00"},
 		"note":     {"backfilled"},
 	}, map[string]string{"HX-Request": "true"})
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("backfill: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	if resp.Header.Get("X-Backfill-Saved") != "true" {

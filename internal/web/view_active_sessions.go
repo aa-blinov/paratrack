@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"net/http"
-	"sort"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
+	"sort"
 )
 
 func (s *Server) buildActiveListVM(r *http.Request) (activeListVM, error) {
@@ -31,6 +31,14 @@ func (s *Server) buildActiveListVM(r *http.Request) (activeListVM, error) {
 	return vm, nil
 }
 
+func activeSessionViews(active []appmodel.ActiveSession, periodStart, periodEnd, now time.Time, lang i18n.Lang, durationFormat string) []sessionView {
+	views := make([]sessionView, 0, len(active))
+	for _, item := range active {
+		views = append(views, toSessionView(item.Session, item.Activity, periodStart, periodEnd, now, lang, durationFormat))
+	}
+	return views
+}
+
 func (s *Server) buildMiniBarVM(r *http.Request) (activeListVM, error) {
 	ctx := r.Context()
 	now := userNow(r)
@@ -47,12 +55,4 @@ func (s *Server) buildMiniBarVM(r *http.Request) (activeListVM, error) {
 	// Running first: the bar shows the timer that is actually ticking.
 	sort.SliceStable(views, func(i, j int) bool { return !views[i].Paused && views[j].Paused })
 	return activeListVM{Lang: string(lang), Items: views}, nil
-}
-
-func activeSessionViews(active []appmodel.ActiveSession, periodStart, periodEnd, now time.Time, lang i18n.Lang, durationFormat string) []sessionView {
-	views := make([]sessionView, 0, len(active))
-	for _, item := range active {
-		views = append(views, toSessionView(item.Session, item.Activity, periodStart, periodEnd, now, lang, durationFormat))
-	}
-	return views
 }

@@ -10,7 +10,6 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /goals", s.module("goals", s.handleGoals))
 	pages.HandleFunc("GET /tags", s.module("tags", s.handleTagsPage))
 	pages.HandleFunc("GET /help", s.handleHelp)
-	pages.HandleFunc("GET /tags-list-fragment", s.handleTagsFragment)
 
 	// Timesheet and saved reports.
 	pages.HandleFunc("GET /timesheet", s.mine(s.handleTimesheet))

@@ -42,8 +42,8 @@ func sessionUpdateClientError(err invalidSessionUpdateError) (message, translati
 }
 
 // applySessionUpdateRequest parses and applies the shared session-edit form.
-// Callers own their response format: the UI renders an HTMX row, while API v1
-// returns JSON.
+// Callers own their response format: the UI needs no body after an update,
+// while API v1 returns JSON.
 func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil || id <= 0 {
@@ -124,14 +124,12 @@ func (s *Server) writeSessionUpdateError(w http.ResponseWriter, r *http.Request,
 }
 
 func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
-	id, err := s.applySessionUpdateRequest(r)
-	if err != nil {
+	if _, err := s.applySessionUpdateRequest(r); err != nil {
 		s.writeSessionUpdateError(w, r, err)
 		return
 	}
-	// Re-render the single updated row (with tags + project badge).
 	s.toastL(w, r, "toast.saved", "", "success")
-	s.respondSessionRow(w, r, id)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {

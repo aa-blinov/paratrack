@@ -8,11 +8,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/aa-blinov/paratrack/internal/i18n"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -141,38 +141,27 @@ func TestAPISessionLifecyclePauseExcludedFromTracked(t *testing.T) {
 
 	// Start.
 	resp := e.do("POST", "/api/start", url.Values{"activity": {"reading"}}, map[string]string{"HX-Request": "true"})
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("start: %d", resp.StatusCode)
 	}
-	body := readBody(t, resp)
-	if !strings.Contains(body, "reading") {
-		t.Fatalf("start fragment missing activity: %q", body[:min(80, len(body))])
-	}
+	resp.Body.Close()
 
-	// Find the session id from /api/active fragment.
-	resp = e.do("GET", "/api/active", nil, nil)
-	active := readBody(t, resp)
-	id := ""
-	for _, part := range strings.Split(active, `sessions/`) {
-		if len(part) > 0 && part[0] >= '0' && part[0] <= '9' {
-			id = strings.SplitN(part, "/", 2)[0]
-			break
-		}
+	ids := activeSessionIDs(t, e)
+	if len(ids) == 0 {
+		t.Fatal("no running session after start")
 	}
-	if id == "" {
-		t.Fatalf("no session id in active fragment: %q", active[:min(120, len(active))])
-	}
+	id := strconv.FormatInt(ids[0], 10)
 
 	// Pause → resume → stop, then duration_seconds in CSV must be > 0
 	// and reflect tracked time (not left at 0 like the old stop path).
 	resp = e.do("POST", "/api/sessions/"+id+"/pause", nil, nil)
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("pause: status %d: %s", resp.StatusCode, readBody(t, resp))
 	}
 	resp.Body.Close()
 	time.Sleep(1100 * time.Millisecond)
 	resp = e.do("POST", "/api/sessions/"+id+"/resume", nil, nil)
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("resume: status %d: %s", resp.StatusCode, readBody(t, resp))
 	}
 	resp.Body.Close()
@@ -222,11 +211,8 @@ func TestAPIGoalsHTMXReturnsFragmentJSONKeepsShape(t *testing.T) {
 		t.Fatalf("goals create hx: %d", resp.StatusCode)
 	}
 	body := readBody(t, resp)
-	if strings.HasPrefix(strings.TrimSpace(body), "{") {
-		t.Fatalf("HTMX goals create returned JSON, want fragment: %q", body[:min(60, len(body))])
-	}
-	if !strings.Contains(body, "deep work") {
-		t.Fatalf("fragment missing activity: %q", body[:min(120, len(body))])
+	if !strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Fatalf("goals create answered %q, want the JSON goal", body[:min(60, len(body))])
 	}
 
 	// Delete with a space in the name (url-encoded) via HTMX.
@@ -273,21 +259,17 @@ func TestAPITagsHTMXAndTeamScope(t *testing.T) {
 		t.Fatalf("tag create hx: %d", resp.StatusCode)
 	}
 	body := readBody(t, resp)
-	if strings.HasPrefix(strings.TrimSpace(body), "{") {
-		t.Fatalf("HTMX tag create returned JSON: %q", body[:min(40, len(body))])
+	if !strings.HasPrefix(strings.TrimSpace(body), "{") {
+		t.Fatalf("tag create answered %q, want the JSON tag", body[:min(40, len(body))])
 	}
 
-	// Grab the tag id from the fragment (hx-delete="/api/tags?id=N").
-	id := ""
-	for _, part := range strings.Split(body, "/api/tags?id=") {
-		if len(part) > 0 && part[0] >= '0' && part[0] <= '9' {
-			id = strings.SplitN(part, `"`, 2)[0]
-			break
-		}
+	var created struct {
+		ID int64 `json:"id"`
 	}
-	if id == "" {
-		t.Fatalf("no tag id in fragment: %q", body[:min(160, len(body))])
+	if err := json.Unmarshal([]byte(body), &created); err != nil || created.ID == 0 {
+		t.Fatalf("no tag id in the answer: %q", body[:min(160, len(body))])
 	}
+	id := strconv.FormatInt(created.ID, 10)
 	resp = e.do("GET", "/api/tags", nil, nil)
 	if resp.StatusCode != 200 {
 		t.Fatalf("tag usage list: status %d", resp.StatusCode)
@@ -348,20 +330,15 @@ func TestAPICSVUsesProjectNameAndTrackedDuration(t *testing.T) {
 	resp = e.do("POST", "/api/start", url.Values{
 		"activity": {"rag-eval"}, "project_id": {"1"}, "note": {"with, comma"},
 	}, map[string]string{"HX-Request": "true"})
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("start with project: %d body=%s", resp.StatusCode, readBody(t, resp))
 	}
 	resp.Body.Close()
 
 	// Stop every active session.
-	resp = e.do("GET", "/api/active", nil, nil)
-	active := readBody(t, resp)
-	for _, part := range strings.Split(active, `sessions/`) {
-		if len(part) > 0 && part[0] >= '0' && part[0] <= '9' {
-			id := strings.SplitN(part, "/", 2)[0]
-			r := e.do("POST", "/api/sessions/"+id+"/stop", nil, nil)
-			r.Body.Close()
-		}
+	for _, id := range activeSessionIDs(t, e) {
+		r := e.do("POST", "/api/sessions/"+strconv.FormatInt(id, 10)+"/stop", nil, nil)
+		r.Body.Close()
 	}
 
 	resp = e.do("GET", "/api/reports.csv", nil, nil)
@@ -394,13 +371,11 @@ func TestAPIUpdateSessionRecomputesEndFromDuration(t *testing.T) {
 	e.register("edit@x.test")
 	resp := e.do("POST", "/api/start", url.Values{"activity": {"writing"}}, map[string]string{"HX-Request": "true"})
 	body := readBody(t, resp)
-	id := ""
-	for _, part := range strings.Split(body, `sessions/`) {
-		if len(part) > 0 && part[0] >= '0' && part[0] <= '9' {
-			id = strings.SplitN(part, "/", 2)[0]
-			break
-		}
+	ids := activeSessionIDs(t, e)
+	if len(ids) == 0 {
+		t.Fatal("no running session after start")
 	}
+	id := strconv.FormatInt(ids[0], 10)
 	if id == "" {
 		t.Fatalf("no id: %q", body[:min(80, len(body))])
 	}
@@ -412,11 +387,11 @@ func TestAPIUpdateSessionRecomputesEndFromDuration(t *testing.T) {
 	resp = e.do("PATCH", "/api/sessions/"+id, url.Values{
 		"start_at": {start}, "end_at": {start}, "duration": {"2h 30m"}, "note": {"revised"},
 	}, map[string]string{"HX-Request": "true"})
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("patch: %d %s", resp.StatusCode, readBody(t, resp))
 	}
-	row := readBody(t, resp)
-	if !strings.Contains(row, fmtDurL(i18n.Default, 9000)) {
+	row := readBody(t, e.do("GET", "/api/reports.csv", nil, nil))
+	if !strings.Contains(row, ",9000,") {
 		t.Errorf("row should show 2h 30m: %q", row[:min(200, len(row))])
 	}
 	if !strings.Contains(row, "revised") {
@@ -429,15 +404,14 @@ func TestAPIUpdateSessionRecomputesEndFromDuration(t *testing.T) {
 func TestAPIStopUndoReopens(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("undo@x.test")
-	body := readBody(t, e.do("POST", "/api/start", url.Values{"activity": {"deep"}}, map[string]string{"HX-Request": "true"}))
-	id := ""
-	for _, part := range strings.Split(body, `sessions/`) {
-		if len(part) > 0 && part[0] >= '0' && part[0] <= '9' {
-			id = strings.SplitN(part, "/", 2)[0]
-			break
-		}
+	resp := e.do("POST", "/api/start", url.Values{"activity": {"deep"}}, map[string]string{"HX-Request": "true"})
+	resp.Body.Close()
+	ids := activeSessionIDs(t, e)
+	if len(ids) == 0 {
+		t.Fatal("no running session after start")
 	}
-	resp := e.do("POST", "/api/sessions/"+id+"/stop", nil, nil)
+	id := strconv.FormatInt(ids[0], 10)
+	resp = e.do("POST", "/api/sessions/"+id+"/stop", nil, nil)
 	resp.Body.Close()
 	if got := resp.Header.Get("X-Toast-Undo"); got != "/api/sessions/"+id+"/reopen" {
 		t.Fatalf("X-Toast-Undo = %q", got)
@@ -446,10 +420,10 @@ func TestAPIStopUndoReopens(t *testing.T) {
 		t.Errorf("sub-minute stop should offer discard")
 	}
 	resp = e.do("POST", "/api/sessions/"+id+"/reopen", nil, nil)
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("reopen: %d %s", resp.StatusCode, readBody(t, resp))
 	}
-	if !strings.Contains(readBody(t, resp), "sessions/"+id+"/stop") {
+	if !strings.Contains(readBody(t, e.do("GET", "/api/active", nil, nil)), `"ID": `+id) {
 		t.Errorf("reopened session should be back in the running list")
 	}
 	// A second start of the same activity is refused, so is a second reopen.
@@ -465,13 +439,16 @@ func TestAPIStopUndoReopens(t *testing.T) {
 func TestActiveListFirstRun(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("first@x.test")
-	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); !strings.Contains(body, "data-quick-start") {
+	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); !strings.Contains(body, `"FirstRun": true`) {
 		t.Fatalf("first run should offer quick-start examples: %q", body[:min(200, len(body))])
 	}
-	body := readBody(t, e.do("POST", "/api/start", url.Values{"activity": {"x"}}, map[string]string{"HX-Request": "true"}))
-	id := strings.SplitN(strings.SplitN(body, "sessions/", 2)[1], "/", 2)[0]
-	readBody(t, e.do("POST", "/api/sessions/"+id+"/stop", nil, nil))
-	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); strings.Contains(body, "data-quick-start") {
+	e.do("POST", "/api/start", url.Values{"activity": {"x"}}, map[string]string{"HX-Request": "true"}).Body.Close()
+	ids := activeSessionIDs(t, e)
+	if len(ids) != 1 {
+		t.Fatalf("want one running session after start, got %d", len(ids))
+	}
+	readBody(t, e.do("POST", "/api/sessions/"+strconv.FormatInt(ids[0], 10)+"/stop", nil, nil))
+	if body := readBody(t, e.do("GET", "/api/active", nil, nil)); strings.Contains(body, `"FirstRun": true`) {
 		t.Errorf("after the first session the examples should be gone")
 	}
 }
@@ -596,12 +573,14 @@ func TestPauseAllStopAll(t *testing.T) {
 	for _, a := range []string{"a", "b", "c"} {
 		readBody(t, e.do("POST", "/api/start", url.Values{"activity": {a}}, map[string]string{"HX-Request": "true"}))
 	}
-	body := readBody(t, e.do("POST", "/api/active/pause-all", nil, map[string]string{"HX-Request": "true"}))
-	if strings.Count(body, "status-pill is-paused") != 3 {
-		t.Fatalf("pause all: %d paused", strings.Count(body, "status-pill is-paused"))
+	resp := e.do("POST", "/api/active/pause-all", nil, map[string]string{"HX-Request": "true"})
+	resp.Body.Close()
+	if paused := strings.Count(readBody(t, e.do("GET", "/api/active", nil, nil)), `"Paused": true`); paused != 3 {
+		t.Fatalf("pause all: %d paused", paused)
 	}
-	body = readBody(t, e.do("POST", "/api/active/stop-all", nil, map[string]string{"HX-Request": "true"}))
-	if strings.Contains(body, "status-pill") {
+	resp = e.do("POST", "/api/active/stop-all", nil, map[string]string{"HX-Request": "true"})
+	resp.Body.Close()
+	if !strings.Contains(readBody(t, e.do("GET", "/api/active", nil, nil)), `"Running": 0`) {
 		t.Fatal("stop all left timers running")
 	}
 }
@@ -637,4 +616,26 @@ func TestAPIv1SessionPatchReturnsJSON(t *testing.T) {
 	if response.Updated != session.ID {
 		t.Fatalf("patch response id = %d, want %d", response.Updated, session.ID)
 	}
+}
+
+// activeSessionIDs returns the ids of the running sessions from the JSON list.
+// Timer actions answer with no body, so tests read the list the way the React
+// dashboard does.
+func activeSessionIDs(t *testing.T, e *apiEnv) []int64 {
+	t.Helper()
+	resp := e.do("GET", "/api/active", nil, nil)
+	defer resp.Body.Close()
+	var list struct {
+		Items []struct {
+			ID int64 `json:"ID"`
+		} `json:"Items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		t.Fatalf("decode active list: %v", err)
+	}
+	ids := make([]int64, 0, len(list.Items))
+	for _, item := range list.Items {
+		ids = append(ids, item.ID)
+	}
+	return ids
 }

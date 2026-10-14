@@ -4,18 +4,11 @@ import (
 	"net/http"
 )
 
-// ---------- shared helpers ----------------------------------------
-
-// respondActiveList is the standard "refresh the active sessions list"
-// response sent by stop/pause/resume/focus. Keeps HTMX swap targets
-// consistent across actions.
+// respondActiveList answers a timer action. The React dashboard reloads its own
+// state after every action, so the answer carries no body: the toast and undo
+// headers were set by the action itself.
 func (s *Server) respondActiveList(w http.ResponseWriter, r *http.Request) {
-	vm, err := s.buildActiveListVM(r)
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
-	}
-	s.renderFragment(w, "active-list", vm)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // handleMiniBar renders the phone "now tracking" bar shown above the tab

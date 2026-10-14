@@ -230,7 +230,7 @@ func TestAPITokenScopes(t *testing.T) {
 		t.Errorf("expired token: %d, want 401", c)
 	}
 	rw, _, _ := d.CreateAPIToken(ctx, appmodel.APITokenCreateRequest{UserID: uid, CallerID: uid, Name: "rw"})
-	if c := call("POST", "/api/start", rw); c != 200 {
+	if c := call("POST", "/api/start", rw); c != http.StatusNoContent {
 		t.Errorf("read-write POST: %d", c)
 	}
 }

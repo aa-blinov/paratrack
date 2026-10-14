@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { translate as t } from "@/i18n"
 import type { TagView, TagsData } from "@/dashboard/types"
+import { responseMessage } from "@/lib/response-message"
 
 type TagResponse = { id: number; name: string; session_count: number }
 
@@ -35,10 +36,7 @@ export function TagsPage({ data }: { data: TagsData }) {
 
   async function send(url: string, method: string, body?: URLSearchParams) {
     const response = await fetch(url, { method, credentials: "same-origin", headers: { "X-CSRF-Token": data.CSRFToken, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}) }, body })
-    if (!response.ok) {
-      const text = await response.text()
-      throw new Error(text.replace(/<[^>]*>/g, " ").trim() || response.statusText)
-    }
+    if (!response.ok) throw new Error(await responseMessage(response))
   }
 
   async function create(event: React.FormEvent<HTMLFormElement>) {

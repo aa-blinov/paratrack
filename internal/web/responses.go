@@ -34,11 +34,6 @@ func (s *Server) writeInternalJSONError(w http.ResponseWriter, err error) {
 	s.writeJSONStatus(w, http.StatusInternalServerError, apiErrorResponse{Error: "internal server error"})
 }
 
-// isHTMX reports whether the request came from an HTMX swap target.
-func isHTMX(r *http.Request) bool {
-	return r.Header.Get("HX-Request") == "true"
-}
-
 // writeJSONStatus sends v with a non-200 status. The header must go
 // before the body, or the client sees 200.
 func (s *Server) writeJSONStatus(w http.ResponseWriter, code int, v jsonResponse) {

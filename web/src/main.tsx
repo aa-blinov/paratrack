@@ -17,6 +17,7 @@ import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
+import { responseMessage } from "@/lib/response-message"
 
 const root = document.getElementById("paratrack-react-root")
 const payload = document.getElementById("react-page-data")
@@ -67,11 +68,7 @@ const ImportPage = lazy(() => import("@/import/import-page").then(module => ({ d
 const InviteAcceptPage = lazy(() => import("@/settings/invite-accept-page").then(module => ({ default: module.InviteAcceptPage })))
 const AuthPage = lazy(() => import("@/auth/auth-page").then(module => ({ default: module.AuthPage })))
 
-async function messageFrom(response: Response): Promise<string> {
-  const body = await response.text()
-  const doc = new DOMParser().parseFromString(body, "text/html")
-  return doc.body.textContent?.trim() || response.statusText || "Request failed"
-}
+const messageFrom = responseMessage
 
 function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; restoreFocus: boolean }) {
   const [data, setData] = useState(initial)

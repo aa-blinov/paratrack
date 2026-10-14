@@ -1,0 +1,23 @@
+{{define "minibar"}}{{with .Items}}{{$s := index . 0}}
+<div class="minibar-card">
+  <a href="/" class="minibar-main" aria-label="{{$.T "nav.dashboard"}}">
+    <span class="minibar-dot{{if not $s.Paused}} is-live{{end}}" style="background-color: {{$s.Color}}"></span>
+    <span class="min-w-0 flex-1">
+      <span class="block truncate font-medium">{{$s.ActivityName}}</span>
+      <span class="block text-sm opacity-70 font-mono"
+            x-data="liveDuration('{{$s.ResumeISO}}', {{$s.AccumulatedSeconds}}, {{$s.Paused}})"
+            x-text="clock">{{$s.Clock}}</span>
+    </span>
+    {{if gt (len .) 1}}<span class="badge badge-neutral badge-sm" title="{{$.T "dash.activeSessions"}}">{{len .}}</span>{{end}}
+  </a>
+  {{if $s.Paused}}
+  <button class="btn btn-ghost btn-circle" hx-post="/api/sessions/{{$s.ID}}/resume" hx-swap="none"
+          title="{{$.T "dash.resume"}}" aria-label="{{$.T "dash.resume"}}">{{icon "play"}}</button>
+  {{else}}
+  <button class="btn btn-ghost btn-circle" hx-post="/api/sessions/{{$s.ID}}/pause" hx-swap="none"
+          title="{{$.T "dash.pause"}}" aria-label="{{$.T "dash.pause"}}">{{icon "pause"}}</button>
+  {{end}}
+  <button class="btn btn-stop btn-circle" hx-post="/api/sessions/{{$s.ID}}/stop" hx-swap="none"
+          title="{{$.T "dash.stop"}}" aria-label="{{$.T "dash.stop"}}">{{icon "square"}}</button>
+</div>
+{{- end}}{{end}}

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"net/url"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ func TestStatsEmptyPeriodOffersPeriodsThatHoldTime(t *testing.T) {
 	resp := e.do("POST", "/api/sessions/backfill", url.Values{
 		"activity": {"reading"}, "start": {yesterday + " 09:00"}, "end": {yesterday + " 09:45"},
 	}, map[string]string{"HX-Request": "true"})
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		t.Fatalf("backfill yesterday: %d %s", resp.StatusCode, readBody(t, resp))
 	}
 	resp.Body.Close()
