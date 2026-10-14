@@ -1,3 +1,4 @@
+import type { AccessDeniedData } from "@/access-denied/access-denied-page"
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
@@ -61,6 +62,7 @@ const SectionsPage = lazy(() => import("@/settings/sections-page").then(module =
 const WebhooksPage = lazy(() => import("@/settings/webhooks-page").then(module => ({ default: module.WebhooksPage })))
 const AuditPage = lazy(() => import("@/settings/audit-page").then(module => ({ default: module.AuditPage })))
 const HelpPage = lazy(() => import("@/help/help-page").then(module => ({ default: module.HelpPage })))
+const AccessDeniedPage = lazy(() => import("@/access-denied/access-denied-page").then(module => ({ default: module.AccessDeniedPage })))
 const ImportPage = lazy(() => import("@/import/import-page").then(module => ({ default: module.ImportPage })))
 const InviteAcceptPage = lazy(() => import("@/settings/invite-accept-page").then(module => ({ default: module.InviteAcceptPage })))
 const AuthPage = lazy(() => import("@/auth/auth-page").then(module => ({ default: module.AuthPage })))
@@ -384,6 +386,8 @@ function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap:
             ? <WebhooksPage data={data as WebhooksData} />
             : "AuditReact" in data && data.AuditReact
             ? <AuditPage data={data as AuditData} />
+            : "AccessDeniedReact" in data && data.AccessDeniedReact
+            ? <AccessDeniedPage data={data as AccessDeniedData} />
             : "HelpReact" in data && data.HelpReact
             ? <HelpPage data={data as HelpData} />
             : "ImportReact" in data && data.ImportReact
@@ -446,6 +450,7 @@ function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   if ("SectionsReact" in data && data.SectionsReact) return SectionsPage.preload()
   if ("WebhooksReact" in data && data.WebhooksReact) return WebhooksPage.preload()
   if ("AuditReact" in data && data.AuditReact) return AuditPage.preload()
+  if ("AccessDeniedReact" in data && data.AccessDeniedReact) return AccessDeniedPage.preload()
   if ("HelpReact" in data && data.HelpReact) return HelpPage.preload()
   if ("ImportReact" in data && data.ImportReact) return ImportPage.preload()
   if ("InviteReact" in data && data.InviteReact) return InviteAcceptPage.preload()

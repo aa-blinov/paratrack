@@ -10,7 +10,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	s.render(w, r, "stats-content", &data)
+	s.render(w, r, &data)
 }
 
 // The editable log shows the newest statsLogRows; "show all" lifts it to
@@ -26,5 +26,5 @@ func (s *Server) handleGraph(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	s.renderPageForRequest(w, r, data.Title, data.Active, "graph-content", &data)
+	s.renderPageForRequest(w, r, data.Title, data.Active, &data)
 }

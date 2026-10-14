@@ -119,7 +119,7 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	data.SavedReports = savedReportViews(reports)
 	data.CanManage = canManage(r)
 	data.MeID = authenticatedUserID(r)
-	s.renderPageForRequest(w, r, "Reports", "reports", "reports", &data)
+	s.renderPageForRequest(w, r, "Reports", "reports", &data)
 }
 
 type reportCard struct {
@@ -191,7 +191,7 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 	}
 	lang := string(resolveLang(r))
 	data := reportRunPage{pageData: pageData{Title: tpl.Name, Active: "reports", Lang: lang, ReactApp: true}, VM: vm, ReportRunReact: true}
-	s.renderPageForRequest(w, r, tpl.Name, "reports", "report-run", &data)
+	s.renderPageForRequest(w, r, tpl.Name, "reports", &data)
 }
 
 type reportRunPage struct {
@@ -223,7 +223,7 @@ func (s *Server) handleMarketplace(w http.ResponseWriter, r *http.Request) {
 			SecretHint: it.SecretHint, TargetHint: it.TargetHint,
 		})
 	}
-	s.renderPageForRequest(w, r, "Marketplace", "marketplace", "marketplace", &data)
+	s.renderPageForRequest(w, r, "Marketplace", "marketplace", &data)
 }
 
 type marketCard struct {

@@ -39,7 +39,7 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Integrations", "integrations", "integrations", &data)
+	s.renderPageForRequest(w, r, "Integrations", "integrations", &data)
 }
 
 type integrationRow struct {
@@ -88,7 +88,7 @@ func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request)
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, it.Name, "integrations", "integration-detail", &data)
+	s.renderPageForRequest(w, r, it.Name, "integrations", &data)
 }
 
 type integrationTaskRow struct {

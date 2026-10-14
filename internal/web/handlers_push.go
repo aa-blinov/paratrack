@@ -100,7 +100,7 @@ func (s *Server) handleNotificationsPage(w http.ResponseWriter, r *http.Request)
 		}
 		data.Topics = notificationTopicViews(muted)
 	}
-	s.renderPageForRequest(w, r, "Notifications", "settings-notify", "notifications", &data)
+	s.renderPageForRequest(w, r, "Notifications", "settings-notify", &data)
 }
 
 type notifyPage struct {

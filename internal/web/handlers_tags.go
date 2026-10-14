@@ -269,7 +269,7 @@ func (s *Server) handleTagsPage(w http.ResponseWriter, r *http.Request) {
 		ReactTags:   true,
 	}
 	data.ReactApp = true
-	s.renderPageForRequest(w, r, data.Title, data.Active, "tags-content", data)
+	s.renderPageForRequest(w, r, data.Title, data.Active, data)
 }
 
 // handleTagsFragment returns the inner `tags-list` template so HTMX

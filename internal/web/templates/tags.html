@@ -1,31 +1,4 @@
-{{define "tags-content"}}
-<h1 class="mb-1">{{.T "stats.tags"}}</h1>
-<p class="opacity-60 mb-5">
-  {{.T "tags.blurbFull"}}
-</p>
-
-<!-- New tag form -->
-<div class="card bg-base-100 border border-base-300">
-  <div class="card-body p-5">
-    <div class="card-title mb-3">{{.T "tags.new"}}</div>
-    <form hx-post="/api/tags" hx-target="#tags-list" hx-swap="innerHTML" data-reset-after-request class="flex gap-2 items-end">
-      <div class="flex-1">
-        <label class="label py-1" for="t-name"><span class="label-text">{{.T "projects.name"}}</span></label>
-        <input type="text" id="t-name" name="name" required placeholder="{{.T "ph.tag"}}" list="known-tags" class="input input-bordered w-full">
-        <datalist id="known-tags">
-          {{range .AllTagNames}}<option value="{{.}}">{{end}}
-        </datalist>
-      </div>
-      <button type="submit" class="btn btn-neutral gap-1.5">{{icon "plus"}}{{.T "tags.add"}}</button>
-    </form>
-  </div>
-</div>
-
-<!-- Existing tags -->
-<div id="tags-list" hx-get="/tags-list-fragment" hx-trigger="load, every 60s" hx-swap="innerHTML">
-  {{template "tags-list" .}}
-</div>
-{{end}}
+}}
 
 {{define "tags-list"}}
   {{if .Tags}}

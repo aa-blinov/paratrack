@@ -20,7 +20,7 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	data.Email = r.URL.Query().Get("email")
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
-	s.renderPage(w, r, "Reset password", "", "forgot-password", &data)
+	s.renderPage(w, r, "Reset password", "", &data)
 }
 
 // handleResetPassword renders the "set a new password" form for a
@@ -35,7 +35,7 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
-	s.renderPage(w, r, "Choose a new password", "", "reset-password", &data)
+	s.renderPage(w, r, "Choose a new password", "", &data)
 }
 
 // handleAPIPasswordForgot always answers with the same "sent" page so

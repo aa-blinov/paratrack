@@ -842,7 +842,7 @@ export interface AuthPageData {
   SSO: boolean
 }
 
-export type ReactPageData = DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
+export type ReactPageData = import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

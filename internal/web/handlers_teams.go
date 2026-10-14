@@ -138,7 +138,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Team settings", "settings", "team-settings", &data)
+	s.renderPageForRequest(w, r, "Team settings", "settings", &data)
 }
 
 func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
@@ -169,7 +169,7 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Members", "settings", "team-members", &data)
+	s.renderPageForRequest(w, r, "Members", "settings", &data)
 }
 
 func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +191,7 @@ func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Invites", "settings", "team-invites", &data)
+	s.renderPageForRequest(w, r, "Invites", "settings", &data)
 }
 
 // invitePage is the /invites/{token} envelope. T() exposes i18n.
@@ -230,7 +230,7 @@ func (s *Server) handleInviteAcceptPage(w http.ResponseWriter, r *http.Request) 
 		LoggedIn: authed, User: userViewOf(user),
 		CSRFToken: ensureCSRF(w, r), Lang: string(resolveLang(r)),
 	}
-	s.renderPageForRequest(w, r, "Join team", "", "invite-accept", &data)
+	s.renderPageForRequest(w, r, "Join team", "", &data)
 }
 
 // ----- POST handlers (settings actions) ----------------------------

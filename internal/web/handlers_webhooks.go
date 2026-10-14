@@ -46,7 +46,7 @@ func (s *Server) handleWebhooksPage(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolvedLang)
 	}
-	s.renderPageForRequest(w, r, "Webhooks", "settings-webhooks", "webhooks", &data)
+	s.renderPageForRequest(w, r, "Webhooks", "settings-webhooks", &data)
 }
 
 type webhookRow struct {

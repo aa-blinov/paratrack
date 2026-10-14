@@ -169,7 +169,7 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 	if f := r.URL.Query().Get("flash"); f != "" {
 		data.Flash, data.FlashOK = decodeFlash(f, lang)
 	}
-	s.renderPageForRequest(w, r, "Preferences", "settings-prefs", "preferences", data)
+	s.renderPageForRequest(w, r, "Preferences", "settings-prefs", data)
 }
 
 // handleAPIPreferences saves the whole form. Sections the workspace has

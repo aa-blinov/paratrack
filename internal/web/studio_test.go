@@ -77,7 +77,8 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 		if resp.StatusCode != 403 {
 			t.Errorf("developer GET %s: %d, want 403", path, resp.StatusCode)
 		}
-		if !strings.Contains(body, `<main id="main"`) || !strings.Contains(body, `href="/" class="btn btn-neutral btn-sm"`) || !strings.Contains(body, "Это доступно владельцу") {
+		// The denial is a React screen: the server hands it the reason in its page data.
+		if !strings.Contains(body, `"AccessDeniedReact":true`) || !strings.Contains(body, "Это доступно владельцу") {
 			t.Errorf("developer GET %s: denial must explain access and offer a way back", path)
 		}
 	}

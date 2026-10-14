@@ -49,7 +49,7 @@ func (s *Server) renderTokens(w http.ResponseWriter, r *http.Request, justCreate
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "API tokens", "settings-tokens", "tokens", &data)
+	s.renderPageForRequest(w, r, "API tokens", "settings-tokens", &data)
 }
 
 type tokenRow struct {
