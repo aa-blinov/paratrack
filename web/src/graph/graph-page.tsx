@@ -93,7 +93,7 @@ export function GraphPage({ data }: { data: GraphData }) {
       {data.ProjectFilter && <input type="hidden" name="project" value={data.ProjectFilter} />}
       {data.TagFilter && <input type="hidden" name="tag" value={data.TagFilter} />}
       {data.PersonFilter > 0 && <input type="hidden" name="person" value={String(data.PersonFilter)} />}
-      <Button type="submit" size="sm">{t(lang, "graph.applyPeriod")}</Button>
+      <Button type="submit">{t(lang, "graph.applyPeriod")}</Button>
     </form>
 
     {filtered && <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 text-sm">

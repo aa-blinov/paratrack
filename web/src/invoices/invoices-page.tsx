@@ -76,10 +76,12 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
 
     {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
 
-    {!data.Billable && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
-      <AlertTriangle aria-hidden="true" className="size-5 shrink-0 text-warning-ink" />
-      <div className="min-w-0 flex-1"><p className="font-medium">{t(lang, "inv.noRateTitle")}</p><p className="text-muted-foreground">{t(lang, "inv.noRateHint")}</p></div>
-      <Button asChild size="sm" className="ml-auto shrink-0"><a href={data.Projects.length ? "/projects" : "/projects/new"}>{data.Projects.length ? t(lang, "inv.noRateCta") : t(lang, "inv.createProject")}</a></Button>
+    {!data.Billable && <div role="alert" className="flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm sm:flex-row sm:items-center">
+      <div className="flex min-w-0 flex-1 gap-3">
+        <AlertTriangle aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-warning-ink" />
+        <div className="min-w-0"><p className="font-medium">{t(lang, "inv.noRateTitle")}</p><p className="text-muted-foreground">{t(lang, "inv.noRateHint")}</p></div>
+      </div>
+      <Button asChild size="sm" className="shrink-0 self-start sm:self-auto"><a href={data.Projects.length ? "/projects" : "/projects/new"}>{data.Projects.length ? t(lang, "inv.noRateCta") : t(lang, "inv.createProject")}</a></Button>
     </div>}
 
     {!!data.Unbilled.length && <Card>
