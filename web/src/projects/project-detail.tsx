@@ -181,7 +181,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
           {data.Sessions?.length ? <Table>
             <TableHeader><TableRow><TableHead>{t(data.Lang, "dash.activity")}</TableHead><TableHead>{t(data.Lang, "dash.started")}</TableHead><TableHead>{t(data.Lang, "dash.duration")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.Sessions.map(session => <TableRow key={session.ID}>
-              <TableCell><ColorMark color={session.Color} />{session.ActivityName}</TableCell>
+              <TableCell><ColorMark className="mr-2" color={session.Color} />{session.ActivityName}</TableCell>
               <TableCell className="font-mono text-xs text-muted-foreground">{session.StartLocal}</TableCell>
               <TableCell className="font-mono text-xs tabular-nums">{session.Duration}</TableCell>
             </TableRow>)}</TableBody>
