@@ -1,0 +1,1 @@
+import{Ot as e}from"./ui-D4rDLlz4.js";var t=e();function n({color:e}){return(0,t.jsx)(`span`,{"aria-hidden":`true`,className:`block h-[1lh] w-[3px] shrink-0 rounded-full`,style:{backgroundColor:e}})}export{n as t};

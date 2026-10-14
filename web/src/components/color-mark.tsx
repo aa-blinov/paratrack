@@ -4,5 +4,5 @@
  * use it, so a colour means the same thing on every screen.
  */
 export function ColorMark({ color }: { color: string }) {
-  return <span aria-hidden="true" className="inline-block h-4 w-[3px] shrink-0 rounded-full align-middle" style={{ backgroundColor: color }} />
+  return <span aria-hidden="true" className="block h-[1lh] w-[3px] shrink-0 rounded-full" style={{ backgroundColor: color }} />
 }
