@@ -987,7 +987,7 @@ async def check_material_motion_and_active_state(browser):
     rather than chosen here. M3 replaced it with emphasized easing.
 
     The active destination: M3 marks it twice — the icon takes weight and the
-    item takes an indicator pill (56×32dp in Expressive, 64dp in the baseline).
+    item takes an indicator pill (64×32dp, the Material 3 standard size).
     The app only coloured the label, and every icon stayed the same weight."""
     for path in ('/', '/stats'):
         context, page, errors = await open_html(browser, document(path), path, 390)
@@ -1021,8 +1021,8 @@ async def check_material_motion_and_active_state(browser):
         assert state['activeLabel'], f'{path}: one destination is active'
         assert state['pillContent'] != 'none', \
             f'{path}: the active destination needs its indicator pill — {state}'
-        assert state['pillWidth'] == '56px' and state['pillHeight'] == '32px', \
-            f'{path}: the indicator is 56×32dp in Expressive — {state["pillWidth"]}×{state["pillHeight"]}'
+        assert state['pillWidth'] == '64px' and state['pillHeight'] == '32px', \
+            f'{path}: the indicator is 64×32dp, the M3 standard — {state["pillWidth"]}×{state["pillHeight"]}'
         heavier = float(state['activeStroke'].replace('px', ''))
         lighter = float(state['inactiveStroke'].replace('px', ''))
         assert heavier > lighter, \
@@ -1049,7 +1049,7 @@ async def main():
         await check_press_is_a_state_layer(browser)
         print('PASS a press is a state layer, never a scale or a dim')
         await check_material_motion_and_active_state(browser)
-        print('PASS Material 3 easing, and the active destination takes weight plus a 56×32dp pill')
+        print('PASS Material 3 easing, and the active destination takes weight plus a 64×32dp pill')
         await check_touch_metrics(browser)
         print('PASS 320px: fields are 16px and every control reaches the 48px floor')
         await check_desktop_is_untouched(browser)
