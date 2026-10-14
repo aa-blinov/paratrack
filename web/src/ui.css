@@ -1054,3 +1054,19 @@ body {
   #paratrack-react-root .mobile-nav-fab { border-radius: 16px; }
 }
 
+/* Full M3 audit of the phone components, the values that differed from the spec:
+   filled cards 12dp (were 14px), exposed dropdowns take the 4dp field corner
+   (were 10px), primary tabs 48dp (were 44px), segmented buttons 40dp (were 44px),
+   checkboxes 18dp with a 2dp corner (were 16px, and stretched to the row height). */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-slot="card"] { border-radius: 12px; }
+  #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { border-radius: 4px; }
+  #paratrack-react-root nav.overflow-x-auto > a { min-height: 48px; }
+  #paratrack-react-root .period-tabs [data-slot="button"] { height: 40px; min-height: 40px; }
+  #paratrack-react-root [data-slot="checkbox"] { width: 18px; height: 18px; min-height: 18px; border-radius: 2px; align-self: flex-start; }
+}
+/* An M3 snackbar is at least 48dp tall with a 4dp corner. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-snackbar] { min-height: 48px; border-radius: 4px; display: flex; align-items: center; }
+}
+
