@@ -212,7 +212,8 @@ JetBrains Mono with `tabular-nums`.
   Анализ, Деньги, Команда, Данные, Настройки. A group of one item has no
   heading. «Данные» folds on a screen shorter than 1000px unless the person is
   inside it; on taller screens the last choice is remembered in the browser.
-- **Phone (below 1024px):** a fixed bottom bar with four destinations
+- **Phone (below 1024px):** a Material 3 navigation bar, 80dp tall, with a
+  64x32dp active indicator and 12px labels. A fixed bottom bar with four destinations
   (Обзор, Табель, Статистика, По часам) and «Ещё», which opens a sheet with the
   rest and the account. The bar's settings group appears once, in the sheet.
   On the timesheet, statistics and the graph a floating timer button opens the
@@ -260,11 +261,21 @@ as a response to a layer that floats above the page.
 
 ## Components
 
+**Material 3 on the phone.** The phone shell follows Material 3 at the baseline
+sizes: the navigation bar (80dp), the top app bar (64dp), the emphasized
+easing for every transition, pill buttons (40dp), pill segmented tabs, the
+bottom sheet and the dialog at a 28dp corner, text fields at a 4dp corner.
+The colour system and the type scale are not Material's: colour is the
+neutral paper with the activity colours, and type is Inter at the sizes above.
+
 For each component: the character line first, then shape, colour and states.
 
 ### Buttons
-- **Shape:** `default` 36px tall, `sm` 28px, `icon` 32px square. One variant per
-  cluster; do not mix sizes in a row.
+- **Shape:** `default` 36px tall, `sm` 28px, `icon` 32px square on the desktop.
+  One variant per cluster; do not mix sizes in a row.
+- **Phone (Material 3):** every button is a pill 40dp tall, `icon` buttons are
+  40dp circles. The 48dp touch floor is the hit area, drawn 4px outside the
+  visible shape in `::after`, so the shape stays at 40dp.
 - **Primary:** charcoal `oklch(0.205 0 0)` with `oklch(0.985 0 0)` text. A screen's
   marked main action (`data-action-primary`) is violet `--brand` instead.
 - **Outline:** card ground with a hairline border on the paper.
@@ -272,7 +283,8 @@ For each component: the character line first, then shape, colour and states.
   «Только эта», «Пауза», «Стоп». Stop takes the destructive ink.
 - **Touch targets:** 48dp on a phone for every control that is pressed
   (`test_mobile_navigation.py` measures the running-timer controls and the
-  shell's touch floor).
+  shell's touch floor). Text links inside a phone screen get their 48dp hit
+  area from `::after` too, without moving the text.
 
 ### Inputs and fields
 - **Style:** transparent ground, 1px `--input` border at 3:1 against the card
