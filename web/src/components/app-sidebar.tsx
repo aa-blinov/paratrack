@@ -105,21 +105,55 @@ export function Icon({ name }: { name: string }) {
   }
 }
 
+// A tall screen (1000px and up) has room for every group: a collapsible group
+// there opens the way the person left it, opened by default on the first visit.
+const TALL_SCREEN = "(min-height: 1000px)"
+const REMEMBER_KEY = "paratrack.nav.data.open"
+
+function useTallScreen() {
+  const [tall, setTall] = useState(() => typeof window !== "undefined" && window.matchMedia(TALL_SCREEN).matches)
+  useEffect(() => {
+    const query = window.matchMedia(TALL_SCREEN)
+    const update = () => setTall(query.matches)
+    query.addEventListener("change", update)
+    return () => query.removeEventListener("change", update)
+  }, [])
+  return tall
+}
+
+function readRemembered(): boolean {
+  try {
+    return localStorage.getItem(REMEMBER_KEY) !== "0"
+  } catch {
+    return true
+  }
+}
+
 function NavigationGroup({ title, items, shell, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean }) {
   const { setOpenMobile } = useSidebar()
   const visible = items.filter(item => available(item, shell))
-  // A collapsible group starts folded unless the person is inside it, so the
-  // menu fits a 900px-high screen and no heading is cut by the scroll edge.
   const holdsCurrent = visible.some(item => isCurrent(item, shell))
+  const tall = useTallScreen()
   const [expanded, setExpanded] = useState(false)
+  const [remembered, setRemembered] = useState(readRemembered)
   if (!visible.length) return null
-  const open = !collapsible || holdsCurrent || expanded
+  // On a short screen a collapsible group folds unless the person is inside it
+  // (the whole menu does not fit 900px); on a tall one the remembered choice wins.
+  const open = !collapsible || holdsCurrent || (tall ? remembered : expanded)
+  const toggle = () => {
+    if (!tall) return setExpanded(value => !value)
+    setRemembered(value => {
+      const next = !value
+      try { localStorage.setItem(REMEMBER_KEY, next ? "1" : "0") } catch { /* private mode: the choice simply is not kept */ }
+      return next
+    })
+  }
   // A group of one reads better without a heading that repeats it: «Настройки»
   // above a link also called «Настройки».
   const heading = visible.length > 1 ? title : null
   // Tighter vertical padding between groups: six groups at p-2 push the folded menu past a 900px screen.
   return <SidebarGroup className="py-1">
-    {heading && collapsible && !holdsCurrent ? <SidebarGroupLabel asChild><button type="button" aria-expanded={open} className="flex w-full items-center justify-between" onClick={() => setExpanded(value => !value)}>{heading}<ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /></button></SidebarGroupLabel> : heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
+    {heading && collapsible && !holdsCurrent ? <SidebarGroupLabel asChild><button type="button" aria-expanded={open} className="flex w-full items-center justify-between" onClick={toggle}>{heading}<ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /></button></SidebarGroupLabel> : heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
     {/* A folded group keeps its links in the page but out of sight: height 0 with the
         contents clipped, and inert so they neither take focus nor reach assistive tech. */}
     <div className={`grid ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`} inert={!open}><div className="min-h-0 overflow-hidden"><SidebarGroupContent><SidebarMenu>{visible.map(item => <SidebarMenuItem key={item.key}>
