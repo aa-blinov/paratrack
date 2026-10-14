@@ -204,11 +204,11 @@ func (s *Server) handleWelcome(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	s.renderPageForRequest(w, r, "Welcome", "welcome", "sections", s.sectionsData(r, true))
+	s.renderPageForRequest(w, r, "Welcome", "welcome", s.sectionsData(r, true))
 }
 
 func (s *Server) handleSectionsPage(w http.ResponseWriter, r *http.Request) {
-	s.renderPageForRequest(w, r, "Sections", "settings-sections", "sections", s.sectionsData(r, false))
+	s.renderPageForRequest(w, r, "Sections", "settings-sections", s.sectionsData(r, false))
 }
 
 // handleAPITeamModules saves a preset or a hand-picked list.

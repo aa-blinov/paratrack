@@ -1,43 +1,4 @@
-{{define "goals-content"}}
-<h1 class="mb-1">{{.T "nav.goals"}}</h1>
-<p class="opacity-60 mb-5">{{.T "goals.blurbFull"}}{{if not .CanManage}} {{.T "goals.managersSet"}}{{end}}</p>
-
-<!-- New goal form: goals are the team's, managers set them -->
-{{if .CanManage}}
-<div class="card bg-base-100 border border-base-300">
-  <div class="card-body p-5">
-    <div class="card-title mb-3">{{.T "goals.new"}}</div>
-    <form class="grid grid-cols-1 sm:grid-cols-[1fr_120px_120px_auto] gap-2 items-end" hx-post="/api/goals" hx-target="#goals-list" hx-swap="innerHTML" data-reset-after-request>
-      <div>
-        <label class="label py-1" for="g-activity"><span class="label-text">{{.T "dash.activity"}}</span></label>
-        <input type="text" id="g-activity" name="activity" required placeholder="{{.T "ph.activity"}}" list="known-activities" class="input input-bordered w-full">
-        <datalist id="known-activities">
-          {{range .Activities}}<option value="{{.Name}}">{{end}}
-        </datalist>
-      </div>
-      <div>
-        <label class="label py-1" for="g-period"><span class="label-text">{{.T "goals.period"}}</span></label>
-        <select id="g-period" name="period" required class="select select-bordered w-full">
-          <option value="daily">{{.T "goals.daily"}}</option>
-          <option value="weekly">{{.T "goals.weekly"}}</option>
-          <option value="monthly">{{.T "goals.monthly"}}</option>
-        </select>
-      </div>
-      <div>
-        <label class="label py-1" for="g-minutes"><span class="label-text">{{.T "goals.minutes"}}</span></label>
-        <input type="number" id="g-minutes" name="minutes" min="1" max="10000" required placeholder="120" class="input input-bordered w-full">
-      </div>
-      <button type="submit" class="btn btn-neutral gap-1.5">{{icon "flag"}}{{.T "goals.set"}}</button>
-    </form>
-  </div>
-</div>
-{{end}}
-
-<!-- Existing goals with progress; the inner HTML is swapped by HTMX. -->
-<div id="goals-list" hx-get="/api/goals/progress" hx-trigger="load, every 60s" hx-swap="innerHTML">
-  {{template "goals-list" .}}
-</div>
-{{end}}
+}}
 
 {{define "goals-list"}}
   {{if .Goals}}

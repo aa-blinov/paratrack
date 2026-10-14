@@ -62,7 +62,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Payroll", "payroll", "payroll", &data)
+	s.renderPageForRequest(w, r, "Payroll", "payroll", &data)
 }
 
 type payrollSummary struct {
@@ -165,7 +165,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, run.Number, "payroll", "payroll-detail", &data)
+	s.renderPageForRequest(w, r, run.Number, "payroll", &data)
 }
 
 type payrollLineVM struct {

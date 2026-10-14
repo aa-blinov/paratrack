@@ -48,7 +48,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
-	s.renderPage(w, r, "Log in", "", "login", &data)
+	s.renderPage(w, r, "Log in", "", &data)
 }
 
 // handleRegister renders the registration form.
@@ -63,7 +63,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
-	s.renderPage(w, r, "Sign up", "", "register", &data)
+	s.renderPage(w, r, "Sign up", "", &data)
 }
 
 // handleAPILogin accepts the login form submission, verifies the

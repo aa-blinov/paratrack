@@ -338,7 +338,7 @@ func (s *Server) manage(h http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		if r.Method == http.MethodGet && r.Header.Get("HX-Request") == "" {
-			s.renderPageForRequestStatus(w, r, http.StatusForbidden, "Access denied", "", "access-denied", &pageData{})
+			s.renderAccessDenied(w, r)
 			return
 		}
 		s.toast(w, msg, "error")

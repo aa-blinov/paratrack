@@ -45,7 +45,7 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Profile", "settings", "profile", &data)
+	s.renderPageForRequest(w, r, "Profile", "settings", &data)
 }
 
 func (s *Server) handleAPIProfileUpdate(w http.ResponseWriter, r *http.Request) {

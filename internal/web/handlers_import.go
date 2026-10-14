@@ -35,7 +35,7 @@ type importedEntry struct {
 func (s *Server) handleImport(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := importPage{pageData: pageData{Title: "Import", Active: "import", Lang: lang, ReactApp: true}, ImportReact: true}
-	s.renderPageForRequest(w, r, "Import", "import", "import", &data)
+	s.renderPageForRequest(w, r, "Import", "import", &data)
 }
 
 type importPage struct {
@@ -82,7 +82,7 @@ func (s *Server) handleImportPreview(w http.ResponseWriter, r *http.Request) {
 		data.Provider = f("provider")
 		data.From, data.To, data.Secret, data.Extra, data.TZ = f("from"), f("to"), f("secret"), f("extra"), f("tz")
 	}
-	s.renderPageForRequest(w, r, "Import", "import", "import", &data)
+	s.renderPageForRequest(w, r, "Import", "import", &data)
 }
 
 // handleImportRun creates closed sessions from the fetched entries.

@@ -83,7 +83,7 @@ func (s *Server) handleAuditPage(w http.ResponseWriter, r *http.Request) {
 		wider.Set("size", strconv.Itoa(filters.window+auditWindowStep))
 		data.MoreURL = auditPath(wider)
 	}
-	s.renderPageForRequest(w, r, "Audit log", "settings-audit", "audit", &data)
+	s.renderPageForRequest(w, r, "Audit log", "settings-audit", &data)
 }
 
 // auditFilters is the filter state of one journal view. It is read from the

@@ -25,7 +25,7 @@ func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	s.renderPageForRequest(w, r, "Invoices", "invoices", "invoices", &data)
+	s.renderPageForRequest(w, r, "Invoices", "invoices", &data)
 }
 
 // handleInvoiceDetail renders a print-ready invoice page using the same
@@ -51,7 +51,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, inv.Number, "invoices", "invoice-detail", &data)
+	s.renderPageForRequest(w, r, inv.Number, "invoices", &data)
 }
 
 // formCents parses a localized money value or an integer cents field.

@@ -15,7 +15,7 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 		pageData:       pageData{Title: "Export", Active: "export", ReactApp: true},
 		ReportsEnabled: s.teamModules(r)["reports"],
 	}
-	s.renderPageForRequest(w, r, "Export", "export", "export", data)
+	s.renderPageForRequest(w, r, "Export", "export", data)
 }
 
 func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {

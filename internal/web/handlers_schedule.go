@@ -100,7 +100,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	for i := range schedule.Rows {
 		data.RowVMs = append(data.RowVMs, schedRowVM{Row: schedule.Rows[i], Projects: projectVMs, ProjectID: pid, CanManage: canManageTeam, Lang: lang})
 	}
-	s.renderPageForRequest(w, r, "Schedule", "schedule", "schedule", &data)
+	s.renderPageForRequest(w, r, "Schedule", "schedule", &data)
 }
 
 // schedProject is the project being planned: ?project=, else the first.
