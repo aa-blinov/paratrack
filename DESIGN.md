@@ -274,6 +274,17 @@ the M3 baseline sizes in Inter: headline small 24/32, title medium 16/24 medium,
 label large 14/20 medium, label medium 12/16 medium. The desktop keeps the neutral
 ledger. The activity colours are not M3 roles; they stay as the person's marks.
 
+**Outside Material 3 by decision.** Status badges (`Badge`: draft, sent, paid),
+collapsible blocks (`Collapsible`: the optional fields and saved snapshots) and
+skeletons (`Skeleton`: the loading placeholders) are paratrack's own components.
+Material 3 has no matching spec for a status label, a disclosure in this form,
+or a skeleton (M3 has a progress indicator for loading), so they follow this
+DESIGN.md and are not measured against M3.
+
+**List items on the phone.** A one-line list item is 56dp (`data-list-item="1"`:
+notification topics), a two-line item is 72dp (`data-list-item="2"`: the project
+row). Tables and cards that carry forms or buttons are not list items.
+
 For each component: the character line first, then shape, colour and states.
 
 ### Buttons

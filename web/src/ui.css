@@ -1077,3 +1077,11 @@ body {
   #paratrack-react-root [data-slot="select-item"] { min-height: 48px; }
 }
 
+/* M3 list items on the phone: a one-line item is 56dp, a two-line item 72dp.
+   The minimum is set here; a row whose content is taller keeps its content. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-list-item="1"] { display: flex; align-items: center; min-height: 56px; }
+  #paratrack-react-root [data-list-item="1"] > label { min-height: 56px; width: 100%; }
+  #paratrack-react-root [data-list-item="2"] { height: 72px; }
+}
+
