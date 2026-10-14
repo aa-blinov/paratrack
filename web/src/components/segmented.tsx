@@ -31,16 +31,18 @@ export function SegmentedControl({ label, options, value, trailing, className }:
   trailing?: ReactNode
   className?: string
 }) {
-  return <nav aria-label={label} className={`period-tabs flex flex-wrap items-center gap-1 rounded-lg border bg-card p-1 ${className || ""}`}>
+  return <nav aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
+  // periods took three rows of a 390px screen.
+  className={`period-tabs flex flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)] lg:flex-wrap ${className || ""}`}>
     {options.map(option => {
       const active = option.key === value
       const variant = active ? "secondary" : "ghost"
       return option.href
-        ? <Button key={option.key} asChild size="sm" variant={variant} className="h-11"
+        ? <Button key={option.key} asChild size="sm" variant={variant} className="h-11 shrink-0"
             aria-current={active ? "page" : undefined}>
             <a href={option.href}>{option.label}</a>
           </Button>
-        : <Button key={option.key} type="button" size="sm" variant={variant} className="h-11"
+        : <Button key={option.key} type="button" size="sm" variant={variant} className="h-11 shrink-0"
             aria-pressed={active} onClick={option.onSelect}>{option.label}</Button>
     })}
     {trailing}
