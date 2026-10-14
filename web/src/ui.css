@@ -1070,3 +1070,10 @@ body {
   #paratrack-react-root [data-snackbar] { min-height: 48px; border-radius: 4px; display: flex; align-items: center; }
 }
 
+/* Material 3 menus on the phone: the container is an extra-small 4dp corner and
+   each item is 48dp (the select list is a menu). Measured before: 10px and 28px. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-slot="select-content"] { border-radius: 4px; }
+  #paratrack-react-root [data-slot="select-item"] { min-height: 48px; }
+}
+
