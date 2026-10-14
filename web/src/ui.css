@@ -506,7 +506,7 @@
     z-index: 45;
     display: flex;
     align-items: stretch;
-    height: 4rem;
+    height: 5rem;
     border-top: 1px solid var(--border);
     background: var(--background);
     padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -518,18 +518,19 @@
     flex: 1 1 0;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: .15rem;
+    justify-content: flex-start;
+    gap: .875rem;
     border: 0;
     background: none;
-    padding: .4rem .15rem;
+    /* M3 layout: icon centre at 32px, pill 16px to 48px, label from 58px. */
+    padding: 1.25rem .15rem 0;
     color: var(--muted-foreground);
-    font-size: .6875rem;
+    font-size: .75rem;
     line-height: 1.1;
     text-align: center;
     cursor: pointer;
   }
-  #paratrack-react-root .mobile-nav-item svg { width: 1.35rem; height: 1.35rem; }
+  #paratrack-react-root .mobile-nav-item svg { width: 1.5rem; height: 1.5rem; }
   #paratrack-react-root .mobile-nav-item span {
     max-width: 100%;
     overflow: hidden;
@@ -553,9 +554,9 @@
   #paratrack-react-root .mobile-nav-item-active::before {
     content: "";
     position: absolute;
-    top: .25rem;
+    top: 1rem;
     left: 50%;
-    width: 3.5rem;
+    width: 4rem;
     height: 2rem;
     border-radius: 1rem;
     transform: translateX(-50%);
@@ -566,7 +567,7 @@
   #paratrack-react-root .mobile-nav-fab {
     position: fixed;
     inset-inline-end: 1rem;
-    bottom: calc(4rem + 1rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(5rem + 1rem + env(safe-area-inset-bottom, 0px));
     z-index: 46;
     display: inline-flex;
     align-items: center;
@@ -580,7 +581,7 @@
   #paratrack-react-root .mobile-nav-fab svg { width: 1.5rem; height: 1.5rem; }
 
   /* Room for the bar so the last row of a screen is never under it. */
-  #paratrack-react-root .app-shell-main { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  #paratrack-react-root .app-shell-main { padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px)); }
   /* A bottom sheet covers at most part of the screen: the page behind stays
      visible so the person keeps their place while choosing. */
   #paratrack-react-root .mobile-nav-sheet { max-height: 72svh; }
@@ -974,3 +975,32 @@ body {
   #paratrack-react-root main a:not([data-slot="button"]) { position: relative; }
   #paratrack-react-root main a:not([data-slot="button"])::after { content: ""; position: absolute; inset: -0.95rem 0; }
 }
+
+/* Material 3 on the phone shell: the baseline values, not the desktop ones.
+   Buttons are pills 40dp tall; the 48dp touch floor is the hit area, drawn
+   outside the visible shape. Bottom sheets and dialogs take the 28dp corner.
+   Text fields take the 4dp outlined corner. The navigation bar is 80dp with a
+   64x32dp active indicator, which is the standard size, not the Expressive one. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-slot="button"] {
+    position: relative;
+    min-height: 40px;
+    border-radius: 9999px;
+  }
+  #paratrack-react-root [data-slot="button"]::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+  }
+  #paratrack-react-root [data-slot="button"][class*="size-7"],
+  #paratrack-react-root [data-slot="button"][class*="size-8"] {
+    min-width: 40px;
+    border-radius: 9999px;
+  }
+  #paratrack-react-root .period-tabs { border-radius: 9999px; }
+  #paratrack-react-root [data-slot="input"] { border-radius: 4px; }
+  #paratrack-react-root .mobile-nav-sheet { border-radius: 28px 28px 0 0; }
+  #paratrack-react-root [data-m3-dialog] { border-radius: 28px; }
+  #paratrack-react-root .mobile-nav-item-active::before { width: 4rem; }
+}
+
