@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { translate as t } from "@/i18n"
 import type { ClientDetailData, ClientDetailInvoice, ClientDetailProject } from "@/dashboard/types"
+import { ColorMark } from "@/components/color-mark"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // Как в invoices-page: цвет статуса живёт в роли .doc-status, а variant
@@ -19,7 +20,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 function ProjectRow({ lang, project }: { lang: string; project: ClientDetailProject }) {
   return <a href={`/projects/${encodeURIComponent(project.Slug)}`} className="group grid gap-2 border-b pb-3 last:border-0 last:pb-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:gap-4">
     <div className="flex min-w-0 items-center gap-2">
-      <span aria-hidden="true" className="size-3 shrink-0 rounded-full" style={{ backgroundColor: project.Color }} />
+      <ColorMark color={project.Color} />
       <span className="min-w-0 truncate font-medium underline-offset-4 group-hover:underline" title={project.Name}>{project.Name}</span>
       {project.Archived && <Badge variant="secondary">{t(lang, "projects.archivedBadge")}</Badge>}
       {/* Перерасход — предупреждение, поэтому янтарный, а не разрушающий красный. */}

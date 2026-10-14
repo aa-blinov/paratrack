@@ -12,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { ProjectDetailData } from "@/dashboard/types"
+import { ColorMark } from "@/components/color-mark"
 
 function SummaryCard({ title, value }: { title: string; value: string }) {
   return <Card><CardContent className="space-y-2 p-5"><h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</h3><p className="font-mono text-3xl tabular-nums">{value}</p></CardContent></Card>
@@ -152,7 +153,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
 
     <header className="flex flex-wrap items-start justify-between gap-4">
       <div className="flex min-w-0 items-start gap-3">
-        <span aria-hidden="true" className="mt-2 size-4 shrink-0 rounded-full" style={{ backgroundColor: project.Color }} />
+        <ColorMark color={project.Color} />
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2"><h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight" title={project.Name}><span className="block truncate">{project.Name}</span></h1>{data.Archived && <Badge variant="secondary">{t(data.Lang, "projects.archivedBadge")}</Badge>}</div>
         </div>
@@ -180,7 +181,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
           {data.Sessions?.length ? <Table>
             <TableHeader><TableRow><TableHead>{t(data.Lang, "dash.activity")}</TableHead><TableHead>{t(data.Lang, "dash.started")}</TableHead><TableHead>{t(data.Lang, "dash.duration")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.Sessions.map(session => <TableRow key={session.ID}>
-              <TableCell><span aria-hidden="true" className="mr-2 inline-block size-2 rounded-full" style={{ backgroundColor: session.Color }} />{session.ActivityName}</TableCell>
+              <TableCell><ColorMark color={session.Color} />{session.ActivityName}</TableCell>
               <TableCell className="font-mono text-xs text-muted-foreground">{session.StartLocal}</TableCell>
               <TableCell className="font-mono text-xs tabular-nums">{session.Duration}</TableCell>
             </TableRow>)}</TableBody>
@@ -210,7 +211,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
 
         <Card><CardHeader><CardTitle>{t(data.Lang, "projects.activities")} ({data.Activities?.length ?? 0})</CardTitle></CardHeader><CardContent>
           {data.Activities?.length ? <ul className="space-y-2">{data.Activities.map(activity => <li key={activity.ID} className="flex min-w-0 items-center gap-2 text-sm">
-            <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: activity.Color }} />
+            <ColorMark color={activity.Color} />
             <span className="min-w-0 truncate">{activity.Name}</span>
             {activity.Archived && <Badge variant="secondary" className="h-5">{t(data.Lang, "projects.archivedBadge")}</Badge>}
           </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(data.Lang, "projects.noActivities")}</p>}
