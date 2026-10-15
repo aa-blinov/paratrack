@@ -75,12 +75,17 @@ export function available(item: ShellNavItem, shell: AppSidebarShell) {
 }
 
 // isCurrent marks the panel entry the open screen belongs to. An item with a
-// matchPrefix stands for a whole section — the settings entry stays lit on all
-// ten settings screens instead of only the one it links to.
-export function isCurrent(item: ShellNavItem, shell: AppSidebarShell) {
+// matchPrefix stands for a whole section, so the settings entry lights up on the
+// settings screens — but only where no more specific entry owns the screen. On
+// «Участники» and «Приглашения» the section entry stays dark: one row is current.
+export function isCurrent(item: ShellNavItem, shell: AppSidebarShell, items: ShellNavItem[] = nav) {
   const path = shell.requestPath.split("?")[0]
-  if (shell.active === item.key || path === item.href) return true
-  return Boolean(item.matchPrefix && path.startsWith(item.matchPrefix))
+  const exact = shell.active === item.key || path === item.href
+  if (!item.matchPrefix) return exact
+  // The page names its section in shell.active, so the section entry matches by
+  // key on every settings screen. It yields to a more specific entry that owns the screen.
+  if (items.some(other => other !== item && (other.href === path || (other.key === shell.active && other.key !== item.key)))) return false
+  return exact || path.startsWith(item.matchPrefix)
 }
 
 export function Icon({ name }: { name: string }) {
