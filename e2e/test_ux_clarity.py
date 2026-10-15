@@ -42,7 +42,7 @@ async def main():
    await field.fill('45');await field.press('Enter');await asyncio.wait_for(pending.wait(),5)
    await page.get_by_role('status').filter(has_text='Сохраняем правку…').wait_for()
    release.set();await page.get_by_role('status').filter(has_text='Сохранено:').wait_for()
-   assert await field.input_value()=='45'
+   assert await field.input_value()=='0:45'
    row_text=await page.locator('main').inner_text()
    assert 'Одинаковая активность' in row_text and 'Первый проект' in row_text, row_text[:200]
    await field.fill('50');await field.press('Enter')

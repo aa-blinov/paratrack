@@ -207,7 +207,8 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 		s.respondTimesheetWriteError(w, r, actID, day, err)
 		return
 	}
-	s.toastL(w, r, "toast.saved", "", "success")
+	// No toast: the sheet says «Сохранено: …» in its own status line, and a
+	// second notice per cell was noise while a week was typed in.
 	// Re-render just the row.
 	s.respondTimesheetRow(w, r, actID, day)
 }
@@ -241,7 +242,8 @@ func (s *Server) handleTimesheetRowClear(w http.ResponseWriter, r *http.Request)
 		s.respondTimesheetWriteError(w, r, actID, weekStart, err)
 		return
 	}
-	s.toastL(w, r, "toast.saved", "", "success")
+	// No toast: the sheet says «Сохранено: …» in its own status line, and a
+	// second notice per cell was noise while a week was typed in.
 	s.respondTimesheetRow(w, r, actID, weekStart)
 }
 

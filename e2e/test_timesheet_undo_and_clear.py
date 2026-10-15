@@ -90,12 +90,13 @@ async def check_undo(browser, width):
     await first.fill("70")
     await first.press("Enter")
     await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 1 5.").wait_for()
-    assert await first.input_value() == "70", posts
+    # A saved value reads like the totals: «1:10», not «70».
+    assert await first.input_value() == "1:10", posts
     undo = page.get_by_role("button", name="Отменить", exact=True)
     assert "Разработка" in await undo.get_attribute("title"), "Undo names the cell it will restore"
     await undo.click()
     await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 1 5.").wait_for()
-    assert await first.input_value() == "45", posts
+    assert await first.input_value() == "0:45", posts
     assert posts[-1] == ("1", "2026-10-05", "45"), posts
 
     # Undo follows the most recent edit, not the cell it happened to start from.
@@ -151,7 +152,7 @@ async def check_row_clear(browser, width):
     await page.locator("#ts-body tr").first.wait_for()
 
     first_row = page.locator("#ts-row-1")
-    assert await first_row.get_by_role("textbox").first.input_value() == "45"
+    assert await first_row.get_by_role("textbox").first.input_value() == "0:45"
 
     # Cancelling asks the same dialog and writes nothing.
     await first_row.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
@@ -160,7 +161,7 @@ async def check_row_clear(browser, width):
     await dialog.get_by_role("button", name="Отмена", exact=True).click()
     await dialog.wait_for(state="hidden")
     assert not clears, clears
-    assert await first_row.get_by_role("textbox").first.input_value() == "45"
+    assert await first_row.get_by_role("textbox").first.input_value() == "0:45"
 
     # Confirming empties the row and says so.
     await first_row.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
@@ -168,7 +169,9 @@ async def check_row_clear(browser, width):
     await page.get_by_role("status").filter(has_text="Строка очищена: Разработка.").wait_for()
     assert clears and "activity_id=1" in clears[0] and "date=2026-10-05" in clears[0], clears
     assert await first_row.get_by_role("textbox").first.input_value() == "", "cleared cell shows the dash placeholder"
-    assert await first_row.get_by_text("0 мин").count() >= 1
+    # The row total reads like the cells: an empty row shows the dash, with
+    # the spelled-out «0 мин» in its tooltip.
+    assert await first_row.locator('td[title="0 мин"]').count() >= 1
     assert await page.get_by_role("button", name="Отменить", exact=True).count() == 0, "an emptied row has nothing to undo"
 
     # A refusal is reported, not swallowed.

@@ -27,6 +27,35 @@ type CellResponse = {
 // the number the person saw — including 0 for an empty day.
 // A cell takes minutes («90») or hours and minutes («1:30»): the grid is read
 // in hours, and a number field refused the colon people type for them.
+// A cell reads like the totals beside it: «1:30», not «90». The input still
+// takes either form; this is how a saved value is shown back.
+export function cellClock(minutes: number): string {
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`
+}
+
+// Totals inside the grid use the cells' own form, so a column adds up at a
+// glance and «2 ч 15 мин» no longer wraps in a 80px day column. The spelled
+// out label stays in the tooltip.
+function totalClock(secs: number): string {
+  if (secs <= 0) return "—"
+  if (secs < 60) return "<0:01"
+  return cellClock(Math.floor(secs / 60))
+}
+
+// ↑ and ↓ move to the same day in the row above or below, as in a
+// spreadsheet; Enter saves and moves down. Tab still walks along the row.
+function moveFrom(input: HTMLInputElement, step: number) {
+  const [row, day] = (input.dataset.tsCell || "").split(":").map(Number)
+  const next = input.closest("[data-ts-grid]")?.querySelector<HTMLInputElement>(`input[data-ts-cell="${row + step}:${day}"]`)
+  if (!next) return
+  next.focus()
+  next.select()
+}
+
+// What Enter may move on from: an unreadable value keeps the focus where
+// the cell is marked.
+const readable = (value: string) => { const minutes = cellMinutes(value); return Number.isInteger(minutes) && minutes >= 0 && minutes <= 1440 }
+
 export function cellMinutes(value: string): number {
   const text = value.trim()
   if (text === "") return 0
@@ -143,7 +172,6 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     if (!(key in drafts) || saving === key) return
     const minutes = cellMinutes(value)
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
-      setNotice(null)
       setInvalid(key)
       return
     }
@@ -251,7 +279,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           { key: "week", label: t(lang, "ts.wholeWeek"), onSelect: () => setOnlyToday(false) },
         ]}
       />
-      <div className="ts-day-list grid gap-3">
+      <div className="ts-day-list grid gap-3" data-ts-grid>
         {daysShown.map(day => {
           const dayIndex = data.Days.indexOf(day)
           const label = `${day.Label} ${day.Date}`
@@ -261,7 +289,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
               <span className="font-mono text-sm tabular-nums text-muted-foreground">{data.DayTotalLabels[dayIndex]}</span>
             </CardHeader>
             <CardContent className="grid gap-2 px-3 pb-3">
-              {data.Rows.map(row => {
+              {data.Rows.map((row, rowIndex) => {
                 const cell = row.Cells[dayIndex]
                 const key = cellKey(row.ActivityID, cell.Index)
                 return <div key={row.ActivityID} className="flex items-start gap-2">
@@ -270,7 +298,9 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
                     <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
                       <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
                   </span>
-                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? String(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null) }} aria-invalid={invalid === key || undefined} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void saveCell(row, cell, event.currentTarget.value, true) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : null}</span>
+                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null) }} aria-invalid={invalid === key || undefined} onKeyDown={event => {
+                  if (event.key === "Enter") { event.preventDefault(); const typed = event.currentTarget.value; void saveCell(row, cell, typed, true); if (readable(typed)) moveFrom(event.currentTarget, 1) }
+                  else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : null}</span>
                   <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={busy} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button>
                 </div>
               })}
@@ -289,23 +319,25 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           <TableHead className="px-3 py-2 text-right font-medium">{t(lang, "stats.total")}</TableHead>
           <TableHead className="px-1 py-2 text-right font-medium"><span className="sr-only">{t(lang, "ts.rowActions")}</span></TableHead>
         </TableRow></TableHeader>
-        <TableBody id="ts-body">
-          {data.Rows.map(row => <TableRow key={row.ActivityID} id={`ts-row-${row.ActivityID}`} className="border-b last:border-0">
+        <TableBody id="ts-body" data-ts-grid>
+          {data.Rows.map((row, rowIndex) => <TableRow key={row.ActivityID} id={`ts-row-${row.ActivityID}`} className="border-b last:border-0">
             <TableHead scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name flex min-w-0 items-start gap-2" title={row.ActivityName}><ColorMark color={activityColor(row.Color)} /><span className="min-w-0"><span className="block whitespace-normal [overflow-wrap:anywhere]">{row.ActivityName}</span><span className="block whitespace-normal text-xs font-normal text-muted-foreground [overflow-wrap:anywhere]">{projectLabel(row)}</span></span></span></TableHead>
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
               return <TableCell key={cell.ISO} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
-                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? String(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null) }} aria-invalid={invalid === key || undefined} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void saveCell(row, cell, event.currentTarget.value, true) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : null}
+                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null) }} aria-invalid={invalid === key || undefined} onKeyDown={event => {
+                  if (event.key === "Enter") { event.preventDefault(); const typed = event.currentTarget.value; void saveCell(row, cell, typed, true); if (readable(typed)) moveFrom(event.currentTarget, 1) }
+                  else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : null}
               </TableCell>
             })}
-            <TableCell className="whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{row.RowTotalLabel}</TableCell>
+            <TableCell className="whitespace-nowrap px-3 py-2 text-right font-mono leading-tight tabular-nums" title={row.RowTotalLabel}>{totalClock(row.RowTotal)}</TableCell>
             <TableCell className="px-1 py-2 text-right"><Button type="button" variant="ghost" size="icon" disabled={busy} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button></TableCell>
           </TableRow>)}
         </TableBody>
         <TableFooter><TableRow className="border-t font-semibold">
           <TableHead className="sticky left-0 z-10 bg-card px-3 py-2 text-left">{t(lang, "stats.total")}</TableHead>
-          {data.DayTotalLabels.map((label, index) => <TableCell key={data.Days[index].ISO} className="whitespace-normal px-1 py-2 text-center font-mono text-xs leading-tight tabular-nums">{label}</TableCell>)}
-          <TableCell className="whitespace-normal whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{data.GrandTotalLabel}</TableCell>
+          {data.DayTotalLabels.map((label, index) => <TableCell key={data.Days[index].ISO} className="whitespace-nowrap px-1 py-2 text-center font-mono leading-tight tabular-nums" title={label}>{totalClock(data.Days[index].Secs)}</TableCell>)}
+          <TableCell className="whitespace-nowrap px-3 py-2 text-right font-mono font-semibold leading-tight tabular-nums" title={data.GrandTotalLabel}>{totalClock(data.GrandTotal)}</TableCell>
         </TableRow></TableFooter>
       </Table>
     </CardContent></Card>
