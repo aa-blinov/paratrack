@@ -105,7 +105,7 @@ export function GraphPage({ data }: { data: GraphData }) {
     </div>}
 
     <Card>
-      <CardHeader><CardTitle>{t(lang, "graph.subtitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "graph.blurbFull")}</p></CardHeader>
+      <CardHeader><CardTitle>{t(lang, "graph.subtitle")}</CardTitle></CardHeader>
       <CardContent>
         {canShowGraph ? <>
           <div className="echart-wrap min-w-0" id="echart-wrap">

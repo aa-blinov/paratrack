@@ -10,7 +10,7 @@ import { translate as t } from "@/i18n"
 import type { ProjectCreateData } from "@/dashboard/types"
 
 export function ProjectCreate({ data }: { data: ProjectCreateData }) {
-  const [color, setColor] = React.useState(data.SuggestedColor || "#7c3aed")
+  const [color, setColor] = React.useState(data.SuggestedColor || "#6366f1")
   const [currency, setCurrency] = React.useState("__workspace_currency__")
   const lang = data.Lang
 
@@ -27,7 +27,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
         <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
           <DisclosureTrigger className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4" /></DisclosureTrigger>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="eora-rag" /></div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="sait-dlya-klienta" /></div>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">{t(lang, "projects.color")}</legend>
           <div className="flex items-center gap-2">

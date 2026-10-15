@@ -19,6 +19,10 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /api/reports/{id}/delete", s.handleSavedReportsDelete)
 
 	// API tokens and integrations.
+	// The settings section has no page of its own; its first tab is the profile.
+	pages.HandleFunc("GET /settings", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/settings/profile", http.StatusSeeOther)
+	})
 	pages.HandleFunc("GET /settings/tokens", s.handleSettingsTokens)
 	pages.HandleFunc("POST /api/tokens", s.handleAPITokenCreate)
 	pages.HandleFunc("POST /api/tokens/{id}/delete", s.handleAPITokenDelete)

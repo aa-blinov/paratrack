@@ -578,6 +578,8 @@ export interface StatsData {
   CanManage: boolean
   Mods: Record<string, boolean>
   Period: { Start: string; End: string; Label: string }
+  PeriodStartInput: string
+  PeriodEndInput: string
   Aggregated: Array<{ ActivityName: string; Color: string; Duration: string; Share: number }>
   ByProject: Array<{ ProjectID: number; ProjectName: string; Slug: string; Color: string; Duration: string; Share: number; Activities: Array<{ ActivityName: string; Color: string; Duration: string; Share: number }> }>
   Projects: Project[]
