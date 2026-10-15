@@ -145,6 +145,11 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       const ids = [...undoHeader.matchAll(/\/sessions\/(\d+)\//g)].map(match => Number(match[1]))
       setStopped(ids.length ? { ids, message: decodeURIComponent(response.headers.get("X-Toast") || "") } : null)
       await refresh()
+      // The stopped row left the page and took the focus with it, so the
+      // keyboard lands on «Отменить»: the next thing a person may want.
+      if (ids.length) requestAnimationFrame(() => {
+        if (document.activeElement === document.body) document.querySelector<HTMLButtonElement>("[data-stop-undo] button")?.focus()
+      })
       return true
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
@@ -170,7 +175,9 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       return
     }
     setActivityRequired(false)
-    if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note })) {
+    const named = !project ? projectPrefix(activity) : null
+    const fields = named ? { activity: named.activity, project_id: String(named.project.ID), note } : { activity: activity.trim(), project_id: project, note }
+    if (await mutate("/api/start", fields)) {
       setActivity("")
       setNote("")
     }
@@ -189,6 +196,15 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
 
   const activities = data.Activities ?? []
   const projects = data.Projects ?? []
+  // «Сайт-каталог · Вёрстка» typed into the field is how invoices name a line,
+  // so people type it. With no project picked, a known project before «·» or
+  // «:» becomes the project and the rest the activity; the hint says so first.
+  function projectPrefix(text: string) {
+    const match = text.match(/^(.+?)\s*[·:]\s*(.+)$/)
+    const found = match && projects.find(item => item.Name.toLocaleLowerCase() === match[1].trim().toLocaleLowerCase())
+    return found && match ? { project: found, activity: match[2].trim() } : null
+  }
+  const prefixed = !project ? projectPrefix(activity) : null
   const active = data.ActiveSessions ?? []
   const mode = data.Mode || "custom"
   const modeTitle = mode === "custom" ? t(lang, "dash.mode.custom") : t(lang, `preset.${mode}`)
@@ -250,6 +266,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
               appears with its message is not announced reliably. Empty text
               adds nothing to the layout. */}
           <p id="activity-required" role="alert" className="text-sm text-destructive">{activityRequired ? t(lang, "dash.activityRequired") : ""}</p>
+          <p data-project-prefix role="status" className="text-xs text-muted-foreground">{prefixed ? t(lang, "dash.prefixProject", prefixed.project.Name, prefixed.activity) : ""}</p>
           <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
             <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
             <div className="ledger-split grid mt-3 gap-3">

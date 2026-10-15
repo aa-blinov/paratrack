@@ -84,4 +84,7 @@ type graphData struct {
 	TagFilter        string
 	PersonFilter     int64
 	PersonName       string
+	// Same note as /stats: the chart draws stopped sessions only.
+	RunningCount int
+	RunningTotal string
 }

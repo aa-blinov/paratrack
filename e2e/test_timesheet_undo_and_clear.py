@@ -83,8 +83,8 @@ async def check_undo(browser, width):
     await page.goto("http://paratrack.test/timesheet")
     await page.locator("#ts-body").wait_for()
 
-    first = page.get_by_role("spinbutton", name="Разработка — Первый проект — 2026-10-05", exact=True)
-    second = page.get_by_role("spinbutton", name="Разработка — Первый проект — 2026-10-06", exact=True)
+    first = page.get_by_role("spinbutton", name="Разработка — Первый проект — 1 5", exact=True)
+    second = page.get_by_role("spinbutton", name="Разработка — Первый проект — 2 6", exact=True)
 
     # A wrong number is undoable, and undo restores the minutes it had.
     await first.fill("70")

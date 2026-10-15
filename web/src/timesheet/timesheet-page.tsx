@@ -45,6 +45,8 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   const [error, setError] = React.useState("")
   const [newActivity, setNewActivity] = React.useState("")
   const lang = data.Lang
+  // A screen reader read «2026-10-05» digit by digit; the grid's own header says «пн 5».
+  const dayName = (iso: string) => { const day = data.Days.find(item => item.ISO === iso); return day ? `${day.Label} ${day.Date}` : iso }
   const busy = saving !== null || clearing
   const lastEdit = history[history.length - 1] ?? null
   // A row whose activity has no project still takes minutes, but its time
@@ -242,7 +244,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
                     <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
                       <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
                   </span>
-                  <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${cell.ISO}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
+                  <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
                   <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={busy} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button>
                 </div>
               })}
@@ -267,7 +269,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
               return <TableCell key={cell.ISO} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
-                <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${cell.ISO}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
+                <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs ? String(cell.Min) : "")} placeholder="—" title={cell.ISO} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
               </TableCell>
             })}
             <TableCell className="whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{row.RowTotalLabel}</TableCell>
