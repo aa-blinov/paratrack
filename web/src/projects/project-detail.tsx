@@ -164,9 +164,12 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
 
     {data.Flash && <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
 
-    <section aria-label={t(data.Lang, "projects.allTime")} className={`grid gap-4 sm:grid-cols-2 ${data.EstimateLabel ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+    {/* Ставку вводят в «Изменить» и больше нигде не видят: показываем её
+        рядом с часами, из которых она делает деньги. */}
+    <section aria-label={t(data.Lang, "projects.allTime")} className={`grid gap-4 sm:grid-cols-2 ${data.EstimateLabel && data.RateLabel ? "lg:grid-cols-4" : data.EstimateLabel || data.RateLabel ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
       <SummaryCard title={t(data.Lang, "projects.last30")} value={data.MonthTotal} />
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
+      {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} />}
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>
         <p className="font-mono text-lg tabular-nums">{data.EstimateLabel} <span className="text-muted-foreground">/</span> {data.Total}</p>

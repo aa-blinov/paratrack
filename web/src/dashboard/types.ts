@@ -118,6 +118,8 @@ export interface ProjectListRow {
   MonthLabel: string
   /** Who this project is billed to. Empty when it is not linked to a client. */
   ClientName: string
+  /** Hourly rate in the billing currency; managers only, empty when unset. */
+  RateLabel: string
   /** Activities behind the count; a row opens into them. */
   ActivityNames: ProjectListActivity[]
 }
@@ -250,6 +252,7 @@ export interface ProjectDetailData {
   EstimateInput: string
   EstimatePercent: number
   RateInput: string
+  RateLabel: string
   Currency: string
   TeamCurrency: string
   Currencies: Array<{ Code: string; Label: string }>
@@ -342,6 +345,8 @@ export interface GraphData {
   TagFilter: string
   PersonFilter: number
   PersonName: string
+  RunningCount: number
+  RunningTotal: string
 }
 
 export interface TimesheetCell {

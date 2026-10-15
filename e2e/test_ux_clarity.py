@@ -38,7 +38,7 @@ async def main():
    else:await page.locator('#ts-body').wait_for()
    scope=page.locator('main') if phone else page.locator('#ts-body')
    for name in ['Первый проект','Второй проект']:assert await scope.locator('th').filter(has_text=name).count()==1 if not phone else name in await page.locator('main').inner_text()
-   field=page.get_by_role('spinbutton',name='Одинаковая активность — Первый проект — 2026-10-05',exact=True)
+   field=page.get_by_role('spinbutton',name='Одинаковая активность — Первый проект — 1 5',exact=True)
    await field.fill('45');await field.press('Enter');await asyncio.wait_for(pending.wait(),5)
    assert await page.get_by_role('status').inner_text()=='Сохраняем правку…'
    release.set();await page.get_by_role('status').filter(has_text='Сохранено:').wait_for()

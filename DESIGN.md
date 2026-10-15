@@ -7,8 +7,8 @@ colors:
   background: "oklch(0.975 0.012 85)"
   foreground: "oklch(0.17 0.008 75)"
   card: "oklch(0.99 0.008 85)"
-  primary: "oklch(0.205 0 0)"
-  primary-foreground: "oklch(0.985 0 0)"
+  primary: "oklch(0.52 0.185 284)"
+  primary-foreground: "oklch(0.99 0 0)"
   muted: "oklch(0.945 0.013 85)"
   muted-foreground: "oklch(0.49 0.01 75)"
   border: "oklch(0.922 0 0)"
@@ -135,7 +135,7 @@ The neutral tokens carry the interface. Light values are oklch and exact in `ui.
 | Page (`--background`) | `oklch(0.975 0.012 85)` warm paper | `oklch(0.145 0 0)` |
 | Text (`--foreground`) | `oklch(0.17 0.008 75)` warm ink | `oklch(0.985 0 0)` |
 | Card (`--card`) | `oklch(0.99 0.008 85)` | `oklch(0.205 0 0)` |
-| Primary action (`--primary`) | `oklch(0.205 0 0)` charcoal | `oklch(0.922 0 0)` |
+| Primary action (`--primary`) | `oklch(0.52 0.185 284)` brand violet | `oklch(0.82 0.11 284)` |
 | Quiet fill (`--muted`) | `oklch(0.945 0.013 85)` | `oklch(0.269 0 0)` |
 | Secondary ink (`--muted-foreground`) | `oklch(0.49 0.01 75)` | `oklch(0.708 0 0)` |
 | Hairline (`--border`) | `oklch(0.922 0 0)` | `oklch(1 0 0 / 10%)` |
@@ -143,10 +143,10 @@ The neutral tokens carry the interface. Light values are oklch and exact in `ui.
 
 ### Primary
 
-- **The primary action is charcoal by default.** A form's one primary button is
-  charcoal (`--primary`). Where a screen marks its main action with
-  `data-action-primary`, that action takes brand violet instead: the «Старт» button
-  on the dashboard is the case in point.
+- **The primary action is brand violet on every screen.** A form's one primary
+  button is `--primary`, the same violet as the dashboard's «Старт». It used to be
+  charcoal on the desktop and violet on the phone, so «Создать» and «Старт» read
+  as two different primaries; one colour now means "the main thing here".
 - **Activity colours belong to the person's activities.** `--activity-1` to
   `--activity-10` are the default palette (indigo first). An activity colour is a
   3px spine beside neutral text: it is never the ink of a label. A colour that
@@ -312,8 +312,8 @@ For each component: the character line first, then shape, colour and states.
 - **Phone (Material 3):** every button is a pill 40dp tall, `icon` buttons are
   40dp circles. The 48dp touch floor is the hit area, drawn 4px outside the
   visible shape in `::after`, so the shape stays at 40dp.
-- **Primary:** charcoal `oklch(0.205 0 0)` with `oklch(0.985 0 0)` text. A screen's
-  marked main action (`data-action-primary`) is violet `--brand` instead.
+- **Primary:** brand violet `oklch(0.52 0.185 284)` with `oklch(0.99 0 0)` text
+  (dark theme: pale violet with a deep violet ink).
 - **Outline:** card ground with a hairline border on the paper.
 - **Ghost:** no ground at rest, the muted fill on hover. Row actions use ghost:
   «Только эта», «Пауза», «Стоп». Stop takes the destructive ink.
