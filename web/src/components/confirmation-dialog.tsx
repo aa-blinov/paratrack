@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from "react"
 import { AlertDialog as Primitive } from "radix-ui"
 import { Button } from "@/components/ui/button"
 import { translate as t } from "@/i18n"
-type Request = {message:string;resolve:(accepted:boolean)=>void;trigger:HTMLElement|null}
-export function requestConfirmation(message:string) {
-  return new Promise<boolean>(resolve=>document.dispatchEvent(new CustomEvent("paratrack:confirm",{detail:{message,resolve,trigger:document.activeElement}})))
+type Request = {message:string;title?:string;action?:string;resolve:(accepted:boolean)=>void;trigger:HTMLElement|null}
+// The button that asked names the dialog: «Удалить сессию?» and «Удалить
+// сессию» say what is about to happen, «Подтвердить действие» did not.
+// A label too long for a button falls back to the generic wording.
+function labelOf(element:Element|null|undefined) {
+  const label=(element?.getAttribute("aria-label") || element?.textContent || "").trim()
+  return label && label.length<=48 ? label : undefined
+}
+export function requestConfirmation(message:string, options:{title?:string;action?:string;trigger?:HTMLElement|null}={}) {
+  const trigger=options.trigger ?? document.activeElement as HTMLElement|null
+  const action=options.action ?? labelOf(trigger)
+  const title=options.title ?? (action ? `${action}?` : undefined)
+  return new Promise<boolean>(resolve=>document.dispatchEvent(new CustomEvent("paratrack:confirm",{detail:{message,title,action,resolve,trigger}})))
 }
 export function ConfirmationDialog({lang}: {lang:string}) {
   const trigger=useRef<HTMLElement|null>(null)
@@ -14,9 +24,9 @@ export function ConfirmationDialog({lang}: {lang:string}) {
   return <Primitive.Root open={!!request} onOpenChange={open=>{if(!open)finish(false)}}><Primitive.Portal container={document.getElementById("paratrack-react-root") ?? undefined}>
     <Primitive.Overlay className="fixed inset-0 z-50 bg-black/50"/>
     <Primitive.Content data-m3-dialog onCloseAutoFocus={event=>{event.preventDefault();trigger.current?.focus()}} className="fixed left-1/2 top-1/2 z-50 grid max-h-[calc(100svh-2rem)] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 grid-rows-[auto_minmax(0,1fr)_auto] gap-4 rounded-xl border bg-background p-6 shadow-lg">
-      <Primitive.Title className="text-lg font-semibold">{t(lang,"common.confirmTitle")}</Primitive.Title>
+      <Primitive.Title className="text-lg font-semibold">{request?.title ?? t(lang,"common.confirmTitle")}</Primitive.Title>
       <Primitive.Description className="min-h-0 overflow-y-auto text-sm text-muted-foreground [overflow-wrap:anywhere]">{request?.message}</Primitive.Description>
-      <div className="flex justify-end gap-2"><Primitive.Cancel asChild><Button variant="outline" onClick={()=>finish(false)}>{t(lang,"projects.cancel")}</Button></Primitive.Cancel><Primitive.Action asChild><Button variant="destructive" onClick={()=>finish(true)}>{t(lang,"common.confirmAction")}</Button></Primitive.Action></div>
+      <div className="flex justify-end gap-2"><Primitive.Cancel asChild><Button variant="outline" onClick={()=>finish(false)}>{t(lang,"projects.cancel")}</Button></Primitive.Cancel><Primitive.Action asChild><Button variant="destructive" onClick={()=>finish(true)}>{request?.action ?? t(lang,"common.confirmAction")}</Button></Primitive.Action></div>
     </Primitive.Content>
   </Primitive.Portal></Primitive.Root>
 }

@@ -90,7 +90,7 @@ def answer_dialog(page, accept: bool) -> None:
     # Radix renders the confirmation as an alertdialog.
     dialog = page.get_by_role("alertdialog")
     expect(dialog).to_be_visible()
-    dialog.get_by_role("button", name="Подтвердить" if accept else "Отмена").click()
+    (dialog.get_by_role("button").last if accept else dialog.get_by_role("button", name="Отмена")).click()
     page.wait_for_load_state("load")
 
 

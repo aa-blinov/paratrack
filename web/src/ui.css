@@ -12,6 +12,7 @@
 @custom-variant dark (&:where([data-theme=paratrack-dark], [data-theme=paratrack-dark] *));
 
 @theme inline {
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -360,11 +361,6 @@
   padding: 0.15rem 0.55rem;
   font-size: 0.75rem;
   font-weight: 600;
-}
-
-#paratrack-react-root .status-pill[data-state="running"] {
-  background: var(--positive-wash);
-  color: var(--positive-ink);
 }
 
 #paratrack-react-root .status-pill[data-state="paused"] {

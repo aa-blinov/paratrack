@@ -164,7 +164,7 @@ async def check_row_clear(browser, width):
 
     # Confirming empties the row and says so.
     await first_row.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
-    await dialog.get_by_role("button", name="Подтвердить", exact=True).click()
+    await dialog.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
     await page.get_by_role("status").filter(has_text="Строка очищена: Разработка.").wait_for()
     assert clears and "activity_id=1" in clears[0] and "date=2026-10-05" in clears[0], clears
     assert await first_row.get_by_role("spinbutton").first.input_value() == "", "cleared cell shows the dash placeholder"
@@ -173,7 +173,7 @@ async def check_row_clear(browser, width):
 
     # A refusal is reported, not swallowed.
     await first_row.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
-    await dialog.get_by_role("button", name="Подтвердить", exact=True).click()
+    await dialog.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
     await page.get_by_role("alert").filter(has_text="Это время уже в выставленном счёте.").wait_for()
 
     assert not errors, errors

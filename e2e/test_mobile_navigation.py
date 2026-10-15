@@ -203,9 +203,9 @@ async def check_one_touch_floor_everywhere(browser):
     await page.route('**/api/active', lambda route: route.fulfill(
         content_type='application/json',
         body=json.dumps({'Items': [{'ID': 7, 'ActivityName': 'Правка макета', 'ProjectName': '', 'Color': '#16a34a',
-                                    'ProjectColor': '', 'Paused': False, 'Clock': '00:06:48'}]})))
+                                    'ProjectColor': '', 'Paused': False, 'Clock': '00:06:48', 'ResumeISO': ''}]})))
     await page.evaluate("window.dispatchEvent(new Event('paratrack:synced'))")
-    await page.locator('aside button[aria-label="Пауза"]').wait_for()
+    await page.locator('aside button[aria-label="Пауза: Правка макета"]').wait_for()
     measured = await page.evaluate("""() => {
       const out = [];
       for (const el of document.querySelectorAll('aside button')) {

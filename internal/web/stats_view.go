@@ -74,6 +74,15 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 		AllTagNames:   statsTagNames(stats.Tags),
 		SavedReports:  savedReportViews(savedReports),
 	}
+	if tagFilter == "" {
+		count, secs, err := s.runningInStats(r, period, now, stats.PersonFilter, stats.Project.ID)
+		if err != nil {
+			// The note is an addition; a failed read keeps the totals.
+			s.logInternalError(err)
+		} else if count > 0 {
+			data.RunningCount, data.RunningTotal = count, fmtDur(r, secs)
+		}
+	}
 	// "Сегодня" is the default period and matches the dashboard's own
 	// "учтено сегодня" window, so an empty today is a real answer. It still
 	// reads as "nothing was ever tracked" unless the page names the periods
@@ -89,6 +98,28 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 		}
 	}
 	return data, nil
+}
+
+// runningInStats counts the open timers the stats totals leave out, in the
+// same person and project scope, with the time they hold inside the period.
+func (s *Server) runningInStats(r *http.Request, period timeparse.Period, now time.Time, personID, projectID int64) (int, int, error) {
+	active, err := s.services.Tracking.Queries.ActiveSessions(r.Context(), teamID(r))
+	if err != nil {
+		return 0, 0, fmt.Errorf("list running timers for stats: %w", err)
+	}
+	count, secs := 0, 0
+	for _, item := range active {
+		if (personID > 0 && item.Session.UserID != personID) || (projectID > 0 && item.Activity.ProjectID != projectID) {
+			continue
+		}
+		in := item.Session.TrackedSecondsInWindow(period.Start, period.End, now)
+		ticking := !item.Session.Paused && !now.Before(period.Start) && now.Before(period.End.Add(time.Second))
+		if in > 0 || ticking {
+			count++
+			secs += in
+		}
+	}
+	return count, secs, nil
 }
 
 // statsNavPeriods are the periods the /stats switcher offers, in the order

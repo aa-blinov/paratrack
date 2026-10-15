@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Separator } from "@/components/ui/separator"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MoreHorizontal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
@@ -108,6 +110,17 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     setData(body.data)
   }
 
+  // «Учтено сегодня» comes from the server and would freeze while the clocks
+  // on the rows tick on, so a running timer pulls a fresh total each minute.
+  const running = data.RunningCount > 0
+  useEffect(() => {
+    if (!running) return
+    const id = window.setInterval(() => {
+      if (!document.hidden) refresh().catch(() => {})
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [running])
+
   async function mutate(url: string, fields: Record<string, string> = {}) {
     setBusy(true)
     setError("")
@@ -185,7 +198,6 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     ? t(lang, "dash.modeCounts", modeTitle, data.SectionsOpen ?? 0, data.SectionsTotal)
     : t(lang, "dash.mode", modeTitle)
   const recent = data.Recent ?? []
-  const top = data.TopToday || t(lang, "ledger.none")
 
   function sessionActions(session: Session) {
     // On a phone the row's actions sit under its meta line, flush left; on a
@@ -203,9 +215,13 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     <span className="text-sm">{stopped.message}</span>
     {stopped.ids.map(id => {
       const row = recent.find(item => item.ID === id)
-      return <span key={id} className="flex items-center gap-1">
-        <Button variant="outline" size="sm" disabled={busy} onClick={() => void mutate(`/api/sessions/${id}/reopen`)}>{t(lang, "dash.undo")}</Button>
-        <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setStopped(null); window.location.assign(`/stats?log=all&session=${id}`) }}>{row ? t(lang, "dash.fix", row.ActivityName) : t(lang, "dash.fixShort")}</Button>
+      // Several stopped at once: the name gets its own line, so a long one
+      // cannot push the buttons out of the card or truncate all three alike.
+      const many = stopped.ids.length > 1
+      return <span key={id} className={`flex min-w-0 max-w-full flex-wrap items-center gap-1 ${many ? "basis-full" : ""}`}>
+        {many && row && <span className="min-w-0 basis-full truncate text-sm font-medium sm:basis-auto sm:me-2">{row.ActivityName}</span>}
+        <Button variant="outline" size="sm" disabled={busy} aria-label={many && row ? `${t(lang, "dash.undo")}: ${row.ActivityName}` : undefined} onClick={() => void mutate(`/api/sessions/${id}/reopen`)}>{t(lang, "dash.undo")}</Button>
+        <Button variant="ghost" size="sm" className="min-w-0 shrink" disabled={busy} aria-label={row ? t(lang, "dash.fix", row.ActivityName) : undefined} onClick={() => { setStopped(null); window.location.assign(`/stats?log=all&session=${id}`) }}><span className="truncate">{row && !many ? t(lang, "dash.fix", row.ActivityName) : t(lang, "dash.fixShort")}</span></Button>
       </span>
     })}
   </CardContent></Card>
@@ -214,7 +230,10 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const unbilledWidget = data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex items-center justify-between gap-3 border-b pb-3 text-sm last:border-0 last:pb-0"><div className="grid min-w-0 flex-1"><a className="min-w-0 [overflow-wrap:anywhere] py-1 underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono text-muted-foreground">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span></div><Button asChild variant="outline" size="sm"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button></div>)}</CardContent></Card>
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4 p-4 pb-24 sm:p-6" aria-busy={busy}>
-    <header><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{modeLine}</a> : <span>{modeLine}</span>}</div></header>
+    {/* «Сколько сегодня» — первое, за чем открывают обзор, поэтому итог
+        стоит в шапке, а не четвёртой цифрой в ряду под таймерами. */}
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{modeLine}</a> : <span>{modeLine}</span>}</div></div>
+      <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span>{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
     {undoWidget}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4 max-lg:rounded-xl max-lg:border-0 max-lg:bg-card"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} data-chip variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
@@ -249,26 +268,22 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         </form>
         <Separator />
         <section id="active-list" aria-labelledby="active-heading" className="grid gap-3">
-          <CardTitle id="active-heading" className="text-sm font-medium">{labels.active}</CardTitle>
-          {active.length ? <div className="grid gap-3">{active.length > 1 && <div className="flex justify-end gap-2"><Button variant="ghost" size="sm" disabled={busy || data.RunningCount === 0} onClick={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</Button><Button variant="destructive" size="sm" disabled={busy} onClick={async () => await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length)) && void mutate("/api/active/stop-all")}>{t(lang, "dash.stopAll")}</Button></div>}{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
-            <div className="min-w-0"><div className="grid gap-1 sm:flex sm:flex-wrap sm:items-center sm:gap-2"><div className="flex min-w-0 items-center gap-2"><ColorMark color={activityColor(session.Color)} /><strong className="ledger-activity min-w-16 truncate">{session.ActivityName}</strong></div>{projects.length > 0 ? <Select value={String(session.ProjectID || 0)} onValueChange={value => void mutate(`/api/activities/${session.ActivityID}/project`, { project_id: value })}><SelectTrigger aria-label={labels.project} className="ledger-project h-7 w-fit max-w-40 border-0 px-2 text-xs sm:max-w-40" data-value={session.ProjectID || 0}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">{labels.uncategorized}</SelectItem>{projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select> : session.ProjectName && <Badge variant="outline">{session.ProjectName}</Badge>}</div><div className="mt-1 flex gap-3 text-xs text-muted-foreground"><span className={`status-pill ${session.Paused ? "is-paused" : "is-active"}`} data-state={session.Paused ? "paused" : "running"}>{session.Paused ? t(lang, "dash.statusPaused") : t(lang, "dash.statusActive")}</span><span>{session.StartLocal}</span><LiveClock session={session} /></div></div>
+          <div className="flex items-center justify-between gap-2"><CardTitle id="active-heading" className="text-sm font-medium">{labels.active}</CardTitle>{active.length > 1 && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-10" disabled={busy} aria-label={t(lang, "dash.allTimers")} title={t(lang, "dash.allTimers")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+            <DropdownMenuItem disabled={data.RunningCount === 0} onSelect={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }) && void mutate("/api/active/stop-all")}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
+          </DropdownMenuContent></DropdownMenu>}</div>
+          {active.length ? <div className="grid gap-3">{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            {/* Название и часы на одной строке: часы и есть ответ на «сколько
+                уже идёт». Статус виден только на паузе, идущий таймер его не
+                называет; проект и время начала уходят в строку под ними. */}
+            <div className="min-w-0"><div className="flex min-w-0 items-baseline gap-2"><ColorMark color={activityColor(session.Color)} /><strong className="ledger-activity min-w-0 break-words">{session.ActivityName}</strong><LiveClock session={session} className={`ms-auto shrink-0 text-base font-semibold sm:ms-2 sm:text-lg ${session.Paused ? "text-muted-foreground" : ""}`} /></div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">{session.Paused && <Badge variant="secondary" className="status-pill is-paused" data-state="paused">{t(lang, "dash.statusPaused")}</Badge>}{projects.length > 0 ? <Select value={String(session.ProjectID || 0)} onValueChange={value => void mutate(`/api/activities/${session.ActivityID}/project`, { project_id: value })}><SelectTrigger aria-label={labels.project} className="ledger-project h-7 w-fit max-w-40 border-0 px-2 text-xs sm:max-w-40" data-value={session.ProjectID || 0}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">{labels.uncategorized}</SelectItem>{projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select> : session.ProjectName && <span>{session.ProjectName}</span>}<span>{t(lang, "dash.started")} {session.StartLocal}</span></div></div>
             {sessionActions(session)}
           </div>)}</div> : <div className="py-5 text-sm text-muted-foreground"><p>{labels.noActive}</p><p>{labels.noActiveHint}</p></div>}
-        </section>
-        <Separator />
-        <section className="grid grid-cols-2 gap-4 sm:grid-cols-4" aria-label={labels.today}>
-          <Metric label={labels.tracked} value={data.TodayTotal} />
-          <Metric label={labels.running} value={String(data.RunningCount)} />
-          <Metric label={labels.paused} value={String(data.PausedCount)} />
-          <Metric label={labels.top} value={top} />
         </section>
       </CardContent>
     </Card>
     {!data.HasProject && data.HasSession && showNext && <nav aria-label={t(lang, "onb.next")} className="flex flex-wrap items-center gap-4 rounded-md border px-4 py-3 text-sm"><strong>{t(lang, "onb.next")}</strong><a href="/stats" className="underline-offset-4 hover:underline">{t(lang, "onb.nextStats")}</a>{data.Mods?.invoices && <a href="/projects/new" className="underline-offset-4 hover:underline">{t(lang, "onb.nextProject")}</a>}<Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => setShowNext(false)}>{t(lang, "onb.hide")}</Button></nav>}
-    {mode === "studio" && (data.CanManage || data.Mods?.schedule) && <nav aria-label={t(lang, "dash.teamActions")} className="flex flex-wrap items-center gap-2 border-y py-3">
-      {data.Mods?.schedule && <Button asChild data-chip variant="outline" size="sm"><a href="/schedule">{t(lang, "nav.schedule")}</a></Button>}
-      {data.CanManage && <><Button asChild data-chip variant="outline" size="sm"><a href="/settings/members">{t(lang, "team.members")}</a></Button><Button asChild data-chip variant="outline" size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>{data.Mods?.payroll && <Button asChild data-chip variant="outline" size="sm"><a href="/payroll">{t(lang, "nav.payroll")}</a></Button>}</>}
-    </nav>}
     <div data-dashboard-widgets className="grid min-w-0 gap-4 lg:grid-cols-2 [&:has(>_:only-child)]:lg:grid-cols-1">
     {mode === "freelance" ? <>{unbilledWidget}{goalsWidget}</> : <>{goalsWidget}{unbilledWidget}</>}
     </div>
@@ -306,17 +321,13 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   </div></Disclosure></section>
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-0"><div className="text-xs text-muted-foreground">{label}</div><div className="truncate font-mono text-base tabular-nums">{value}</div></div>
-}
-
-function LiveClock({ session }: { session: Session }) {
+function LiveClock({ session, className = "" }: { session: Session; className?: string }) {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [])
-  return <time className="font-mono tabular-nums">{clockLabel(sessionElapsedSeconds(session, now))}</time>
+  return <time className={`font-mono tabular-nums ${className}`} data-state={session.Paused ? undefined : "running"}>{clockLabel(sessionElapsedSeconds(session, now))}</time>
 }
 
 function PageReady({ onReady }: { onReady?: () => void }) {

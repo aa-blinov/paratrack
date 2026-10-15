@@ -15,7 +15,7 @@ export function installConfirmForms() {
       return
     }
     event.preventDefault()
-    void requestConfirmation(message).then((ok) => {
+    void requestConfirmation(message, { trigger: (event as SubmitEvent).submitter }).then((ok) => {
       if (!ok) return
       confirmed.add(target)
       target.requestSubmit()
