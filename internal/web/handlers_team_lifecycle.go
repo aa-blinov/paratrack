@@ -64,7 +64,7 @@ func (s *Server) handleAPITeamSwitch(w http.ResponseWriter, r *http.Request) {
 	setTeamCookie(w, r, id)
 	s.rememberWorkspace(r, user.ID, id)
 	next := strings.TrimSpace(r.PostForm.Get("next"))
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	if !localPath(next) {
 		next = "/"
 	}
 	http.Redirect(w, r, next, http.StatusSeeOther)

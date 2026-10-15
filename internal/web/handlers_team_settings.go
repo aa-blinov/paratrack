@@ -60,8 +60,7 @@ func (s *Server) handleAPITeamRequisites(w http.ResponseWriter, r *http.Request)
 	http.Redirect(w, r, "/settings/money?flash=updated"+"#requisites", http.StatusSeeOther)
 }
 
-// handleAPIMemberRole makes a member an admin or back (owner only).
-
+// handleAPITeamBilling saves the invoice rules: rounding and number prefix.
 func (s *Server) handleAPITeamBilling(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	roundMinutes, err := strconv.Atoi(r.FormValue("round_minutes"))
@@ -151,7 +150,11 @@ func (s *Server) handleTeamStripe(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#stripe", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/money?flash="+encodeFlash(true, "updated")+"#stripe", http.StatusSeeOther)
+	done := "updated"
+	if clear {
+		done = "stripe_cleared"
+	}
+	http.Redirect(w, r, "/settings/money?flash="+encodeFlash(true, done)+"#stripe", http.StatusSeeOther)
 }
 
 func (s *Server) teamErrorMessage(r *http.Request, err error) string {

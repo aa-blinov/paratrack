@@ -44,9 +44,12 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
   // sheet is meant to behave on a phone.
   const close = React.useCallback(() => setOpen(false), [])
   const visible = React.useMemo(() => nav.filter(item => available(item, shell)), [shell])
-  const primary = PRIMARY.map(key => visible.find(item => item.key === key)).filter(Boolean) as ShellNavItem[]
+  // The four tabs come from the Interface page («Нижняя панель на телефоне»):
+  // a hard-coded list here ignored that choice while the page said «Сохранено».
+  const chosen = shell.tabs?.length ? shell.tabs.map(tab => tab.key) : PRIMARY
+  const primary = chosen.map(key => visible.find(item => item.key === key)).filter(Boolean) as ShellNavItem[]
   // The settings group is already listed below as «Настройки» → profile, tokens, help; listing it here too sent the same profile link twice.
-  const rest = visible.filter(item => !PRIMARY.includes(item.key) && item.group !== "settings")
+  const rest = visible.filter(item => !chosen.includes(item.key) && item.group !== "settings")
   const ThemeIcon = mode === "dark" ? Moon : mode === "light" ? Sun : SunMoon
 
   return <>
@@ -113,7 +116,7 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
               <LanguagesIcon />{t(lang, "nav.language")}: <span className="ml-auto">{lang.toUpperCase()}</span>
             </SheetRow>
             <button type="button" onClick={cycleTheme} data-theme-toggle className="mobile-nav-row w-full text-left">
-              <ThemeIcon />{t(lang, "nav.theme")}<span className="ml-auto">{t(lang, mode === "dark" ? "theme.dark" : mode === "light" ? "theme.light" : "theme.auto")}</span>
+              <ThemeIcon />{t(lang, "nav.theme")}<span className="ml-auto">{(label => label.charAt(0).toLocaleUpperCase() + label.slice(1))(t(lang, mode === "dark" ? "theme.dark" : mode === "light" ? "theme.light" : "theme.auto"))}</span>
             </button>
             {shell.user && (
               <form method="post" action="/api/logout" onClick={close}>

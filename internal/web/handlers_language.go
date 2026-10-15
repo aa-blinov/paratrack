@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -10,7 +11,7 @@ import (
 func (s *Server) handleSetLang(w http.ResponseWriter, r *http.Request) {
 	code := i18n.Normalize(r.PathValue("code"))
 	next := r.URL.Query().Get("next")
-	if next == "" || !strings.HasPrefix(next, "/") || strings.HasPrefix(next, "//") {
+	if !localPath(next) {
 		next = "/"
 	}
 	// Already on this language — do not touch the cookie or force a
@@ -24,4 +25,16 @@ func (s *Server) handleSetLang(w http.ResponseWriter, r *http.Request) {
 	}
 	setLangCookie(w, r, code)
 	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// localPath reports whether next is a path on this site, safe to redirect to
+// after sign-in or a switch. "//host" and "/\host" both leave the site in a
+// browser (the WHATWG parser reads a backslash as a slash), so neither passes;
+// nor does anything with a scheme, a host or a control character.
+func localPath(next string) bool {
+	if next == "" || next[0] != '/' || strings.ContainsAny(next, "\\\r\n\t") || strings.HasPrefix(next, "//") {
+		return false
+	}
+	u, err := url.Parse(next)
+	return err == nil && u.Scheme == "" && u.Host == ""
 }
