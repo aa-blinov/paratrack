@@ -15,7 +15,7 @@ import { ColorMark } from "@/components/color-mark"
 
 type CellResponse = {
   activityId: number; activityName: string; color: string
-  cells: Array<{ iso: string; secs: number; min: number; total: string }>
+  cells: Array<{ iso: string; secs: number; min: number; total: string; live?: number }>
   rowTotal: number; rowTotalLabel: string
   dayTotals: Array<{ secs: number; total: string }>
   grandTotal: number; grandTotalLabel: string
@@ -25,6 +25,16 @@ type CellResponse = {
 // One undoable edit: which cell it was and the minutes the input showed before
 // the edit. Minutes are the sheet's own precision, so undo restores exactly
 // the number the person saw — including 0 for an empty day.
+// A cell takes minutes («90») or hours and minutes («1:30»): the grid is read
+// in hours, and a number field refused the colon people type for them.
+export function cellMinutes(value: string): number {
+  const text = value.trim()
+  if (text === "") return 0
+  const clock = text.match(/^(\d{1,2}):(\d{2})$/)
+  if (clock) return Number(clock[2]) < 60 ? Number(clock[1]) * 60 + Number(clock[2]) : NaN
+  return /^\d+$/.test(text) ? Number(text) : NaN
+}
+
 type CellEdit = { activityId: number; activity: string; date: string; index: number; minutes: number }
 
 // undoDepth is how many recent edits stay undoable from the status line. One
@@ -80,7 +90,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         ...existing, ActivityName: update.activityName, Color: update.color, RowTotal: update.rowTotal, RowTotalLabel: update.rowTotalLabel,
         Cells: existing.Cells.map((existingCell, index) => {
           const cell = update.cells[index]
-          return { ...existingCell, ISO: cell.iso, Secs: cell.secs, Min: cell.min, Total: cell.total }
+          return { ...existingCell, ISO: cell.iso, Secs: cell.secs, Min: cell.min, Total: cell.total, Live: cell.live ?? 0 }
         }),
       } : existing),
       DayTotalLabels: update.dayTotals.map(total => total.total),
@@ -120,7 +130,10 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 
   async function saveCell(row: TimesheetRow, cell: TimesheetRow["Cells"][number], value: string) {
     const key = cellKey(row.ActivityID, cell.Index)
-    const minutes = value.trim() === "" ? 0 : Number(value)
+    // Tabbing through a cell is not an edit: a «<1» cell read as 0 and wrote
+    // minutes=0 for a day nobody touched.
+    if (!(key in drafts)) return
+    const minutes = cellMinutes(value)
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
       setNotice(null)
       setError(t(lang, "err.invalidInput"))
@@ -193,7 +206,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 
   const noticeText = !notice ? "" : notice.kind === "cleared"
     ? t(lang, "ts.rowCleared", notice.activity)
-    : t(lang, notice.kind === "restored" ? "ts.undone" : "ts.saved", notice.activity, notice.date || "")
+    : t(lang, notice.kind === "restored" ? "ts.undone" : "ts.saved", notice.activity, notice.date ? dayName(notice.date) : "")
 
   return <main className="mx-auto w-full max-w-6xl space-y-4">
     <header className="flex flex-wrap items-end justify-between gap-4">
@@ -245,7 +258,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
                     <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
                       <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
                   </span>
-                  <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs >= 60 ? String(cell.Min) : "")} placeholder={cell.Secs > 0 && cell.Secs < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
+                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? String(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{cell.Live ? <span data-cell-live className="block text-center text-[10px] leading-3 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : null}</span>
                   <Button type="button" variant="ghost" size="icon" className="shrink-0" disabled={busy} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button>
                 </div>
               })}
@@ -270,7 +283,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
               return <TableCell key={cell.ISO} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>
-                <Input type="number" min={0} max={1440} step={5} inputMode="numeric" className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Secs >= 60 ? String(cell.Min) : "")} placeholder={cell.Secs > 0 && cell.Secs < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} disabled={busy} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />
+                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? String(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur() } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{cell.Live ? <span data-cell-live className="block text-center text-[10px] leading-3 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : null}
               </TableCell>
             })}
             <TableCell className="whitespace-normal px-3 py-2 text-right font-mono leading-tight tabular-nums">{row.RowTotalLabel}</TableCell>

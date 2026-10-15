@@ -211,7 +211,7 @@ def main() -> int:
         print("\n== Маша: табель после правок")
         masha.goto(BASE + "/timesheet")
         wait_app(masha)
-        cells = masha.locator(f'{ROOT} input[type="number"]')
+        cells = masha.locator(f'{ROOT} input[name="minutes"]')
         values = []
         for i in range(min(cells.count(), 7)):
             try:

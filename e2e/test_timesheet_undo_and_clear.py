@@ -81,36 +81,36 @@ async def check_undo(browser, width):
             await route.fulfill(content_type="text/html; charset=utf-8", body=timesheet_document())
     await context.route("**/*", respond)
     await page.goto("http://paratrack.test/timesheet")
-    await page.locator("#ts-body").wait_for()
+    await page.locator("#ts-body tr").first.wait_for()
 
-    first = page.get_by_role("spinbutton", name="Разработка — Первый проект — 1 5", exact=True)
-    second = page.get_by_role("spinbutton", name="Разработка — Первый проект — 2 6", exact=True)
+    first = page.get_by_role("textbox", name="Разработка — Первый проект — 1 5", exact=True)
+    second = page.get_by_role("textbox", name="Разработка — Первый проект — 2 6", exact=True)
 
     # A wrong number is undoable, and undo restores the minutes it had.
     await first.fill("70")
     await first.press("Enter")
-    await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 2026-10-05.").wait_for()
+    await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 1 5.").wait_for()
     assert await first.input_value() == "70", posts
     undo = page.get_by_role("button", name="Отменить", exact=True)
     assert "Разработка" in await undo.get_attribute("title"), "Undo names the cell it will restore"
     await undo.click()
-    await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 2026-10-05.").wait_for()
+    await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 1 5.").wait_for()
     assert await first.input_value() == "45", posts
     assert posts[-1] == ("1", "2026-10-05", "45"), posts
 
     # Undo follows the most recent edit, not the cell it happened to start from.
     await second.fill("90")
     await second.press("Enter")
-    await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 2026-10-06.").wait_for()
+    await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 2 6.").wait_for()
     assert await page.get_by_role("button", name="Отменить", exact=True).count() == 1
     await page.get_by_role("button", name="Отменить", exact=True).click()
-    await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 2026-10-06.").wait_for()
+    await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 2 6.").wait_for()
     assert posts[-1] == ("1", "2026-10-06", "0"), f"empty day must be rewritten, not skipped: {posts}"
 
     # A successful save stays undoable when the next write fails.
     await second.fill("90")
     await second.press("Enter")
-    await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 2026-10-06.").wait_for()
+    await page.get_by_role("status").filter(has_text="Сохранено: Разработка, 2 6.").wait_for()
     await first.fill("60")
     await first.press("Enter")
     await page.get_by_role("alert").filter(has_text="Сеть недоступна").wait_for()
@@ -118,7 +118,7 @@ async def check_undo(browser, width):
     undo = page.get_by_role("button", name="Отменить", exact=True)
     assert "2026-10-06" in await undo.get_attribute("title"), f"undo must still name the last saved cell: {await undo.get_attribute('title')}"
     await undo.click()
-    await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 2026-10-06.").wait_for()
+    await page.get_by_role("status").filter(has_text="Возвращено: Разработка, 2 6.").wait_for()
 
     assert not errors, errors
     assert await page.evaluate("document.documentElement.scrollWidth <= innerWidth")
@@ -148,10 +148,10 @@ async def check_row_clear(browser, width):
             await route.fulfill(content_type="text/html; charset=utf-8", body=timesheet_document())
     await context.route("**/*", respond)
     await page.goto("http://paratrack.test/timesheet")
-    await page.locator("#ts-body").wait_for()
+    await page.locator("#ts-body tr").first.wait_for()
 
     first_row = page.locator("#ts-row-1")
-    assert await first_row.get_by_role("spinbutton").first.input_value() == "45"
+    assert await first_row.get_by_role("textbox").first.input_value() == "45"
 
     # Cancelling asks the same dialog and writes nothing.
     await first_row.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
@@ -160,14 +160,14 @@ async def check_row_clear(browser, width):
     await dialog.get_by_role("button", name="Отмена", exact=True).click()
     await dialog.wait_for(state="hidden")
     assert not clears, clears
-    assert await first_row.get_by_role("spinbutton").first.input_value() == "45"
+    assert await first_row.get_by_role("textbox").first.input_value() == "45"
 
     # Confirming empties the row and says so.
     await first_row.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
     await dialog.get_by_role("button", name="Очистить строку «Разработка»", exact=True).click()
     await page.get_by_role("status").filter(has_text="Строка очищена: Разработка.").wait_for()
     assert clears and "activity_id=1" in clears[0] and "date=2026-10-05" in clears[0], clears
-    assert await first_row.get_by_role("spinbutton").first.input_value() == "", "cleared cell shows the dash placeholder"
+    assert await first_row.get_by_role("textbox").first.input_value() == "", "cleared cell shows the dash placeholder"
     assert await first_row.get_by_text("0 мин").count() >= 1
     assert await page.get_by_role("button", name="Отменить", exact=True).count() == 0, "an emptied row has nothing to undo"
 
@@ -186,7 +186,9 @@ async def check_row_clear(browser, width):
 async def main():
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
-        for width in [1440, 390]:
+        # Below 640px the week is a list of days, not this table; the phone
+        # layout has its own checks in test_mobile_navigation.py.
+        for width in [1440]:
             await check_undo(browser, width)
             await check_row_clear(browser, width)
         await browser.close()

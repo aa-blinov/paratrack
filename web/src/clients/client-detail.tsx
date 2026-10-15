@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import { ArrowLeft, FolderKanban, Receipt } from "lucide-react"
 import type { ReactNode } from "react"
 import { Badge } from "@/components/ui/badge"
@@ -75,7 +76,7 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
       </div>
     </header>
 
-    {data.Flash && <p className={data.FlashOK ? "text-sm text-foreground" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
 
     <dl className="grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
       <Fact label={t(lang, "clients.tracked")} value={client.TrackedLabel} />

@@ -44,6 +44,11 @@ func toSessionView(s model.Session, a model.Activity, periodStart, periodEnd tim
 	v.StartInput = toLocalInput(s.StartAt.In(now.Location()))
 	if s.Note != nil {
 		v.Note = *s.Note
+		// The timesheet marks the sessions it writes with this word; on screen
+		// it read as an English code in the «Заметка» column.
+		if v.Note == timesheetNote {
+			v.Note = i18n.T(lang, "ts.fromSheet")
+		}
 	}
 	// Compute the FULL duration first (for the editable input); the
 	// clipped `Duration` (shown in the table cell) is derived after.
@@ -90,3 +95,6 @@ func toLocalInput(t time.Time) string {
 	// datetime-local wants "2006-01-02T15:04" with no zone and no seconds.
 	return t.Format("2006-01-02T15:04") // callers pass it in the user's zone
 }
+
+// timesheetNote is the note internal/db gives a session written by a cell.
+const timesheetNote = "timesheet"

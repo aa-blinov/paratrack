@@ -1,17 +1,29 @@
-import en from "../../internal/i18n/dict/en.json"
-import ru from "../../internal/i18n/dict/ru.json"
-
 export type UiLanguage = "en" | "ru"
 
-const dictionaries: Record<UiLanguage, Record<string, string>> = {
-  en: en as Record<string, string>,
-  ru: ru as Record<string, string>,
+// One language per page: both dictionaries used to ride in the render-blocking
+// bundle, about 44 KB gzipped of which a person reads half. The page loader
+// awaits the language it is about to show; the two files hold the same keys.
+const dictionaries: Partial<Record<UiLanguage, Record<string, string>>> = {}
+
+const asLanguage = (language: string): UiLanguage => language === "en" ? "en" : "ru"
+
+export async function loadDictionary(language: string): Promise<void> {
+  const lang = asLanguage(language)
+  if (dictionaries[lang]) return
+  const module = lang === "en"
+    ? await import("../../internal/i18n/dict/en.json")
+    : await import("../../internal/i18n/dict/ru.json")
+  dictionaries[lang] = module.default as Record<string, string>
+}
+
+function lookup(language: string, key: string): string | undefined {
+  const dictionary = dictionaries[asLanguage(language)] ?? dictionaries.ru ?? dictionaries.en
+  return dictionary?.[key]
 }
 
 export function translate(language: string, key: string, ...values: Array<string | number>): string {
-  const lang: UiLanguage = language === "en" ? "en" : "ru"
   let index = 0
-  const text = dictionaries[lang][key] || dictionaries.en[key] || key
+  const text = lookup(language, key) || key
   return text.replace(/%[sd]/g, () => String(values[index++] ?? ""))
 }
 
@@ -25,7 +37,6 @@ export function translate(language: string, key: string, ...values: Array<string
  * user. So optional text goes through here.
  */
 export function translateOptional(language: string, key: string, ...values: Array<string | number>): string {
-  const lang: UiLanguage = language === "en" ? "en" : "ru"
-  if (!dictionaries[lang][key] && !dictionaries.en[key]) return ""
+  if (!lookup(language, key)) return ""
   return translate(language, key, ...values)
 }

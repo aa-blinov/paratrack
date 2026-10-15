@@ -308,8 +308,10 @@ func parseHHMM(s string) (hhmm, error) {
 	if err != nil || h < 0 || h > 23 {
 		return hhmm{}, fmt.Errorf("bad hour in %q", s)
 	}
-	m, err := strconv.Atoi(strings.TrimSpace(parts[1]))
-	if err != nil || m < 0 || m > 59 {
+	// «12:3» could be 12:03 or 12:30; guessing wrote the wrong one silently.
+	minutes := strings.TrimSpace(parts[1])
+	m, err := strconv.Atoi(minutes)
+	if err != nil || len(minutes) != 2 || m < 0 || m > 59 {
 		return hhmm{}, fmt.Errorf("bad minute in %q", s)
 	}
 	return hhmm{h, m}, nil

@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import { openDisclosure } from "@/components/ui/collapsible"
 import { ArrowLeft, Printer, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -20,7 +21,7 @@ function Status({ lang, status }: { lang: string; status: string }) {
 export function PayrollPage({ data }: { data: PayrollData }) {
   const lang = data.Lang
   return <main className="mx-auto w-full max-w-6xl space-y-5">
-    {data.Flash && <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
 
     {!!data.Overlap && <div role="alert" className="flex flex-wrap items-start gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
@@ -58,7 +59,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
 export function PayrollDetail({ data }: { data: PayrollDetailData }) {
   const lang = data.Lang
   return <main className="mx-auto w-full max-w-5xl space-y-5">
-    {data.Flash && <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
     <div className="no-print space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm"><a href="/payroll" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "pay.title")}</a><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono">{data.Run.Number}</span><Status lang={lang} status={data.Run.Status} /></div>
       <div className="flex flex-wrap items-center gap-2">

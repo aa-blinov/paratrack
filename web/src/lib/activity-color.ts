@@ -13,7 +13,7 @@
  * measured L≈0.585 for #6366f1 loses its edge on a card at L=0.205. Hue is
  * never changed — that is what keeps the name-to-colour memory intact.
  */
-const PALETTE_HEX = [
+export const PALETTE_HEX = [
   "#6366f1", "#0ea5e9", "#14b8a6", "#10b981", "#84cc16",
   "#d97706", "#f97316", "#8b5cf6", "#a855f7", "#ec4899",
 ]

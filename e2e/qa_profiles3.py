@@ -206,7 +206,7 @@ def main() -> int:
         # ------------------------------------------- табель: сохранилось ли
         masha.goto(BASE + "/timesheet")
         wait_app(masha)
-        cells = masha.locator(f'{ROOT} input[type="number"]')
+        cells = masha.locator(f'{ROOT} input[name="minutes"]')
         vals = []
         for i in range(cells.count()):
             try:
@@ -296,7 +296,7 @@ def main() -> int:
         print("\n== Пётр: контрольный замер")
         owner.goto(BASE + "/timesheet")
         wait_app(owner)
-        owner_cells = [owner.locator(f'{ROOT} input[type="number"]').nth(i).input_value() for i in range(owner.locator(f'{ROOT} input[type="number"]').count())]
+        owner_cells = [owner.locator(f'{ROOT} input[name="minutes"]').nth(i).input_value() for i in range(owner.locator(f'{ROOT} input[name="minutes"]').count())]
         report["owner_timesheet_cells"] = owner_cells
         note("табель-петра", f"значения: {owner_cells}")
         shot(owner, "p6-owner-timesheet")

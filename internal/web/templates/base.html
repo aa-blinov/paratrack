@@ -8,14 +8,18 @@
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
   <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
   <link rel="manifest" href="/static/manifest.webmanifest">
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#1a1d23" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#faf6ee" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0a0a0a" media="(prefers-color-scheme: dark)">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="paratrack">
   <link rel="apple-touch-icon" href="/static/icon192.png">
   <link rel="stylesheet" href="{{asset "ui/app.css"}}">
+  <!-- The app CSS is scoped under #paratrack-react-root, so the page itself had
+       no ground: overscroll on a phone showed white under the dark theme.
+       Same values as --background in ui.css. -->
+  <style>html{background:oklch(0.975 0.012 85)}html[data-theme="paratrack-dark"]{background:oklch(0.145 0 0)}</style>
   <link rel="preload" href="/static/fonts/inter-{{if eq .Lang "ru"}}cyrillic{{else}}latin{{end}}.woff2" as="font" type="font/woff2" crossorigin>
   {{with sentryDSN}}<meta name="sentry" content="{{.}}" data-release="{{release}}" data-env="{{sentryEnv}}">
   <script src="{{asset "js/sentry.min.js"}}"></script>

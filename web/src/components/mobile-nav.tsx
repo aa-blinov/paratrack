@@ -1,3 +1,4 @@
+import { useTheme } from "@/lib/theme"
 import * as React from "react"
 import { Ellipsis, Languages, LogOut, Moon, Play, Sun, SunMoon } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -23,19 +24,6 @@ const PRIMARY = ["dashboard", "timesheet", "stats", "graph"]
 // would cover the control underneath it.
 const TIMER_FAB_SCREENS = ["/timesheet", "/stats", "/graph"]
 
-function useTheme() {
-  const [mode, setMode] = React.useState(() => document.documentElement.dataset.themeMode || "auto")
-  function cycle() {
-    const next = mode === "auto" ? "light" : mode === "light" ? "dark" : "auto"
-    setMode(next)
-    try { localStorage.setItem("paratrack-theme", next) } catch { /* storage can be disabled */ }
-    document.documentElement.dataset.themeMode = next
-    const dark = next === "dark" || (next === "auto" && matchMedia("(prefers-color-scheme: dark)").matches)
-    document.documentElement.dataset.theme = dark ? "paratrack-dark" : "paratrack-light"
-    document.querySelectorAll('meta[name="theme-color"]').forEach(meta => meta.setAttribute("content", dark ? "#090909" : "#ffffff"))
-  }
-  return [mode, cycle] as const
-}
 
 function isActive(shell: AppSidebarShell, item: ShellNavItem) {
   return shell.active === item.key || shell.requestPath.split("?")[0] === item.href
