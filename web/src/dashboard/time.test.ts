@@ -15,9 +15,15 @@ describe("dashboard timer formatting", () => {
   })
 
   it("adds time since the latest resume and never runs backwards", () => {
-    const running = session({ Clock: "00:03:00", ResumeISO: "2026-01-01T00:00:00Z" })
+    const running = session({ Clock: "00:03:00", AccumulatedSeconds: 180, ResumeISO: "2026-01-01T00:00:00Z" })
     expect(sessionElapsedSeconds(running, Date.parse("2026-01-01T00:00:12Z"))).toBe(192)
     expect(sessionElapsedSeconds(running, Date.parse("2025-12-31T23:59:00Z"))).toBe(180)
+  })
+
+  it("counts the live stretch once: Clock already holds it", () => {
+    // Served at 00:02:00 after a resume at 00:00:00 with nothing accumulated.
+    const running = session({ Clock: "00:02:00", AccumulatedSeconds: 0, ResumeISO: "2026-01-01T00:00:00Z" })
+    expect(sessionElapsedSeconds(running, Date.parse("2026-01-01T00:02:10Z"))).toBe(130)
   })
 
   it("freezes paused clocks and falls back on invalid resume timestamps", () => {

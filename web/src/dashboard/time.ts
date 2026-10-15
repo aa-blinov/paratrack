@@ -1,12 +1,15 @@
 import type { Session } from "./types"
 
-export function sessionElapsedSeconds(session: Pick<Session, "Clock" | "Paused" | "ResumeISO">, nowMs: number): number {
+// Clock is the whole elapsed time when the server answered; a running timer
+// counts from what it held at its last resume instead. Adding the live stretch
+// to Clock counted it twice: 2 minutes of work showed as 4:24 on the row.
+export function sessionElapsedSeconds(session: Pick<Session, "Clock" | "Paused" | "ResumeISO" | "AccumulatedSeconds">, nowMs: number): number {
   const [hours, minutes, seconds] = session.Clock.split(":").map(Number)
-  const base = (hours || 0) * 3600 + (minutes || 0) * 60 + (seconds || 0)
-  if (session.Paused || !session.ResumeISO) return base
+  const clock = (hours || 0) * 3600 + (minutes || 0) * 60 + (seconds || 0)
+  if (session.Paused || !session.ResumeISO) return clock
   const resumeMs = Date.parse(session.ResumeISO)
-  if (!Number.isFinite(resumeMs)) return base
-  return base + Math.max(0, Math.floor((nowMs - resumeMs) / 1000))
+  if (!Number.isFinite(resumeMs)) return clock
+  return Math.max(clock, (session.AccumulatedSeconds || 0) + Math.floor((nowMs - resumeMs) / 1000))
 }
 
 export function clockLabel(totalSeconds: number): string {
