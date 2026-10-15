@@ -14,13 +14,16 @@ import type { PreferencesData } from "@/dashboard/types"
 export function PreferencesPage({ data }: { data: PreferencesData }) {
   const lang = data.Lang || "en"
   const [selectedTabs, setSelectedTabs] = React.useState(() => data.TabOpts.filter(tab => tab.On).map(tab => tab.Key))
+  // The save bar follows the page only while something is unsaved; language
+  // and theme above apply at once and never wait for it.
+  const [dirty, setDirty] = React.useState(false)
   const toggleTab = (key: string, checked: boolean) => setSelectedTabs(current => checked ? [...current, key].slice(0, 4) : current.filter(item => item !== key))
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Flash message={data.Flash} ok={data.FlashOK} />
     <LanguageAndTheme lang={lang} />
-    <form method="post" action="/api/me/preferences" className="grid gap-4">
+    <form method="post" action="/api/me/preferences" className="grid gap-4" onChange={() => setDirty(true)}>
       <input type="hidden" name="csrf_token" value={data.CSRFToken} />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Card><CardHeader><CardTitle>{t(lang, "prefs.formats")}</CardTitle></CardHeader><CardContent className="grid gap-3">
@@ -30,14 +33,14 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
         </CardContent></Card>
         <Card><CardHeader><CardTitle>{t(lang, "prefs.dashboard")}</CardTitle></CardHeader><CardContent className="grid gap-3">
           {data.Projects.length > 0 && <div className="grid gap-1.5"><Label htmlFor="default-project">{t(lang, "prefs.defProject")}</Label><Select name="default_project" defaultValue={String(data.DefProj || 0)}><SelectTrigger id="default-project"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">{t(lang, "prefs.defProjectLast")}</SelectItem>{data.Projects.map(project => <SelectItem key={project.ID} value={String(project.ID)}>{project.Name}</SelectItem>)}</SelectContent></Select></div>}
-          <fieldset className="grid gap-1"><legend className="mb-1 text-sm font-medium">{t(lang, "prefs.blocks")}</legend>{data.Widgets.map(item => <label key={item.Key} className="flex cursor-pointer items-center gap-3 py-1.5 text-sm"><Checkbox name="widgets" value={item.Key} defaultChecked={item.On} /><span>{t(lang, item.Label)}</span></label>)}</fieldset>
+          <fieldset className="grid gap-1"><legend className="mb-1 text-sm font-medium">{t(lang, "prefs.blocks")}</legend>{data.Widgets.map(item => <label key={item.Key} className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm"><Checkbox name="widgets" value={item.Key} defaultChecked={item.On} /><span>{t(lang, item.Label)}</span></label>)}</fieldset>
         </CardContent></Card>
-        {data.Sections.length > 0 && <Card><CardHeader><CardTitle>{t(lang, "prefs.sections")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.sectionsHint")}</p></CardHeader><CardContent className="grid gap-1">{data.Sections.map(item => <React.Fragment key={item.Key}><input type="hidden" name="sections_all" value={item.Key} /><label className="flex cursor-pointer items-center gap-3 py-1.5 text-sm"><Checkbox name="sections" value={item.Key} defaultChecked={item.On} /><span>{t(lang, item.Label)}</span></label></React.Fragment>)}</CardContent></Card>}
-        <Card className={data.Sections.length === 0 ? "lg:col-span-2" : ""}><CardHeader><CardTitle>{t(lang, "prefs.tabs")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.tabsHint")}</p></CardHeader><CardContent><fieldset className="grid gap-x-4 sm:grid-cols-2"><legend className="sr-only">{t(lang, "prefs.tabs")}</legend>{data.TabOpts.map(item => <label key={item.Key} className="flex cursor-pointer items-center gap-3 py-1.5 text-sm has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-45"><Checkbox name="tabs" value={item.Key} checked={selectedTabs.includes(item.Key)} disabled={selectedTabs.length >= 4 && !selectedTabs.includes(item.Key)} onCheckedChange={checked => toggleTab(item.Key, checked === true)} /><span>{t(lang, item.Label)}</span></label>)}</fieldset></CardContent></Card>
+        {data.Sections.length > 0 && <Card><CardHeader><CardTitle>{t(lang, "prefs.sections")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.sectionsHint")}</p></CardHeader><CardContent className="grid gap-1">{data.Sections.map(item => <React.Fragment key={item.Key}><input type="hidden" name="sections_all" value={item.Key} /><label className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm"><Checkbox name="sections" value={item.Key} defaultChecked={item.On} /><span>{t(lang, item.Label)}</span></label></React.Fragment>)}</CardContent></Card>}
+        <Card className={data.Sections.length === 0 ? "lg:col-span-2" : ""}><CardHeader><CardTitle>{t(lang, "prefs.tabs")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.tabsHint")}</p></CardHeader><CardContent><fieldset className="grid gap-x-4 sm:grid-cols-2"><legend className="sr-only">{t(lang, "prefs.tabs")}</legend>{data.TabOpts.map(item => <label key={item.Key} className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-45"><Checkbox name="tabs" value={item.Key} checked={selectedTabs.includes(item.Key)} disabled={selectedTabs.length >= 4 && !selectedTabs.includes(item.Key)} onCheckedChange={checked => toggleTab(item.Key, checked === true)} /><span>{t(lang, item.Label)}</span></label>)}</fieldset></CardContent></Card>
       </div>
       {/* One save for four cards: it stays in reach instead of waiting at
           the bottom of a 2500px page on a phone. */}
-      <div className="sticky bottom-24 z-10 -mx-1 rounded-lg bg-background/95 p-1 backdrop-blur lg:bottom-4"><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></div>
+      <div className={dirty ? "sticky bottom-24 z-10 -mx-1 rounded-lg bg-background/95 p-1 backdrop-blur lg:bottom-4" : ""}><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></div>
     </form>
   </main>
 }
@@ -48,7 +51,7 @@ function LanguageAndTheme({ lang }: { lang: string }) {
   const [mode, , choose] = useTheme()
   const back = encodeURIComponent("/settings/preferences")
   const cap = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1)
-  return <Card><CardHeader><CardTitle>{t(lang, "prefs.langTheme")}</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
+  return <Card><CardHeader><CardTitle>{t(lang, "prefs.langTheme")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.appliesNow")}</p></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
     <div className="grid gap-1.5"><span className="text-sm font-medium">{t(lang, "nav.language")}</span>
       <SegmentedControl label={t(lang, "nav.language")} value={lang === "en" ? "en" : "ru"} options={[
         { key: "ru", label: "Русский", href: `/lang/ru?next=${back}` },

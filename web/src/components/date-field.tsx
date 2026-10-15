@@ -211,7 +211,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         data-date-input={name || id || ""}
         value={text}
         style={style}
-        placeholder={show(kind === "date" ? "2000-01-02" : "2000-01-02 00:00", lang)}
+        // The format, not a sample date: «02.01.2000» in two empty filter
+        // fields read as a range already set.
+        placeholder={(lang === "en" ? "mm/dd/yyyy" : "дд.мм.гггг") + (kind === "date" ? "" : lang === "en" ? " hh:mm" : " чч:мм")}
         onChange={event => {
           const raw = event.target.value
           setText(raw)
