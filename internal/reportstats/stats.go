@@ -113,10 +113,11 @@ func HourlyGraph(sessions []appmodel.ActiveSession, from, to, now time.Time) (Gr
 	byActivity := make(map[string]*activityBuckets)
 	result := GraphData{}
 	for _, item := range sessions {
-		if item.Session.EndAt == nil {
-			continue
+		// A running timer draws up to now: its hours are on the clock already.
+		start, end := item.Session.StartAt, now
+		if item.Session.EndAt != nil {
+			end = *item.Session.EndAt
 		}
-		start, end := item.Session.StartAt, *item.Session.EndAt
 		if end.Before(from) || start.After(to) {
 			continue
 		}

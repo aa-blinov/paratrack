@@ -18,6 +18,7 @@ var ErrIncompleteBuilderDependencies = errors.New("report builder dependencies a
 
 type SessionReader interface {
 	ClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
+	ActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error)
 }
 
 type TagReader interface {
@@ -203,7 +204,15 @@ func (b *Builder) BuildStats(ctx context.Context, query StatsQuery) (StatsResult
 	if err != nil {
 		return StatsResult{}, fmt.Errorf("summarize stats: %w", err)
 	}
-	return StatsResult{Sessions: sessions, TagsBySession: tagsBySession, ProjectsByID: decorations.ProjectsByID, People: people, PersonFilter: personFilter, Projects: projects, Project: project, Tags: tags,
+	// The log lists stopped sessions only: a running one has no end to edit
+	// and is stopped from the dashboard. Its time is in the summary above.
+	stopped := make([]appmodel.ActiveSession, 0, len(sessions))
+	for _, session := range sessions {
+		if session.Session.EndAt != nil {
+			stopped = append(stopped, session)
+		}
+	}
+	return StatsResult{Sessions: stopped, TagsBySession: tagsBySession, ProjectsByID: decorations.ProjectsByID, People: people, PersonFilter: personFilter, Projects: projects, Project: project, Tags: tags,
 		Summary: summary}, nil
 }
 
@@ -245,6 +254,8 @@ func (b *Builder) loadPersonScope(ctx context.Context, teamID, requestedID int64
 
 // loadProjectSessions resolves an optional slug and applies its workspace
 // scope before either stats or graph presentation adds its own filters.
+// Running timers come too: the totals count time as it runs, like the
+// timesheet and the dashboard, so one day reads the same on every screen.
 func (b *Builder) loadProjectSessions(ctx context.Context, teamID int64, from, to time.Time, slug string) (model.Project, []appmodel.ActiveSession, error) {
 	project, err := b.resolveProjectSlug(ctx, teamID, slug)
 	if err != nil {
@@ -256,7 +267,19 @@ func (b *Builder) loadProjectSessions(ctx context.Context, teamID int64, from, t
 		query.ProjectID = &project.ID
 	}
 	sessions, err = b.sessions.ClosedSessions(ctx, query)
-	return project, sessions, err
+	if err != nil {
+		return project, nil, err
+	}
+	running, err := b.sessions.ActiveSessions(ctx, teamID)
+	if err != nil {
+		return project, nil, fmt.Errorf("load running sessions: %w", err)
+	}
+	for _, item := range running {
+		if project.ID == 0 || item.Activity.ProjectID == project.ID {
+			sessions = append(sessions, item)
+		}
+	}
+	return project, sessions, nil
 }
 
 func (b *Builder) resolveProjectSlug(ctx context.Context, teamID int64, slug string) (model.Project, error) {

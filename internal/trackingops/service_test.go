@@ -24,6 +24,8 @@ type sessionStarterStub struct {
 	project         appmodel.AssignActivityProjectRequest
 	closed          appmodel.TimerAddRequest
 	startCalls      int
+	projects        []model.Project
+	known           map[string]bool
 }
 
 func (s *sessionStarterStub) Start(context.Context, appmodel.TimerStartRequest) (model.Session, error) {
@@ -35,8 +37,15 @@ func (*sessionStarterStub) Activity(_ context.Context, _ int64, activityID int64
 	return model.Activity{ID: activityID, Name: "Deep work"}, nil
 }
 
-func (*sessionStarterStub) FindActivity(_ context.Context, query appmodel.ActivityNameQuery) (model.Activity, error) {
+func (s *sessionStarterStub) FindActivity(_ context.Context, query appmodel.ActivityNameQuery) (model.Activity, error) {
+	if s.known != nil && !s.known[query.Name] {
+		return model.Activity{}, model.ErrNotFound
+	}
 	return model.Activity{ID: 7, Name: query.Name, TeamID: query.TeamID}, nil
+}
+
+func (s *sessionStarterStub) List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error) {
+	return s.projects, nil
 }
 
 func (s *sessionStarterStub) ResolveActivityForMember(_ context.Context, request appmodel.ActivityResolveRequest) (model.Activity, error) {
@@ -450,5 +459,46 @@ func TestStopAllRecordsAuditForEachSession(t *testing.T) {
 	}
 	if goalReader.stoppedBatch[7] != 1200 || notifications.achieved != 1 {
 		t.Fatalf("stop-all goal handling = durations %+v, notifications %+v", goalReader.stoppedBatch, notifications)
+	}
+}
+
+// «Сайт · Вёрстка» typed into a backfill made a project-less activity, and
+// the hours fell out of billing. A known project before the separator is the
+// project; an activity already called by the whole name keeps it.
+func TestProjectPrefixNamesTheProject(t *testing.T) {
+	ctx := requestctx.WithActor(context.Background(), 12)
+	start := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+	add := func(sessions *sessionStarterStub, name string) {
+		t.Helper()
+		service, err := New(dependencies(sessions, &auditRecorderStub{}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, _, err := service.AddClosedActivity(ctx, appmodel.TimerAddByNameRequest{
+			TeamID: 4, CallerID: 12, ActivityName: name, Start: start, End: start.Add(time.Hour),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	projects := []model.Project{{ID: 3, Name: "Сайт"}, {ID: 5, Name: "Архив", Archived: true}}
+
+	split := &sessionStarterStub{projects: projects, known: map[string]bool{}}
+	add(split, "сайт · Вёрстка")
+	if split.resolved.Name != "Вёрстка" || split.project.ProjectID != 3 {
+		t.Fatalf("prefix not read as project: activity %q project %+v", split.resolved.Name, split.project)
+	}
+
+	for _, name := range []string{"Созвон: клиент", "Архив · Чистка", "Сайт ·"} {
+		literal := &sessionStarterStub{projects: projects, known: map[string]bool{}}
+		add(literal, name)
+		if literal.resolved.Name != name || literal.project.ProjectID != 0 {
+			t.Errorf("%q must stay literal, got %q project %d", name, literal.resolved.Name, literal.project.ProjectID)
+		}
+	}
+
+	existing := &sessionStarterStub{projects: projects, known: map[string]bool{"Сайт · Вёрстка": true}}
+	add(existing, "Сайт · Вёрстка")
+	if existing.resolved.Name != "Сайт · Вёрстка" || existing.project.ProjectID != 0 {
+		t.Errorf("an existing activity keeps its whole name, got %q", existing.resolved.Name)
 	}
 }
