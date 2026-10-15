@@ -75,7 +75,9 @@ var navItems = []navItem{
 	{"integrations", "/integrations", "link", "nav.integrations", "integrations", false},
 }
 
-var defaultTabs = []string{"dashboard", "stats", "timesheet", "projects"}
+// defaultTabs match the phone bar people have been seeing: the client used to
+// hard-code them and ignore the saved choice, so this is the visible default.
+var defaultTabs = []string{"dashboard", "timesheet", "stats", "graph"}
 
 // tabsFor is the user's phone tab bar: their picks that are still
 // available to them, topped up from the defaults to four.

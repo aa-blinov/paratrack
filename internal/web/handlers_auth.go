@@ -114,7 +114,7 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 	created := s.restoreLastWorkspace(w, r, user)
 
 	redirect := "/"
-	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+	if localPath(next) {
 		redirect = next
 	} else if created {
 		// A workspace that was just recreated answers the same question a new
@@ -211,7 +211,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	next := strings.TrimSpace(r.PostForm.Get("next"))
 	// An error must not lose where the user was going (an invite link).
 	keep := ""
-	if strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+	if localPath(next) {
 		keep = "&next=" + url.QueryEscape(next)
 	}
 	if email == "" || password == "" || name == "" {
@@ -239,7 +239,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	setSessionCookie(w, r, sess.Token)
 	// A fresh account answers one question first: what the app is for.
 	redirect := "/welcome"
-	if next != "" && strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") {
+	if localPath(next) {
 		redirect = next
 	}
 	http.Redirect(w, r, redirect, http.StatusSeeOther)

@@ -21,10 +21,12 @@ function ThemeControl({ shell }: { shell: AppShellData }) {
   const [mode, cycle] = useTheme()
   const labelKey = mode === "light" ? "theme.light" : mode === "dark" ? "theme.dark" : "theme.auto"
   const Icon = mode === "dark" ? Moon : mode === "light" ? Sun : SunMoon
-  return <Button type="button" variant="ghost" size="sm" data-theme-toggle className={sidebarRow} title={`${t(shell.lang, "nav.theme")} ${t(shell.lang, labelKey)}`} aria-label={`${t(shell.lang, "nav.theme")} ${t(shell.lang, labelKey)}`} onClick={cycle}>
+  // One spelling for the visible label and the accessible name («Авто»).
+  const modeLabel = (label => label.charAt(0).toLocaleUpperCase() + label.slice(1))(t(shell.lang, labelKey))
+  return <Button type="button" variant="ghost" size="sm" data-theme-toggle className={sidebarRow} title={`${t(shell.lang, "nav.theme")} ${modeLabel}`} aria-label={`${t(shell.lang, "nav.theme")} ${modeLabel}`} onClick={cycle}>
     <Icon className="size-4" />
     <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "nav.theme")}</span>
-    <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/60">{t(shell.lang, labelKey)}</span>
+    <span className="group-data-[collapsible=icon]:hidden ml-auto text-xs text-sidebar-foreground/60">{modeLabel}</span>
   </Button>
 }
 function AccountMenu({ shell }: { shell: AppShellData }) {

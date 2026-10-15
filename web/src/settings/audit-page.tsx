@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/date-format"
 import { Filter, Link2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,6 +23,12 @@ export function AuditPage({ data }: { data: AuditData }) {
     const label = t(lang, key)
     return label === key ? action : label
   }
+  // Codes stay out of the journal: the sections list of «team.modules» read
+  // «graph, goals, tags», and times were ISO beside dates spelled everywhere else.
+  const targetLabel = (action: string, target: string) => action === "team.modules"
+    ? target.split(",").map(key => key.trim()).filter(Boolean).map(key => { const label = t(lang, `nav.${key}`); return label === `nav.${key}` ? key : label }).join(", ")
+    : target
+  const timeLabel = (time: string) => formatDateTime(time.replace(" ", "T"), lang) || time
   const rows = data.Items || []
   const people = data.People || []
   const actions = data.Actions || []
@@ -31,7 +38,7 @@ export function AuditPage({ data }: { data: AuditData }) {
   const action = data.Action || ""
   const shownLimit = data.Window || 100
   const personName = (id: number) => people.find(person => person.ID === id)?.Name || String(id)
-  const rowsList = rows.length ? <div className="grid gap-2">{rows.map((item, index) => <div key={`${item.Time}-${index}`} className="grid min-w-0 gap-2 rounded-md border p-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"><span className="whitespace-nowrap font-mono text-xs text-muted-foreground">{item.Time}</span><span className="w-fit rounded-md bg-muted px-2 py-1 text-xs" title={item.Action}>{actionLabel(item.Action)}</span><span className="break-all text-xs">{item.Target}</span><span className="font-mono text-xs text-muted-foreground">{item.IP}</span></div>)}</div> : data.Filtered ? <div className="grid justify-items-start gap-2 py-6"><p className="font-medium">{t(lang, "audit.noMatch")}</p><p className="text-sm text-muted-foreground">{t(lang, "audit.noMatchHint")}</p><Button asChild size="sm" variant="outline" className="mt-1"><a href="/settings/audit">{t(lang, "stats.clearFilters")}</a></Button></div> : <div className="grid justify-items-start gap-2 py-6"><p className="font-medium">{t(lang, "audit.empty")}</p><p className="text-sm text-muted-foreground">{t(lang, "audit.emptyHint")}</p><Button asChild size="sm" className="mt-1"><a href="/settings/webhooks"><Link2 aria-hidden="true" />{t(lang, "audit.emptyCta")}</a></Button></div>
+  const rowsList = rows.length ? <div className="grid gap-2">{rows.map((item, index) => <div key={`${item.Time}-${index}`} className="grid min-w-0 gap-2 rounded-md border p-3 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center"><span className="whitespace-nowrap font-mono text-xs text-muted-foreground">{timeLabel(item.Time)}</span><span className="w-fit rounded-md bg-muted px-2 py-1 text-xs" title={item.Action}>{actionLabel(item.Action)}</span><span className="break-all text-xs">{targetLabel(item.Action, item.Target)}</span><span className="font-mono text-xs text-muted-foreground">{item.IP}</span></div>)}</div> : data.Filtered ? <div className="grid justify-items-start gap-2 py-6"><p className="font-medium">{t(lang, "audit.noMatch")}</p><p className="text-sm text-muted-foreground">{t(lang, "audit.noMatchHint")}</p><Button asChild size="sm" variant="outline" className="mt-1"><a href="/settings/audit">{t(lang, "stats.clearFilters")}</a></Button></div> : <div className="grid justify-items-start gap-2 py-6"><p className="font-medium">{t(lang, "audit.empty")}</p><p className="text-sm text-muted-foreground">{t(lang, "audit.emptyHint")}</p><Button asChild size="sm" className="mt-1"><a href="/settings/webhooks"><Link2 aria-hidden="true" />{t(lang, "audit.emptyCta")}</a></Button></div>
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage />

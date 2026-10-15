@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, Flag, Folder, Languages, Link2, LogOut, Settings, Tag, Users, Zap } from "lucide-react"
+import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, Flag, Folder, Languages, Link2, LogOut, Settings, Tag, Upload, Users, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, sidebarRow } from "@/components/ui/button"
 import {
@@ -30,6 +30,8 @@ export type AppSidebarShell = {
   csrfToken: string
   canManage: boolean
   mods: Record<string, boolean> | null
+  /** The phone bar's four tabs, as chosen on the Interface page. */
+  tabs?: { key: string }[]
 }
 
 export const nav: ShellNavItem[] = [
@@ -48,12 +50,12 @@ export const nav: ShellNavItem[] = [
   { group: "money", key: "invoices", href: "/invoices", icon: "zap", label: "nav.invoices", module: "invoices", manage: true },
   { group: "money", key: "payroll", href: "/payroll", icon: "users", label: "nav.payroll", module: "payroll", manage: true },
   { group: "team", key: "schedule", href: "/schedule", icon: "calendar", label: "nav.schedule", module: "schedule" },
-  { group: "team", key: "settings-members", href: "/settings/members", icon: "users", label: "team.members", manage: true },
-  { group: "team", key: "settings-invites", href: "/settings/invites", icon: "users", label: "set.tabInvites", manage: true },
+  // Members and invites live under Settings → Пространство only: listed here
+  // too they had two homes, and both lit up on the same page.
   { group: "data", key: "tags", href: "/tags", icon: "tag", label: "nav.tags", module: "tags" },
   { group: "data", key: "integrations", href: "/integrations", icon: "link", label: "nav.integrations", module: "integrations" },
   { group: "data", key: "import", href: "/import", icon: "download", label: "nav.import", module: "import" },
-  { group: "data", key: "export", href: "/export", icon: "download", label: "nav.csvExport" },
+  { group: "data", key: "export", href: "/export", icon: "upload", label: "nav.csvExport" },
   // Settings has ten screens behind one tab strip. The panel used to list two
   // of them — «Под себя» and «Разделы» — under a heading that promised the
   // rest, so the other eight had no way in from anywhere. One entry now, and
@@ -103,6 +105,7 @@ export function Icon({ name }: { name: string }) {
     case "contact": return <Contact {...props} />
     case "link": return <Link2 {...props} />
     case "download": return <Download {...props} />
+    case "upload": return <Upload {...props} />
     case "settings": return <Settings {...props} />
     case "bell": return <Bell {...props} />
     case "help": return <CircleHelp {...props} />
@@ -217,8 +220,8 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
   const { setOpenMobile } = useSidebar()
   const navRef = useRef<HTMLElement>(null)
   const moreBelow = useListOverflow(navRef)
-  // Members and invites are lit under «Команда»; every other settings page here.
-  const inSettings = shell.requestPath.startsWith("/settings/") && !["/settings/members", "/settings/invites"].includes(shell.requestPath)
+  // Every settings page lights «Настройки», members and invites included.
+  const inSettings = shell.requestPath.startsWith("/settings/")
   return <Sidebar collapsible="icon" variant="sidebar">
     <SidebarHeader className="gap-2 px-3 py-2">
       <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight" aria-label="paratrack">
@@ -270,7 +273,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "set.title")}</span>
         </a>
       </Button>}
-      <a href="/settings/preferences" onClick={() => setOpenMobile(false)} className="px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/75 underline-offset-4 hover:text-sidebar-foreground hover:underline group-data-[collapsible=icon]:hidden">
+      <a href="/settings/preferences" onClick={() => setOpenMobile(false)} className="px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/75 underline decoration-sidebar-foreground/30 underline-offset-4 hover:text-sidebar-foreground hover:decoration-current group-data-[collapsible=icon]:hidden">
         {t(shell.lang, "nav.group.prefs")}
       </a>
       <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}
