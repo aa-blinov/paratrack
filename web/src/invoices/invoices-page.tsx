@@ -212,8 +212,8 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
     <Card className="no-print"><CardHeader><CardTitle className="text-base">{t(lang, "inv.send")}</CardTitle></CardHeader><CardContent className="space-y-5">
       <div>{data.MailReady ? <><form method="POST" action={`/invoices/${inv.ID}/send`} className="flex flex-wrap gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="send-to">{t(lang, "inv.clientEmail")}</Label><Input id="send-to" type="email" name="to" required defaultValue={inv.ClientEmail} placeholder="buh@romashka.ru" className="min-w-56 flex-1" /><Button type="submit" size="sm"><Mail aria-hidden="true" />{t(lang, "inv.send")}</Button></form><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.sendHint")}</p></> : <><Button asChild size="sm" variant="ghost"><a href={data.MailtoURL}><Mail aria-hidden="true" />{t(lang, "inv.sendMailto")}</a></Button><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.mailtoHint")}</p></>}</div>
 
-      {inv.Status === "draft" && <Disclosure className="border-t pt-4">
-        <DisclosureTrigger className="cursor-pointer font-medium">{t(lang, "inv.edit")}</DisclosureTrigger>
+      {inv.Status === "draft" && <Disclosure className="group border-t pt-4">
+        <DisclosureTrigger className="inline-flex cursor-pointer items-center gap-1 font-medium">{t(lang, "inv.edit")}<ChevronDown aria-hidden="true" className="size-4 transition-transform group-data-[state=open]:rotate-180" /></DisclosureTrigger>
         <form method="POST" action={`/invoices/${inv.ID}/edit`} className="mt-3 grid gap-3 sm:grid-cols-2">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
           <div className="space-y-2"><Label htmlFor="edit-client">{t(lang, "inv.client")}</Label><Input id="edit-client" type="text" name="client" required defaultValue={inv.ClientName} /></div>

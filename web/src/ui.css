@@ -698,6 +698,9 @@
 @media (min-width: 68.75rem) {
   #paratrack-react-root .ts-day-list { display: none; }
   #paratrack-react-root .ts-week-grid-card { display: block; }
+  /* «Сегодня / Вся неделя» picks days for the list; the grid shows the whole
+     week anyway, so above this width the switch did nothing. */
+  #paratrack-react-root .ts-day-switch { display: none; }
 }
 
 /* The running-timer bar already lives above the tab bar, and it owns «Стоп».
@@ -1096,8 +1099,9 @@ body {
    this, a field's intrinsic width widened the column and pushed the row past
    the 320px screen (payroll, invoices, graph). */
 @media (max-width: 1023px) {
-  #paratrack-react-root .flex > *,
-  #paratrack-react-root .grid > * { min-width: 0; }
+  /* :where() keeps this at the strength of a single id, so a deliberate
+     min-w-* utility still wins: the mini-bar's «+N» was squeezed to 32px. */
+  #paratrack-react-root :where(.flex > *, .grid > *) { min-width: 0; }
 }
 /* A row of fields with buttons beside them wraps on a phone: the button drops
    under the field instead of pushing the page wider than the screen. */

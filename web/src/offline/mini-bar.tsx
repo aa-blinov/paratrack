@@ -85,7 +85,7 @@ export function MiniBar({ lang }: { lang: string }) {
         {current.ProjectName && <span className="hidden min-w-0 max-w-[35%] truncate text-xs text-muted-foreground sm:inline">{current.ProjectName}</span>}
         <span className="shrink-0 font-mono text-sm tabular-nums">{clockLabel(sessionElapsedSeconds(current, Date.now()))}</span>
       </a>
-      {others > 0 && <a href="/" data-minibar-more className="inline-flex h-12 min-w-12 shrink-0 items-center justify-center rounded-full px-2 font-mono text-sm tabular-nums text-muted-foreground hover:bg-muted" aria-label={t(lang, "minibar.more", others)}>+{others}</a>}
+      {others > 0 && <a href="/" data-minibar-more className="inline-flex h-12 min-w-12 shrink-0 items-center justify-center rounded-full px-2 whitespace-nowrap text-sm text-muted-foreground hover:bg-muted" aria-label={t(lang, "minibar.more", others)}>{t(lang, "minibar.moreShort", others)}</a>}
       {current.Paused
         ? <Button type="button" size="icon" variant="ghost" className="size-12" title={t(lang, "minibar.resume", name)} aria-label={t(lang, "minibar.resume", name)} onClick={() => void act(current.ID, "resume")}><Play aria-hidden="true" /></Button>
         : <Button type="button" size="icon" variant="ghost" className="size-12" title={t(lang, "minibar.pause", name)} aria-label={t(lang, "minibar.pause", name)} onClick={() => void act(current.ID, "pause")}><Pause aria-hidden="true" /></Button>}

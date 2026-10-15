@@ -56,13 +56,14 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	query := r.URL.Query()
 	query.Set("log", "all")
 	data := statsData{
-		SessionsCut:   len(shown) < len(rows),
-		ShowAllURL:    "/stats?" + query.Encode(),
-		MeID:          user.ID,
-		People:        people,
-		PersonFilter:  stats.PersonFilter,
-		pageData:      pageData{Title: "Stats", Active: "stats", Lang: string(resolveLang(r)), ReactApp: true},
-		Period:        period,
+		SessionsCut:      len(shown) < len(rows),
+		ShowAllURL:       "/stats?" + query.Encode(),
+		MeID:             user.ID,
+		People:           people,
+		PersonFilter:     stats.PersonFilter,
+		pageData:         pageData{Title: "Stats", Active: "stats", Lang: string(resolveLang(r)), ReactApp: true},
+		Period:           period,
+		PeriodStartInput: period.Start.Format("2006-01-02T15:04"), PeriodEndInput: period.End.Format("2006-01-02T15:04"),
 		Aggregated:    activities,
 		ByProject:     projects,
 		Projects:      projectViews(stats.Projects),
