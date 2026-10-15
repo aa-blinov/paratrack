@@ -22,6 +22,10 @@ type graphSessionsStub struct {
 	scopedID  int64
 }
 
+func (*graphSessionsStub) ActiveSessions(context.Context, int64) ([]appmodel.ActiveSession, error) {
+	return nil, nil
+}
+
 func (s *graphSessionsStub) ClosedSessions(ctx context.Context, query appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error) {
 	s.teamID, s.from, s.to = query.TeamID, query.Start, query.End
 	if query.ProjectID != nil {

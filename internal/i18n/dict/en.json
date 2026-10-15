@@ -110,7 +110,7 @@
   "stats.time": "Time",
   "stats.share": "Share",
   "stats.total": "Total",
-  "stats.running": "Not in the total yet: timers not stopped (%d), %s. The time counts once they stop.",
+  "stats.running": "The total includes timers not stopped yet (%d): %s. It grows while they run.",
   "minibar.more": "%d more timers, all on the dashboard",
   "minibar.pause": "Pause: %s",
   "minibar.resume": "Resume: %s",

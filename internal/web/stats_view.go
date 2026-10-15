@@ -87,7 +87,7 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	// "учтено сегодня" window, so an empty today is a real answer. It still
 	// reads as "nothing was ever tracked" unless the page names the periods
 	// that do hold time, so the empty view pays for that one extra read.
-	if len(rows) == 0 {
+	if len(rows) == 0 && data.RunningCount == 0 {
 		elsewhere, err := s.statsPeriodsWithTime(r, now, projectFilter, tagFilter, period.Label)
 		if err != nil {
 			// The hint is an addition to an honest empty state, so a failed
@@ -100,8 +100,9 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	return data, nil
 }
 
-// runningInStats counts the open timers the stats totals leave out, in the
-// same person and project scope, with the time they hold inside the period.
+// runningInStats counts the open timers inside the stats totals, in the same
+// person and project scope, with the time they hold inside the period, so the
+// page can say the total still grows.
 func (s *Server) runningInStats(r *http.Request, period timeparse.Period, now time.Time, personID, projectID int64) (int, int, error) {
 	active, err := s.services.Tracking.Queries.ActiveSessions(r.Context(), teamID(r))
 	if err != nil {
@@ -120,6 +121,18 @@ func (s *Server) runningInStats(r *http.Request, period timeparse.Period, now ti
 		}
 	}
 	return count, secs, nil
+}
+
+// runningSessions lists the open timers in the request's scope for totals
+// that count time as it runs. A failed read leaves those totals at the
+// stopped time instead of failing the page.
+func (s *Server) runningSessions(r *http.Request) []appmodel.ActiveSession {
+	active, err := s.services.Tracking.Queries.ActiveSessions(r.Context(), teamID(r))
+	if err != nil {
+		s.logInternalError(fmt.Errorf("list running timers: %w", err))
+		return nil
+	}
+	return active
 }
 
 // statsNavPeriods are the periods the /stats switcher offers, in the order

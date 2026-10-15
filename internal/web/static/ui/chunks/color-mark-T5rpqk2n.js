@@ -1,0 +1,1 @@
+import{Ot as e}from"./ui-C5nQjwCW.js";var t=e();function n({color:e,className:n=``}){return(0,t.jsx)(`span`,{"aria-hidden":`true`,className:`inline-block h-[1lh] w-[3px] shrink-0 align-top rounded-full ${n}`,style:{backgroundColor:e}})}export{n as t};

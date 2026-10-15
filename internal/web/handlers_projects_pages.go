@@ -89,6 +89,16 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// Today and 30 days count a running timer as it runs, like the timesheet.
+	running := map[int64][2]int{}
+	for _, item := range s.runningSessions(r) {
+		if id := item.Activity.ProjectID; id > 0 {
+			sums := running[id]
+			sums[0] += item.Session.TrackedSecondsInWindow(dayStart, now, now)
+			sums[1] += item.Session.TrackedSecondsInWindow(monthFrom, now, now)
+			running[id] = sums
+		}
+	}
 	rows := make([]projectListRow, 0, len(snapshot.Projects))
 	for _, p := range snapshot.Projects {
 		row := projectListRow{
@@ -96,6 +106,8 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 			Activities: snapshot.Usage[p.ID].ActivityCount, TodaySecs: snapshot.Usage[p.ID].TodaySeconds, MonthSecs: snapshot.Usage[p.ID].MonthSeconds,
 			ClientName: snapshot.ClientNames[p.ID],
 		}
+		row.TodaySecs += running[p.ID][0]
+		row.MonthSecs += running[p.ID][1]
 		row.TodayLabel, row.MonthLabel = fmtDur(r, row.TodaySecs), fmtDur(r, row.MonthSecs)
 		if budget, ok := budgets[p.ID]; ok && p.BillableRateCents != nil {
 			lang := resolveLang(r)
