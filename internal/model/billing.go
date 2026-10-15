@@ -90,4 +90,8 @@ type TeamSettings struct {
 	Requisites string
 	VATNote    string
 	Billing    BillingRules
+	// Whether Stripe credentials are stored; the secrets themselves never
+	// leave the server.
+	StripeKeySet    bool
+	StripeSecretSet bool
 }

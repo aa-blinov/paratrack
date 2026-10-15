@@ -28,6 +28,9 @@ type TeamStripeCredentialsRequest struct {
 	CallerID int64
 	Key      string `json:"-"`
 	Secret   string `json:"-"`
+	// An empty Key or Secret keeps the stored one: the form never shows a
+	// saved secret, so a blank field means "unchanged". Clear removes both.
+	Clear bool
 }
 
 type TeamRenameRequest struct {

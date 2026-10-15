@@ -35,7 +35,9 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
         {data.Sections.length > 0 && <Card><CardHeader><CardTitle>{t(lang, "prefs.sections")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.sectionsHint")}</p></CardHeader><CardContent className="grid gap-1">{data.Sections.map(item => <React.Fragment key={item.Key}><input type="hidden" name="sections_all" value={item.Key} /><label className="flex cursor-pointer items-center gap-3 py-1.5 text-sm"><Checkbox name="sections" value={item.Key} defaultChecked={item.On} /><span>{t(lang, item.Label)}</span></label></React.Fragment>)}</CardContent></Card>}
         <Card className={data.Sections.length === 0 ? "lg:col-span-2" : ""}><CardHeader><CardTitle>{t(lang, "prefs.tabs")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.tabsHint")}</p></CardHeader><CardContent><fieldset className="grid gap-x-4 sm:grid-cols-2"><legend className="sr-only">{t(lang, "prefs.tabs")}</legend>{data.TabOpts.map(item => <label key={item.Key} className="flex cursor-pointer items-center gap-3 py-1.5 text-sm has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-45"><Checkbox name="tabs" value={item.Key} checked={selectedTabs.includes(item.Key)} disabled={selectedTabs.length >= 4 && !selectedTabs.includes(item.Key)} onCheckedChange={checked => toggleTab(item.Key, checked === true)} /><span>{t(lang, item.Label)}</span></label>)}</fieldset></CardContent></Card>
       </div>
-      <Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button>
+      {/* One save for four cards: it stays in reach instead of waiting at
+          the bottom of a 2500px page on a phone. */}
+      <div className="sticky bottom-24 z-10 -mx-1 rounded-lg bg-background/95 p-1 backdrop-blur lg:bottom-4"><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></div>
     </form>
   </main>
 }

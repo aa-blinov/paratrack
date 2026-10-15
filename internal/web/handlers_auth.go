@@ -25,6 +25,9 @@ type authPage struct {
 	CSRFToken string
 	Lang      string
 	SSO       bool
+	// InviteTeam names the workspace when the person came from an invite
+	// link: «С возвращением» alone did not say why they were asked to sign in.
+	InviteTeam string
 }
 
 func (authPage) isTemplateData()      {}
@@ -35,6 +38,19 @@ func (p authPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 func (p *authPage) setCSRF(token string) { p.CSRFToken = token }
 func (p *authPage) setLang(lang string)  { p.Lang = lang }
 
+// inviteTeamFor is the workspace an invite link in ?next= leads to, or "".
+func (s *Server) inviteTeamFor(r *http.Request, next string) string {
+	token, ok := strings.CutPrefix(next, "/invites/")
+	if !ok || token == "" || strings.ContainsAny(token, "/?#") {
+		return ""
+	}
+	snapshot, err := s.services.Teams.Invitations.InvitePage(r.Context(), token)
+	if err != nil {
+		return ""
+	}
+	return snapshot.Team.Name
+}
+
 // handleLogin renders the login form.
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	data := authPage{
@@ -43,6 +59,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		Next:      r.URL.Query().Get("next"),
 		SSO:       s.config.OIDCEnabled,
 	}
+	data.InviteTeam = s.inviteTeamFor(r, data.Next)
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
@@ -58,6 +75,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 		Title:     "Sign up",
 		Next:      r.URL.Query().Get("next"),
 	}
+	data.InviteTeam = s.inviteTeamFor(r, data.Next)
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}

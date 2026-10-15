@@ -135,7 +135,7 @@ function readRemembered(): boolean {
 }
 
 function NavigationGroup({ title, items, shell, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean }) {
-  const { setOpenMobile } = useSidebar()
+  const { setOpenMobile, state } = useSidebar()
   const visible = items.filter(item => available(item, shell))
   const holdsCurrent = visible.some(item => isCurrent(item, shell))
   const tall = useTallScreen()
@@ -144,7 +144,9 @@ function NavigationGroup({ title, items, shell, collapsible = false }: { title: 
   if (!visible.length) return null
   // On a short screen a collapsible group folds unless the person is inside it
   // (the whole menu does not fit 900px); on a tall one the remembered choice wins.
-  const open = !collapsible || holdsCurrent || (tall ? remembered : expanded)
+  // Collapsed to icons the rail has no group headings, so a folded group had
+  // no way to open: import and export were out of reach. Icons are never folded.
+  const open = !collapsible || state === "collapsed" || holdsCurrent || (tall ? remembered : expanded)
   const toggle = () => {
     if (!tall) return setExpanded(value => !value)
     setRemembered(value => {
@@ -215,6 +217,8 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
   const { setOpenMobile } = useSidebar()
   const navRef = useRef<HTMLElement>(null)
   const moreBelow = useListOverflow(navRef)
+  // Members and invites are lit under «Команда»; every other settings page here.
+  const inSettings = shell.requestPath.startsWith("/settings/") && !["/settings/members", "/settings/invites"].includes(shell.requestPath)
   return <Sidebar collapsible="icon" variant="sidebar">
     <SidebarHeader className="gap-2 px-3 py-2">
       <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight" aria-label="paratrack">
@@ -235,7 +239,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
     </SidebarHeader>
     <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
       <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
-        {groups.map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} />) }
+        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} />) }
         {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-7 w-full shrink-0 flex-col justify-end">
           <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
           <span className="flex h-4 items-center justify-center bg-sidebar"><ChevronDown className="size-4 text-sidebar-foreground/70" /></span>
@@ -257,9 +261,18 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           sit together; what was missing is saying so. Every other band of the
           sidebar carries a label, and these two were the only rows without
           one. */}
-      <p className="px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+      {/* Settings sit here, always on screen: as the last group of the
+          scrolling list they fell below the fold at 900px tall. The label
+          over language and theme leads to the page they belong to. */}
+      {shell.user && <Button asChild variant="ghost" size="sm" className={`${sidebarRow} ${inSettings ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground" : ""}`} title={t(shell.lang, "set.title")}>
+        <a href="/settings/profile" onClick={() => setOpenMobile(false)} aria-current={inSettings ? "page" : undefined}>
+          <Settings className="size-4" aria-hidden="true" />
+          <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "set.title")}</span>
+        </a>
+      </Button>}
+      <a href="/settings/preferences" onClick={() => setOpenMobile(false)} className="px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/75 underline-offset-4 hover:text-sidebar-foreground hover:underline group-data-[collapsible=icon]:hidden">
         {t(shell.lang, "nav.group.prefs")}
-      </p>
+      </a>
       <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}
         aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}>
         <a onClick={() => setOpenMobile(false)} href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`}>

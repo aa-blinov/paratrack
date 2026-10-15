@@ -128,12 +128,10 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
     <Card><CardHeader><CardTitle>{t(lang, "push.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.blurb")}</p></CardHeader><CardContent className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2"><Button type="button" onClick={() => void enable()} disabled={busy || checking || active}><Bell aria-hidden="true" />{t(lang, "push.enable")}</Button>{active && <Button type="button" variant="outline" onClick={() => void disable()} disabled={busy}><BellOff aria-hidden="true" />{t(lang, "push.disable")}</Button>}</div>
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{t(lang, "push.devices")}: <strong>{data.DeviceCount}</strong></p><Button type="button" variant="outline" size="sm" onClick={() => void sendTest()} disabled={busy} data-notification-test><Send aria-hidden="true" />{t(lang, "push.test")}</Button></div>
-      {data.DeviceCount === 0 && <p className="text-xs text-muted-foreground">{t(lang, "push.emptyHint")}</p>}
       <p className="min-h-4 text-xs text-muted-foreground" role="status" aria-live="polite" data-notification-status>{status}</p>
     </CardContent></Card>
     <Card><CardHeader><CardTitle>{t(lang, "push.events")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.topicsHint")}</p></CardHeader><CardContent>
       <ul className="grid gap-2">{topics.map(topic => <li key={topic.Key} data-list-item="1"><label className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={!muted.includes(topic.Key)} disabled={busy} onCheckedChange={checked => void toggleTopic(topic.Key, checked === true)} aria-label={t(lang, topic.Label)} /><span>{t(lang, topic.Label)}</span></label></li>)}
-        {data.CanManage && <li className="flex items-baseline gap-2 text-sm text-muted-foreground"><span>{t(lang, "push.ev2")}</span><span className="text-xs">{t(lang, "push.ev2hint")}</span></li>}
       </ul>
     </CardContent></Card>
   </main>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react"
+import type * as React from "react"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -45,7 +46,10 @@ export function SegmentedControl({ label, options, value, trailing, className }:
     observer.observe(el)
     return () => { el.removeEventListener("scroll", check); observer.disconnect() }
   }, [])
-  return <nav ref={ref} aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
+  // Links between periods are navigation; buttons that filter or set a
+  // preference (the theme) are a group of controls, not a landmark.
+  const Root = options.some(option => option.href) ? "nav" : "div"
+  return <Root ref={ref as React.RefObject<HTMLDivElement>} role={Root === "div" ? "group" : undefined} aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
   // periods took three rows of a 390px screen.
   className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] ${more ? "max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)]" : ""} lg:flex-wrap ${className || ""}`}>
     {options.map(option => {
@@ -60,5 +64,5 @@ export function SegmentedControl({ label, options, value, trailing, className }:
             aria-pressed={active} onClick={option.onSelect}>{option.label}</Button>
     })}
     {trailing}
-  </nav>
+  </Root>
 }

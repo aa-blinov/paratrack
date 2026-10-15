@@ -68,6 +68,7 @@ type SettingsStore interface {
 	SetTeamRequisites(context.Context, appmodel.TeamRequisitesRequest) error
 	SetTeamLogo(context.Context, appmodel.TeamLogoRequest) error
 	SetTeamStripe(context.Context, appmodel.TeamStripeCredentialsRequest) error
+	TeamStripe(context.Context, int64) (string, string, error)
 }
 
 // ModuleStore provides workspace module preference operations.
