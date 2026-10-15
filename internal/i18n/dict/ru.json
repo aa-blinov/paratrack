@@ -119,7 +119,6 @@
   "dash.trackedToday": "Учтено сегодня",
   "dash.stopAllTitle": "Остановить все таймеры?",
   "dash.stopAllAction": "Остановить все",
-  "dash.prefixProject": "Запишем в проект «%s», активность «%s».",
   "stats.all": "Все",
   "stats.distribution": "Распределение",
   "stats.nothingChart": "Пока нечего показывать.",
