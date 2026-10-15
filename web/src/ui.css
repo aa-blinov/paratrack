@@ -1085,3 +1085,27 @@ body {
   #paratrack-react-root [data-list-item="2"] { height: 72px; }
 }
 
+/* Full M3 pass over every phone screen. A button is 40dp tall and pill-shaped;
+   a choice card (data-card) is a 12dp card, not a button. A file picker is not
+   a text field, so it keeps the native control. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { height: 40px; }
+  #paratrack-react-root [data-card][data-slot="button"] { height: auto; border-radius: 12px; }
+  /* A field with flex-1 in a column had a zero basis, so its height was the 48px touch floor.
+     The basis is now its own height. */
+  #paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *) { height: 56px; flex: 0 1 auto; }
+}
+
+/* A child of a phone flex or grid row may shrink below its contents. Without
+   this, a field's intrinsic width widened the column and pushed the row past
+   the 320px screen (payroll, invoices, graph). */
+@media (max-width: 1023px) {
+  #paratrack-react-root .flex > *,
+  #paratrack-react-root .grid > * { min-width: 0; }
+}
+/* A row of fields with buttons beside them wraps on a phone: the button drops
+   under the field instead of pushing the page wider than the screen. */
+@media (max-width: 1023px) {
+  #paratrack-react-root .flex.items-end { flex-wrap: wrap; }
+}
+
