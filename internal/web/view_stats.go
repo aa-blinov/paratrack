@@ -27,12 +27,12 @@ type statsData struct {
 	// how many run and how much time they hold in this period.
 	RunningCount int
 	RunningTotal string
-	SessionsCut   bool // the log shows only the newest statsLogRows
-	MeID          int64
-	ShowAllURL    string   // this view with the whole log
-	TagFilter     string   // current ?tag= value, empty if unfiltered
-	AllTagNames   []string // for the inline-add input autocomplete
-	SavedReports  []savedReportView
+	SessionsCut  bool // the log shows only the newest statsLogRows
+	MeID         int64
+	ShowAllURL   string   // this view with the whole log
+	TagFilter    string   // current ?tag= value, empty if unfiltered
+	AllTagNames  []string // for the inline-add input autocomplete
+	SavedReports []savedReportView
 	// Elsewhere names the switcher periods that hold time when the selected
 	// one holds none; empty while the period itself has sessions.
 	Elsewhere []statsPeriodOption
