@@ -15,6 +15,7 @@ type RunningItem = {
   Paused: boolean
   Clock: string
   ResumeISO: string
+  AccumulatedSeconds: number
 }
 
 const csrf = () => {
