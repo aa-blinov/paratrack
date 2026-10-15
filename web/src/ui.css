@@ -1109,3 +1109,43 @@ body {
   #paratrack-react-root .flex.items-end { flex-wrap: wrap; }
 }
 
+/* Full M3 type pass on the phone. The scale has 400 and 500 only, so heavier
+   emphasis takes 500; body text is 16/24 (the theme's 1.55 gave 24.8px); a
+   field label is 14/20 (it was 14/14); the page title is headline small 24/32 at 400. */
+@media (max-width: 1023px) {
+  #paratrack-react-root { line-height: 1.5; }
+  #paratrack-react-root [data-slot="label"] { line-height: 1.25rem; }
+  #paratrack-react-root h1[class] { font-weight: 400; }
+  #paratrack-react-root .text-xs { line-height: 1rem; }
+  /* A 18px summary figure has no M3 step between label and title; title large (22/28) is the nearest. */
+  #paratrack-react-root .text-lg[class] { font-size: 1.375rem; line-height: 1.75rem; font-weight: 400; }
+  #paratrack-react-root .font-semibold,
+  #paratrack-react-root .font-bold,
+  #paratrack-react-root strong,
+  #paratrack-react-root b { font-weight: 500; }
+}
+
+/* Spacing on the phone follows M3's 4dp grid. The 6px and 10px steps (gap-1.5,
+   px-2.5 and their relatives) move to the nearest grid step, 8px and 12px. */
+@media (max-width: 1023px) {
+  #paratrack-react-root .gap-1\.5 { gap: 8px; }
+  #paratrack-react-root .px-1\.5 { padding-inline: 8px; }
+  #paratrack-react-root .py-1\.5 { padding-block: 8px; }
+  #paratrack-react-root .px-2\.5 { padding-inline: 12px; }
+  #paratrack-react-root .py-2\.5 { padding-block: 12px; }
+  #paratrack-react-root .p-1\.5 { padding: 8px; }
+  #paratrack-react-root .p-2\.5 { padding: 12px; }
+  #paratrack-react-root .mt-1\.5 { margin-top: 8px; }
+  #paratrack-react-root .mb-1\.5 { margin-bottom: 8px; }
+  #paratrack-react-root .mt-2\.5 { margin-top: 12px; }
+  #paratrack-react-root .mb-2\.5 { margin-bottom: 12px; }
+  #paratrack-react-root [class*="gap-1.5"] { gap: 8px; }
+  #paratrack-react-root [data-slot="select-value"] { gap: 8px; }
+  #paratrack-react-root .pl-2\.5 { padding-left: 12px; }
+  #paratrack-react-root .pr-2\.5 { padding-right: 12px; }
+  #paratrack-react-root .gap-x-1\.5 { column-gap: 8px; }
+  #paratrack-react-root .gap-y-1\.5 { row-gap: 8px; }
+  #paratrack-react-root .ps-1\.5, #paratrack-react-root .pe-1\.5 { padding-inline-start: 8px; padding-inline-end: 8px; }
+  #paratrack-react-root .ps-2\.5, #paratrack-react-root .pe-2\.5 { padding-inline-start: 12px; padding-inline-end: 12px; }
+}
+
