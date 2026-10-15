@@ -185,10 +185,10 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
     onValueChange?.(next)
   }
 
-  return <div className="relative" ref={root}>
+  return <div className="relative w-full min-w-0" ref={root}>
     {/* The form posts exactly what it always posted. */}
     <input type="hidden" name={name} value={iso} disabled={disabled} />
-    <div className="flex items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1">
       <Input
         id={id}
         type="text"
@@ -219,7 +219,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         onBlur={() => onCommit?.()}
         onFocus={() => setOpen(true)}
         onKeyDown={event => { if (event.key === "Enter" && !open) { setOpen(true); event.preventDefault() } }}
-        className={`${broken ? "border-destructive focus-visible:ring-destructive/40" : ""} ${className || ""}`}
+        className={`min-w-0 flex-1 ${broken ? "border-destructive focus-visible:ring-destructive/40" : ""} ${className || ""}`}
       />
       <Button
         type="button"

@@ -274,6 +274,16 @@ the M3 baseline sizes in Inter: headline small 24/32, title medium 16/24 medium,
 label large 14/20 medium, label medium 12/16 medium. The desktop keeps the neutral
 ledger. The activity colours are not M3 roles; they stay as the person's marks.
 
+**Full phone audit (24 screens, light and dark).** Every element with a size
+in the spec was measured against the Material Web 2.5.0 values: buttons 40dp
+pill, inputs 56dp, dropdown triggers 56dp, cards 12dp, chips 32dp, checkboxes
+18dp, FAB 56dp at 16dp, primary tabs 48dp, segmented buttons 40dp, menu items
+48dp, one-line list items 56dp, two-line 72dp, top app bar 64dp, navigation
+bar 80dp. Zero deviations remain. Three exceptions are kept on purpose:
+the timesheet's extended FAB keeps its 56dp height (it is an FAB, not a button),
+the graph legend chips are two-line (name and total) and M3 has no two-line
+chip, and choice cards on the sections page are cards, not buttons.
+
 **Outside Material 3 by decision.** Status badges (`Badge`: draft, sent, paid),
 collapsible blocks (`Collapsible`: the optional fields and saved snapshots) and
 skeletons (`Skeleton`: the loading placeholders) are paratrack's own components.
