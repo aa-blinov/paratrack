@@ -43,6 +43,7 @@ type ActivityResolver interface {
 
 type ProjectAssigner interface {
 	AssignActivity(context.Context, appmodel.AssignActivityProjectRequest) error
+	List(context.Context, appmodel.ProjectCatalogQuery) ([]model.Project, error)
 }
 
 type ClosedSessionCreator interface {
@@ -206,6 +207,9 @@ func validateClosedSessionRequest(ctx context.Context, callerID int64, start, en
 }
 
 func (s *Service) resolveActivity(ctx context.Context, teamID, callerID int64, name string, projectID int64) (model.Activity, error) {
+	if projectID <= 0 {
+		name, projectID = s.projectPrefix(ctx, teamID, name)
+	}
 	activity, err := s.resolver.ResolveActivityForMember(ctx, appmodel.ActivityResolveRequest{
 		TeamID: teamID, CallerID: callerID, Name: name,
 	})
@@ -223,6 +227,36 @@ func (s *Service) resolveActivity(ctx context.Context, teamID, callerID int64, n
 	}
 	activity.ProjectID = projectID
 	return activity, nil
+}
+
+// projectPrefix reads «Сайт-каталог · Вёрстка» (or «Сайт-каталог: Вёрстка»)
+// as activity «Вёрстка» in project «Сайт-каталог». Invoices name a line that
+// way, so people type it; read literally, it made a new activity with no
+// project and the hours fell out of billing. Only a project that exists
+// counts, and an activity already called by the whole name keeps it.
+func (s *Service) projectPrefix(ctx context.Context, teamID int64, name string) (string, int64) {
+	cut := strings.IndexAny(name, "·:")
+	if cut <= 0 {
+		return name, 0
+	}
+	left, right := strings.TrimSpace(name[:cut]), strings.TrimSpace(strings.TrimLeft(name[cut:], "·:"))
+	if left == "" || right == "" {
+		return name, 0
+	}
+	if _, err := s.activities.FindActivity(ctx, appmodel.ActivityNameQuery{TeamID: teamID, Name: name}); err == nil {
+		return name, 0
+	}
+	projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: teamID})
+	if err != nil {
+		s.logger.Printf("tracking: list projects for %q: %v", name, err)
+		return name, 0
+	}
+	for _, project := range projects {
+		if !project.Archived && strings.EqualFold(project.Name, left) {
+			return right, project.ID
+		}
+	}
+	return name, 0
 }
 
 // Start begins tracking and publishes side effects once the session write

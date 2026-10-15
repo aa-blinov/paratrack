@@ -104,6 +104,14 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 		}
 	}
 	totalSeconds := activity.TotalSeconds // all history, tracked time with pauses excluded
+	recentSeconds := activity.RecentSeconds
+	// A running timer counts as it runs here too, like the timesheet.
+	for _, item := range s.runningSessions(r) {
+		if item.Activity.ProjectID == p.ID {
+			totalSeconds += item.Session.TrackedSecondsInWindow(time.Time{}, now, now)
+			recentSeconds += item.Session.TrackedSecondsInWindow(from, now, now)
+		}
+	}
 	attachSessionTags(sessions, snapshot.TagsBySession)
 	attachSessionProjects(sessions, snapshot.ProjectsByID)
 
@@ -123,7 +131,7 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 			Archived: p.Archived, Billable: p.Billable,
 		},
 		Activities: activityViews(detail.Activities, string(resolveLang(r))), Sessions: sessions,
-		Total: fmtDur(r, totalSeconds), MonthTotal: fmtDur(r, activity.RecentSeconds),
+		Total: fmtDur(r, totalSeconds), MonthTotal: fmtDur(r, recentSeconds),
 		Archived: p.Archived, EstimateLabel: estimateLabel, EstimateInput: estimateInput,
 		RateInput: rateInput, EstimatePercent: estimatePercent, Currencies: currencyOptions(),
 	}

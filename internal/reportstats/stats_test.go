@@ -121,3 +121,22 @@ func sessionForStats(activity string, projectID int64, start, end time.Time, sec
 		Activity: model.Activity{Name: activity, ProjectID: projectID},
 	}
 }
+
+// A running timer used to be skipped, so «По часам» drew nothing for the
+// hour on the clock. It counts up to now, like every other total.
+func TestHourlyGraphCountsRunningTimer(t *testing.T) {
+	now := time.Date(2026, 10, 15, 12, 30, 0, 0, time.UTC)
+	from := time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC)
+	resume := now.Add(-30 * time.Minute)
+	running := appmodel.ActiveSession{
+		Session:  model.Session{StartAt: resume, LastResumeAt: &resume},
+		Activity: model.Activity{Name: "Вёрстка"},
+	}
+	graph, err := HourlyGraph([]appmodel.ActiveSession{running}, from, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if graph.TotalSeconds != 1800 {
+		t.Fatalf("running timer total = %d, want 1800", graph.TotalSeconds)
+	}
+}

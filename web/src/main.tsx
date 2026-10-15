@@ -111,15 +111,21 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   }
 
   // «Учтено сегодня» comes from the server and would freeze while the clocks
-  // on the rows tick on, so a running timer pulls a fresh total each minute.
-  const running = data.RunningCount > 0
+  // on the rows tick on. Every running timer adds a second a second, so the
+  // label turns over exactly when the total crosses the next minute: fetch
+  // then, not on a fixed beat that left it a minute behind the rows.
+  const runningCount = data.RunningCount
   useEffect(() => {
-    if (!running) return
-    const id = window.setInterval(() => {
-      if (!document.hidden) refresh().catch(() => {})
-    }, 60_000)
-    return () => window.clearInterval(id)
-  }, [running])
+    if (runningCount <= 0) return
+    const wait = Math.ceil((60 - (data.TodaySecs % 60)) / runningCount) * 1000 + 300
+    // A hidden tab catches up when it is shown again, not on a dead timer.
+    const fire = () => {
+      if (document.hidden) document.addEventListener("visibilitychange", fire, { once: true })
+      else refresh().catch(() => {})
+    }
+    const id = window.setTimeout(fire, wait)
+    return () => { window.clearTimeout(id); document.removeEventListener("visibilitychange", fire) }
+  }, [runningCount, data.TodaySecs])
 
   async function mutate(url: string, fields: Record<string, string> = {}) {
     setBusy(true)
@@ -175,9 +181,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       return
     }
     setActivityRequired(false)
-    const named = !project ? projectPrefix(activity) : null
-    const fields = named ? { activity: named.activity, project_id: String(named.project.ID), note } : { activity: activity.trim(), project_id: project, note }
-    if (await mutate("/api/start", fields)) {
+    if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note })) {
       setActivity("")
       setNote("")
     }
@@ -196,15 +200,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
 
   const activities = data.Activities ?? []
   const projects = data.Projects ?? []
-  // «Сайт-каталог · Вёрстка» typed into the field is how invoices name a line,
-  // so people type it. With no project picked, a known project before «·» or
-  // «:» becomes the project and the rest the activity; the hint says so first.
-  function projectPrefix(text: string) {
-    const match = text.match(/^(.+?)\s*[·:]\s*(.+)$/)
-    const found = match && projects.find(item => item.Name.toLocaleLowerCase() === match[1].trim().toLocaleLowerCase())
-    return found && match ? { project: found, activity: match[2].trim() } : null
-  }
-  const prefixed = !project ? projectPrefix(activity) : null
+  const prefixed = !project ? projectPrefix(activity, projects, activities) : null
   const active = data.ActiveSessions ?? []
   const mode = data.Mode || "custom"
   const modeTitle = mode === "custom" ? t(lang, "dash.mode.custom") : t(lang, `preset.${mode}`)
@@ -313,6 +309,16 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   </main>
 }
 
+// «Сайт-каталог · Вёрстка» is how invoices name a line, so people type it.
+// The server reads a known project before «·» or «:» as the project (unless
+// an activity already has the whole name); this only says so before saving.
+function projectPrefix(text: string, projects: DashboardData["Projects"], activities: DashboardData["Activities"]) {
+  if (activities.some(item => item.Name.toLocaleLowerCase() === text.trim().toLocaleLowerCase())) return null
+  const match = text.match(/^(.+?)\s*[·:]\s*(.+)$/)
+  const found = match && projects.find(item => !item.Archived && item.Name.toLocaleLowerCase() === match[1].trim().toLocaleLowerCase())
+  return found && match ? { project: found, activity: match[2].trim() } : null
+}
+
 function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; failure: { field: string; message: string } | null; onSubmit: (fields: Record<string, string>) => Promise<boolean>; busy: boolean }) {
   const [open, setOpen] = useState(false)
   const [fields, setFields] = useState(() => ({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }))
@@ -325,10 +331,11 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   const lang = data.Lang
   const set = (key: keyof typeof fields, value: string) => { setFields(previous => ({ ...previous, [key]: value })); setDismissed(previous => [...previous, key]) }
   const fieldError = (key: string) => failure?.field === key && !dismissed.includes(key) ? failure.message : ""
+  const prefixed = !fields.project_id ? projectPrefix(fields.activity, data.Projects ?? [], data.Activities ?? []) : null
   return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="cursor-pointer list-none py-1 text-sm font-medium text-muted-foreground hover:text-foreground">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
     <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (await onSubmit(fields)) setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) }}>
-      <div><Input id="b-activity" aria-label={t(lang, "dash.activity")} list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}</div>
+      <div><Input id="b-activity" aria-label={t(lang, "dash.activity")} list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}<span role="status" className="text-xs text-muted-foreground">{prefixed ? t(lang, "dash.prefixProject", prefixed.project.Name, prefixed.activity) : ""}</span></div>
       <div><Input id="b-start" ref={startRef} aria-label={t(lang, "dash.startLabel")} aria-invalid={fieldError("start") ? true : undefined} aria-describedby="b-start-error" placeholder={t(lang, "ph.start")} value={fields.start} onChange={event => set("start", event.target.value)} required /><span id="b-start-error" role="alert" className="text-xs text-destructive">{fieldError("start")}</span></div>
       <div><Input id="b-end" aria-label={t(lang, "stats.end")} aria-invalid={fieldError("end") ? true : undefined} placeholder={t(lang, "ph.end")} value={fields.end} onChange={event => set("end", event.target.value)} required /><span id="b-end-error" role="alert" className="text-xs text-destructive">{fieldError("end")}</span></div>
       <Select value={fields.project_id || "none"} onValueChange={value => set("project_id", value === "none" ? "" : value)}><SelectTrigger id="b-project" aria-label={t(lang, "dash.projectLabel")} data-value={fields.project_id || "0"}><SelectValue placeholder={t(lang, "dash.projectLabel")} /></SelectTrigger><SelectContent><SelectItem value="none">{t(lang, "dash.uncategorized")}</SelectItem>{data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select>
