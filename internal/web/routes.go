@@ -47,9 +47,10 @@ func (s *Server) routes() http.Handler {
 	// Browser error reports are relayed to Sentry only for our configured DSN.
 	mux.HandleFunc("POST /sentry-tunnel", s.handleSentryTunnel)
 
-	pages := http.NewServeMux()
-	s.registerPageRoutes(pages)
-	mux.Handle("/", pageAuth(s.shellNotFound(pages)))
+	pageRoutes := http.NewServeMux()
+	s.registerPageRoutes(pageRoutes)
+	pages := s.shellNotFound(pageRoutes)
+	mux.Handle("/", pageAuth(pages))
 	s.registerProtectedAPIRoutes(mux, apiAuth)
 
 	// Public OIDC sign-in callbacks.
