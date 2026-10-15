@@ -18,6 +18,13 @@ export function applyTheme(mode: ThemeMode) {
 // system while the page is open, not only on the next full load.
 export function useTheme() {
   const [mode, setMode] = useState<ThemeMode>(() => (document.documentElement.dataset.themeMode as ThemeMode) || "auto")
+  // Two switches (the menu and the Interface page) share one document theme;
+  // each follows the attribute so neither shows a stale mode.
+  useEffect(() => {
+    const observer = new MutationObserver(() => setMode((document.documentElement.dataset.themeMode as ThemeMode) || "auto"))
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme-mode"] })
+    return () => observer.disconnect()
+  }, [])
   useEffect(() => {
     if (mode !== "auto") return
     const media = matchMedia("(prefers-color-scheme: dark)")
@@ -25,11 +32,13 @@ export function useTheme() {
     media.addEventListener("change", follow)
     return () => media.removeEventListener("change", follow)
   }, [mode])
-  function cycle() {
-    const next: ThemeMode = mode === "auto" ? "light" : mode === "light" ? "dark" : "auto"
+  function choose(next: ThemeMode) {
     setMode(next)
     try { localStorage.setItem("paratrack-theme", next) } catch { /* storage can be disabled */ }
     applyTheme(next)
   }
-  return [mode, cycle] as const
+  function cycle() {
+    choose(mode === "auto" ? "light" : mode === "light" ? "dark" : "auto")
+  }
+  return [mode, cycle, choose] as const
 }

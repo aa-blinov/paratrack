@@ -162,7 +162,7 @@ async def check_more_sheet_follows_role(browser):
     await page.locator('[data-mobile-nav]').wait_for()
     await page.locator('[data-mobile-nav] button').click()
     links = await page.locator('[role="dialog"] a').evaluate_all('els => els.map(e => (e.innerText || "").trim())')
-    assert 'Настройки команды' not in links, f'A member is not offered a screen that answers 403: {links}'
+    assert 'Настройки пространства' not in links, f'A member is not offered a screen that answers 403: {links}'
     assert 'API-токены' in links, 'The member keeps their own settings'
     assert not errors, errors
     await context.close()

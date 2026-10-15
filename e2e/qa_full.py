@@ -567,13 +567,16 @@ def main() -> int:
         check("audit log has events", pg.locator('main span[title]').count() > 0 and "Webhook added" in ab)
         shot(pg, "o3-audit")
 
+        # Money settings have their own tab; the workspace tab keeps the danger zone.
+        pg.goto(BASE + "/settings/money")
+        pg.wait_for_load_state("load")
+        wait_ready(pg)
+        wait_app(pg)
+        check("stripe form", pg.locator('input[name="stripe_key"]').count() >= 1)
         pg.goto(BASE + "/settings/team")
         pg.wait_for_load_state("load")
         wait_ready(pg)
         wait_app(pg)
-        # The payments block (and its Stripe key field) is a closed disclosure.
-        open_disclosures(pg, 'input[name="stripe_key"]')
-        check("stripe form", pg.locator('input[name="stripe_key"]').count() >= 1)
         check("danger zone", "Danger zone" in pg.inner_text("body") or "Опасная зона" in pg.inner_text("body"))
         shot(pg, "o4-team")
 
