@@ -33,14 +33,14 @@ func (s *Server) handleAPITeamCurrency(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	cur := r.FormValue("currency")
 	if !validCurrency(cur) {
-		http.Redirect(w, r, "/settings/money?flash=bad_request", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#currency", http.StatusSeeOther)
 		return
 	}
 	if err := s.services.TeamOps.UpdateCurrency(operationContext(r), appmodel.TeamCurrencyRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Currency: cur}); err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#currency", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/money?flash=updated", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/money?flash=updated"+"#currency", http.StatusSeeOther)
 }
 
 // handleAPITeamRequisites saves the issuer's details and VAT line printed
@@ -51,13 +51,13 @@ func (s *Server) handleAPITeamRequisites(w http.ResponseWriter, r *http.Request)
 	req := strings.TrimSpace(r.FormValue("requisites"))
 	vat := strings.TrimSpace(r.FormValue("vat_note"))
 	if err := s.services.Teams.Settings.UpdateRequisites(r.Context(), appmodel.TeamRequisitesRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Requisites: req, VATNote: vat}); errors.Is(err, appmodel.ErrInvalidTeamSettings) {
-		http.Redirect(w, r, "/settings/money?flash=bad_request", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#requisites", http.StatusSeeOther)
 		return
 	} else if err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#requisites", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/money?flash=updated", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/money?flash=updated"+"#requisites", http.StatusSeeOther)
 }
 
 // handleAPIMemberRole makes a member an admin or back (owner only).
@@ -66,7 +66,7 @@ func (s *Server) handleAPITeamBilling(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	roundMinutes, err := strconv.Atoi(r.FormValue("round_minutes"))
 	if err != nil {
-		http.Redirect(w, r, "/settings/money?flash=bad_request", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#billing", http.StatusSeeOther)
 		return
 	}
 	roundMode := r.FormValue("round_mode")
@@ -79,13 +79,13 @@ func (s *Server) handleAPITeamBilling(w http.ResponseWriter, r *http.Request) {
 		InvoicePrefix: strings.TrimSpace(r.FormValue("invoice_prefix")),
 	}
 	if err := s.services.TeamOps.UpdateBilling(operationContext(r), appmodel.TeamBillingRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Rules: b}); errors.Is(err, appmodel.ErrInvalidTeamBilling) {
-		http.Redirect(w, r, "/settings/money?flash=bad_request", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#billing", http.StatusSeeOther)
 		return
 	} else if err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#billing", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/money?flash=updated", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/money?flash=updated"+"#billing", http.StatusSeeOther)
 }
 
 // handleAPITeamLogo stores a small PNG/JPEG as a data URL for invoices
@@ -96,56 +96,62 @@ func (s *Server) handleAPITeamLogo(w http.ResponseWriter, r *http.Request) {
 	const max = 200 << 10
 	r.Body = http.MaxBytesReader(w, r.Body, 2<<20)
 	if err := r.ParseMultipartForm(2 << 20); err != nil && !errors.Is(err, http.ErrNotMultipart) {
-		http.Redirect(w, r, "/settings/money?flash=logo_big", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash=logo_big"+"#logo", http.StatusSeeOther)
 		return
 	}
 	logo := ""
 	if r.FormValue("remove") == "" {
 		f, _, err := r.FormFile("logo")
 		if err != nil {
-			http.Redirect(w, r, "/settings/money?flash=bad_request", http.StatusSeeOther)
+			http.Redirect(w, r, "/settings/money?flash=bad_request"+"#logo", http.StatusSeeOther)
 			return
 		}
 		defer f.Close()
 		raw, err := io.ReadAll(io.LimitReader(f, max+1))
 		if err != nil {
-			http.Redirect(w, r, "/settings/money?flash=bad_request", http.StatusSeeOther)
+			http.Redirect(w, r, "/settings/money?flash=bad_request"+"#logo", http.StatusSeeOther)
 			return
 		}
 		if len(raw) > max {
-			http.Redirect(w, r, "/settings/money?flash=logo_big", http.StatusSeeOther)
+			http.Redirect(w, r, "/settings/money?flash=logo_big"+"#logo", http.StatusSeeOther)
 			return
 		}
 		ct := http.DetectContentType(raw)
 		if ct != "image/png" && ct != "image/jpeg" {
-			http.Redirect(w, r, "/settings/money?flash=logo_type", http.StatusSeeOther)
+			http.Redirect(w, r, "/settings/money?flash=logo_type"+"#logo", http.StatusSeeOther)
 			return
 		}
 		logo = "data:" + ct + ";base64," + base64.StdEncoding.EncodeToString(raw)
 	}
 	if err := s.services.Teams.Settings.UpdateLogo(r.Context(), appmodel.TeamLogoRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), DataURL: logo}); errors.Is(err, appmodel.ErrInvalidTeamSettings) {
-		http.Redirect(w, r, "/settings/money?flash=logo_type", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash=logo_type"+"#logo", http.StatusSeeOther)
 		return
 	} else if err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#logo", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/money?flash=updated", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/money?flash=updated"+"#logo", http.StatusSeeOther)
 }
 
 // handleTeamStripe saves Stripe credentials from workspace settings.
 func (s *Server) handleTeamStripe(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, "invalid form"), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, "invalid form")+"#stripe", http.StatusSeeOther)
 		return
 	}
 	key := strings.TrimSpace(r.PostForm.Get("stripe_key"))
 	secret := strings.TrimSpace(r.PostForm.Get("stripe_webhook_secret"))
-	if err := s.services.TeamOps.SetStripeCredentials(operationContext(r), appmodel.TeamStripeCredentialsRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Key: key, Secret: secret}); err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+	clear := r.PostForm.Get("clear") == "1"
+	if key == "" && secret == "" && !clear {
+		// Nothing typed is nothing saved; «Сохранено» here used to cover a wipe.
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, i18n.T(resolveLang(r), "stripe.nothing"))+"#stripe", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/money?flash="+encodeFlash(true, "updated"), http.StatusSeeOther)
+	if err := s.services.TeamOps.SetStripeCredentials(operationContext(r), appmodel.TeamStripeCredentialsRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Key: key, Secret: secret, Clear: clear}); err != nil {
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#stripe", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/settings/money?flash="+encodeFlash(true, "updated")+"#stripe", http.StatusSeeOther)
 }
 
 func (s *Server) teamErrorMessage(r *http.Request, err error) string {

@@ -736,6 +736,8 @@ export interface TeamSettingsData {
   LogoURL: string
   Flash: string
   FlashOK: boolean
+  StripeKeySet: boolean
+  StripeSecretSet: boolean
 }
 
 export interface TeamMembersData {
@@ -851,6 +853,7 @@ export interface AuthPageData {
   CSRFToken: string
   Lang: string
   SSO: boolean
+  InviteTeam?: string
 }
 
 export type ReactPageData = import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData

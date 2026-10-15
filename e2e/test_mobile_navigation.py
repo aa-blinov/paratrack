@@ -145,7 +145,7 @@ async def check_more_sheet(browser):
     height = await sheet.evaluate('el => Math.round(el.getBoundingClientRect().height)')
     assert height < 700, f'The sheet covers {height}px of an 844px screen'
     links = await sheet.locator('a').evaluate_all('els => els.map(e => (e.innerText || "").trim())')
-    for label in ('Проекты', 'Отчёты', 'Расписание', 'Теги', 'Экспорт', 'Справка', 'API-токены', 'Профиль и пароль'):
+    for label in ('Проекты', 'Отчёты', 'Расписание', 'Теги', 'Экспорт', 'Справка', 'API-токены', 'Профиль', 'Интерфейс', 'Уведомления'):
         assert label in links, f'The sheet must carry the desktop footer items too: {label} missing from {links}'
     await sheet.locator('form[action="/api/logout"]').wait_for()
     assert await sheet.locator('form[action="/api/logout"]').count() == 1, 'Signing out is reachable from a phone'

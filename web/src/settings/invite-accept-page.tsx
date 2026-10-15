@@ -10,7 +10,7 @@ export function InviteAcceptPage({ data }: { data: InviteAcceptData }) {
   return <main className="mx-auto mt-12 w-full max-w-md">
     <Card><CardContent className="grid gap-3 p-6">
       {valid ? <>
-        <h1 className="text-xl font-semibold">{data.Invite.Expired || data.Invite.Used ? data.Team.Name : `${t(lang, "invite.accept")} ${data.Team.Name}`}</h1>
+        <h1 className="text-xl font-semibold">{data.Invite.Expired || data.Invite.Used ? data.Team.Name : t(lang, "invite.joinNamed", data.Team.Name)}</h1>
         <p className="mb-1 text-sm text-muted-foreground">{t(lang, "invite.blurb")}</p>
         {data.Invite.Expired ? <p role="status" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{t(lang, "invite.expired")}</p> : data.Invite.Used ? <p role="status" className="rounded-md border p-3 text-sm">{t(lang, "invite.used")}</p> : data.LoggedIn ? <>
           <form method="post" action={`/api/invites/${data.Token}/accept`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" className="w-full"><Users aria-hidden="true" />{t(lang, "invite.accept")} {data.Team.Name}</Button></form>

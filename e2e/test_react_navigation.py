@@ -188,7 +188,7 @@ async def check_member_menu(browser):
     assert await nav.locator('a.mobile-nav-row').evaluate_all(
         'items => items.map(item => item.getAttribute("href"))') == [
             '/projects', '/clients', '/schedule', '/export', '/settings/profile',
-            '/settings/tokens', '/help', '/lang/en?next=%2F']
+            '/settings/preferences', '/settings/notifications', '/settings/tokens', '/help', '/lang/en?next=%2F']
     assert '/settings/team' not in await nav.locator('a.mobile-nav-row').evaluate_all(
         'items => items.map(item => item.getAttribute("href"))'), 'a member is not offered a screen that answers 403'
     print("PASS member: disabled modules, manager-only links, and empty groups hidden")
