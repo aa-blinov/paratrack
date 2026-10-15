@@ -1340,7 +1340,7 @@ def main() -> int:
             ("/reports", '#main input[data-date-input]'),
             ("/import", '#main [role="combobox"], #main input[data-date-input]'),
             ("/integrations", '#main [role="combobox"]'),
-            ("/settings/team", '#main input[type="file"]'),
+            ("/settings/money", '#main input[type="file"]'),
         ):
             page.goto(BASE + route)
             expect(page.locator("#main h1")).to_be_visible()

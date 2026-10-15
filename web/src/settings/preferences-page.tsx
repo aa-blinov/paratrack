@@ -1,3 +1,5 @@
+import { useTheme } from "@/lib/theme"
+import { SegmentedControl } from "@/components/segmented"
 import { Flash } from "@/components/flash"
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,6 +19,7 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Flash message={data.Flash} ok={data.FlashOK} />
+    <LanguageAndTheme lang={lang} />
     <form method="post" action="/api/me/preferences" className="grid gap-4">
       <input type="hidden" name="csrf_token" value={data.CSRFToken} />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
@@ -35,4 +38,27 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
       <Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button>
     </form>
   </main>
+}
+
+// Language and theme lived only in the menu, away from the page that is
+// called «Интерфейс». The quick switches stay there; here they are spelled out.
+function LanguageAndTheme({ lang }: { lang: string }) {
+  const [mode, , choose] = useTheme()
+  const back = encodeURIComponent("/settings/preferences")
+  const cap = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1)
+  return <Card><CardHeader><CardTitle>{t(lang, "prefs.langTheme")}</CardTitle></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
+    <div className="grid gap-1.5"><span className="text-sm font-medium">{t(lang, "nav.language")}</span>
+      <SegmentedControl label={t(lang, "nav.language")} value={lang === "en" ? "en" : "ru"} options={[
+        { key: "ru", label: "Русский", href: `/lang/ru?next=${back}` },
+        { key: "en", label: "English", href: `/lang/en?next=${back}` },
+      ]} />
+    </div>
+    <div className="grid gap-1.5"><span className="text-sm font-medium">{t(lang, "nav.theme")}</span>
+      <SegmentedControl label={t(lang, "nav.theme")} value={mode} options={[
+        { key: "auto", label: cap(t(lang, "theme.auto")), onSelect: () => choose("auto") },
+        { key: "light", label: cap(t(lang, "theme.light")), onSelect: () => choose("light") },
+        { key: "dark", label: cap(t(lang, "theme.dark")), onSelect: () => choose("dark") },
+      ]} />
+    </div>
+  </CardContent></Card>
 }
