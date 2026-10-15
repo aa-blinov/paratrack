@@ -266,8 +266,8 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     </Card>
     {!data.HasProject && data.HasSession && showNext && <nav aria-label={t(lang, "onb.next")} className="flex flex-wrap items-center gap-4 rounded-md border px-4 py-3 text-sm"><strong>{t(lang, "onb.next")}</strong><a href="/stats" className="underline-offset-4 hover:underline">{t(lang, "onb.nextStats")}</a>{data.Mods?.invoices && <a href="/projects/new" className="underline-offset-4 hover:underline">{t(lang, "onb.nextProject")}</a>}<Button type="button" size="sm" variant="ghost" className="ml-auto" onClick={() => setShowNext(false)}>{t(lang, "onb.hide")}</Button></nav>}
     {mode === "studio" && (data.CanManage || data.Mods?.schedule) && <nav aria-label={t(lang, "dash.teamActions")} className="flex flex-wrap items-center gap-2 border-y py-3">
-      {data.Mods?.schedule && <Button asChild variant="outline" size="sm"><a href="/schedule">{t(lang, "nav.schedule")}</a></Button>}
-      {data.CanManage && <><Button asChild variant="outline" size="sm"><a href="/settings/members">{t(lang, "team.members")}</a></Button><Button asChild variant="outline" size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>{data.Mods?.payroll && <Button asChild variant="outline" size="sm"><a href="/payroll">{t(lang, "nav.payroll")}</a></Button>}</>}
+      {data.Mods?.schedule && <Button asChild data-chip variant="outline" size="sm"><a href="/schedule">{t(lang, "nav.schedule")}</a></Button>}
+      {data.CanManage && <><Button asChild data-chip variant="outline" size="sm"><a href="/settings/members">{t(lang, "team.members")}</a></Button><Button asChild data-chip variant="outline" size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>{data.Mods?.payroll && <Button asChild data-chip variant="outline" size="sm"><a href="/payroll">{t(lang, "nav.payroll")}</a></Button>}</>}
     </nav>}
     <div data-dashboard-widgets className="grid min-w-0 gap-4 lg:grid-cols-2 [&:has(>_:only-child)]:lg:grid-cols-1">
     {mode === "freelance" ? <>{unbilledWidget}{goalsWidget}</> : <>{goalsWidget}{unbilledWidget}</>}

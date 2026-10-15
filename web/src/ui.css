@@ -1035,9 +1035,7 @@ body {
    on the shell was ink-black in the light theme (the preflight that would have
    reset it is not loaded). The hairline is the default; a class that names a
    colour still wins, since it is more specific than the universal selector. */
-:where(#paratrack-react-root) *,
-:where(#paratrack-react-root) *::before,
-:where(#paratrack-react-root) *::after { border-color: var(--border); }
+
 
 /* Material 3 specs the shell still had at its own sizes, on the phone only:
    outlined text fields are 56dp (compact table cells keep their size: they are
@@ -1153,5 +1151,17 @@ body {
    (text-lg, 22px) is the general summary figure; inside a dialog it is the headline. */
 @media (max-width: 1023px) {
   #paratrack-react-root [data-m3-dialog] [class*="text-lg"] { font-size: 1.5rem; line-height: 2rem; font-weight: 400; }
+}
+
+/* M3 selected filter chip: a tonal container with the brand ink, not a dark fill. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-touch-chip].bg-primary { background: var(--brand-soft); color: var(--brand); border-color: color-mix(in oklab, var(--brand) 28%, transparent); }
+}
+
+/* The timer button is a fixed FAB. The phone button rule sets position: relative
+   on every button (for its hit area), and it came later at the same specificity,
+   which pushed the FAB to the left edge. The FAB keeps its fixed place. */
+@media (max-width: 1023px) {
+  #paratrack-react-root .mobile-nav-fab { position: fixed; }
 }
 

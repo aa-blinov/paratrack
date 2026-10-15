@@ -21,6 +21,10 @@
   <script src="{{asset "js/sentry.min.js"}}"></script>
   <script src="{{asset "js/sentry-init.js"}}"></script>{{end}}
   <script type="module" blocking="render" src="{{asset "ui/app.js"}}"></script>
+<style>/* A border with no colour class took the text colour, so every plain border on the
+  app was ink-black in the light theme (the preflight that would reset it is not loaded).
+  The hairline is the default. Zero specificity: any class that names a colour still wins. */
+  :where(*) { border-color: var(--border); }</style>
 </head>
 <body class="min-h-screen flex flex-col" style="margin:0">
   <div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">
