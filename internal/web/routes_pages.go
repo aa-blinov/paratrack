@@ -95,6 +95,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 
 	// Workspace settings, membership and profile.
 	pages.HandleFunc("GET /settings/team", s.manage(s.handleTeamSettings))
+	pages.HandleFunc("GET /settings/money", s.manage(s.handleTeamSettings))
 	pages.HandleFunc("GET /settings/members", s.manage(s.handleTeamMembers))
 	pages.HandleFunc("GET /settings/invites", s.manage(s.handleTeamInvites))
 	pages.HandleFunc("GET /settings/profile", s.handleSettingsProfile)

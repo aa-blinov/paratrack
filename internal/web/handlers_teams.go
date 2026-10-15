@@ -112,9 +112,14 @@ func inviteViewOf(invite appmodel.TeamInviteResult, now time.Time) inviteView {
 func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
+	// /settings/money is the same data with the money sections in view.
+	title, active := "Team settings", "settings-team"
+	if r.URL.Path == "/settings/money" {
+		title, active = "Money", "settings-money"
+	}
 	data := settingsPageData{
-		Title:             "Team settings",
-		Active:            "settings-team",
+		Title:             title,
+		Active:            active,
 		TeamSettingsReact: true,
 		Team:              teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
 		User:              userViewOf(user),
@@ -138,7 +143,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Team settings", "settings", &data)
+	s.renderPageForRequest(w, r, title, "settings", &data)
 }
 
 func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
