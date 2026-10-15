@@ -1149,3 +1149,9 @@ body {
   #paratrack-react-root .ps-2\.5, #paratrack-react-root .pe-2\.5 { padding-inline-start: 12px; padding-inline-end: 12px; }
 }
 
+/* A dialog's headline is M3 headline small, 24/32 regular. The shared title size
+   (text-lg, 22px) is the general summary figure; inside a dialog it is the headline. */
+@media (max-width: 1023px) {
+  #paratrack-react-root [data-m3-dialog] [class*="text-lg"] { font-size: 1.5rem; line-height: 2rem; font-weight: 400; }
+}
+
