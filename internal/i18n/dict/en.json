@@ -119,7 +119,6 @@
   "dash.trackedToday": "Tracked today",
   "dash.stopAllTitle": "Stop every timer?",
   "dash.stopAllAction": "Stop all",
-  "dash.prefixProject": "Goes to project “%s” as activity “%s”.",
   "stats.all": "All",
   "stats.distribution": "Distribution",
   "stats.nothingChart": "Nothing to chart yet.",

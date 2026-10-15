@@ -257,8 +257,8 @@ async function updateBadge() {
     if (!response.ok) return
     const payload = await response.json() as { Items?: { Paused?: boolean }[] }
     const running = (payload.Items ?? []).filter(item => !item.Paused).length
-    const base = document.title.replace(/^● \d+ · /, "")
-    document.title = running ? `● ${running} · ${base}` : base
+    const base = document.title.replace(/^\(\d+\) /, "")
+    document.title = running ? `(${running}) ${base}` : base
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> }
     if (running) void nav.setAppBadge?.(running)?.catch(() => {})
     else void nav.clearAppBadge?.()?.catch(() => {})
