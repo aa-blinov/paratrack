@@ -27,6 +27,10 @@ function periodName(lang: string, period: string) {
 
 function queryFor(data: StatsData, period = data.Period.Label, project = data.ProjectFilter, tag = data.TagFilter, person = data.PersonFilter) {
   const query = new URLSearchParams({ period })
+  if (period === "custom") {
+    query.set("start", data.PeriodStartInput)
+    query.set("end", data.PeriodEndInput)
+  }
   if (project) query.set("project", project)
   if (tag) query.set("tag", tag)
   if (person) query.set("person", String(person))
@@ -105,7 +109,19 @@ export function StatsPage({ data }: { data: StatsData }) {
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "stats.title")}</h1></header>
     {data.Mods?.graph !== false && <a className="inline-flex items-center gap-2 py-1 text-sm underline underline-offset-4" href={`/graph?${graphQuery}`}><BarChart3 aria-hidden="true" className="size-4" />{data.ProjectFilter || data.TagFilter || data.PersonFilter ? t(lang, "stats.viewGraph") : t(lang, "stats.viewGraphAll")}</a>}
-    <SegmentedControl label={t(lang, "stats.title")} value={data.Period.Label} options={periods.map(period => ({ key: period, label: periodName(lang, period), href: queryFor(data, period) }))} />
+    <SegmentedControl label={t(lang, "stats.title")} value={data.Period.Label} options={[...periods.map(period => ({ key: period, label: periodName(lang, period), href: queryFor(data, period) })),
+      { key: "custom", label: t(lang, "graph.customPeriod"), href: queryFor(data, "custom") }]} />
+    {/* «Свои даты» was on the graph and missing here, so the same range could
+        be charted but not totalled. */}
+    {data.Period.Label === "custom" && <form method="get" action="/stats" className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
+      <div className="grid gap-1.5"><Label htmlFor="stats-start">{t(lang, "graph.customFrom")}</Label><DateTimeField id="stats-start" name="start" defaultValue={data.PeriodStartInput} required /></div>
+      <div className="grid gap-1.5"><Label htmlFor="stats-end">{t(lang, "graph.customTo")}</Label><DateTimeField id="stats-end" name="end" defaultValue={data.PeriodEndInput} required /></div>
+      <input type="hidden" name="period" value="custom" />
+      {data.ProjectFilter && <input type="hidden" name="project" value={data.ProjectFilter} />}
+      {data.TagFilter && <input type="hidden" name="tag" value={data.TagFilter} />}
+      {data.PersonFilter > 0 && <input type="hidden" name="person" value={String(data.PersonFilter)} />}
+      <Button type="submit">{t(lang, "graph.applyPeriod")}</Button>
+    </form>}
     {!!data.People?.length && <div className="flex flex-wrap items-center gap-2"><Label htmlFor="stats-person">{t(lang, "stats.person")}</Label><Select value={String(data.PersonFilter || "all")} onValueChange={value => { window.location.href = queryFor(data, data.Period.Label, data.ProjectFilter, data.TagFilter, value === "all" ? 0 : Number(value)) }}><SelectTrigger id="stats-person" className="w-full max-w-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t(lang, "stats.everyone")}</SelectItem>{data.People.map(person => <SelectItem key={person.ID} value={String(person.ID)}>{person.Name}</SelectItem>)}</SelectContent></Select></div>}
     {(data.TagFilter || data.ProjectFilter) && <Card><CardContent className="flex flex-wrap items-center gap-2 p-3"><span className="text-xs uppercase text-muted-foreground">{t(lang, "stats.filteredBy")}</span>{data.ProjectFilter && <Badge variant="secondary">{data.ProjectFilter}</Badge>}{data.TagFilter && <Badge variant="secondary">#{data.TagFilter}</Badge>}<Button asChild size="sm" variant="ghost" className="ml-auto"><a href={queryFor(data, data.Period.Label, "", "")}>{t(lang, "stats.clearFilters")}</a></Button></CardContent></Card>}
 

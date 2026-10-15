@@ -13,16 +13,20 @@ type personOpt struct {
 
 type statsData struct {
 	pageData
-	Period        timeparse.Period
-	Aggregated    []aggRow        // activity-level breakdown
-	ByProject     []projectAggRow // project-grouped breakdown (with activities nested)
-	Projects      []projectView   // for the project-filter chip row
-	ProjectFilter string          // current ?project=slug value, empty if unfiltered
-	People        []personOpt     // managers of a shared workspace: filter by person
-	PersonFilter  int64
-	Sessions      []sessionView
-	Total         string
-	SessionCount  int
+	Period timeparse.Period
+	// The custom range's fields, as on the graph: a custom period keeps its
+	// dates across chip and filter links.
+	PeriodStartInput string
+	PeriodEndInput   string
+	Aggregated       []aggRow        // activity-level breakdown
+	ByProject        []projectAggRow // project-grouped breakdown (with activities nested)
+	Projects         []projectView   // for the project-filter chip row
+	ProjectFilter    string          // current ?project=slug value, empty if unfiltered
+	People           []personOpt     // managers of a shared workspace: filter by person
+	PersonFilter     int64
+	Sessions         []sessionView
+	Total            string
+	SessionCount     int
 	// Running timers are not in the totals until they stop; the page says
 	// how many run and how much time they hold in this period.
 	RunningCount int

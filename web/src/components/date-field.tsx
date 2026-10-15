@@ -169,11 +169,20 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
       setOpen(false)
     }
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false) }
+    // Tabbing on past the field closes its grid: two open grids used to sit
+    // over the form while the focus was already on the submit button.
+    const onFocus = (event: FocusEvent) => {
+      const target = event.target as Node
+      if (root.current?.contains(target) || panel.current?.contains(target)) return
+      setOpen(false)
+    }
     document.addEventListener("mousedown", onDown)
     document.addEventListener("keydown", onKey)
+    document.addEventListener("focusin", onFocus)
     return () => {
       document.removeEventListener("mousedown", onDown)
       document.removeEventListener("keydown", onKey)
+      document.removeEventListener("focusin", onFocus)
     }
   }, [])
 
@@ -217,7 +226,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
           accept(parsed === null ? "" : parsed)
         }}
         onBlur={() => onCommit?.()}
-        onFocus={() => setOpen(true)}
+        // A click or Enter opens the grid, a Tab passing through does not:
+        // on a phone the grid opened with the keyboard and hid the next field.
+        onClick={() => setOpen(true)}
         onKeyDown={event => { if (event.key === "Enter" && !open) { setOpen(true); event.preventDefault() } }}
         className={`min-w-0 flex-1 ${broken ? "border-destructive focus-visible:ring-destructive/40" : ""} ${className || ""}`}
       />

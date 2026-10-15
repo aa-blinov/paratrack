@@ -13,7 +13,7 @@ export function ProfilePage({ data }: { data: ProfileData }) {
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Flash message={data.Flash} ok={data.FlashOK} />
-    <Card><CardHeader><CardTitle>{t(lang, "profile.title")}</CardTitle></CardHeader><CardContent>
+    <Card><CardHeader><CardTitle>{t(lang, "profile.nameCard")}</CardTitle></CardHeader><CardContent>
       <form method="post" action="/api/profile" className="grid max-w-xl gap-3">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="grid gap-1.5"><Label htmlFor="name">{t(lang, "auth.displayName")}</Label><Input id="name" name="name" required minLength={1} defaultValue={data.User.Name} /></div>
