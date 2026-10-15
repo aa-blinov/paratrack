@@ -223,6 +223,10 @@ func (d *DB) TeamStripe(ctx context.Context, teamID int64) (key, webhookSecret s
 
 // SetTeamStripe stores Stripe credentials for the workspace.
 func (d *DB) SetTeamStripe(ctx context.Context, request appmodel.TeamStripeCredentialsRequest) error {
+	if request.Clear {
+		return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID,
+			`UPDATE teams SET stripe_key = '', stripe_webhook_secret = '' WHERE id = ?`, request.TeamID)
+	}
 	sealedKey, err := d.sealSecret(request.Key)
 	if err != nil {
 		return fmt.Errorf("seal Stripe key: %w", err)
@@ -231,7 +235,12 @@ func (d *DB) SetTeamStripe(ctx context.Context, request appmodel.TeamStripeCrede
 	if err != nil {
 		return fmt.Errorf("seal Stripe webhook secret: %w", err)
 	}
+	// A blank field keeps what is stored: saving only the key used to wipe the
+	// webhook secret, and an empty form wiped both while saying «Сохранено».
 	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID,
-		`UPDATE teams SET stripe_key = ?, stripe_webhook_secret = ? WHERE id = ?`,
-		sealedKey, sealedWebhookSecret, request.TeamID)
+		`UPDATE teams SET
+		   stripe_key = CASE WHEN ? = '' THEN stripe_key ELSE ? END,
+		   stripe_webhook_secret = CASE WHEN ? = '' THEN stripe_webhook_secret ELSE ? END
+		 WHERE id = ?`,
+		request.Key, sealedKey, request.Secret, sealedWebhookSecret, request.TeamID)
 }

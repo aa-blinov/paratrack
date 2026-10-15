@@ -67,6 +67,11 @@ func (s *Service) Settings(ctx context.Context, teamID int64) (model.TeamSetting
 	if settings.Billing, err = s.settings.TeamBilling(ctx, teamID); err != nil {
 		return model.TeamSettings{}, fmt.Errorf("load team billing settings: %w", err)
 	}
+	key, secret, err := s.settings.TeamStripe(ctx, teamID)
+	if err != nil {
+		return model.TeamSettings{}, fmt.Errorf("load team Stripe state: %w", err)
+	}
+	settings.StripeKeySet, settings.StripeSecretSet = key != "", secret != ""
 	return settings, nil
 }
 

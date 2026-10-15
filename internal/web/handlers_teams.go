@@ -31,13 +31,16 @@ type settingsPageData struct {
 	Currencies []currencyOption
 	Requisites string
 	VATNote    string
-	Billing    billingRulesView
-	RoundOpts  []int
-	LogoURL    template.URL // data: URL, set only from our own upload check
-	IsOwner    bool         // members page: only the owner changes roles
-	CanManage  bool
-	CSRFToken  string
-	Lang       string
+	// Stripe state for the money tab: set or not, never the values.
+	StripeKeySet    bool
+	StripeSecretSet bool
+	Billing         billingRulesView
+	RoundOpts       []int
+	LogoURL         template.URL // data: URL, set only from our own upload check
+	IsOwner         bool         // members page: only the owner changes roles
+	CanManage       bool
+	CSRFToken       string
+	Lang            string
 }
 
 func (settingsPageData) isTemplateData() {}
@@ -132,6 +135,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	data.Currency = settings.Currency
 	data.Currencies = currencyOptions()
 	data.Requisites, data.VATNote = settings.Requisites, settings.VATNote
+	data.StripeKeySet, data.StripeSecretSet = settings.StripeKeySet, settings.StripeSecretSet
 	data.Billing = billingRulesView{
 		RoundMinutes:  settings.Billing.RoundMinutes,
 		RoundMode:     settings.Billing.RoundMode,

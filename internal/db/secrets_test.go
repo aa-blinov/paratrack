@@ -204,3 +204,34 @@ func TestStampLegacyInvoices(t *testing.T) {
 		t.Fatalf("legacy invoice migration recorded %d times, want 1", migrationCount)
 	}
 }
+
+// The Stripe form never shows a saved secret, so a blank field means
+// "unchanged". Saving only the key used to wipe the webhook secret, and an
+// empty form wiped both while the page said «Сохранено».
+func TestStripeBlankFieldKeepsStoredSecret(t *testing.T) {
+	t.Setenv("PARATRACK_SECRET_KEY", "test-key")
+	d, err := OpenTest(t)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := requestctx.WithActor(context.Background(), 1)
+	d.TestSQL().ExecContext(ctx, `INSERT INTO users (id, email, password_hash, name) VALUES (1,'a@x.t','x','A')`)
+	d.TestSQL().ExecContext(ctx, `INSERT INTO teams (id, name, slug, owner_id) VALUES (1,'T','t',1)`)
+	d.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role) VALUES (1,1,'owner')`)
+	set := func(r appmodel.TeamStripeCredentialsRequest) {
+		t.Helper()
+		r.TeamID, r.CallerID = 1, 1
+		if err := d.SetTeamStripe(ctx, r); err != nil {
+			t.Fatal(err)
+		}
+	}
+	set(appmodel.TeamStripeCredentialsRequest{Key: "sk_one", Secret: "whsec_one"})
+	set(appmodel.TeamStripeCredentialsRequest{Key: "sk_two"})
+	if key, secret, _ := d.TeamStripe(ctx, 1); key != "sk_two" || secret != "whsec_one" {
+		t.Fatalf("a blank secret must keep the stored one: key %q secret %q", key, secret)
+	}
+	set(appmodel.TeamStripeCredentialsRequest{Clear: true})
+	if key, secret, _ := d.TeamStripe(ctx, 1); key != "" || secret != "" {
+		t.Fatalf("clear removes both: key %q secret %q", key, secret)
+	}
+}

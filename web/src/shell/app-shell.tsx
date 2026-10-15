@@ -1,3 +1,4 @@
+import { settingsMenu } from "@/settings/settings-nav"
 import { useTheme } from "@/lib/theme"
 import * as React from "react"
 import { type ReactNode } from "react"
@@ -30,8 +31,9 @@ function AccountMenu({ shell }: { shell: AppShellData }) {
   if (!shell.user) return <div className="flex gap-2"><Button asChild variant="ghost" size="sm"><a href="/login">{t(shell.lang, "nav.login")}</a></Button><Button asChild size="sm"><a href="/register">{t(shell.lang, "nav.signup")}</a></Button></div>
   return <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="sm">{shell.user.name}</Button></DropdownMenuTrigger><DropdownMenuContent align="end">
     <DropdownMenuLabel className="px-2 py-2"><div className="text-xs text-muted-foreground">{t(shell.lang,"nav.signedInAs")}</div><div className="truncate text-sm">{shell.user.email}</div></DropdownMenuLabel>
-    {shell.canManage && <DropdownMenuItem asChild><a href="/settings/team">{t(shell.lang,"nav.teamSettings")}</a></DropdownMenuItem>}
-    {[['/settings/profile','nav.profile'],['/settings/tokens','nav.tokens'],['/help','nav.help'],...(shell.mods?.integrations !== false ? [['/integrations','nav.integrations']] : [])].map(([href,key])=><DropdownMenuItem asChild key={href}><a href={href}>{t(shell.lang,key)}</a></DropdownMenuItem>)}
+    {settingsMenu(shell.canManage).map(([href,key])=><DropdownMenuItem asChild key={href}><a href={href}>{t(shell.lang,key)}</a></DropdownMenuItem>)}
+    <DropdownMenuSeparator/>
+    {[['/help','nav.help'],...(shell.mods?.integrations !== false ? [['/integrations','nav.integrations']] : [])].map(([href,key])=><DropdownMenuItem asChild key={href}><a href={href}>{t(shell.lang,key)}</a></DropdownMenuItem>)}
     <DropdownMenuSeparator/><form method="post" action="/api/logout"><input type="hidden" name="csrf_token" value={shell.csrfToken}/><DropdownMenuItem asChild><Button variant="ghost" type="submit" className="w-full">{t(shell.lang,"nav.logout")}</Button></DropdownMenuItem></form>
   </DropdownMenuContent></DropdownMenu>
 }

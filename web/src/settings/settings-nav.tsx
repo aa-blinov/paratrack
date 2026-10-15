@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react"
 import { translate as t } from "@/i18n"
 
 // Two groups, each under its own label: what is mine, and what belongs to the
@@ -19,6 +20,12 @@ const workspace = [
   ["settings-audit", "/settings/audit", "set.tabAudit"],
 ] as const
 
+// The same settings, in the same order, wherever they are offered: the
+// account menu and the phone sheet used to list three of eleven pages.
+export function settingsMenu(canManage: boolean): Array<readonly [string, string]> {
+  return [...mine.map(([, href, key]) => [href, key] as const), ...(canManage ? [["/settings/team", "nav.teamSettings"] as const] : [])]
+}
+
 export function settingsTitle(lang: string, active: string) {
   // The workspace's first tab is «Основное»; as a page heading that says
   // nothing, so the page is named for what it is.
@@ -28,9 +35,27 @@ export function settingsTitle(lang: string, active: string) {
 }
 
 function TabRow({ label, tabs, active, lang }: { label: string; tabs: ReadonlyArray<readonly [string, string, string]>; active: string; lang: string }) {
+  // On a phone a row scrolls sideways. The current tab is brought into view
+  // («Журнал» sat 300px past the edge), and the edge fades only while there
+  // is more to the right.
+  const row = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const el = row.current
+    if (!el) return
+    const current = el.querySelector<HTMLElement>('[aria-current="page"]')
+    if (current) {
+      const offset = current.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft
+      el.scrollLeft = Math.max(0, offset - (el.clientWidth - current.offsetWidth) / 2)
+    }
+    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    check()
+    el.addEventListener("scroll", check, { passive: true })
+    return () => el.removeEventListener("scroll", check)
+  }, [active])
   return <nav aria-label={label} className="grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
     <span className="text-xs font-medium text-muted-foreground">{label}</span>
-    <div className="flex gap-1 overflow-x-auto [scrollbar-width:none]">
+    <div ref={row} className={`flex gap-1 overflow-x-auto [scrollbar-width:none] ${more ? "[mask-image:linear-gradient(to_right,#000_85%,transparent)]" : ""}`}>
       {tabs.map(([id, href, key]) => <a key={id} href={href} aria-current={active === id ? "page" : undefined} className={`inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm ${active === id ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>{t(lang, key)}</a>)}
     </div>
   </nav>

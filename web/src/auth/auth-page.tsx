@@ -19,6 +19,7 @@ export function AuthPage({ data }: { data: AuthPageData }) {
         <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="size-4" aria-hidden="true" /></span>
         <span className="text-lg tracking-tight">paratrack</span>
       </a>
+      {data.InviteTeam && <p role="status" className="rounded-md border bg-card p-3 text-sm">{t(lang, "auth.invitedTo", data.InviteTeam)}</p>}
       <LoginForm data={data} />
     </div>
   </main>
@@ -27,6 +28,7 @@ export function AuthPage({ data }: { data: AuthPageData }) {
       {data.AuthReact === "register" && <>
         <h1 className="text-xl font-semibold">{t(lang, "auth.createAccount")}</h1><p className="mb-1 text-sm text-muted-foreground">{t(lang, "auth.registerBlurb")}</p>
         {data.ErrorMsg && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{data.ErrorMsg}</p>}
+        {data.InviteTeam && <p role="status" className="mb-3 rounded-md border bg-card p-3 text-sm">{t(lang, "auth.invitedTo", data.InviteTeam)}</p>}
         <form method="post" action="/api/register" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="next" value={data.Next} /><div className="grid gap-1.5"><Label htmlFor="name">{t(lang, "auth.displayName")}</Label><Input id="name" type="text" name="name" required minLength={1} autoComplete="name" defaultValue={data.Name} autoFocus /></div><div className="grid gap-1.5"><Label htmlFor="email">{t(lang, "auth.email")}</Label><Input id="email" type="email" name="email" required autoComplete="email" defaultValue={data.Email} /></div><div className="grid gap-1.5"><Label htmlFor="password">{t(lang, "auth.password")}</Label><Input id="password" type="password" name="password" required minLength={8} maxLength={72} autoComplete="new-password" /><p className="text-xs text-muted-foreground">{t(lang, "auth.passwordHint")}</p></div><Button type="submit" className="mt-1 w-full"><Plus aria-hidden="true" />{t(lang, "invite.createAccount")}</Button></form>
         <p className="mt-2 text-center text-sm text-muted-foreground">{t(lang, "auth.haveAccount")} <a href={nextHref("/login", data.Next)} className="underline underline-offset-4">{t(lang, "nav.login")}</a></p>
       </>}
