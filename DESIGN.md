@@ -274,6 +274,15 @@ the M3 baseline sizes in Inter: headline small 24/32, title medium 16/24 medium,
 label large 14/20 medium, label medium 12/16 medium. The desktop keeps the neutral
 ledger. The activity colours are not M3 roles; they stay as the person's marks.
 
+**Phone type and spacing (24 screens).** Every text element on the phone is on the
+M3 baseline scale: headline small 24/32 (page titles, regular weight), title medium
+16/24 and title small 14/20 (card and section titles, medium), body large 16/24 and
+body medium 14/20, label large 14/20 and label medium 12/16 (medium), and the
+figure at 18px became title large 22/28 regular. There is no 600 or 700 on the
+phone: emphasis is medium. Spacing sits on the 4dp grid; the 6px and 10px steps
+move to 8px and 12px. Centring margins (`mx-auto`) are not spacing choices and
+are not on the grid.
+
 **Full phone audit (24 screens, light and dark).** Every element with a size
 in the spec was measured against the Material Web 2.5.0 values: buttons 40dp
 pill, inputs 56dp, dropdown triggers 56dp, cards 12dp, chips 32dp, checkboxes
