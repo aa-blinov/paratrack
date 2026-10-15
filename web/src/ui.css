@@ -1,5 +1,14 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* A border with no colour class takes the hairline, not the text colour. This
+   lives in the base layer on purpose: Tailwind's preflight sets `border: 0 solid`
+   in the same layer and would reset the colour to currentColor (ink-black lines),
+   but this selector is more specific, so it wins there; any colour utility
+   (border-input, border-destructive) sits in the utilities layer and still wins. */
+@layer base {
+  :where(*), :where(*)::before, :where(*)::after { border-color: var(--border); }
+}
 @custom-variant dark (&:where([data-theme=paratrack-dark], [data-theme=paratrack-dark] *));
 
 @theme inline {
