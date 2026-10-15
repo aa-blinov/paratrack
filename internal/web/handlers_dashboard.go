@@ -42,6 +42,9 @@ func (s *Server) handleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Mode = presetKeyForModules(s.teamModules(r))
+	// Same as the page: without the counts the mode line lost «открыто N из M»
+	// on every refresh, and the dashboard refreshes each minute a timer runs.
+	data.SectionsOpen, data.SectionsTotal = sectionsCounts(s.teamModules(r))
 	data.setManage(canManage(r))
 	data.setModules(s.userModules(r))
 	data.setWidgets(prefsOf(r).HiddenWidgets)

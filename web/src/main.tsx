@@ -19,7 +19,7 @@ import { Separator } from "@/components/ui/separator"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { translate as t } from "@/i18n"
+import { loadDictionary, translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
@@ -184,6 +184,10 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note })) {
       setActivity("")
       setNote("")
+      // A project picked for one timer stuck to the next ones, and personal
+      // «Чтение» ended up billed to a client. Back to the default after start.
+      setProject(String(data.DefaultProject || ""))
+      setRebindWarning(false)
     }
   }
 
@@ -264,14 +268,14 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
           <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
             <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
             <div className="ledger-split grid mt-3 gap-3">
-              <div className="grid gap-2"><Label htmlFor="project_id">{labels.project}</Label>
+              <div className="grid gap-2"><Label htmlFor="project_id">{t(lang, "dash.fieldProject")}</Label>
             <Select value={project || "none"} onValueChange={value => { setProject(value === "none" ? "" : value); const known = activities.find(item => item.Name.toLocaleLowerCase() === activity.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (value === "none" ? "0" : value))) }}>
-              <SelectTrigger id="project_id" aria-label={labels.project} data-value={project || "0"}><SelectValue placeholder={labels.project} /></SelectTrigger>
+              <SelectTrigger id="project_id" aria-label={t(lang, "dash.fieldProject")} data-value={project || "0"}><SelectValue placeholder={labels.project} /></SelectTrigger>
               <SelectContent><SelectItem value="none">{labels.uncategorized}</SelectItem>{projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent>
             </Select>
               </div>
-              <div className="grid gap-2"><Label htmlFor="timer-note">{labels.note}</Label>
-          <Input id="timer-note" aria-label={labels.note} name="note" value={note} onChange={e => setNote(e.target.value)} placeholder={t(lang, "dash.noteHint")} />
+              <div className="grid gap-2"><Label htmlFor="timer-note">{t(lang, "stats.note")}</Label>
+          <Input id="timer-note" aria-label={t(lang, "stats.note")} name="note" value={note} onChange={e => setNote(e.target.value)} placeholder={t(lang, "dash.noteHint")} />
               </div>
             </div>
           </Disclosure>
@@ -300,7 +304,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     </div>
     {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
     {data.Widgets?.recent && recent.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.recent}</CardTitle><a className="py-1 text-sm underline-offset-4 hover:underline" href="/stats">{labels.viewAll}</a></CardHeader><CardContent>
-      <div className="hidden overflow-x-auto sm:block"><Table className="w-full text-left text-sm"><TableHeader><TableRow className="border-b text-muted-foreground"><TableHead className="p-2">{t(lang, "dash.activity")}</TableHead><TableHead className="p-2">{t(lang, "dash.startLabel")}</TableHead><TableHead className="p-2">{t(lang, "stats.end")}</TableHead><TableHead className="p-2">{labels.duration}</TableHead><TableHead className="p-2">{labels.note}</TableHead><TableHead className="p-2">{t(lang, "stats.tags")}</TableHead><TableHead className="p-2" /></TableRow></TableHeader><TableBody>{recent.map(session => <TableRow key={session.ID} className="border-b last:border-0"><TableCell className="whitespace-normal p-2"><ColorMark className="mr-2" color={activityColor(session.Color)} /><span className="[overflow-wrap:anywhere]">{session.ActivityName}</span>{session.ProjectName && <div><Badge variant="outline" className="h-auto max-w-full items-start whitespace-normal [overflow-wrap:anywhere]">{session.ProjectName}</Badge></div>}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.StartLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.EndLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.Duration}</TableCell><TableCell className="whitespace-normal p-2 [overflow-wrap:anywhere]">{session.Note}</TableCell><TableCell className="whitespace-normal p-2">{session.Tags?.map(tag => <a key={tag.ID} className="mr-1 inline-block py-1 [overflow-wrap:anywhere]" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</TableCell><TableCell className="whitespace-normal p-2"><Button variant="ghost" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></TableCell></TableRow>)}</TableBody></Table></div>
+      <div className="hidden overflow-x-auto sm:block"><Table className="w-full text-left text-sm"><TableHeader><TableRow className="border-b text-muted-foreground"><TableHead className="p-2">{t(lang, "dash.activity")}</TableHead><TableHead className="p-2">{t(lang, "dash.startLabel")}</TableHead><TableHead className="p-2">{t(lang, "stats.end")}</TableHead><TableHead className="p-2">{labels.duration}</TableHead><TableHead className="p-2">{t(lang, "stats.note")}</TableHead><TableHead className="p-2">{t(lang, "stats.tags")}</TableHead><TableHead className="p-2" /></TableRow></TableHeader><TableBody>{recent.map(session => <TableRow key={session.ID} className="border-b last:border-0"><TableCell className="whitespace-normal p-2"><ColorMark className="mr-2" color={activityColor(session.Color)} /><span className="[overflow-wrap:anywhere]">{session.ActivityName}</span>{session.ProjectName && <div><Badge variant="outline" className="h-auto max-w-full items-start whitespace-normal [overflow-wrap:anywhere]">{session.ProjectName}</Badge></div>}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.StartLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.EndLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.Duration}</TableCell><TableCell className="whitespace-normal p-2 [overflow-wrap:anywhere]">{session.Note}</TableCell><TableCell className="whitespace-normal p-2">{session.Tags?.map(tag => <a key={tag.ID} className="mr-1 inline-block py-1 [overflow-wrap:anywhere]" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</TableCell><TableCell className="whitespace-normal p-2"><Button variant="ghost" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></TableCell></TableRow>)}</TableBody></Table></div>
       <div data-recent-sessions-mobile className="grid gap-2 sm:hidden">{recent.map(session => <article key={session.ID} className="grid min-w-0 gap-2 border-t border-border/70 py-3 text-sm first:border-t-0 first:pt-0"><div className="flex min-w-0 items-start gap-2"><ColorMark color={activityColor(session.Color)} /><div className="min-w-0"><strong className="break-all">{session.ActivityName}</strong>{session.ProjectName && <div className="mt-1"><Badge variant="outline" className="h-auto max-w-full whitespace-normal break-all">{session.ProjectName}</Badge></div>}</div></div><div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><span>{session.StartLocal}</span><span aria-hidden="true">→</span><span>{session.EndLocal}</span><span className="font-mono text-foreground">{session.Duration}</span></div>{session.Note && <p className="break-words text-muted-foreground">{session.Note}</p>}{session.Tags?.length > 0 && <div className="flex flex-wrap gap-2">{session.Tags.map(tag => <a key={tag.ID} className="py-1 text-primary underline-offset-4 hover:underline" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</div>}<Button className="w-fit" variant="outline" size="sm" onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></article>)}</div>
     </CardContent></Card>}
 
@@ -322,12 +326,12 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="cursor-pointer list-none py-1 text-sm font-medium text-muted-foreground hover:text-foreground">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
     <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (await onSubmit(fields)) setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) }}>
-      <div><Input id="b-activity" aria-label={t(lang, "dash.activity")} list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}</div>
-      <div><Input id="b-start" ref={startRef} aria-label={t(lang, "dash.startLabel")} aria-invalid={fieldError("start") ? true : undefined} aria-describedby="b-start-error" placeholder={t(lang, "ph.start")} value={fields.start} onChange={event => set("start", event.target.value)} required /><span id="b-start-error" role="alert" className="text-xs text-destructive">{fieldError("start")}</span></div>
-      <div><Input id="b-end" aria-label={t(lang, "stats.end")} aria-invalid={fieldError("end") ? true : undefined} placeholder={t(lang, "ph.end")} value={fields.end} onChange={event => set("end", event.target.value)} required /><span id="b-end-error" role="alert" className="text-xs text-destructive">{fieldError("end")}</span></div>
-      <Select value={fields.project_id || "none"} onValueChange={value => set("project_id", value === "none" ? "" : value)}><SelectTrigger id="b-project" aria-label={t(lang, "dash.projectLabel")} data-value={fields.project_id || "0"}><SelectValue placeholder={t(lang, "dash.projectLabel")} /></SelectTrigger><SelectContent><SelectItem value="none">{t(lang, "dash.uncategorized")}</SelectItem>{data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select>
-      <Input id="b-note" name="note" aria-label={t(lang, "dash.note")} placeholder={t(lang, "dash.noteShort")} value={fields.note} onChange={event => set("note", event.target.value)} />
-      <Button type="submit" disabled={busy}>{t(lang, "dash.addSession")}</Button>
+      <div className="grid gap-1.5"><Label htmlFor="b-activity" className="text-xs">{t(lang, "dash.activity")}</Label><Input id="b-activity" list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}</div>
+      <div className="grid gap-1.5"><Label htmlFor="b-start" className="text-xs">{t(lang, "dash.startLabel")}</Label><Input id="b-start" ref={startRef} aria-invalid={fieldError("start") ? true : undefined} aria-describedby="b-start-error" placeholder={t(lang, "ph.start")} value={fields.start} onChange={event => set("start", event.target.value)} required /><span id="b-start-error" role="alert" className="text-xs text-destructive">{fieldError("start")}</span></div>
+      <div className="grid gap-1.5"><Label htmlFor="b-end" className="text-xs">{t(lang, "stats.end")}</Label><Input id="b-end" aria-invalid={fieldError("end") ? true : undefined} placeholder={t(lang, "ph.end")} value={fields.end} onChange={event => set("end", event.target.value)} required /><span id="b-end-error" role="alert" className="text-xs text-destructive">{fieldError("end")}</span></div>
+      <div className="grid gap-1.5"><Label htmlFor="b-project" className="text-xs">{t(lang, "dash.projectLabel")}</Label><Select value={fields.project_id || "none"} onValueChange={value => set("project_id", value === "none" ? "" : value)}><SelectTrigger id="b-project" data-value={fields.project_id || "0"}><SelectValue placeholder={t(lang, "dash.projectLabel")} /></SelectTrigger><SelectContent><SelectItem value="none">{t(lang, "dash.uncategorized")}</SelectItem>{data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select></div>
+      <div className="grid gap-1.5"><Label htmlFor="b-note" className="text-xs">{t(lang, "stats.note")}</Label><Input id="b-note" name="note" placeholder={t(lang, "dash.noteShort")} value={fields.note} onChange={event => set("note", event.target.value)} /></div>
+      <Button type="submit" className="self-end" disabled={busy}>{t(lang, "dash.addSession")}</Button>
     </form>
   </div></Disclosure></section>
 }
@@ -522,7 +526,7 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
         if (!result) throw new Error("Navigation did not return a React page")
         // Keep the current screen and navigation intact until the next chunk
         // is ready. A newer navigation must also supersede a pending import.
-        await preloadInitialPage(result.bootstrap.data)
+        await Promise.all([preloadInitialPage(result.bootstrap.data), loadDictionary(result.bootstrap.shell.lang)])
         if (controller.signal.aborted) return
         const finalURL = new URL(response.url)
         if (url.hash) finalURL.hash = url.hash
@@ -610,7 +614,7 @@ installConfirmForms()
 if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap
-    await preloadInitialPage(initial.data)
+    await Promise.all([preloadInitialPage(initial.data), loadDictionary(initial.shell.lang)])
     if (root.isConnected) {
       await new Promise<void>(resolve => {
         createRoot(root).render(<StrictMode><AppRouter initial={initial} onReady={resolve} /></StrictMode>)

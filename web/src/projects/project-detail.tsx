@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import * as React from "react"
 import { ArrowLeft, Play, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -162,7 +163,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
       {!data.Archived && <Button asChild size="sm"><a href={`/?project=${project.ID}`}><Play aria-hidden="true" />{t(data.Lang, "projects.trackTime")}</a></Button>}
     </header>
 
-    {data.Flash && <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
 
     {/* Ставку вводят в «Изменить» и больше нигде не видят: показываем её
         рядом с часами, из которых она делает деньги. */}

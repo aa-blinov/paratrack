@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import { Crown, Trash2, UserRound } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,7 +14,7 @@ export function TeamMembersPage({ data }: { data: TeamMembersData }) {
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <header className="flex flex-wrap items-end justify-between gap-3"><h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>{data.CanManage && <Button asChild size="sm"><a href="/settings/invites">{t(lang, "set.tabInvites")}</a></Button>}</header>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
-    {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
     <Card><CardHeader><CardTitle>{t(lang, "team.members")} ({data.Members.length})</CardTitle></CardHeader><CardContent className="grid gap-2">
       {data.Members.length ? data.Members.map(member => {
         const pay = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0 }

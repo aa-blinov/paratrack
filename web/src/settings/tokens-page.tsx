@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import * as React from "react"
 import { Check, Copy, Plus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,7 +23,7 @@ export function TokensPage({ data }: { data: TokensData }) {
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
-    {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
     {data.JustCreated && <Card className="border-primary/50"><CardContent className="grid gap-2 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">{t(lang, "tokens.once")}</p><Button type="button" size="sm" variant="outline" onClick={() => void copyToken()}>{copied ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}{copied ? t(lang, "tokens.copied") : t(lang, "tokens.copy")}</Button></div><code className="block break-all rounded-md bg-muted p-3 text-sm">{data.JustCreated}</code>{copyError && <p role="alert" className="text-xs text-destructive">{t(lang, "err.generic")}</p>}</CardContent></Card>}
     <Card><CardHeader><CardTitle>{t(lang, "tokens.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "tokens.blurb")}</p></CardHeader><CardContent className="grid gap-4">
       <form method="post" action="/api/tokens" className="grid gap-3 border-b pb-4 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end"><input type="hidden" name="csrf_token" value={data.CSRFToken} />

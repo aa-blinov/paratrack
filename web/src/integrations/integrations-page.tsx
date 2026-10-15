@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import * as React from "react"
 import { Activity, Check, ExternalLink, Folder, GitBranch, Link2, Play, RefreshCw, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +11,8 @@ import { translate as t } from "@/i18n"
 import type { IntegrationDetailData, IntegrationsData, MarketplaceData } from "@/dashboard/types"
 
 const providers = ["github", "gitlab", "jira", "trello", "asana", "clickup", "todoist", "notion"]
+// Brand names as the brands write them; capitalising the id gave «Github».
+const providerNames: Record<string, string> = { github: "GitHub", gitlab: "GitLab", jira: "Jira", trello: "Trello", asana: "Asana", clickup: "ClickUp", todoist: "Todoist", notion: "Notion" }
 const icons: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = { github: GitBranch, gitlab: Activity, jira: Activity, trello: Folder, asana: Check, clickup: Check, todoist: Check, notion: Folder }
 const marketplaceFavicons: Record<string, string> = {
   github: "/static/integrations/github.svg",
@@ -25,10 +28,6 @@ const marketplaceFavicons: Record<string, string> = {
   slack: "/static/integrations/slack.png",
 }
 
-function Flash({ message, ok }: { message: string; ok: boolean }) {
-  if (!message) return null
-  return <p role={ok ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${ok ? "border-border" : "border-destructive/40 text-destructive"}`}>{message}</p>
-}
 
 export function IntegrationsPage({ data }: { data: IntegrationsData }) {
   const lang = data.Lang || "en"
@@ -38,7 +37,7 @@ export function IntegrationsPage({ data }: { data: IntegrationsData }) {
     <Flash message={data.Flash} ok={data.FlashOK} />
     <header className="flex min-w-0 flex-wrap items-center justify-between gap-3"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "int.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "int.blurb")}</p></div><Button asChild variant="outline" size="sm" className="min-w-0 max-w-full whitespace-normal"><a href="/integrations/marketplace"><Folder aria-hidden="true" />{t(lang, "mkt.title")}</a></Button></header>
     <Card><CardHeader><CardTitle>{t(lang, "int.connect")}</CardTitle></CardHeader><CardContent><form method="post" action="/integrations" className="grid gap-4 sm:grid-cols-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} />
-      <div className="grid gap-1.5"><Label htmlFor="integration-provider">{t(lang, "int.provider")}</Label><Select name="provider" value={provider} onValueChange={setProvider}><SelectTrigger id="integration-provider"><SelectValue /></SelectTrigger><SelectContent>{providers.map(id => <SelectItem key={id} value={id}>{id[0].toUpperCase()+id.slice(1)}</SelectItem>)}</SelectContent></Select></div>
+      <div className="grid gap-1.5"><Label htmlFor="integration-provider">{t(lang, "int.provider")}</Label><Select name="provider" value={provider} onValueChange={setProvider}><SelectTrigger id="integration-provider"><SelectValue /></SelectTrigger><SelectContent>{providers.map(id => <SelectItem key={id} value={id}>{providerNames[id]}</SelectItem>)}</SelectContent></Select></div>
       <div className="grid gap-1.5"><Label htmlFor="integration-name">{t(lang, "int.name")}</Label><Input id="integration-name" name="name" required placeholder={t(lang, "int.namePh")} /><p className="text-xs text-muted-foreground">{t(lang, "int.nameHint")}</p></div>
       <div className="grid gap-1.5 sm:col-span-2"><Label htmlFor="integration-secret">{t(lang, "int.secret")}</Label><Input id="integration-secret" name="secret" type="password" autoComplete="new-password" required /><p className="text-xs text-muted-foreground">{t(lang, `int.key.${provider}`)}</p></div>
       <div className="grid gap-1.5 sm:col-span-2"><Label htmlFor="integration-target">{t(lang, "int.target")}</Label><Input id="integration-target" name="extra" /><p className="text-xs text-muted-foreground">{t(lang, `int.target.${provider}`)}</p>{provider === "jira" && <p className="text-xs text-muted-foreground">{t(lang, "int.jiraSite")}</p>}</div>

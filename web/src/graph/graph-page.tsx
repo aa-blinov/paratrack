@@ -87,7 +87,9 @@ export function GraphPage({ data }: { data: GraphData }) {
       trailing={<Button type="button" size="sm" variant="ghost" className="ms-auto h-11" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>}
     />
 
-    <form method="get" action="/graph" className="no-print flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
+    {/* The custom range is one of the periods: its fields belong to it, not
+        to «Сегодня», where they read as a second, competing period. */}
+    {data.Period.Label === "custom" && <form method="get" action="/graph" className="no-print flex flex-wrap items-end gap-3 rounded-lg border bg-card p-3">
       <div className="grid gap-1.5"><Label htmlFor="graph-start">{t(lang, "graph.customFrom")}</Label><DateTimeField id="graph-start" name="start" defaultValue={data.PeriodStartInput} required /></div>
       <div className="grid gap-1.5"><Label htmlFor="graph-end">{t(lang, "graph.customTo")}</Label><DateTimeField id="graph-end" name="end" defaultValue={data.PeriodEndInput} required /></div>
       <input type="hidden" name="period" value="custom" />
@@ -95,7 +97,7 @@ export function GraphPage({ data }: { data: GraphData }) {
       {data.TagFilter && <input type="hidden" name="tag" value={data.TagFilter} />}
       {data.PersonFilter > 0 && <input type="hidden" name="person" value={String(data.PersonFilter)} />}
       <Button type="submit">{t(lang, "graph.applyPeriod")}</Button>
-    </form>
+    </form>}
 
     {filtered && <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border bg-card p-3 text-sm">
       <span className="text-muted-foreground">{t(lang, "graph.scope")}</span>{data.ProjectFilter && <strong>{data.ProjectName}</strong>}{data.TagFilter && <strong>#{data.TagFilter}</strong>}{data.PersonFilter > 0 && <strong>{data.PersonName}</strong>}
@@ -109,7 +111,7 @@ export function GraphPage({ data }: { data: GraphData }) {
           <div className="echart-wrap min-w-0" id="echart-wrap">
             <div className="relative min-w-0">
               {!chartBuilt && <div id="echart-skeleton" className="sk-chart" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>}
-              <div ref={canvasRef} id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={t(lang, "graph.subtitle")} />
+              <div ref={canvasRef} id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={`${t(lang, "graph.subtitle")}. ${t(lang, "graph.totalTracked")} ${data.Chart.totalLabel}. ${data.Chart.legend.map(item => item.name).join(", ")}`} />
             </div>
           </div>
           <p className="mt-3 text-sm"><span className="text-muted-foreground">{t(lang, "graph.totalTracked")} </span><strong className="font-mono tabular-nums">{data.Chart.totalLabel}</strong></p>

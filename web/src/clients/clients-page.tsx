@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import * as React from "react"
 import { Archive, ArchiveRestore, Pencil, Plus, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -142,7 +143,7 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
       </div>
     </header>
 
-    {data.Flash && <p className={data.FlashOK ? "text-sm text-foreground" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
 
     {data.CanManage && <details id="client-new" open={!clients.length} className="group rounded-xl border bg-card text-card-foreground"><summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium marker:hidden"><Plus aria-hidden="true" className="size-4" />{t(lang, "clients.new")}</summary><div className="p-5 pt-0 sm:p-6 sm:pt-0">
       <form method="POST" action="/clients" className="grid gap-5 sm:grid-cols-2">

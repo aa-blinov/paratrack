@@ -294,8 +294,8 @@ def main() -> int:
         masha.goto(BASE + "/timesheet")
         wait_app(masha)
         dump(masha, "m6-timesheet-open", label="табель открыт")
-        cell = masha.locator(f'{ROOT} input[type="number"]').first
-        ts = {"inputs": masha.locator(f'{ROOT} input[type="number"]').count()}
+        cell = masha.locator(f'{ROOT} input[name="minutes"]').first
+        ts = {"inputs": masha.locator(f'{ROOT} input[name="minutes"]').count()}
         if cell.count():
             cell.click()
             cell.fill("45")

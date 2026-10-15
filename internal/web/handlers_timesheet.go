@@ -24,9 +24,13 @@ type timesheetDay struct {
 	Date    string // "22"
 	ISO     string // 2026-09-22
 	Secs    int
-	Min     int    // minutes for the cell input
+	Min     int    // minutes for the cell input: stopped time only
 	Total   string // formatted
 	IsToday bool
+	// Live is the running timer's part of Secs. A cell write replaces the
+	// stopped time, so the input shows that and the live part sits beside it;
+	// typing 30 used to show 33 because the running minutes were added in.
+	Live int
 }
 
 type timesheetRow struct {
@@ -117,6 +121,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	running := s.liveByDay(r, weekStart, now)
 	rows := make([]timesheetRow, 0, len(grid.Rows))
 	for _, rc := range grid.Rows {
 		row := timesheetRow{
@@ -129,13 +134,15 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 			RowTotalLabel: fmtDur(r, rc.RowTotal),
 		}
 		for i := 0; i < 7; i++ {
+			live := min(running[rc.ActivityID][i], rc.Secs[i])
 			row.Cells[i] = timesheetDay{
 				Index:   i,
 				ISO:     days[i].ISO,
 				Secs:    rc.Secs[i],
-				Min:     cellMin(rc.Secs[i]),
+				Min:     cellMin(rc.Secs[i] - live),
 				Total:   fmtDur(r, rc.Secs[i]),
 				IsToday: days[i].IsToday,
+				Live:    live,
 			}
 		}
 		rows = append(rows, row)
@@ -265,6 +272,7 @@ type timesheetCellJSON struct {
 	Secs  int    `json:"secs"`
 	Min   int    `json:"min"`
 	Total string `json:"total"`
+	Live  int    `json:"live"`
 }
 
 type timesheetDayTotalJSON struct {
@@ -306,9 +314,11 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 			Cells: make([]timesheetCellJSON, 0, 7), RowTotal: rc.RowTotal, RowTotalLabel: fmtDur(r, rc.RowTotal),
 			DayTotals: make([]timesheetDayTotalJSON, 0, 7), GrandTotal: grid.GrandTotal, GrandTotalLabel: fmtDur(r, grid.GrandTotal),
 		}
+		running := s.liveByDay(r, weekStart, now)
 		for i := 0; i < 7; i++ {
 			d := weekStart.AddDate(0, 0, i)
-			response.Cells = append(response.Cells, timesheetCellJSON{ISO: d.Format("2006-01-02"), Secs: rc.Secs[i], Min: cellMin(rc.Secs[i]), Total: fmtDur(r, rc.Secs[i])})
+			live := min(running[rc.ActivityID][i], rc.Secs[i])
+			response.Cells = append(response.Cells, timesheetCellJSON{ISO: d.Format("2006-01-02"), Secs: rc.Secs[i], Min: cellMin(rc.Secs[i] - live), Total: fmtDur(r, rc.Secs[i]), Live: live})
 			response.DayTotals = append(response.DayTotals, timesheetDayTotalJSON{Secs: grid.DayTotals[i], Total: fmtDur(r, grid.DayTotals[i])})
 		}
 		if len(failure) > 0 {
@@ -319,6 +329,21 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 	}
 	// The activity is no longer in the grid.
 	http.Error(w, "row not found", 404)
+}
+
+// liveByDay is each running timer's time per day of the week, by activity,
+// in the same scope as the grid.
+func (s *Server) liveByDay(r *http.Request, weekStart, now time.Time) map[int64][7]int {
+	out := map[int64][7]int{}
+	for _, item := range s.runningSessions(r) {
+		days := out[item.Session.ActivityID]
+		for i := range days {
+			from := weekStart.AddDate(0, 0, i)
+			days[i] += item.Session.TrackedSecondsInWindow(from, from.AddDate(0, 0, 1), now)
+		}
+		out[item.Session.ActivityID] = days
+	}
+	return out
 }
 
 // startOfWeek returns 00:00 of the first day of t's week: Monday, or

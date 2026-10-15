@@ -163,7 +163,7 @@ def main() -> int:
         pg.wait_for_timeout(2500)
         pg.wait_for_selector("#activity", timeout=10000)
         check("onboarding skipped → dashboard", "/register" not in pg.url and "/welcome" not in pg.url, pg.url)
-        check("lang switcher in the shell footer", pg.locator('a[href^="/lang/"]').count() >= 1)
+        check("lang switcher in the shell menu", pg.locator('a[href^="/lang/"]').count() >= 1)
         shot(pg, "a4-dashboard-empty")
 
         # ---------- B. Dashboard: start / pause / resume / stop / backfill ----------
@@ -351,7 +351,7 @@ def main() -> int:
         pg.wait_for_load_state("load")
         wait_ready(pg)
         check("timesheet grid", pg.locator("#ts-body tr").count() >= 1)
-        cell = pg.locator('#ts-body input[type="number"]').first
+        cell = pg.locator('#ts-body input[name="minutes"]').first
         if cell.count():
             cell.fill("90")
             cell.press("Tab")

@@ -1,4 +1,4 @@
-import type { ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 
 /**
@@ -31,9 +31,23 @@ export function SegmentedControl({ label, options, value, trailing, className }:
   trailing?: ReactNode
   className?: string
 }) {
-  return <nav aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
+  // The fade says "more to the right", so it shows only while there is more:
+  // drawn always, it faded the last tab of a row that fit.
+  const ref = useRef<HTMLElement>(null)
+  const [more, setMore] = useState(false)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    check()
+    el.addEventListener("scroll", check, { passive: true })
+    const observer = new ResizeObserver(check)
+    observer.observe(el)
+    return () => { el.removeEventListener("scroll", check); observer.disconnect() }
+  }, [])
+  return <nav ref={ref} aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
   // periods took three rows of a 390px screen.
-  className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)] lg:flex-wrap ${className || ""}`}>
+  className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] ${more ? "max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)]" : ""} lg:flex-wrap ${className || ""}`}>
     {options.map(option => {
       const active = option.key === value
       const variant = active ? "secondary" : "ghost"

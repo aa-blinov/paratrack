@@ -356,6 +356,8 @@ export interface TimesheetCell {
   Min: number
   Total: string
   IsToday: boolean
+  /** Running timer's part of Secs; Min is the stopped time only. */
+  Live?: number
 }
 
 export interface TimesheetRow {
