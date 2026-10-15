@@ -580,6 +580,8 @@ export interface StatsData {
   Sessions: Session[]
   Total: string
   SessionCount: number
+  RunningCount: number
+  RunningTotal: string
   SessionsCut: boolean
   MeID: number
   ShowAllURL: string

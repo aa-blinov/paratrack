@@ -23,6 +23,10 @@ type statsData struct {
 	Sessions      []sessionView
 	Total         string
 	SessionCount  int
+	// Running timers are not in the totals until they stop; the page says
+	// how many run and how much time they hold in this period.
+	RunningCount int
+	RunningTotal string
 	SessionsCut   bool // the log shows only the newest statsLogRows
 	MeID          int64
 	ShowAllURL    string   // this view with the whole log

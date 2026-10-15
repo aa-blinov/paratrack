@@ -49,7 +49,7 @@ func (s *Server) routes() http.Handler {
 
 	pages := http.NewServeMux()
 	s.registerPageRoutes(pages)
-	mux.Handle("/", pageAuth(pages))
+	mux.Handle("/", pageAuth(s.shellNotFound(pages)))
 	s.registerProtectedAPIRoutes(mux, apiAuth)
 
 	// Public OIDC sign-in callbacks.

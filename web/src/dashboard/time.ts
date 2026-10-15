@@ -1,6 +1,6 @@
 import type { Session } from "./types"
 
-export function sessionElapsedSeconds(session: Session, nowMs: number): number {
+export function sessionElapsedSeconds(session: Pick<Session, "Clock" | "Paused" | "ResumeISO">, nowMs: number): number {
   const [hours, minutes, seconds] = session.Clock.split(":").map(Number)
   const base = (hours || 0) * 3600 + (minutes || 0) * 60 + (seconds || 0)
   if (session.Paused || !session.ResumeISO) return base

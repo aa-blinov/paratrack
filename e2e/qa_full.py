@@ -188,7 +188,7 @@ def main() -> int:
 
         pg.locator('button:has-text("Resume")').first.click()
         pg.wait_for_timeout(400)
-        check("resume", pg.locator(".status-pill.is-active").count() >= 1)
+        check("resume", pg.locator("#active-list time[data-state=running]").count() >= 1)
 
         pg.locator('button:has-text("Stop")').last.click()
         pg.wait_for_timeout(500)
@@ -299,7 +299,7 @@ def main() -> int:
 
         pg.locator('main button[aria-label="Удалить цель"], main button[aria-label="Delete goal"]').first.click()
         # Deleting a goal is destructive, so it goes through the shared dialog.
-        pg.get_by_role("button", name="Confirm", exact=True).click()
+        pg.get_by_role("alertdialog").get_by_role("button").last.click()
         pg.wait_for_timeout(1200)
         check("goal delete", "no goals yet" in pg.locator("main").inner_text().lower()
               or "нет целей" in pg.locator("main").inner_text().lower()
@@ -689,7 +689,7 @@ def main() -> int:
         pg.wait_for_timeout(300)
         pg.locator('form[action="/api/team/delete"] button[type="submit"]').click()
         pg.wait_for_timeout(400)
-        pg.get_by_role("button", name=re.compile(r"confirm|подтвердить", re.I)).click()
+        pg.get_by_role("alertdialog").get_by_role("button").last.click()
         pg.wait_for_load_state("load")
         pg.wait_for_timeout(600)
         check("deleting the last workspace ends the session",

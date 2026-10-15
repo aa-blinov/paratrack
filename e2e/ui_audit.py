@@ -84,7 +84,7 @@ def main() -> int:
 
         page.locator('button:has-text("Resume")').first.click()
         page.wait_for_timeout(400)
-        check("resume flips back", page.locator(".status-pill.is-active").count() >= 1)
+        check("resume flips back", page.locator("#active-list time[data-state=running]").count() >= 1)
 
         # Stop writing (keep reading active briefly then stop both later)
         page.locator('button:has-text("Stop")').last.click()

@@ -379,7 +379,7 @@ def main() -> int:
 
         # ------------------------------------------------------------------ 2
         print("\n== 2. Start a new activity via the form (UI)")
-        before = page.locator(".status-pill.is-active").count()
+        before = page.locator("#active-list time[data-state=running]").count()
         page.fill("#activity", "writing")
         # The note sits behind the optional-fields disclosure, and a fresh
         # account has no default project, so that disclosure starts closed.
@@ -396,7 +396,7 @@ def main() -> int:
         # so we know the HTMX swap has happened.
         page.wait_for_selector('#active-list [data-session-id]:has-text("writing")', timeout=5000)
         check("active list contains 'writing' after React refresh", True)
-        after = page.locator(".status-pill.is-active").count()
+        after = page.locator("#active-list time[data-state=running]").count()
         check(
             "active count grew by 1 after starting",
             after == before + 1,
@@ -971,7 +971,7 @@ def main() -> int:
         page.get_by_role("button", name="Delete goal").click()
         # Destructive actions go through the shared confirmation dialog, not
         # window.confirm, so accept the dialog's own button.
-        page.get_by_role("button", name="Confirm", exact=True).click()
+        page.get_by_role("alertdialog").get_by_role("button").last.click()
         expect(goal_row).to_have_count(0)
 
         # Goals widget should appear on the dashboard because we set up
@@ -1035,7 +1035,7 @@ def main() -> int:
         page.get_by_role("button", name=f"Delete tag: {react_tag}").click()
         # Destructive actions go through the shared confirmation dialog, not
         # window.confirm, so accept the dialog's own button.
-        page.get_by_role("button", name="Confirm", exact=True).click()
+        page.get_by_role("alertdialog").get_by_role("button").last.click()
         expect(react_tag_chip).to_have_count(0)
 
         # Seed a tag + attach it to the first session in /stats.
