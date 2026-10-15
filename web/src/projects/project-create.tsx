@@ -23,7 +23,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
     <Card><CardContent className="p-5 sm:p-6">
       <form method="POST" action="/projects/new" className="grid gap-5 sm:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
-        <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder="EORA RAG" autoFocus /></div>
+        <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder={t(lang, "ph.project")} autoFocus /></div>
         <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
           <DisclosureTrigger className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4" /></DisclosureTrigger>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">

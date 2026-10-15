@@ -14,7 +14,8 @@ import { ColorMark } from "@/components/color-mark"
 // сказать, кому проект выставляется. Строка читается слева направо, а
 // активности — то, ради чего плитка показывала голое число «2» — открываются
 // по требованию и не занимают место, пока их не спросили.
-const COLUMN_COUNT = 5
+// With the manager-only rate column; a span wider than the row is harmless.
+const COLUMN_COUNT = 6
 
 function ActivitiesCell({ lang, project }: { lang: string; project: ProjectListRow }) {
   if (!project.ActivityNames?.length) {
@@ -65,6 +66,7 @@ function ProjectRow({ data, project, open, onToggle }: {
             не оставляют названию места, а «Або…» не читается. Клиент и метрики
             идут под названием, таблица остаётся таблицей. */}
         {project.ClientName && <p className="truncate ps-6 text-xs text-muted-foreground sm:hidden">{project.ClientName}</p>}
+        {project.RateLabel && <p className="ps-6 text-xs text-muted-foreground md:hidden">{t(lang, "bill.rate")} <span className="font-mono tabular-nums text-foreground">{project.RateLabel}</span></p>}
         <p className="flex flex-wrap gap-x-4 ps-6 text-xs tabular-nums text-muted-foreground sm:hidden">
           <span>{t(lang, "dash.today")} <span className="font-mono text-foreground">{project.TodayLabel}</span></span>
           <span>{t(lang, "projects.last30")} <span className="font-mono text-foreground">{project.MonthLabel}</span></span>
@@ -73,6 +75,7 @@ function ProjectRow({ data, project, open, onToggle }: {
       <TableCell className="hidden align-middle text-sm text-muted-foreground sm:table-cell">
         <span>{project.ClientName || "—"}</span>
       </TableCell>
+      {data.CanManage && <TableCell className="hidden whitespace-nowrap align-middle text-right font-mono tabular-nums md:table-cell">{project.RateLabel || "—"}</TableCell>}
       <TableCell className="hidden align-middle text-right font-mono tabular-nums md:table-cell">{project.Activities}</TableCell>
       <TableCell className="hidden whitespace-nowrap align-middle text-right font-mono tabular-nums sm:table-cell">{project.TodayLabel}</TableCell>
       <TableCell className="hidden whitespace-nowrap align-middle text-right font-mono tabular-nums sm:table-cell">{project.MonthLabel}</TableCell>
@@ -121,7 +124,8 @@ export function ProjectList({ data }: { data: ProjectListData }) {
             <TableHeader className="hidden sm:table-header-group">
               <TableRow>
                 <TableHead>{t(lang, "nav.projects")}</TableHead>
-                <TableHead className="hidden whitespace-nowrap align-middle md:table-cell">{t(lang, "inv.client")}</TableHead>
+                <TableHead className="hidden whitespace-nowrap align-middle sm:table-cell">{t(lang, "inv.client")}</TableHead>
+                {data.CanManage && <TableHead className="hidden whitespace-nowrap text-right md:table-cell">{t(lang, "bill.rate")}</TableHead>}
                 <TableHead className="hidden text-right md:table-cell">{t(lang, "projects.activities")}</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">{t(lang, "dash.today")}</TableHead>
                 <TableHead className="hidden text-right sm:table-cell">{t(lang, "projects.last30")}</TableHead>

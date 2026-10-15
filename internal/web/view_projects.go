@@ -1,6 +1,7 @@
 package web
 
 import (
+	"cmp"
 	"net/http"
 	"strconv"
 	"time"
@@ -24,6 +25,7 @@ type projectDetailData struct {
 	EstimateInput   string
 	EstimatePercent int
 	RateInput       string
+	RateLabel       string // "2 500 ₽ / ч" for managers; empty when unset
 	Currency        string // project's own ('' = workspace's)
 	TeamCurrency    string
 	Currencies      []currencyOption
@@ -133,6 +135,15 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 	data.Client = extras.Client
 	data.ClientOptions = extras.ClientOptions
 	data.Budget = extras.Budget
+	if p.BillableRateCents != nil && canManage(r) {
+		// The budget already resolved client → project → workspace currency.
+		cur := data.Budget.Currency
+		if cur == "" {
+			cur = cmp.Or(detail.Currency, data.TeamCurrency)
+		}
+		lang := resolveLang(r)
+		data.RateLabel = moneyL(lang, *p.BillableRateCents, cur) + " / " + i18n.T(lang, "inv.hoursShort")
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}

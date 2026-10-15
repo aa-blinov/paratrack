@@ -49,6 +49,9 @@ type projectListRow struct {
 	MonthLabel string
 	// ClientName is who this project is billed to. Empty when unlinked.
 	ClientName string
+	// RateLabel is the hourly rate in the currency the project bills in,
+	// for managers; empty when unset.
+	RateLabel string
 	// ActivityNames are the activities behind the Activities count. The row
 	// opens into them instead of asking the user to visit the project page.
 	ActivityNames []projectListActivity
@@ -76,6 +79,16 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	// Budgets resolve each project's currency (client, project, workspace),
+	// so the rate reads in the money it will be billed in.
+	var budgets map[int64]appmodel.ProjectBudget
+	if canManage(r) {
+		budgets, err = s.services.Clients.Budgets(r.Context(), appmodel.ProjectBudgetQuery{TeamID: tid})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+	}
 	rows := make([]projectListRow, 0, len(snapshot.Projects))
 	for _, p := range snapshot.Projects {
 		row := projectListRow{
@@ -84,6 +97,10 @@ func (s *Server) handleProjectsList(w http.ResponseWriter, r *http.Request) {
 			ClientName: snapshot.ClientNames[p.ID],
 		}
 		row.TodayLabel, row.MonthLabel = fmtDur(r, row.TodaySecs), fmtDur(r, row.MonthSecs)
+		if budget, ok := budgets[p.ID]; ok && p.BillableRateCents != nil {
+			lang := resolveLang(r)
+			row.RateLabel = moneyL(lang, *p.BillableRateCents, budget.Currency) + " / " + i18n.T(lang, "inv.hoursShort")
+		}
 		for _, a := range snapshot.ActivitiesByProject[p.ID] {
 			row.ActivityNames = append(row.ActivityNames, projectListActivity{Name: a.Name, Color: a.Color, Hidden: a.Hidden})
 		}

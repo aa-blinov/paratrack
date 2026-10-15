@@ -197,14 +197,23 @@ func (s *Server) buildGraphData(r *http.Request) (graphData, error) {
 	if err != nil {
 		return graphData{}, fmt.Errorf("encode graph chart: %w", err)
 	}
-	return graphData{
+	data := graphData{
 		pageData:   pageData{Title: "Graph", Active: "graph", ReactApp: true},
 		GraphReact: true, Period: period,
 		PeriodStartInput: period.Start.Format("2006-01-02T15:04"), PeriodEndInput: period.End.Format("2006-01-02T15:04"),
 		Chart: chart, ChartJSON: string(chartJSON),
 		ProjectFilter: projectFilter, ProjectName: graph.Project.Name,
 		TagFilter: tagFilter, PersonFilter: graph.PersonFilter, PersonName: graph.PersonName,
-	}, nil
+	}
+	if tagFilter == "" {
+		count, secs, err := s.runningInStats(r, period, now, graph.PersonFilter, graph.Project.ID)
+		if err != nil {
+			s.logInternalError(err)
+		} else if count > 0 {
+			data.RunningCount, data.RunningTotal = count, fmtDur(r, secs)
+		}
+	}
+	return data, nil
 }
 
 func requestedReportPerson(r *http.Request) int64 {
