@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,7 +16,7 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
-    {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
     <form method="post" action="/api/me/preferences" className="grid gap-4">
       <input type="hidden" name="csrf_token" value={data.CSRFToken} />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">

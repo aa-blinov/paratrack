@@ -306,3 +306,16 @@ func TestParseDateTimeRussian(t *testing.T) {
 		}
 	}
 }
+
+// «вчера 12:3» was read as 12:03 when the person may have meant 12:30.
+func TestParseDateTimeRefusesOneDigitMinutes(t *testing.T) {
+	now := time.Date(2026, 10, 15, 15, 0, 0, 0, time.UTC)
+	for _, in := range []string{"12:3", "вчера 12:3", "today 9:5"} {
+		if _, err := ParseDateTime(in, now); err == nil {
+			t.Errorf("%q must be refused", in)
+		}
+	}
+	if got, err := ParseDateTime("вчера 9:05", now); err != nil || got.Hour() != 9 || got.Minute() != 5 {
+		t.Errorf("one-digit hour still works: %v %v", got, err)
+	}
+}

@@ -258,6 +258,10 @@ as a response to a layer that floats above the page.
 - **Pills** (the phone timer button, the activity spine, status pills) are fully round.
 - **Clipping:** the card paints with `overflow-hidden`, so any popover rendered
   inside it is portalled out (see Components).
+- **On the phone (below 1024px)** the Material 3 shapes replace the ones above:
+  cards 12dp with no ring (a tonal surface), buttons and segmented tabs fully
+  round, text fields and dropdown triggers 4dp, chips 8dp, menus 4dp, the dialog
+  and the bottom sheet 28dp, the FAB 16dp. See Components for sizes.
 
 ## Components
 
@@ -268,7 +272,7 @@ bottom sheet and the dialog at a 28dp corner, text fields 56dp tall at a 4dp cor
 (compact table cells keep their size), assist and filter chips 32dp at an 8dp corner,
 and the timer button a 56dp FAB at a 16dp corner.
 On the phone the colour roles and the type scale are Material 3 too. Primary is
-the brand violet (`--brand`, white ink on light, pale violet on dark), cards are
+the brand violet on every screen (see Colors), cards are
 tonal surfaces (`--card` as a surface container, no ring), and the type roles are
 the M3 baseline sizes in Inter: headline small 24/32, title medium 16/24 medium,
 label large 14/20 medium, label medium 12/16 medium. The desktop keeps the neutral

@@ -464,7 +464,7 @@ def main() -> int:
         # keeps them visible while today correctly clips at the current time.
         page.goto(BASE + "/graph?period=week")
         page.wait_for_load_state("load")
-        expect(page.locator("h1")).to_have_text("When you work")
+        expect(page.locator("h1")).to_have_text("By hour")
         check("graph mounts the React/shadcn shell",
               # six preset periods plus the "custom dates" tab, and the print
               # button sits in the same bar
@@ -706,7 +706,7 @@ def main() -> int:
             else:
                 # Below 640px the week is a list of days: nothing scrolls sideways,
                 # and every day keeps its own inputs.
-                days = page.locator('main [data-slot="card"]').filter(has=page.locator('input[type="number"]'))
+                days = page.locator('main [data-slot="card"]').filter(has=page.locator('input[name="minutes"]'))
                 # A phone opens on today; the week is one tap away. The picker is
                 # the shared SegmentedControl now, so it is found by its two
                 # pressed-state buttons rather than by a class that used to
@@ -720,7 +720,7 @@ def main() -> int:
                 page.wait_for_timeout(300)
                 check(f"the whole week opens at {width}px",
                       page.locator('main [data-slot="card"]').filter(
-                          has=page.locator('input[type="number"]')).count() >= 7)
+                          has=page.locator('input[name="minutes"]')).count() >= 7)
         page.set_viewport_size({"width": 320, "height": 900})
         page.goto(BASE + "/")
         project_picker = page.locator('#project_id')

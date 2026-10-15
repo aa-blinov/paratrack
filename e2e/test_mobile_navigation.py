@@ -458,7 +458,7 @@ async def check_the_week_never_scrolls_sideways(browser):
           const grid = document.querySelector('table.week-grid');
           const scroller = grid ? grid.closest('[data-slot="card-content"]') : null;
           const days = [...document.querySelectorAll('main [data-slot="card"]')]
-            .filter(card => card.querySelector('input[type="number"]'));
+            .filter(card => card.querySelector('input[name="minutes"]'));
           return {page: document.documentElement.scrollWidth, viewport: innerWidth,
                   gridVisible: grid ? grid.getBoundingClientRect().width > 0 : false,
                   gridScrolls: scroller ? scroller.scrollWidth > scroller.clientWidth + 1 : false,
@@ -472,7 +472,7 @@ async def check_the_week_never_scrolls_sideways(browser):
         assert await toggle.count() == 2, f'{width}px: the week is reachable by one tap'
         await toggle.nth(1).click()
         await page.wait_for_timeout(300)
-        assert await page.locator('[data-slot="card"]').filter(has=page.locator('input[type="number"]')).count() >= 7, \
+        assert await page.locator('[data-slot="card"]').filter(has=page.locator('input[name="minutes"]')).count() >= 7, \
             f'{width}px: the whole week is seven day blocks'
         assert not errors, errors
         await context.close()
@@ -665,8 +665,11 @@ async def check_the_minutes_column_lines_up(browser):
         await page.locator('#main h1').wait_for()
         await page.wait_for_timeout(600)
         rows = await page.evaluate("""() => {
+          // The row holds the name, the cell and its delete button; the cell may
+          // sit in a wrapper of its own (with the running-timer «+N» under it).
+          const rowOf = i => { let el = i.parentElement; while (el && !el.querySelector('button')) el = el.parentElement; return el };
           const cards = [...document.querySelectorAll('.ts-day-list input')]
-            .map(i => i.parentElement).filter(Boolean);
+            .map(rowOf).filter(Boolean);
           return [...new Set(cards)].map(row => {
             const r = row.getBoundingClientRect();
             const label = row.querySelector('.grid-name [class*="line-clamp"]');
@@ -797,7 +800,7 @@ async def check_the_breakdown_holds_a_long_name(browser):
         assert not state['clipped'], f'{width}px: the long name wraps, it is not cut — {state}'
         assert state['lines'][-1] > 1, \
             f'{width}px: the unbroken word really had to wrap — {state["lines"]}'
-        assert state['values'] == ['3 ч, 100.0%', '1 ч, 33.3%', '2 ч, 66.7%'], \
+        assert state['values'] == ['3 ч, 100%', '1 ч, 33,3%', '2 ч, 66,7%'], \
             f'{width}px: every row reads its own duration and share — {state["values"]}'
         assert not errors, errors
         await context.close()

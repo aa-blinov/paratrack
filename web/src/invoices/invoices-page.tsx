@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import { openDisclosure } from "@/components/ui/collapsible"
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import * as React from "react"
@@ -25,8 +26,7 @@ function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
 }
 
 function InvoiceFlash({ data }: { data: { Flash: string; FlashOK: boolean } }) {
-  if (!data.Flash) return null
-  return <p className={data.FlashOK ? "text-sm" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>
+  return <Flash message={data.Flash} ok={data.FlashOK} />
 }
 
 type ClientFields = { name: string; email: string; details: string }

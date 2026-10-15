@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import * as React from "react"
 import { ChevronDown, FolderKanban, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -112,7 +113,7 @@ export function ProjectList({ data }: { data: ProjectListData }) {
         </div>
       </header>
 
-      {data.Flash && <p className={data.FlashOK ? "text-sm text-foreground" : "text-sm text-destructive"} role={data.FlashOK ? "status" : "alert"}>{data.Flash}</p>}
+      <Flash message={data.Flash} ok={data.FlashOK} />
 
       {data.Projects?.length ? (
         // Подложка как у карточки: без неё таблица лежит на фоне страницы, и

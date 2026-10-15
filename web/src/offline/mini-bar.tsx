@@ -31,10 +31,12 @@ export function MiniBar({ lang }: { lang: string }) {
   const [, setTick] = useState(0)
   useEffect(() => subscribeOffline(() => setTick(value => value + 1)), [])
   // The clock ticks here between loads; it used to stand still for 30 s.
+  const ticking = items.some(item => !item.Paused)
   useEffect(() => {
+    if (!ticking) return
     const id = window.setInterval(() => setTick(value => value + 1), 1000)
     return () => window.clearInterval(id)
-  }, [])
+  }, [ticking])
 
   async function load() {
     try {
@@ -50,10 +52,13 @@ export function MiniBar({ lang }: { lang: string }) {
 
   useEffect(() => {
     void load()
-    const timer = window.setInterval(() => { void load() }, 30000)
+    // A hidden tab has no bar to keep fresh; it reloads when shown again.
+    const timer = window.setInterval(() => { if (!document.hidden) void load() }, 30000)
+    const shown = () => { if (!document.hidden) void load() }
+    document.addEventListener("visibilitychange", shown)
     const synced = () => { void load() }
     window.addEventListener("paratrack:synced", synced)
-    return () => { window.clearInterval(timer); window.removeEventListener("paratrack:synced", synced) }
+    return () => { window.clearInterval(timer); window.removeEventListener("paratrack:synced", synced); document.removeEventListener("visibilitychange", shown) }
   }, [])
 
   async function act(id: number, action: "pause" | "resume" | "stop") {
@@ -73,10 +78,11 @@ export function MiniBar({ lang }: { lang: string }) {
 
   return <aside data-minibar aria-label={t(lang, "dash.activeSessions")} className="fixed inset-x-0 bottom-20 z-20 border-t border-border bg-background px-3 py-2 lg:hidden">
     <div className="flex items-center gap-2">
-      <a href="/" className="flex min-w-0 flex-1 items-center gap-2">
+      <a href="/" className="flex min-h-12 min-w-0 flex-1 items-center gap-2 self-stretch">
         <ColorMark color={current.Color || current.ProjectColor} />
         <span className="min-w-0 flex-1 truncate font-medium">{name}</span>
-        {current.ProjectName && <span className="min-w-0 max-w-[35%] truncate text-xs text-muted-foreground">{current.ProjectName}</span>}
+        {/* На 360px проект отнимал у названия активности половину места: «Поддержк…». */}
+        {current.ProjectName && <span className="hidden min-w-0 max-w-[35%] truncate text-xs text-muted-foreground sm:inline">{current.ProjectName}</span>}
         <span className="shrink-0 font-mono text-sm tabular-nums">{clockLabel(sessionElapsedSeconds(current, Date.now()))}</span>
       </a>
       {others > 0 && <a href="/" data-minibar-more className="inline-flex h-12 min-w-12 shrink-0 items-center justify-center rounded-full px-2 font-mono text-sm tabular-nums text-muted-foreground hover:bg-muted" aria-label={t(lang, "minibar.more", others)}>+{others}</a>}

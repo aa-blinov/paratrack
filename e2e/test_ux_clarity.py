@@ -34,13 +34,13 @@ async def main():
    # A phone gets the day list instead of the 48rem grid; both name the project,
    # so the checks below work on either.
    phone=width<640
-   if phone:await page.locator('main [data-slot="card"]').filter(has=page.locator('input[type="number"]')).first.wait_for()
-   else:await page.locator('#ts-body').wait_for()
+   if phone:await page.locator('main [data-slot="card"]').filter(has=page.locator('input[name="minutes"]')).first.wait_for()
+   else:await page.locator('#ts-body tr').first.wait_for()
    scope=page.locator('main') if phone else page.locator('#ts-body')
    for name in ['Первый проект','Второй проект']:assert await scope.locator('th').filter(has_text=name).count()==1 if not phone else name in await page.locator('main').inner_text()
-   field=page.get_by_role('spinbutton',name='Одинаковая активность — Первый проект — 1 5',exact=True)
+   field=page.get_by_role('textbox',name='Одинаковая активность — Первый проект — 1 5',exact=True)
    await field.fill('45');await field.press('Enter');await asyncio.wait_for(pending.wait(),5)
-   assert await page.get_by_role('status').inner_text()=='Сохраняем правку…'
+   await page.get_by_role('status').filter(has_text='Сохраняем правку…').wait_for()
    release.set();await page.get_by_role('status').filter(has_text='Сохранено:').wait_for()
    assert await field.input_value()=='45'
    row_text=await page.locator('main').inner_text()

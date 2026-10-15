@@ -1,3 +1,4 @@
+import { Flash } from "@/components/flash"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -11,7 +12,7 @@ export function ProfilePage({ data }: { data: ProfileData }) {
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
-    {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
+    <Flash message={data.Flash} ok={data.FlashOK} />
     <Card><CardHeader><CardTitle>{t(lang, "profile.title")}</CardTitle></CardHeader><CardContent>
       <form method="post" action="/api/profile" className="grid max-w-xl gap-3">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
