@@ -123,7 +123,7 @@ def csrf(page) -> str:
 def api_probe(page, method: str, path: str, body: str = "") -> dict:
     """Fire one write request as the signed-in member and report the status."""
     try:
-        r = getattr(page.request, method)(
+        r = getattr(page.request, method.lower())(
             BASE + path,
             headers={"X-CSRF-Token": csrf(page), "Content-Type": "application/x-www-form-urlencoded"},
             data=body or None,
@@ -327,7 +327,7 @@ def main() -> int:
         sched = body_text(masha, 700)
         page_dump["m8-member-schedule"] = sched
         note("график", sched[:400])
-        report["schedule_inputs"] = masha.locator(f"{ROOT} input, {ROOT} select, {ROOT} button[data-*]").count()
+        report["schedule_inputs"] = masha.locator(f"{ROOT} input, {ROOT} select, {ROOT} button[data-slot]").count()
         report["schedule_disabled"] = masha.locator(f'{ROOT} input[disabled]').count()
         note("график-поля", f"полей ввода: {report['schedule_inputs']}, из них disabled: {report['schedule_disabled']}")
         shot(masha, "m8-member-schedule")
@@ -335,8 +335,8 @@ def main() -> int:
         api_probe(masha, "POST", "/api/team/invites", "csrf_token=" + csrf(masha))
         api_probe(masha, "POST", "/api/schedule/cell", "csrf_token=" + csrf(masha) + "&activity_id=1&date=2026-10-06&minutes=60")
         api_probe(masha, "POST", "/api/timesheet/cell", "csrf_token=" + csrf(masha) + "&activity_id=1&date=2026-10-06&minutes=60")
-        api_probe(masha, "POST", "/api/payroll", "csrf_token=" + csrf(masha) + "&user_id=1&amount=100")
-        api_probe(masha, "POST", "/api/invoices", "csrf_token=" + csrf(masha) + "&client=Test&amount=100")
+        api_probe(masha, "POST", "/payroll", "csrf_token=" + csrf(masha) + "&user_id=1&amount=100")
+        api_probe(masha, "POST", "/invoices", "csrf_token=" + csrf(masha) + "&client=Test&amount=100")
 
         # -------------------------------------- чужие данные на экранах
         print("\n== Маша: видны ли чужие данные")

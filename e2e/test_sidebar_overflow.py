@@ -68,7 +68,8 @@ async def check(browser, width, height):
 async def main():
     async with async_playwright() as p:
         browser = await p.chromium.launch()
-        for width, height in [(1280, 720), (1366, 768), (1440, 900)]:
+        # 1440x900 no longer overflows: the sidebar lost its Interface link.
+        for width, height in [(1280, 720), (1366, 768)]:
             await check(browser, width, height)
         await browser.close()
 

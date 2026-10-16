@@ -29,7 +29,10 @@ from target import BASE_URL as BASE
 
 OWNER_EMAIL = os.environ.get("PARATRACK_OWNER_EMAIL", "doc-1791228444@x.test")
 OWNER_PASSWORD = os.environ.get("PARATRACK_OWNER_PASSWORD", "longenoughpw")
-PROBE_PATH = "/__webhook_test_run_probe"
+# One address per run: an endpoint left behind by a run that stopped early
+# (the cleanup at the end is skipped on a failure) cannot make this run's
+# count wrong.
+PROBE_PATH = f"/__webhook_test_run_probe-{int(time.time())}"
 
 ROOT = "#paratrack-react-root"
 TEST_BUTTON = "Отправить тест"
@@ -87,6 +90,8 @@ def delete_endpoint(page, url: str) -> None:
     if card.count() == 0:
         return
     card.get_by_role("button", name="Удалить вебхук").click()
+    # The delete form asks first (data-confirm), and the dialog's last button confirms.
+    page.get_by_role("alertdialog").get_by_role("button").last.click()
     page.wait_for_load_state("load")
 
 
