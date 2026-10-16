@@ -79,27 +79,23 @@ var navItems = []navItem{
 // hard-code them and ignore the saved choice, so this is the visible default.
 var defaultTabs = []string{"dashboard", "timesheet", "stats", "graph"}
 
-// tabsFor is the user's phone tab bar: their picks that are still
-// available to them, topped up from the defaults to four.
+// tabsFor is the user's phone tab bar: the picks they saved, still available to
+// them, in the order the settings list them. A person who never saved a choice
+// gets the defaults. A saved choice is shown as saved, so a tab they switched
+// off stays off and a short list stays short.
 func (s *Server) tabsFor(r *http.Request, mods map[string]bool) []navItem {
 	avail := func(n navItem) bool {
 		return (n.Module == "" || mods[n.Module]) && (!n.Manage || canManage(r))
 	}
+	picks := prefsOf(r).Tabs
+	if picks == nil {
+		picks = defaultTabs
+	}
 	var out []navItem
-	seen := map[string]bool{}
-	add := func(k string) {
-		for _, n := range navItems {
-			if n.Key == k && !seen[k] && avail(n) && len(out) < 4 {
-				out = append(out, n)
-				seen[k] = true
-			}
+	for _, n := range navItems {
+		if has(picks, n.Key) && avail(n) && len(out) < 4 {
+			out = append(out, n)
 		}
-	}
-	for _, k := range prefsOf(r).Tabs {
-		add(k)
-	}
-	for _, k := range defaultTabs {
-		add(k)
 	}
 	return out
 }
@@ -198,7 +194,8 @@ func (s *Server) handleAPIPreferences(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	p.HiddenSections = hidden
-	p.Tabs = nil
+	// An explicit choice, even an empty one, replaces the defaults.
+	p.Tabs = []string{}
 	for _, k := range f["tabs"] {
 		for _, n := range navItems {
 			if n.Key == k && len(p.Tabs) < 4 {

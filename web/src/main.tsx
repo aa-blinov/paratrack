@@ -2,6 +2,7 @@ import type { AccessDeniedData } from "@/access-denied/access-denied-page"
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { installOffline, startOffline } from "@/offline/controller"
 import { installConfirmForms } from "@/confirm-forms"
+import { installFormMessages } from "@/form-messages"
 import { MiniBar } from "@/offline/mini-bar"
 import { OfflineBanner } from "@/offline/offline-banner"
 import { ToastStack } from "@/offline/toast"
@@ -620,6 +621,7 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
 installOffline()
 startOffline()
 installConfirmForms()
+installFormMessages()
 if (root && payload) {
   try {
     const initial = JSON.parse(payload.textContent || "{}") as ReactPageBootstrap

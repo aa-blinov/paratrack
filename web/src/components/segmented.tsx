@@ -54,7 +54,7 @@ export function SegmentedControl({ label, options, value, trailing, className, c
   const Root = options.some(option => option.href) ? "nav" : "div"
   return <Root ref={ref as React.RefObject<HTMLDivElement>} role={Root === "div" ? "group" : undefined} aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
   // periods took three rows of a 390px screen.
-  className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 [scrollbar-width:none] ${more ? "max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)]" : ""} lg:flex-wrap ${className || ""}`}>
+  className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 [scrollbar-width:none] ${more ? "max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)]" : ""} lg:flex-wrap ${className || ""}`}>
     {options.map(option => {
       const active = option.key === value
       const variant = active ? "secondary" : "ghost"
