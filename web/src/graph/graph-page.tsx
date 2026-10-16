@@ -84,7 +84,7 @@ export function GraphPage({ data }: { data: GraphData }) {
       value={data.Period.Label}
       options={[...periods.map(period => ({ key: period, label: t(lang, period === "today" ? "dash.today" : `stats.${period === "last_week" ? "lastWeek" : period === "last_month" ? "lastMonth" : period}`), href: queryFor(data, period) })),
         { key: "custom", label: t(lang, "graph.customPeriod"), href: queryFor(data, "custom") }]}
-      trailing={<Button type="button" size="sm" variant="ghost" className="ms-auto" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>}
+      trailing={<Button type="button" variant="ghost" className="ms-auto" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>}
     />
 
     {/* The custom range is one of the periods: its fields belong to it, not

@@ -494,7 +494,7 @@
 }
 
 @media (pointer: coarse) {
-  #paratrack-react-root button,
+  #paratrack-react-root button:not([data-slot]),
   #paratrack-react-root input,
   #paratrack-react-root select {
     min-height: 44px;
@@ -640,16 +640,16 @@
 }
 
 @media (pointer: coarse) {
-  #paratrack-react-root button,
+  #paratrack-react-root button:not([data-slot]),
   #paratrack-react-root input,
   #paratrack-react-root select,
   #paratrack-react-root textarea {
     min-height: 48px;
   }
   /* Icon-only controls are square on a phone: the old rule raised the height
-     and left a 28px-wide hamburger under a 44px target. */
-  #paratrack-react-root button[aria-label]:not([aria-label=""]),
-  #paratrack-react-root [data-slot="button"][data-size^="icon"] {
+     and left a 28px-wide hamburger under a 44px target. Components set their own
+     button size; the 48dp touch target is drawn outside it. */
+  #paratrack-react-root button[aria-label]:not([aria-label=""]):not([data-slot]) {
     min-width: 48px;
   }
   /* iOS Safari zooms the page when a focused field is under 16px, and does not
@@ -905,9 +905,9 @@
 #paratrack-react-root .goal-form > button {
   flex: 0 0 auto;
 }
-/* A phone field is 56px tall; the button beside it is the same height, so the row lines up. */
+/* On a phone the field beside the button is 56dp; a 40dp button sits on its centre line. */
 @media (pointer: coarse) {
-  #paratrack-react-root .goal-form > button { height: 3.5rem; }
+  #paratrack-react-root .goal-form > button { margin-bottom: 0.5rem; }
 }
 
 /* Same failure one screen over: the active-timer form split into a fixed
@@ -988,9 +988,6 @@ body {
 /* Phone touch floor. The DESIGN floor is 44px for a pressed control on a phone;
    the small button sizes (28px and 32px) were under it. The desktop sizes stay. */
 @media (max-width: 1023px) {
-  #paratrack-react-root [data-slot="button"] { min-height: 44px; }
-  #paratrack-react-root [data-slot="button"][class*="size-7"],
-  #paratrack-react-root [data-slot="button"][class*="size-8"] { min-width: 44px; }
   #paratrack-react-root .app-shell-brand { min-height: 44px; display: inline-flex; align-items: center; }
 }
 
@@ -1016,11 +1013,6 @@ body {
     content: "";
     position: absolute;
     inset: -4px;
-  }
-  #paratrack-react-root [data-slot="button"][class*="size-7"],
-  #paratrack-react-root [data-slot="button"][class*="size-8"] {
-    min-width: 40px;
-    border-radius: 9999px;
   }
   #paratrack-react-root .period-tabs { border-radius: 9999px; }
   #paratrack-react-root [data-slot="input"] { border-radius: 4px; }
@@ -1079,8 +1071,7 @@ body {
 @media (max-width: 1023px) {
   #paratrack-react-root [data-slot="card"] { border-radius: 12px; }
   #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { border-radius: 4px; }
-  #paratrack-react-root nav.overflow-x-auto > a { min-height: 48px; }
-  #paratrack-react-root .period-tabs [data-slot="button"] { height: 40px; min-height: 40px; }
+  #paratrack-react-root nav.overflow-x-auto > a:not([data-slot]) { min-height: 48px; }
   #paratrack-react-root [data-slot="checkbox"] { width: 18px; height: 18px; min-height: 18px; border-radius: 2px; align-self: flex-start; }
 }
 /* An M3 snackbar is at least 48dp tall with a 4dp corner. */
@@ -1107,22 +1098,19 @@ body {
    a choice card (data-card) is a 12dp card, not a button. A file picker is not
    a text field, so it keeps the native control. */
 @media (max-width: 1023px) {
-  #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { height: 40px; }
-@media (pointer: coarse) { #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { min-height: 44px; } }
 /* Touch screens: every control people tap is at least 44px high, whatever the
    width. The period tabs, the language and theme switch, the icon buttons and
    the breadcrumbs were 17-40px tall. */
 @media (pointer: coarse) {
-  #paratrack-react-root .period-tabs [data-slot="button"],
-  #paratrack-react-root [role="tablist"] [role="tab"],
-  #paratrack-react-root [data-slot="button"][data-size="icon"],
-  #paratrack-react-root [data-slot="button"][data-size="icon-sm"],
-  #paratrack-react-root [data-slot="button"][data-size="icon-xs"] { min-height: 44px; min-width: 44px; height: auto; }
-  #paratrack-react-root nav[aria-label] a,
+  #paratrack-react-root [role="tablist"] [role="tab"] { min-height: 44px; min-width: 44px; height: auto; }
+  /* Material 3 touch target: a button is drawn at its size (40dp, 32dp small) and
+     the 48dp target is the area around it. Chips, cards and the timer button keep their own. */
+  #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { position: relative; }
+  #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip)::after { content: ""; position: absolute; inset: -4px; }
+  #paratrack-react-root [data-slot="button"][data-size="sm"]:not([data-chip]):not([data-card]):not(.legend-chip)::after { inset: -8px; }
+  #paratrack-react-root nav[aria-label] a:not([data-slot]),
   #paratrack-react-root [data-slot="breadcrumb-link"],
   #paratrack-react-root .app-shell-brand { display: inline-flex; align-items: center; min-height: 44px; }
-  #paratrack-react-root .segmented [data-slot="button"],
-  #paratrack-react-root [data-segmented] [data-slot="button"] { min-height: 44px; height: auto; }
   /* A checkbox is 16px, but the label that wraps it is what a finger hits. */
   #paratrack-react-root label:has([data-slot="checkbox"]) { min-height: 44px; display: flex; align-items: center; }
   #paratrack-react-root [data-chip] { min-height: 44px; }
