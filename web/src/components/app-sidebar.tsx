@@ -247,9 +247,9 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
     <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
       <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
         {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} group={group.key} />) }
-        {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-7 w-full shrink-0 flex-col justify-end">
+        {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-9 w-full shrink-0 flex-col justify-end">
           <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
-          <span className="flex h-4 items-center justify-center bg-sidebar"><ChevronDown className="size-4 text-sidebar-foreground/70" /></span>
+          <span className="flex h-6 items-center justify-center gap-1 bg-sidebar text-xs text-sidebar-foreground/70"><ChevronDown className="size-3.5" />{t(shell.lang, "nav.more")}</span>
         </span>}
       </nav>
     </SidebarContent>
@@ -264,10 +264,9 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           </span>
         </div>
       )}
-      {/* Language and theme are preferences, not destinations. They already
-          sit together; what was missing is saying so. Every other band of the
-          sidebar carries a label, and these two were the only rows without
-          one. */}
+      {/* Language and theme are quick switches for the two preferences people
+          change most. Settings → Interface holds the rest; a link above these
+          rows read as a second, duplicate entry to that page, so there is none. */}
       {/* Settings sit here, always on screen: as the last group of the
           scrolling list they fell below the fold at 900px tall. The label
           over language and theme leads to the page they belong to. */}
@@ -277,9 +276,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           <span className="group-data-[collapsible=icon]:hidden">{t(shell.lang, "set.title")}</span>
         </a>
       </Button>}
-      <a href="/settings/preferences" onClick={() => setOpenMobile(false)} className="px-2 pt-2 pb-1 text-xs font-medium tracking-wide text-sidebar-foreground/75 underline decoration-sidebar-foreground/30 underline-offset-4 hover:text-sidebar-foreground hover:decoration-current group-data-[collapsible=icon]:hidden">
-        {t(shell.lang, "nav.group.prefs")}
-      </a>
+      {shell.user && <SidebarSeparator className="mx-0 my-1.5 w-full group-data-[collapsible=icon]:hidden" />}
       <Button asChild variant="ghost" size="sm" className={sidebarRow} title={t(shell.lang, "nav.language")}
         aria-label={`${t(shell.lang, "nav.language")} ${shell.lang.toUpperCase()}`}>
         <a onClick={() => setOpenMobile(false)} href={`/lang/${shell.lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`}>

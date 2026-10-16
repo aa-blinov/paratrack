@@ -3,6 +3,7 @@ package web
 import (
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -15,6 +16,9 @@ func logRequests(next http.Handler, logger *log.Logger, routes *http.ServeMux) h
 		if route == "" {
 			route = "<unmatched>"
 		}
+		// The matched pattern carries its method ("GET /api/active"), and the
+		// line prints the method from the request, so it is cut off here.
+		route = strings.TrimPrefix(route, r.Method+" ")
 		ww := &statusRecorder{ResponseWriter: w, status: 200}
 		defer func() {
 			if recovered := recover(); recovered != nil {

@@ -51,7 +51,7 @@ func TestLogRequestsLogsAndRepanicsHandlerPanic(t *testing.T) {
 		}()
 		handler.ServeHTTP(httptest.NewRecorder(), request)
 	}()
-	if !strings.Contains(output.String(), "GET GET /panic 500 ") {
+	if !strings.Contains(output.String(), "GET /panic 500 ") {
 		t.Fatalf("panic request log = %q, want route and status 500", output.String())
 	}
 }

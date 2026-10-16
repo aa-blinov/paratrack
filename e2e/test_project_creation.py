@@ -7,6 +7,7 @@ typed lands in the autofocused name box. This suite starts from a fresh
 account and never touches the sheet, so the form is exercised the way a
 person would.
 """
+import re
 import sys
 import time
 from pathlib import Path
@@ -33,8 +34,8 @@ def register(page: Page, name: str, email: str, password: str) -> None:
     page.locator('button[type="submit"]').first.click()
     page.wait_for_load_state("networkidle")
     if "/welcome" in page.url:
-        # On /welcome the skip control is a link, not a button.
-        skip = page.get_by_role("link", name="Пропустить, оставить всё")
+        # On /welcome the skip control is a button that keeps the defaults.
+        skip = page.get_by_role("button", name="Пропустить — пока для себя")
         expect(skip).to_be_visible(timeout=5000)
         skip.click()
         page.wait_for_url(lambda url: "/welcome" not in url, timeout=10000)
@@ -107,8 +108,8 @@ def main() -> int:
         # ---------------------------------------------------------------- 3
         print("\n== 3. The slug reaches the address bar unchanged")
         page.get_by_role("button", name="Создать").click()
-        page.wait_for_url(f"**/projects/{proj_slug}")
-        check(f"landed on /projects/{proj_slug}", page.url.endswith(f"/projects/{proj_slug}"), page.url)
+        page.wait_for_url(re.compile(rf"/projects/{re.escape(proj_slug)}(\?.*)?$"))
+        check(f"landed on /projects/{proj_slug}", page.url.split("?")[0].endswith(f"/projects/{proj_slug}"), page.url)
         expect(page.locator("h1")).to_contain_text(proj_name)
         check("detail page shows the project", proj_name in page.content())
         page.screenshot(path=str(SHOTS / "project-creation.png"), full_page=False)

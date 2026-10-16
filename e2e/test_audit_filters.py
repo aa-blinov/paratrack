@@ -88,7 +88,8 @@ def main() -> int:
 
             page.goto(f"{BASE}/settings/audit")
             page.locator("#audit-from").wait_for()
-            controls = page.locator("main input, main select")
+            # The date fields carry a hidden ISO input each; count what a person sees.
+            controls = page.locator("main select, main input:not([type=hidden])")
             check(f"{width}px: period, actor and action filters exist", controls.count() == 4,
                   f"{controls.count()} controls")
             check(f"{width}px: every filter has a label",
@@ -157,17 +158,21 @@ def main() -> int:
                   "/settings/audit?" in page.url and "event=session.start" in page.url, page.url)
 
             # The form works from the keyboard alone: pick a period and an action, then
-            # submit with Enter instead of the mouse.
+            # move to «Применить» and press Enter. Enter in a date field opens its
+            # calendar instead of submitting, so the form is not submitted from there.
             page.goto(f"{BASE}/settings/audit")
             page.locator("#audit-from").wait_for()
             page.locator("#audit-from").fill(today)
             page.locator("#audit-action").select_option("session.stop")
             with page.expect_navigation():
-                page.locator("#audit-from").press("Enter")
+                page.locator("form[action='/settings/audit'] button[type=submit]").focus()
+                page.keyboard.press("Enter")
             page.locator("#audit-from").wait_for()
+            # The field shows the date in the screen's own order, so either form counts.
+            shown = page.locator("#audit-from").input_value()
             check(f"{width}px: submitting from the keyboard writes the filters into the address",
                   f"from={today}" in page.url and "event=session.stop" in page.url
-                  and page.locator("#audit-from").input_value() == today,
+                  and shown in (today, f"{date.fromisoformat(today):%d.%m.%Y}"),
                   page.url)
 
             check(f"{width}px: no script errors", not errors, str(errors))

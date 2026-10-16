@@ -56,7 +56,7 @@ def register(page, name: str, email: str, password: str) -> None:
     page.click('button[type="submit"]')
     page.wait_for_load_state("load")
     if page.url.endswith("/welcome"):
-        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="solo"]) button').click()
+        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="solo"]) button[data-card]').click()
         page.wait_for_load_state("load")
 
 
