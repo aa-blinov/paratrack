@@ -1,6 +1,7 @@
 import { Flash } from "@/components/flash"
 import { formatDate } from "@/lib/date-format"
 import { useEffect, useState } from "react"
+import { useSaveStatus } from "@/lib/auto-save"
 import { ImageUp, Pencil, Plus, Trash2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +17,10 @@ import type { TeamSettingsData } from "@/dashboard/types"
 export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
   const lang = data.Lang || "en"
   const money = data.Active === "settings-money"
+  // The currency is a choice: it saves when picked, in its own card.
+  const [currencyState, saveCurrency] = useSaveStatus(t(lang, "toast.saved"), t(lang, "err.generic"))
+  const saveFormNow = (form: HTMLFormElement) => saveCurrency(form)
+  const currencyStatus = currencyState.kind === "saving" ? t(lang, "prefs.saving") : currencyState.kind === "saved" || currencyState.kind === "error" ? currencyState.text : ""
   // A money form returns to its own card (#currency, #billing, …); the answer
   // is shown there, not at the top the page has scrolled away from.
   const savedCard = money && data.Flash ? location.hash.slice(1) : ""
@@ -32,7 +37,7 @@ export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
     {/* Money has its own tab: currency, invoice rules, requisites and Stripe
         used to share one page with the workspace name and its deletion. */}
     {money ? <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-      <Card id="currency" className="scroll-mt-20"><CardHeader><CardTitle>{t(lang, "team.currencyTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.currencyHint")}</p>{cardFlash("currency")}</CardHeader><CardContent><form method="post" action="/api/team/currency" className="flex gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="team-currency">{t(lang, "team.currencyTitle")}</Label><Select name="currency" defaultValue={data.Currency}><SelectTrigger id="team-currency" className="flex-1"><SelectValue /></SelectTrigger><SelectContent>{data.Currencies.map(currency => <SelectItem key={currency.Code} value={currency.Code}>{currency.Label}</SelectItem>)}</SelectContent></Select><Button type="submit">{t(lang, "profile.save")}</Button></form></CardContent></Card>
+      <Card id="currency" className="scroll-mt-20"><CardHeader><CardTitle>{t(lang, "team.currencyTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.currencyHint")}</p>{cardFlash("currency")}</CardHeader><CardContent><form method="post" action="/api/team/currency" className="flex gap-2" onChange={event => { const form = event.currentTarget; void saveFormNow(form) }}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="team-currency">{t(lang, "team.currencyTitle")}</Label><Select name="currency" defaultValue={data.Currency}><SelectTrigger id="team-currency" className="flex-1"><SelectValue /></SelectTrigger><SelectContent>{data.Currencies.map(currency => <SelectItem key={currency.Code} value={currency.Code}>{currency.Label}</SelectItem>)}</SelectContent></Select><p className="min-h-5 text-xs text-muted-foreground" role="status" aria-live="polite">{currencyStatus}</p></form></CardContent></Card>
       <Card id="billing" className="scroll-mt-20"><CardHeader><CardTitle>{t(lang, "bill.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "settings.billingHint")}</p>{cardFlash("billing")}</CardHeader><CardContent>
         <form method="post" action="/api/team/billing" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><div className="grid gap-3 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="round-minutes">{t(lang, "bill.round")}</Label><Select name="round_minutes" defaultValue={String(data.Billing.RoundMinutes)}><SelectTrigger id="round-minutes"><SelectValue /></SelectTrigger><SelectContent>{data.RoundOpts.map(minutes => <SelectItem key={minutes} value={String(minutes)}>{minutes === 0 ? t(lang, "bill.roundOff") : t(lang, "bill.roundTo", minutes)}</SelectItem>)}</SelectContent></Select></div><div className="grid gap-1.5"><Label htmlFor="round-mode">{t(lang, "bill.mode")}</Label><Select name="round_mode" defaultValue={data.Billing.RoundMode === "up" ? "up" : "nearest"}><SelectTrigger id="round-mode"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nearest">{t(lang, "bill.nearest")}</SelectItem><SelectItem value="up">{t(lang, "bill.up")}</SelectItem></SelectContent></Select></div></div><p className="text-xs text-muted-foreground">{t(lang, "bill.roundHint")}</p><div className="grid gap-1.5"><Label htmlFor="invoice-prefix">{t(lang, "bill.prefix")}</Label><Input id="invoice-prefix" name="invoice_prefix" required maxLength={12} pattern="(?:\p{L}|\p{N}|-)+" defaultValue={data.Billing.InvoicePrefix} onInvalid={event => event.currentTarget.setCustomValidity(t(lang, "bill.prefixInvalid"))} onInput={event => event.currentTarget.setCustomValidity("")} className="font-mono" /><p className="text-xs text-muted-foreground">{t(lang, "bill.prefixHint", data.Billing.InvoicePrefix)}</p></div><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></form>
       </CardContent></Card>

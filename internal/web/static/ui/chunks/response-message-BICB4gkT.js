@@ -1,0 +1,1 @@
+async function e(e){let t=(await e.text()).trim();if(!t)return e.statusText||`Request failed`;try{let e=JSON.parse(t);if(typeof e.error==`string`&&e.error)return e.error}catch{}return t.replace(/<[^>]*>/g,` `).replace(/\s+/g,` `).trim()||e.statusText||`Request failed`}export{e as t};
