@@ -498,6 +498,17 @@ function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   return Promise.resolve()
 }
 
+// A form's answer rides in ?flash=… and a failed sign-in in ?error=…, for the
+// one page that shows it. The page keeps the message in its own state, so the
+// address drops the code: the bar shows the page, and a reload does not repeat
+// the message.
+function withoutAnswer(href: string) {
+  const url = new URL(href)
+  url.searchParams.delete("flash")
+  url.searchParams.delete("error")
+  return url.href
+}
+
 function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?: () => void }) {
   const [route, setRoute] = useState(() => ({
     bootstrap: initial,
@@ -517,7 +528,7 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
   const scrollPositions = useRef(new Map<string, number>())
 
   useEffect(() => {
-    history.replaceState({ ...history.state, paratrack: true }, "", location.href)
+    history.replaceState({ ...history.state, paratrack: true }, "", withoutAnswer(location.href))
     // "replace" swaps the page in place: same history entry, same scroll. A
     // settings choice uses it to show the server's answer, not a stale copy.
     const navigate = async (url: URL, mode: "push" | "pop" | "replace", restoreFocus = false) => {
@@ -539,8 +550,8 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
         if (controller.signal.aborted) return
         const finalURL = new URL(response.url)
         if (url.hash) finalURL.hash = url.hash
-        if (mode === "push") history.pushState({ paratrack: true }, "", finalURL.href)
-        if (mode === "replace") history.replaceState({ paratrack: true }, "", finalURL.href)
+        if (mode === "push") history.pushState({ paratrack: true }, "", withoutAnswer(finalURL.href))
+        if (mode === "replace") history.replaceState({ paratrack: true }, "", withoutAnswer(finalURL.href))
         // A replaced page gets a new key even at the same address, so it mounts
         // again with the data the server just sent.
         const key = finalURL.pathname + finalURL.search + (mode === "replace" ? `#${Date.now()}` : "")

@@ -165,7 +165,7 @@ def main() -> int:
         # whole document signs the run out instead of creating the project.
         submit_form(page, 'form[action="/projects/new"]')
         check("project created", "/projects/" in page.url, page.url)
-        # The page URL carries ?flash=..., so parse rather than split —
+        # The redirect can still carry ?flash=..., so parse rather than split —
         # a slug with the query glued on matches no form on the screen.
         slug = urlsplit(page.url).path.rstrip("/").rsplit("/", 1)[-1]
         edit_form = f'form[action="/projects/{slug}"]'
