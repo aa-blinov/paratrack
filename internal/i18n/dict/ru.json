@@ -1322,5 +1322,15 @@
   "flash.inviteAlreadyLive": "Для %s уже есть действующее приглашение: ссылка ниже, новое не создано.",
   "flash.msg.bad currency": "Выберите валюту из списка.",
   "flash.msg.bad client": "Клиент не найден. Обновите страницу и выберите его снова.",
-  "flash.msg.bad project": "Проект не найден. Обновите страницу и выберите его снова."
+  "flash.msg.bad project": "Проект не найден. Обновите страницу и выберите его снова.",
+  "form.valueMissing": "Заполните это поле.",
+  "form.typeEmail": "Введите адрес почты, например name@example.com.",
+  "form.typeUrl": "Введите адрес сайта, например https://example.com.",
+  "form.typeMismatch": "Введите значение в нужном формате.",
+  "form.tooShort": "Нужно не меньше %s символов.",
+  "form.rangeUnderflow": "Значение не может быть меньше %s.",
+  "form.rangeOverflow": "Значение не может быть больше %s.",
+  "form.stepMismatch": "Введите значение с шагом %s.",
+  "form.badInput": "Введите число.",
+  "form.patternMismatch": "Значение не подходит под формат."
 }

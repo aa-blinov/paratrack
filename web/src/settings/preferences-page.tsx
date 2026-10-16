@@ -1,3 +1,4 @@
+import { StatusLine } from "@/components/status-line"
 import { useTheme } from "@/lib/theme"
 import { SegmentedControl } from "@/components/segmented"
 import { Flash } from "@/components/flash"
@@ -26,7 +27,7 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Flash message={data.Flash} ok={data.FlashOK} />
     <LanguageAndTheme lang={lang} />
-    <p className="min-h-5 text-sm text-muted-foreground" role="status" aria-live="polite" data-pref-status>{saveState.kind === "error" ? saveState.text : saveState.kind === "saved" ? saveState.text : saveState.kind === "saving" ? t(lang, "prefs.saving") : ""}</p>
+    <StatusLine text={saveState.kind === "error" ? saveState.text : saveState.kind === "saved" ? saveState.text : saveState.kind === "saving" ? t(lang, "prefs.saving") : ""} className="text-sm text-muted-foreground" data-pref-status />
     <form ref={formRef} method="post" action="/api/me/preferences" className="grid gap-4" onChange={saveNow}>
       <input type="hidden" name="csrf_token" value={data.CSRFToken} />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">

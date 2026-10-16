@@ -233,12 +233,20 @@ func (s *Server) handleAPITeamModules(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	if err := s.services.Teams.Settings.UpdateModules(r.Context(), appmodel.TeamModulesRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Selected: on}); err != nil {
+	// Read the set being replaced so the journal records the difference. If
+	// that read fails the save is refused: the entry would otherwise be wrong.
+	settings := s.services.Teams.Settings
+	before, err := settings.SectionModules(r.Context(), teamID(r))
+	if err == nil {
+		err = settings.UpdateModules(r.Context(), appmodel.TeamModulesRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Selected: on})
+	}
+	if err != nil {
 		http.Redirect(w, r, "/settings/sections?flash="+url.QueryEscape(encodeFlash(false, s.teamErrorMessage(r, err))), http.StatusSeeOther)
 		return
 	}
-	encoded := appmodel.EncodeSections(on)
-	s.audit(r, "team.modules", strings.ReplaceAll(encoded, ",", ", "), "")
+	if changes := appmodel.SectionChanges(before, on); changes != "" {
+		s.audit(r, "team.modules", changes, "")
+	}
 	if r.PostForm.Get("from") == "welcome" {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
