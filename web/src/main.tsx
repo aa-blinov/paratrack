@@ -213,7 +213,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   // The mode name alone says nothing about what it costs you. Say how many
   // sections it opens: that is the consequence the person feels.
   const modeLine = data.SectionsTotal
-    ? t(lang, "dash.modeCounts", modeTitle, data.SectionsOpen ?? 0, data.SectionsTotal)
+    ? t(lang, data.SectionsPersonal ? "dash.modeCountsPerson" : "dash.modeCounts", modeTitle, data.SectionsOpen ?? 0, data.SectionsTotal)
     : t(lang, "dash.mode", modeTitle)
   const recent = data.Recent ?? []
   // Note and tag columns only exist when some session on the list has one: an
@@ -248,7 +248,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     })}
   </CardContent></Card>
 
-  const goalsWidget = data.Widgets?.goals && data.Mods?.goals && data.Goals?.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.goals}</CardTitle><a className="py-1 text-sm underline underline-offset-4" href="/goals">{labels.manage}</a></CardHeader><CardContent className="grid gap-4">{data.Goals.map(goal => <div key={goal.ID} className="grid gap-2"><div className="flex flex-col gap-1 text-sm sm:flex-row sm:justify-between sm:gap-2"><span className="min-w-0 [overflow-wrap:anywhere]">{goal.ActivityName} <span className="text-muted-foreground">{goal.PeriodRangeLabel}</span></span><span className="shrink-0 font-mono sm:whitespace-nowrap">{goal.AchievedLabel} / {goal.TargetLabel}</span></div><Progress value={Math.min(goal.Percent, 100)} aria-label={goal.ActivityName} /></div>)}</CardContent></Card>
+  const goalsWidget = data.Widgets?.goals && data.Mods?.goals && data.Goals?.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.goals}</CardTitle><a className="py-1 text-sm underline underline-offset-4" href="/goals">{labels.manage}</a></CardHeader><CardContent className="grid gap-4">{data.Goals.map(goal => <div key={goal.ID} className="grid gap-2"><div className="flex flex-col gap-1 text-sm xl:flex-row xl:justify-between xl:gap-2"><span className="min-w-0 [overflow-wrap:anywhere]">{goal.ActivityName} <span className="text-muted-foreground">{goal.PeriodRangeLabel}</span></span><span className="shrink-0 font-mono xl:whitespace-nowrap">{goal.AchievedLabel} / {goal.TargetLabel}</span></div><Progress value={Math.min(goal.Percent, 100)} aria-label={goal.ActivityName} /></div>)}</CardContent></Card>
   const unbilledWidget = data.Widgets?.unbilled && data.Mods?.invoices && data.Unbilled?.length > 0 && data.CanManage && <Card><CardHeader><CardTitle>{t(lang, "inv.unbilled")}</CardTitle></CardHeader><CardContent className="grid gap-2">{data.Unbilled.map(item => <div key={item.ProjectID} className="flex items-center justify-between gap-3 border-b pb-3 text-sm last:border-0 last:pb-0"><div className="grid min-w-0 flex-1"><a className="min-w-0 [overflow-wrap:anywhere] py-1 underline-offset-4 hover:underline" href={`/projects/${item.Slug}`}>{item.ProjectName}</a><span className="font-mono text-muted-foreground">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span></div><Button asChild variant="outline" size="sm"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button></div>)}</CardContent></Card>
 
   return <main className="mx-auto grid w-full max-w-6xl gap-4" aria-busy={busy}>

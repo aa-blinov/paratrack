@@ -905,6 +905,10 @@
 #paratrack-react-root .goal-form > button {
   flex: 0 0 auto;
 }
+/* A phone field is 56px tall; the button beside it is the same height, so the row lines up. */
+@media (pointer: coarse) {
+  #paratrack-react-root .goal-form > button { height: 3.5rem; }
+}
 
 /* Same failure one screen over: the active-timer form split into a fixed
    12rem label column and a flexible one. At 200% text the label column grew

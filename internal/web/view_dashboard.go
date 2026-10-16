@@ -72,6 +72,9 @@ type dashboardData struct {
 	// the mode line says what the mode means, not just its name.
 	SectionsOpen  int
 	SectionsTotal int
+	// SectionsPersonal: the count is what this person can open, not the team's
+	// setting, so the line says «вам открыто».
+	SectionsPersonal bool
 
 	HasProject     bool
 	HasSession     bool

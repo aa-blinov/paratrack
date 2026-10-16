@@ -45,7 +45,7 @@ function ProjectRow({ data, project, open, onToggle }: {
 
   return <>
     <TableRow data-list-item="2" className={open ? "bg-muted/40" : undefined}>
-      <TableCell className="max-w-[60vw] align-middle sm:max-w-none">
+      <TableCell className="max-w-[60vw] whitespace-normal align-middle sm:max-w-none">
         <div className="flex min-w-0 items-center gap-2">
           <Button
             type="button"
@@ -60,7 +60,7 @@ function ProjectRow({ data, project, open, onToggle }: {
             <ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} />
           </Button>
           <ColorMark color={project.Color} />
-          <a href={href} title={project.Name} className="min-w-0 truncate font-medium underline-offset-4 hover:underline">{project.Name}</a>
+          <a href={href} title={project.Name} className="min-w-0 font-medium [overflow-wrap:anywhere] underline-offset-4 hover:underline">{project.Name}</a>
           {project.Archived && <Badge variant="secondary" className="shrink-0">{t(lang, "projects.archivedBadge")}</Badge>}
         </div>
         {/* На телефоне отдельных колонок для клиента и чисел нет: 375 пикселей
@@ -73,7 +73,7 @@ function ProjectRow({ data, project, open, onToggle }: {
           <span>{t(lang, "projects.last30")} <span className="font-mono text-foreground">{project.MonthLabel}</span></span>
         </p>
       </TableCell>
-      <TableCell className="hidden align-middle text-sm text-muted-foreground sm:table-cell">
+      <TableCell className="hidden whitespace-normal align-middle text-sm text-muted-foreground sm:table-cell">
         <span>{project.ClientName || "—"}</span>
       </TableCell>
       {data.CanManage && <TableCell className="hidden whitespace-nowrap align-middle text-right font-mono tabular-nums md:table-cell">{project.RateLabel || "—"}</TableCell>}
