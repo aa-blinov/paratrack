@@ -142,14 +142,23 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
     const box = root.current?.getBoundingClientRect()
     if (!box) return
     const width = 256
-    const height = 296
+    // The panel's real height once it is on the page; the guess only serves
+    // the first frame, before the panel exists.
+    const height = panel.current?.offsetHeight || 296
     const left = Math.min(Math.max(8, box.left), window.innerWidth - width - 8)
     // Near the bottom of the window the grid opens upwards rather than below,
     // where half of it would hang off the screen.
     const below = box.bottom + 4
     const fits = below + height <= window.innerHeight - 8
-    setAnchor({ top: fits ? below : Math.max(8, box.top - height - 4), left })
+    const top = fits ? below : Math.max(8, box.top - height - 4)
+    // Same place as before: no state change, so the placement does not loop.
+    setAnchor(previous => previous && previous.top === top && previous.left === left ? previous : { top, left })
   }, [])
+
+  // Once the panel is on the page its height is known: place it again from it.
+  React.useLayoutEffect(() => {
+    if (open && anchor) place()
+  }, [open, anchor, place])
 
   React.useEffect(() => {
     if (!open) return

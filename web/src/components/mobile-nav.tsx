@@ -62,7 +62,7 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
         <a href="/?new=1" aria-label={t(lang, "dash.newTimer")} title={t(lang, "dash.newTimer")}><Play aria-hidden="true" /></a>
       </Button>
     )}
-    <nav data-mobile-nav className="mobile-nav" aria-label={t(lang, "nav.primary")}>
+    <nav data-mobile-nav className="mobile-nav no-print" aria-label={t(lang, "nav.primary")}>
       {primary.map(item => <a key={item.key} href={item.href} aria-current={isActive(shell, item) ? "page" : undefined}
         className={`mobile-nav-item ${isActive(shell, item) ? "mobile-nav-item-active" : ""}`}>
         <Icon name={item.icon} /><span>{t(lang, item.label)}</span>

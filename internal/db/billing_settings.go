@@ -8,6 +8,8 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // BillingRules is an alias to the shared team preference model.
@@ -46,26 +48,7 @@ func (d *DB) SetTeamLogo(ctx context.Context, request appmodel.TeamLogoRequest) 
 
 // RoundBilled applies a workspace rounding rule to a line's seconds.
 func RoundBilled(sec int, b BillingRules) int {
-	if b.RoundMinutes <= 0 || sec <= 0 {
-		return sec
-	}
-	maxInt := int(^uint(0) >> 1)
-	if b.RoundMinutes > maxInt/60 {
-		return sec
-	}
-	step := b.RoundMinutes * 60
-	quotient, remainder := sec/step, sec%step
-	if b.RoundMode == "up" {
-		if remainder != 0 {
-			quotient++
-		}
-	} else if remainder >= (step+1)/2 {
-		quotient++
-	}
-	if quotient > maxInt/step {
-		return sec
-	}
-	return quotient * step
+	return money.RoundBilledSeconds(sec, b.RoundMinutes, b.RoundMode)
 }
 
 // TeamModules is the workspace's section list ("" = everything).

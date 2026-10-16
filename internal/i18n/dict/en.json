@@ -245,7 +245,7 @@
   "tags.all": "All tags",
   "tags.delete": "Delete tag",
   "tags.rename": "Rename tag",
-  "tags.confirmDelete": "Delete this tag? It will be detached from its sessions.",
+  "tags.confirmDelete": "It is removed from its sessions.",
   "tags.noTags": "No tags yet",
   "tags.noTagsHint": "Create a tag above, then add it to a session in Stats.",
   "tags.filterHint": "The number beside a tag is how many sessions carry it. Open the tag itself to see this week’s statistics for it alone.",
@@ -401,7 +401,7 @@
   "nav.timesheet": "Timesheet",
   "ts.title": "Timesheet",
   "ts.thisWeek": "This week",
-  "ts.hint": "Editing a cell replaces that day's closed sessions; «+N» is a running timer, already in the totals.",
+  "ts.hint": "Editing a cell replaces that day's closed sessions. A running timer is already in the totals and is not edited here.",
   "reports.title": "Saved reports",
   "reports.emptyHint": "Save a period and filters to return to them later.",
   "reports.namePh": "report name",
@@ -1332,5 +1332,9 @@
   "form.rangeOverflow": "The value cannot be more than %s.",
   "form.stepMismatch": "Enter a value in steps of %s.",
   "form.badInput": "Enter a number.",
-  "form.patternMismatch": "The value does not match the required format."
+  "form.patternMismatch": "The value does not match the required format.",
+  "int.status.open": "Open",
+  "int.status.closed": "Closed",
+  "clients.noInvoicesHint": "An invoice appears once there is billable time on the client's projects.",
+  "auth.resetSent": "If an account exists for that address, a reset link is on its way. Check your inbox."
 }

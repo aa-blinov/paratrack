@@ -72,3 +72,30 @@ func PercentRatio(part, total, numeratorScale, denominatorScale int) int {
 	}
 	return int(result.Int64())
 }
+
+// RoundBilledSeconds applies a workspace rounding rule to a line's seconds:
+// to the nearest step ("nearest") or up to the next one ("up"). Zero minutes
+// means no rounding. Invoices, budgets and reports all round through here, so
+// the same time gives the same billed amount on every screen.
+func RoundBilledSeconds(sec, minutes int, mode string) int {
+	if minutes <= 0 || sec <= 0 {
+		return sec
+	}
+	maxInt := int(^uint(0) >> 1)
+	if minutes > maxInt/60 {
+		return sec
+	}
+	step := minutes * 60
+	quotient, remainder := sec/step, sec%step
+	if mode == "up" {
+		if remainder != 0 {
+			quotient++
+		}
+	} else if remainder >= (step+1)/2 {
+		quotient++
+	}
+	if quotient > maxInt/step {
+		return sec
+	}
+	return quotient * step
+}
