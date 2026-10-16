@@ -233,7 +233,7 @@ func (s *Server) handlePayrollDelete(w http.ResponseWriter, r *http.Request) {
 // handleMemberPay saves a member's pay rate + daily capacity.
 func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, "invalid form"), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.invalid form")), http.StatusSeeOther)
 		return
 	}
 	uid, err := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)

@@ -26,8 +26,8 @@ func (d *DB) CreateTeamInvite(ctx context.Context, request appmodel.TeamInvitePe
 		return err
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO invites (token, sealed_token, team_id, role, created_by, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		teamInviteTokenHash(request.Token), sealedToken, request.TeamID, request.Role, request.CallerID, FormatTime(request.CreatedAt), FormatTime(request.ExpiresAt)); err != nil {
+		`INSERT INTO invites (token, sealed_token, team_id, role, created_by, created_at, expires_at, email) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		teamInviteTokenHash(request.Token), sealedToken, request.TeamID, request.Role, request.CallerID, FormatTime(request.CreatedAt), FormatTime(request.ExpiresAt), request.Email); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -35,13 +35,13 @@ func (d *DB) CreateTeamInvite(ctx context.Context, request appmodel.TeamInvitePe
 
 func (d *DB) FindTeamInvite(ctx context.Context, token string) (model.TeamInvite, error) {
 	return d.scanTeamInvite(d.sql.QueryRowContext(ctx, `
-		SELECT sealed_token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by
+		SELECT sealed_token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by, email
 		FROM invites WHERE token = ?`, teamInviteTokenHash(token)))
 }
 
 func (d *DB) ListTeamInvites(ctx context.Context, teamID int64) ([]model.TeamInvite, error) {
 	rows, err := d.sql.QueryContext(ctx, `
-		SELECT sealed_token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by
+		SELECT sealed_token, team_id, role, created_by, created_at, expires_at, accepted_at, accepted_by, email
 		FROM invites WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -139,7 +139,7 @@ func (d *DB) scanTeamInvite(row interface{ Scan(...any) error }) (model.TeamInvi
 	var sealedToken, role, created, expires string
 	var accepted sql.NullString
 	var acceptedBy sql.NullInt64
-	if err := row.Scan(&sealedToken, &invite.TeamID, &role, &invite.CreatedBy, &created, &expires, &accepted, &acceptedBy); err != nil {
+	if err := row.Scan(&sealedToken, &invite.TeamID, &role, &invite.CreatedBy, &created, &expires, &accepted, &acceptedBy, &invite.Email); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.TeamInvite{}, ErrNotFound
 		}

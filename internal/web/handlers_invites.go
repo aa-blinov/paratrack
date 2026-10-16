@@ -1,6 +1,8 @@
 package web
 
 import (
+	"errors"
+	"fmt"
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/mailport"
@@ -13,21 +15,32 @@ import (
 func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
-	inv, err := s.services.Teams.Invitations.NewInvite(r.Context(), appmodel.TeamInviteCreateRequest{TeamID: team.ID, CallerID: user.ID})
+	lang := resolveLang(r)
+	// The address is optional; one that does not parse counts as none.
+	to := ""
+	if addr, err := netmail.ParseAddress(r.FormValue("email")); err == nil {
+		to = addr.Address
+	}
+	inv, err := s.services.Teams.Invitations.NewInvite(r.Context(), appmodel.TeamInviteCreateRequest{TeamID: team.ID, CallerID: user.ID, Email: to})
+	if errors.Is(err, appmodel.ErrInviteAddressLive) {
+		// The address already has a link that still works: show it again
+		// instead of issuing a second one.
+		link := s.publicBaseURL(r) + "/invites/" + inv.Token
+		query := url.Values{"flash": {encodeFlash(false, fmt.Sprintf(i18n.T(lang, "flash.inviteAlreadyLive"), to))}, "invite": {link}}
+		http.Redirect(w, r, "/settings/invites?"+query.Encode(), http.StatusSeeOther)
+		return
+	}
 	if err != nil {
 		http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
-	lang := resolveLang(r)
 	link := s.publicBaseURL(r) + "/invites/" + inv.Token
 	// With an address, the invitation goes out as a letter too.
-	if to := strings.TrimSpace(r.FormValue("email")); to != "" {
-		if _, err := netmail.ParseAddress(to); err == nil && mailport.Available(s.runtime.Mailer) {
-			subj, ev := inviteEmail(lang, user.Name, team.Name, link)
-			if msg, err := s.buildEmail(r, to, subj, ev); err == nil && s.deliverPostcommit(r.Context(), msg) == nil {
-				redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteMailed")+" "+to+".", link)
-				return
-			}
+	if to != "" && mailport.Available(s.runtime.Mailer) {
+		subj, ev := inviteEmail(lang, user.Name, team.Name, link)
+		if msg, err := s.buildEmail(r, to, subj, ev); err == nil && s.deliverPostcommit(r.Context(), msg) == nil {
+			redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteMailed")+" "+to+".", link)
+			return
 		}
 	}
 	redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteCreated"), link)

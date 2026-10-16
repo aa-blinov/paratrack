@@ -18,6 +18,16 @@ func (s *Service) SetStripeCredentials(ctx context.Context, request appmodel.Tea
 	}
 	request.Key = strings.TrimSpace(request.Key)
 	request.Secret = strings.TrimSpace(request.Secret)
+	// Clear ignores the typed values, and an empty one keeps what is stored,
+	// so only a value that was actually typed must look like a Stripe one.
+	if !request.Clear {
+		if request.Key != "" && !strings.HasPrefix(request.Key, "sk_") && !strings.HasPrefix(request.Key, "rk_") {
+			return fmt.Errorf("%w: Stripe key must start with sk_ or rk_", ErrInvalidSettings)
+		}
+		if request.Secret != "" && !strings.HasPrefix(request.Secret, "whsec_") {
+			return fmt.Errorf("%w: Stripe webhook secret must start with whsec_", ErrInvalidSettings)
+		}
+	}
 	if err := s.settings.SetTeamStripe(ctx, request); err != nil {
 		return fmt.Errorf("save workspace Stripe credentials: %w", err)
 	}

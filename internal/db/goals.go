@@ -260,18 +260,7 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 		return nil, err
 	}
 
-	// The timer and the reports find an activity by its name, so time written to
-	// any activity with the same name in the team belongs to the goal. Older
-	// duplicates (written before goals stopped making them) count too.
-	sharing, err := d.activityIDsSharingName(ctx, query.TeamID, activityIDs)
-	if err != nil {
-		return nil, err
-	}
-	var allIDs []int64
-	for _, ids := range sharing {
-		allIDs = append(allIDs, ids...)
-	}
-	sessionsByActivity, err := d.goalSessionsForActivities(ctx, query.TeamID, allIDs, rangeStart, rangeEnd)
+	sessionsByActivity, err := d.goalSessionsForActivities(ctx, query.TeamID, activityIDs, rangeStart, rangeEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -279,13 +268,11 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 	for _, goal := range goals {
 		window := windows[goal.ID]
 		var totalSeconds int
-		for _, activityID := range sharing[goal.ActivityID] {
-			for _, session := range sessionsByActivity[activityID] {
-				seconds := session.TrackedSecondsInWindow(window[0], window[1], query.Now)
-				totalSeconds, err = money.AddInt(totalSeconds, seconds)
-				if err != nil {
-					return nil, fmt.Errorf("sum tracked time for goal %d: %w", goal.ID, err)
-				}
+		for _, session := range sessionsByActivity[goal.ActivityID] {
+			seconds := session.TrackedSecondsInWindow(window[0], window[1], query.Now)
+			totalSeconds, err = money.AddInt(totalSeconds, seconds)
+			if err != nil {
+				return nil, fmt.Errorf("sum tracked time for goal %d: %w", goal.ID, err)
 			}
 		}
 		minutes := totalSeconds / 60
@@ -300,27 +287,6 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 		})
 	}
 	return out, nil
-}
-
-// activityIDsSharingName maps each activity to every activity in the team with
-// the same name, itself included.
-func (d *DB) activityIDsSharingName(ctx context.Context, teamID int64, activityIDs []int64) (map[int64][]int64, error) {
-	rows, err := d.sql.QueryContext(ctx, `SELECT a.id, b.id FROM activities a
-		JOIN activities b ON b.team_id = a.team_id AND (b.name_key = a.name_key OR b.id = a.id)
-		WHERE a.team_id = ? AND a.id = ANY(?)`, teamID, activityIDs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := make(map[int64][]int64, len(activityIDs))
-	for rows.Next() {
-		var goalActivityID, sharedID int64
-		if err := rows.Scan(&goalActivityID, &sharedID); err != nil {
-			return nil, err
-		}
-		out[goalActivityID] = append(out[goalActivityID], sharedID)
-	}
-	return out, rows.Err()
 }
 
 func (d *DB) goalSessionsForActivities(ctx context.Context, teamID int64, activityIDs []int64, start, end time.Time) (map[int64][]model.Session, error) {

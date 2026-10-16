@@ -98,6 +98,9 @@ var columnMigrations = []struct {
 	{"api_tokens", "read_only", "BIGINT NOT NULL DEFAULT 0"},
 	{"webhook_event_outbox", "webhook_ids", "TEXT NOT NULL DEFAULT ''"},
 	{"invites", "sealed_token", "TEXT NOT NULL DEFAULT ''"},
+	// The address an invitation was made for, lower-cased. Empty for links
+	// made without one, which never count as a duplicate.
+	{"invites", "email", "TEXT NOT NULL DEFAULT ''"},
 	{"integrations", "sync_generation", "BIGINT NOT NULL DEFAULT 0"},
 	// The last failed sync, shown until a sync succeeds. Empty means none.
 	{"integrations", "last_sync_error", "TEXT NOT NULL DEFAULT ''"},
@@ -140,7 +143,11 @@ var compatibilityStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_sessions_activity_start ON sessions(activity_id, start_at)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_invoice ON sessions(invoice_id) WHERE invoice_id IS NOT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_unbilled ON sessions(team_id, activity_id) INCLUDE (start_at, end_at, accumulated_seconds) WHERE invoice_id IS NULL AND end_at IS NOT NULL`,
-	`CREATE INDEX IF NOT EXISTS idx_activities_key ON activities(team_id, name_key)`,
+	// One row per name in a team. The timer, goals and reports find an activity by
+	// its name; a second row would split the time from its goal. Rows written
+	// before the constraint were merged first.
+	`DROP INDEX IF EXISTS idx_activities_key`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS activities_team_name_key ON activities(team_id, name_key) WHERE name_key IS NOT NULL`,
 	// Someone who left keeps their pay rate for the time they worked, so
 	// the next pay run still pays it.
 	`CREATE TABLE IF NOT EXISTS former_members (

@@ -50,6 +50,7 @@ var (
 	ErrInvalidSessionLength      = model.ErrSessionLengthInvalid
 	ErrInvalidTeamBilling        = errors.New("invalid team billing settings")
 	ErrInvalidTeamSettings       = errors.New("invalid team settings")
+	ErrInviteAddressLive         = errors.New("invite address already has a live invitation")
 	ErrAuthInvalidEmail          = errors.New("invalid email")
 	ErrAuthValidation            = errors.New("validation failed")
 	ErrAuthNotFound              = errors.New("not found")

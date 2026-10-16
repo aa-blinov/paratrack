@@ -103,8 +103,24 @@ export function useShellShortcuts() {
   }, [])
 }
 
+// The keyboard hint is for a pointer and a keyboard; a touch screen gets none.
+function useFinePointer() {
+  const [fine, setFine] = React.useState(false)
+  React.useEffect(() => {
+    const query = window.matchMedia("(pointer: fine)")
+    const update = () => setFine(query.matches)
+    update()
+    query.addEventListener("change", update)
+    return () => query.removeEventListener("change", update)
+  }, [])
+  return fine
+}
+
 export function ApplicationShell({ shell, children }: { shell: AppShellData; children: ReactNode }) {
   useShellShortcuts()
+  const finePointer = useFinePointer()
+  // A build without a stamped version reports "dev"; that is not a version to show.
+  const releaseVersion = Boolean(shell.appVersion) && shell.appVersion !== "dev"
   // /welcome is where the sections get picked; a menu of all nine before that
   // choice promised what the choice might take away.
   const navigable = Boolean(shell.user) && shell.active !== "welcome"
@@ -116,13 +132,13 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
         <div className="app-shell-header-inner">
           {navigable && <SidebarTrigger className="app-shell-sidebar-trigger max-lg:hidden" aria-label={t(shell.lang, "nav.menu")} />}
           <a href="/" className="app-shell-brand md:hidden">paratrack</a>
-          <Breadcrumb className="hidden md:flex"><BreadcrumbList><BreadcrumbItem><BreadcrumbPage>{shell.title}</BreadcrumbPage></BreadcrumbItem></BreadcrumbList></Breadcrumb>
+          <Breadcrumb className="hidden md:flex app-shell-breadcrumb"><BreadcrumbList><BreadcrumbItem><BreadcrumbPage>{shell.title}</BreadcrumbPage></BreadcrumbItem></BreadcrumbList></Breadcrumb>
           <div className="app-shell-actions"><AccountMenu shell={shell} /></div>
         </div>
       </header>}
       <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
       {navigable && <MobileNav shell={shell} />}
-      {shell.user && <footer className="app-shell-footer"><span>{shell.appVersion}</span><span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span><div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button></footer>}
+      {shell.user && <footer className="app-shell-footer">{releaseVersion && <span>{shell.appVersion}</span>}{finePointer && <span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span>}<div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button></footer>}
     </div>
   </SidebarProvider></TooltipProvider>
 }

@@ -73,6 +73,9 @@ type TeamCreateRequest struct {
 type TeamInviteCreateRequest struct {
 	TeamID   int64
 	CallerID int64
+	// Email is optional. A live invitation already held for it is returned
+	// instead of a second one.
+	Email string
 }
 
 // TeamInvitePersistenceRequest contains the generated invitation persisted by
@@ -84,6 +87,7 @@ type TeamInvitePersistenceRequest struct {
 	CallerID  int64
 	CreatedAt time.Time
 	ExpiresAt time.Time
+	Email     string
 }
 
 type TeamInviteAcceptRequest struct {

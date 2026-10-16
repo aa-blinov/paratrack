@@ -240,7 +240,7 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 	}
 	currency := r.Form.Get("currency")
 	if currency != "" && !validCurrency(currency) {
-		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, "bad currency"), http.StatusSeeOther)
+		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad currency")), http.StatusSeeOther)
 		return
 	}
 	var ratePtr *int
@@ -285,7 +285,7 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	if v := strings.TrimSpace(r.Form.Get("estimate_minutes")); v != "" {
 		n, err := strconv.Atoi(v)
 		if err != nil {
-			flash := encodeFlash(false, "estimate must be a number of minutes")
+			flash := encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.estimate must be a number of minutes"))
 			http.Redirect(w, r, "/projects/"+slug+"?flash="+flash, http.StatusSeeOther)
 			return
 		}
@@ -306,7 +306,7 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	if _, sent := r.Form["client_id"]; sent {
 		clientID, convErr := strconv.ParseInt(strings.TrimSpace(r.Form.Get("client_id")), 10, 64)
 		if convErr != nil || clientID < 0 {
-			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, "bad client"), http.StatusSeeOther)
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad client")), http.StatusSeeOther)
 			return
 		}
 		update.ClientID = &clientID
@@ -334,7 +334,7 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	if _, sent := r.Form["currency"]; sent {
 		cur := r.Form.Get("currency")
 		if cur != "" && !validCurrency(cur) {
-			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, "bad currency"), http.StatusSeeOther)
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad currency")), http.StatusSeeOther)
 			return
 		}
 		update.Currency = &cur
@@ -368,7 +368,7 @@ func (s *Server) handleProjectDeleteForm(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 		return
 	}
-	flash := encodeFlash(true, "project deleted")
+	flash := encodeFlash(true, i18n.T(resolveLang(r), "flash.msg.project deleted"))
 	http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 }
 
