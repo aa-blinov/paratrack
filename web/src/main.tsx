@@ -535,6 +535,10 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
       request.current?.abort()
       const controller = new AbortController()
       request.current = controller
+      // The old page stays on screen until the new one is ready. After a short
+      // wait the screen says that something is on its way, so a slow page does
+      // not look like a click that did nothing. A fast page never shows it.
+      const pending = window.setTimeout(() => root?.setAttribute("data-navigating", ""), 150)
       if (mode === "push") {
         const currentKey = location.pathname + location.search
         scrollPositions.current.set(currentKey, window.scrollY)
@@ -564,6 +568,10 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
       } catch (error) {
         if (controller.signal.aborted) return
         location.assign(url.href)
+      } finally {
+        window.clearTimeout(pending)
+        // A newer navigation owns the indicator while it is on its way.
+        if (request.current === controller) root?.removeAttribute("data-navigating")
       }
     }
     const click = (event: MouseEvent) => {
