@@ -129,7 +129,7 @@ async def open_page(browser, html, path, width=1440):
 
 async def check_projects_member(browser):
     context, page, errors = await open_page(browser, projects_document(False), '/projects')
-    await page.get_by_role('heading', name='Проекты').wait_for()
+    await page.get_by_role('heading', name='Проекты', exact=True).wait_for()
     assert await page.locator('a[href="/projects/new"]').count() == 0, \
         'A member must not be offered "Новый проект": /projects/new answers 403'
     assert '/projects/new' not in await page.locator('main').inner_html(), \
@@ -144,7 +144,7 @@ async def check_projects_owner(browser):
     projects = [{'ID': 7, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed',
                  'Archived': False, 'Activities': 3, 'TodayLabel': '1 ч', 'MonthLabel': '20 ч'}]
     context, page, errors = await open_page(browser, projects_document(True, projects), '/projects')
-    await page.get_by_role('heading', name='Проекты').wait_for()
+    await page.get_by_role('heading', name='Проекты', exact=True).wait_for()
     assert await page.locator('a[href="/projects/new"]').count() == 1, \
         'A manager still creates projects from this screen'
     assert await page.locator('a[href="/projects/nordwind"]').count() == 1, \
@@ -155,7 +155,7 @@ async def check_projects_owner(browser):
 
 async def check_help_member(browser):
     context, page, errors = await open_page(browser, help_document(False), '/help')
-    await page.get_by_role('heading', name='Справка').wait_for()
+    await page.get_by_role('heading', name='Справка', exact=True).wait_for()
     hrefs = await page.locator('main a').evaluate_all('links => links.map(a => a.getAttribute("href"))')
     assert '/settings/webhooks' not in hrefs, \
         f'Help must not offer a screen the reader is refused: {hrefs}'
@@ -166,7 +166,7 @@ async def check_help_member(browser):
 
 async def check_help_owner(browser):
     context, page, errors = await open_page(browser, help_document(True), '/help')
-    await page.get_by_role('heading', name='Справка').wait_for()
+    await page.get_by_role('heading', name='Справка', exact=True).wait_for()
     assert await page.locator('main a[href="/settings/webhooks"]').count() == 1, \
         'A manager still finds webhooks from help'
     assert not errors, errors
@@ -181,7 +181,7 @@ async def check_reports_own_saved_list(browser):
          'CreatedBy': 1},
     ]
     context, page, errors = await open_page(browser, reports_document(reports), '/reports')
-    await page.get_by_role('heading', name='Отчёты').wait_for()
+    await page.get_by_role('heading', name='Отчёты', exact=True).wait_for()
     items = page.locator('main ul[aria-label="Сохранённые отчёты"] li')
     assert await items.count() == 2, 'Every saved report has a row on the reports screen'
     href = await items.first.locator('a').get_attribute('href')
@@ -197,7 +197,7 @@ async def check_reports_own_saved_list(browser):
 
 async def check_reports_empty(browser):
     context, page, errors = await open_page(browser, reports_document([]), '/reports')
-    await page.get_by_role('heading', name='Отчёты').wait_for()
+    await page.get_by_role('heading', name='Отчёты', exact=True).wait_for()
     body = await page.locator('main').inner_text()
     assert 'Сохранённые отчёты (0)' in body, body
     assert not errors, errors
@@ -208,7 +208,7 @@ async def check_stats_points_at_reports(browser):
     reports = [{'ID': 3, 'Name': 'Время по Nordwind за неделю', 'Period': 'week', 'ProjectSlug': 'nordwind',
                 'Tag': '', 'CreatedBy': 1}]
     context, page, errors = await open_page(browser, stats_document(reports), '/stats')
-    await page.get_by_role('heading', name='Статистика').wait_for()
+    await page.get_by_role('heading', name='Статистика', exact=True).wait_for()
     # The save action stays where the view is; the list has one home.
     assert await page.locator('form[action="/api/reports/save"]').count() == 1, \
         'The current view can still be saved from the screen it was set on'
@@ -225,7 +225,7 @@ async def check_tag_chip_opens_time(browser):
     tags = [{'ID': 5, 'Name': 'Разработка', 'SessionCount': 12, 'Lang': 'ru'},
             {'ID': 6, 'Name': 'Срочное', 'SessionCount': 3, 'Lang': 'ru'}]
     context, page, errors = await open_page(browser, tags_document(tags), '/tags')
-    await page.get_by_role('heading', name='Теги').wait_for()
+    await page.get_by_role('heading', name='Теги', exact=True).wait_for()
     chips = page.locator('main ul li a')
     assert await chips.count() == 2, 'Both tags lead somewhere'
     href = await chips.first.get_attribute('href')

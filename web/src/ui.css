@@ -698,6 +698,11 @@
   #paratrack-react-root .ts-day-list { display: grid; }
   #paratrack-react-root .ts-week-grid-card { display: none; }
 }
+/* Tablets: the list of days takes two columns, so a 768px screen is not a
+   single narrow column with its right half empty. */
+@media (min-width: 40rem) and (max-width: 68.75rem) {
+  #paratrack-react-root .ts-day-list { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+}
 @media (min-width: 68.75rem) {
   #paratrack-react-root .ts-day-list { display: none; }
   #paratrack-react-root .ts-week-grid-card { display: block; }
@@ -1096,6 +1101,32 @@ body {
 @media (max-width: 1023px) {
   #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { height: 40px; }
 @media (pointer: coarse) { #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { min-height: 44px; } }
+/* Touch screens: every control people tap is at least 44px high, whatever the
+   width. The period tabs, the language and theme switch, the icon buttons and
+   the breadcrumbs were 17-40px tall. */
+@media (pointer: coarse) {
+  #paratrack-react-root .period-tabs [data-slot="button"],
+  #paratrack-react-root [role="tablist"] [role="tab"],
+  #paratrack-react-root [data-slot="button"][data-size="icon"],
+  #paratrack-react-root [data-slot="button"][data-size="icon-sm"],
+  #paratrack-react-root [data-slot="button"][data-size="icon-xs"] { min-height: 44px; min-width: 44px; height: auto; }
+  #paratrack-react-root nav[aria-label] a,
+  #paratrack-react-root [data-slot="breadcrumb-link"],
+  #paratrack-react-root .app-shell-brand { display: inline-flex; align-items: center; min-height: 44px; }
+  #paratrack-react-root .segmented [data-slot="button"],
+  #paratrack-react-root [data-segmented] [data-slot="button"] { min-height: 44px; height: auto; }
+  /* A checkbox is 16px, but the label that wraps it is what a finger hits. */
+  #paratrack-react-root label:has([data-slot="checkbox"]) { min-height: 44px; display: flex; align-items: center; }
+  #paratrack-react-root [data-chip] { min-height: 44px; }
+  #paratrack-react-root [data-list-item] a { display: inline-flex; align-items: center; min-height: 44px; }
+  /* Links and filter chips with their own small padding: the padding stays,
+     the hit area becomes a finger's width. */
+  #paratrack-react-root a[class~="py-1"],
+  #paratrack-react-root a[data-touch-chip="true"],
+  #paratrack-react-root main a.min-w-0.flex-1,
+  /* A name that is a row of its own (the project in the stats list) is a row link, not a sentence link. */
+  #paratrack-react-root main div > a.min-w-0 { display: inline-flex; align-items: center; min-height: 44px; }
+}
   #paratrack-react-root [data-card][data-slot="button"] { height: auto; border-radius: 12px; }
   /* A field with flex-1 in a column had a zero basis, so its height was the 48px touch floor.
      The basis is now its own height. */

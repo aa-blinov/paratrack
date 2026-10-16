@@ -61,7 +61,7 @@ function ClientFields({ id, lang, currencies, values, autoFocus = false }: {
 
 // The four numbers are table cells on a wide screen. A phone drops those cells
 // and shows the same numbers under the name, so none of them is lost.
-const numberCell = "hidden px-4 py-3 text-right font-mono tabular-nums sm:table-cell"
+const numberCell = "hidden px-4 py-3 text-right font-mono tabular-nums xl:table-cell"
 
 function ClientRows({ client, lang, csrf, currencies, canManage, editing, onToggle }: {
   client: ClientRow
@@ -84,7 +84,7 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
 
   return <>
     <tr className={`border-t align-top ${client.Archived ? "opacity-60" : ""}`}>
-      <th scope="row" className="px-4 py-3 text-left font-normal">
+      <th scope="row" className="px-4 py-3 text-left font-normal xl:min-w-56">
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           {/* The name is the way into the client's own page: its projects,
               its documents and the notes that only make sense there. */}
@@ -94,7 +94,7 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
         {client.Email && <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Email}</p>}
         {client.Details && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Details}</p>}
         {client.Notes && <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground [overflow-wrap:anywhere]">{client.Notes}</p>}
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:hidden">
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground xl:hidden">
           {numbers.map(([label, value]) => <div key={label} className="flex justify-between gap-2"><dt>{label}</dt><dd className="font-mono tabular-nums text-foreground">{value}</dd></div>)}
         </dl>
       </th>
@@ -102,16 +102,18 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
       <td className={numberCell}>{client.TrackedLabel}</td>
       <td className={numberCell}>{client.BilledLabel}</td>
       <td className={numberCell}>{client.UnbilledLabel}</td>
-      <td className="px-4 py-3 text-right">
+      <td className="px-4 py-3 text-right whitespace-nowrap">
         {canManage && <div className="flex items-center justify-end gap-1">
+          {/* On a phone the two actions are icons, so the name keeps the room
+              it needs; the words come back from sm up and stay for screen readers. */}
           <Button type="button" variant="ghost" size="sm" aria-expanded={editing} onClick={() => onToggle(!editing)}>
-            <Pencil aria-hidden="true" />{t(lang, "clients.edit")}
+            <Pencil aria-hidden="true" /><span className="sr-only sm:not-sr-only">{t(lang, "clients.edit")}</span>
           </Button>
           <form method="POST" action={`/clients/${client.ID}/${archiveAction}`} data-confirm={client.Archived ? undefined : t(lang, "clients.confirmArchive")}>
             <input type="hidden" name="csrf_token" value={csrf} />
             <Button type="submit" variant="ghost" size="sm">
               {client.Archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
-              {t(lang, client.Archived ? "clients.restore" : "clients.archive")}
+              <span className="sr-only sm:not-sr-only">{t(lang, client.Archived ? "clients.restore" : "clients.archive")}</span>
             </Button>
           </form>
         </div>}
@@ -147,9 +149,6 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
         <Button asChild variant="outline" size="sm">
           <a href={archivedURL}>{t(lang, data.ShowArchived ? "clients.hideArchived" : "clients.showArchived")}</a>
         </Button>
-        {data.CanManage && <Button asChild size="sm">
-          <a href="#client-new"><Plus aria-hidden="true" />{t(lang, "clients.new")}</a>
-        </Button>}
       </div>
     </header>
 
@@ -171,10 +170,10 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
           <thead>
             <tr className="text-left text-xs text-muted-foreground">
               <th scope="col" className="px-4 py-3 font-medium">{t(lang, "clients.name")}</th>
-              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.projects")}</th>
-              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.tracked")}</th>
-              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.billed")}</th>
-              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.unbilled")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.projects")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.tracked")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.billed")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.unbilled")}</th>
               <th scope="col" className="px-4 py-3"><span className="sr-only">{t(lang, "clients.actions")}</span></th>
             </tr>
           </thead>

@@ -37,11 +37,9 @@ async def main():
                 await page.locator('[data-dashboard-widgets]').wait_for()
                 titles=await page.locator('[data-dashboard-widgets] [data-slot="card-title"]').all_text_contents()
                 assert titles==(['Цели'] if mode=='solo' or not manager else ['Не выставлено','Цели'] if mode=='freelance' else ['Цели','Не выставлено']),titles
-                team=page.locator('#main nav[aria-label="Работа с командой"]')
-                assert await team.count()==int(mode=='studio')
-                if mode=='studio':
-                    expected=['/schedule','/settings/members','/settings/invites','/payroll'] if manager else ['/schedule']
-                    assert await team.locator('a').evaluate_all('links=>links.map(a=>a.getAttribute("href"))')==expected
+                # The overview no longer carries a team-actions bar in any mode;
+                # the team pages are in the menu. (bf44041 «обзор проще».)
+                assert await page.locator('#main nav[aria-label="Работа с командой"]').count()==0
                 if manager:assert await page.locator('#main header a[href="/settings/sections"]').count()==1
                 else:assert await page.locator('#main header a[href="/settings/sections"]').count()==0
                 assert not errors,errors

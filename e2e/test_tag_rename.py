@@ -83,7 +83,8 @@ def chip(page, name: str):
 def new_session(page) -> int:
     """A one-off tracked session, so the stats leg works on a fresh instance."""
     api(page, "post", "/api/start", form={"activity": f"e2e {STAMP}"})
-    session_id = int(re.search(r"/api/sessions/(\d+)/stop", api(page, "get", "/api/active").text()).group(1))
+    running = json.loads(api(page, "get", "/api/active").text())["Items"]
+    session_id = next(item["ID"] for item in running if item["ActivityName"] == f"e2e {STAMP}")
     api(page, "post", f"/api/sessions/{session_id}/stop")
     api(page, "patch", f"/api/sessions/{session_id}", form={"duration": "10m"})
     return session_id
