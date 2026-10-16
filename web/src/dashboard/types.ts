@@ -843,6 +843,7 @@ export interface InviteAcceptData {
   CSRFToken: string
   Lang: string
   InviteReact: boolean
+  AlreadyIn?: boolean
   Flash?: string
   FlashOK?: boolean
 }
