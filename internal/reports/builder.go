@@ -9,6 +9,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/reportstats"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
@@ -29,6 +30,7 @@ type TagReader interface {
 type TeamReader interface {
 	Members(context.Context, int64) ([]model.TeamMember, error)
 	Currency(context.Context, int64) (string, error)
+	BillingRules(context.Context, int64) (model.BillingRules, error)
 }
 
 type ProjectReader interface {
@@ -308,6 +310,18 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report currency: %w", err)
 	}
+	var roundSeconds func(int) int
+	if query.Billable {
+		// The same rounding rule the invoices use, so a billable report and an
+		// invoice for the same time agree.
+		rules, err := b.teams.BillingRules(ctx, query.TeamID)
+		if err != nil {
+			return AggregateResult{}, fmt.Errorf("load report billing rules: %w", err)
+		}
+		roundSeconds = func(seconds int) int {
+			return money.RoundBilledSeconds(seconds, rules.RoundMinutes, rules.RoundMode)
+		}
+	}
 	projects, err := b.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID, IncludeArchived: true})
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report projects: %w", err)
@@ -356,7 +370,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 		Sessions: sessions, Projects: projectByID, ProjectCurrencies: projectCurrencies,
 		UserNames: userNames, TeamCurrency: teamCurrency,
 		Uncategorized: query.Labels.Uncategorized, UnassignedUser: query.Labels.Unassigned,
-		GroupBy: query.GroupBy, Billable: query.Billable,
+		GroupBy: query.GroupBy, Billable: query.Billable, RoundSeconds: roundSeconds,
 		From: query.From, To: query.To, Now: query.Now, Location: query.Location,
 	})
 	if err != nil {

@@ -925,7 +925,10 @@
 .doc-table thead th{font-weight:600}
 }
 @media print {
-.no-print,header,footer,#toast,.minibar{display:none!important}
+html,body{background:#fff!important}
+.no-print,.app-shell-footer,#toast,.minibar,.mobile-nav{display:none!important}
+#paratrack-react-root{color:#000!important;background:#fff!important}
+#paratrack-react-root *{color:#000!important;background-color:transparent!important;border-color:#999!important;box-shadow:none!important}
 }
 .sk-chart{align-items:flex-end;gap:.5rem;height:380px;padding:1rem .5rem 2rem;display:flex}
 .sk-chart>span{background-color:var(--muted);background-image:linear-gradient(90deg, transparent, var(--border), transparent);border-radius:4px 4px 0 0;flex:1}
@@ -1092,6 +1095,7 @@ body {
    a text field, so it keeps the native control. */
 @media (max-width: 1023px) {
   #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { height: 40px; }
+@media (pointer: coarse) { #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { min-height: 44px; } }
   #paratrack-react-root [data-card][data-slot="button"] { height: auto; border-radius: 12px; }
   /* A field with flex-1 in a column had a zero basis, so its height was the 48px touch floor.
      The basis is now its own height. */

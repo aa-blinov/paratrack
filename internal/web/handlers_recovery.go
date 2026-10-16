@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,7 +16,7 @@ func (s *Server) handleForgotPassword(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMsg = humaniseAuthError(v, resolveLang(r))
 	}
 	if v := r.URL.Query().Get("sent"); v == "1" {
-		data.InfoMsg = "If that address has an account, a reset link is on its way. Check your inbox (and the server log if mail is not configured)."
+		data.InfoMsg = i18n.T(resolveLang(r), "auth.resetSent")
 	}
 	data.Email = r.URL.Query().Get("email")
 	data.CSRFToken = ensureCSRF(w, r)

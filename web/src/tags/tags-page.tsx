@@ -27,6 +27,16 @@ export function TagsPage({ data }: { data: TagsData }) {
   const renameButtons = React.useRef(new Map<number, HTMLButtonElement>())
   const lang = data.Lang
 
+  // Offline, the action is queued and the list refreshes when the connection
+  // is back, so a failed refresh is not the person's failure.
+  function failureText(cause: unknown): string {
+    if (cause instanceof TypeError) return t(lang, "pwa.offline")
+    return cause instanceof Error ? cause.message : t(lang, "err.generic")
+  }
+  async function refreshQuietly() {
+    try { await refresh() } catch { /* the list catches up when the connection returns */ }
+  }
+
   async function refresh() {
     const response = await fetch("/api/tags", { credentials: "same-origin", headers: { Accept: "application/json" } })
     if (!response.ok) throw new Error(response.statusText)
@@ -45,16 +55,16 @@ export function TagsPage({ data }: { data: TagsData }) {
     const name = String(new FormData(form).get("name") || "").trim()
     if (!name) return
     setBusy(true); setError("")
-    try { await send("/api/tags", "POST", new URLSearchParams({ name })); await refresh(); form.reset() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
+    try { await send("/api/tags", "POST", new URLSearchParams({ name })); await refreshQuietly(); form.reset() }
+    catch (cause) { setError(failureText(cause)) }
     finally { setBusy(false) }
   }
 
   async function remove(tag: TagView) {
     if (!await requestConfirmation(t(lang, "tags.confirmDelete"))) return
     setBusy(true); setError("")
-    try { await send(`/api/tags?id=${tag.ID}`, "DELETE"); await refresh() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
+    try { await send(`/api/tags?id=${tag.ID}`, "DELETE"); await refreshQuietly() }
+    catch (cause) { setError(failureText(cause)) }
     finally { setBusy(false) }
   }
 
@@ -66,8 +76,8 @@ export function TagsPage({ data }: { data: TagsData }) {
   async function rename(tag: TagView, name: string) {
     if (!name.trim()) return
     setBusy(true); setRenameError("")
-    try { await send("/api/tags", "PATCH", new URLSearchParams({ id: String(tag.ID), name: name.trim() })); await refresh(); closeRename(tag.ID) }
-    catch (cause) { setRenameError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
+    try { await send("/api/tags", "PATCH", new URLSearchParams({ id: String(tag.ID), name: name.trim() })); await refreshQuietly(); closeRename(tag.ID) }
+    catch (cause) { setRenameError(failureText(cause)) }
     finally { setBusy(false) }
   }
 

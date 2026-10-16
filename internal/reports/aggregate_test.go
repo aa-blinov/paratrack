@@ -120,3 +120,56 @@ func TestAggregateRejectsUnknownGroup(t *testing.T) {
 
 func timePtr(value time.Time) *time.Time { return &value }
 func intPtr(value int) *int              { return &value }
+
+// A billable row is the sum of its activity lines: each line's hours are
+// rounded to hundredths before pricing, as an invoice line is. Two activities
+// of 15.08 h and 15.83 h at 4 500 RUB/h are 30.91 h and 139 095 RUB, not
+// 30.92 h priced from the project's total.
+func TestBillableRowsSumTheirLines(t *testing.T) {
+	start := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	session := func(activity int64, seconds int) appmodel.ActiveSession {
+		return appmodel.ActiveSession{
+			Session:  model.Session{StartAt: start, EndAt: timePtr(start.Add(time.Duration(seconds) * time.Second)), AccumulatedSeconds: seconds},
+			Activity: model.Activity{ID: activity, Name: "activity", ProjectID: 1},
+		}
+	}
+	input := AggregateInput{
+		Sessions:          []appmodel.ActiveSession{session(17, 54300), session(18, 57000)},
+		Projects:          map[int64]model.Project{1: {ID: 1, Billable: true, BillableRateCents: intPtr(450000)}},
+		ProjectCurrencies: map[int64]string{1: "RUB"},
+		TeamCurrency:      "RUB",
+		GroupBy:           appmodel.ReportGroupProject,
+		Billable:          true,
+		From:              start.Add(-time.Hour),
+		To:                start.Add(24 * time.Hour),
+		Now:               start.Add(24 * time.Hour),
+	}
+	result, err := Aggregate(input)
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	if len(result.Rows) != 1 {
+		t.Fatalf("rows = %d, want 1", len(result.Rows))
+	}
+	if got, want := result.Rows[0].Seconds, 3091*36; got != want {
+		t.Fatalf("row seconds = %d, want %d (30.91 h)", got, want)
+	}
+	if got, want := result.Rows[0].AmountCents, 13909500; got != want {
+		t.Fatalf("row amount = %d cents, want %d (139 095 RUB)", got, want)
+	}
+	if result.TotalCents != result.Rows[0].AmountCents || result.TotalSeconds != result.Rows[0].Seconds {
+		t.Fatalf("total %d/%d differs from the only row %d/%d", result.TotalSeconds, result.TotalCents, result.Rows[0].Seconds, result.Rows[0].AmountCents)
+	}
+
+	// The workspace rounding rule applies to each line before it is priced:
+	// 54 300 s rounds up to 61 quarter hours (15.25 h), 57 000 s to 64 (16 h).
+	// Priced at 4 500 RUB/h that is 68 625 + 72 000 = 140 625 RUB.
+	input.RoundSeconds = func(seconds int) int { return (seconds + 899) / 900 * 900 }
+	rounded, err := Aggregate(input)
+	if err != nil {
+		t.Fatalf("aggregate with rounding: %v", err)
+	}
+	if got, want := rounded.Rows[0].AmountCents, 14062500; got != want {
+		t.Fatalf("rounded row amount = %d cents, want %d (140 625 RUB)", got, want)
+	}
+}

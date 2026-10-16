@@ -38,6 +38,16 @@ func (p authPage) T(key string) string { return i18n.T(i18n.Lang(p.Lang), key) }
 func (p *authPage) setCSRF(token string) { p.CSRFToken = token }
 func (p *authPage) setLang(lang string)  { p.Lang = lang }
 
+// inviteLinkProblem says so when the person came from an invitation link that
+// no longer works. Without it the sign-in page looked like a plain sign-in and
+// the person could not tell why the invitation did nothing.
+func inviteLinkProblem(current, next, team string, lang i18n.Lang) string {
+	if current != "" || team != "" || !strings.HasPrefix(next, "/invites/") {
+		return current
+	}
+	return i18n.T(lang, "invite.invalid")
+}
+
 // inviteTeamFor is the workspace an invite link in ?next= leads to, or "".
 func (s *Server) inviteTeamFor(r *http.Request, next string) string {
 	token, ok := strings.CutPrefix(next, "/invites/")
@@ -63,6 +73,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
+	data.ErrorMsg = inviteLinkProblem(data.ErrorMsg, data.Next, data.InviteTeam, resolveLang(r))
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
 	s.renderPage(w, r, "Log in", "", &data)
@@ -79,6 +90,7 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
+	data.ErrorMsg = inviteLinkProblem(data.ErrorMsg, data.Next, data.InviteTeam, resolveLang(r))
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
 	s.renderPage(w, r, "Sign up", "", &data)

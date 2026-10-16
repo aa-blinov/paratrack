@@ -22,10 +22,13 @@ type AggregateInput struct {
 	UnassignedUser    string
 	GroupBy           appmodel.ReportGroup
 	Billable          bool
-	From              time.Time
-	To                time.Time
-	Now               time.Time
-	Location          *time.Location
+	// RoundSeconds applies the workspace rounding rule to one activity's time
+	// before it is priced. Nil means no rounding.
+	RoundSeconds func(seconds int) int
+	From         time.Time
+	To           time.Time
+	Now          time.Time
+	Location     *time.Location
 }
 
 type AggregateRow = appmodel.ReportAggregateRow
@@ -37,6 +40,23 @@ type bucketKey struct {
 	currency string
 }
 
+// secondsPerHundredth is one hundredth of an hour: the precision of an hours
+// figure on a report or an invoice line.
+const secondsPerHundredth = 36
+
+// billedLine is one activity's tracked time inside a bucket at its rate: the
+// unit an invoice prices, so a report can price the same way. An activity at
+// two rates is two lines, as two invoice lines would be.
+type billedLine struct {
+	seconds int
+	rate    int
+}
+
+type lineKey struct {
+	activityID int64
+	rate       int
+}
+
 type bucket struct {
 	seconds    int
 	rate       int
@@ -44,7 +64,7 @@ type bucket struct {
 	rateVaries bool
 	amount     int
 	currency   string
-	byRate     map[int]int
+	lines      map[lineKey]*billedLine
 	day        time.Time
 }
 
@@ -136,28 +156,52 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			} else if current.rate != rate {
 				current.rateVaries = true
 			}
-			if current.byRate == nil {
-				current.byRate = make(map[int]int)
+			if current.lines == nil {
+				current.lines = make(map[lineKey]*billedLine)
 			}
-			current.byRate[rate], err = money.AddInt(current.byRate[rate], seconds)
+			key := lineKey{activityID: session.Activity.ID, rate: rate}
+			line := current.lines[key]
+			if line == nil {
+				line = &billedLine{rate: rate}
+				current.lines[key] = line
+			}
+			line.seconds, err = money.AddInt(line.seconds, seconds)
 			if err != nil {
-				return AggregateResult{}, fmt.Errorf("sum report time at rate %d: %w", rate, err)
+				return AggregateResult{}, fmt.Errorf("sum report time for activity %d: %w", session.Activity.ID, err)
 			}
+		}
+	}
+
+	// Billable time is priced line by line, as an invoice prices it: each
+	// activity's time goes through the workspace rounding rule, its hours to
+	// hundredths, and the amount is the rate times those hours. A bucket's hours
+	// are the sum of its lines, so the hours shown, the amount and an invoice
+	// built from the same lines agree to the cent.
+	if input.Billable {
+		result.TotalSeconds = 0
+		for _, current := range buckets {
+			current.seconds = 0
+			for _, line := range current.lines {
+				rounded := line.seconds
+				if input.RoundSeconds != nil {
+					rounded = input.RoundSeconds(line.seconds)
+				}
+				current.seconds += money.HoursHundredths(rounded) * secondsPerHundredth
+				amount, err := money.PriceCents(rounded, line.rate)
+				if err != nil {
+					return AggregateResult{}, err
+				}
+				current.amount, err = money.AddCents(current.amount, amount)
+				if err != nil {
+					return AggregateResult{}, err
+				}
+			}
+			result.TotalSeconds += current.seconds
 		}
 	}
 
 	result.Rows = make([]AggregateRow, 0, len(buckets))
 	for key, current := range buckets {
-		for rate, seconds := range current.byRate {
-			amount, err := money.PriceCents(seconds, rate)
-			if err != nil {
-				return AggregateResult{}, err
-			}
-			current.amount, err = money.AddCents(current.amount, amount)
-			if err != nil {
-				return AggregateResult{}, err
-			}
-		}
 		var err error
 		result.TotalCents, err = money.AddCents(result.TotalCents, current.amount)
 		if err != nil {

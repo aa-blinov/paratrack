@@ -47,10 +47,13 @@ function InvoiceRow({ lang, invoice }: { lang: string; invoice: ClientDetailInvo
   </a>
 }
 
-function EmptyBlock({ icon, text }: { icon: ReactNode; text: string }) {
-  return <Card><CardContent className="flex flex-col items-center gap-3 py-12 text-center">
+// Inside a card the empty state reads like the card's body: left-aligned, with
+// the next step beside the fact when there is one.
+function EmptyBlock({ icon, text, hint }: { icon: ReactNode; text: string; hint?: string }) {
+  return <Card><CardContent className="flex flex-col items-start gap-2 py-6 text-left">
     {icon}
     <p className="text-sm text-muted-foreground">{text}</p>
+    {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
   </CardContent></Card>
 }
 
@@ -102,7 +105,7 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
       <h2 className="text-sm font-medium">{t(lang, "inv.title")}</h2>
       {invoices.length ? <Card><CardContent className="grid gap-3 p-5">
         {invoices.map(invoice => <InvoiceRow key={invoice.ID} lang={lang} invoice={invoice} />)}
-      </CardContent></Card> : <EmptyBlock icon={<Receipt aria-hidden="true" className="size-5 text-muted-foreground" />} text={t(lang, "inv.empty")} />}
+      </CardContent></Card> : <EmptyBlock icon={<Receipt aria-hidden="true" className="size-5 text-muted-foreground" />} text={t(lang, "inv.empty")} hint={t(lang, "clients.noInvoicesHint")} />}
     </section>
   </main>
 }
