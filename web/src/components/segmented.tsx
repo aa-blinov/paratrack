@@ -59,11 +59,11 @@ export function SegmentedControl({ label, options, value, trailing, className, c
       const active = option.key === value
       const variant = active ? "secondary" : "ghost"
       return option.href
-        ? <Button key={option.key} asChild size="sm" variant={variant} className="h-11 shrink-0"
+        ? <Button key={option.key} asChild size="sm" variant={variant} className="shrink-0"
             aria-current={active ? currentAs : undefined}>
             <a href={option.href}>{option.label}</a>
           </Button>
-        : <Button key={option.key} type="button" size="sm" variant={variant} className="h-11 shrink-0"
+        : <Button key={option.key} type="button" size="sm" variant={variant} className="shrink-0"
             aria-pressed={active} onClick={option.onSelect}>{option.label}</Button>
     })}
     {trailing}
