@@ -78,11 +78,11 @@ function MonthGrid({ lang, selected, onPick }: { lang: string; selected: string;
 
   return <div className="w-64 rounded-lg border bg-card p-3 shadow-md" role="group" aria-label={lang === "en" ? "Calendar" : "Календарь"}>
     <div className="mb-2 flex items-center justify-between">
-      <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={lang === "en" ? "Previous month" : "Предыдущий месяц"} onClick={() => shift(-1)}>
+      <Button type="button" variant="ghost" size="icon" aria-label={lang === "en" ? "Previous month" : "Предыдущий месяц"} onClick={() => shift(-1)}>
         <ChevronLeft aria-hidden="true" className="size-4" />
       </Button>
       <span className="text-sm font-medium"><span className="capitalize">{monthLabel(cursor.month, lang)}</span> {cursor.year}</span>
-      <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={lang === "en" ? "Next month" : "Следующий месяц"} onClick={() => shift(1)}>
+      <Button type="button" variant="ghost" size="icon" aria-label={lang === "en" ? "Next month" : "Следующий месяц"} onClick={() => shift(1)}>
         <ChevronRight aria-hidden="true" className="size-4" />
       </Button>
     </div>

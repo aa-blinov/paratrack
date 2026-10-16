@@ -51,7 +51,7 @@ function ProjectRow({ data, project, open, onToggle }: {
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 shrink-0"
+            className="shrink-0"
             aria-expanded={open}
             aria-controls={panelID}
             aria-label={t(lang, "projects.toggleActivities", project.Name)}

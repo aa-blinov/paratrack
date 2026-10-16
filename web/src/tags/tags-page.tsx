@@ -106,8 +106,8 @@ export function TagsPage({ data }: { data: TagsData }) {
                 owns the tag instead of from a dashboard the user must find. */}
             <a href={`/stats?${tagTimeQuery(tag.Name)}`} title={t(lang, "tags.timeByTag")} aria-label={`${t(lang, "tags.timeByTag")}: #${tag.Name}`} className="min-w-0 truncate py-1 underline-offset-4 hover:underline">#{tag.Name}</a>
             <span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono font-semibold tabular-nums" title={t(lang, "tags.countTitle")}>{tag.SessionCount}</span>
-            {data.CanManage && <><Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} data-tag-rename ref={node => { if (node) renameButtons.current.set(tag.ID, node); else renameButtons.current.delete(tag.ID) }} aria-expanded={renaming === tag.ID} title={t(lang, "tags.rename")} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} onClick={() => openRename(tag)}><Pencil aria-hidden="true" /></Button>
-              <Button type="button" variant="ghost" size="icon" className="size-7" disabled={busy} title={t(lang, "tags.delete")} aria-label={`${t(lang, "tags.delete")}: ${tag.Name}`} onClick={() => void remove(tag)}><Trash2 aria-hidden="true" /></Button></>}
+            {data.CanManage && <><Button type="button" variant="ghost" size="icon" disabled={busy} data-tag-rename ref={node => { if (node) renameButtons.current.set(tag.ID, node); else renameButtons.current.delete(tag.ID) }} aria-expanded={renaming === tag.ID} title={t(lang, "tags.rename")} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} onClick={() => openRename(tag)}><Pencil aria-hidden="true" /></Button>
+              <Button type="button" variant="ghost" size="icon" disabled={busy} title={t(lang, "tags.delete")} aria-label={`${t(lang, "tags.delete")}: ${tag.Name}`} onClick={() => void remove(tag)}><Trash2 aria-hidden="true" /></Button></>}
           </span>
           {renaming === tag.ID && <RenameTagForm lang={lang} tag={tag} busy={busy} error={renameError} onSubmit={name => void rename(tag, name)} onCancel={() => closeRename(tag.ID)} />}
         </li>)}
@@ -134,8 +134,8 @@ function RenameTagForm({ lang, tag, busy, error, onSubmit, onCancel }: {
   return <form data-tag-rename-form className="flex min-w-0 flex-col gap-1" onSubmit={event => { event.preventDefault(); onSubmit(value) }} onKeyDown={event => { if (event.key === "Escape") onCancel() }}>
     <div className="flex min-w-0 items-center gap-1">
       <Input ref={input} aria-label={`${t(lang, "tags.rename")}: ${tag.Name}`} aria-invalid={error ? true : undefined} aria-describedby="tag-rename-error" value={value} onChange={event => setValue(event.target.value)} className="h-7 w-48" />
-      <Button type="submit" size="icon-sm" variant="outline" disabled={busy} title={t(lang, "projects.save")} aria-label={`${t(lang, "projects.save")}: ${tag.Name}`}><Check aria-hidden="true" /></Button>
-      <Button type="button" size="icon-sm" variant="ghost" disabled={busy} title={t(lang, "projects.cancel")} aria-label={`${t(lang, "projects.cancel")}: ${tag.Name}`} onClick={onCancel}><X aria-hidden="true" /></Button>
+      <Button type="submit" size="icon" variant="outline" disabled={busy} title={t(lang, "projects.save")} aria-label={`${t(lang, "projects.save")}: ${tag.Name}`}><Check aria-hidden="true" /></Button>
+      <Button type="button" size="icon" variant="ghost" disabled={busy} title={t(lang, "projects.cancel")} aria-label={`${t(lang, "projects.cancel")}: ${tag.Name}`} onClick={onCancel}><X aria-hidden="true" /></Button>
     </div>
     <span id="tag-rename-error" role="alert" className="max-w-48 text-xs text-destructive [overflow-wrap:anywhere]">{error}</span>
   </form>
