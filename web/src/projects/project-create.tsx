@@ -55,7 +55,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
         </Disclosure>
         <div className="flex items-center justify-between gap-2 border-t pt-4 sm:col-span-2">
           <Button asChild variant="ghost" size="sm"><a href="/projects">{t(lang, "projects.cancel")}</a></Button>
-          <Button type="submit" size="sm"><Plus aria-hidden="true" />{t(lang, "projects.create")}</Button>
+          <Button type="submit"><Plus aria-hidden="true" />{t(lang, "projects.create")}</Button>
         </div>
       </form>
     </CardContent></Card>
