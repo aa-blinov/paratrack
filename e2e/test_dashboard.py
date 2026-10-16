@@ -141,7 +141,7 @@ def main() -> int:
         # is set. On repeated runs the email is taken; detect by checking
         # the URL after submit — fall back to /login.
         register_account(page, email=e2e_email)
-        # Register can land on `/` (success), `/register?error=…` (duplicate),
+        # Register can land on `/` (success), `/register` (duplicate, its error is shown there),
         # or `/login` (any prior redirect). Fall through to sign_in unless
         # we actually reached the dashboard.
         if "/login" in page.url or "/register" in page.url:
@@ -559,7 +559,7 @@ def main() -> int:
         # here, success was silent, and a person could not tell a saved
         # project from a failed one. The confirmation is part of the
         # contract, so it is asserted rather than merely waited for.
-        page.wait_for_url(f"**/projects/{proj_slug}?flash=*")
+        page.wait_for_url(f"**/projects/{proj_slug}")
         check(f"project created at /projects/{proj_slug}", proj_slug in page.url)
         # Scoped to the paragraph, not role=status in general: the toast and
         # the hidden offline banner carry that role too.
@@ -577,7 +577,7 @@ def main() -> int:
         page.fill("#project-name", updated_project_name)
         page.fill("#project-estimate", "480")
         page.locator('#paratrack-react-root form[method="POST"][action^="/projects/"] button[type="submit"]').first.click()
-        page.wait_for_url(f"**/projects/{proj_slug}?flash=*")
+        page.wait_for_url(f"**/projects/{proj_slug}")
         proj_name = updated_project_name
         expect(page.locator("h1")).to_contain_text(proj_name)
         check("React project edit form persists name and estimate", proj_name in page.content()

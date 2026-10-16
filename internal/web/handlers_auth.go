@@ -173,7 +173,7 @@ func (s *Server) restoreLastWorkspace(w http.ResponseWriter, r *http.Request, us
 	}
 	team, err := s.services.Teams.Administration.Create(r.Context(), appmodel.TeamCreateRequest{
 		OwnerID: user.ID,
-		Name:    localizedPersonalTeamName(resolveLang(r), user.Name),
+		Name:    personalTeamName(user.Name),
 	})
 	if err != nil {
 		s.logInternalError(fmt.Errorf("recreate personal workspace: %w", err))
@@ -231,7 +231,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teamName := localizedPersonalTeamName(resolveLang(r), name)
+	teamName := personalTeamName(name)
 	sess, _, err := s.services.Auth.SignIn.RegisterAndStartSession(operationContext(r), appmodel.RegistrationRequest{
 		Email: email, Password: password, Name: name, TeamName: teamName,
 	})
@@ -257,8 +257,11 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, redirect, http.StatusSeeOther)
 }
 
-func localizedPersonalTeamName(lang i18n.Lang, name string) string {
-	return strings.ReplaceAll(i18n.T(lang, "team.personalName"), "{name}", strings.TrimSpace(name))
+// personalTeamName names a personal workspace after its owner. The workspace
+// is the owner's own space, so the name alone says it; a prefix only repeats
+// the chip that already shows it.
+func personalTeamName(name string) string {
+	return strings.TrimSpace(name)
 }
 
 // handleAPILogout kills the current session and bounces to /login.

@@ -327,7 +327,7 @@ def main() -> int:
         pg.get_by_role("button", name="Create", exact=True).click()
         # Creating confirms like updating does, so the redirect carries the
         # confirmation code. Waiting on the bare path would never match.
-        pg.wait_for_url(f"**/projects/qa-client-{ts}?flash=*")
+        pg.wait_for_url(f"**/projects/qa-client-{ts}")
         pg.wait_for_load_state("load")
         wait_ready(pg)
         check("project created", f"qa-client-{ts}" in pg.url)

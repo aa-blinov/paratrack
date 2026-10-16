@@ -337,3 +337,19 @@ func (d *DB) backfillClientCards(ctx context.Context, tx *Tx, sources clientSeed
 		return nil
 	}
 }
+
+// migratePersonalTeamNames drops the localized prefix from personal workspaces
+// that registration named with it («Пространство: Имя», «Name's workspace»).
+// Only a team that still carries exactly the name registration gave it is
+// renamed: a workspace its owner renamed keeps the name they chose.
+func (d *DB) migratePersonalTeamNames(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261016_personal_team_names", func(tx *Tx) error {
+		_, err := tx.ExecContext(ctx, `UPDATE teams AS t SET name = TRIM(u.name)
+			FROM users AS u
+			WHERE u.id = t.owner_id
+			  AND t.name IN ('Пространство: ' || TRIM(u.name), TRIM(u.name) || '''s workspace')
+			  AND t.name <> TRIM(u.name)`)
+		return err
+	})
+	return err
+}

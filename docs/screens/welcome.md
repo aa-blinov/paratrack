@@ -77,5 +77,5 @@
 ## Источники
 
 `web/src/settings/sections-page.tsx`, `web/src/components/login-form.tsx`,
-`internal/web/handlers_auth.go` (`localizedPersonalTeamName`),
+`internal/web/handlers_auth.go` (`personalTeamName`),
 `internal/i18n/dict/ru.json` (ключи `welcome.*`, `set.*`).
