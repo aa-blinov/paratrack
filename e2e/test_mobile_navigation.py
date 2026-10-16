@@ -206,18 +206,27 @@ async def check_one_touch_floor_everywhere(browser):
                                     'ProjectColor': '', 'Paused': False, 'Clock': '00:06:48', 'ResumeISO': ''}]})))
     await page.evaluate("window.dispatchEvent(new Event('paratrack:synced'))")
     await page.locator('aside button[aria-label="Пауза: Правка макета"]').wait_for()
+    # Material 3 draws a button at its size (40dp) and the 48dp touch target
+    # around it: the target is the box plus the hit area the ::after draws.
     measured = await page.evaluate("""() => {
       const out = [];
+      const parse = v => (v === 'auto' ? 0 : parseFloat(v) || 0);
       for (const el of document.querySelectorAll('aside button')) {
         const r = el.getBoundingClientRect();
-        out.push({label: el.getAttribute('aria-label'), w: Math.round(r.width), h: Math.round(r.height)});
+        const a = getComputedStyle(el, '::after');
+        let l = r.left, t = r.top, rt = r.right, b = r.bottom;
+        if (a.content !== 'none' && a.position === 'absolute') {
+          l += parse(a.left); t += parse(a.top); rt -= parse(a.right); b -= parse(a.bottom);
+        }
+        out.push({label: el.getAttribute('aria-label'), w: Math.round(rt - l), h: Math.round(b - t),
+                  drawnW: Math.round(r.width), drawnH: Math.round(r.height)});
       }
       return out;
     }""")
     assert len(measured) == 2, f'the running-timer bar rendered its two controls — {measured}'
     for control in measured:
         assert max(control['w'], control['h']) >= TOUCH, \
-            f'the timer bar control «{control["label"]}» is {control["w"]}×{control["h"]}px, under Material\'s {TOUCH}dp'
+            f'the timer bar control «{control["label"]}» has a {control["w"]}×{control["h"]}px touch target, under Material\'s {TOUCH}dp'
     assert not errors, errors
     await context.close()
 
