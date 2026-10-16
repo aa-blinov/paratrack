@@ -54,16 +54,16 @@ export function SegmentedControl({ label, options, value, trailing, className, c
   const Root = options.some(option => option.href) ? "nav" : "div"
   return <Root ref={ref as React.RefObject<HTMLDivElement>} role={Root === "div" ? "group" : undefined} aria-label={label} // On a phone the periods are one row that scrolls sideways: wrapped, six
   // periods took three rows of a 390px screen.
-  className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 [scrollbar-width:none] ${more ? "max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)]" : ""} lg:flex-wrap ${className || ""}`}>
+  className={`period-tabs flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto rounded-full bg-muted p-1 [scrollbar-width:none] ${more ? "max-lg:[mask-image:linear-gradient(to_right,#000_86%,transparent)]" : ""} lg:flex-wrap ${className || ""}`}>
     {options.map(option => {
       const active = option.key === value
       const variant = active ? "secondary" : "ghost"
       return option.href
-        ? <Button key={option.key} asChild size="sm" variant={variant} className="shrink-0"
+        ? <Button key={option.key} asChild variant={variant} className="shrink-0"
             aria-current={active ? currentAs : undefined}>
             <a href={option.href}>{option.label}</a>
           </Button>
-        : <Button key={option.key} type="button" size="sm" variant={variant} className="shrink-0"
+        : <Button key={option.key} type="button" variant={variant} className="shrink-0"
             aria-pressed={active} onClick={option.onSelect}>{option.label}</Button>
     })}
     {trailing}

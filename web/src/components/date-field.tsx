@@ -105,8 +105,8 @@ function MonthGrid({ lang, selected, onPick }: { lang: string; selected: string;
       })}
     </div>
     <div className="mt-2 flex justify-between border-t pt-2">
-      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onPick(todayISO())}>{lang === "en" ? "Today" : "Сегодня"}</Button>
-      <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => onPick("")}>{lang === "en" ? "Clear" : "Очистить"}</Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => onPick(todayISO())}>{lang === "en" ? "Today" : "Сегодня"}</Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => onPick("")}>{lang === "en" ? "Clear" : "Очистить"}</Button>
     </div>
   </div>
 }
