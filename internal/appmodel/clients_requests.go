@@ -141,8 +141,8 @@ type ClientProject struct {
 type ClientInvoice struct {
 	ID          int64
 	Number      string
-	PeriodStart string
-	PeriodEnd   string
+	PeriodStart time.Time
+	PeriodEnd   time.Time
 	Status      string
 	Currency    string
 	TotalCents  int

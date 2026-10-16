@@ -41,7 +41,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
       ID: item.goal.id, ActivityName: item.activity_name, Color: colors.get(item.activity_name) || "#6366f1", Period: item.goal.period,
       TargetMinutes: item.goal.target_minutes, TargetLabel: durationLabel(item.goal.target_minutes * 60, lang),
       AchievedMinutes: item.achieved_minutes, AchievedLabel: durationLabel(item.achieved_minutes * 60, lang), Percent: item.percent_complete,
-      PeriodStartLabel: dateLabel(item.period_start, lang), PeriodEndLabel: dateLabel(item.period_end, lang), PeriodRangeLabel: t(lang, `goals.${item.goal.period}`),
+      PeriodStartLabel: dateLabel(item.period_start, lang), PeriodEndLabel: dateLabel(new Date(new Date(item.period_end).getTime() - 864e5).toISOString(), lang), PeriodRangeLabel: t(lang, `goals.${item.goal.period}`),
     })))
   }
 

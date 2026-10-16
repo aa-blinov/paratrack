@@ -14,6 +14,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/integrationport"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/postcommit"
+	"github.com/aa-blinov/paratrack/internal/providerstatus"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
@@ -47,6 +48,8 @@ type IntegrationTaskStore interface {
 // and returns credentials only to the manager-authorized sync path.
 type IntegrationSyncStarter interface {
 	BeginIntegrationSync(context.Context, appmodel.IntegrationSyncStartRequest) (appmodel.IntegrationSyncCredentials, error)
+	// SetIntegrationSyncError records the last failure, or clears it with "".
+	SetIntegrationSyncError(context.Context, appmodel.IntegrationSyncErrorRequest) error
 }
 
 type Dependencies struct {
@@ -325,7 +328,25 @@ func (s *Service) SyncProvider(ctx context.Context, request appmodel.Integration
 		Config:   integration.Config,
 	})
 	if err != nil {
+		// Keep the failure on the integration: the page shows it until a sync
+		// works, instead of a silent "0 tasks". Only the provider and status go
+		// in, never the response body.
+		_ = s.syncStarter.SetIntegrationSyncError(ctx, appmodel.IntegrationSyncErrorRequest{TeamID: teamID, IntegrationID: integration.ID, Message: syncFailureText(err)})
 		return 0, fmt.Errorf("fetch %s tasks: %w", integration.Provider, err)
 	}
-	return s.syncTasksGeneration(ctx, teamID, integration.ID, callerID, integration.Generation, tasks)
+	n, err := s.syncTasksGeneration(ctx, teamID, integration.ID, callerID, integration.Generation, tasks)
+	if err == nil {
+		_ = s.syncStarter.SetIntegrationSyncError(ctx, appmodel.IntegrationSyncErrorRequest{TeamID: teamID, IntegrationID: integration.ID})
+	}
+	return n, err
+}
+
+// syncFailureText is the failure as the page shows it: the provider and its
+// HTTP status for a rejected request, a plain word for anything else.
+func syncFailureText(err error) string {
+	var statusErr *providerstatus.Error
+	if errors.As(err, &statusErr) {
+		return statusErr.Error()
+	}
+	return "internal"
 }

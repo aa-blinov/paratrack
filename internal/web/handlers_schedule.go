@@ -81,6 +81,15 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 			ISO: d.Format("2006-01-02"), IsToday: sameDay(d, now),
 		}
 	}
+	// The day card on a phone sums the cells the grid shows for that day.
+	for _, row := range schedule.Rows {
+		for i := range days {
+			days[i].Min += row.Cells[i].Min
+		}
+	}
+	for i := range days {
+		days[i].Total = fmtDur(r, days[i].Min*60)
+	}
 	data := schedulePage{
 		pageData:      pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
 		ScheduleReact: true,

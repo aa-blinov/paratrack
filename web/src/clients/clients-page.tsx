@@ -59,7 +59,11 @@ function ClientFields({ id, lang, currencies, values, autoFocus = false }: {
   </>
 }
 
-function ClientCard({ client, lang, csrf, currencies, canManage, editing, onToggle }: {
+// The four numbers are table cells on a wide screen. A phone drops those cells
+// and shows the same numbers under the name, so none of them is lost.
+const numberCell = "hidden px-4 py-3 text-right font-mono tabular-nums sm:table-cell"
+
+function ClientRows({ client, lang, csrf, currencies, canManage, editing, onToggle }: {
   client: ClientRow
   lang: string
   csrf: string
@@ -71,29 +75,39 @@ function ClientCard({ client, lang, csrf, currencies, canManage, editing, onTogg
   // Архивный клиент остаётся видимым, но приглушён: спрятать его совсем —
   // значит потерять историю проектов, которые на него ссылаются.
   const archiveAction = client.Archived ? "restore" : "archive"
+  const numbers = [
+    [t(lang, "clients.projects"), client.Projects],
+    [t(lang, "clients.tracked"), client.TrackedLabel],
+    [t(lang, "clients.billed"), client.BilledLabel],
+    [t(lang, "clients.unbilled"), client.UnbilledLabel],
+  ] as const
 
-  return <Card className={client.Archived ? "opacity-60" : undefined}>
-    <CardContent className="space-y-4 p-5">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            {/* The name is the way into the client's own page: its projects,
-                its documents and the notes that only make sense there. Without
-                this the page exists but nothing leads to it. */}
-            <h2 className="min-w-0 truncate text-base font-medium" title={client.Name}>
-              <a href={`/clients/${client.ID}`} className="hover:underline">{client.Name}</a>
-            </h2>
-            {client.Archived && <Badge variant="secondary">{t(lang, "projects.archivedBadge")}</Badge>}
-          </div>
-          {client.Email && <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Email}</p>}
-          {client.Details && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Details}</p>}
-          {client.Notes && <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground [overflow-wrap:anywhere]">{client.Notes}</p>}
+  return <>
+    <tr className={`border-t align-top ${client.Archived ? "opacity-60" : ""}`}>
+      <th scope="row" className="px-4 py-3 text-left font-normal">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {/* The name is the way into the client's own page: its projects,
+              its documents and the notes that only make sense there. */}
+          <a href={`/clients/${client.ID}`} className="font-medium hover:underline [overflow-wrap:anywhere]">{client.Name}</a>
+          {client.Archived && <Badge variant="secondary">{t(lang, "projects.archivedBadge")}</Badge>}
         </div>
-        {canManage && <div className="flex shrink-0 items-center gap-1">
+        {client.Email && <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Email}</p>}
+        {client.Details && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Details}</p>}
+        {client.Notes && <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground [overflow-wrap:anywhere]">{client.Notes}</p>}
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground sm:hidden">
+          {numbers.map(([label, value]) => <div key={label} className="flex justify-between gap-2"><dt>{label}</dt><dd className="font-mono tabular-nums text-foreground">{value}</dd></div>)}
+        </dl>
+      </th>
+      <td className={numberCell}>{client.Projects}</td>
+      <td className={numberCell}>{client.TrackedLabel}</td>
+      <td className={numberCell}>{client.BilledLabel}</td>
+      <td className={numberCell}>{client.UnbilledLabel}</td>
+      <td className="px-4 py-3 text-right">
+        {canManage && <div className="flex items-center justify-end gap-1">
           <Button type="button" variant="ghost" size="sm" aria-expanded={editing} onClick={() => onToggle(!editing)}>
             <Pencil aria-hidden="true" />{t(lang, "clients.edit")}
           </Button>
-          <form method="POST" action={`/clients/${client.ID}/${archiveAction}`}>
+          <form method="POST" action={`/clients/${client.ID}/${archiveAction}`} data-confirm={client.Archived ? undefined : t(lang, "clients.confirmArchive")}>
             <input type="hidden" name="csrf_token" value={csrf} />
             <Button type="submit" variant="ghost" size="sm">
               {client.Archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
@@ -101,31 +115,27 @@ function ClientCard({ client, lang, csrf, currencies, canManage, editing, onTogg
             </Button>
           </form>
         </div>}
-      </div>
-
-      <dl className="grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
-        <div><dt>{t(lang, "clients.projects")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{client.Projects}</dd></div>
-        <div><dt>{t(lang, "clients.tracked")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{client.TrackedLabel}</dd></div>
-        <div><dt>{t(lang, "clients.billed")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{client.BilledLabel}</dd></div>
-        <div><dt>{t(lang, "clients.unbilled")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{client.UnbilledLabel}</dd></div>
-      </dl>
-
-      {canManage && editing && <form method="POST" action={`/clients/${client.ID}`} className="grid gap-5 border-t pt-4 sm:grid-cols-2">
-        <input type="hidden" name="csrf_token" value={csrf} />
-        <ClientFields id={`client-${client.ID}`} lang={lang} currencies={currencies} values={client} />
-        <div className="flex items-center justify-between gap-2 border-t pt-4 sm:col-span-2">
-          <Button type="button" variant="ghost" size="sm" onClick={() => onToggle(false)}>{t(lang, "clients.cancel")}</Button>
-          <Button type="submit" size="sm">{t(lang, "clients.save")}</Button>
-        </div>
-      </form>}
-    </CardContent>
-  </Card>
+      </td>
+    </tr>
+    {canManage && editing && <tr className="border-t">
+      <td colSpan={6} className="px-4 pb-4">
+        <form method="POST" action={`/clients/${client.ID}`} className="grid gap-5 border-t pt-4 sm:grid-cols-2">
+          <input type="hidden" name="csrf_token" value={csrf} />
+          <ClientFields id={`client-${client.ID}`} lang={lang} currencies={currencies} values={client} />
+          <div className="flex items-center justify-between gap-2 border-t pt-4 sm:col-span-2">
+            <Button type="button" variant="ghost" size="sm" onClick={() => onToggle(false)}>{t(lang, "clients.cancel")}</Button>
+            <Button type="submit" size="sm">{t(lang, "clients.save")}</Button>
+          </div>
+        </form>
+      </td>
+    </tr>}
+  </>
 }
 
 export function ClientsPage({ data }: { data: ClientsPageData }) {
   const lang = data.Lang
-  // Правка открывается в той же карточке, где живёт клиент: список остаётся
-  // на экране, и видно, к кому относится правка.
+  // Правка открывается строкой под клиентом: список остаётся на экране, и
+  // видно, к кому относится правка.
   const [editing, setEditing] = React.useState<number | null>(null)
   const clients = data.Clients ?? []
   const archivedURL = data.ShowArchived ? "/clients" : "/clients?archived=1"
@@ -145,7 +155,7 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
 
     <Flash message={data.Flash} ok={data.FlashOK} />
 
-    {data.CanManage && <details id="client-new" open={!clients.length} className="group rounded-xl border bg-card text-card-foreground"><summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium marker:hidden"><Plus aria-hidden="true" className="size-4" />{t(lang, "clients.new")}</summary><div className="p-5 pt-0 sm:p-6 sm:pt-0">
+    {data.CanManage && <details id="client-new" open={!clients.length} className="group rounded-xl border bg-card text-card-foreground"><summary className="flex cursor-pointer list-none items-center gap-2 p-4 font-medium marker:hidden"><Plus aria-hidden="true" className="size-4" />{t(lang, "clients.new")}{t(lang, "clients.new")}</summary><div className="p-5 pt-0 sm:p-6 sm:pt-0">
       <form method="POST" action="/clients" className="grid gap-5 sm:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <ClientFields id="new-client" lang={lang} currencies={data.Currencies} values={blankClient} autoFocus={!clients.length} />
@@ -155,17 +165,33 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
       </form>
     </div></details>}
 
-    {clients.length ? <section aria-label={t(lang, "clients.heading")} className="grid gap-4">
-      {clients.map(client => <ClientCard key={client.ID}
-        client={client}
-        lang={lang}
-        csrf={data.CSRFToken}
-        currencies={data.Currencies}
-        canManage={data.CanManage}
-        editing={editing === client.ID}
-        onToggle={open => setEditing(open ? client.ID : null)}
-      />)}
-    </section> : <Card>
+    {clients.length ? <Card><CardContent className="p-0">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse text-sm">
+          <thead>
+            <tr className="text-left text-xs text-muted-foreground">
+              <th scope="col" className="px-4 py-3 font-medium">{t(lang, "clients.name")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.projects")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.tracked")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.billed")}</th>
+              <th scope="col" className="hidden px-4 py-3 text-right font-medium sm:table-cell">{t(lang, "clients.unbilled")}</th>
+              <th scope="col" className="px-4 py-3"><span className="sr-only">{t(lang, "clients.actions")}</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {clients.map(client => <ClientRows key={client.ID}
+              client={client}
+              lang={lang}
+              csrf={data.CSRFToken}
+              currencies={data.Currencies}
+              canManage={data.CanManage}
+              editing={editing === client.ID}
+              onToggle={open => setEditing(open ? client.ID : null)}
+            />)}
+          </tbody>
+        </table>
+      </div>
+    </CardContent></Card> : <Card>
       <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
         <Users aria-hidden="true" className="size-5 text-muted-foreground" />
         <p className="text-sm text-muted-foreground">{t(lang, "clients.empty")}</p>
