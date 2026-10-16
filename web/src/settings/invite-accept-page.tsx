@@ -11,9 +11,12 @@ export function InviteAcceptPage({ data }: { data: InviteAcceptData }) {
     <Card><CardContent className="grid gap-3 p-6">
       {valid ? <>
         {data.Flash && <p role={data.FlashOK ? "status" : "alert"} className={`rounded-md border p-3 text-sm ${data.FlashOK ? "border-border" : "border-destructive/40 text-destructive"}`}>{data.Flash}</p>}
-        <h1 className="text-xl font-semibold">{data.Invite.Expired || data.Invite.Used ? data.Team.Name : t(lang, "invite.joinNamed", data.Team.Name)}</h1>
-        <p className="mb-1 text-sm text-muted-foreground">{t(lang, "invite.blurb")}</p>
-        {data.Invite.Expired ? <p role="status" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{t(lang, "invite.expired")}</p> : data.Invite.Used ? <p role="status" className="rounded-md border p-3 text-sm">{t(lang, "invite.used")}</p> : data.LoggedIn ? <>
+        <h1 className="text-xl font-semibold">{data.AlreadyIn || data.Invite.Expired || data.Invite.Used ? data.Team.Name : t(lang, "invite.joinNamed", data.Team.Name)}</h1>
+        {!data.AlreadyIn && <p className="mb-1 text-sm text-muted-foreground">{t(lang, "invite.blurb")}</p>}
+        {data.AlreadyIn ? <>
+          <p role="status" className="rounded-md border p-3 text-sm">{t(lang, "invite.alreadyIn")}</p>
+          <form method="post" action="/api/team/switch"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="team_id" value={data.Team.ID} /><Button type="submit" className="w-full"><Users aria-hidden="true" />{t(lang, "invite.openWorkspace")}</Button></form>
+        </> : data.Invite.Expired ?<p role="status" className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{t(lang, "invite.expired")}</p> : data.Invite.Used ? <p role="status" className="rounded-md border p-3 text-sm">{t(lang, "invite.used")}</p> : data.LoggedIn ? <>
           <form method="post" action={`/api/invites/${data.Token}/accept`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" className="w-full"><Users aria-hidden="true" />{t(lang, "invite.accept")}</Button></form>
           <div className="text-center text-xs text-muted-foreground">{t(lang, "invite.joinedAsFull")} <span className="font-mono">{data.User.Email}</span>. {t(lang, "invite.switchAccountsFull")} <form method="post" action="/api/logout" className="inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><button type="submit" className="underline underline-offset-4">{t(lang, "invite.logout")}</button></form>.</div>
         </> : <><p className="text-sm text-muted-foreground">{t(lang, "invite.signInAccept")}</p><Button asChild className="w-full"><a href={`/login?next=/invites/${data.Token}`}><LogIn aria-hidden="true" />{t(lang, "nav.login")}</a></Button><Button asChild variant="ghost" className="w-full"><a href={`/register?next=/invites/${data.Token}`}><Plus aria-hidden="true" />{t(lang, "invite.createAccount")}</a></Button></>}

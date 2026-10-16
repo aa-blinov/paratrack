@@ -40,6 +40,7 @@ function TabRow({ label, tabs, active, lang }: { label: string; tabs: ReadonlyAr
   // is more to the right.
   const row = useRef<HTMLDivElement>(null)
   const [more, setMore] = useState(false)
+  const [earlier, setEarlier] = useState(false)
   useEffect(() => {
     const el = row.current
     if (!el) return
@@ -48,14 +49,19 @@ function TabRow({ label, tabs, active, lang }: { label: string; tabs: ReadonlyAr
       const offset = current.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft
       el.scrollLeft = Math.max(0, offset - (el.clientWidth - current.offsetWidth) / 2)
     }
-    const check = () => setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+    // The fade names the side that has more: a tab hidden to the left needs its
+    // own cue, not only the one on the right.
+    const check = () => {
+      setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+      setEarlier(el.scrollLeft > 1)
+    }
     check()
     el.addEventListener("scroll", check, { passive: true })
     return () => el.removeEventListener("scroll", check)
   }, [active])
   return <nav aria-label={label} className="grid gap-1 sm:grid-cols-[8rem_minmax(0,1fr)] sm:items-center">
     <span className="text-xs font-medium text-muted-foreground">{label}</span>
-    <div ref={row} className={`flex gap-1 overflow-x-auto [scrollbar-width:none] ${more ? "[mask-image:linear-gradient(to_right,#000_85%,transparent)]" : ""}`}>
+    <div ref={row} className={`flex gap-1 overflow-x-auto [scrollbar-width:none] ${more && earlier ? "[mask-image:linear-gradient(to_right,transparent,#000_12%,#000_85%,transparent)]" : more ? "[mask-image:linear-gradient(to_right,#000_85%,transparent)]" : earlier ? "[mask-image:linear-gradient(to_right,transparent,#000_12%)]" : ""}`}>
       {tabs.map(([id, href, key]) => <a key={id} href={href} aria-current={active === id ? "page" : undefined} className={`inline-flex min-h-11 shrink-0 items-center rounded-md px-3 text-sm ${active === id ? "bg-secondary font-medium text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}>{t(lang, key)}</a>)}
     </div>
   </nav>

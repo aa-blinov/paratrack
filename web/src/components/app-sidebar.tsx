@@ -237,7 +237,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           : <span className="app-shell-workspace-label group-data-[collapsible=icon]:hidden text-sm" title={shell.team.name}>{shell.team.name}</span>
         : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="group-data-[collapsible=icon]:hidden w-full h-auto items-start justify-between whitespace-normal py-2 text-left" title={`${t(shell.lang,"nav.switchWorkspace")}: ${shell.team.name}`}><span className="line-clamp-2 leading-snug">{shell.team.name}</span><ChevronDown className="mt-0.5 shrink-0" aria-hidden="true"/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            {shell.userTeams.map(team=><form key={team.id} method="post" action="/api/team/switch"><input type="hidden" name="csrf_token" value={shell.csrfToken}/><input type="hidden" name="team_id" value={team.id}/><input type="hidden" name="next" value={shell.requestPath}/><DropdownMenuItem asChild><button type="submit" className="w-full justify-between" aria-current={team.id === shell.team?.id ? "true" : undefined}>{team.name}<span className="text-xs text-muted-foreground">#{team.id} · {t(shell.lang,`team.role.${team.role}`)}</span></button></DropdownMenuItem></form>)}
+            {shell.userTeams.map(team=><form key={team.id} method="post" action="/api/team/switch"><input type="hidden" name="csrf_token" value={shell.csrfToken}/><input type="hidden" name="team_id" value={team.id}/><input type="hidden" name="next" value={shell.requestPath}/><DropdownMenuItem asChild><button type="submit" className="w-full justify-between" aria-current={team.id === shell.team?.id ? "true" : undefined}>{teamLabels(shell.userTeams).get(team.id) ?? team.name}<span className="text-xs text-muted-foreground">{t(shell.lang,`team.role.${team.role}`)}</span></button></DropdownMenuItem></form>)}
             {shell.canManage && <DropdownMenuItem asChild><a href="/settings/team" onClick={()=>setOpenMobile(false)}>{t(shell.lang,"nav.manageWorkspaces")}</a></DropdownMenuItem>}
           </DropdownMenuContent></DropdownMenu>)}
     </SidebarHeader>
@@ -302,4 +302,17 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
       )}
     </SidebarFooter>
   </Sidebar>
+}
+
+// Two workspaces with the same name read the same in the switcher; the second
+// one gets «(2)». No internal ids: they meant nothing to a person.
+export function teamLabels(teams: { id: number; name: string }[]): Map<number, string> {
+  const seen = new Map<string, number>()
+  const out = new Map<number, string>()
+  for (const team of teams) {
+    const count = (seen.get(team.name) ?? 0) + 1
+    seen.set(team.name, count)
+    out.set(team.id, count > 1 ? `${team.name} (${count})` : team.name)
+  }
+  return out
 }

@@ -14,7 +14,7 @@ import { DateField } from "@/components/date-field"
 // so a link from a notification reopens the same list. The action control is
 // named "event" because a form control called "action" shadows form.action and
 // the browser would submit to the control instead of the journal.
-const selectClass = "h-9 w-full min-w-0 rounded-lg border border-input px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-white/[0.045]"
+const selectClass = "h-12 sm:h-9 w-full min-w-0 rounded-lg border border-input px-2.5 py-1 text-base transition-colors outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 md:text-sm dark:bg-white/[0.045]"
 
 export function AuditPage({ data }: { data: AuditData }) {
   const lang = data.Lang || "en"
