@@ -1,11 +1,11 @@
 import { useTheme } from "@/lib/theme"
 import { SegmentedControl } from "@/components/segmented"
 import { Flash } from "@/components/flash"
+import { useSaveStatus } from "@/lib/auto-save"
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
@@ -14,23 +14,20 @@ import type { PreferencesData } from "@/dashboard/types"
 export function PreferencesPage({ data }: { data: PreferencesData }) {
   const lang = data.Lang || "en"
   const [selectedTabs, setSelectedTabs] = React.useState(() => data.TabOpts.filter(tab => tab.On).map(tab => tab.Key))
-  // The save bar follows the page only while something is unsaved; language
-  // and theme above apply at once and never wait for it.
-  const [dirty, setDirty] = React.useState(false)
-  // Leaving with unsaved choices used to drop them without a word.
-  React.useEffect(() => {
-    if (!dirty) return
-    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = "" }
-    window.addEventListener("beforeunload", warn)
-    return () => window.removeEventListener("beforeunload", warn)
-  }, [dirty])
+  // Every control on this page is a choice, so each one saves when it changes
+  // and says so here. The form is posted whole: the server rewrites every field
+  // from it, so a single change must carry the rest along unchanged.
+  const formRef = React.useRef<HTMLFormElement>(null)
+  const [saveState, saveForm] = useSaveStatus(t(lang, "toast.saved"), t(lang, "err.generic"))
+  const saveNow = () => { if (formRef.current) void saveForm(formRef.current) }
   const toggleTab = (key: string, checked: boolean) => setSelectedTabs(current => checked ? [...current, key].slice(0, 4) : current.filter(item => item !== key))
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
     <SettingsNav active={data.Active} lang={lang} canManage={data.CanManage} />
     <Flash message={data.Flash} ok={data.FlashOK} />
     <LanguageAndTheme lang={lang} />
-    <form method="post" action="/api/me/preferences" className="grid gap-4" onChange={() => setDirty(true)}>
+    <p className="min-h-5 text-sm text-muted-foreground" role="status" aria-live="polite" data-pref-status>{saveState.kind === "error" ? saveState.text : saveState.kind === "saved" ? saveState.text : saveState.kind === "saving" ? t(lang, "prefs.saving") : ""}</p>
+    <form ref={formRef} method="post" action="/api/me/preferences" className="grid gap-4" onChange={saveNow}>
       <input type="hidden" name="csrf_token" value={data.CSRFToken} />
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Card><CardHeader><CardTitle>{t(lang, "prefs.formats")}</CardTitle></CardHeader><CardContent className="grid gap-3">
@@ -45,10 +42,6 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
         {data.Sections.length > 0 && <Card><CardHeader><CardTitle>{t(lang, "prefs.sections")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.sectionsHint")}</p></CardHeader><CardContent className="grid gap-1">{data.Sections.map(item => <React.Fragment key={item.Key}><input type="hidden" name="sections_all" value={item.Key} /><label className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm"><Checkbox name="sections" value={item.Key} defaultChecked={item.On} /><span>{t(lang, item.Label)}</span></label></React.Fragment>)}</CardContent></Card>}
         <Card className={data.Sections.length === 0 ? "lg:col-span-2" : ""}><CardHeader><CardTitle>{t(lang, "prefs.tabs")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.tabsHint")}</p></CardHeader><CardContent><fieldset className="grid gap-x-4 sm:grid-cols-2"><legend className="sr-only">{t(lang, "prefs.tabs")}</legend>{data.TabOpts.map(item => <label key={item.Key} className="flex min-h-11 cursor-pointer items-center gap-3 py-1.5 text-sm has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-45"><Checkbox name="tabs" value={item.Key} checked={selectedTabs.includes(item.Key)} disabled={selectedTabs.length >= 4 && !selectedTabs.includes(item.Key)} onCheckedChange={checked => toggleTab(item.Key, checked === true)} /><span>{t(lang, item.Label)}</span></label>)}</fieldset></CardContent></Card>
       </div>
-      {/* One save for four cards: it stays in reach instead of waiting at
-          the bottom of a 2500px page on a phone. */}
-      <div className={dirty ? "sticky bottom-24 z-10 -mx-1 flex flex-wrap items-center gap-3 rounded-lg border bg-background/95 p-2 backdrop-blur lg:bottom-4" : ""} role={dirty ? "status" : undefined}>
-        {dirty && <span className="text-sm text-muted-foreground">{t(lang, "prefs.unsaved")}</span>}<Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></div>
     </form>
   </main>
 }

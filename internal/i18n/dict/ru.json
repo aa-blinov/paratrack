@@ -188,6 +188,7 @@
   "flash.msg.invite already used": "Это приглашение уже использовано.",
   "set.desc.settings-notify-member": "Уведомления на этом устройстве: остановленный таймер и достигнутая цель.",
   "wh.addTitle": "Новый адрес",
+  "prefs.saving": "Сохраняем…",
   "stats.all": "Все",
   "stats.distribution": "Распределение",
   "stats.nothingChart": "Пока нечего показывать.",

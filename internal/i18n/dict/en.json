@@ -188,6 +188,7 @@
   "flash.msg.invite already used": "This invite has already been used.",
   "set.desc.settings-notify-member": "Notifications on this device: a stopped timer and a reached goal.",
   "wh.addTitle": "New endpoint",
+  "prefs.saving": "Saving…",
   "stats.all": "All",
   "stats.distribution": "Distribution",
   "stats.nothingChart": "Nothing to chart yet.",
