@@ -127,11 +127,11 @@ func (s *Server) handleGoalsDelete(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, model.ErrNotFound) {
-			http.Error(w, "activity not found", 404)
+			http.Error(w, i18n.T(resolveLang(r), "err.activityNotFound"), 404)
 			return
 		}
 		if errors.Is(err, model.ErrGoalNotFound) {
-			http.Error(w, "goal not found", 404)
+			http.Error(w, i18n.T(resolveLang(r), "err.goalNotFound"), 404)
 			return
 		}
 		s.writeInternalError(w, err)

@@ -269,7 +269,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
               adds nothing to the layout. */}
           <p id="activity-required" role="alert" className="text-sm text-destructive">{activityRequired ? t(lang, "dash.activityRequired") : ""}</p>
           <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
-            <DisclosureTrigger className="cursor-pointer text-sm text-muted-foreground">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
+            <DisclosureTrigger className="flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground sm:min-h-0">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
             <div className="ledger-split grid mt-3 gap-3">
               <div className="grid gap-2"><Label htmlFor="project_id">{t(lang, "dash.fieldProject")}</Label>
             <Select value={project || "none"} onValueChange={value => { setProject(value === "none" ? "" : value); const known = activities.find(item => item.Name.toLocaleLowerCase() === activity.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (value === "none" ? "0" : value))) }}>
@@ -326,7 +326,7 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   const lang = data.Lang
   const set = (key: keyof typeof fields, value: string) => { setFields(previous => ({ ...previous, [key]: value })); setDismissed(previous => [...previous, key]) }
   const fieldError = (key: string) => failure?.field === key && !dismissed.includes(key) ? failure.message : ""
-  return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="cursor-pointer list-none py-1 text-sm font-medium text-muted-foreground hover:text-foreground">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
+  return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="flex min-h-11 cursor-pointer list-none items-center py-1 text-sm font-medium text-muted-foreground hover:text-foreground sm:min-h-0">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
     <form className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (await onSubmit(fields)) setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) }}>
       <div className="grid gap-1.5"><Label htmlFor="b-activity" className="text-xs">{t(lang, "dash.activity")}</Label><Input id="b-activity" list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}</div>

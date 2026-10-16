@@ -44,6 +44,101 @@ func TestProgressForGoalsBatchesWorkspaceActivitySessions(t *testing.T) {
 	}
 }
 
+func TestGoalJoinsTheActivityTheTimerUses(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal join", "goal-join")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	timer, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "catalog"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	goal, err := d.UpsertGoalForManager(ctx, appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "Catalog", Period: "daily", Minutes: 60})
+	if err != nil {
+		t.Fatalf("create goal: %v", err)
+	}
+	if goal.ActivityID != timer.ID {
+		t.Fatalf("goal activity = %d, want the timer's activity %d", goal.ActivityID, timer.ID)
+	}
+	var rows int
+	if err := d.sql.QueryRowContext(ctx, `SELECT count(*) FROM activities WHERE team_id = ? AND name_key = 'catalog'`, teamID).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 1 {
+		t.Fatalf("activities named catalog = %d, want 1", rows)
+	}
+}
+
+func TestProgressCountsTimeOnDuplicateActivity(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal duplicates", "goal-duplicates")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	timer, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "catalog"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.UpsertGoalForManager(ctx, appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "catalog", Period: "daily", Minutes: 60}); err != nil {
+		t.Fatalf("create goal: %v", err)
+	}
+	// A row written before goals stopped making duplicates: same name, no project.
+	now := FormatTime(time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC))
+	if _, err := d.sql.ExecContext(ctx, `INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES ('catalog', 'catalog', ?, ?, ?)`, teamID, now, now); err != nil {
+		t.Fatal(err)
+	}
+	var duplicateID int64
+	if err := d.sql.QueryRowContext(ctx, `SELECT id FROM activities WHERE team_id = ? AND name_key = 'catalog' AND id <> ?`, teamID, timer.ID).Scan(&duplicateID); err != nil {
+		t.Fatal(err)
+	}
+	at := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	if _, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamID, ActivityID: duplicateID, Start: at.Add(-30 * time.Minute), End: at, Note: "catalog"}); err != nil {
+		t.Fatalf("create session on duplicate: %v", err)
+	}
+	progress, err := d.ProgressForGoals(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: at})
+	if err != nil {
+		t.Fatalf("ProgressForGoals: %v", err)
+	}
+	if len(progress) != 1 || progress[0].AchievedMinutes != 30 {
+		t.Fatalf("progress = %+v, want one goal with 30 minutes from the duplicate", progress)
+	}
+}
+
+func TestDeleteGoalReachesGoalOnDuplicateActivity(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal delete", "goal-delete")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	timer, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "catalog"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// The goal sits on the second row with the same name, as older data did.
+	now := FormatTime(time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC))
+	if _, err := d.sql.ExecContext(ctx, `INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES ('catalog', 'catalog', ?, ?, ?)`, teamID, now, now); err != nil {
+		t.Fatal(err)
+	}
+	var duplicateID int64
+	if err := d.sql.QueryRowContext(ctx, `SELECT id FROM activities WHERE team_id = ? AND name_key = 'catalog' AND id <> ?`, teamID, timer.ID).Scan(&duplicateID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.sql.ExecContext(ctx, `INSERT INTO goals (activity_id, team_id, period, target_minutes) VALUES (?, ?, 'weekly', 600)`, duplicateID, teamID); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.DeleteGoalForManager(ctx, appmodel.GoalDeleteRequest{TeamID: teamID, CallerID: ownerID, ActivityName: "catalog", Period: "weekly"}); err != nil {
+		t.Fatalf("delete goal on duplicate: %v", err)
+	}
+	var left int
+	if err := d.sql.QueryRowContext(ctx, `SELECT count(*) FROM goals WHERE team_id = ? AND period = 'weekly'`, teamID).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
+	if left != 0 {
+		t.Fatalf("weekly goals left = %d, want 0", left)
+	}
+}
+
 // goalPeriodRange is the single source of truth for what window a
 // goal's progress is measured against. Edge cases worth pinning:
 

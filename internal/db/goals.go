@@ -48,11 +48,19 @@ func (d *DB) UpsertGoalsForManager(ctx context.Context, request appmodel.GoalSet
 		return nil, fmt.Errorf("activity name cannot be empty")
 	}
 	now := FormatTime(d.currentTime().UTC())
-	if _, err := tx.ExecContext(ctx, `INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, name, strings.ToLower(name), request.TeamID, now, now); err != nil {
-		return nil, err
-	}
+	// The goal joins the activity the timer already uses for this name. A blind
+	// insert made a second row: the goal counted only its own time while the
+	// timer kept writing to the first one.
+	key := strings.ToLower(name)
 	var activityID int64
-	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(name), request.TeamID).Scan(&activityID); err != nil {
+	err = tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ? ORDER BY id LIMIT 1`, key, request.TeamID).Scan(&activityID)
+	if errors.Is(err, sql.ErrNoRows) {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO activities (name, name_key, team_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)`, name, key, request.TeamID, now, now); err != nil {
+			return nil, err
+		}
+		err = tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ? ORDER BY id LIMIT 1`, key, request.TeamID).Scan(&activityID)
+	}
+	if err != nil {
 		return nil, err
 	}
 	if err := d.assignActivityColor(ctx, tx, activityID, request.TeamID); err != nil {
@@ -121,12 +129,16 @@ func (d *DB) DeleteGoalsForManager(ctx context.Context, request appmodel.GoalUns
 	if name == "" {
 		return 0, fmt.Errorf("activity name cannot be empty")
 	}
-	var activityID int64
-	if err := tx.QueryRowContext(ctx, `SELECT id FROM activities WHERE name_key = ? AND team_id = ?`, strings.ToLower(name), request.TeamID).Scan(&activityID); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return 0, model.ErrNotFound
-		}
+	// The name is the identity: a goal may sit on any activity of this name
+	// (duplicates from before goals joined the timer's activity), so the
+	// delete takes all of them. Picking one row by name missed the goal.
+	key := strings.ToLower(name)
+	var named int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM activities WHERE name_key = ? AND team_id = ?`, key, request.TeamID).Scan(&named); err != nil {
 		return 0, err
+	}
+	if named == 0 {
+		return 0, model.ErrNotFound
 	}
 	deleted := 0
 	seenPeriods := make(map[string]struct{}, len(request.Periods))
@@ -140,7 +152,7 @@ func (d *DB) DeleteGoalsForManager(ctx context.Context, request appmodel.GoalUns
 		default:
 			return 0, fmt.Errorf("period must be daily|weekly|monthly, got %q", period)
 		}
-		result, err := tx.ExecContext(ctx, `DELETE FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, period)
+		result, err := tx.ExecContext(ctx, `DELETE FROM goals WHERE team_id = ? AND period = ? AND activity_id IN (SELECT id FROM activities WHERE team_id = ? AND name_key = ?)`, request.TeamID, period, request.TeamID, key)
 		if err != nil {
 			return 0, err
 		}
@@ -248,7 +260,18 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 		return nil, err
 	}
 
-	sessionsByActivity, err := d.goalSessionsForActivities(ctx, query.TeamID, activityIDs, rangeStart, rangeEnd)
+	// The timer and the reports find an activity by its name, so time written to
+	// any activity with the same name in the team belongs to the goal. Older
+	// duplicates (written before goals stopped making them) count too.
+	sharing, err := d.activityIDsSharingName(ctx, query.TeamID, activityIDs)
+	if err != nil {
+		return nil, err
+	}
+	var allIDs []int64
+	for _, ids := range sharing {
+		allIDs = append(allIDs, ids...)
+	}
+	sessionsByActivity, err := d.goalSessionsForActivities(ctx, query.TeamID, allIDs, rangeStart, rangeEnd)
 	if err != nil {
 		return nil, err
 	}
@@ -256,11 +279,13 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 	for _, goal := range goals {
 		window := windows[goal.ID]
 		var totalSeconds int
-		for _, session := range sessionsByActivity[goal.ActivityID] {
-			seconds := session.TrackedSecondsInWindow(window[0], window[1], query.Now)
-			totalSeconds, err = money.AddInt(totalSeconds, seconds)
-			if err != nil {
-				return nil, fmt.Errorf("sum tracked time for goal %d: %w", goal.ID, err)
+		for _, activityID := range sharing[goal.ActivityID] {
+			for _, session := range sessionsByActivity[activityID] {
+				seconds := session.TrackedSecondsInWindow(window[0], window[1], query.Now)
+				totalSeconds, err = money.AddInt(totalSeconds, seconds)
+				if err != nil {
+					return nil, fmt.Errorf("sum tracked time for goal %d: %w", goal.ID, err)
+				}
 			}
 		}
 		minutes := totalSeconds / 60
@@ -275,6 +300,27 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 		})
 	}
 	return out, nil
+}
+
+// activityIDsSharingName maps each activity to every activity in the team with
+// the same name, itself included.
+func (d *DB) activityIDsSharingName(ctx context.Context, teamID int64, activityIDs []int64) (map[int64][]int64, error) {
+	rows, err := d.sql.QueryContext(ctx, `SELECT a.id, b.id FROM activities a
+		JOIN activities b ON b.team_id = a.team_id AND (b.name_key = a.name_key OR b.id = a.id)
+		WHERE a.team_id = ? AND a.id = ANY(?)`, teamID, activityIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[int64][]int64, len(activityIDs))
+	for rows.Next() {
+		var goalActivityID, sharedID int64
+		if err := rows.Scan(&goalActivityID, &sharedID); err != nil {
+			return nil, err
+		}
+		out[goalActivityID] = append(out[goalActivityID], sharedID)
+	}
+	return out, rows.Err()
 }
 
 func (d *DB) goalSessionsForActivities(ctx context.Context, teamID int64, activityIDs []int64, start, end time.Time) (map[int64][]model.Session, error) {

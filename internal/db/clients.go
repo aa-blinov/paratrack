@@ -381,8 +381,16 @@ func (d *DB) ClientInvoices(ctx context.Context, query appmodel.ClientScopeQuery
 	for rows.Next() {
 		var inv appmodel.ClientInvoice
 		var total int64
-		if err := rows.Scan(&inv.ID, &inv.Number, &inv.PeriodStart, &inv.PeriodEnd,
+		var start, end string
+		if err := rows.Scan(&inv.ID, &inv.Number, &start, &end,
 			&inv.Status, &inv.Currency, &total); err != nil {
+			return nil, err
+		}
+		// The same reader the invoice list uses: the stored text carries a zone.
+		if inv.PeriodStart, err = ScanTime(start); err != nil {
+			return nil, err
+		}
+		if inv.PeriodEnd, err = ScanTime(end); err != nil {
 			return nil, err
 		}
 		inv.TotalCents = int(total)

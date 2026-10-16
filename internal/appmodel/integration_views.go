@@ -13,6 +13,8 @@ type IntegrationSummary struct {
 	Provider  string
 	Name      string
 	CreatedAt time.Time
+	// LastSyncError is the provider failure of the last sync, "" once one succeeds.
+	LastSyncError string
 }
 
 // ExternalTaskWithProvider joins an imported task to its provider name.
@@ -44,4 +46,12 @@ type IntegrationManagementItem struct {
 type IntegrationDetailSnapshot struct {
 	Integration IntegrationSummary
 	Tasks       []model.ExternalTask
+}
+
+// IntegrationSyncErrorRequest records the failure of one sync, or clears it
+// with an empty message.
+type IntegrationSyncErrorRequest struct {
+	TeamID        int64
+	IntegrationID int64
+	Message       string
 }
