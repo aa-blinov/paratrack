@@ -23,7 +23,13 @@ export function AuthPage({ data }: { data: AuthPageData }) {
       <LoginForm data={data} />
     </div>
   </main>
-  return <main className="mx-auto mt-12 w-full max-w-md">
+  // The same brand column as the sign-in screen, so every entry door looks like one app.
+  return <main className="flex w-full items-center justify-center px-4 py-6 sm:px-6">
+    <div className="flex w-full max-w-md flex-col gap-6">
+      <a href="/" className="flex items-center justify-center gap-2 self-center font-medium" aria-label="paratrack">
+        <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="size-4" aria-hidden="true" /></span>
+        <span className="text-lg tracking-tight">paratrack</span>
+      </a>
     <Card><CardContent className="grid gap-3 p-6">
       {data.AuthReact === "register" && <>
         <h1 className="text-xl font-semibold">{t(lang, "auth.createAccount")}</h1><p className="mb-1 text-sm text-muted-foreground">{t(lang, "auth.registerBlurb")}</p>
@@ -43,5 +49,6 @@ export function AuthPage({ data }: { data: AuthPageData }) {
         <form method="post" action="/api/password/reset" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="token" value={data.Token} /><div className="grid gap-1.5"><Label htmlFor="new_password">{t(lang, "auth.newPassword")}</Label><Input id="new_password" type="password" name="new_password" required minLength={8} maxLength={72} autoComplete="new-password" autoFocus /><p className="text-xs text-muted-foreground">{t(lang, "auth.passwordHint")}</p></div><Button type="submit" className="mt-1 w-full">{t(lang, "profile.updatePassword")}</Button></form>
       </>}
     </CardContent></Card>
+    </div>
   </main>
 }

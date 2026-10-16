@@ -87,10 +87,10 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     {!!data.Unbilled.length && <Card>
       <CardHeader><CardTitle className="text-base">{t(lang, "inv.unbilled")}</CardTitle></CardHeader>
       <CardContent><ul className="divide-y">
-        {data.Unbilled.map(item => <li key={item.ProjectID} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
-          <div className="grid min-w-0 flex-1">
+        {data.Unbilled.map(item => <li key={item.ProjectID} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 first:pt-0 last:pb-0">
+          <div className="grid min-w-0 flex-1 basis-40">
             <a href={`/projects/${item.Slug}`} className="min-w-0 truncate py-1 font-medium underline-offset-4 hover:underline">{item.ProjectName}</a>
-            <span className="whitespace-nowrap font-mono tabular-nums">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span>
+            <span className="break-words font-mono tabular-nums">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span>
             <span className="text-xs text-muted-foreground">{t(lang, "inv.since")} {item.Since}</span>
           </div>
           <Button asChild size="sm" variant="outline" className="shrink-0"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>
@@ -264,8 +264,8 @@ function InvoiceLineCards({ data }: { data: InvoiceDetailData }) {
       </dl>
     </article>)}
     <dl className="grid grid-cols-2 gap-x-4 border-t pt-3 text-sm font-semibold">
-      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.hours")}</span>{invoice.Hours}</dd></div>
-      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.amount")}</span>{invoice.Total}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="grid gap-0.5 font-mono tabular-nums"><span className="font-sans text-xs font-normal text-muted-foreground">{t(lang, "inv.hours")}</span>{invoice.Hours}</dd></div>
+      <div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="grid gap-0.5 font-mono tabular-nums"><span className="font-sans text-xs font-normal text-muted-foreground">{t(lang, "inv.amount")}</span>{invoice.Total}</dd></div>
     </dl>
   </div>
 }

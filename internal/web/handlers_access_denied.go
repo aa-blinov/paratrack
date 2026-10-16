@@ -14,6 +14,8 @@ type accessDeniedPage struct {
 	AccessDeniedReact bool
 	Heading           string
 	Message           string
+	// SignIn: a visitor without an account of their own; the screen offers sign-in.
+	SignIn bool
 }
 
 // handleAccessDenied serves /access-denied itself, for a bookmark or a link to
@@ -38,6 +40,34 @@ func (s *Server) renderAccessDenied(w http.ResponseWriter, r *http.Request) {
 		Message:           i18n.T(lang, "err.managersOnly"),
 	}
 	s.renderPageForRequestStatus(w, r, http.StatusForbidden, "Access denied", "", &data)
+}
+
+// pageAuthFailure answers a visitor who is not signed in. An address a page
+// answers goes to the sign-in form; an address no page answers gets the
+// not-found screen, because the sign-in form is for a page, not for a typo.
+func (s *Server) pageAuthFailure(pageRoutes *http.ServeMux) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, pattern := pageRoutes.Handler(r); pattern == "" && r.Method == http.MethodGet {
+			s.renderUnknownPage(w, r)
+			return
+		}
+		pageRedirect(w, r)
+	}
+}
+
+// renderUnknownPage is the not-found screen for an address nothing serves,
+// shown to a visitor who is not signed in: no menu, so the page offers the way
+// in instead of the way back to a menu they do not have.
+func (s *Server) renderUnknownPage(w http.ResponseWriter, r *http.Request) {
+	lang := resolveLang(r)
+	data := accessDeniedPage{
+		pageData:          pageData{Title: "Not found", Lang: string(lang), ReactApp: true},
+		AccessDeniedReact: true,
+		Heading:           i18n.T(lang, "err.notFoundTitle"),
+		Message:           i18n.T(lang, "err.notFoundHintGuest"),
+		SignIn:            true,
+	}
+	s.renderPageStatus(w, r, http.StatusNotFound, "Not found", "", &data, false)
 }
 
 // shellNotFound turns the plain-text 404 a page handler writes (http.NotFound,

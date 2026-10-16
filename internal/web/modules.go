@@ -45,6 +45,19 @@ func sectionsCounts(enabled map[string]bool) (open, total int) {
 	return open, total
 }
 
+// sectionsOpenFor counts the sections this person can open: the ones on for
+// them, less the manager-only ones when they do not manage the workspace. The
+// mode line reads this count, so it says what the menu they see opens.
+func sectionsOpenFor(enabled map[string]bool, manage bool) (open, total int) {
+	for _, m := range modules {
+		total++
+		if enabled[m.Key] && (!m.Manage || manage) {
+			open++
+		}
+	}
+	return open, total
+}
+
 // presets are the onboarding choices; "all" is the studio.
 var presets = []struct {
 	Key, Title, Blurb, Icon string
