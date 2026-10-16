@@ -93,13 +93,14 @@ func TestBillingRules(t *testing.T) {
 	}
 	resp = e.do("POST", "/api/team/billing", url.Values{"round_minutes": {"7"}, "invoice_prefix": {"СЧ"}}, nil)
 	resp.Body.Close()
-	if !strings.Contains(resp.Header.Get("Location"), "bad_request") {
-		t.Error("7 minutes accepted")
+	// A rejected rule answers with the rules message, never «flash=updated».
+	if loc := resp.Header.Get("Location"); strings.Contains(loc, "flash=updated") || !strings.Contains(loc, "flash=") {
+		t.Errorf("7 minutes accepted: %q", loc)
 	}
 	resp = e.do("POST", "/api/team/billing", url.Values{"round_minutes": {"0"}, "invoice_prefix": {"<b>"}}, nil)
 	resp.Body.Close()
-	if !strings.Contains(resp.Header.Get("Location"), "bad_request") {
-		t.Error("prefix with markup accepted")
+	if loc := resp.Header.Get("Location"); strings.Contains(loc, "flash=updated") || !strings.Contains(loc, "flash=") {
+		t.Errorf("prefix with markup accepted: %q", loc)
 	}
 
 	// Logo: multipart with the token as a field, like the browser sends it.

@@ -17,6 +17,13 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
   // The save bar follows the page only while something is unsaved; language
   // and theme above apply at once and never wait for it.
   const [dirty, setDirty] = React.useState(false)
+  // Leaving with unsaved choices used to drop them without a word.
+  React.useEffect(() => {
+    if (!dirty) return
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = "" }
+    window.addEventListener("beforeunload", warn)
+    return () => window.removeEventListener("beforeunload", warn)
+  }, [dirty])
   const toggleTab = (key: string, checked: boolean) => setSelectedTabs(current => checked ? [...current, key].slice(0, 4) : current.filter(item => item !== key))
   return <main className="mx-auto grid w-full max-w-6xl gap-4">
     <h1 className="text-2xl font-semibold tracking-tight">{settingsTitle(lang, data.Active)}</h1>
@@ -40,7 +47,8 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
       </div>
       {/* One save for four cards: it stays in reach instead of waiting at
           the bottom of a 2500px page on a phone. */}
-      <div className={dirty ? "sticky bottom-24 z-10 -mx-1 rounded-lg bg-background/95 p-1 backdrop-blur lg:bottom-4" : ""}><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></div>
+      <div className={dirty ? "sticky bottom-24 z-10 -mx-1 flex flex-wrap items-center gap-3 rounded-lg border bg-background/95 p-2 backdrop-blur lg:bottom-4" : ""} role={dirty ? "status" : undefined}>
+        {dirty && <span className="text-sm text-muted-foreground">{t(lang, "prefs.unsaved")}</span>}<Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></div>
     </form>
   </main>
 }
@@ -53,7 +61,7 @@ function LanguageAndTheme({ lang }: { lang: string }) {
   const cap = (text: string) => text.charAt(0).toLocaleUpperCase() + text.slice(1)
   return <Card><CardHeader><CardTitle>{t(lang, "prefs.langTheme")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "prefs.appliesNow")}</p></CardHeader><CardContent className="grid gap-4 sm:grid-cols-2">
     <div className="grid gap-1.5"><span className="text-sm font-medium">{t(lang, "nav.language")}</span>
-      <SegmentedControl label={t(lang, "nav.language")} value={lang === "en" ? "en" : "ru"} options={[
+      <SegmentedControl label={t(lang, "nav.language")} currentAs="true" value={lang === "en" ? "en" : "ru"} options={[
         { key: "ru", label: "Русский", href: `/lang/ru?next=${back}` },
         { key: "en", label: "English", href: `/lang/en?next=${back}` },
       ]} />

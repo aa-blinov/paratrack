@@ -77,9 +77,8 @@ export function available(item: ShellNavItem, shell: AppSidebarShell) {
 }
 
 // isCurrent marks the panel entry the open screen belongs to. An item with a
-// matchPrefix stands for a whole section, so the settings entry lights up on the
-// settings screens — but only where no more specific entry owns the screen. On
-// «Участники» and «Приглашения» the section entry stays dark: one row is current.
+// matchPrefix stands for a whole section: «Настройки» lights up on every settings
+// screen, members and invites included (they are no longer listed in the panel).
 export function isCurrent(item: ShellNavItem, shell: AppSidebarShell, items: ShellNavItem[] = nav) {
   const path = shell.requestPath.split("?")[0]
   const exact = shell.active === item.key || path === item.href
@@ -137,7 +136,7 @@ function readRemembered(): boolean {
   }
 }
 
-function NavigationGroup({ title, items, shell, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean }) {
+function NavigationGroup({ title, items, shell, collapsible = false, group }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean; group?: string }) {
   const { setOpenMobile, state } = useSidebar()
   const visible = items.filter(item => available(item, shell))
   const holdsCurrent = visible.some(item => isCurrent(item, shell))
@@ -160,7 +159,9 @@ function NavigationGroup({ title, items, shell, collapsible = false }: { title: 
   }
   // A group of one reads better without a heading that repeats it: «Настройки»
   // above a link also called «Настройки».
-  const heading = visible.length > 1 ? title : null
+  // A group of one has no heading only where it would repeat its item («Настройки»).
+  // «Расписание» alone under «Команда» read as part of «Деньги» or «Анализ».
+  const heading = visible.length > 1 || group === "team" ? title : null
   // Tighter vertical padding between groups: six groups at p-2 push the folded menu past a 900px screen.
   return <SidebarGroup className="py-1">
     {heading && collapsible && !holdsCurrent ? <SidebarGroupLabel asChild><button type="button" aria-expanded={open} className="flex w-full items-center justify-between" onClick={toggle}>{heading}<ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /></button></SidebarGroupLabel> : heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
@@ -236,13 +237,13 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
           : <span className="app-shell-workspace-label group-data-[collapsible=icon]:hidden text-sm" title={shell.team.name}>{shell.team.name}</span>
         : <DropdownMenu><DropdownMenuTrigger asChild><Button variant="outline" className="group-data-[collapsible=icon]:hidden w-full h-auto items-start justify-between whitespace-normal py-2 text-left" title={`${t(shell.lang,"nav.switchWorkspace")}: ${shell.team.name}`}><span className="line-clamp-2 leading-snug">{shell.team.name}</span><ChevronDown className="mt-0.5 shrink-0" aria-hidden="true"/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            {shell.userTeams.map(team=><form key={team.id} method="post" action="/api/team/switch"><input type="hidden" name="csrf_token" value={shell.csrfToken}/><input type="hidden" name="team_id" value={team.id}/><input type="hidden" name="next" value={shell.requestPath}/><DropdownMenuItem asChild><button type="submit" className="w-full justify-between" aria-current={team.id === shell.team?.id ? "true" : undefined}>{team.name}<span className="text-xs text-muted-foreground">{t(shell.lang,`team.role.${team.role}`)}</span></button></DropdownMenuItem></form>)}
+            {shell.userTeams.map(team=><form key={team.id} method="post" action="/api/team/switch"><input type="hidden" name="csrf_token" value={shell.csrfToken}/><input type="hidden" name="team_id" value={team.id}/><input type="hidden" name="next" value={shell.requestPath}/><DropdownMenuItem asChild><button type="submit" className="w-full justify-between" aria-current={team.id === shell.team?.id ? "true" : undefined}>{team.name}<span className="text-xs text-muted-foreground">#{team.id} · {t(shell.lang,`team.role.${team.role}`)}</span></button></DropdownMenuItem></form>)}
             {shell.canManage && <DropdownMenuItem asChild><a href="/settings/team" onClick={()=>setOpenMobile(false)}>{t(shell.lang,"nav.manageWorkspaces")}</a></DropdownMenuItem>}
           </DropdownMenuContent></DropdownMenu>)}
     </SidebarHeader>
     <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
       <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
-        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} />) }
+        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} group={group.key} />) }
         {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-7 w-full shrink-0 flex-col justify-end">
           <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
           <span className="flex h-4 items-center justify-center bg-sidebar"><ChevronDown className="size-4 text-sidebar-foreground/70" /></span>

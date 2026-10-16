@@ -172,3 +172,60 @@ func TestPersonalWorkspaceNotHandedOver(t *testing.T) {
 		t.Fatalf("personal workspace handed over: %q", loc)
 	}
 }
+
+// A member can leave a shared workspace; the owner cannot (ownership moves
+// first). Following an invite again while already in the workspace refuses
+// and does not spend the invite.
+func TestMemberLeavesAndInviteIsNotSpentTwice(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("own@leave.test")
+	dev := newAPIEnvSharedDB(t, owner)
+	dev.register("dev@leave.test")
+	ids := joinStudio(t, owner, map[string]*apiEnv{"dev@leave.test": dev}, "dev@leave.test")
+	devID := ids[0]
+
+	// The owner has no leave button and the server refuses their own removal.
+	resp := owner.do("POST", "/api/team/leave", nil, nil)
+	resp.Body.Close()
+	if loc := resp.Header.Get("Location"); strings.Contains(loc, "flash=left") {
+		t.Fatalf("the owner left their own workspace: %q", loc)
+	}
+
+	// A new invite, accepted by someone already in the workspace: refused,
+	// and the invite is not spent.
+	resp = owner.do("POST", "/api/team/invites", nil, nil)
+	loc, _ := url.QueryUnescape(resp.Header.Get("Location"))
+	resp.Body.Close()
+	token := regexp.MustCompile(`/invites/([A-Za-z0-9_-]+)`).FindStringSubmatch(loc)
+	if token == nil {
+		t.Fatalf("no invite link in %q", loc)
+	}
+	before := countAcceptedInvites(t, owner)
+	resp = dev.do("POST", "/api/invites/"+token[1]+"/accept", nil, nil)
+	resp.Body.Close()
+	if after := countAcceptedInvites(t, owner); after != before {
+		t.Fatalf("joining while already a member spent the invite: accepted %d -> %d", before, after)
+	}
+	if loc := resp.Header.Get("Location"); strings.Contains(loc, "flash=joined") {
+		t.Fatalf("already a member is told they joined: %q", loc)
+	}
+
+	// The member leaves now, and the workspace is gone from their memberships.
+	resp = dev.do("POST", "/api/team/leave", nil, nil)
+	resp.Body.Close()
+	if loc := resp.Header.Get("Location"); !strings.Contains(loc, "flash=left") {
+		t.Fatalf("member leave: %q", loc)
+	}
+	var stillMember int
+	owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM memberships WHERE user_id = ?`, devID).Scan(&stillMember)
+	if stillMember != 1 { // only their personal workspace remains
+		t.Fatalf("member keeps %d memberships, want only their personal workspace", stillMember)
+	}
+}
+
+func countAcceptedInvites(t *testing.T, env *apiEnv) int {
+	t.Helper()
+	var n int
+	env.db.TestSQL().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM invites WHERE accepted_at IS NOT NULL`).Scan(&n)
+	return n
+}
