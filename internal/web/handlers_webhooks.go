@@ -92,7 +92,7 @@ func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/webhooks?flash="+encodeFlash(false, s.webhookErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/webhooks?flash=created", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/webhooks?flash=webhook.created", http.StatusSeeOther)
 }
 
 func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +105,7 @@ func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/webhooks?flash="+encodeFlash(false, s.webhookErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/webhooks?flash=removed", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/webhooks?flash=webhook.removed", http.StatusSeeOther)
 }
 
 // handleWebhookTest sends one synthetic event to an endpoint and reopens the
@@ -143,11 +143,11 @@ func webhookTestRedirect(webhookID int64, flash string) string {
 func (s *Server) webhookErrorMessage(r *http.Request, err error) string {
 	switch {
 	case errors.Is(err, appmodel.ErrInvalidWebhook):
-		return "invalid webhook settings"
+		return i18n.T(resolveLang(r), "flash.msg.invalid webhook settings")
 	case errors.Is(err, model.ErrForbidden):
-		return "manager role required"
+		return i18n.T(resolveLang(r), "flash.msg.manager role required")
 	case errors.Is(err, model.ErrNotFound):
-		return "webhook not found"
+		return i18n.T(resolveLang(r), "flash.msg.webhook not found")
 	default:
 		s.logInternalError(err)
 		return i18n.T(resolveLang(r), "err.internal")

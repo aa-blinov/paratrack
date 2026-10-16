@@ -102,7 +102,7 @@ async def check(browser, width):
         nav = page.locator('[data-sidebar="sidebar"]:visible')
         assert await nav.locator('[data-slot="sidebar-menu-button"][data-active]').count() == 1
         assert await nav.locator('[data-slot="sidebar-menu-button"]').evaluate_all('items => items.slice(0,4).map(item => item.textContent)') == ['Обзор','Проекты','Клиенты','Табель']
-        assert await nav.locator('[data-slot="sidebar-group-label"]').all_text_contents() == ['Меню','Анализ','Деньги','Данные']  # «Команда» (schedule only) is a group of one: no heading, by design
+        assert await nav.locator('[data-slot="sidebar-group-label"]').all_text_contents() == ['Меню','Анализ','Деньги','Команда','Данные']  # «Настройки» is a group of one: no heading, by design
         active = nav.locator('[aria-current="page"]')
         inactive = nav.locator('a[href="/projects"]')
         target = ("/projects", "Проекты")

@@ -67,6 +67,6 @@ export function SettingsNav({ active, lang, canManage }: { active: string; lang:
       <TabRow label={t(lang, "set.groupMine")} tabs={mine} active={active} lang={lang} />
       {canManage && <TabRow label={t(lang, "set.groupWorkspace")} tabs={workspace} active={active} lang={lang} />}
     </div>
-    <p className="text-sm text-muted-foreground">{t(lang, `set.desc.${active}`)}</p>
+    <p className="text-sm text-muted-foreground">{t(lang, active === "settings-notify" && !canManage ? "set.desc.settings-notify-member" : `set.desc.${active}`)}</p>
   </>
 }

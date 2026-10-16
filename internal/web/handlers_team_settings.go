@@ -78,7 +78,8 @@ func (s *Server) handleAPITeamBilling(w http.ResponseWriter, r *http.Request) {
 		InvoicePrefix: strings.TrimSpace(r.FormValue("invoice_prefix")),
 	}
 	if err := s.services.TeamOps.UpdateBilling(operationContext(r), appmodel.TeamBillingRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Rules: b}); errors.Is(err, appmodel.ErrInvalidTeamBilling) {
-		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#billing", http.StatusSeeOther)
+		// Named for what is wrong: the rules, not the form (the flash used to read «Некорректная отправка формы»).
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.invalid billing settings"))+"#billing", http.StatusSeeOther)
 		return
 	} else if err != nil {
 		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#billing", http.StatusSeeOther)
@@ -159,6 +160,12 @@ func (s *Server) handleTeamStripe(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) teamErrorMessage(r *http.Request, err error) string {
 	switch {
+	case errors.Is(err, appmodel.ErrTeamValidation) && strings.Contains(err.Error(), "already a member"):
+		return i18n.T(resolveLang(r), "flash.msg.already a member")
+	case strings.Contains(err.Error(), "invite already used"):
+		return i18n.T(resolveLang(r), "flash.msg.invite already used")
+	case strings.Contains(err.Error(), "invite expired"):
+		return i18n.T(resolveLang(r), "flash.msg.invite expired")
 	case errors.Is(err, appmodel.ErrTeamNotFound), errors.Is(err, model.ErrNotFound):
 		return "workspace not found"
 	case errors.Is(err, appmodel.ErrTeamDuplicate), errors.Is(err, model.ErrAlreadyExists):

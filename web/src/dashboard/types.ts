@@ -685,6 +685,9 @@ export interface ProfileData {
   User: { ID: number; Email: string; Name: string }
   Flash: string
   FlashOK: boolean
+  Team?: { ID: number; Name: string; CreatedAt: string }
+  Role?: string
+  CanLeave?: boolean
 }
 
 export interface PreferencesData {
@@ -738,6 +741,7 @@ export interface TeamSettingsData {
   FlashOK: boolean
   StripeKeySet: boolean
   StripeSecretSet: boolean
+  IsOwner?: boolean
 }
 
 export interface TeamMembersData {
@@ -839,6 +843,8 @@ export interface InviteAcceptData {
   CSRFToken: string
   Lang: string
   InviteReact: boolean
+  Flash?: string
+  FlashOK?: boolean
 }
 
 export interface AuthPageData {
