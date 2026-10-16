@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/testutil"
 )
 
@@ -501,6 +502,27 @@ func TestHelpAndImportPagesBootstrapReact(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// A bookmark or a link to a manager-only screen lands on /access-denied; it
+// used to be a bare 404 because only the guard wrote this page.
+func TestAccessDeniedRouteRendersScreen(t *testing.T) {
+	srv, token := newTestServer(t)
+	req := httptest.NewRequest(http.MethodGet, "/access-denied", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: token})
+	response := httptest.NewRecorder()
+	srv.routes().ServeHTTP(response, req)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("GET /access-denied status=%d, want 403", response.Code)
+	}
+	body := response.Body.String()
+	if !strings.Contains(body, `"AccessDeniedReact":true`) {
+		t.Fatal("GET /access-denied did not render the access-denied screen")
+	}
+	data := reactData[accessDeniedPage](t, body)
+	if data.Heading != i18n.T(i18n.En, "err.accessDeniedTitle") && data.Heading != i18n.T(i18n.Ru, "err.accessDeniedTitle") {
+		t.Fatalf("heading = %q, want the generic access-denied title", data.Heading)
 	}
 }
 

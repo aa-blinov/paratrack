@@ -253,10 +253,11 @@ func (p *marketPage) setCSRF(t string)  { p.pageData.setCSRF(t) }
 func (p marketPage) usesReactApp() bool { return p.MarketReact }
 
 // reportHours: billable reports show decimal hours (what the money is
-// priced from); the rest keep the "1 h 30 m" label.
+// priced from), in the same locale as the invoice; the rest keep the
+// "1 h 30 m" label.
 func reportHours(r *http.Request, billable bool, sec int) string {
 	if billable {
-		return fmtHours(money.HoursHundredths(sec))
+		return fmtHoursL(resolveLang(r), money.HoursHundredths(sec))
 	}
 	return fmtDur(r, sec)
 }

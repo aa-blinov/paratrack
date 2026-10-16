@@ -34,7 +34,12 @@ async def check(browser,width):
     await form.wait_for()
     assert await form.get_attribute('data-state') == 'closed', 'History comes first for returning users'
     assert await page.get_by_role('link',name='INV-2026-001').is_visible()
-    await page.get_by_role('link',name='Новый счёт',exact=True).click()
+    # On a phone the header link is hidden: the card's own trigger opens the form.
+    header_link=page.get_by_role('link',name='Новый счёт',exact=True)
+    if await header_link.count() and await header_link.first.is_visible():
+        await header_link.first.click()
+    else:
+        await form.get_by_role('button').first.click()
     assert await form.get_attribute('data-state') == 'open'
     await page.locator('#inv-client').fill('Новый клиент')
     optional=form.locator('[data-disclosure]')

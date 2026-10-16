@@ -8,10 +8,10 @@ import (
 	"time"
 )
 
-// An empty /stats period has to stay reachable. "Сегодня" is the default
-// period because it is the same window the dashboard totals, so yesterday's
-// hours live outside it — an empty page that names no other period reads as
-// "nothing was ever tracked", and the reader has no way to tell otherwise.
+// An empty /stats period has to stay reachable. Today is empty on most days
+// (the default is the week), so yesterday's hours live outside it — an empty
+// page that names no other period reads as "nothing was ever tracked", and
+// the reader has no way to tell otherwise.
 func TestStatsEmptyPeriodOffersPeriodsThatHoldTime(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("empty-period@x.test")
@@ -25,9 +25,12 @@ func TestStatsEmptyPeriodOffersPeriodsThatHoldTime(t *testing.T) {
 	}
 	resp.Body.Close()
 
-	data := reactData[statsData](t, readBody(t, e.do("GET", "/stats", nil, nil)))
+	if def := reactData[statsData](t, readBody(t, e.do("GET", "/stats", nil, nil))); def.Period.Label != "week" {
+		t.Fatalf("default /stats period = %q, want week", def.Period.Label)
+	}
+	data := reactData[statsData](t, readBody(t, e.do("GET", "/stats?period=today", nil, nil)))
 	if len(data.Sessions) != 0 {
-		t.Fatalf("default period is today and holds %d sessions, want none", len(data.Sessions))
+		t.Fatalf("today holds %d sessions, want none", len(data.Sessions))
 	}
 	offered := map[string]statsPeriodOption{}
 	for _, option := range data.Elsewhere {

@@ -364,6 +364,41 @@ func TestInviteFlow(t *testing.T) {
 	}
 }
 
+func TestNewInviteRefusesSecondLiveLinkForSameAddress(t *testing.T) {
+	d := openTestDB(t)
+	svc := newTestService(t, d)
+	ctx := context.Background()
+	owner := newUser(t, d, "owner-dup@example.com")
+	team, err := svc.Create(ctx, appmodel.TeamCreateRequest{OwnerID: owner, Name: "Dup Team"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	create := func(email string) (Invite, error) {
+		return svc.NewInvite(ctx, appmodel.TeamInviteCreateRequest{TeamID: team.ID, CallerID: owner, Email: email})
+	}
+
+	first, err := create("Ann@Example.com")
+	if err != nil {
+		t.Fatalf("first invite: %v", err)
+	}
+	again, err := create(" ann@example.com ")
+	if !errors.Is(err, appmodel.ErrInviteAddressLive) {
+		t.Fatalf("second invite for the same address: err = %v, want ErrInviteAddressLive", err)
+	}
+	if again.Token != first.Token {
+		t.Errorf("refusal returned a different link than the live one")
+	}
+	if _, err := create("bob@example.com"); err != nil {
+		t.Errorf("invite for a different address: %v", err)
+	}
+	if _, err := create(""); err != nil {
+		t.Errorf("invite without an address: %v", err)
+	}
+	if _, err := create(""); err != nil {
+		t.Errorf("second invite without an address: %v", err)
+	}
+}
+
 func TestRemoveMember_LastOwnerCannotLeave(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestService(t, d)

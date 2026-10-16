@@ -16,7 +16,7 @@ import (
 
 func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 	now := userNow(r)
-	period := s.parsePeriodAt(r, now)
+	period := s.parsePeriodOr(r, now, "week")
 	projectFilter := strings.TrimSpace(r.URL.Query().Get("project"))
 	tagFilter := strings.TrimSpace(r.URL.Query().Get("tag"))
 	stats, err := s.services.ReportBuilder.BuildStats(r.Context(), appmodel.ReportStatsQuery{
@@ -84,10 +84,9 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 			data.RunningCount, data.RunningTotal = count, fmtDur(r, secs)
 		}
 	}
-	// "Сегодня" is the default period and matches the dashboard's own
-	// "учтено сегодня" window, so an empty today is a real answer. It still
-	// reads as "nothing was ever tracked" unless the page names the periods
-	// that do hold time, so the empty view pays for that one extra read.
+	// An empty period still reads as "nothing was ever tracked" unless the
+	// page names the periods that do hold time, so the empty view pays for
+	// that one extra read.
 	if len(rows) == 0 && data.RunningCount == 0 {
 		elsewhere, err := s.statsPeriodsWithTime(r, now, projectFilter, tagFilter, period.Label)
 		if err != nil {

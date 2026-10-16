@@ -76,7 +76,7 @@ export function TagsPage({ data }: { data: TagsData }) {
     return () => window.clearInterval(timer)
   }, [])
 
-  return <main className="mx-auto w-full max-w-4xl space-y-5">
+  return <main className="mx-auto w-full max-w-5xl space-y-5">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "stats.tags")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "tags.blurbFull")}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "tags.new")}</CardTitle></CardHeader><CardContent>

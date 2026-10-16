@@ -273,6 +273,9 @@
 #paratrack-react-root .app-shell-actions { display: none; }
 #paratrack-react-root .app-shell-actions { margin-left: auto; align-items: center; gap: .25rem; }
 #paratrack-react-root .app-shell-page-title { font-size: .9rem; font-weight: 550; }
+/* The top bar names the page on desktop. A page with its own h1 would print the
+   same words twice, so there the name stays for screen readers only. */
+#paratrack-react-root .app-shell-inset:has(#main h1) .app-shell-breadcrumb { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 #paratrack-react-root .app-shell-sidebar-trigger { flex: 0 0 auto; }
 #paratrack-react-root .app-shell-main { flex: 1 0 auto; width: min(100%, 72rem); min-width: 0; margin-inline: auto; padding: 1.5rem 1rem 2rem; }
 #paratrack-react-root .app-shell-public { width: 100%; max-width: none; min-height: 100svh; margin: 0; padding: 0; }
@@ -983,14 +986,14 @@ body {
 }
 
 /* Material 3 on the phone shell: the baseline values, not the desktop ones.
-   Buttons are pills 40dp tall; the 48dp touch floor is the hit area, drawn
-   outside the visible shape. Bottom sheets and dialogs take the 28dp corner.
-   Text fields take the 4dp outlined corner. The navigation bar is 80dp with a
-   64x32dp active indicator, which is the standard size, not the Expressive one. */
+   Buttons are pills; their height is the 44px touch floor above, and the 48dp
+   hit area is drawn outside the visible shape. Bottom sheets and dialogs take
+   the 28dp corner. Text fields take the 4dp outlined corner. The navigation bar
+   is 80dp with a 64x32dp active indicator, which is the standard size, not the
+   Expressive one. */
 @media (max-width: 1023px) {
   #paratrack-react-root [data-slot="button"] {
     position: relative;
-    min-height: 40px;
     border-radius: 9999px;
   }
   #paratrack-react-root [data-slot="button"]::after {

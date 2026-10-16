@@ -51,7 +51,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	start, err1 := time.ParseInLocation("2006-01-02", startStr, userLoc(r))
 	end, err2 := time.ParseInLocation("2006-01-02", endStr, userLoc(r))
 	if err1 != nil || err2 != nil || end.Before(start) {
-		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "bad period"), http.StatusSeeOther)
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad period")), http.StatusSeeOther)
 		return
 	}
 	// end is exclusive: make it the end of the chosen day
@@ -60,7 +60,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	if projectStr != "" {
 		parsedID, parseErr := strconv.ParseInt(projectStr, 10, 64)
 		if parseErr != nil || parsedID <= 0 {
-			http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "bad project"), http.StatusSeeOther)
+			http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad project")), http.StatusSeeOther)
 			return
 		}
 		projectID = parsedID
@@ -77,11 +77,11 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 		},
 	})
 	if errors.Is(err, appmodel.ErrNoBillableTime) {
-		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "no billable time in that period"), http.StatusSeeOther)
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.no billable time in that period")), http.StatusSeeOther)
 		return
 	}
 	if errors.Is(err, appmodel.ErrMixedCurrency) {
-		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, "mixed currency"), http.StatusSeeOther)
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.mixed currency")), http.StatusSeeOther)
 		return
 	}
 	if errors.Is(err, appmodel.ErrAlreadyBilled) {
