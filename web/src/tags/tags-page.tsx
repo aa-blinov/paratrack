@@ -91,7 +91,8 @@ export function TagsPage({ data }: { data: TagsData }) {
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     <Card><CardHeader><CardTitle>{t(lang, "tags.new")}</CardTitle></CardHeader><CardContent>
       <form onSubmit={create} className="flex flex-col gap-3 sm:flex-row sm:items-end" aria-busy={busy}>
-        <div className="min-w-0 flex-1 space-y-2"><Label htmlFor="new-tag-name">{t(lang, "projects.name")}</Label><Input id="new-tag-name" name="name" list="known-tags" placeholder={t(lang, "ph.tag")} required /><datalist id="known-tags">{data.AllTagNames.map(name => <option key={name} value={name} />)}</datalist></div>
+        <datalist id="known-tags">{data.AllTagNames.map(name => <option key={name} value={name} />)}</datalist>
+        <div className="grid min-w-0 flex-1 gap-2"><Label htmlFor="new-tag-name">{t(lang, "projects.name")}</Label><Input id="new-tag-name" name="name" list="known-tags" placeholder={t(lang, "ph.tag")} required /></div>
         <Button type="submit" disabled={busy}><Plus aria-hidden="true" />{t(lang, "tags.add")}</Button>
       </form>
     </CardContent></Card>

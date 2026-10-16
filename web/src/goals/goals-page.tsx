@@ -74,9 +74,10 @@ export function GoalsPage({ data }: { data: GoalsData }) {
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {data.CanManage && <DisclosureSection title={t(lang, "goals.new")} defaultOpen={!goals.length}>
       <form onSubmit={submit} className="goal-form" aria-busy={busy}>
-        <div className="space-y-2"><Label htmlFor="goal-activity">{t(lang, "dash.activity")}</Label><Input id="goal-activity" name="activity" list="goal-activities" placeholder={t(lang, "ph.activity")} required /><datalist id="goal-activities">{data.Activities.map(activity => <option key={activity.ID} value={activity.Name} />)}</datalist></div>
-        <div className="space-y-2"><Label htmlFor="goal-period">{t(lang, "goals.period")}</Label><Select value={period} onValueChange={setPeriod}><SelectTrigger id="goal-period"><SelectValue /></SelectTrigger><SelectContent>{(["daily", "weekly", "monthly"] as const).map(item => <SelectItem key={item} value={item}>{t(lang, `goals.${item}`)}</SelectItem>)}</SelectContent></Select></div>
-        <div className="space-y-2"><Label htmlFor="goal-minutes">{t(lang, "goals.minutes")}</Label><Input id="goal-minutes" name="minutes" type="number" min="1" max="10000" required placeholder="120" /></div>
+        <datalist id="goal-activities">{data.Activities.map(activity => <option key={activity.ID} value={activity.Name} />)}</datalist>
+        <div className="grid gap-2"><Label htmlFor="goal-activity">{t(lang, "dash.activity")}</Label><Input id="goal-activity" name="activity" list="goal-activities" placeholder={t(lang, "ph.activity")} required /></div>
+        <div className="grid gap-2"><Label htmlFor="goal-period">{t(lang, "goals.period")}</Label><Select value={period} onValueChange={setPeriod}><SelectTrigger id="goal-period"><SelectValue /></SelectTrigger><SelectContent>{(["daily", "weekly", "monthly"] as const).map(item => <SelectItem key={item} value={item}>{t(lang, `goals.${item}`)}</SelectItem>)}</SelectContent></Select></div>
+        <div className="grid gap-2"><Label htmlFor="goal-minutes">{t(lang, "goals.minutes")}</Label><Input id="goal-minutes" name="minutes" type="number" min="1" max="10000" required placeholder="120" /></div>
         <Button type="submit" disabled={busy}><Flag aria-hidden="true" />{t(lang, "goals.set")}</Button>
       </form>
     </DisclosureSection>}

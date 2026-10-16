@@ -94,8 +94,8 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
         {client.Email && <p className="mt-1 text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Email}</p>}
         {client.Details && <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground [overflow-wrap:anywhere]">{client.Details}</p>}
         {client.Notes && <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground [overflow-wrap:anywhere]">{client.Notes}</p>}
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground xl:hidden">
-          {numbers.map(([label, value]) => <div key={label} className="flex justify-between gap-2"><dt>{label}</dt><dd className="font-mono tabular-nums text-foreground">{value}</dd></div>)}
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground xl:hidden">
+          {numbers.map(([label, value]) => <div key={label} className="grid min-w-0 gap-0.5"><dt>{label}</dt><dd className="break-words font-mono text-sm tabular-nums text-foreground">{value}</dd></div>)}
         </dl>
       </th>
       <td className={numberCell}>{client.Projects}</td>
@@ -106,12 +106,12 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
         {canManage && <div className="flex items-center justify-end gap-1">
           {/* On a phone the two actions are icons, so the name keeps the room
               it needs; the words come back from sm up and stay for screen readers. */}
-          <Button type="button" variant="ghost" size="sm" aria-expanded={editing} onClick={() => onToggle(!editing)}>
+          <Button type="button" variant="ghost" size="sm" className="whitespace-nowrap" aria-expanded={editing} onClick={() => onToggle(!editing)}>
             <Pencil aria-hidden="true" /><span className="sr-only sm:not-sr-only">{t(lang, "clients.edit")}</span>
           </Button>
           <form method="POST" action={`/clients/${client.ID}/${archiveAction}`} data-confirm={client.Archived ? undefined : t(lang, "clients.confirmArchive")}>
             <input type="hidden" name="csrf_token" value={csrf} />
-            <Button type="submit" variant="ghost" size="sm">
+            <Button type="submit" variant="ghost" size="sm" className="whitespace-nowrap">
               {client.Archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
               <span className="sr-only sm:not-sr-only">{t(lang, client.Archived ? "clients.restore" : "clients.archive")}</span>
             </Button>

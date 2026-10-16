@@ -23,7 +23,6 @@ import (
 // to the actual handler.
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
-	pageAuth := s.requireAuth(pageRedirect)
 	apiAuth := s.requireAuth(apiUnauthorized)
 
 	// ----- public -----
@@ -50,6 +49,7 @@ func (s *Server) routes() http.Handler {
 	pageRoutes := http.NewServeMux()
 	s.registerPageRoutes(pageRoutes)
 	pages := s.shellNotFound(pageRoutes)
+	pageAuth := s.requireAuth(s.pageAuthFailure(pageRoutes))
 	mux.Handle("/", pageAuth(pages))
 	s.registerProtectedAPIRoutes(mux, apiAuth)
 
