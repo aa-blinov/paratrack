@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button"
  * period" is one idea whether it navigates or filters in place.
  */
 
+// Links that switch the page's language or theme are a choice, not a page:
+// they are marked aria-current="true", never "page".
 export type SegmentedOption = {
   key: string
   label: string
@@ -25,12 +27,13 @@ export type SegmentedOption = {
   onSelect?: () => void
 }
 
-export function SegmentedControl({ label, options, value, trailing, className }: {
+export function SegmentedControl({ label, options, value, trailing, className, currentAs = "page" }: {
   label: string
   options: SegmentedOption[]
   value: string
   trailing?: ReactNode
   className?: string
+  currentAs?: "page" | "true"
 }) {
   // The fade says "more to the right", so it shows only while there is more:
   // drawn always, it faded the last tab of a row that fit.
@@ -57,7 +60,7 @@ export function SegmentedControl({ label, options, value, trailing, className }:
       const variant = active ? "secondary" : "ghost"
       return option.href
         ? <Button key={option.key} asChild size="sm" variant={variant} className="h-11 shrink-0"
-            aria-current={active ? "page" : undefined}>
+            aria-current={active ? currentAs : undefined}>
             <a href={option.href}>{option.label}</a>
           </Button>
         : <Button key={option.key} type="button" size="sm" variant={variant} className="h-11 shrink-0"

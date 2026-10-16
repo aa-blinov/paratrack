@@ -136,6 +136,8 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	data.Currencies = currencyOptions()
 	data.Requisites, data.VATNote = settings.Requisites, settings.VATNote
 	data.StripeKeySet, data.StripeSecretSet = settings.StripeKeySet, settings.StripeSecretSet
+	// Deleting the workspace is the owner's alone; the page says so and hides it from admins.
+	data.IsOwner = RoleFrom(r.Context()) == model.TeamRoleOwner
 	data.Billing = billingRulesView{
 		RoundMinutes:  settings.Billing.RoundMinutes,
 		RoundMode:     settings.Billing.RoundMode,
@@ -205,6 +207,8 @@ func (s *Server) handleTeamInvites(w http.ResponseWriter, r *http.Request) {
 
 // invitePage is the /invites/{token} envelope. T() exposes i18n.
 type invitePage struct {
+	Flash       string
+	FlashOK     bool
 	InviteReact bool
 	Title       string
 	Token       string
@@ -239,6 +243,9 @@ func (s *Server) handleInviteAcceptPage(w http.ResponseWriter, r *http.Request) 
 		LoggedIn: authed, User: userViewOf(user),
 		CSRFToken: ensureCSRF(w, r), Lang: string(resolveLang(r)),
 	}
+	if flash := r.URL.Query().Get("flash"); flash != "" {
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
+	}
 	s.renderPageForRequest(w, r, "Join team", "", &data)
 }
 
@@ -260,6 +267,14 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.revoked"), true
 	case "removed":
 		return i18n.T(lang, "flash.removed"), true
+	case "left":
+		return i18n.T(lang, "flash.left"), true
+	case "webhook.created":
+		return i18n.T(lang, "flash.webhookCreated"), true
+	case "webhook.removed":
+		return i18n.T(lang, "flash.webhookRemoved"), true
+	case "token.revoked":
+		return i18n.T(lang, "flash.tokenRevoked"), true
 	case "updated":
 		return i18n.T(lang, "flash.updated"), true
 	case "password_updated":

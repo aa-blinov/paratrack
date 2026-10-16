@@ -98,7 +98,7 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
                 <input type="hidden" name="next" value={shell.requestPath} />
                 <button type="submit" className={`mobile-nav-row w-full ${team.id === shell.team?.id ? "mobile-nav-row-active" : ""}`}
                   aria-current={team.id === shell.team?.id ? "true" : undefined}>
-                  {team.name}<span className="ml-auto text-xs text-muted-foreground">{t(lang, `team.role.${team.role}`)}</span>
+                  <span className="min-w-0 truncate">{team.name}</span><span className="ml-auto shrink-0 text-xs text-muted-foreground">#{team.id} · {t(lang, `team.role.${team.role}`)}</span>
                 </button>
               </form>)}
               <div className="my-2 h-px bg-border" role="separator" />

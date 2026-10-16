@@ -11,9 +11,14 @@ import (
 )
 
 type profilePageData struct {
-	Active       string
-	User         userView
-	CanManage    bool
+	Active    string
+	User      userView
+	CanManage bool
+	// A member sees the workspace they belong to and can leave it; an owner
+	// transfers ownership first, so the owner gets no button here.
+	Team         teamView
+	Role         string
+	CanLeave     bool
 	Flash        string
 	FlashOK      bool
 	CSRFToken    string
@@ -42,10 +47,28 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 		User:         userViewOf(user),
 		ProfileReact: true,
 	}
+	if team, ok := TeamFrom(r.Context()); ok {
+		role := RoleFrom(r.Context())
+		data.Team = teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt}
+		data.Role = string(role)
+		data.CanLeave = role != model.TeamRoleOwner
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	s.renderPageForRequest(w, r, "Profile", "settings", &data)
+}
+
+// handleAPITeamLeave removes the caller's own membership. The service refuses
+// the last owner, and a member's personal workspace stays where it is.
+func (s *Server) handleAPITeamLeave(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	user, _ := UserFrom(r.Context())
+	if err := s.services.Teams.Administration.RemoveMember(r.Context(), appmodel.TeamMemberRemovalRequest{TeamID: team.ID, TargetUserID: user.ID, CallerID: user.ID}); err != nil {
+		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/settings/profile?flash=left", http.StatusSeeOther)
 }
 
 func (s *Server) handleAPIProfileUpdate(w http.ResponseWriter, r *http.Request) {

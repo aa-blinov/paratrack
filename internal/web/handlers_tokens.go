@@ -119,7 +119,7 @@ func (s *Server) handleAPITokenDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/tokens?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/settings/tokens?flash=removed", http.StatusSeeOther)
+	http.Redirect(w, r, "/settings/tokens?flash=token.revoked", http.StatusSeeOther)
 }
 
 // tokenErrorMessage maps token service failures to safe user-facing text.

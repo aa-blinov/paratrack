@@ -135,6 +135,13 @@ func (s *Service) AcceptInvite(ctx context.Context, request appmodel.TeamInviteA
 	if inv.TeamID <= 0 {
 		return Team{}, ErrNotFound
 	}
+	// Already a member: the invite is not spent on a second join. It used to
+	// be marked used and the person was told they had joined.
+	if _, isMember, err := s.IsMember(ctx, appmodel.TeamMembershipQuery{TeamID: inv.TeamID, UserID: userID}); err != nil {
+		return Team{}, err
+	} else if isMember {
+		return Team{}, fmt.Errorf("%w: already a member", ErrValidation)
+	}
 	if err := s.invites.AcceptTeamInvite(ctx, appmodel.TeamInviteAcceptanceRequest{
 		Token: request.Token, TeamID: inv.TeamID, UserID: request.UserID, At: now,
 	}); err != nil {
