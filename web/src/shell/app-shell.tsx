@@ -11,6 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/components/ui/breadcrumb"
 import { AppSidebar, type ShellNavItem } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
+import { OfflineBanner } from "@/offline/offline-banner"
 import { translate as t } from "@/i18n"
 
 type ShellUser = { id: number; name: string; email: string } | null
@@ -136,6 +137,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
           <div className="app-shell-actions"><AccountMenu shell={shell} /></div>
         </div>
       </header>}
+      <OfflineBanner lang={shell.lang} />
       <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
       {navigable && <MobileNav shell={shell} />}
       {shell.user && <footer className="app-shell-footer">{releaseVersion && <span>{shell.appVersion}</span>}{finePointer && <span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span>}<div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button></footer>}

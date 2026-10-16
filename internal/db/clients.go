@@ -257,7 +257,7 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 		     FROM sessions s
 		     JOIN activities a ON a.id = s.activity_id
 		     WHERE s.team_id = ? AND s.end_at IS NOT NULL
-		     GROUP BY a.project_id
+		     GROUP BY a.project_id, a.id
 		 ) x ON x.pid = p.id
 		 WHERE p.team_id = ?`,
 		query.TeamID, query.TeamID)
@@ -269,34 +269,51 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 	if err != nil {
 		return nil, fmt.Errorf("load billing rules for project budgets: %w", err)
 	}
+	// One row per activity. Each activity is priced as its own line, rounded and
+	// multiplied the way an invoice line is, and the project's figures are the
+	// sum of those lines. Pricing the project's total time instead would round
+	// once for all activities and disagree with the invoice by a rounding step.
 	out := map[int64]appmodel.ProjectBudget{}
 	for rows.Next() {
 		var (
-			budget       appmodel.ProjectBudget
+			projectID    int64
 			budgetCents  sql.NullInt64
+			currency     string
+			source       string
+			rate         int
 			totalSecs    sql.NullInt64
 			unbilledSecs sql.NullInt64
-			rate         int
 		)
-		if err := rows.Scan(&budget.ProjectID, &budgetCents, &budget.Currency, &rate, &totalSecs, &unbilledSecs, &budget.CurrencySource); err != nil {
+		if err := rows.Scan(&projectID, &budgetCents, &currency, &rate, &totalSecs, &unbilledSecs, &source); err != nil {
 			return nil, err
 		}
-		if budgetCents.Valid {
-			v := int(budgetCents.Int64)
-			budget.BudgetCents = &v
+		budget, seen := out[projectID]
+		if !seen {
+			budget = appmodel.ProjectBudget{ProjectID: projectID, Currency: currency, CurrencySource: source}
+			if budgetCents.Valid {
+				v := int(budgetCents.Int64)
+				budget.BudgetCents = &v
+			}
 		}
 		spent, err := priceProjectSeconds(int(totalSecs.Int64), rate, rules)
 		if err != nil {
-			return nil, fmt.Errorf("price project %d budget: %w", budget.ProjectID, err)
+			return nil, fmt.Errorf("price project %d budget: %w", projectID, err)
 		}
 		unbilled, err := priceProjectSeconds(int(unbilledSecs.Int64), rate, rules)
 		if err != nil {
-			return nil, fmt.Errorf("price project %d unbilled: %w", budget.ProjectID, err)
+			return nil, fmt.Errorf("price project %d unbilled: %w", projectID, err)
 		}
-		budget.TrackedSeconds = totalSecs.Int64
-		budget.SpentCents = spent
-		budget.UnbilledCents = unbilled
-		budget.BilledCents = spent - unbilled
+		budget.TrackedSeconds += totalSecs.Int64
+		if budget.SpentCents, err = money.AddCents(budget.SpentCents, spent); err != nil {
+			return nil, err
+		}
+		if budget.UnbilledCents, err = money.AddCents(budget.UnbilledCents, unbilled); err != nil {
+			return nil, err
+		}
+		out[projectID] = budget
+	}
+	for projectID, budget := range out {
+		budget.BilledCents = budget.SpentCents - budget.UnbilledCents
 		if budget.BilledCents < 0 {
 			budget.BilledCents = 0
 		}
@@ -304,7 +321,7 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 		if budget.BudgetCents != nil && *budget.BudgetCents > 0 {
 			budget.Percent = budget.SpentCents * 100 / *budget.BudgetCents
 		}
-		out[budget.ProjectID] = budget
+		out[projectID] = budget
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

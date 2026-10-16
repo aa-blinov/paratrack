@@ -93,7 +93,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
             <span className="whitespace-nowrap font-mono tabular-nums">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span>
             <span className="text-xs text-muted-foreground">{t(lang, "inv.since")} {item.Since}</span>
           </div>
-          <Button asChild size="sm" className="shrink-0"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>
+          <Button asChild size="sm" variant="outline" className="shrink-0"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>
         </li>)}
       </ul></CardContent>
     </Card>}

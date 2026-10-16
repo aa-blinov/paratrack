@@ -13,7 +13,7 @@ function nextHref(path: string, next: string) {
 
 export function AuthPage({ data }: { data: AuthPageData }) {
   const lang = data.Lang || "en"
-  if (data.AuthReact === "login") return <main className="flex min-h-svh w-full items-center justify-center bg-muted/30 px-4 py-10 sm:px-6">
+  if (data.AuthReact === "login") return <main className="flex w-full items-center justify-center px-4 py-6 sm:px-6">
     <div className="flex w-full max-w-sm flex-col gap-6">
       <a href="/" className="flex items-center justify-center gap-2 self-center font-medium" aria-label="paratrack">
         <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="size-4" aria-hidden="true" /></span>

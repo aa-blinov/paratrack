@@ -45,7 +45,7 @@ function ProjectRow({ data, project, open, onToggle }: {
 
   return <>
     <TableRow data-list-item="2" className={open ? "bg-muted/40" : undefined}>
-      <TableCell className="align-middle">
+      <TableCell className="max-w-[60vw] align-middle sm:max-w-none">
         <div className="flex min-w-0 items-center gap-2">
           <Button
             type="button"

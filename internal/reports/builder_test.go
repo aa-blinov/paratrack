@@ -48,6 +48,11 @@ func (s reportTeamsStub) Members(context.Context, int64) ([]model.TeamMember, er
 }
 func (reportTeamsStub) Currency(context.Context, int64) (string, error) { return "RUB", nil }
 
+// Whole hours, no rounding rule: the report prices what was tracked.
+func (reportTeamsStub) BillingRules(context.Context, int64) (model.BillingRules, error) {
+	return model.BillingRules{}, nil
+}
+
 type graphTagsStub struct {
 	calls     int
 	bySession map[int64][]model.Tag

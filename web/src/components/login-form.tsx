@@ -13,7 +13,7 @@ function nextHref(path: string, next: string) {
 export function LoginForm({ data }: { data: AuthPageData }) {
   const lang = data.Lang || "en"
   return <Card className="w-full">
-    <CardHeader className="space-y-1 text-center">
+    <CardHeader className="space-y-1">
       <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "auth.welcomeBack")}</h1>
       <CardDescription>{t(lang, "auth.signInContinue")}</CardDescription>
     </CardHeader>
@@ -30,7 +30,7 @@ export function LoginForm({ data }: { data: AuthPageData }) {
           <Field>
             <div className="flex items-center justify-between gap-3">
               <FieldLabel htmlFor="password">{t(lang, "auth.password")}</FieldLabel>
-              <a href="/forgot-password" className="text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{t(lang, "auth.forgot")}</a>
+              <a href="/forgot-password" className="inline-flex min-h-11 items-center text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{t(lang, "auth.forgot")}</a>
             </div>
             <Input id="password" type="password" name="password" required autoComplete="current-password" />
           </Field>
