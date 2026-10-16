@@ -130,7 +130,7 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 	if name == "" {
 		name = strings.SplitN(identity.Email, "@", 2)[0]
 	}
-	teamName := localizedPersonalTeamName(resolveLang(r), name)
+	teamName := personalTeamName(name)
 	account, sess, _, err := s.services.Auth.SignIn.AuthenticateSSO(operationContext(r), appmodel.SSOAuthenticationRequest{
 		Email: identity.Email, Name: name, TeamName: teamName, Subject: identity.Subject,
 	})
