@@ -3,8 +3,11 @@ package web
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
 func TestSectionsOnboardingAndSettings(t *testing.T) {
@@ -86,5 +89,64 @@ func TestPresetKeyForModules(t *testing.T) {
 		if got := presetKeyForModules(selected); got != "custom" {
 			t.Errorf("custom set %+v resolved to %s", selected, got)
 		}
+	}
+}
+
+// The journal names what a sections save switched on or off, and a save that
+// changes nothing writes no entry.
+func TestSectionSaveAuditsOnlyChanges(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("audit-sections@x.test")
+	ctx := t.Context()
+	var teamID int64
+	if err := e.db.TestSQL().QueryRowContext(ctx, `SELECT id FROM teams ORDER BY id LIMIT 1`).Scan(&teamID); err != nil {
+		t.Fatalf("load workspace: %v", err)
+	}
+	everything := []string{"graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
+	withoutTags := []string{"graph", "goals", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
+	save := func(modules []string) string {
+		t.Helper()
+		resp := e.do("POST", "/api/team/modules", url.Values{"modules": modules}, nil)
+		resp.Body.Close()
+		return resp.Header.Get("Location")
+	}
+	journal := func() []string {
+		t.Helper()
+		entries, err := e.srv.services.AuditLog.List(ctx, appmodel.AuditListQuery{TeamID: teamID, Action: "team.modules", Limit: 50})
+		if err != nil {
+			t.Fatalf("list audit: %v", err)
+		}
+		targets := make([]string, 0, len(entries))
+		for _, entry := range entries {
+			targets = append(targets, entry.Target)
+		}
+		slices.Sort(targets)
+		return targets
+	}
+
+	// A new workspace shows every section, so saving that same set changes nothing.
+	if loc := save(everything); loc != "/settings/sections?flash=updated" {
+		t.Fatalf("no-op save redirects to %q", loc)
+	}
+	if got := journal(); len(got) != 0 {
+		t.Fatalf("no-op save wrote %v", got)
+	}
+
+	if loc := save(withoutTags); loc != "/settings/sections?flash=updated" {
+		t.Fatalf("save redirects to %q", loc)
+	}
+	if got := journal(); !slices.Equal(got, []string{"-tags"}) {
+		t.Fatalf("switching tags off journaled %v, want [-tags]", got)
+	}
+
+	// Saving the same set again is a no-op: still one entry.
+	save(withoutTags)
+	if got := journal(); !slices.Equal(got, []string{"-tags"}) {
+		t.Fatalf("repeat save journaled %v, want still [-tags]", got)
+	}
+
+	save(everything)
+	if got := journal(); !slices.Equal(got, []string{"+tags", "-tags"}) {
+		t.Fatalf("switching tags back on journaled %v, want [+tags -tags]", got)
 	}
 }

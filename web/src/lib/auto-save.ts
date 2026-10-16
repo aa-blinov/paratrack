@@ -7,23 +7,22 @@ import { responseMessage } from "@/lib/response-message"
 export type SaveState = { kind: "idle" | "saving" | "saved" | "error"; text: string }
 
 // url is the page the server redirected to, when there is one. A preset uses
-// it to show the saved set as the page, not a stale copy of it.
-export type SaveResult = { ok: boolean; text: string; url?: string }
+// it to show the saved set as the page, not a stale copy of it. answer is the
+// body a JSON endpoint sent back.
+export type SaveResult = { ok: boolean; text: string; url?: string; answer?: unknown }
 
-export async function postForm(form: HTMLFormElement, submitter?: HTMLButtonElement | null): Promise<SaveResult> {
-  const body = new URLSearchParams()
-  for (const [key, value] of new FormData(form)) {
-    if (typeof value === "string") body.append(key, value)
-  }
-  // The button that was pressed is part of the form, as a browser would send it.
-  if (submitter?.name) body.append(submitter.name, submitter.value)
+// The one request behind every save. A form answers with a redirect, read as it
+// always was; a JSON endpoint answers with its body, returned as answer. A
+// failure carries the message from responseMessage.
+export async function postSave<T = unknown>(action: string, body: URLSearchParams, csrf?: string): Promise<SaveResult & { answer?: T }> {
   try {
-    const response = await fetch(form.action, {
+    const response = await fetch(action, {
       method: "POST", credentials: "same-origin",
-      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", Accept: "text/html" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", Accept: "text/html", ...(csrf ? { "X-CSRF-Token": csrf } : {}) },
       body,
     })
     if (!response.ok) return { ok: false, text: await responseMessage(response) }
+    if (response.headers.get("Content-Type")?.includes("application/json")) return { ok: true, text: "", answer: await response.json() as T }
     // The server answers with a redirect to the page. A failure carries its
     // message as «e:…» in the flash; a success carries a plain code (or none).
     const target = new URL(response.url)
@@ -38,12 +37,34 @@ export async function postForm(form: HTMLFormElement, submitter?: HTMLButtonElem
   }
 }
 
-type Job = { form: HTMLFormElement; submitter?: HTMLButtonElement | null; done: Array<(result: SaveResult) => void> }
+export async function postForm(form: HTMLFormElement, submitter?: HTMLButtonElement | null): Promise<SaveResult> {
+  const body = new URLSearchParams()
+  for (const [key, value] of new FormData(form)) {
+    if (typeof value === "string") body.append(key, value)
+  }
+  // The button that was pressed is part of the form, as a browser would send it.
+  if (submitter?.name) body.append(submitter.name, submitter.value)
+  return postSave(form.action, body)
+}
+
+type Job = { key: string; send: () => Promise<SaveResult>; done: Array<(result: SaveResult) => void> }
+
+// A form is its own key, so two forms that post to the same action (the preset
+// cards and the list on the sections page) never merge into one request.
+const formKeys = new WeakMap<HTMLFormElement, string>()
+let formCount = 0
+function formKey(form: HTMLFormElement): string {
+  let key = formKeys.get(form)
+  if (!key) { key = `form-${++formCount}`; formKeys.set(form, key) }
+  return key
+}
 
 // The status a choice shows next to itself: saving, saved, or why it failed.
 // One request goes at a time. A choice made while one is in flight waits and
 // goes up after it, reading the form as it is then, so the last click is the
 // one that is kept; each caller gets the answer of the request that carried it.
+// A save with the key of the one waiting last takes its place; another key
+// queues behind it, so a topic list and a form can share this hook.
 export function useSaveStatus(savedText: string, failedText: string) {
   const [state, setState] = useState<SaveState>({ kind: "idle", text: "" })
   const queue = useRef<Job[]>([])
@@ -54,7 +75,7 @@ export function useSaveStatus(savedText: string, failedText: string) {
     try {
       for (let job = queue.current.shift(); job; job = queue.current.shift()) {
         setState({ kind: "saving", text: "" })
-        const result = await postForm(job.form, job.submitter)
+        const result = await job.send()
         setState(result.ok ? { kind: "saved", text: savedText } : { kind: "error", text: result.text || failedText })
         job.done.forEach(done => done(result))
       }
@@ -62,15 +83,16 @@ export function useSaveStatus(savedText: string, failedText: string) {
       running.current = false
     }
   }, [savedText, failedText])
-  const save = useCallback((form: HTMLFormElement, submitter?: HTMLButtonElement | null) => new Promise<SaveResult>(resolve => {
+  const save = useCallback((key: string, send: () => Promise<SaveResult>) => new Promise<SaveResult>(resolve => {
     const last = queue.current[queue.current.length - 1]
-    if (last && last.form === form) {
-      last.submitter = submitter
+    if (last && last.key === key) {
+      last.send = send
       last.done.push(resolve)
     } else {
-      queue.current.push({ form, submitter, done: [resolve] })
+      queue.current.push({ key, send, done: [resolve] })
     }
     void drain()
   }), [drain])
-  return [state, save] as const
+  const saveForm = useCallback((form: HTMLFormElement, submitter?: HTMLButtonElement | null) => save(formKey(form), () => postForm(form, submitter)), [save])
+  return [state, saveForm, save] as const
 }

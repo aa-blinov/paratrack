@@ -1,3 +1,4 @@
+import { StatusLine } from "@/components/status-line"
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
@@ -260,7 +261,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 
     <p className="text-sm text-muted-foreground">{t(lang, "ts.saveHint")}</p>
     <div className="flex flex-wrap items-center gap-2">
-      <p role="status" aria-live="polite" className="min-h-5 text-sm">{saving ? t(lang, "ts.saving") : noticeText}</p>
+      <StatusLine text={saving ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
     </div>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}

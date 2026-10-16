@@ -243,10 +243,11 @@ def main() -> int:
         bar = page.locator('[data-mobile-nav]')
         expect(bar).to_be_visible()
         # Compared by address, not by label: this suite switches the interface
-        # language on its way here.
+        # language on its way here. The bar follows the order of the settings
+        # list, the same order the tab picker shows.
         check("phone navigation is a bottom bar with four destinations and «Ещё»",
               bar.locator('a').evaluate_all('items => items.map(item => item.getAttribute("href"))')
-              == ["/", "/timesheet", "/stats", "/graph"]
+              == ["/", "/stats", "/timesheet", "/graph"]
               and bar.locator("button").count() == 1)
         sheet_trigger = bar.locator("button")
         sheet = page.locator('[role="dialog"]')

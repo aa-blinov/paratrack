@@ -66,9 +66,18 @@ func TestPreferences(t *testing.T) {
 	if got := startOfWeek(prefReq(t, "/", Prefs{}), sun); got.Day() != 21 {
 		t.Errorf("monday week starts %v", got)
 	}
+	// Saved picks show in the settings order, and nothing is topped up.
 	tabs := e.srv.tabsFor(prefReq(t, "/", Prefs{Tabs: []string{"goals", "stats"}}), map[string]bool{"goals": true})
-	if len(tabs) != 4 || tabs[0].Key != "goals" || tabs[1].Key != "stats" {
+	if len(tabs) != 2 || tabs[0].Key != "stats" || tabs[1].Key != "goals" {
 		t.Errorf("tabs: %+v", tabs)
+	}
+	// A switched-off default stays off.
+	if tabs := e.srv.tabsFor(prefReq(t, "/", Prefs{Tabs: []string{}}), map[string]bool{}); len(tabs) != 0 {
+		t.Errorf("empty choice shows tabs: %+v", tabs)
+	}
+	// Never saved: the defaults.
+	if tabs := e.srv.tabsFor(prefReq(t, "/", Prefs{}), map[string]bool{"graph": true}); len(tabs) != len(defaultTabs) {
+		t.Errorf("defaults: %+v", tabs)
 	}
 }
 

@@ -3,11 +3,14 @@ import { Bell, BellOff, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { StatusLine } from "@/components/status-line"
+import { postSave, useSaveStatus } from "@/lib/auto-save"
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { NotificationsData } from "@/dashboard/types"
 
-type TopicsAnswer = { muted?: string[]; outcome?: string }
+type TopicsAnswer = { muted?: string[] }
+type TestAnswer = { outcome?: string }
 
 function vapidBytes(key: string): Uint8Array {
   const padded = key + "=".repeat((4 - key.length % 4) % 4)
@@ -23,12 +26,8 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
   const [status, setStatus] = React.useState("")
   // The server owns the selection: the checkboxes only move once it confirms.
   const [muted, setMuted] = React.useState<string[]>(() => (data.Topics || []).filter(topic => topic.Muted).map(topic => topic.Key))
-
-  const post = React.useCallback(async (path: string, body: URLSearchParams): Promise<TopicsAnswer> => {
-    const response = await fetch(path, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": data.CSRFToken }, body })
-    if (!response.ok) throw new Error(`${path} answered ${response.status}`)
-    return await response.json() as TopicsAnswer
-  }, [data.CSRFToken])
+  // Topic saves queue on the shared hook; the page writes its own line from the result.
+  const [, , saveTopic] = useSaveStatus(t(lang, "toast.saved"), t(lang, "push.topicsFailed"))
 
   const refresh = React.useCallback(async () => {
     try {
@@ -92,11 +91,12 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
       const next = wantsNotifications ? muted.filter(topic => topic !== key) : [...muted, key]
       const body = new URLSearchParams({ csrf_token: data.CSRFToken })
       for (const topic of next) body.append("topic", topic)
-      const answer = await post("/api/push/topics", body)
-      setMuted(Array.isArray(answer.muted) ? answer.muted : next)
-      setStatus(t(lang, "toast.saved"))
-    } catch {
-      setStatus(t(lang, "push.topicsFailed"))
+      setStatus(t(lang, "prefs.saving"))
+      // A failed save shows the page's own line, not the server's wording.
+      const result = await saveTopic("topics", () => postSave("/api/push/topics", body, data.CSRFToken).then(answer => ({ ...answer, text: "" })))
+      const served = (result.answer as TopicsAnswer | undefined)?.muted
+      if (result.ok) setMuted(Array.isArray(served) ? served : next)
+      setStatus(result.ok ? t(lang, "toast.saved") : t(lang, "push.topicsFailed"))
     } finally { setBusy(false) }
   }
 
@@ -110,8 +110,10 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
       if (Notification.permission !== "granted") { setStatus(t(lang, "push.testNoPermission")); return }
       const registration = await navigator.serviceWorker.ready
       if (!(await registration.pushManager.getSubscription())) { setStatus(t(lang, "push.testNoSubscription")); return }
-      const answer = await post("/api/push/test", new URLSearchParams({ csrf_token: data.CSRFToken }))
-      setStatus(answer.outcome === "delivered" ? t(lang, "push.testSent") : answer.outcome === "no_channel" ? t(lang, "push.testNoDevices") : t(lang, "push.testFailed", t(lang, "push.testReasonUnknown")))
+      const answer = await postSave<TestAnswer>("/api/push/test", new URLSearchParams({ csrf_token: data.CSRFToken }), data.CSRFToken)
+      if (!answer.ok) throw new Error(answer.text)
+      const outcome = answer.answer?.outcome
+      setStatus(outcome === "delivered" ? t(lang, "push.testSent") : outcome === "no_channel" ? t(lang, "push.testNoDevices") : t(lang, "push.testFailed", t(lang, "push.testReasonUnknown")))
     } catch {
       setStatus(t(lang, "push.testFailed", t(lang, "push.testReasonNetwork")))
     } finally { setBusy(false) }
@@ -128,7 +130,7 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
     <Card><CardHeader><CardTitle>{t(lang, "push.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.blurb")}</p></CardHeader><CardContent className="grid gap-3">
       <div className="flex flex-wrap items-center gap-2"><Button type="button" onClick={() => void enable()} disabled={busy || checking || active}><Bell aria-hidden="true" />{t(lang, "push.enable")}</Button>{active && <Button type="button" variant="outline" onClick={() => void disable()} disabled={busy}><BellOff aria-hidden="true" />{t(lang, "push.disable")}</Button>}</div>
       <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-muted-foreground">{t(lang, "push.devices")}: <strong>{data.DeviceCount}</strong></p><Button type="button" variant="outline" size="sm" onClick={() => void sendTest()} disabled={busy} data-notification-test><Send aria-hidden="true" />{t(lang, "push.test")}</Button></div>
-      <p className="min-h-4 text-xs text-muted-foreground" role="status" aria-live="polite" data-notification-status>{status}</p>
+      <StatusLine text={status} data-notification-status />
     </CardContent></Card>
     <Card><CardHeader><CardTitle>{t(lang, "push.events")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "push.topicsHint")}</p></CardHeader><CardContent>
       <ul className="grid gap-2">{topics.map(topic => <li key={topic.Key} data-list-item="1"><label className="flex cursor-pointer items-center gap-3 text-sm"><Checkbox checked={!muted.includes(topic.Key)} disabled={busy} onCheckedChange={checked => void toggleTopic(topic.Key, checked === true)} aria-label={t(lang, topic.Label)} /><span>{t(lang, topic.Label)}</span></label></li>)}

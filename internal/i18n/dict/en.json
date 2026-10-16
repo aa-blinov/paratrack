@@ -1322,5 +1322,15 @@
   "flash.inviteAlreadyLive": "A live invitation for %s already exists: its link is below, no new one was created.",
   "flash.msg.bad currency": "Pick a currency from the list.",
   "flash.msg.bad client": "Client not found. Reload the page and pick it again.",
-  "flash.msg.bad project": "Project not found. Reload the page and pick it again."
+  "flash.msg.bad project": "Project not found. Reload the page and pick it again.",
+  "form.valueMissing": "Fill in this field.",
+  "form.typeEmail": "Enter an email address, for example name@example.com.",
+  "form.typeUrl": "Enter a web address, for example https://example.com.",
+  "form.typeMismatch": "Enter the value in the right format.",
+  "form.tooShort": "Enter at least %s characters.",
+  "form.rangeUnderflow": "The value cannot be less than %s.",
+  "form.rangeOverflow": "The value cannot be more than %s.",
+  "form.stepMismatch": "Enter a value in steps of %s.",
+  "form.badInput": "Enter a number.",
+  "form.patternMismatch": "The value does not match the required format."
 }
