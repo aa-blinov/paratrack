@@ -7,12 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-// NewInvite creates a single-use token that expires after seven days.
+// NewInvite creates a single-use token that expires after seven days. With an
+// email, a live invitation already held for that address is returned together
+// with appmodel.ErrInviteAddressLive and no new one is created.
 func (s *Service) NewInvite(ctx context.Context, request appmodel.TeamInviteCreateRequest) (Invite, error) {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return Invite{}, ErrNotFound
@@ -24,17 +27,33 @@ func (s *Service) NewInvite(ctx context.Context, request appmodel.TeamInviteCrea
 	if !isCaller || !role.CanManage() {
 		return Invite{}, ErrForbidden
 	}
+	now := s.now().UTC()
+	email := strings.ToLower(strings.TrimSpace(request.Email))
+	if email != "" {
+		// ponytail: check then insert, outside the team lock, so two managers
+		// sending the same address in the same instant can still get two links.
+		// Move this check into CreateTeamInvite's transaction if that happens.
+		held, err := s.invites.ListTeamInvites(ctx, request.TeamID)
+		if err != nil {
+			return Invite{}, mapStoreError(err)
+		}
+		for _, existing := range held {
+			if existing.Email == email && existing.AcceptedAt.IsZero() && !existing.ExpiredAt(now) {
+				return inviteResult(existing), fmt.Errorf("%w: %s", appmodel.ErrInviteAddressLive, email)
+			}
+		}
+	}
 	var b [24]byte
 	if _, err := rand.Read(b[:]); err != nil {
 		return Invite{}, err
 	}
 	token := base64.RawURLEncoding.EncodeToString(b[:])
-	now := s.now().UTC()
 	expires := now.Add(7 * 24 * time.Hour)
 	invite := Invite{Token: token, TeamID: request.TeamID, Role: RoleMember, CreatedAt: now, ExpiresAt: expires}
 	if err := s.invites.CreateTeamInvite(ctx, appmodel.TeamInvitePersistenceRequest{
 		Token: invite.Token, TeamID: invite.TeamID, Role: invite.Role,
 		CallerID: request.CallerID, CreatedAt: invite.CreatedAt, ExpiresAt: invite.ExpiresAt,
+		Email: email,
 	}); err != nil {
 		return Invite{}, mapStoreError(err)
 	}

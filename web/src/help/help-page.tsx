@@ -12,10 +12,24 @@ const topics = [
   { icon: Link2, title: "help.ecoTitle", items: [["help.eco1", "help.eco1d"], ["help.eco2", "help.eco2d"], ["help.eco3", "help.eco3d"], ["help.eco4", "help.eco4d"]] },
 ] as const
 const destinations = [
-  ["set.tabTokens", "help.where1", "/settings/tokens"],
-  ["nav.integrations", "help.where2", "/integrations"],
-  ["set.tabWebhooks", "help.where3", "/settings/webhooks", "manage"],
+  ["team.currencyTitle", "help.where6", "/settings/money#currency", "manage"],
+  ["bill.prefix", "help.where7", "/settings/money#billing", "manage"],
+  ["team.reqTitle", "help.where8", "/settings/money#requisites", "manage"],
+  ["bill.logo", "help.where9", "/settings/money#logo", "manage"],
+  ["stripe.title", "help.where10", "/settings/money#stripe", "manage"],
+  ["set.tabInvites", "help.where11", "/settings/invites", "manage"],
+  ["nav.sections", "help.where12", "/settings/sections", "manage"],
   ["sheet.notifications", "help.where4", "/settings/notifications"],
+  ["set.tabTokens", "help.where1", "/settings/tokens"],
+  ["set.tabWebhooks", "help.where3", "/settings/webhooks", "manage"],
+  ["nav.integrations", "help.where2", "/integrations"],
+  ["nav.timesheet", "help.where13", "/timesheet"],
+  ["nav.goals", "help.where14", "/goals"],
+  ["nav.tags", "help.where15", "/tags"],
+  ["nav.clients", "help.where16", "/clients"],
+  ["nav.payroll", "help.where17", "/payroll", "manage"],
+  ["nav.reports", "help.where18", "/reports", "manage"],
+  ["nav.csvExport", "help.where19", "/export"],
   ["nav.import", "help.where5", "/import"],
 ] as const
 

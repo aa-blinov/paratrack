@@ -16,6 +16,20 @@ type accessDeniedPage struct {
 	Message           string
 }
 
+// handleAccessDenied serves /access-denied itself, for a bookmark or a link to
+// a manager-only screen. The same screen, with the generic heading, and no
+// reason beyond the one every manager-only page gives.
+func (s *Server) handleAccessDenied(w http.ResponseWriter, r *http.Request) {
+	lang := resolveLang(r)
+	data := accessDeniedPage{
+		pageData:          pageData{Title: "Access denied", Lang: string(lang), ReactApp: true},
+		AccessDeniedReact: true,
+		Heading:           i18n.T(lang, "err.accessDeniedTitle"),
+		Message:           i18n.T(lang, "err.managersOnly"),
+	}
+	s.renderPageForRequestStatus(w, r, http.StatusForbidden, "Access denied", "", &data)
+}
+
 func (s *Server) renderAccessDenied(w http.ResponseWriter, r *http.Request) {
 	lang := resolveLang(r)
 	data := accessDeniedPage{

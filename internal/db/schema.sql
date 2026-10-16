@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS invites (
     expires_at TEXT NOT NULL,
     accepted_at TEXT,
     accepted_by BIGINT,
+    email TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (accepted_by) REFERENCES users(id) ON DELETE SET NULL

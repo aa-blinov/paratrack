@@ -51,6 +51,8 @@ type TeamInvite struct {
 	ExpiresAt  time.Time
 	AcceptedAt time.Time
 	AcceptedBy int64
+	// Email is the normalised address the invitation was made for, or "".
+	Email string
 }
 
 func (i TeamInvite) ExpiredAt(at time.Time) bool {

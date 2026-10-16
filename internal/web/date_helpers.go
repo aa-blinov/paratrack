@@ -7,10 +7,17 @@ import (
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
+// parsePeriodAt resolves ?period= against now; a request without one gets today.
 func (s *Server) parsePeriodAt(r *http.Request, now time.Time) timeparse.Period {
+	return s.parsePeriodOr(r, now, "today")
+}
+
+// parsePeriodOr is parsePeriodAt for a page that opens on another period when
+// the request names none. /stats opens on the week: one day is often empty.
+func (s *Server) parsePeriodOr(r *http.Request, now time.Time, fallback string) timeparse.Period {
 	name := r.URL.Query().Get("period")
 	if name == "" {
-		name = "today"
+		name = fallback
 	}
 	if name == "custom" {
 		startStr := r.URL.Query().Get("start")

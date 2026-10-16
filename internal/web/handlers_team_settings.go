@@ -136,7 +136,7 @@ func (s *Server) handleAPITeamLogo(w http.ResponseWriter, r *http.Request) {
 // handleTeamStripe saves Stripe credentials from workspace settings.
 func (s *Server) handleTeamStripe(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, "invalid form")+"#stripe", http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.invalid form"))+"#stripe", http.StatusSeeOther)
 		return
 	}
 	key := strings.TrimSpace(r.PostForm.Get("stripe_key"))
@@ -147,7 +147,11 @@ func (s *Server) handleTeamStripe(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, i18n.T(resolveLang(r), "stripe.nothing"))+"#stripe", http.StatusSeeOther)
 		return
 	}
-	if err := s.services.TeamOps.SetStripeCredentials(operationContext(r), appmodel.TeamStripeCredentialsRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Key: key, Secret: secret, Clear: clear}); err != nil {
+	if err := s.services.TeamOps.SetStripeCredentials(operationContext(r), appmodel.TeamStripeCredentialsRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Key: key, Secret: secret, Clear: clear}); errors.Is(err, appmodel.ErrInvalidTeamSettings) {
+		// Named for the prefixes, so the person can see what to paste again.
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, i18n.T(resolveLang(r), "stripe.badFormat"))+"#stripe", http.StatusSeeOther)
+		return
+	} else if err != nil {
 		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#stripe", http.StatusSeeOther)
 		return
 	}
