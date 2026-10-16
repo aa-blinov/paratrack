@@ -111,9 +111,9 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
       const registration = await navigator.serviceWorker.ready
       if (!(await registration.pushManager.getSubscription())) { setStatus(t(lang, "push.testNoSubscription")); return }
       const answer = await post("/api/push/test", new URLSearchParams({ csrf_token: data.CSRFToken }))
-      setStatus(t(lang, answer.outcome === "delivered" ? "push.testSent" : answer.outcome === "no_channel" ? "push.testNoDevices" : "push.testFailed"))
+      setStatus(answer.outcome === "delivered" ? t(lang, "push.testSent") : answer.outcome === "no_channel" ? t(lang, "push.testNoDevices") : t(lang, "push.testFailed", t(lang, "push.testReasonUnknown")))
     } catch {
-      setStatus(t(lang, "push.testFailed"))
+      setStatus(t(lang, "push.testFailed", t(lang, "push.testReasonNetwork")))
     } finally { setBusy(false) }
   }
 

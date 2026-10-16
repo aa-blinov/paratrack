@@ -514,7 +514,9 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
 
   useEffect(() => {
     history.replaceState({ ...history.state, paratrack: true }, "", location.href)
-    const navigate = async (url: URL, mode: "push" | "pop", restoreFocus = false) => {
+    // "replace" swaps the page in place: same history entry, same scroll. A
+    // settings choice uses it to show the server's answer, not a stale copy.
+    const navigate = async (url: URL, mode: "push" | "pop" | "replace", restoreFocus = false) => {
       request.current?.abort()
       const controller = new AbortController()
       request.current = controller
@@ -534,11 +536,15 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
         const finalURL = new URL(response.url)
         if (url.hash) finalURL.hash = url.hash
         if (mode === "push") history.pushState({ paratrack: true }, "", finalURL.href)
-        startTransition(() => setRoute({ bootstrap: result.bootstrap, title: result.title, translations: result.translations, key: finalURL.pathname + finalURL.search, restoreFocus, focusMain: true }))
+        if (mode === "replace") history.replaceState({ paratrack: true }, "", finalURL.href)
+        // A replaced page gets a new key even at the same address, so it mounts
+        // again with the data the server just sent.
+        const key = finalURL.pathname + finalURL.search + (mode === "replace" ? `#${Date.now()}` : "")
+        startTransition(() => setRoute({ bootstrap: result.bootstrap, title: result.title, translations: result.translations, key, restoreFocus, focusMain: true }))
         requestAnimationFrame(() => {
           if (mode === "pop") window.scrollTo(0, scrollPositions.current.get(finalURL.pathname + finalURL.search) || 0)
           else if (finalURL.hash) document.getElementById(decodeURIComponent(finalURL.hash.slice(1)))?.scrollIntoView()
-          else window.scrollTo(0, 0)
+          else if (mode === "push") window.scrollTo(0, 0)
         })
       } catch (error) {
         if (controller.signal.aborted) return
@@ -583,11 +589,11 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
     }
     const pop = () => { void navigate(new URL(location.href), "pop") }
     const customNavigate = (event: Event) => {
-      const navigation = event as CustomEvent<{ url?: string; focusActivity?: boolean }>
+      const navigation = event as CustomEvent<{ url?: string; focusActivity?: boolean; replace?: boolean }>
       if (!navigation.detail?.url) return
       event.preventDefault()
       const url = new URL(navigation.detail.url, location.href)
-      if (url.origin === location.origin) void navigate(url, "push", navigation.detail.focusActivity === true)
+      if (url.origin === location.origin) void navigate(url, navigation.detail.replace ? "replace" : "push", navigation.detail.focusActivity === true)
     }
     document.addEventListener("click", click)
     root?.addEventListener("submit", submit)

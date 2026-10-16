@@ -216,6 +216,7 @@ type invitePage struct {
 	Team        teamView
 	User        userView
 	LoggedIn    bool
+	AlreadyIn   bool
 	CSRFToken   string
 	Lang        string
 }
@@ -245,6 +246,16 @@ func (s *Server) handleInviteAcceptPage(w http.ResponseWriter, r *http.Request) 
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
+	}
+	// A member opening their own invite gets a way into the workspace, not a
+	// second Join button that would only answer «already a member».
+	if authed && data.Team.ID > 0 {
+		_, member, err := s.services.Teams.Directory.IsMember(r.Context(), appmodel.TeamMembershipQuery{TeamID: data.Team.ID, UserID: user.ID})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		data.AlreadyIn = member
 	}
 	s.renderPageForRequest(w, r, "Join team", "", &data)
 }

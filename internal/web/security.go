@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // ---------------------------------------------------------------------------
@@ -143,14 +145,22 @@ func csrfTokensEqual(a, b string) bool {
 	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
+// writeCSRFError answers a stale or missing token in the person's language:
+// the settings forms show this text as the reason a choice did not save.
 func writeCSRFError(w http.ResponseWriter, r *http.Request) {
+	msg := i18n.T(resolveLang(r), "err.csrf")
 	if strings.HasPrefix(r.URL.Path, "/api/") {
+		body, err := json.Marshal(apiErrorResponse{Error: msg})
+		if err != nil {
+			http.Error(w, msg, http.StatusForbidden)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"error":"csrf token missing or invalid"}`))
+		_, _ = w.Write(body)
 		return
 	}
-	http.Error(w, "invalid or missing CSRF token — reload the page and try again", http.StatusForbidden)
+	http.Error(w, msg, http.StatusForbidden)
 }
 
 // ---------------------------------------------------------------------------

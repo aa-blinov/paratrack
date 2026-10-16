@@ -11,7 +11,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
-import { available, Icon, nav, type AppSidebarShell, type ShellNavItem } from "@/components/app-sidebar"
+import { available, Icon, nav, teamLabels, type AppSidebarShell, type ShellNavItem } from "@/components/app-sidebar"
 import { translate as t } from "@/i18n"
 
 // The four places a phone opens most. Everything else lives under «Ещё», so
@@ -98,7 +98,7 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
                 <input type="hidden" name="next" value={shell.requestPath} />
                 <button type="submit" className={`mobile-nav-row w-full ${team.id === shell.team?.id ? "mobile-nav-row-active" : ""}`}
                   aria-current={team.id === shell.team?.id ? "true" : undefined}>
-                  <span className="min-w-0 truncate">{team.name}</span><span className="ml-auto shrink-0 text-xs text-muted-foreground">#{team.id} · {t(lang, `team.role.${team.role}`)}</span>
+                  <span className="min-w-0 truncate">{teamLabels(shell.userTeams).get(team.id) ?? team.name}</span><span className="ml-auto shrink-0 text-xs text-muted-foreground">{t(lang, `team.role.${team.role}`)}</span>
                 </button>
               </form>)}
               <div className="my-2 h-px bg-border" role="separator" />
