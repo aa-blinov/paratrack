@@ -641,7 +641,7 @@ export interface IntegrationsData {
   Lang: string
   CSRFToken: string
   IntegrationsReact: boolean
-  Items: Array<{ ID: number; Provider: string; Name: string; TaskCount: number }>
+  Items: Array<{ ID: number; Provider: string; Name: string; TaskCount: number; LastSyncError: string }>
   Flash: string
   FlashOK: boolean
 }
@@ -651,7 +651,7 @@ export interface IntegrationDetailData {
   Lang: string
   CSRFToken: string
   IntegrationReact: boolean
-  Integration: { ID: number; Provider: string; Name: string; TaskCount: number }
+  Integration: { ID: number; Provider: string; Name: string; TaskCount: number; LastSyncError: string }
   Tasks: Array<{ ID: number; Title: string; URL: string; Status: string; ExternalID: string }>
   Flash: string
   FlashOK: boolean

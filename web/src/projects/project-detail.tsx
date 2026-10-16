@@ -16,7 +16,7 @@ import type { ProjectDetailData } from "@/dashboard/types"
 import { ColorMark } from "@/components/color-mark"
 
 function SummaryCard({ title, value }: { title: string; value: string }) {
-  return <Card><CardContent className="space-y-2 p-5"><h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</h3><p className="font-mono text-3xl tabular-nums">{value}</p></CardContent></Card>
+  return <Card><CardContent className="space-y-2 p-5"><p className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</p><p className="font-mono text-3xl tabular-nums">{value}</p></CardContent></Card>
 }
 
 // Пустое значение client_id = «без клиента», а Radix-селект не умеет держать
@@ -184,10 +184,10 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
         <CardHeader><CardTitle>{t(data.Lang, "projects.recentSessions")}</CardTitle></CardHeader>
         <CardContent>
           {data.Sessions?.length ? <Table>
-            <TableHeader><TableRow><TableHead>{t(data.Lang, "dash.activity")}</TableHead><TableHead>{t(data.Lang, "dash.started")}</TableHead><TableHead>{t(data.Lang, "dash.duration")}</TableHead></TableRow></TableHeader>
+            <TableHeader><TableRow><TableHead>{t(data.Lang, "dash.activity")}</TableHead><TableHead className="hidden sm:table-cell">{t(data.Lang, "dash.started")}</TableHead><TableHead>{t(data.Lang, "dash.duration")}</TableHead></TableRow></TableHeader>
             <TableBody>{data.Sessions.map(session => <TableRow key={session.ID}>
               <TableCell><ColorMark className="mr-2" color={session.Color} />{session.ActivityName}</TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">{session.StartLocal}</TableCell>
+              <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">{session.StartLocal}</TableCell>
               <TableCell className="font-mono text-xs tabular-nums">{session.Duration}</TableCell>
             </TableRow>)}</TableBody>
           </Table> : <p className="text-sm text-muted-foreground">{t(data.Lang, "projects.noSessions")}</p>}

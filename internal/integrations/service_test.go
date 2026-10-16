@@ -70,6 +70,10 @@ func (s *integrationStoreStub) DeleteIntegration(context.Context, appmodel.Integ
 	return s.deleteErr
 }
 
+func (s *integrationStoreStub) SetIntegrationSyncError(context.Context, appmodel.IntegrationSyncErrorRequest) error {
+	return nil
+}
+
 func (s *integrationStoreStub) BeginIntegrationSync(context.Context, appmodel.IntegrationSyncStartRequest) (appmodel.IntegrationSyncCredentials, error) {
 	if s.credential.ID == 0 {
 		s.credential = appmodel.IntegrationSyncCredentials{ID: s.created.ID, TeamID: s.created.TeamID, Provider: s.created.Provider}

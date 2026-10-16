@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
@@ -438,9 +437,6 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 	return extras, nil
 }
 
-// invoiceTimeLayout is how invoices store their period bounds.
-const invoiceTimeLayout = "2006-01-02T15:04:05.000"
-
 // clientDetailData is the envelope for /clients/{id}: one customer with the
 // work and the documents that belong to them.
 type clientDetailData struct {
@@ -576,18 +572,13 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 			Status: inv.Status, Currency: inv.Currency,
 			TotalLabel: moneyL(lang, inv.TotalCents, inv.Currency),
 		}
-		// Stored as ISO strings; printed like every other period in the app.
-		// The end is exclusive, hence the day pulled back — an invoice for
-		// "1 – 31 August" reads "1 – 31 August", not "1 – 1 сентября".
-		from, fromErr := time.Parse(invoiceTimeLayout, inv.PeriodStart)
-		to, toErr := time.Parse(invoiceTimeLayout, inv.PeriodEnd)
+		// Printed like every other period in the app. The end is exclusive, hence
+		// the day pulled back: an invoice for 1 to 31 August reads 1 to 31 August.
 		switch {
-		case fromErr == nil && toErr == nil:
-			row.Period = fmtDate(lang, from) + " – " + fmtDate(lang, to.AddDate(0, 0, -1))
-		case fromErr == nil:
-			row.Period = fmtDate(lang, from)
-		default:
-			row.Period = inv.PeriodStart
+		case !inv.PeriodStart.IsZero() && !inv.PeriodEnd.IsZero():
+			row.Period = fmtDate(lang, inv.PeriodStart) + " – " + fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1))
+		case !inv.PeriodStart.IsZero():
+			row.Period = fmtDate(lang, inv.PeriodStart)
 		}
 		invoiceRows = append(invoiceRows, row)
 	}

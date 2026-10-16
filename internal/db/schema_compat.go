@@ -99,6 +99,8 @@ var columnMigrations = []struct {
 	{"webhook_event_outbox", "webhook_ids", "TEXT NOT NULL DEFAULT ''"},
 	{"invites", "sealed_token", "TEXT NOT NULL DEFAULT ''"},
 	{"integrations", "sync_generation", "BIGINT NOT NULL DEFAULT 0"},
+	// The last failed sync, shown until a sync succeeds. Empty means none.
+	{"integrations", "last_sync_error", "TEXT NOT NULL DEFAULT ''"},
 }
 
 // compatibilityStatements create or update schema objects introduced after
@@ -196,6 +198,7 @@ var compatibilityStatements = []string{
 	    secret TEXT NOT NULL DEFAULT '',
 	    config TEXT NOT NULL DEFAULT '{}',
 	    sync_generation BIGINT NOT NULL DEFAULT 0,
+	    last_sync_error TEXT NOT NULL DEFAULT '',
 	    created_at TEXT NOT NULL,
 	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
 	    UNIQUE (team_id, provider, name)

@@ -74,7 +74,7 @@ func (d *DB) CreateIntegration(ctx context.Context, request appmodel.Integration
 // team-scoped sync starter used when a provider fetch begins.
 func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]appmodel.IntegrationSummary, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, provider, name, created_at
+		`SELECT id, team_id, provider, name, created_at, last_sync_error
 		 FROM integrations WHERE team_id = ? ORDER BY provider, name`, teamID)
 	if err != nil {
 		return nil, err
@@ -86,7 +86,7 @@ func (d *DB) ListIntegrations(ctx context.Context, teamID int64) ([]appmodel.Int
 			it      appmodel.IntegrationSummary
 			created string
 		)
-		if err := rows.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &created); err != nil {
+		if err := rows.Scan(&it.ID, &it.TeamID, &it.Provider, &it.Name, &created, &it.LastSyncError); err != nil {
 			return nil, err
 		}
 		it.CreatedAt, err = ScanTime(created)
@@ -153,9 +153,9 @@ func (d *DB) GetIntegrationSummary(ctx context.Context, query appmodel.Integrati
 		created string
 	)
 	err := d.sql.QueryRowContext(ctx,
-		`SELECT id, team_id, provider, name, created_at
+		`SELECT id, team_id, provider, name, created_at, last_sync_error
 		 FROM integrations WHERE id = ? AND team_id = ?`, query.IntegrationID, query.TeamID,
-	).Scan(&item.ID, &item.TeamID, &item.Provider, &item.Name, &created)
+	).Scan(&item.ID, &item.TeamID, &item.Provider, &item.Name, &created, &item.LastSyncError)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return appmodel.IntegrationSummary{}, ErrNotFound
@@ -167,6 +167,12 @@ func (d *DB) GetIntegrationSummary(ctx context.Context, query appmodel.Integrati
 		return appmodel.IntegrationSummary{}, fmt.Errorf("parse integration creation time: %w", err)
 	}
 	return item, nil
+}
+
+// SetIntegrationSyncError records the last sync failure, or clears it with "".
+func (d *DB) SetIntegrationSyncError(ctx context.Context, request appmodel.IntegrationSyncErrorRequest) error {
+	_, err := d.sql.ExecContext(ctx, `UPDATE integrations SET last_sync_error = ? WHERE id = ? AND team_id = ?`, request.Message, request.IntegrationID, request.TeamID)
+	return err
 }
 
 // DeleteIntegration removes the connection and its imported tasks.

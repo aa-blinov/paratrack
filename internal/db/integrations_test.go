@@ -180,3 +180,42 @@ func TestSyncExternalTasksUpsertsSnapshotAndClosesMissingTasks(t *testing.T) {
 		t.Fatalf("reconciled snapshot = %+v, want task-1 closed and task-2 open", byExternalID)
 	}
 }
+
+func TestSyncErrorStaysOnIntegrationUntilASyncWorks(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Sync errors", "sync-errors")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	integration, err := d.CreateIntegration(ctx, appmodel.IntegrationCreateRequest{TeamID: teamID, CallerID: ownerID, Provider: "github", Name: "repo", Secret: "secret", Config: appmodel.IntegrationConfig{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.SetIntegrationSyncError(ctx, appmodel.IntegrationSyncErrorRequest{TeamID: teamID, IntegrationID: integration.ID, Message: "github 401"}); err != nil {
+		t.Fatal(err)
+	}
+	items, err := d.ListIntegrations(ctx, teamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 1 || items[0].LastSyncError != "github 401" {
+		t.Fatalf("list after failed sync = %+v, want the error kept", items)
+	}
+	item, err := d.GetIntegrationSummary(ctx, appmodel.IntegrationLookupQuery{TeamID: teamID, IntegrationID: integration.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if item.LastSyncError != "github 401" {
+		t.Fatalf("detail LastSyncError = %q, want github 401", item.LastSyncError)
+	}
+	if err := d.SetIntegrationSyncError(ctx, appmodel.IntegrationSyncErrorRequest{TeamID: teamID, IntegrationID: integration.ID}); err != nil {
+		t.Fatal(err)
+	}
+	items, err = d.ListIntegrations(ctx, teamID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if items[0].LastSyncError != "" {
+		t.Fatalf("error after a good sync = %q, want cleared", items[0].LastSyncError)
+	}
+}

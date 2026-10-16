@@ -33,7 +33,7 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
 		it := item.Integration
 		data.Items = append(data.Items, integrationRow{
 			ID: it.ID, Provider: it.Provider, Name: it.Name,
-			TaskCount: item.TaskCount,
+			TaskCount: item.TaskCount, LastSyncError: it.LastSyncError,
 		})
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -43,10 +43,11 @@ func (s *Server) handleIntegrations(w http.ResponseWriter, r *http.Request) {
 }
 
 type integrationRow struct {
-	ID        int64
-	Provider  string
-	Name      string
-	TaskCount int
+	ID            int64
+	Provider      string
+	Name          string
+	TaskCount     int
+	LastSyncError string
 }
 
 // integrationsPage is the /integrations envelope.
@@ -78,7 +79,7 @@ func (s *Server) handleIntegrationDetail(w http.ResponseWriter, r *http.Request)
 	data := integrationDetailPage{
 		pageData:         pageData{Title: it.Name, Active: "integrations", Lang: lang, ReactApp: true},
 		IntegrationReact: true,
-		Integration:      integrationRow{ID: it.ID, Provider: it.Provider, Name: it.Name, TaskCount: len(tasks)},
+		Integration:      integrationRow{ID: it.ID, Provider: it.Provider, Name: it.Name, TaskCount: len(tasks), LastSyncError: it.LastSyncError},
 	}
 	for _, t := range tasks {
 		data.Tasks = append(data.Tasks, integrationTaskRow{

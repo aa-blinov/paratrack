@@ -190,8 +190,13 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := string(resolveLang(r))
-	data := reportRunPage{pageData: pageData{Title: tpl.Name, Active: "reports", Lang: lang, ReactApp: true}, VM: vm, ReportRunReact: true}
-	s.renderPageForRequest(w, r, tpl.Name, "reports", &data)
+	// The catalog name is English; the page title follows the person's language.
+	title := tpl.Name
+	if name := i18n.T(i18n.Lang(lang), "rep."+tpl.ID+".name"); name != "rep."+tpl.ID+".name" {
+		title = name
+	}
+	data := reportRunPage{pageData: pageData{Title: title, Active: "reports", Lang: lang, ReactApp: true}, VM: vm, ReportRunReact: true}
+	s.renderPageForRequest(w, r, title, "reports", &data)
 }
 
 type reportRunPage struct {
