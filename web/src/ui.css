@@ -1127,7 +1127,7 @@ body {
   #paratrack-react-root [role="tablist"] [role="tab"] { min-height: 44px; min-width: 44px; height: auto; }
   /* Material 3 touch target: a button is drawn at its size (40dp, 32dp small) and
      the 48dp target is the area around it. Chips, cards and the timer button keep their own. */
-  #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip) { position: relative; }
+  #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip):not(.date-field-trailing) { position: relative; }
   #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip)::after { content: ""; position: absolute; inset: -4px; }
   #paratrack-react-root [data-slot="button"][data-size="sm"]:not([data-chip]):not([data-card]):not(.legend-chip)::after { inset: -8px; }
   #paratrack-react-root nav[aria-label] a:not([data-slot]),
@@ -1222,4 +1222,9 @@ body {
 @media (max-width: 1023px) {
   #paratrack-react-root .mobile-nav-fab { position: fixed; }
 }
+
+/* The calendar button of a date field is a trailing icon inside the field. Every
+   button is set to position: relative above (for its hit area), which would beat a
+   Tailwind class, so the trailing placement is set here with the same id scope. */
+#paratrack-react-root .date-field-trailing { position: absolute; }
 

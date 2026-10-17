@@ -206,7 +206,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
   return <div className="relative w-full min-w-0" ref={root}>
     {/* The form posts exactly what it always posted. */}
     <input type="hidden" name={name} value={iso} disabled={disabled} />
-    <div className="flex min-w-0 items-center gap-1">
+    {/* The calendar is a trailing icon inside the field, not a second control beside it:
+        a round button next to a 12dp field read as two objects. */}
+    <div className="relative flex min-w-0 items-center">
       <Input
         id={id}
         type="text"
@@ -241,13 +243,13 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         // on a phone the grid opened with the keyboard and hid the next field.
         onClick={() => setOpen(true)}
         onKeyDown={event => { if (event.key === "Enter" && !open) { setOpen(true); event.preventDefault() } }}
-        className={`min-w-0 flex-1 ${broken ? "border-destructive focus-visible:ring-destructive/40" : ""} ${className || ""}`}
+        className={`min-w-0 flex-1 pe-11 ${broken ? "border-destructive focus-visible:ring-destructive/40" : ""} ${className || ""}`}
       />
       <Button
         type="button"
-        variant="outline"
-        size="icon"
-        className="shrink-0"
+        variant="ghost"
+        size="icon-sm"
+        className="date-field-trailing end-1 top-1/2 -translate-y-1/2"
         disabled={disabled}
         aria-label={lang === "en" ? "Pick a date" : "Выбрать дату"}
         aria-expanded={open}
