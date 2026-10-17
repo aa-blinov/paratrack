@@ -263,7 +263,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       <CardContent className="grid gap-5 p-5">
         <form onSubmit={start} noValidate className="grid gap-3">
           <Label htmlFor="activity">{labels.what}</Label>
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <Input id="activity" name="activity" list="known-activities" autoComplete="off" value={activity} onChange={e => { setActivity(e.target.value); setActivityRequired(false); const known = activities.find(item => item.Name.toLocaleLowerCase() === e.target.value.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (project || "0"))) }} placeholder={t(lang, "dash.activityHint")} required aria-invalid={activityRequired || undefined} aria-describedby={activityRequired ? "activity-required" : undefined} />
             <datalist id="known-activities">{activities.map(item => <option key={item.ID} value={item.Name} data-project={item.ProjectID} />)}</datalist>
             <Button type="submit" disabled={busy} data-action-primary>{labels.start}</Button>
