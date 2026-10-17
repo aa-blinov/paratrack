@@ -892,22 +892,22 @@
    grid cannot wrap: at 200% text the four columns no longer fit and the
    activity field was left 9px wide with its label on top of its
    placeholder. Here they simply move to the next row. */
+/* The activity field is the first div, but the datalist is the form's first
+   child, so :first-child never matched and the field stayed at 10rem: 160px in
+   a 934px form, with the rest of the card empty. :first-of-type skips the
+   datalist. The period and minutes fields take the slack together (on a phone
+   they fill a row side by side) and the activity field takes the most of it. */
 #paratrack-react-root .goal-form > div {
-  /* The two narrow inputs keep their size; the activity field is the one
-     that should absorb the slack. Growing all three evenly made them
-     226px each while the activity field shrank from 487 to 356. */
-  flex: 0 1 10rem;
+  flex: 1 1 9rem;
   min-width: 0;
 }
-#paratrack-react-root .goal-form > div:first-child {
-  flex: 2 1 14rem;
+#paratrack-react-root .goal-form > div:first-of-type {
+  flex: 3 1 14rem;
 }
+/* A 40dp button beside 56dp fields: an 8dp bottom margin puts its centre on the field's centre line. */
 #paratrack-react-root .goal-form > button {
   flex: 0 0 auto;
-}
-/* On a phone the field beside the button is 56dp; a 40dp button sits on its centre line. */
-@media (pointer: coarse) {
-  #paratrack-react-root .goal-form > button { margin-bottom: 0.5rem; }
+  margin-bottom: 0.5rem;
 }
 
 /* Same failure one screen over: the active-timer form split into a fixed
@@ -1015,7 +1015,6 @@ body {
     inset: -4px;
   }
   #paratrack-react-root .period-tabs { border-radius: 9999px; }
-  #paratrack-react-root [data-slot="input"] { border-radius: 4px; }
   #paratrack-react-root .mobile-nav-sheet { border-radius: 28px 28px 0 0; }
   #paratrack-react-root [data-m3-dialog] { border-radius: 28px; }
   #paratrack-react-root .mobile-nav-item-active::before { width: 4rem; }
@@ -1049,14 +1048,22 @@ body {
    colour still wins, since it is more specific than the universal selector. */
 
 
-/* Material 3 specs the shell still had at its own sizes, on the phone only:
-   outlined text fields are 56dp (compact table cells keep their size: they are
-   not text fields), assist and filter chips are 32dp with an 8dp corner and a
-   48dp hit area, and the timer button is a FAB with the 16dp corner, not a circle. */
+/* Material 3 sizes on every screen, not only the phone. Outlined text fields and
+   exposed menus are 56dp with the 4dp corner, a textarea takes the same corner,
+   cards are 12dp and checkboxes 18dp with a 2dp corner. A table cell is not a
+   text field and keeps its size; the project chip in a running-timer row is a
+   compact control too. A file picker keeps the native control. */
+#paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *),
+#paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; border-radius: 4px; }
+#paratrack-react-root [data-slot="textarea"] { border-radius: 4px; }
+#paratrack-react-root [data-slot="card"] { border-radius: 12px; }
+#paratrack-react-root [data-slot="checkbox"] { width: 18px; height: 18px; min-height: 18px; border-radius: 2px; align-self: flex-start; }
+/* A menu is a 4dp container of 48dp items. */
+#paratrack-react-root [data-slot="select-content"] { border-radius: 4px; }
+#paratrack-react-root [data-slot="select-item"] { min-height: 48px; }
+/* Assist and filter chips are 32dp with an 8dp corner and a 48dp hit area, and
+   the timer button is a FAB with the 16dp corner, not a circle; both stay phone-only. */
 @media (max-width: 1023px) {
-  #paratrack-react-root [data-slot="input"]:not(:is(td, th) *),
-  /* The project chip inside a running-timer row is a compact control, not a form field. */
-  #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; }
   #paratrack-react-root [data-chip][data-slot="button"],
   #paratrack-react-root [data-touch-chip] { position: relative; height: 32px; min-height: 32px; min-width: 44px; justify-content: center; text-align: center; border-radius: 8px; }
   #paratrack-react-root [data-chip][data-slot="button"]::after,
@@ -1064,26 +1071,15 @@ body {
   #paratrack-react-root .mobile-nav-fab { border-radius: 16px; }
 }
 
-/* Full M3 audit of the phone components, the values that differed from the spec:
-   filled cards 12dp (were 14px), exposed dropdowns take the 4dp field corner
-   (were 10px), primary tabs 48dp (were 44px), segmented buttons 40dp (were 44px),
-   checkboxes 18dp with a 2dp corner (were 16px, and stretched to the row height). */
+/* Full M3 audit of the phone components: primary tabs 48dp (were 44px) and
+   segmented buttons 40dp (were 44px). The field, card, checkbox and menu values
+   are on every screen now (see the Material 3 sizes above). */
 @media (max-width: 1023px) {
-  #paratrack-react-root [data-slot="card"] { border-radius: 12px; }
-  #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { border-radius: 4px; }
   #paratrack-react-root nav.overflow-x-auto > a:not([data-slot]) { min-height: 48px; }
-  #paratrack-react-root [data-slot="checkbox"] { width: 18px; height: 18px; min-height: 18px; border-radius: 2px; align-self: flex-start; }
 }
 /* An M3 snackbar is at least 48dp tall with a 4dp corner. */
 @media (max-width: 1023px) {
   #paratrack-react-root [data-snackbar] { min-height: 48px; border-radius: 4px; display: flex; align-items: center; }
-}
-
-/* Material 3 menus on the phone: the container is an extra-small 4dp corner and
-   each item is 48dp (the select list is a menu). Measured before: 10px and 28px. */
-@media (max-width: 1023px) {
-  #paratrack-react-root [data-slot="select-content"] { border-radius: 4px; }
-  #paratrack-react-root [data-slot="select-item"] { min-height: 48px; }
 }
 
 /* M3 list items on the phone: a one-line item is 56dp, a two-line item 72dp.

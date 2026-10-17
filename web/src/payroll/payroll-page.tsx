@@ -49,7 +49,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><DateField id="pay-start" name="start" required defaultValue={data.DefStart} /></div>
         <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><DateField id="pay-end" name="end" required defaultValue={data.DefEnd} /></div>
-        <div className="flex min-w-0 items-end gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
+        <div className="flex min-w-0 items-center gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
       </form>
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
     </DisclosureSection>
