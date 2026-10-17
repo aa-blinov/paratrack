@@ -10,7 +10,7 @@ export function DisclosureSection({ title, description, children, defaultOpen = 
   id?: string
   className?: string
 }) {
-  return <Disclosure id={id} open={defaultOpen} className={`group min-w-0 rounded-lg border bg-card ${className}`}>
+  return <Disclosure id={id} open={defaultOpen} className={`group min-w-0 rounded-[12px] border bg-card ${className}`}>
     <DisclosureTrigger className="flex cursor-pointer list-none items-start gap-3 p-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       <span className="min-w-0 flex-1"><span className="block font-medium">{title}</span>{description && <span className="mt-1 block text-sm text-muted-foreground">{description}</span>}</span>
       <ChevronDown aria-hidden="true" className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />

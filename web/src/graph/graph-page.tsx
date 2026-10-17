@@ -110,7 +110,7 @@ export function GraphPage({ data }: { data: GraphData }) {
         {canShowGraph ? <>
           <div className="echart-wrap min-w-0" id="echart-wrap">
             <div className="relative min-w-0">
-              {!chartBuilt && <div id="echart-skeleton" className="sk-chart" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>}
+              {!chartBuilt && <div id="echart-skeleton" className="sk-chart absolute inset-0" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>}
               <div ref={canvasRef} id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={`${t(lang, "graph.subtitle")}. ${t(lang, "graph.totalTracked")} ${data.Chart.totalLabel}. ${data.Chart.legend.map(item => item.name).join(", ")}`} />
             </div>
           </div>
