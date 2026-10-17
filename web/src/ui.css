@@ -904,10 +904,12 @@
 #paratrack-react-root .goal-form > div:first-of-type {
   flex: 3 1 14rem;
 }
-/* A 40dp button beside 56dp fields: an 8dp bottom margin puts its centre on the field's centre line. */
 #paratrack-react-root .goal-form > button {
   flex: 0 0 auto;
-  margin-bottom: 0.5rem;
+}
+/* On touch the fields are 56dp and the button 40dp: an 8dp bottom margin puts its centre on the field's centre line. */
+@media (max-width: 1023px), (pointer: coarse) {
+  #paratrack-react-root .goal-form > button { margin-bottom: 0.5rem; }
 }
 
 /* Same failure one screen over: the active-timer form split into a fixed
@@ -1048,15 +1050,21 @@ body {
    colour still wins, since it is more specific than the universal selector. */
 
 
-/* Material 3 sizes on every screen, not only the phone. Text fields and exposed
-   menus are 56dp tall. Their corner is 12dp, the same as the cards, because the
-   round buttons beside them read as one family with it; the 4dp corner of the
-   spec looked like a square box next to a pill. A textarea takes the same corner,
-   checkboxes are 18dp with a 2dp corner. A table cell is not a text field and keeps
-   its size; the project chip in a running-timer row is a compact control too.
-   A file picker keeps the native control. */
+/* Text fields and exposed menus are 40dp tall with a mouse on a desktop (the
+   compact density, the same height as the buttons beside them) and 56dp on a
+   phone or a touch screen (the Material 3 field height, where a finger needs it).
+   Their corner is 12dp, the same as the cards, because the round buttons beside
+   them read as one family with it. A table cell is not a text field and keeps its
+   size; the project chip in a running-timer row is a compact control too. A file
+   picker keeps the native control. */
 #paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *),
-#paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; border-radius: 12px; }
+#paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { border-radius: 12px; }
+@media (max-width: 1023px), (pointer: coarse) {
+  #paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *),
+  #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; }
+  /* The timesheet's day list: the clear button sits centred on a 56dp minutes field. */
+  #paratrack-react-root .ts-row-clear { margin-top: 0.5rem; }
+}
 #paratrack-react-root [data-slot="textarea"] { border-radius: 12px; }
 #paratrack-react-root [data-slot="card"] { border-radius: 12px; }
 #paratrack-react-root [data-slot="checkbox"] { width: 18px; height: 18px; min-height: 18px; border-radius: 2px; align-self: flex-start; }
