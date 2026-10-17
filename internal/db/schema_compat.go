@@ -90,6 +90,10 @@ var columnMigrations = []struct {
 	{"teams", "logo", "TEXT NOT NULL DEFAULT ''"},
 	// Sections the workspace uses ("" = all, "none" = core only).
 	{"teams", "modules", "TEXT NOT NULL DEFAULT ''"},
+	// Whether the workspace has picked its sections. A workspace created new
+	// starts at 0 and the menu waits at /welcome; existing ones are 1, so they
+	// keep the menu they always had.
+	{"teams", "sections_chosen", "BIGINT NOT NULL DEFAULT 1"},
 	// Activity lookup key: lowercase in Go (Unicode), the name keeps case.
 	{"activities", "name_key", "TEXT"},
 	// API tokens: the workspace they act in, optional expiry, read-only.

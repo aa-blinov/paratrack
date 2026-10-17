@@ -16,6 +16,8 @@ func joinStudio(t *testing.T, owner *apiEnv, others map[string]*apiEnv, order ..
 	for _, c := range resp.Cookies() {
 		owner.jar[c.Name] = c.Value
 	}
+	// A new shared workspace waits for its sections choice, as on the welcome screen.
+	owner.chooseSections("studio")
 	var ids []string
 	for _, email := range order {
 		o := others[email]

@@ -75,6 +75,7 @@ type SettingsStore interface {
 type ModuleStore interface {
 	TeamModules(context.Context, int64) (string, error)
 	SetTeamModules(context.Context, appmodel.TeamModulesRequest) error
+	TeamSectionsChosen(context.Context, int64) (bool, error)
 }
 
 // Dependencies keeps each workspace workflow on a resource-specific port.

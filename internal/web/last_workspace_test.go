@@ -85,6 +85,12 @@ func (b *browser) createTeam(t *testing.T, srv *Server, name string) int64 {
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("POST /api/team/create: want 303, got %d body=%s", w.Code, w.Body.String())
 	}
+	// A new workspace waits for its sections choice before any page; the browser
+	// makes the choice the welcome screen would.
+	choice := b.do(t, srv, http.MethodPost, "/api/team/modules", url.Values{"preset": {"studio"}, "from": {"welcome"}})
+	if choice.Code != http.StatusSeeOther || choice.Header().Get("Location") != "/" {
+		t.Fatalf("choose sections: want 303 to /, got %d to %q", choice.Code, choice.Header().Get("Location"))
+	}
 	return b.currentTeam(t, srv)
 }
 

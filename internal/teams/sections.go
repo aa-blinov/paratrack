@@ -21,6 +21,19 @@ func (s *Service) SectionModules(ctx context.Context, teamID int64) (map[string]
 	return DecodeSections(stored), nil
 }
 
+// SectionsChosen reports whether the workspace has picked its sections yet.
+// A new workspace answers false until someone saves a choice on /welcome.
+func (s *Service) SectionsChosen(ctx context.Context, teamID int64) (bool, error) {
+	if teamID <= 0 {
+		return false, model.ErrNotFound
+	}
+	chosen, err := s.modules.TeamSectionsChosen(ctx, teamID)
+	if err != nil {
+		return false, fmt.Errorf("load sections choice: %w", err)
+	}
+	return chosen, nil
+}
+
 func (s *Service) UpdateModules(ctx context.Context, request appmodel.TeamModulesRequest) error {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return model.ErrNotFound

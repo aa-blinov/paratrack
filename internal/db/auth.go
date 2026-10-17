@@ -34,7 +34,7 @@ func (d *DB) CreateAccount(ctx context.Context, request appmodel.AccountCreateRe
 
 	slug := teamslug.PersonalSlug(userID, request.Name)
 	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
+		`INSERT INTO teams (slug, name, owner_id, created_at, sections_chosen) VALUES (?, ?, ?, ?, 0) RETURNING id`,
 		slug, request.TeamName, userID, stamp,
 	).Scan(&teamID); err != nil {
 		return 0, 0, fmt.Errorf("create personal team: %w", err)
