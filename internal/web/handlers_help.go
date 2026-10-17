@@ -14,6 +14,9 @@ type helpPage struct {
 	// reader cannot follow is worse than no link, so the page knows the role
 	// and leaves out destinations behind a manager-only guard.
 	CanManage bool
+	// The sections this person has open, so the help lists only the screens
+	// it can open: a switched-off section is hidden from the menu and so from help.
+	Mods map[string]bool
 }
 
 func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
@@ -27,6 +30,7 @@ func (s *Server) handleHelp(w http.ResponseWriter, r *http.Request) {
 		},
 		HelpReact: true,
 		CanManage: canManage(r),
+		Mods:      s.userModules(r),
 	}
 	s.renderPageForRequest(w, r, "Help", "help", &data)
 }
