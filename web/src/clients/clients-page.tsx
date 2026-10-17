@@ -107,13 +107,14 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
           {/* On a phone the two actions are icons, so the name keeps the room
               it needs; the words come back from sm up and stay for screen readers. */}
           <Button type="button" variant="ghost" size="sm" className="whitespace-nowrap" aria-expanded={editing} onClick={() => onToggle(!editing)}>
-            <Pencil aria-hidden="true" /><span className="sr-only sm:not-sr-only">{t(lang, "clients.edit")}</span>
+            <Pencil aria-hidden="true" /><span className="sr-only sm:not-sr-only sm:whitespace-nowrap">{t(lang, "clients.edit")}</span>
           </Button>
           <form method="POST" action={`/clients/${client.ID}/${archiveAction}`} data-confirm={client.Archived ? undefined : t(lang, "clients.confirmArchive")}>
             <input type="hidden" name="csrf_token" value={csrf} />
             <Button type="submit" variant="ghost" size="sm" className="whitespace-nowrap">
               {client.Archived ? <ArchiveRestore aria-hidden="true" /> : <Archive aria-hidden="true" />}
-              <span className="sr-only sm:not-sr-only">{t(lang, client.Archived ? "clients.restore" : "clients.archive")}</span>
+              {/* not-sr-only sets white-space: normal, so the label would wrap inside the pill. */}
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">{t(lang, client.Archived ? "clients.restore" : "clients.archive")}</span>
             </Button>
           </form>
         </div>}
