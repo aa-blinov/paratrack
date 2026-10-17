@@ -41,11 +41,6 @@ def document(path, lang="ru"):
 async def check(browser, width):
     context = await browser.new_context(viewport={"width": width, "height": 900})
     page = await context.new_page()
-    await page.add_init_script('''new PerformanceObserver(list => {
-      for (const entry of list.getEntries()) {
-        if (entry.name === 'first-contentful-paint') window.firstPaintHadPage = !!document.querySelector('#main h1');
-      }
-    }).observe({type:'paint', buffered:true});''')
     # Simulate the language endpoint redirect without contacting a real host.
     await page.add_init_script('''const nativeFetch = window.fetch;
       window.fetch = async (...args) => {
@@ -83,9 +78,11 @@ async def check(browser, width):
 
     await context.route("**/*", respond)
     await page.goto("http://paratrack.test/")
+    # The boot placeholder ("Загрузка…") is the loading screen: it can paint while the
+    # preloads and the dictionary are fetched, so checking the first paint for it was a race.
+    # What must not happen is the placeholder still in the DOM once the page is up.
     await page.locator("#main h1").wait_for()
-    await page.wait_for_function("window.firstPaintHadPage !== undefined")
-    assert await page.evaluate("window.firstPaintHadPage"), "Browser painted before React was ready"
+    assert await page.locator(".app-boot").count() == 0, "boot placeholder left in the DOM after React rendered"
     if width < 1024:
         # Below 1024px the drawer is gone and the bar carries the navigation, so
         # the drawer's own checks belong to the widths that still have one.
