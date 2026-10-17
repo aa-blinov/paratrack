@@ -110,7 +110,6 @@ export function MobileNav({ shell }: { shell: AppSidebarShell }) {
             <div className="my-2 h-px bg-border" role="separator" />
             <p className="mobile-nav-sheet-label">{t(lang, "set.title")}</p>
             {settingsMenu(shell.canManage).map(([href, key]) => <SheetRow key={href} href={href} active={shell.requestPath.split("?")[0] === href || (href === "/settings/team" && ["/settings/money", "/settings/members", "/settings/invites", "/settings/sections", "/settings/webhooks", "/settings/audit"].includes(shell.requestPath.split("?")[0]))}><SettingsIcon />{t(lang, key)}</SheetRow>)}
-            <SheetRow href="/help"><SettingsIcon />{t(lang, "nav.help")}</SheetRow>
             <div className="my-2 h-px bg-border" role="separator" />
             <SheetRow href={`/lang/${lang === "ru" ? "en" : "ru"}?next=${encodeURIComponent(shell.requestPath)}`}>
               <LanguagesIcon />{t(lang, "nav.language")}: <span className="ml-auto">{lang.toUpperCase()}</span>
