@@ -25,6 +25,7 @@ func secondUser(t *testing.T, srv *Server, email, name string) string {
 	}
 	for _, cookie := range w.Result().Cookies() {
 		if cookie.Name == sessionCookieName {
+			chooseAllSections(t, srv, cookie.Value)
 			return cookie.Value
 		}
 	}

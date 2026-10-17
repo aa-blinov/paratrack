@@ -52,6 +52,10 @@ func newTestServer(t *testing.T) (*Server, string) {
 	if err != nil {
 		t.Fatalf("seed session: %v", err)
 	}
+	// A new workspace waits at /welcome for its sections choice. The page tests
+	// are about the screens, so the seed workspace makes its choice first; the
+	// gate itself is tested in sections_gate_test.go.
+	chooseAllSections(t, srv, sess.Token)
 	return srv, sess.Token
 }
 
@@ -294,6 +298,8 @@ func TestRegisterFlowCreatesUserAndLogsIn(t *testing.T) {
 	if token == "" {
 		t.Fatalf("register did not set a session cookie")
 	}
+	// The new workspace waits for its sections choice before the menu.
+	chooseAllSections(t, srv, token)
 
 	w2 := httptest.NewRecorder()
 	r2 := httptest.NewRequest(http.MethodGet, "/stats", nil)

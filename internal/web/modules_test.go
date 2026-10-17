@@ -20,9 +20,12 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 	for _, c := range resp.Cookies() {
 		e.jar[c.Name] = c.Value
 	}
-	// Before any choice everything is on (existing workspaces keep all).
-	if page := readBody(t, e.do("GET", "/", nil, nil)); !strings.Contains(page, `"invoices":true`) {
-		t.Fatal("the owner's menu has no invoices")
+	// Before the choice the menu waits at /welcome: a new workspace opens with the
+	// sections its owner picks, not with everything switched on.
+	if wait := e.do("GET", "/", nil, nil); wait.Header.Get("Location") != "/welcome" {
+		t.Fatalf("before the choice: GET / goes to %q, want /welcome", wait.Header.Get("Location"))
+	} else {
+		wait.Body.Close()
 	}
 	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !reactData[sectionsPage](t, w).Welcome || len(reactData[sectionsPage](t, w).Presets) != 3 {
 		t.Fatal("welcome has no presets")
