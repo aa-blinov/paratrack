@@ -24,6 +24,8 @@ func TestStudioRolesAndIsolation(t *testing.T) {
 	for _, c := range resp.Cookies() {
 		owner.jar[c.Name] = c.Value
 	}
+	// A new shared workspace waits for its sections choice, as on the welcome screen.
+	owner.chooseSections("studio")
 	resp = owner.do("POST", "/api/team/invites", nil, nil)
 	loc, _ := url.QueryUnescape(resp.Header.Get("Location"))
 	resp.Body.Close()

@@ -61,8 +61,20 @@ func (d *DB) TeamModules(ctx context.Context, teamID int64) (string, error) {
 	return m, err
 }
 
+// SetTeamModules saves the section list and marks it chosen: from now on the
+// workspace opens its menu rather than the /welcome choice.
 func (d *DB) SetTeamModules(ctx context.Context, request appmodel.TeamModulesRequest) error {
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET modules = ? WHERE id = ?`, appmodel.EncodeSections(request.Selected), request.TeamID)
+	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET modules = ?, sections_chosen = 1 WHERE id = ?`, appmodel.EncodeSections(request.Selected), request.TeamID)
+}
+
+// TeamSectionsChosen reports whether the workspace has picked its sections.
+func (d *DB) TeamSectionsChosen(ctx context.Context, teamID int64) (bool, error) {
+	var chosen int64
+	err := d.sql.QueryRowContext(ctx, `SELECT sections_chosen FROM teams WHERE id = ?`, teamID).Scan(&chosen)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, model.ErrNotFound
+	}
+	return chosen != 0, err
 }
 
 // TeamRequisites are the issuer's details and VAT line for documents.

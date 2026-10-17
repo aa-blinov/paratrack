@@ -425,6 +425,7 @@ type TeamSettingsManagement interface {
 	BillingRules(context.Context, int64) (model.BillingRules, error)
 	Currency(context.Context, int64) (string, error)
 	SectionModules(context.Context, int64) (map[string]bool, error)
+	SectionsChosen(context.Context, int64) (bool, error)
 	Settings(context.Context, int64) (model.TeamSettings, error)
 	UpdateLogo(context.Context, appmodel.TeamLogoRequest) error
 	UpdateModules(context.Context, appmodel.TeamModulesRequest) error

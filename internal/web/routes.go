@@ -48,7 +48,7 @@ func (s *Server) routes() http.Handler {
 
 	pageRoutes := http.NewServeMux()
 	s.registerPageRoutes(pageRoutes)
-	pages := s.shellNotFound(pageRoutes)
+	pages := s.shellNotFound(s.requireSectionsChosen(pageRoutes))
 	pageAuth := s.requireAuth(s.pageAuthFailure(pageRoutes))
 	mux.Handle("/", pageAuth(pages))
 	s.registerProtectedAPIRoutes(mux, apiAuth)

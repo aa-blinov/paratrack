@@ -118,6 +118,19 @@ func (e *apiEnv) register(email string) {
 		e.t.Fatalf("register: status %d", resp.StatusCode)
 	}
 	resp.Body.Close()
+	e.chooseSections("studio")
+}
+
+// chooseSections makes the env's current workspace save a sections preset, as
+// the welcome screen does. A workspace made new waits for that choice, so tests
+// that work in one make the same choice a person would.
+func (e *apiEnv) chooseSections(preset string) {
+	e.t.Helper()
+	resp := e.do("POST", "/api/team/modules", url.Values{"preset": {preset}, "from": {"welcome"}}, nil)
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/" {
+		e.t.Fatalf("choose sections: status %d to %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
 }
 
 func readBody(t *testing.T, resp *http.Response) string {

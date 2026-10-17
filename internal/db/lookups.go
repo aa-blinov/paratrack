@@ -70,7 +70,7 @@ func (d *DB) CreateOwnedTeam(ctx context.Context, request appmodel.TeamCreateReq
 	now := FormatTime(d.currentTime().UTC())
 	var teamID int64
 	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO teams (slug, name, owner_id, created_at) VALUES (?, ?, ?, ?) RETURNING id`,
+		`INSERT INTO teams (slug, name, owner_id, created_at, sections_chosen) VALUES (?, ?, ?, ?, 0) RETURNING id`,
 		request.Slug, request.Name, request.OwnerID, now,
 	).Scan(&teamID); err != nil {
 		if isUniqueViolation(err) {
