@@ -9,6 +9,7 @@ const mine = [
   ["settings-prefs", "/settings/preferences", "prefs.title"],
   ["settings-notify", "/settings/notifications", "sheet.notifications"],
   ["settings-tokens", "/settings/tokens", "set.tabTokens"],
+  ["settings-help", "/help", "nav.help"],
 ] as const
 const workspace = [
   ["settings-team", "/settings/team", "team.workspaceTab"],

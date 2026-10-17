@@ -832,6 +832,7 @@ export interface HelpData {
   Lang: string
   HelpReact: boolean
   CanManage: boolean
+  Mods: Record<string, boolean>
 }
 
 export interface InviteAcceptData {
