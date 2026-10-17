@@ -1048,18 +1048,20 @@ body {
    colour still wins, since it is more specific than the universal selector. */
 
 
-/* Material 3 sizes on every screen, not only the phone. Outlined text fields and
-   exposed menus are 56dp with the 4dp corner, a textarea takes the same corner,
-   cards are 12dp and checkboxes 18dp with a 2dp corner. A table cell is not a
-   text field and keeps its size; the project chip in a running-timer row is a
-   compact control too. A file picker keeps the native control. */
+/* Material 3 sizes on every screen, not only the phone. Text fields and exposed
+   menus are 56dp tall. Their corner is 12dp, the same as the cards, because the
+   round buttons beside them read as one family with it; the 4dp corner of the
+   spec looked like a square box next to a pill. A textarea takes the same corner,
+   checkboxes are 18dp with a 2dp corner. A table cell is not a text field and keeps
+   its size; the project chip in a running-timer row is a compact control too.
+   A file picker keeps the native control. */
 #paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *),
-#paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; border-radius: 4px; }
-#paratrack-react-root [data-slot="textarea"] { border-radius: 4px; }
+#paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; border-radius: 12px; }
+#paratrack-react-root [data-slot="textarea"] { border-radius: 12px; }
 #paratrack-react-root [data-slot="card"] { border-radius: 12px; }
 #paratrack-react-root [data-slot="checkbox"] { width: 18px; height: 18px; min-height: 18px; border-radius: 2px; align-self: flex-start; }
-/* A menu is a 4dp container of 48dp items. */
-#paratrack-react-root [data-slot="select-content"] { border-radius: 4px; }
+/* A menu is a container of 48dp items with the same corner as the field it opens from. */
+#paratrack-react-root [data-slot="select-content"] { border-radius: 12px; }
 #paratrack-react-root [data-slot="select-item"] { min-height: 48px; }
 /* Assist and filter chips are 32dp with an 8dp corner and a 48dp hit area, and
    the timer button is a FAB with the 16dp corner, not a circle; both stay phone-only. */
