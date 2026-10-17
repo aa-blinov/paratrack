@@ -119,7 +119,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
                     <span className="block text-xs font-normal text-muted-foreground">{row.Total}, {row.LoadPct}%</span></span>
                 </span>
                 {data.CanManage
-                  ? <Input type="number" min={0} max={1440} step={30} inputMode="numeric" className="h-11 w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min ? String(cell.Min) : "")} placeholder="—" title={`${cell.ISO}: ${t(lang, "sch.dayAll")} ${cell.Total}`} aria-label={`${row.UserName} ${cell.ISO}`} disabled={saving !== null} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onBlur={event => void saveCell(row, cell, event.target.value)} />
+                  ? <Input type="number" min={0} max={1440} step={30} inputMode="numeric" className="w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min ? String(cell.Min) : "")} placeholder="—" title={`${cell.ISO}: ${t(lang, "sch.dayAll")} ${cell.Total}`} aria-label={`${row.UserName} ${cell.ISO}`} disabled={saving !== null} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onBlur={event => void saveCell(row, cell, event.target.value)} />
                   : <span className="w-20 shrink-0 text-center font-mono tabular-nums" title={`${t(lang, "sch.dayAll")} ${cell.Total}`}>{cell.Min || "—"}</span>}
               </div>
             })}
