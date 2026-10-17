@@ -1054,14 +1054,30 @@ body {
    compact density, the same height as the buttons beside them) and 56dp on a
    phone or a touch screen (the Material 3 field height, where a finger needs it).
    Their corner is 12dp, the same as the cards, because the round buttons beside
-   them read as one family with it. A table cell is not a text field and keeps its
-   size; the project chip in a running-timer row is a compact control too. A file
-   picker keeps the native control. */
-#paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *),
-#paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { border-radius: 12px; }
+   them read as one family with it. The corner is the same inside a table cell
+   (the minutes cells in the timesheet and the schedule, the project in the timer
+   form); only the height of a cell is its own, because a cell is a dense grid.
+   The project chip in a running-timer row is a compact control too. A file picker
+   keeps the native control. */
+#paratrack-react-root [data-slot="input"]:not([type="file"]),
+#paratrack-react-root [data-slot="select-trigger"]:not(.ledger-project),
+#paratrack-react-root select:not([data-slot]) { border-radius: 12px; }
+/* A native select ignores border-radius while the OS draws its arrow, so it takes
+   no appearance of its own: the arrow is a background image and the corner shows. */
+#paratrack-react-root select:not([data-slot]) {
+  appearance: none;
+  height: 40px;
+  border: 1px solid var(--input);
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-inline: 0.625rem 2rem;
+}
 @media (max-width: 1023px), (pointer: coarse) {
   #paratrack-react-root [data-slot="input"]:not([type="file"]):not(:is(td, th) *),
-  #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project) { height: 56px; }
+  #paratrack-react-root [data-slot="select-trigger"]:not(:is(td, th) *):not(.ledger-project),
+  #paratrack-react-root select:not([data-slot]) { height: 56px; }
   /* The timesheet's day list: the clear button sits centred on a 56dp minutes field. */
   #paratrack-react-root .ts-row-clear { margin-top: 0.5rem; }
 }
