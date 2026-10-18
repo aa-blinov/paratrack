@@ -38,6 +38,7 @@ type bucketKey struct {
 	label    string
 	day      string
 	currency string
+	userID   int64
 }
 
 // secondsPerHundredth is one hundredth of an hour: the precision of an hours
@@ -93,6 +94,7 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		label := session.Activity.Name
 		var day time.Time
 		identityDay := ""
+		userID := int64(0)
 		switch input.GroupBy {
 		case appmodel.ReportGroupProject:
 			if session.Activity.ProjectID == 0 {
@@ -109,7 +111,7 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			identityDay = day.Format("2006-01-02")
 			label = identityDay
 		case appmodel.ReportGroupUser:
-			userID := session.Session.UserID
+			userID = session.Session.UserID
 			if userID == 0 {
 				label = input.UnassignedUser
 			} else if name, ok := input.UserNames[userID]; ok {
@@ -129,7 +131,7 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		if input.Billable && currency != teamCurrency {
 			currencyKey = currency
 		}
-		key := bucketKey{label: label, day: identityDay, currency: currencyKey}
+		key := bucketKey{label: label, day: identityDay, currency: currencyKey, userID: userID}
 		current := buckets[key]
 		if current == nil {
 			current = &bucket{currency: currency, day: day}
@@ -220,7 +222,7 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			rate = 0 // A grouped row must never present one constituent rate as its total rate.
 		}
 		result.Rows = append(result.Rows, AggregateRow{
-			Key: key.label, Day: current.day, Seconds: current.seconds,
+			Key: key.label, UserID: key.userID, Day: current.day, Seconds: current.seconds,
 			RateCents: rate, RateVaries: current.rateVaries, AmountCents: current.amount,
 			Currency: current.currency, Share: share,
 		})

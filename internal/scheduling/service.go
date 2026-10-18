@@ -15,6 +15,7 @@ import (
 
 type Store interface {
 	ListSchedule(context.Context, appmodel.ScheduleQuery) ([]appmodel.ScheduleRow, map[int64]string, error)
+	PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error)
 	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
 }
 
@@ -82,6 +83,19 @@ func weekLoadPercent(minutes, capacity int) int {
 		return 0
 	}
 	return int(int64(minutes) * 100 / (int64(capacity) * 5))
+}
+
+// PlannedMinutesByUser is each member's planned minutes over the days in
+// [from, to), for the reports that compare the plan with tracked time.
+func (s *Service) PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	planned, err := s.store.PlannedMinutesByUser(ctx, teamID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("load planned minutes: %w", err)
+	}
+	return planned, nil
 }
 
 func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequest) error {

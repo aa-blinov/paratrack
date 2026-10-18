@@ -82,7 +82,10 @@ type ReportGraphResult struct {
 }
 
 type ReportAggregateRow struct {
-	Key         string
+	Key string
+	// UserID is set on member rows only (zero for other groupings and for
+	// time with no member).
+	UserID      int64
 	Day         time.Time
 	Seconds     int
 	RateCents   int

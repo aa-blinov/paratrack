@@ -316,4 +316,30 @@ func buildScheduleRows(users []scheduleUser, entries map[scheduleCellKey]int, by
 	return rows
 }
 
+// PlannedMinutesByUser sums each member's planned minutes over the days in
+// [from, to). Days compare as their YYYY-MM-DD text, like the week grid does.
+func (d *DB) PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT user_id, COALESCE(SUM(minutes), 0) FROM schedule_entries
+		 WHERE team_id = ? AND day >= ? AND day < ? GROUP BY user_id`,
+		teamID, scheduleDay(from), scheduleDay(to))
+	if err != nil {
+		return nil, fmt.Errorf("sum planned minutes: %w", err)
+	}
+	defer rows.Close()
+	planned := make(map[int64]int)
+	for rows.Next() {
+		var userID int64
+		var minutes int
+		if err := rows.Scan(&userID, &minutes); err != nil {
+			return nil, err
+		}
+		planned[userID] = minutes
+	}
+	return planned, rows.Err()
+}
+
 func scheduleDay(day time.Time) string { return day.Format("2006-01-02") }
