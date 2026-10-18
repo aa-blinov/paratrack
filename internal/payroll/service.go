@@ -27,6 +27,7 @@ type Store interface {
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	ListMemberPayrollSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
+	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
 }
 
 type AuditRecorder interface {
@@ -73,6 +74,19 @@ var (
 type RunDetails = appmodel.PayrollRunDetails
 
 type PaidResult = appmodel.PayrollPaidResult
+
+// UnapprovedPayrollTime reports the closed time in [from, to) that is not in an
+// approved week, so the page can say so before a run is refused.
+func (s *Service) UnapprovedPayrollTime(ctx context.Context, teamID int64, from, to time.Time) (*model.PayrollNotApprovedError, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidTeam
+	}
+	notApproved, err := s.store.UnapprovedPayrollTime(ctx, teamID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("check approved payroll time: %w", err)
+	}
+	return notApproved, nil
+}
 
 func (s *Service) ListRuns(ctx context.Context, query appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error) {
 	if query.TeamID <= 0 {

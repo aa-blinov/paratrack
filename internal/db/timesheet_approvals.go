@@ -173,9 +173,27 @@ func (d *DB) ListTimesheetApprovals(ctx context.Context, teamID int64, from, to 
 // outside every approved week. The error says how much time is missing and
 // over which dates, so the manager knows which weeks to approve.
 func requireApprovedPayrollTime(ctx context.Context, tx *Tx, teamID int64, from, to time.Time) error {
+	notApproved, err := unapprovedPayrollTime(ctx, tx, teamID, from, to)
+	if err != nil {
+		return err
+	}
+	if notApproved != nil {
+		return notApproved
+	}
+	return nil
+}
+
+// UnapprovedPayrollTime reports the closed time in [from, to) that no approved
+// week covers, or nil when all of it is approved. The payroll page uses it to
+// warn before a run is refused.
+func (d *DB) UnapprovedPayrollTime(ctx context.Context, teamID int64, from, to time.Time) (*model.PayrollNotApprovedError, error) {
+	return unapprovedPayrollTime(ctx, d.sql, teamID, from, to)
+}
+
+func unapprovedPayrollTime(ctx context.Context, q queryRower, teamID int64, from, to time.Time) (*model.PayrollNotApprovedError, error) {
 	var count int64
 	var first, last sql.NullString
-	err := tx.QueryRowContext(ctx,
+	err := q.QueryRowContext(ctx,
 		`SELECT COUNT(*), MIN(s.start_at), MAX(s.start_at) FROM sessions s
 		  WHERE s.team_id = ? AND s.end_at IS NOT NULL
 		    AND s.start_at >= ? AND s.start_at < ?
@@ -184,20 +202,20 @@ func requireApprovedPayrollTime(ctx context.Context, tx *Tx, teamID int64, from,
 		       WHERE a.team_id = s.team_id AND a.starts_at <= s.start_at AND a.ends_at > s.start_at)`,
 		teamID, FormatTime(from), FormatTime(to)).Scan(&count, &first, &last)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if count == 0 {
-		return nil
+		return nil, nil
 	}
 	firstAt, err := ParseTime(first.String)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	lastAt, err := ParseTime(last.String)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return &model.PayrollNotApprovedError{Count: int(count), First: firstAt, Last: lastAt}
+	return &model.PayrollNotApprovedError{Count: int(count), First: firstAt, Last: lastAt}, nil
 }
 
 // lockApprovedSessionStart checks a session by its stored start time.

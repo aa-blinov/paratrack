@@ -68,7 +68,36 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
+	data.UnapprovedWeeks = s.unapprovedPayrollWeeks(r, now)
 	s.renderPageForRequest(w, r, "Payroll", "payroll", &data)
+}
+
+// unapprovedPayrollWeeks looks back over the last eight finished weeks. The
+// current week is not listed: it cannot be approved until it ends.
+func (s *Server) unapprovedPayrollWeeks(r *http.Request, now time.Time) []payrollWeekHint {
+	lang := resolveLang(r)
+	thisWeek := startOfWeek(r, now)
+	var weeks []payrollWeekHint
+	for back := 1; back <= 8; back++ {
+		start := thisWeek.AddDate(0, 0, -7*back)
+		end := start.AddDate(0, 0, 7)
+		notApproved, err := s.services.Payroll.UnapprovedPayrollTime(r.Context(), teamID(r), start, end)
+		if err != nil {
+			if s.logger != nil {
+				s.logger.Printf("web: payroll unapproved weeks: %v", err)
+			}
+			continue
+		}
+		if notApproved == nil {
+			continue
+		}
+		weeks = append(weeks, payrollWeekHint{
+			Date:  start.Format("2006-01-02"),
+			Label: fmtDay(lang, start) + " – " + fmtDay(lang, end.AddDate(0, 0, -1)),
+			Count: notApproved.Count,
+		})
+	}
+	return weeks
 }
 
 type payrollSummary struct {
@@ -90,6 +119,15 @@ type payrollPage struct {
 	Overlap      string // runs whose period this one overlaps, "PAY-…, PAY-…"
 	Flash        string
 	FlashOK      bool
+	// UnapprovedWeeks are the finished weeks with tracked time that no approval
+	// covers yet, newest first: a run over them would be refused.
+	UnapprovedWeeks []payrollWeekHint
+}
+
+type payrollWeekHint struct {
+	Date  string // Monday, YYYY-MM-DD: the timesheet opens on it
+	Label string
+	Count int
 }
 
 func (p *payrollPage) setCSRF(t string) { p.pageData.setCSRF(t) }

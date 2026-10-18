@@ -94,12 +94,14 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - A run counts **only time inside approved weeks**. A closed session in the period that starts
   outside every approved window refuses the run with `PayrollNotApprovedError`, which carries the
   count and the first and last start; the message names them. The current week can be paid only
-  after it has ended and been approved.
+  after it has ended and been approved. `/payroll` lists the finished, unapproved weeks with tracked
+  time from the last eight, each linking to its timesheet.
 
 **Schedule**
 
 - `schedule_entries` per (team, user, project, day), cell minutes, 0 clears
 - `Load% = planned / (capacity × 5)`: five working days, not seven. `Tracked%` is the same ratio over the time the week's sessions logged, open timers included. Managers see tracked time; a member sees only the plan.
+- The team utilization report (`/reports`, `utilization`) puts each member's planned minutes over the period beside their tracked time. A member with a plan and no tracked time gets a row with zero time.
 
 ### Sections and onboarding
 
