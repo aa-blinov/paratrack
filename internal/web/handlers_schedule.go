@@ -31,7 +31,11 @@ type schedRow struct {
 	Cells    [7]schedDay
 	Total    string
 	TotalMin int
-	LoadPct  int // total / (capacity*7)
+	LoadPct  int // total / (capacity*5)
+	// Tracked is what the person logged in the week. Only managers get it:
+	// members see the plan, not their colleagues' time.
+	TrackedLabel string
+	TrackedPct   int
 }
 
 type schedulePage struct {
@@ -139,17 +143,21 @@ type scheduleRowsView struct {
 }
 
 func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, project string) (scheduleRowsView, error) {
-	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart})
+	now := userNow(r)
+	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart, Now: now})
 	if err != nil {
 		return scheduleRowsView{}, err
 	}
 	pid := schedProject(project, snapshot.Projects)
-	now := userNow(r)
 	out := make([]schedRow, 0, len(snapshot.Rows))
 	for _, rc := range snapshot.Rows {
 		row := schedRow{
 			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
 			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60), LoadPct: rc.LoadPercent,
+		}
+		if canManage(r) {
+			row.TrackedLabel = fmtDur(r, rc.Tracked*60)
+			row.TrackedPct = rc.TrackedPercent
 		}
 		proj := rc.ByProject[pid]
 		for i := 0; i < 7; i++ {

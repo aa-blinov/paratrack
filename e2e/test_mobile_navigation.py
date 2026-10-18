@@ -642,7 +642,7 @@ def schedule_document():
                   'Cells': cells(),
                   'Total': '0 мин',
                   'TotalMin': 0,
-                  'LoadPct': 0} for index, name in enumerate(['Пётр Владелец', 'Маша Участница'])],
+                  'LoadPct': 0, 'TrackedLabel': '0 мин', 'TrackedPct': 0} for index, name in enumerate(['Пётр Владелец', 'Маша Участница'])],
         'Projects': [{'ID': 1, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed'}],
         'GrandTotal': '0 мин', 'GrandMin': 0,
     }, True)

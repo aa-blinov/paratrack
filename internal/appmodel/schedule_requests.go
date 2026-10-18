@@ -6,4 +6,6 @@ import "time"
 type ScheduleQuery struct {
 	TeamID    int64
 	WeekStart time.Time
+	// Now closes the open timers, so the tracked column includes them.
+	Now time.Time
 }

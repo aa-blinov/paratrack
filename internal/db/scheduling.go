@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 // ScheduleRow is one member's planned work during a week.
@@ -111,7 +113,14 @@ func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]
 	if err != nil {
 		return nil, nil, fmt.Errorf("load schedule entries: %w", err)
 	}
+	tracked, err := loadScheduleTracked(ctx, tx, query)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load schedule tracked time: %w", err)
+	}
 	rows := buildScheduleRows(users, entries, byProject, query.WeekStart)
+	for i := range rows {
+		rows[i].Tracked = tracked[rows[i].UserID]
+	}
 	if err := tx.Commit(); err != nil {
 		return nil, nil, fmt.Errorf("commit schedule snapshot: %w", err)
 	}
@@ -205,6 +214,69 @@ func loadScheduleEntries(ctx context.Context, tx *Tx, query appmodel.ScheduleQue
 		return nil, nil, err
 	}
 	return entries, byProject, nil
+}
+
+// loadScheduleTracked sums the minutes each member logged in the week, open
+// timers included, the same way the timesheet counts them. It reads the whole
+// team: the handler shows the column to managers only.
+func loadScheduleTracked(ctx context.Context, tx *Tx, query appmodel.ScheduleQuery) (map[int64]int, error) {
+	weekEnd := query.WeekStart.AddDate(0, 0, 7)
+	rows, err := tx.QueryContext(ctx,
+		`SELECT user_id, start_at, end_at, accumulated_seconds, paused, last_resume_at
+		 FROM sessions
+		 WHERE team_id = ? AND start_at < ? AND (end_at IS NULL OR end_at >= ?)`,
+		query.TeamID, FormatTime(weekEnd), FormatTime(query.WeekStart))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	seconds := make(map[int64]int)
+	for rows.Next() {
+		var (
+			userID              sql.NullInt64
+			startAt             string
+			endAt, lastResumeAt sql.NullString
+			accumulated, paused int
+		)
+		if err := rows.Scan(&userID, &startAt, &endAt, &accumulated, &paused, &lastResumeAt); err != nil {
+			return nil, err
+		}
+		if !userID.Valid {
+			continue
+		}
+		started, err := ScanTime(startAt)
+		if err != nil {
+			return nil, fmt.Errorf("parse schedule session start: %w", err)
+		}
+		session := model.Session{StartAt: started, AccumulatedSeconds: accumulated, Paused: paused == 1}
+		if endAt.Valid {
+			ended, err := ScanTime(endAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("parse schedule session end: %w", err)
+			}
+			session.EndAt = &ended
+		}
+		if lastResumeAt.Valid {
+			resumed, err := ScanTime(lastResumeAt.String)
+			if err != nil {
+				return nil, fmt.Errorf("parse schedule session resume time: %w", err)
+			}
+			session.LastResumeAt = &resumed
+		}
+		total, err := money.AddInt(seconds[userID.Int64], session.TrackedSecondsInWindow(query.WeekStart, weekEnd, query.Now))
+		if err != nil {
+			return nil, fmt.Errorf("sum schedule tracked time: %w", err)
+		}
+		seconds[userID.Int64] = total
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	minutes := make(map[int64]int, len(seconds))
+	for userID, sec := range seconds {
+		minutes[userID] = sec / 60
+	}
+	return minutes, nil
 }
 
 func buildScheduleRows(users []scheduleUser, entries map[scheduleCellKey]int, byProject map[scheduleProjectCellKey]int, weekStart time.Time) []ScheduleRow {

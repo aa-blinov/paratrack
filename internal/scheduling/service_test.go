@@ -51,7 +51,7 @@ func (scheduleStoreStub) UpsertScheduleEntry(context.Context, appmodel.ScheduleC
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	projects := &scheduleProjectCatalogStub{projects: []model.Project{{ID: 9, Name: "Alpha"}}}
 	store := &scheduleStoreStub{rows: []appmodel.ScheduleRow{
-		{UserID: 1, Capacity: 60, Total: 150},
+		{UserID: 1, Capacity: 60, Total: 150, Tracked: 225},
 		{UserID: 2, Capacity: 0, Total: 90},
 	}}
 	service, err := New(Dependencies{Store: store, Projects: projects})
@@ -65,6 +65,9 @@ func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	}
 	if snapshot.Rows[0].LoadPercent != 50 {
 		t.Fatalf("weekly load = %d%%, want 50%%", snapshot.Rows[0].LoadPercent)
+	}
+	if snapshot.Rows[0].TrackedPercent != 75 {
+		t.Fatalf("tracked load = %d%%, want 75%% (225 of 60*5)", snapshot.Rows[0].TrackedPercent)
 	}
 	if store.query.TeamID != query.TeamID || !store.query.WeekStart.Equal(query.WeekStart) {
 		t.Fatalf("store schedule query = %+v, want %+v", store.query, query)

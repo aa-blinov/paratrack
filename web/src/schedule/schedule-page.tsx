@@ -116,7 +116,8 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
               return <div key={row.UserID} className="flex items-start gap-2">
                 <span className="grid-name flex min-w-0 flex-1 items-start gap-2">
                   <span className="min-w-0"><span className="block truncate text-sm font-medium" title={row.UserName}>{row.UserName}</span>
-                    <span className="block text-xs font-normal text-muted-foreground">{row.Total}, {row.LoadPct}%</span></span>
+                    <span className="block text-xs font-normal text-muted-foreground">{t(lang, "sch.planned")} {row.Total}, {row.LoadPct}%</span>
+                    {data.CanManage && <span className={`block text-xs font-normal ${row.TrackedPct > 100 ? "text-destructive" : "text-muted-foreground"}`}>{t(lang, "sch.tracked")} {row.TrackedLabel}, {row.TrackedPct}%</span>}</span>
                 </span>
                 {data.CanManage
                   ? <Input type="number" min={0} max={1440} step={30} inputMode="numeric" className="w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" value={drafts[key] ?? (cell.Min ? String(cell.Min) : "")} placeholder="—" title={`${cell.ISO}: ${t(lang, "sch.dayAll")} ${cell.Total}`} aria-label={`${row.UserName} ${cell.ISO}`} disabled={saving !== null} onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))} onBlur={event => void saveCell(row, cell, event.target.value)} />
@@ -139,7 +140,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
             <TableBody>
               {data.Rows.map(row => {
                 const cells = [
-                  <TableHead key="member" scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name block truncate" title={row.UserName}>{row.UserName}</span><span className="block text-xs font-mono text-muted-foreground">{row.Total}, {row.LoadPct}%</span></TableHead>,
+                  <TableHead key="member" scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-medium"><span className="grid-name block truncate" title={row.UserName}>{row.UserName}</span><span className="block text-xs font-mono text-muted-foreground">{t(lang, "sch.planned")} {row.Total}, {row.LoadPct}%</span>{data.CanManage && <span className={`block text-xs font-mono ${row.TrackedPct > 100 ? "text-destructive" : "text-muted-foreground"}`}>{t(lang, "sch.tracked")} {row.TrackedLabel}, {row.TrackedPct}%</span>}</TableHead>,
                   ...row.Cells.map(cell => {
                     const key = cellKey(row.UserID, cell.Index)
                     return <TableCell key={cell.Index} className={`p-1 text-center ${cell.IsToday ? "bg-muted/70" : ""}`}>

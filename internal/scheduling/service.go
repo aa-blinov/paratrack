@@ -64,9 +64,8 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 			return appmodel.ScheduleSnapshot{}, fmt.Errorf("sum weekly schedule minutes: %w", err)
 		}
 		row := Row{ScheduleRow: stored}
-		if stored.Capacity > 0 {
-			row.LoadPercent = int(int64(stored.Total) * 100 / (int64(stored.Capacity) * 5))
-		}
+		row.LoadPercent = weekLoadPercent(stored.Total, stored.Capacity)
+		row.TrackedPercent = weekLoadPercent(stored.Tracked, stored.Capacity)
 		rows = append(rows, row)
 	}
 	projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID})
@@ -74,6 +73,15 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule projects: %w", err)
 	}
 	return appmodel.ScheduleSnapshot{Rows: rows, ProjectNames: names, Projects: projects, TotalMinutes: totalMinutes}, nil
+}
+
+// weekLoadPercent is minutes against the five working days of capacity. A
+// member with no configured capacity has no load to show, so 0.
+func weekLoadPercent(minutes, capacity int) int {
+	if capacity <= 0 {
+		return 0
+	}
+	return int(int64(minutes) * 100 / (int64(capacity) * 5))
 }
 
 func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequest) error {
