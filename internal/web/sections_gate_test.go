@@ -44,3 +44,30 @@ func chooseAllSections(t *testing.T, srv *Server, session string) {
 		t.Fatalf("choose sections: want 303 to /, got %d to %q", w.Code, w.Header().Get("Location"))
 	}
 }
+
+// The custom list on the welcome screen saves like a preset: it posts the ticked
+// sections with from=welcome, the workspace is chosen from then on, and the menu
+// holds exactly what was ticked.
+func TestWelcomeCustomListSavesAndOpensTheMenu(t *testing.T) {
+	e := newAPIEnv(t)
+	resp := e.do("POST", "/api/register", url.Values{"name": {"U"}, "email": {"custom-welcome@x.test"}, "password": {"longenoughpw"}}, nil)
+	resp.Body.Close()
+	if loc := resp.Header.Get("Location"); loc != "/welcome" {
+		t.Fatalf("after sign-up: %q, want /welcome", loc)
+	}
+	for _, c := range resp.Cookies() {
+		e.jar[c.Name] = c.Value
+	}
+	saved := e.do("POST", "/api/team/modules", url.Values{"modules": {"graph", "invoices"}, "from": {"welcome"}}, nil)
+	saved.Body.Close()
+	if loc := saved.Header.Get("Location"); loc != "/" {
+		t.Fatalf("custom save goes to %q, want /", loc)
+	}
+	page := readBody(t, e.do("GET", "/", nil, nil))
+	if !strings.Contains(page, `"invoices":true`) {
+		t.Fatal("the ticked invoices section is not on after the custom save")
+	}
+	if strings.Contains(page, `"payroll":true`) {
+		t.Fatal("an unticked section is on after the custom save")
+	}
+}
