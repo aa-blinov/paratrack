@@ -70,7 +70,7 @@ def timesheet_document(linked=False):
     if linked:
         names['0'] = 'Внутренние задачи'
     return boot('/timesheet', {
-        'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'CSRFToken': 'test', 'Days': days,
+        'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'CSRFToken': 'test', 'Approval': {'Approved': False, 'Finished': True, 'ApprovedOn': '', 'CanManage': True, 'StartISO': '2026-10-05', 'EndISO': '2026-10-11'}, 'Days': days,
         'Rows': [row(4, 'Вёрстка главной', 0, 45), row(1, 'Правка макета', 3, 30)],
         'ProjectNames': names, 'DayTotalLabels': ['0 мин', '1 ч 15 мин'] + ['0 мин'] * 5,
         'GrandTotal': 4500, 'GrandTotalLabel': '1 ч 15 мин', 'Others': [], 'Added': [],
