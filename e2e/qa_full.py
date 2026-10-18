@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from color_audit import wait_for_chart
 
+import datetime
 import re
 import time
 from pathlib import Path
@@ -463,10 +464,37 @@ def main() -> int:
         pg.goto(BASE + "/payroll")
         pg.wait_for_selector('form[action="/payroll"] button[type="submit"]')
         open_disclosures(pg, 'form[action="/payroll"] button[type="submit"]')
-        # A pay run bills tracked time, so use the same window section J billed.
+        # A pay run counts only approved time. The window section J billed is this
+        # week, which cannot be approved yet, so the run must be refused first.
         if assign.get("from") and assign.get("to"):
             pg.fill('input[data-date-input="start"]', assign["from"])
             pg.fill('input[data-date-input="end"]', assign["to"])
+        pg.locator('form[action="/payroll"] button[type="submit"]').click()
+        pg.wait_for_load_state("networkidle")
+        refusal = pg.inner_text("body")
+        check("payroll refuses unapproved time", "Не утверждено сессий" in refusal or "sessions are not approved" in refusal, refusal[:120].replace("\n", " "))
+
+        # Then a finished week: backfill a session there, approve it as the owner,
+        # and pay that week only.
+        past_monday = datetime.date.today() - datetime.timedelta(days=datetime.date.today().weekday() + 7)
+        past_day = (past_monday + datetime.timedelta(days=1)).isoformat()
+        pg.goto(BASE + "/")
+        open_disclosures(pg, "#b-activity")
+        pg.fill('#b-activity', "consulting")
+        pg.fill('#b-start', f"{past_day} 09:00")
+        pg.fill('#b-end', f"{past_day} 11:00")
+        pg.locator('#backfill form button[type="submit"]').click()
+        pg.wait_for_timeout(600)
+        pg.goto(BASE + f"/timesheet?date={past_monday.isoformat()}")
+        pg.wait_for_load_state("networkidle")
+        pg.get_by_role("button", name=re.compile("Утвердить неделю|Approve week")).click()
+        pg.wait_for_load_state("networkidle")
+        check("finished week approved", "Неделя утверждена" in pg.inner_text("body") or "Week approved" in pg.inner_text("body"))
+        pg.goto(BASE + "/payroll")
+        pg.wait_for_selector('form[action="/payroll"] button[type="submit"]')
+        open_disclosures(pg, 'form[action="/payroll"] button[type="submit"]')
+        pg.fill('input[data-date-input="start"]', past_monday.isoformat())
+        pg.fill('input[data-date-input="end"]', (past_monday + datetime.timedelta(days=6)).isoformat())
         pg.locator('form[action="/payroll"] button[type="submit"]').click()
         pg.wait_for_url("**/payroll/*")
         pg.wait_for_selector('main h1:has-text("PAY-")')

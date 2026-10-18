@@ -667,6 +667,9 @@ async def check_the_minutes_column_lines_up(browser):
                                                   'Правка макета', 'Разбор сметы за неделю'])],
             'ProjectNames': {}, 'ProjectSlugs': {},
             'DayTotalLabels': ['3 ч'] * 7, 'GrandTotal': 16200, 'GrandTotalLabel': '18 ч',
+            # The week's approval, as the server sends it: not approved, so the grid is editable.
+            'Approval': {'Approved': False, 'Finished': True, 'ApprovedOn': '', 'CanManage': True,
+                         'StartISO': '2026-10-05', 'EndISO': '2026-10-11'},
             'Others': [], 'Added': [], 'DateISO': '2026-10-05', 'PrevWeek': '2026-09-28',
             'NextWeek': '2026-10-12', 'WeekLabel': '5 окт – 11 окт',
         }, True)

@@ -9,7 +9,7 @@ def timesheet_document():
  start=html.index('<div id="react-page-data" hidden>')+len('<div id="react-page-data" hidden>');end=html.index('</div>',start)
  boot=json.loads(html[start:end]);days=[{'ISO':f'2026-10-{5+i:02d}','Label':str(i+1),'Date':str(5+i),'IsToday':i==0} for i in range(7)]
  rows=[{'ActivityID':i,'ActivityName':'Одинаковая активность','ProjectID':i,'Color':'#123456','RowTotalLabel':'0 мин','Cells':[{'Index':j,'ISO':d['ISO'],'Min':0,'Secs':0,'IsToday':j==0} for j,d in enumerate(days)]} for i in [1,2]]
- boot['data']={'Lang':'ru','Active':'timesheet','TimesheetReact':True,'CSRFToken':'test','Rows':rows,'ProjectNames':{'1':'Первый проект','2':'Второй проект'},'Days':days,'DayTotalLabels':['0 мин']*7,'Others':[],'Added':[],'DateISO':'2026-10-05','WeekLabel':'5–11 октября','PrevWeek':'2026-09-28','NextWeek':'2026-10-12','GrandTotalLabel':'0 мин'}
+ boot['data']={'Lang':'ru','Active':'timesheet','TimesheetReact':True,'CSRFToken':'test','Approval': {'Approved': False, 'Finished': True, 'ApprovedOn': '', 'CanManage': True, 'StartISO': '2026-10-05', 'EndISO': '2026-10-11'}, 'Rows':rows,'ProjectNames':{'1':'Первый проект','2':'Второй проект'},'Days':days,'DayTotalLabels':['0 мин']*7,'Others':[],'Added':[],'DateISO':'2026-10-05','WeekLabel':'5–11 октября','PrevWeek':'2026-09-28','NextWeek':'2026-10-12','GrandTotalLabel':'0 мин'}
  boot['shell']['active']='timesheet'
  return html[:start]+json.dumps(boot,ensure_ascii=False)+html[end:]
 
