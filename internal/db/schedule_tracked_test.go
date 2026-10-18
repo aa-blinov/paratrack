@@ -59,3 +59,42 @@ func TestScheduleTrackedCountsWeekAndOpenTimers(t *testing.T) {
 		t.Fatalf("member tracked = %d minutes, want 0", got)
 	}
 }
+
+// The plan for a report period sums the cells whose day falls in [from, to).
+// The end day is excluded, as the report's own window is.
+func TestPlannedMinutesByUserUsesHalfOpenDays(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+
+	ownerID := seedApprovalUser(t, d, "planned-owner@test.local")
+	teamID, err := d.CreateOwnedTeam(ctx, appmodel.TeamCreateRequest{Slug: "planned-team", Name: "Команда", OwnerID: ownerID})
+	if err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	proj, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "План", Slug: "", Color: "#7c3aed"})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	cell := func(day time.Time, minutes int) {
+		t.Helper()
+		if err := d.UpsertScheduleEntry(ctx, appmodel.ScheduleCellRequest{
+			TeamID: teamID, ActorID: ownerID, UserID: ownerID, ProjectID: proj.ID, Day: day, Minutes: minutes,
+		}); err != nil {
+			t.Fatalf("plan %s: %v", day.Format("2006-01-02"), err)
+		}
+	}
+	from := time.Date(2020, 3, 2, 0, 0, 0, 0, time.UTC)
+	to := from.AddDate(0, 0, 7)
+	cell(from.AddDate(0, 0, -1), 30) // before the period
+	cell(from, 120)                  // first day, counted
+	cell(to.AddDate(0, 0, -1), 60)   // last day, counted
+	cell(to, 240)                    // the end day itself, not counted
+
+	planned, err := d.PlannedMinutesByUser(ctx, teamID, from, to)
+	if err != nil {
+		t.Fatalf("planned minutes: %v", err)
+	}
+	if got := planned[ownerID]; got != 180 {
+		t.Fatalf("planned = %d minutes, want 180 (120 + 60)", got)
+	}
+}

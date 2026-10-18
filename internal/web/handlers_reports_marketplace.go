@@ -26,6 +26,10 @@ type reportRow struct {
 	AmountCents int
 	RateCents   int
 	RateVaries  bool
+	// Planned is the schedule's minutes for the member over the period. It is
+	// set only on the member grouping, the one that compares plan with time.
+	Planned     string
+	PlannedSecs int
 }
 
 type reportVM struct {
@@ -37,6 +41,8 @@ type reportVM struct {
 	TotalSecs   int
 	TotalAmount string
 	TotalCents  int
+	ShowPlan    bool
+	TotalPlan   string
 }
 
 // buildReport adapts request-specific labels and formatting around the
@@ -54,7 +60,37 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	if err != nil {
 		return reportVM{}, err
 	}
+	showPlan := tpl.GroupBy == appmodel.ReportGroupUser
+	var planned map[int64]int
+	if showPlan {
+		planned, err = s.services.Scheduling.PlannedMinutesByUser(r.Context(), teamID(r), from, to)
+		if err != nil {
+			return reportVM{}, err
+		}
+		// A member with a plan and no tracked time has no session, so the
+		// aggregate has no row for them. That line is the one the comparison
+		// exists to show, so it is added here with zero time.
+		members, err := s.services.Teams.Directory.Members(r.Context(), teamID(r))
+		if err != nil {
+			return reportVM{}, err
+		}
+		seen := make(map[int64]bool, len(result.Rows))
+		for _, row := range result.Rows {
+			seen[row.UserID] = true
+		}
+		for _, member := range members {
+			if seen[member.UserID] || planned[member.UserID] == 0 {
+				continue
+			}
+			name := member.Name
+			if name == "" {
+				name = member.Email
+			}
+			result.Rows = append(result.Rows, appmodel.ReportAggregateRow{Key: name, UserID: member.UserID, Currency: result.TeamCurrency})
+		}
+	}
 	rows := make([]reportRow, 0, len(result.Rows))
+	totalPlanned := 0
 	for _, row := range result.Rows {
 		key := row.Key
 		if tpl.GroupBy == appmodel.ReportGroupDay {
@@ -68,11 +104,17 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		if row.RateVaries {
 			rate = i18n.T(resolveLang(r), "report.rateVaries")
 		}
-		rows = append(rows, reportRow{
+		item := reportRow{
 			Key: key, Secs: row.Seconds, Hours: reportHours(r, tpl.Billable, row.Seconds), Share: row.Share,
 			Rate: rate, Amount: moneyL(resolveLang(r), row.AmountCents, row.Currency),
 			AmountCents: row.AmountCents, RateCents: row.RateCents, RateVaries: row.RateVaries,
-		})
+		}
+		if showPlan {
+			item.PlannedSecs = planned[row.UserID] * 60
+			item.Planned = reportHours(r, false, item.PlannedSecs)
+			totalPlanned += item.PlannedSecs
+		}
+		rows = append(rows, item)
 	}
 
 	// `to` is the exclusive end of the window: the builder receives it as-is
@@ -96,6 +138,8 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		TotalSecs:   result.TotalSeconds,
 		TotalAmount: moneyByCurrency(resolveLang(r), result.ByCurrency),
 		TotalCents:  result.TotalCents,
+		ShowPlan:    showPlan,
+		TotalPlan:   reportHours(r, false, totalPlanned),
 	}, nil
 }
 

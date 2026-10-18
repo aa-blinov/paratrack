@@ -437,6 +437,7 @@ export interface PayrollData {
   DefEnd: string
   DefNotes: string
   Overlap: string
+  UnapprovedWeeks?: Array<{ Date: string; Label: string; Count: number }>
   Flash: string
   FlashOK: boolean
 }
@@ -638,9 +639,11 @@ export interface ReportRunData {
     PeriodLabel: string
     From: string
     To: string
-    Rows: Array<{ Key: string; Hours: string; Rate: string; Amount: string; Share: number }>
+    Rows: Array<{ Key: string; Hours: string; Planned: string; Rate: string; Amount: string; Share: number }>
     Total: string
     TotalAmount: string
+    ShowPlan: boolean
+    TotalPlan: string
   }
 }
 

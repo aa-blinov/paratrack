@@ -24,6 +24,10 @@ func (scheduleCellStoreStub) ListSchedule(context.Context, appmodel.ScheduleQuer
 	return nil, nil, nil
 }
 
+func (scheduleCellStoreStub) PlannedMinutesByUser(context.Context, int64, time.Time, time.Time) (map[int64]int, error) {
+	return nil, nil
+}
+
 func (s *scheduleCellStoreStub) UpsertScheduleEntry(_ context.Context, request appmodel.ScheduleCellRequest) error {
 	s.request = request
 	return nil
@@ -46,6 +50,10 @@ func (s *scheduleStoreStub) ListSchedule(_ context.Context, query appmodel.Sched
 }
 func (scheduleStoreStub) UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error {
 	return nil
+}
+
+func (scheduleStoreStub) PlannedMinutesByUser(context.Context, int64, time.Time, time.Time) (map[int64]int, error) {
+	return map[int64]int{1: 240}, nil
 }
 
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {

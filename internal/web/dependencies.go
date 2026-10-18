@@ -178,6 +178,7 @@ type PreferenceWorkflow interface {
 type SchedulingWorkflow interface {
 	List(context.Context, appmodel.ScheduleQuery) (appmodel.ScheduleSnapshot, error)
 	SetCell(context.Context, appmodel.ScheduleCellRequest) error
+	PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error)
 }
 
 // TagDependencies separates tag reads from mutations at the HTTP boundary.
@@ -237,6 +238,7 @@ type PayrollWorkflow interface {
 	DeleteDraft(context.Context, appmodel.PayrollMutationRequest) error
 	GetRun(context.Context, int64, int64) (appmodel.PayrollRunDetail, error)
 	ListRuns(context.Context, appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error)
+	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
 	MemberSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UpdateMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 }
