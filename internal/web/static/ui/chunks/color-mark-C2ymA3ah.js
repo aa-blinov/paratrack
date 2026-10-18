@@ -1,1 +1,0 @@
-import{jt as e}from"./ui-Ci_8p_o7.js";var t=e();function n({color:e,className:n=``}){return(0,t.jsx)(`span`,{"aria-hidden":`true`,className:`inline-block h-[1lh] w-[3px] shrink-0 align-top rounded-full ${n}`,style:{backgroundColor:e}})}export{n as t};

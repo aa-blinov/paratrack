@@ -170,9 +170,17 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 	if err != nil {
 		return err
 	}
+	if err := lockApprovedSessionStart(ctx, tx, teamID, lockedSession.startAt); err != nil {
+		return err
+	}
 	update, err = resolveLockedSessionUpdate(lockedSession, request)
 	if err != nil {
 		return err
+	}
+	if update.StartAt != nil {
+		if err := lockApprovedWeek(ctx, tx, teamID, *update.StartAt); err != nil {
+			return err
+		}
 	}
 	sets := make([]string, 0, 5)
 	args := make([]any, 0, 7)
@@ -322,6 +330,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockApprovedWeek(ctx, tx, teamID, startAt); err != nil {
+		return model.Session{}, err
+	}
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
 		return model.Session{}, err
 	}
@@ -404,6 +415,9 @@ func (d *DB) DeleteSession(ctx context.Context, request appmodel.SessionDeleteRe
 		editScopeUserID = actorID
 	}
 	if _, err := lockSessionForEdit(ctx, tx, teamID, id, editScopeUserID); err != nil {
+		return err
+	}
+	if err := lockApprovedSessionByID(ctx, tx, teamID, id); err != nil {
 		return err
 	}
 	q := `DELETE FROM sessions WHERE id = ?`
