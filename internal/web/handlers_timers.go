@@ -218,6 +218,17 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 // writeSessionLockConflict maps the storage-enforced invoice lock to a
 // transport response. Sent and paid invoice snapshots cannot be edited.
 func (s *Server) writeSessionLockConflict(w http.ResponseWriter, r *http.Request, err error) bool {
+	var approvalErr *model.SessionApprovalLockError
+	if errors.As(err, &approvalErr) {
+		msg := i18n.T(resolveLang(r), "ts.weekApproved")
+		s.toast(w, msg, "error")
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: msg})
+		} else {
+			http.Error(w, msg, http.StatusConflict)
+		}
+		return true
+	}
 	var lockErr *model.SessionInvoiceLockError
 	if !errors.As(err, &lockErr) {
 		return false

@@ -382,7 +382,19 @@ export interface TimesheetDay {
   IsToday: boolean
 }
 
+// The week's approval as the timesheet shows it. Dates are the week's first
+// and last day in the viewer's location, as YYYY-MM-DD.
+export interface TimesheetApproval {
+  Approved: boolean
+  Finished: boolean
+  ApprovedOn: string
+  CanManage: boolean
+  StartISO: string
+  EndISO: string
+}
+
 export interface TimesheetData {
+  Approval: TimesheetApproval
   Title: string
   Active: string
   ReactApp: boolean

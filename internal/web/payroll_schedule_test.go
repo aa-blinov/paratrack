@@ -53,6 +53,12 @@ func TestPayrollAndSchedule(t *testing.T) {
 	end := start.Add(2 * time.Hour)
 	d.CreateClosedSession(requestctx.WithActor(ctx, 1), appmodel.TimerAddRequest{TeamID: 1, ActivityID: act.ID, Start: start, End: end})
 
+	if err := d.ApproveTimesheetWeek(ctx, appmodel.TimesheetApprovalRequest{
+		TeamID: 1, CallerID: 1,
+		Start: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC), End: time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("approve the week before paying it: %v", err)
+	}
 	run, overlaps, err := payrollService.CreateRun(ctx, appmodel.PayrollDraftRequest{
 		TeamID: 1, CallerID: 1, Notes: "sept", Start: start, End: end,
 	})
@@ -166,8 +172,14 @@ func TestPayrollOverlapWarns(t *testing.T) {
 	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = 'payover@x.test'`).Scan(&uid)
 	resp := e.do("POST", "/api/member/pay", url.Values{"user_id": {uid}, "hourly_pay": {"1000"}}, nil)
 	resp.Body.Close()
-	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:00"}}, htmx))
-	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
+	// A past week, approved by the owner before anyone is paid from it.
+	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"2026-09-22 10:00"}, "end": {"2026-09-22 12:00"}}, htmx))
+	day := "2026-09-22"
+	approval := e.do("POST", "/api/timesheet/approve", url.Values{"start": {"2026-09-21"}, "end": {"2026-09-27"}}, nil)
+	approval.Body.Close()
+	if approval.StatusCode != http.StatusSeeOther {
+		t.Fatalf("approve week: status %d", approval.StatusCode)
+	}
 	create := func(extra url.Values) string {
 		v := url.Values{"start": {day}, "end": {day}, "notes": {"сентябрь"}}
 		for k, x := range extra {

@@ -16,6 +16,8 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /timesheet", s.mine(s.handleTimesheet))
 	pages.HandleFunc("POST /api/timesheet/cell", s.mine(s.handleTimesheetCell))
 	pages.HandleFunc("POST /api/timesheet/row/clear", s.mine(s.handleTimesheetRowClear))
+	pages.HandleFunc("POST /api/timesheet/approve", s.manage(s.handleTimesheetApprove))
+	pages.HandleFunc("POST /api/timesheet/reopen", s.manage(s.handleTimesheetReopen))
 	pages.HandleFunc("POST /api/reports/save", s.handleSavedReportsCreate)
 	pages.HandleFunc("POST /api/reports/{id}/delete", s.handleSavedReportsDelete)
 

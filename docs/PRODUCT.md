@@ -48,6 +48,29 @@ A grid cell is the source of truth for that activity/day.
 `UpsertDayTotal` deletes the day's closed sessions for the activity and inserts **one**
 synthetic `note="timesheet"` session anchored at **09:00**. Minutes `0` clears the day.
 
+### Approved weeks
+
+A manager (owner or admin) approves a finished Monday-to-Sunday week of the timesheet
+(`POST /api/timesheet/approve`, `POST /api/timesheet/reopen`; the form sends `start` and `end`
+as the week's first and last day in the viewer's location). The approved window is
+`[start 00:00, end+1 00:00)` in that location, stored as UTC instants in
+`timesheet_approvals(team_id, starts_at, ends_at, approved_by, approved_at)`, unique per
+`(team_id, starts_at)`. Approving the same window again changes nothing.
+
+Refusals, each as its own error:
+
+- `ErrWeekNotFinished`: the week has not ended.
+- `ErrWeekHasRunningTimer`: a timer that started before the week's end is still running.
+- `ErrWeekPaid` (reopen only): a pay run's period overlaps the week.
+- Members get `403` on both routes.
+
+While a window is approved, any write whose session **start** falls inside it returns
+`SessionApprovalLockError`: session edit, delete, stop, reopen, a backfilled or added closed
+session, a timesheet cell and a row clear. The check runs in the same transaction as the
+write. The start decides because the grid files a session under the day it starts on.
+Managers reopen a week to change it; the owner is not exempt.
+
+
 ### Money
 
 All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
@@ -68,11 +91,28 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Runs skip members with pay 0
 - Sessions attribute via `sessions.user_id` (stamped on timer start)
 - Legacy rows without a user fall on the team's first paid member
+- A run counts **only time inside approved weeks**. A closed session in the period that starts
+  outside every approved window refuses the run with `PayrollNotApprovedError`, which carries the
+  count and the first and last start; the message names them. The current week can be paid only
+  after it has ended and been approved.
 
 **Schedule**
 
 - `schedule_entries` per (team, user, project, day), cell minutes, 0 clears
 - `Load% = planned / (capacity × 7)`
+
+### Sections and onboarding
+
+A workspace picks its sections (`teams.modules`). An **empty** setting means every section, which
+is what workspaces made before sections existed keep.
+
+A workspace made new (registration, «Создать пространство», restoring a personal workspace after
+the last one was deleted) starts with `teams.sections_chosen = 0`. While it is 0, every screen
+redirects to `/welcome`. Open while unchosen: `/welcome`, `/help`, `/settings/*`, `/invites/*`
+(so an account can always reach the way out). The owner chooses on `/welcome`: a preset (`solo`,
+`freelance`, `studio`), «Пропустить» (which saves `solo`), or a custom list («Сохранить свой набор»,
+posted with `from=welcome`). Saving any choice sets `sections_chosen = 1`. The column defaults to 1,
+so existing workspaces keep their menu.
 
 ### Numbers
 
@@ -124,6 +164,7 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /projects /projects/new /projects/{slug}
 /integrations /integrations/marketplace /integrations/{id}
 /settings/team|members|invites|profile|tokens|webhooks|audit|notifications
+/welcome /help
 /invites/{token}
 ```
 
@@ -134,6 +175,8 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/sessions/backfill
 /api/focus/{name}
 /api/timesheet/cell
+/api/timesheet/approve  /api/timesheet/reopen   (manager)
+/api/team/modules   (sections choice)
 /api/schedule/cell
 /api/member/pay
 /api/team/stripe
@@ -168,7 +211,7 @@ Core tables: `users`, `teams`, `memberships`, `activities`, `sessions`, `project
 `tags`, `session_tags`, `goals`, `saved_reports`, `password_reset_tokens`.
 
 Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoice_lines`,
-`audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`,
+`audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`, `timesheet_approvals`,
 `schedule_entries`, `push_subscriptions`, `settings` (VAPID keys).
 
 Rules worth knowing:
@@ -258,3 +301,6 @@ python e2e/qa_offline_push.py                   # offline + push
 - `NextInvoiceNumber` returns an advisory display value; concurrent reads may return the same value, while invoice draft creation allocates under a workspace lock. Payroll numbers are allocated inside atomic payroll draft creation.
 - Rate limiting is per-process (single-binary target), with at most 10,000 tracked keys per limiter; when full, unseen keys fail closed until cleanup frees capacity
 - No email verification on signup
+- Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
+- A pay run cannot cover the current week, because the week must end and be approved first.
+- Pay runs are hourly only; there is no per-piece or salary scheme.

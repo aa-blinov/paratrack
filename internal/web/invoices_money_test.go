@@ -207,6 +207,12 @@ func TestInvoiceAndPayrollCurrency(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	if err := d.ApproveTimesheetWeek(ctx, appmodel.TimesheetApprovalRequest{
+		TeamID: 1, CallerID: 1,
+		Start: time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC), End: time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC),
+	}); err != nil {
+		t.Fatalf("approve the week before paying it: %v", err)
+	}
 	run, overlaps, err := payrollService.CreateRun(ctx, appmodel.PayrollDraftRequest{
 		TeamID: 1, CallerID: 1, Start: start, End: start.Add(time.Hour),
 	})
