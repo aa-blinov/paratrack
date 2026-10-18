@@ -482,6 +482,8 @@ export interface ScheduleRow {
   Total: string
   TotalMin: number
   LoadPct: number
+  TrackedLabel: string
+  TrackedPct: number
 }
 
 export interface ScheduleData {
