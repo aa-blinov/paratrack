@@ -1126,6 +1126,7 @@
   "welcome.blurb": "Pick a set and the menu keeps only what you need. Tracking, stats, timesheet and projects are always there. Change your mind any time in settings.",
   "welcome.skip": "Skip — just me for now",
   "welcome.later": "You can change this later: Settings → Sections.",
+  "welcome.saveCustom": "Save my choice",
   "stats.viewGraph": "View by hour with these filters",
   "stats.viewGraphAll": "View by hour",
   "graph.scope": "Showing only:",
