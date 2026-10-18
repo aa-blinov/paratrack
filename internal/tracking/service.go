@@ -67,6 +67,9 @@ type TimesheetStore interface {
 	UpsertDayTotal(context.Context, appmodel.TimesheetCellUpdateRequest) error
 	ClearWeekRow(context.Context, appmodel.TimesheetRowClearRequest) error
 	ListTimesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
+	ApproveTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
+	ReopenTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
+	ListTimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)
 }
 
 // Dependencies keeps query, command, activity and timesheet concerns on
@@ -493,4 +496,31 @@ func (s *Service) Delete(ctx context.Context, request appmodel.SessionDeleteRequ
 		return fmt.Errorf("delete session: %w", err)
 	}
 	return nil
+}
+
+// ApproveWeek closes a finished week of the timesheet for editing. Only a
+// manager can approve; the store checks that the week has ended and no timer
+// is still running in it.
+func (s *Service) ApproveWeek(ctx context.Context, request appmodel.TimesheetApprovalRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || !request.End.After(request.Start) {
+		return ErrInvalidEdit
+	}
+	return s.timesheets.ApproveTimesheetWeek(ctx, request)
+}
+
+// ReopenWeek lets a manager edit an approved week again, unless a pay run
+// already covers it.
+func (s *Service) ReopenWeek(ctx context.Context, request appmodel.TimesheetApprovalRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || !request.End.After(request.Start) {
+		return ErrInvalidEdit
+	}
+	return s.timesheets.ReopenTimesheetWeek(ctx, request)
+}
+
+// TimesheetApprovals lists the approved weeks that overlap the given span.
+func (s *Service) TimesheetApprovals(ctx context.Context, teamID int64, from, to time.Time) ([]appmodel.TimesheetApproval, error) {
+	if teamID <= 0 || !to.After(from) {
+		return nil, ErrInvalidEdit
+	}
+	return s.timesheets.ListTimesheetApprovals(ctx, teamID, from, to)
 }

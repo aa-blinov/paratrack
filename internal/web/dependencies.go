@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
@@ -326,6 +327,7 @@ type TrackingQueries interface {
 	Session(context.Context, int64, int64) (model.Session, error)
 	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error)
 	Timesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
+	TimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)
 }
 
 // TrackingCommands handles direct session and timesheet mutations that do not
@@ -336,6 +338,8 @@ type TrackingCommands interface {
 	PauseAll(context.Context, appmodel.TimerStopAllRequest) ([]int64, error)
 	Resume(context.Context, appmodel.TimerSessionRequest) (model.Session, error)
 	SetDayTotal(context.Context, appmodel.TimesheetCellUpdateRequest) error
+	ApproveWeek(context.Context, appmodel.TimesheetApprovalRequest) error
+	ReopenWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	UpdateFields(context.Context, appmodel.SessionUpdateRequest) error
 }
 

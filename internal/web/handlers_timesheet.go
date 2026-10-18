@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -65,6 +66,7 @@ type timesheetData struct {
 	Others          []activityView // big workspace: activities not on the sheet
 	Added           []int64        // rows added by hand this visit
 	DateISO         string
+	Approval        timesheetApproval
 }
 
 // handleTimesheet renders the weekly grid. ?date= any day inside the
@@ -152,6 +154,11 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		dayTotalLabels[i] = fmtDur(r, grid.DayTotals[i])
 	}
 
+	approval, err := s.timesheetApprovalFor(r, weekStart, now)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	data := timesheetData{
 		pageData: pageData{
 			Title: "Timesheet", Active: "timesheet", Lang: lang, ReactApp: true,
@@ -174,6 +181,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		Added:           added,
 		DateISO:         weekStart.Format("2006-01-02"),
 	}
+	data.Approval = approval
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", &data)
 }
 
@@ -250,6 +258,11 @@ func (s *Server) handleTimesheetRowClear(w http.ResponseWriter, r *http.Request)
 // respondTimesheetWriteError maps a failed grid write onto a JSON status. Billed
 // time is reported as a refusal with the invoice number, not as a generic failure.
 func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Request, actID int64, day time.Time, err error) {
+	var approvalErr *model.SessionApprovalLockError
+	if errors.As(err, &approvalErr) {
+		s.respondTimesheetRow(w, r, actID, day, i18n.T(resolveLang(r), "ts.weekApproved"))
+		return
+	}
 	var lockErr *model.SessionInvoiceLockError
 	if errors.As(err, &lockErr) {
 		// Put the row back to what the invoice billed; the page shows why.
@@ -357,4 +370,92 @@ func cellMin(secs int) int {
 		return 0
 	}
 	return max(1, secs/60)
+}
+
+// timesheetApproval says whether the shown week is approved, and what the viewer
+// can do about it. Dates are the week's days in the viewer's location.
+type timesheetApproval struct {
+	Approved   bool
+	Finished   bool
+	ApprovedOn string
+	CanManage  bool
+	StartISO   string
+	EndISO     string
+}
+
+// timesheetApprovalFor reads whether the week that starts at weekStart is approved.
+func (s *Server) timesheetApprovalFor(r *http.Request, weekStart, now time.Time) (timesheetApproval, error) {
+	end := weekStart.AddDate(0, 0, 7)
+	view := timesheetApproval{
+		Finished:  !end.After(now),
+		CanManage: canManage(r),
+		StartISO:  weekStart.Format("2006-01-02"),
+		EndISO:    end.AddDate(0, 0, -1).Format("2006-01-02"),
+	}
+	items, err := s.services.Tracking.Queries.TimesheetApprovals(r.Context(), teamID(r), weekStart, end)
+	if err != nil {
+		return view, err
+	}
+	for _, item := range items {
+		if !weekStart.Before(item.Start) && weekStart.Before(item.End) {
+			view.Approved = true
+			view.ApprovedOn = item.ApprovedAt.In(userLoc(r)).Format("02.01.2006")
+			break
+		}
+	}
+	return view, nil
+}
+
+// handleTimesheetApprove closes the week shown on the timesheet. The form sends
+// its first and last day in the viewer's location.
+func (s *Server) handleTimesheetApprove(w http.ResponseWriter, r *http.Request) {
+	s.changeWeekApproval(w, r, true)
+}
+
+// handleTimesheetReopen removes an approval, unless a pay run already covers the week.
+func (s *Server) handleTimesheetReopen(w http.ResponseWriter, r *http.Request) {
+	s.changeWeekApproval(w, r, false)
+}
+
+func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, approve bool) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	lang := resolveLang(r)
+	loc := userLoc(r)
+	first, err1 := time.ParseInLocation("2006-01-02", r.PostForm.Get("start"), loc)
+	last, err2 := time.ParseInLocation("2006-01-02", r.PostForm.Get("end"), loc)
+	if err1 != nil || err2 != nil || last.Before(first) {
+		http.Redirect(w, r, "/timesheet?flash="+url.QueryEscape(encodeFlash(false, i18n.T(lang, "err.invalidInput"))), http.StatusSeeOther)
+		return
+	}
+	back := "/timesheet?date=" + first.Format("2006-01-02")
+	request := appmodel.TimesheetApprovalRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Start: first, End: last.AddDate(0, 0, 1)}
+	action, okKey := "timesheet.reopen", "ts.reopenDone"
+	change := s.services.Tracking.Commands.ReopenWeek
+	if approve {
+		action, okKey = "timesheet.approve", "ts.approveDone"
+		change = s.services.Tracking.Commands.ApproveWeek
+	}
+	if err := change(r.Context(), request); err != nil {
+		http.Redirect(w, r, back+"&flash="+url.QueryEscape(encodeFlash(false, approvalMessage(lang, err))), http.StatusSeeOther)
+		return
+	}
+	s.audit(r, action, first.Format("2006-01-02")+".."+last.Format("2006-01-02"), "")
+	http.Redirect(w, r, back+"&flash="+url.QueryEscape(encodeFlash(true, i18n.T(lang, okKey))), http.StatusSeeOther)
+}
+
+// approvalMessage turns an approval refusal into the sentence the manager reads.
+func approvalMessage(lang i18n.Lang, err error) string {
+	switch {
+	case errors.Is(err, model.ErrWeekNotFinished):
+		return i18n.T(lang, "ts.notFinished")
+	case errors.Is(err, model.ErrWeekHasRunningTimer):
+		return i18n.T(lang, "ts.approveRunning")
+	case errors.Is(err, model.ErrWeekPaid):
+		return i18n.T(lang, "ts.reopenPaid")
+	default:
+		return i18n.T(lang, "err.generic")
+	}
 }

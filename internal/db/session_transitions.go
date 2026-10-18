@@ -23,6 +23,9 @@ func (d *DB) UpdateSessionEnd(ctx context.Context, request appmodel.TimerStopReq
 		return model.Session{}, err
 	}
 	defer tx.Rollback()
+	if err := lockApprovedSessionByID(ctx, tx, teamID, id); err != nil {
+		return model.Session{}, err
+	}
 	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
 		return model.Session{}, err
 	}
@@ -204,6 +207,9 @@ func (d *DB) ReopenSession(ctx context.Context, request appmodel.TimerReopenRequ
 		return model.Session{}, err
 	}
 	defer tx.Rollback()
+	if err := lockApprovedSessionByID(ctx, tx, teamID, id); err != nil {
+		return model.Session{}, err
+	}
 	// Resolve and lock the session owner before locking the session row. This
 	// uses the same owner-first order as StartSession and member removal.
 	ownerQuery := `SELECT user_id FROM sessions WHERE id = ?`

@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -15,6 +16,11 @@ import (
 )
 
 func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
+	var notApproved *model.PayrollNotApprovedError
+	if errors.As(err, &notApproved) {
+		loc := userLoc(r)
+		return fmt.Sprintf(i18n.T(resolveLang(r), "pay.notApproved"), notApproved.Count, notApproved.First.In(loc).Format("02.01.2006"), notApproved.Last.In(loc).Format("02.01.2006"))
+	}
 	switch {
 	case errors.Is(err, appmodel.ErrNoPayableTime):
 		return "no paid members with tracked time in that period"
