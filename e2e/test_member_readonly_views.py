@@ -39,9 +39,11 @@ def schedule_document(can_manage):
         'Projects': [{'ID': 7, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed',
                       'Archived': False, 'Billable': True}],
         'Rows': [{'UserID': 2, 'UserName': 'Маша Участница', 'Capacity': 480, 'Cells': cells,
-                  'Total': '2 ч', 'TotalMin': 120, 'LoadPct': 3},
+                  'Total': '2 ч', 'TotalMin': 120, 'LoadPct': 3,
+                  'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 3 if can_manage else 0},
                  {'UserID': 1, 'UserName': 'Пётр Владелец', 'Capacity': 480, 'Cells': cells,
-                  'Total': '2 ч', 'TotalMin': 120, 'LoadPct': 3}],
+                  'Total': '2 ч', 'TotalMin': 120, 'LoadPct': 3,
+                  'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 3 if can_manage else 0}],
         'GrandTotal': '4 ч', 'GrandMin': 240,
     }, can_manage)
 

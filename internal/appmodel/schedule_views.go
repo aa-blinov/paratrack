@@ -10,11 +10,14 @@ type ScheduleRow struct {
 	Minutes   [7]int
 	Total     int
 	ByProject map[int64][7]int
+	// Tracked is the time the person actually logged in the week, in minutes.
+	Tracked int
 }
 
 type ScheduleViewRow struct {
 	ScheduleRow
-	LoadPercent int
+	LoadPercent    int
+	TrackedPercent int
 }
 
 type ScheduleSnapshot struct {
