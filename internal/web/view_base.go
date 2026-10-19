@@ -104,6 +104,8 @@ type projectView struct {
 	Color    string
 	Archived bool
 	Billable bool
+	// LeadUserID is the member who leads the project (0 = none).
+	LeadUserID int64
 }
 
 func projectViews(projects []model.Project) []projectView {
@@ -111,7 +113,7 @@ func projectViews(projects []model.Project) []projectView {
 	for _, project := range projects {
 		views = append(views, projectView{
 			ID: project.ID, Slug: project.Slug, Name: project.Name,
-			Color: project.Color, Archived: project.Archived, Billable: project.Billable,
+			Color: project.Color, Archived: project.Archived, Billable: project.Billable, LeadUserID: project.LeadUserID,
 		})
 	}
 	return views

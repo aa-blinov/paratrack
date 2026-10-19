@@ -64,7 +64,9 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /payroll/{id}/delete", s.module("payroll", s.manage(s.handlePayrollDelete)))
 	pages.HandleFunc("POST /api/member/pay", s.manage(s.handleMemberPay))
 	pages.HandleFunc("GET /schedule", s.module("schedule", s.handleSchedule))
-	pages.HandleFunc("POST /api/schedule/cell", s.module("schedule", s.manage(s.handleScheduleCell)))
+	// Managers plan any project; a project's lead plans that one. The write
+	// rule lives in the database, so the route only needs a signed-in member.
+	pages.HandleFunc("POST /api/schedule/cell", s.module("schedule", s.handleScheduleCell))
 	pages.HandleFunc("POST /api/schedule/copy", s.module("schedule", s.manage(s.handleScheduleCopy)))
 	pages.HandleFunc("POST /api/schedule/admin", s.module("schedule", s.manage(s.handleScheduleAdmin)))
 

@@ -33,7 +33,7 @@ func (d *DB) UpsertScheduleEntry(ctx context.Context, request appmodel.ScheduleC
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, actorID); err != nil {
+	if err := authorizeSchedulePlan(ctx, tx, teamID, actorID, projectID); err != nil {
 		return err
 	}
 	// Lock in the same team -> user order as member removal. This prevents
@@ -474,6 +474,22 @@ func (d *DB) PlannedMinutesForProject(ctx context.Context, teamID, projectID int
 	return planned, rows.Err()
 }
 
+// PlannedMinutesForProjectFrom sums the plan on one project from a day onward:
+// what is still ahead of the team, for "left of the estimate".
+func (d *DB) PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error) {
+	if teamID <= 0 || projectID <= 0 {
+		return 0, ErrNotFound
+	}
+	var minutes int
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(minutes), 0) FROM schedule_entries WHERE team_id = ? AND project_id = ? AND day >= ?`,
+		teamID, projectID, scheduleDay(from)).Scan(&minutes)
+	if err != nil {
+		return 0, fmt.Errorf("sum project plan ahead: %w", err)
+	}
+	return minutes, nil
+}
+
 // TrackedMinutesForProject sums the minutes each member logged on one project,
 // open timers included, over the whole history up to now. The sessions are
 // read in full: a team's history on one project is small enough for that.
@@ -551,3 +567,31 @@ func scheduleSession(startAt string, endAt, lastResumeAt sql.NullString, accumul
 }
 
 func scheduleDay(day time.Time) string { return day.Format("2006-01-02") }
+
+// authorizeSchedulePlan lets a manager plan any project, and the lead of a
+// project plan that project only. The lead must still be a member: a person
+// who left the workspace keeps no say in its plan.
+func authorizeSchedulePlan(ctx context.Context, tx *Tx, teamID, actorID, projectID int64) error {
+	_, _, err := lockTeamManager(ctx, tx, teamID, actorID)
+	if err == nil {
+		return nil
+	}
+	if !errors.Is(err, model.ErrForbidden) {
+		return err
+	}
+	var lead sql.NullInt64
+	err = tx.QueryRowContext(ctx, `SELECT lead_user_id FROM projects WHERE id = ? AND team_id = ?`, projectID, teamID).Scan(&lead)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !lead.Valid || lead.Int64 != actorID {
+		return model.ErrForbidden
+	}
+	if err := checkMemberInTeam(ctx, tx, actorID, teamID); err != nil {
+		return model.ErrForbidden
+	}
+	return nil
+}

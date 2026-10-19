@@ -9,7 +9,6 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // projectDetailData is the presentation envelope for /projects/{slug}.
@@ -20,7 +19,20 @@ type projectDetailData struct {
 	Project  projectView
 	// PlannedLabel is the schedule's minutes on this project over every
 	// week; People is the table of plan and tracked time per member.
-	PlannedLabel    string
+	PlannedLabel string
+	// RemainingLabel is the estimate less tracked time and the plan still
+	// ahead; RemainingOver marks a project already past its estimate.
+	RemainingLabel string
+	RemainingOver  bool
+	LeadLabel      string
+	// Deadline: the input value for the edit form, the note on the page, and
+	// whether it has passed. LeadInput and MemberOptions feed the lead picker.
+	DeadlineInput   string
+	DeadlineLabel   string
+	DeadlineNote    string
+	DeadlineOverdue bool
+	LeadInput       string
+	MemberOptions   []memberOption
 	People          []projectPersonRow
 	Activities      []activityView
 	Sessions        []sessionView
@@ -172,35 +184,30 @@ type projectPersonRow struct {
 	Tracked string
 }
 
-// projectPeople is the people table on a project: who is planned on it, and
-// for managers, what each person has tracked on it.
-func (s *Server) projectPeople(r *http.Request, project model.Project) ([]projectPersonRow, string, error) {
-	planned, tracked, err := s.services.Scheduling.ProjectPlanByMember(r.Context(), teamID(r), project.ID, userNow(r))
-	if err != nil {
-		return nil, "", err
+// memberOption is one team member in a picker: the id is what a form posts.
+type memberOption struct {
+	ID   int64
+	Name string
+}
+
+// memberOptions lists the workspace's members for a picker; empty for anyone
+// who may not change a project.
+func (s *Server) memberOptions(r *http.Request) []memberOption {
+	if !canManage(r) {
+		return nil
 	}
 	members, err := s.services.Teams.Directory.Members(r.Context(), teamID(r))
 	if err != nil {
-		return nil, "", err
+		return nil
 	}
-	showTracked := canManage(r)
-	var total int
-	rows := []projectPersonRow{}
+	out := make([]memberOption, 0, len(members))
 	for _, member := range members {
-		if planned[member.UserID] == 0 && (!showTracked || tracked[member.UserID] == 0) {
-			continue
-		}
 		name := member.Name
 		if name == "" {
 			name = member.Email
 		}
-		total += planned[member.UserID]
-		row := projectPersonRow{Name: name, Planned: fmtDur(r, planned[member.UserID]*60)}
-		if showTracked {
-			row.Tracked = fmtDur(r, tracked[member.UserID]*60)
-		}
-		rows = append(rows, row)
+		out = append(out, memberOption{ID: member.UserID, Name: name})
 	}
-	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
-	return rows, fmtDur(r, total*60), nil
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
 }

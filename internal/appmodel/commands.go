@@ -20,6 +20,9 @@ type ProjectCreateRequest struct {
 	ClientID int64
 	// BudgetCents is the monetary ceiling for the project (nil = unset).
 	BudgetCents *int
+	// Deadline is YYYY-MM-DD, "" for none. LeadUserID is a team member, 0 for none.
+	Deadline   string
+	LeadUserID int64
 }
 
 // PayrollDraftRequest identifies the workspace, actor and period for a new

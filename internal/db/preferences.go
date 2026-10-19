@@ -35,6 +35,8 @@ var notificationTopics = []string{
 	appmodel.NotificationTopicSessionStopped,
 	appmodel.NotificationTopicGoalAchieved,
 	appmodel.NotificationTopicPayrollPaid,
+	appmodel.NotificationTopicProjectDeadline,
+	appmodel.NotificationTopicScheduleOverload,
 }
 
 func isNotificationTopic(topic string) bool {

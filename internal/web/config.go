@@ -18,6 +18,12 @@ type RuntimeDependencies struct {
 	Mailer                mailport.Sender
 	MailQueueWorker       InvoiceMailWorker
 	WebhookDeliveryWorker WebhookDeliveryWorker
+	ReminderWorker        ReminderWorker
+}
+
+// ReminderWorker runs the project and overload reminders on an interval.
+type ReminderWorker interface {
+	Run(context.Context, time.Duration)
 }
 
 type OIDCProvider = oidcport.Provider
