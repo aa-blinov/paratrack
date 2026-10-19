@@ -20,7 +20,7 @@ Single Go binary, embedded web UI, Postgres. No Node at runtime, no CGO.
 | **Tags** | Free-form labels on sessions, filterable |
 | **Invoices** | `INV-YYYY-NNN`, draft → sent → paid, PDF, online payment link |
 | **Payroll** | `PAY-YYYY-NNN` pay runs from tracked time × member rate |
-| **Schedule** | People × week planning grid, planned load % against capacity; managers also see the time each person logged |
+| **Schedule** | Per person, a line per project in hours by day; load % against available time (capacity for five days less admin time); managers also see the time each person logged |
 | **Integrations** | 8 providers (GitHub, GitLab, Jira, Trello, Asana, ClickUp, Todoist, Notion) + marketplace |
 | **API** | `pt_` bearer tokens, `/api/v1/*`, webhooks with HMAC, audit log, OIDC SSO |
 | **Clients** | MV3 browser extension, PWA (installable), offline queue + web push |
@@ -100,7 +100,9 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 **Schedule**
 
 - `schedule_entries` per (team, user, project, day), cell minutes, 0 clears
-- `Load% = planned / (capacity × 5)`: five working days, not seven. `Tracked%` is the same ratio over the time the week's sessions logged, open timers included. Managers see tracked time; a member sees only the plan.
+- `Available = capacity × 5 − admin`: the week's time for clients. `Load% = planned / available`, and `Tracked%` is the same ratio over the time the week's sessions logged, open timers included. Admin time is set per member by a manager and never below zero available.
+- Copying a week (`POST /api/schedule/copy`) is allowed only into an empty week from a week with a plan; otherwise it is refused, never merged.
+- Managers see tracked time; a member sees only the plan.
 - The team utilization report (`/reports`, `utilization`) puts each member's planned minutes over the period beside their tracked time. A member with a plan and no tracked time gets a row with zero time.
 
 ### Sections and onboarding

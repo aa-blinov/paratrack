@@ -6,7 +6,8 @@
       {
         "rule": "overused-font",
         "value": "inter",
-        "createdAt": "2026-09-28T05:05:41.053Z"
+        "createdAt": "2026-09-28T05:05:41.053Z",
+        "reason": "Sanctioned: DESIGN.md (Inter for everything read, line 183) documents the chosen typeface; L977-979 are the self-hosted @font-face for the same face. Documented design, not a user confirmation."
       },
       {
         "rule": "overused-font",

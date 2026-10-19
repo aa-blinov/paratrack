@@ -3,19 +3,25 @@ package web
 import (
 	"cmp"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // projectDetailData is the presentation envelope for /projects/{slug}.
 type projectDetailData struct {
-	Title           string
-	Active          string
-	ReactApp        bool
-	Project         projectView
+	Title    string
+	Active   string
+	ReactApp bool
+	Project  projectView
+	// PlannedLabel is the schedule's minutes on this project over every
+	// week; People is the table of plan and tracked time per member.
+	PlannedLabel    string
+	People          []projectPersonRow
 	Activities      []activityView
 	Sessions        []sessionView
 	Total           string
@@ -156,4 +162,45 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	return data
+}
+
+// projectPersonRow is one member's plan and tracked time on a project. The
+// tracked column is for managers only, as on the schedule.
+type projectPersonRow struct {
+	Name    string
+	Planned string
+	Tracked string
+}
+
+// projectPeople is the people table on a project: who is planned on it, and
+// for managers, what each person has tracked on it.
+func (s *Server) projectPeople(r *http.Request, project model.Project) ([]projectPersonRow, string, error) {
+	planned, tracked, err := s.services.Scheduling.ProjectPlanByMember(r.Context(), teamID(r), project.ID, userNow(r))
+	if err != nil {
+		return nil, "", err
+	}
+	members, err := s.services.Teams.Directory.Members(r.Context(), teamID(r))
+	if err != nil {
+		return nil, "", err
+	}
+	showTracked := canManage(r)
+	var total int
+	rows := []projectPersonRow{}
+	for _, member := range members {
+		if planned[member.UserID] == 0 && (!showTracked || tracked[member.UserID] == 0) {
+			continue
+		}
+		name := member.Name
+		if name == "" {
+			name = member.Email
+		}
+		total += planned[member.UserID]
+		row := projectPersonRow{Name: name, Planned: fmtDur(r, planned[member.UserID]*60)}
+		if showTracked {
+			row.Tracked = fmtDur(r, tracked[member.UserID]*60)
+		}
+		rows = append(rows, row)
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].Name < rows[j].Name })
+	return rows, fmtDur(r, total*60), nil
 }

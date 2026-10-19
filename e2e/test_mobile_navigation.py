@@ -631,20 +631,24 @@ def schedule_document():
     days = [{'Index': index, 'Label': ('Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс')[index],
              'Date': 5 + index, 'ISO': f'2026-10-{5 + index:02d}', 'Min': 0,
              'Total': '0 мин', 'IsToday': index == 2} for index in range(7)]
-    cells = lambda: [dict(day) for day in days]
+    cells = lambda: [dict(day, Total='0 мин') for day in days]
+    line = lambda: {'ProjectID': 1, 'ProjectName': 'Сайт для Nordwind', 'Color': '#7c3aed',
+                    'Cells': cells(), 'TotalMin': 0, 'Total': '0 мин'}
     return boot('/schedule', {
         'Lang': 'ru', 'Active': 'schedule', 'ScheduleReact': True, 'CSRFToken': 'test',
         'CanManage': True, 'WeekLabel': '5 окт – 11 окт', 'PrevWeek': '2026-09-28',
-        'NextWeek': '2026-10-12', 'ThisWeek': '2026-10-05', 'ProjectID': 1, 'Days': days,
-        'Rows': [{'UserID': index + 1,
-                  'UserName': name,
-                  'Capacity': 2400,
-                  'Cells': cells(),
-                  'Total': '0 мин',
-                  'TotalMin': 0,
-                  'LoadPct': 0, 'TrackedLabel': '0 мин', 'TrackedPct': 0} for index, name in enumerate(['Пётр Владелец', 'Маша Участница'])],
+        'NextWeek': '2026-10-12', 'ThisWeek': '2026-10-05', 'Days': days,
+        'People': [{'UserID': index + 1,
+                    'UserName': name,
+                    'AdminMin': 0,
+                    'AvailableMin': 2400,
+                    'AvailableLabel': '40 ч',
+                    'PlannedMin': 0,
+                    'Total': '0 мин',
+                    'LoadPct': 0, 'TrackedLabel': '0 мин', 'TrackedPct': 0,
+                    'Lines': [line()]} for index, name in enumerate(['Пётр Владелец', 'Маша Участница'])],
         'Projects': [{'ID': 1, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed'}],
-        'GrandTotal': '0 мин', 'GrandMin': 0,
+        'GrandTotal': '0 мин', 'GrandMin': 0, 'CopyFrom': False, 'WeekEmpty': True, 'DurationFormat': 'hm',
     }, True)
 
 

@@ -15,12 +15,12 @@ func TestUtilizationReportShowsPlanForMemberWithoutTime(t *testing.T) {
 	e.register("util-plan@x.test")
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Plan work"}}, nil))
 	schedule := reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule", nil, nil)))
-	if len(schedule.Rows) != 1 || len(schedule.Projects) != 1 {
-		t.Fatalf("schedule has %d rows and %d projects, want 1 and 1", len(schedule.Rows), len(schedule.Projects))
+	if len(schedule.People) != 1 || len(schedule.Projects) != 1 {
+		t.Fatalf("schedule has %d people and %d projects, want 1 and 1", len(schedule.People), len(schedule.Projects))
 	}
 	today := time.Now().Format("2006-01-02")
 	resp := e.do("POST", "/api/schedule/cell", url.Values{
-		"user_id":    {strconv.FormatInt(schedule.Rows[0].UserID, 10)},
+		"user_id":    {strconv.FormatInt(schedule.People[0].UserID, 10)},
 		"project_id": {strconv.FormatInt(schedule.Projects[0].ID, 10)},
 		"date":       {today},
 		"minutes":    {"120"},

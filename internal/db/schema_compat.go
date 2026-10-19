@@ -29,6 +29,7 @@ var columnMigrations = []struct {
 	{"sessions", "user_id", "BIGINT"},
 	{"memberships", "hourly_pay_cents", "BIGINT"},
 	{"memberships", "capacity_minutes", "BIGINT"},
+	{"memberships", "admin_minutes", "BIGINT"},
 	// Currency: the workspace default, a project override ('' = inherit),
 	// and the currency fixed on each document when it is created.
 	{"teams", "currency", "TEXT NOT NULL DEFAULT 'RUB'"},

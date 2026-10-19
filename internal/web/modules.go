@@ -64,7 +64,7 @@ var presets = []struct {
 	Modules                 []string
 }{
 	{"solo", "preset.solo", "preset.soloBlurb", "user", []string{"graph", "goals", "tags", "integrations", "import"}},
-	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"graph", "goals", "tags", "invoices", "reports", "integrations", "import"}},
+	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"graph", "goals", "tags", "invoices", "reports", "schedule", "integrations", "import"}},
 	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}},
 }
 
