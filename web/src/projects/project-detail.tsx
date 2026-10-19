@@ -1,4 +1,5 @@
 import { Flash } from "@/components/flash"
+import { DateField } from "@/components/date-field"
 import * as React from "react"
 import { ArrowLeft, Play, Trash2 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -49,11 +50,14 @@ function BudgetCard({ data }: { data: ProjectDetailData }) {
   </Card>
 }
 
+const noLead = "__no_lead__"
+
 function ProjectEdit({ data }: { data: ProjectDetailData }) {
   const [color, setColor] = React.useState(data.Project.Color)
   const [currency, setCurrency] = React.useState(data.Currency || "")
   const inheritValue = "__workspace_currency__"
   const [clientID, setClientID] = React.useState(data.Client && data.Client.ID > 0 ? String(data.Client.ID) : noClient)
+  const [leadID, setLeadID] = React.useState(data.LeadInput || noLead)
   const budgetRef = React.useRef<HTMLInputElement>(null)
   // Кнопке «Убрать бюджет» надо отправить пустой budget. Кнопка с name="budget"
   // не годится: сервер берёт первое значение, а первым идёт поле формы.
@@ -134,6 +138,21 @@ function ProjectEdit({ data }: { data: ProjectDetailData }) {
             </SelectContent>
           </Select>
         </div>}
+        <div className="space-y-1.5">
+          <Label htmlFor="project-deadline">{t(data.Lang, "proj.deadlineField")}</Label>
+          <DateField id="project-deadline" name="deadline" defaultValue={data.DeadlineInput} />
+        </div>
+        {!!data.MemberOptions?.length && <div className="space-y-1.5">
+          <Label htmlFor="project-lead">{t(data.Lang, "proj.leadField")}</Label>
+          <input type="hidden" name="lead_user_id" value={leadID === noLead ? "" : leadID} />
+          <Select value={leadID} onValueChange={setLeadID}>
+            <SelectTrigger id="project-lead" aria-label={t(data.Lang, "proj.leadField")} className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={noLead}>{t(data.Lang, "proj.noLead")}</SelectItem>
+              {data.MemberOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>}
         <Button type="submit" className="w-full md:col-span-2">{t(data.Lang, "projects.save")}</Button>
       </form>
 
@@ -172,12 +191,18 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
       <SummaryCard title={t(data.Lang, "proj.plannedAll")} value={data.PlannedLabel} />
       {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} />}
+      {data.RemainingLabel && <SummaryCard title={t(data.Lang, "proj.remaining")} value={data.RemainingLabel} />}
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>
         <p className="font-mono text-lg tabular-nums">{data.EstimateLabel} <span className="text-muted-foreground">/</span> {data.Total}</p>
         <Progress value={percent} aria-label={t(data.Lang, "est.vsActual")} />
         <p className="text-xs text-muted-foreground">{data.EstimatePercent}%</p>
       </CardContent></Card>}
+    </section>
+
+    <section className="grid gap-1 text-sm" aria-label={t(data.Lang, "proj.deadline")}>
+      <p><span className="text-muted-foreground">{t(data.Lang, "proj.deadline")}: </span>{data.DeadlineLabel ? `${data.DeadlineLabel}${data.DeadlineNote ? `, ${data.DeadlineNote}` : ""}` : "—"}</p>
+      <p><span className="text-muted-foreground">{t(data.Lang, "proj.lead")}: </span>{data.LeadLabel || t(data.Lang, "proj.leadNone")}</p>
     </section>
 
     <Card>

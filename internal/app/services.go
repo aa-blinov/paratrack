@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/reminders"
 	"sync"
 	"time"
 
@@ -175,6 +176,12 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	}
 	schedulingService, err := scheduling.New(scheduling.Dependencies{Store: database, Projects: projectService})
 	if err != nil {
+		return nil, err
+	}
+	reminderService, err := reminders.New(reminders.Dependencies{
+		Store: database, Planner: schedulingService, Sender: reminderPushNotifications{push: pushService}, Now: now,
+	})
+	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)
 	}
 	mailQueueService, err := mailqueue.New(database, now, logger, auditService)
@@ -270,6 +277,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		PayrollPaid:             payrollPaidService,
 		Preferences:             preferenceService,
 		Scheduling:              schedulingService,
+		Reminders:               reminderService,
 		Projects:                projectService,
 		Clients:                 shared.Clients,
 		ProjectPages:            projectPageBuilder,

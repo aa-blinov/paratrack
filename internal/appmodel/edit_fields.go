@@ -19,6 +19,10 @@ type ProjectUpdate struct {
 	// pointer to 0 clears it — an explicit 0 ceiling is meaningless, so
 	// the workflow layer normalises it to nil before it reaches SQL.
 	BudgetCents *int
+	// Deadline sets the day the project should be done; nil leaves it, and a
+	// pointer to "" clears it. LeadUserID works the same way with 0.
+	Deadline   *string
+	LeadUserID *int64
 }
 
 // SessionUpdate is the explicit set of editable session fields. Nil time and

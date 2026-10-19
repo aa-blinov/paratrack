@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight, Copy, Eye, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import type { ScheduleData, ScheduleDay, SchedulePerson, ScheduleLine } from "@/dashboard/types"
@@ -87,6 +88,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   const lang = data.Lang
   const format = data.DurationFormat
   const canEdit = data.CanManage
+  const [projectFilter, setProjectFilter] = React.useState(0)
 
   function applyPlan(next: PlanUpdate) {
     setData(previous => ({
@@ -217,8 +219,10 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
         Cells: data.Days.map(day => ({ ...day, Min: 0, Total: "" })),
         TotalMin: 0,
         Total: "",
+        CanEdit: true,
       }))
-    return [...(person.Lines ?? []), ...extra]
+    // The project filter narrows the rows, never what can be added.
+    return [...(person.Lines ?? []), ...extra].filter(line => !projectFilter || line.ProjectID === projectFilter)
   }
 
   // A line added on this page is not saved until it has hours: it stays only
@@ -242,7 +246,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     const saved = line.Cells[index]?.Min ?? 0
     const shown = drafts[key] ?? inputValue(saved, format)
     const label = `${person.UserName}, ${line.ProjectName}, ${day.ISO}`
-    if (!canEdit) {
+    if (!line.CanEdit) {
       return <span className="font-mono text-sm tabular-nums" aria-label={label}>{saved ? durationLabel(saved, format, lang) : "—"}</span>
     }
     return <Input
@@ -269,10 +273,10 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     />
   }
 
-  function addProjectSelect(person: SchedulePerson, lines: ScheduleLine[]) {
-    const used = new Set(lines.map(line => line.ProjectID))
-    const free = data.Projects.filter(project => !used.has(project.ID))
-    if (!canEdit || free.length === 0) return null
+  function addProjectSelect(person: SchedulePerson, _lines: ScheduleLine[]) {
+    const used = new Set([...(person.Lines ?? []), ...(pending[person.UserID] ?? [])].map(line => line.ProjectID))
+    const free = data.EditableProjects.filter(project => !used.has(project.ID))
+    if (free.length === 0) return null
     return <Select value="" onValueChange={value => addPending(person, Number(value))}>
       <SelectTrigger aria-label={`${t(lang, "sch.addProject")}: ${person.UserName}`} className="h-9 w-full max-w-64 bg-background text-foreground">
         <Plus aria-hidden="true" className="size-4" /><SelectValue placeholder={t(lang, "sch.addProject")} />
@@ -328,6 +332,17 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
     {data.Projects.length ? <>
+      {data.Projects.length > 1 && <div className="flex flex-wrap items-center gap-2">
+        <Label htmlFor="sch-project-filter" className="text-sm text-muted-foreground">{t(lang, "sch.projectFilter")}</Label>
+        <Select value={String(projectFilter)} onValueChange={value => setProjectFilter(Number(value))}>
+          <SelectTrigger id="sch-project-filter" className="w-full bg-background text-foreground sm:w-64"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="0">{t(lang, "sch.allProjects")}</SelectItem>
+            {data.Projects.map(project => <SelectItem key={project.ID} value={String(project.ID)}>{project.Name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>}
+
       {data.CanManage && data.People.length === 1 && <p className="text-sm text-muted-foreground">{t(lang, "sch.onlyOwner")} <a href="/settings/invites" className="font-medium text-foreground underline underline-offset-4">{t(lang, "sch.inviteTeam")}</a></p>}
 
       {!data.CanManage && <p data-readonly-note className="flex items-center gap-2 text-sm text-muted-foreground"><Eye aria-hidden="true" className="size-4 shrink-0" />{t(lang, "sch.readOnly")}</p>}

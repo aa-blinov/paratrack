@@ -158,13 +158,24 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := s.buildProjectDetailPage(r, snapshot, extras)
-	people, plannedLabel, err := s.projectPeople(r, snapshot.Detail.Project)
+	plan, err := s.projectPlan(r, snapshot.Detail.Project)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
-	data.People = people
-	data.PlannedLabel = plannedLabel
+	data.People = plan.People
+	data.PlannedLabel = plan.PlannedLabel
+	data.RemainingLabel = plan.RemainingLabel
+	data.RemainingOver = plan.RemainingOver
+	data.LeadLabel = plan.LeadLabel
+	data.DeadlineInput = snapshot.Detail.Project.Deadline
+	data.DeadlineLabel = deadlineLabel(r, snapshot.Detail.Project.Deadline)
+	data.DeadlineNote, data.DeadlineOverdue = deadlineNote(r, snapshot.Detail.Project.Deadline)
+	data.LeadInput = ""
+	if snapshot.Detail.Project.LeadUserID > 0 {
+		data.LeadInput = strconv.FormatInt(snapshot.Detail.Project.LeadUserID, 10)
+	}
+	data.MemberOptions = s.memberOptions(r)
 	// This page never read a flash before. Creating redirects here, so the
 	// "created" confirmation had nowhere to render: the query arrived and was
 	// dropped. Every other page that redirects to itself reads it.
@@ -188,6 +199,8 @@ type projectNewPage struct {
 	// using. The form opens on it so a project is distinguishable from the
 	// rest before anyone touches the picker.
 	SuggestedColor string
+	// MemberOptions are the people a new project can be led by.
+	MemberOptions []memberOption
 }
 
 func (projectNewPage) isTemplateData()    {}
@@ -202,7 +215,7 @@ func (p *projectNewPage) setLang(lang string)  { p.Lang = lang }
 func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := projectNewPage{Title: "New project", Active: "projects", ReactApp: true, NewProject: true, CSRFToken: ensureCSRF(w, r), Lang: lang,
-		Currencies: currencyOptions()}
+		Currencies: currencyOptions(), MemberOptions: s.memberOptions(r)}
 	var err error
 	data.TeamCurrency, err = s.services.Teams.Settings.Currency(r.Context(), teamID(r))
 	if err != nil {
@@ -254,9 +267,19 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 	if hasRate {
 		ratePtr = &rate
 	}
+	deadline := strings.TrimSpace(r.Form.Get("deadline"))
+	if _, err := time.Parse("2006-01-02", deadline); deadline != "" && err != nil {
+		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad deadline")), http.StatusSeeOther)
+		return
+	}
+	lead, leadErr := strconv.ParseInt(strings.TrimSpace(r.Form.Get("lead_user_id")), 10, 64)
+	if leadErr != nil || lead < 0 {
+		lead = 0
+	}
 	p, err := s.services.Projects.Commands.Create(r.Context(), appmodel.ProjectCreateRequest{
 		TeamID: tid, CallerID: authenticatedUserID(r), Name: r.Form.Get("name"),
 		Slug: r.Form.Get("slug"), Color: r.Form.Get("color"), RateCents: ratePtr, Currency: currency,
+		Deadline: deadline, LeadUserID: lead,
 	})
 	if err != nil {
 		flash := encodeFlash(false, s.projectFlashError(err, "create"))
@@ -324,6 +347,28 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 	// back pre-filled with a grouped amount ("600 000,00"): reading it as a
 	// plain decimal made every second save of a project fail with a complaint
 	// about the rate, which had not changed at all.
+	if _, sent := r.Form["deadline"]; sent {
+		day := strings.TrimSpace(r.Form.Get("deadline"))
+		if _, err := time.Parse("2006-01-02", day); day != "" && err != nil {
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad deadline")), http.StatusSeeOther)
+			return
+		}
+		update.Deadline = &day
+	}
+	if _, sent := r.Form["lead_user_id"]; sent {
+		// An empty value is "no lead": the form posts it when the picker says so.
+		lead := int64(0)
+		raw := strings.TrimSpace(r.Form.Get("lead_user_id"))
+		parsed, convErr := strconv.ParseInt(raw, 10, 64)
+		if raw != "" {
+			lead = parsed
+		}
+		if raw != "" && (convErr != nil || lead < 0) {
+			http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad lead")), http.StatusSeeOther)
+			return
+		}
+		update.LeadUserID = &lead
+	}
 	if _, sent := r.Form["budget"]; sent {
 		raw := strings.TrimSpace(r.Form.Get("budget"))
 		if raw == "" {

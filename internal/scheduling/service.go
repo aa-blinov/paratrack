@@ -21,6 +21,7 @@ type Store interface {
 	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
 	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
+	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 }
 
 // ProjectCatalog supplies selectable projects for the schedule editor.
@@ -123,6 +124,18 @@ func (s *Service) ProjectPlanByMember(ctx context.Context, teamID, projectID int
 		return nil, nil, fmt.Errorf("load project tracked time: %w", err)
 	}
 	return planned, tracked, nil
+}
+
+// PlannedAhead is the plan on a project from a day onward, in minutes.
+func (s *Service) PlannedAhead(ctx context.Context, teamID, projectID int64, from time.Time) (int, error) {
+	if teamID <= 0 || projectID <= 0 {
+		return 0, ErrInvalidScheduleCell
+	}
+	minutes, err := s.store.PlannedMinutesForProjectFrom(ctx, teamID, projectID, from)
+	if err != nil {
+		return 0, fmt.Errorf("load plan ahead: %w", err)
+	}
+	return minutes, nil
 }
 
 // SetScheduleAdminMinutes stores a member's weekly admin time, between zero

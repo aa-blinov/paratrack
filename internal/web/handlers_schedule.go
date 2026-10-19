@@ -10,6 +10,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // schedDay is one day of the week: the header, and each cell's own day.
@@ -29,9 +30,12 @@ type schedLine struct {
 	ProjectID   int64
 	ProjectName string
 	Color       string
-	Cells       [7]schedDay
-	TotalMin    int
-	Total       string
+	// CanEdit: the viewer may write this project's hours: a manager, or the
+	// lead of this project.
+	CanEdit  bool
+	Cells    [7]schedDay
+	TotalMin int
+	Total    string
 }
 
 // schedPerson is one member's block: the header carries the week's numbers,
@@ -75,6 +79,8 @@ type schedulePage struct {
 	// DurationFormat is the user's time format ("hm", "decimal" or "clock"):
 	// the page shows its live totals in the same format the server uses.
 	DurationFormat string
+	// EditableProjects are the projects this viewer may add a line for.
+	EditableProjects []projectView
 }
 
 func (p *schedulePage) setCSRF(t string)   { p.pageData.setCSRF(t) }
@@ -125,21 +131,22 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := schedulePage{
-		pageData:       pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
-		ScheduleReact:  true,
-		WeekLabel:      fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
-		PrevWeek:       weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
-		NextWeek:       weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
-		ThisWeek:       weekStart.Format("2006-01-02"),
-		Days:           plan.Days,
-		People:         plan.People,
-		Projects:       projects,
-		GrandTotal:     plan.GrandTotal,
-		GrandMin:       plan.GrandMin,
-		CanManage:      canManage(r),
-		CopyFrom:       copyFrom,
-		WeekEmpty:      plan.WeekEmpty,
-		DurationFormat: durFmtOf(r),
+		pageData:         pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
+		ScheduleReact:    true,
+		WeekLabel:        fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
+		PrevWeek:         weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
+		NextWeek:         weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
+		ThisWeek:         weekStart.Format("2006-01-02"),
+		Days:             plan.Days,
+		People:           plan.People,
+		Projects:         projects,
+		GrandTotal:       plan.GrandTotal,
+		GrandMin:         plan.GrandMin,
+		CanManage:        canManage(r),
+		CopyFrom:         copyFrom,
+		WeekEmpty:        plan.WeekEmpty,
+		DurationFormat:   durFmtOf(r),
+		EditableProjects: editableProjects(projects, canManage(r), authenticatedUserID(r)),
 	}
 	s.renderPageForRequest(w, r, "Schedule", "schedule", &data)
 }
@@ -161,8 +168,14 @@ func (s *Server) loadSchedulePlan(r *http.Request, weekStart time.Time) (schedPl
 		}
 	}
 	colors := make(map[int64]string, len(snapshot.Projects))
+	leads := make(map[int64]int64, len(snapshot.Projects))
 	for _, project := range snapshot.Projects {
 		colors[project.ID] = project.Color
+		leads[project.ID] = project.LeadUserID
+	}
+	viewer := authenticatedUserID(r)
+	canEditLine := func(pid int64) bool {
+		return canManage(r) || (viewer > 0 && leads[pid] == viewer)
 	}
 	showTracked := canManage(r)
 	plan := schedPlan{Days: days, People: []schedPerson{}, GrandMin: snapshot.TotalMinutes, GrandTotal: fmtDur(r, snapshot.TotalMinutes*60)}
@@ -191,7 +204,7 @@ func (s *Server) loadSchedulePlan(r *http.Request, weekStart time.Time) (schedPl
 		})
 		for _, pid := range projectIDs {
 			cells := rc.ByProject[pid]
-			line := schedLine{ProjectID: pid, ProjectName: snapshot.ProjectNames[pid], Color: colors[pid]}
+			line := schedLine{ProjectID: pid, ProjectName: snapshot.ProjectNames[pid], Color: colors[pid], CanEdit: canEditLine(pid)}
 			for i := 0; i < 7; i++ {
 				line.Cells[i] = schedDay{Index: i, ISO: days[i].ISO, Min: cells[i], Total: fmtDur(r, cells[i]*60), IsToday: days[i].IsToday}
 				line.TotalMin += cells[i]
@@ -258,6 +271,8 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.needProject")})
 		case errors.Is(err, appmodel.ErrInvalidScheduleCell):
 			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+		case errors.Is(err, model.ErrForbidden):
+			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
 		default:
 			s.writeInternalJSONError(w, err)
 		}
@@ -347,4 +362,19 @@ func (s *Server) respondSchedulePlan(w http.ResponseWriter, r *http.Request, wee
 		Days: plan.Days, People: plan.People, GrandTotal: plan.GrandTotal, GrandMin: plan.GrandMin,
 		WeekEmpty: plan.WeekEmpty, CopyFrom: copyFrom,
 	})
+}
+
+// editableProjects are the projects a viewer may add a plan line for: every
+// project for a manager, and only the ones they lead for anyone else.
+func editableProjects(projects []projectView, manager bool, viewer int64) []projectView {
+	if manager {
+		return projects
+	}
+	var out []projectView
+	for _, project := range projects {
+		if project.LeadUserID == viewer && viewer > 0 {
+			out = append(out, project)
+		}
+	}
+	return out
 }

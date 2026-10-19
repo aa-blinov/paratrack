@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"github.com/aa-blinov/paratrack/internal/reminders"
 	"net/http"
 	"time"
 
@@ -29,6 +30,17 @@ func (w workspaceLifecycle) DeleteAndListRemaining(ctx context.Context, request 
 }
 
 type payrollPushNotifications struct{ push *push.Service }
+
+// reminderPushNotifications sends the project and overload reminders through
+// the push queue, like every other event.
+type reminderPushNotifications struct{ push *push.Service }
+
+func (n reminderPushNotifications) Send(_ context.Context, notification reminders.Notification) error {
+	return n.push.EnqueueNotification(push.EnqueueNotificationRequest{
+		TeamID: notification.TeamID, UserIDs: notification.UserIDs,
+		Notification: push.Notification{Title: notification.Title, Body: notification.Body, URL: notification.URL, Topic: notification.Topic},
+	})
+}
 
 type trackingPushNotifications struct{ push *push.Service }
 

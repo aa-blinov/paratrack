@@ -8,6 +8,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/translit"
@@ -92,6 +93,22 @@ func (d *DB) CreateProjectWithBilling(ctx context.Context, request appmodel.Proj
 			return model.Project{}, err
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE projects SET client_id = ? WHERE id = ? AND team_id = ?`, clientID, id, teamID); err != nil {
+			return model.Project{}, err
+		}
+	}
+	if request.Deadline != "" {
+		if err := checkProjectDeadline(request.Deadline); err != nil {
+			return model.Project{}, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE projects SET deadline = ? WHERE id = ? AND team_id = ?`, request.Deadline, id, teamID); err != nil {
+			return model.Project{}, err
+		}
+	}
+	if request.LeadUserID > 0 {
+		if err := checkMemberInTeam(ctx, tx, request.LeadUserID, teamID); err != nil {
+			return model.Project{}, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE projects SET lead_user_id = ? WHERE id = ? AND team_id = ?`, request.LeadUserID, id, teamID); err != nil {
 			return model.Project{}, err
 		}
 	}
@@ -252,7 +269,7 @@ func (d *DB) ProjectClientNames(ctx context.Context, teamID int64) (map[int64]st
 // scans exactly this list in this order, so a column added here without widening
 // the matching SELECT (or the other way round) fails loudly at the first read
 // instead of silently returning a project.
-const projectColumns = `id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at`
+const projectColumns = `id, team_id, slug, name, color, archived, estimate_minutes, billable_rate_cents, billable, client_id, budget_cents, created_at, updated_at, deadline, lead_user_id, deadline_reminded`
 
 func (d *DB) ListProjects(ctx context.Context, query appmodel.ProjectCatalogQuery) ([]model.Project, error) {
 	q := `SELECT ` + projectColumns + ` FROM projects WHERE team_id = ?`
@@ -352,6 +369,24 @@ func (d *DB) UpdateProjectWithOptions(ctx context.Context, request appmodel.Proj
 			args = append(args, nil)
 		}
 	}
+	if request.Update.Deadline != nil {
+		if *request.Update.Deadline != "" {
+			if err := checkProjectDeadline(*request.Update.Deadline); err != nil {
+				return model.Project{}, err
+			}
+		}
+		query += `, deadline = ?`
+		args = append(args, nullIfEmpty(*request.Update.Deadline))
+	}
+	if request.Update.LeadUserID != nil {
+		if *request.Update.LeadUserID > 0 {
+			if err := checkMemberInTeam(ctx, tx, *request.Update.LeadUserID, request.TeamID); err != nil {
+				return model.Project{}, err
+			}
+		}
+		query += `, lead_user_id = ?`
+		args = append(args, nullIfZero(*request.Update.LeadUserID))
+	}
 	if request.Update.ClientID != nil {
 		if *request.Update.ClientID > 0 {
 			if err := checkClientInTeam(ctx, tx, *request.Update.ClientID, request.TeamID); err != nil {
@@ -419,7 +454,9 @@ func scanProject(r row) (model.Project, error) {
 		created  string
 		updated  string
 	)
-	if err := r.Scan(&p.ID, &p.TeamID, &p.Slug, &p.Name, &p.Color, &archived, &estimate, &rate, &billable, &client, &budget, &created, &updated); err != nil {
+	var deadline, reminded sql.NullString
+	var lead sql.NullInt64
+	if err := r.Scan(&p.ID, &p.TeamID, &p.Slug, &p.Name, &p.Color, &archived, &estimate, &rate, &billable, &client, &budget, &created, &updated, &deadline, &lead, &reminded); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Project{}, ErrNotFound
 		}
@@ -442,6 +479,9 @@ func scanProject(r row) (model.Project, error) {
 		p.ClientID = client.Int64
 	}
 	p.Billable = billable != 0
+	p.Deadline = deadline.String
+	p.LeadUserID = lead.Int64
+	p.DeadlineReminded = reminded.String
 	createdAt, err := ScanTime(created)
 	if err != nil {
 		return model.Project{}, fmt.Errorf("parse project creation time: %w", err)
@@ -485,4 +525,37 @@ func slugify(s string) string {
 		return "project"
 	}
 	return out
+}
+
+// checkProjectDeadline accepts only a real calendar day, YYYY-MM-DD.
+func checkProjectDeadline(day string) error {
+	if _, err := time.Parse("2006-01-02", day); err != nil {
+		return fmt.Errorf("deadline %q must be YYYY-MM-DD", day)
+	}
+	return nil
+}
+
+// checkMemberInTeam refuses a lead who is not a member of the workspace: a
+// project can only be led by someone who can see the team.
+func checkMemberInTeam(ctx context.Context, tx *Tx, userID, teamID int64) error {
+	var one int
+	err := tx.QueryRowContext(ctx, `SELECT 1 FROM memberships WHERE team_id = ? AND user_id = ?`, teamID, userID).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
+}
+
+func nullIfEmpty(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func nullIfZero(value int64) any {
+	if value <= 0 {
+		return nil
+	}
+	return value
 }
