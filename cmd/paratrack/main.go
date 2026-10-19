@@ -94,6 +94,7 @@ func main() {
 		runtimeDeps.Mailer = mailer
 		runtimeDeps.MailQueueWorker = services.MailQueue
 		runtimeDeps.WebhookDeliveryWorker = services.Webhooks
+		runtimeDeps.ReminderWorker = services.Reminders
 		server, err := web.New(web.Dependencies{
 			Billing: services.Billing,
 			Auth: web.AuthenticationDependencies{

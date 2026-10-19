@@ -6,9 +6,11 @@ import "errors"
 // /settings/notifications. The values are stored verbatim, so a producer that
 // does not name a topic keeps today's behavior: the notification is delivered.
 const (
-	NotificationTopicSessionStopped = "session.stopped"
-	NotificationTopicGoalAchieved   = "goal.achieved"
-	NotificationTopicPayrollPaid    = "payroll.paid"
+	NotificationTopicSessionStopped   = "session.stopped"
+	NotificationTopicGoalAchieved     = "goal.achieved"
+	NotificationTopicPayrollPaid      = "payroll.paid"
+	NotificationTopicProjectDeadline  = "project.deadline"
+	NotificationTopicScheduleOverload = "schedule.overload"
 )
 
 // ErrInvalidNotificationTopic means a caller asked to mute something the

@@ -44,6 +44,10 @@ func (scheduleCellStoreStub) TrackedMinutesForProject(context.Context, int64, in
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) PlannedMinutesForProjectFrom(context.Context, int64, int64, time.Time) (int, error) {
+	return 0, nil
+}
+
 func (s *scheduleCellStoreStub) UpsertScheduleEntry(_ context.Context, request appmodel.ScheduleCellRequest) error {
 	s.request = request
 	return nil
@@ -86,6 +90,10 @@ func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64)
 
 func (scheduleStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
 	return nil, nil
+}
+
+func (scheduleStoreStub) PlannedMinutesForProjectFrom(context.Context, int64, int64, time.Time) (int, error) {
+	return 0, nil
 }
 
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {

@@ -138,6 +138,7 @@ func (s *Server) ListenAndServeContext(ctx context.Context) error {
 	s.logger.Printf("paratrack web: listening on http://%s", ln.Addr())
 	stopWorker := s.startMailWorker(ctx)
 	stopWebhookWorker := s.startWebhookWorker(ctx)
+	stopReminderWorker := s.startReminderWorker(ctx)
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- s.httpd.Serve(ln) }()
 	var serveErr error
@@ -161,12 +162,29 @@ func (s *Server) ListenAndServeContext(ctx context.Context) error {
 	}
 	s.requests.Wait() // never close dependencies while a handler may use them
 	stopWorker()
+	stopReminderWorker()
 	stopWebhookWorker()
 	s.sentry.close()
 	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 		return serveErr
 	}
 	return nil
+}
+
+func (s *Server) startReminderWorker(parent context.Context) func() {
+	if depcheck.IsNil(s.runtime.ReminderWorker) {
+		return func() {}
+	}
+	workerCtx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runtime.ReminderWorker.Run(workerCtx, time.Hour)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
 }
 
 func (s *Server) startWebhookWorker(parent context.Context) func() {

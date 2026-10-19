@@ -248,6 +248,15 @@ export interface ProjectDetailData {
   Sessions: Session[]
   PlannedLabel: string
   People: Array<{ Name: string; Planned: string; Tracked: string }>
+  RemainingLabel: string
+  RemainingOver: boolean
+  LeadLabel: string
+  LeadInput: string
+  DeadlineInput: string
+  DeadlineLabel: string
+  DeadlineNote: string
+  DeadlineOverdue: boolean
+  MemberOptions: Array<{ ID: number; Name: string }>
   Total: string
   MonthTotal: string
   Archived: boolean
@@ -284,6 +293,7 @@ export interface ProjectCreateData {
   TeamCurrency: string
   /** The first palette colour this team is not already wearing. */
   SuggestedColor: string
+  MemberOptions: Array<{ ID: number; Name: string }>
 }
 
 export interface GoalView {
@@ -481,6 +491,7 @@ export interface ScheduleLine {
   ProjectID: number
   ProjectName: string
   Color: string
+  CanEdit: boolean
   Cells: ScheduleDay[]
   TotalMin: number
   Total: string
@@ -513,6 +524,7 @@ export interface ScheduleData {
   Days: ScheduleDay[]
   People: SchedulePerson[]
   Projects: Project[]
+  EditableProjects: Project[]
   GrandTotal: string
   GrandMin: number
   CopyFrom: boolean

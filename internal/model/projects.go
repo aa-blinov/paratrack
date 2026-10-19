@@ -43,6 +43,14 @@ type Project struct {
 	// names its recipient when no card exists, and so that editing a card
 	// never rewrites what an already-sent invoice was addressed to.
 	ClientID int64
+	// Deadline is the day the project should be done (YYYY-MM-DD, "" = none).
+	Deadline string
+	// LeadUserID is the team member who leads the project (0 = none). The
+	// lead plans its hours and sees its people's tracked time.
+	LeadUserID int64
+	// DeadlineReminded is the deadline a reminder was already sent for, so a
+	// reminder goes out once per deadline.
+	DeadlineReminded string
 	// BudgetCents is the monetary ceiling for this project (nil = unset).
 	// It is deliberately money, not minutes: EstimateMinutes answers "how
 	// much work did we agree on", this answers "how much of it may I bill".

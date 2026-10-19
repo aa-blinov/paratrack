@@ -8,9 +8,12 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import type { ProjectCreateData } from "@/dashboard/types"
+import { DateField } from "@/components/date-field"
 
 export function ProjectCreate({ data }: { data: ProjectCreateData }) {
   const [color, setColor] = React.useState(data.SuggestedColor || "#6366f1")
+  const noLead = "__no_lead__"
+  const [lead, setLead] = React.useState(noLead)
   const [currency, setCurrency] = React.useState("__workspace_currency__")
   const lang = data.Lang
 
@@ -51,6 +54,21 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="new-project-deadline">{t(lang, "proj.deadlineField")}</Label>
+          <DateField id="new-project-deadline" name="deadline" />
+        </div>
+        {!!data.MemberOptions?.length && <div className="space-y-2">
+          <Label htmlFor="new-project-lead">{t(lang, "proj.leadField")}</Label>
+          <input type="hidden" name="lead_user_id" value={lead === noLead ? "" : lead} />
+          <Select value={lead} onValueChange={setLead}>
+            <SelectTrigger id="new-project-lead" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={noLead}>{t(lang, "proj.noLead")}</SelectItem>
+              {data.MemberOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>}
           </div>
         </Disclosure>
         <div className="flex items-center justify-between gap-2 border-t pt-4 sm:col-span-2">
