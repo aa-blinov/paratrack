@@ -633,7 +633,7 @@ def schedule_document():
              'Total': '0 мин', 'IsToday': index == 2} for index in range(7)]
     cells = lambda: [dict(day, Total='0 мин') for day in days]
     line = lambda: {'ProjectID': 1, 'ProjectName': 'Сайт для Nordwind', 'Color': '#7c3aed',
-                    'Cells': cells(), 'TotalMin': 0, 'Total': '0 мин'}
+                    'Cells': cells(), 'TotalMin': 0, 'Total': '0 мин', 'CanEdit': True}
     return boot('/schedule', {
         'Lang': 'ru', 'Active': 'schedule', 'ScheduleReact': True, 'CSRFToken': 'test',
         'CanManage': True, 'WeekLabel': '5 окт – 11 окт', 'PrevWeek': '2026-09-28',
@@ -648,6 +648,7 @@ def schedule_document():
                     'LoadPct': 0, 'TrackedLabel': '0 мин', 'TrackedPct': 0,
                     'Lines': [line()]} for index, name in enumerate(['Пётр Владелец', 'Маша Участница'])],
         'Projects': [{'ID': 1, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed'}],
+        'EditableProjects': [{'ID': 1, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed'}],
         'GrandTotal': '0 мин', 'GrandMin': 0, 'CopyFrom': False, 'WeekEmpty': True, 'DurationFormat': 'hm',
     }, True)
 

@@ -34,7 +34,7 @@ def schedule_document(can_manage):
     cells = [{'Index': d['Index'], 'ISO': d['ISO'], 'Min': 120 if d['Index'] == 1 else 0,
               'Total': '2 ч' if d['Index'] == 1 else '0 мин', 'IsToday': d['IsToday']} for d in WEEK]
     line = {'ProjectID': 7, 'ProjectName': 'Сайт для Nordwind', 'Color': '#7c3aed', 'Cells': cells,
-            'TotalMin': 120, 'Total': '2 ч'}
+            'TotalMin': 120, 'Total': '2 ч', 'CanEdit': can_manage}
     return boot('/schedule', {
         'Lang': 'ru', 'Active': 'schedule', 'ScheduleReact': True, 'CSRFToken': 'test', 'CanManage': can_manage,
         'WeekLabel': '5 окт – 11 окт', 'PrevWeek': '2026-09-28', 'NextWeek': '2026-10-12',
@@ -49,6 +49,7 @@ def schedule_document(can_manage):
                     'AvailableLabel': '40 ч', 'PlannedMin': 120, 'Total': '2 ч', 'LoadPct': 5,
                     'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 5 if can_manage else 0,
                     'Lines': [dict(line)]}],
+        'EditableProjects': [] if not can_manage else [{'ID': 7, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed', 'Archived': False, 'Billable': True}],
         'GrandTotal': '4 ч', 'GrandMin': 240, 'CopyFrom': False, 'WeekEmpty': False, 'DurationFormat': 'hm',
     }, can_manage)
 

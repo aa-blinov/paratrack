@@ -370,7 +370,7 @@ func editableProjects(projects []projectView, manager bool, viewer int64) []proj
 	if manager {
 		return projects
 	}
-	var out []projectView
+	out := []projectView{} // never null: the page reads it as a list
 	for _, project := range projects {
 		if project.LeadUserID == viewer && viewer > 0 {
 			out = append(out, project)
