@@ -28,6 +28,22 @@ func (scheduleCellStoreStub) PlannedMinutesByUser(context.Context, int64, time.T
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error {
+	return nil
+}
+
+func (scheduleCellStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error {
+	return nil
+}
+
+func (scheduleCellStoreStub) PlannedMinutesForProject(context.Context, int64, int64) (map[int64]int, error) {
+	return nil, nil
+}
+
+func (scheduleCellStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
+	return nil, nil
+}
+
 func (s *scheduleCellStoreStub) UpsertScheduleEntry(_ context.Context, request appmodel.ScheduleCellRequest) error {
 	s.request = request
 	return nil
@@ -56,10 +72,26 @@ func (scheduleStoreStub) PlannedMinutesByUser(context.Context, int64, time.Time,
 	return map[int64]int{1: 240}, nil
 }
 
+func (scheduleStoreStub) CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error {
+	return nil
+}
+
+func (scheduleStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error {
+	return nil
+}
+
+func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64) (map[int64]int, error) {
+	return nil, nil
+}
+
+func (scheduleStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
+	return nil, nil
+}
+
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	projects := &scheduleProjectCatalogStub{projects: []model.Project{{ID: 9, Name: "Alpha"}}}
 	store := &scheduleStoreStub{rows: []appmodel.ScheduleRow{
-		{UserID: 1, Capacity: 60, Total: 150, Tracked: 225},
+		{UserID: 1, Capacity: 60, Total: 150, Tracked: 225, AdminMinutes: 60},
 		{UserID: 2, Capacity: 0, Total: 90},
 	}}
 	service, err := New(Dependencies{Store: store, Projects: projects})
@@ -71,11 +103,16 @@ func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("list schedule: %v", err)
 	}
-	if snapshot.Rows[0].LoadPercent != 50 {
-		t.Fatalf("weekly load = %d%%, want 50%%", snapshot.Rows[0].LoadPercent)
+	// Five days of 60 minutes less one hour of admin leaves 240 available: the
+	// load is measured against what is left for clients, not against 300.
+	if snapshot.Rows[0].AvailableMinutes != 240 {
+		t.Fatalf("available = %d minutes, want 240 (60*5 less 60 admin)", snapshot.Rows[0].AvailableMinutes)
 	}
-	if snapshot.Rows[0].TrackedPercent != 75 {
-		t.Fatalf("tracked load = %d%%, want 75%% (225 of 60*5)", snapshot.Rows[0].TrackedPercent)
+	if snapshot.Rows[0].LoadPercent != 62 {
+		t.Fatalf("weekly load = %d%%, want 62%% (150 of 240)", snapshot.Rows[0].LoadPercent)
+	}
+	if snapshot.Rows[0].TrackedPercent != 93 {
+		t.Fatalf("tracked load = %d%%, want 93%% (225 of 240)", snapshot.Rows[0].TrackedPercent)
 	}
 	if store.query.TeamID != query.TeamID || !store.query.WeekStart.Equal(query.WeekStart) {
 		t.Fatalf("store schedule query = %+v, want %+v", store.query, query)

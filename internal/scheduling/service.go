@@ -17,6 +17,10 @@ type Store interface {
 	ListSchedule(context.Context, appmodel.ScheduleQuery) ([]appmodel.ScheduleRow, map[int64]string, error)
 	PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error)
 	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
+	CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error
+	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
+	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
+	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
 }
 
 // ProjectCatalog supplies selectable projects for the schedule editor.
@@ -64,9 +68,9 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 		if err != nil {
 			return appmodel.ScheduleSnapshot{}, fmt.Errorf("sum weekly schedule minutes: %w", err)
 		}
-		row := Row{ScheduleRow: stored}
-		row.LoadPercent = weekLoadPercent(stored.Total, stored.Capacity)
-		row.TrackedPercent = weekLoadPercent(stored.Tracked, stored.Capacity)
+		row := Row{ScheduleRow: stored, AvailableMinutes: weekAvailableMinutes(stored.Capacity, stored.AdminMinutes)}
+		row.LoadPercent = weekLoadPercent(stored.Total, row.AvailableMinutes)
+		row.TrackedPercent = weekLoadPercent(stored.Tracked, row.AvailableMinutes)
 		rows = append(rows, row)
 	}
 	projects, err := s.projects.List(ctx, appmodel.ProjectCatalogQuery{TeamID: query.TeamID})
@@ -76,13 +80,61 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 	return appmodel.ScheduleSnapshot{Rows: rows, ProjectNames: names, Projects: projects, TotalMinutes: totalMinutes}, nil
 }
 
-// weekLoadPercent is minutes against the five working days of capacity. A
-// member with no configured capacity has no load to show, so 0.
-func weekLoadPercent(minutes, capacity int) int {
-	if capacity <= 0 {
+// weekAvailableMinutes is the capacity of five working days less the admin
+// time the member keeps; never below zero.
+func weekAvailableMinutes(capacityPerDay, adminMinutes int) int {
+	return max(capacityPerDay*5-adminMinutes, 0)
+}
+
+// weekLoadPercent is minutes against the available time of the week. A member
+// with nothing available has no load to show, so 0.
+func weekLoadPercent(minutes, available int) int {
+	if available <= 0 {
 		return 0
 	}
-	return int(int64(minutes) * 100 / (int64(capacity) * 5))
+	return int(int64(minutes) * 100 / int64(available))
+}
+
+// CopyScheduleWeek repeats the plan of the previous week in an empty week.
+// The rule is the store's: a non-empty target is refused, not merged.
+func (s *Service) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.From.IsZero() || request.To.IsZero() ||
+		request.To.Format("2006-01-02") != request.From.AddDate(0, 0, 7).Format("2006-01-02") {
+		return ErrInvalidScheduleCell
+	}
+	if err := s.store.CopyScheduleWeek(ctx, request); err != nil {
+		return fmt.Errorf("copy schedule week: %w", err)
+	}
+	return nil
+}
+
+// ProjectPlanByMember is each member's planned and tracked minutes on one
+// project: the people table on the project page.
+func (s *Service) ProjectPlanByMember(ctx context.Context, teamID, projectID int64, now time.Time) (planned, tracked map[int64]int, err error) {
+	if teamID <= 0 || projectID <= 0 {
+		return nil, nil, ErrInvalidScheduleCell
+	}
+	planned, err = s.store.PlannedMinutesForProject(ctx, teamID, projectID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load project plan: %w", err)
+	}
+	tracked, err = s.store.TrackedMinutesForProject(ctx, teamID, projectID, now)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load project tracked time: %w", err)
+	}
+	return planned, tracked, nil
+}
+
+// SetScheduleAdminMinutes stores a member's weekly admin time, between zero
+// and a full week.
+func (s *Service) SetScheduleAdminMinutes(ctx context.Context, request appmodel.ScheduleAdminRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.Minutes < 0 || request.Minutes > 7*24*60 {
+		return ErrInvalidScheduleCell
+	}
+	if err := s.store.SetScheduleAdminMinutes(ctx, request); err != nil {
+		return fmt.Errorf("save schedule admin time: %w", err)
+	}
+	return nil
 }
 
 // PlannedMinutesByUser is each member's planned minutes over the days in

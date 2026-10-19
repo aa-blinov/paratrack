@@ -246,6 +246,8 @@ export interface ProjectDetailData {
   Project: Project
   Activities: Activity[]
   Sessions: Session[]
+  PlannedLabel: string
+  People: Array<{ Name: string; Planned: string; Tracked: string }>
   Total: string
   MonthTotal: string
   Archived: boolean
@@ -475,16 +477,27 @@ export interface ScheduleDay {
   IsToday: boolean
 }
 
-export interface ScheduleRow {
+export interface ScheduleLine {
+  ProjectID: number
+  ProjectName: string
+  Color: string
+  Cells: ScheduleDay[]
+  TotalMin: number
+  Total: string
+}
+
+export interface SchedulePerson {
   UserID: number
   UserName: string
-  Capacity: number
-  Cells: ScheduleDay[]
+  AdminMin: number
+  AvailableMin: number
+  AvailableLabel: string
+  PlannedMin: number
   Total: string
-  TotalMin: number
   LoadPct: number
   TrackedLabel: string
   TrackedPct: number
+  Lines: ScheduleLine[]
 }
 
 export interface ScheduleData {
@@ -497,12 +510,14 @@ export interface ScheduleData {
   PrevWeek: string
   NextWeek: string
   ThisWeek: string
-  ProjectID: number
   Days: ScheduleDay[]
-  Rows: ScheduleRow[]
+  People: SchedulePerson[]
   Projects: Project[]
   GrandTotal: string
   GrandMin: number
+  CopyFrom: boolean
+  WeekEmpty: boolean
+  DurationFormat: string
 }
 
 export interface InvoiceSummary {

@@ -167,9 +167,10 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
 
     {/* Ставку вводят в «Изменить» и больше нигде не видят: показываем её
         рядом с часами, из которых она делает деньги. */}
-    <section aria-label={t(data.Lang, "projects.allTime")} className={`grid gap-4 sm:grid-cols-2 ${data.EstimateLabel && data.RateLabel ? "lg:grid-cols-4" : data.EstimateLabel || data.RateLabel ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+    <section aria-label={t(data.Lang, "projects.allTime")} className={`grid gap-4 sm:grid-cols-2 ${data.EstimateLabel && data.RateLabel ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
       <SummaryCard title={t(data.Lang, "projects.last30")} value={data.MonthTotal} />
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
+      <SummaryCard title={t(data.Lang, "proj.plannedAll")} value={data.PlannedLabel} />
       {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} />}
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>
@@ -178,6 +179,24 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
         <p className="text-xs text-muted-foreground">{data.EstimatePercent}%</p>
       </CardContent></Card>}
     </section>
+
+    <Card>
+      <CardContent className="space-y-3 p-5">
+        <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "proj.people")}</h3>
+        {data.People?.length ? <Table className="w-full text-sm">
+          <TableHeader><TableRow className="border-b text-muted-foreground">
+            <TableHead className="p-2 text-left font-medium">{t(data.Lang, "rep.key")}</TableHead>
+            <TableHead className="p-2 text-right font-medium">{t(data.Lang, "sch.planned")}</TableHead>
+            {data.CanManage && <TableHead className="p-2 text-right font-medium">{t(data.Lang, "sch.tracked")}</TableHead>}
+          </TableRow></TableHeader>
+          <TableBody>{data.People.map(person => <TableRow key={person.Name} className="border-b last:border-0">
+            <TableCell className="p-2">{person.Name}</TableCell>
+            <TableCell className="p-2 text-right font-mono tabular-nums">{person.Planned}</TableCell>
+            {data.CanManage && <TableCell className="p-2 text-right font-mono tabular-nums">{person.Tracked || "—"}</TableCell>}
+          </TableRow>)}</TableBody>
+        </Table> : <p className="text-sm text-muted-foreground">{t(data.Lang, "proj.noPlanned")}</p>}
+      </CardContent>
+    </Card>
 
     <div className="grid min-w-0 gap-6 lg:grid-cols-3 lg:items-start">
       <Card className="min-w-0 lg:col-span-2">

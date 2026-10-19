@@ -179,6 +179,9 @@ type SchedulingWorkflow interface {
 	List(context.Context, appmodel.ScheduleQuery) (appmodel.ScheduleSnapshot, error)
 	SetCell(context.Context, appmodel.ScheduleCellRequest) error
 	PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error)
+	CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error
+	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
+	ProjectPlanByMember(ctx context.Context, teamID, projectID int64, now time.Time) (planned, tracked map[int64]int, err error)
 }
 
 // TagDependencies separates tag reads from mutations at the HTTP boundary.
