@@ -275,7 +275,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
 
   function addProjectSelect(person: SchedulePerson, _lines: ScheduleLine[]) {
     const used = new Set([...(person.Lines ?? []), ...(pending[person.UserID] ?? [])].map(line => line.ProjectID))
-    const free = data.EditableProjects.filter(project => !used.has(project.ID))
+    const free = (data.EditableProjects ?? []).filter(project => !used.has(project.ID))
     if (free.length === 0) return null
     return <Select value="" onValueChange={value => addPending(person, Number(value))}>
       <SelectTrigger aria-label={`${t(lang, "sch.addProject")}: ${person.UserName}`} className="h-9 w-full max-w-64 bg-background text-foreground">
