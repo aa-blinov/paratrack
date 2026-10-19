@@ -405,7 +405,7 @@ func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopy
 	if len(cells) == 0 {
 		return appmodel.ErrScheduleNothingToCopy
 	}
-	now := FormatTime(time.Now().UTC())
+	now := FormatTime(d.currentTime().UTC())
 	for _, c := range cells {
 		day, err := time.Parse("2006-01-02", c.day)
 		if err != nil {
