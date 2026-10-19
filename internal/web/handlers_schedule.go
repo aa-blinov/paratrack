@@ -3,17 +3,16 @@ package web
 import (
 	"errors"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
-	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-// ---------------------------------------------------------------------------
-
+// schedDay is one day of the week: the header, and each cell's own day.
 type schedDay struct {
 	Index   int
 	Label   string
@@ -24,18 +23,36 @@ type schedDay struct {
 	IsToday bool
 }
 
-type schedRow struct {
+// schedLine is one project in one person's week. The cells are that
+// project's minutes, editable by a manager.
+type schedLine struct {
+	ProjectID   int64
+	ProjectName string
+	Color       string
+	Cells       [7]schedDay
+	TotalMin    int
+	Total       string
+}
+
+// schedPerson is one member's block: the header carries the week's numbers,
+// the lines carry the projects they are planned on.
+type schedPerson struct {
 	UserID   int64
 	UserName string
-	Capacity int
-	Cells    [7]schedDay
-	Total    string
-	TotalMin int
-	LoadPct  int // total / (capacity*5)
+	// AdminMin is the admin time kept each week; it comes off AvailableMin.
+	AdminMin int
+	// AvailableMin is what the week can carry for clients: capacity for five
+	// days less admin. LoadPct and the red overload are measured against it.
+	AvailableMin   int
+	AvailableLabel string
+	PlannedMin     int
+	Total          string
+	LoadPct        int
 	// Tracked is what the person logged in the week. Only managers get it:
 	// members see the plan, not their colleagues' time.
 	TrackedLabel string
 	TrackedPct   int
+	Lines        []schedLine
 }
 
 type schedulePage struct {
@@ -45,20 +62,47 @@ type schedulePage struct {
 	PrevWeek      string
 	NextWeek      string
 	ThisWeek      string
-	ProjectID     int64 // the project whose plan the cells edit
 	Days          []schedDay
-	Rows          []schedRow
-	RowVMs        []schedRowVM
+	People        []schedPerson
 	Projects      []projectView
-	ProjectNames  map[int64]string
 	GrandTotal    string
 	GrandMin      int
+	CanManage     bool
+	// CopyFrom: the previous week has a plan to repeat. WeekEmpty: this week
+	// has none, so it can take a copy.
+	CopyFrom  bool
+	WeekEmpty bool
+	// DurationFormat is the user's time format ("hm", "decimal" or "clock"):
+	// the page shows its live totals in the same format the server uses.
+	DurationFormat string
 }
 
 func (p *schedulePage) setCSRF(t string)   { p.pageData.setCSRF(t) }
 func (p *schedulePage) usesReactApp() bool { return p.ScheduleReact }
 
-// handleSchedule renders the people × week planning grid.
+// schedPlan is one week as the page and the plan endpoints send it.
+type schedPlan struct {
+	Days       []schedDay
+	People     []schedPerson
+	GrandTotal string
+	GrandMin   int
+	WeekEmpty  bool
+}
+
+// schedulePlanResponse is the JSON answer to a plan change: the week again,
+// so the page replaces its state without a reload.
+type schedulePlanResponse struct {
+	Days       []schedDay    `json:"days"`
+	People     []schedPerson `json:"people"`
+	GrandTotal string        `json:"grandTotal"`
+	GrandMin   int           `json:"grandMin"`
+	WeekEmpty  bool          `json:"weekEmpty"`
+	CopyFrom   bool          `json:"copyFrom"`
+}
+
+func (schedulePlanResponse) isJSONResponse() {}
+
+// handleSchedule renders the week: a block per person, a line per project.
 func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	day := now
@@ -70,110 +114,110 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	weekStart := startOfWeek(r, day)
 	resolvedLang := resolveLang(r)
 	lang := string(resolvedLang)
-	schedule, err := s.scheduleRows(r, weekStart, r.URL.Query().Get("project"))
+	plan, projects, err := s.loadSchedulePlan(r, weekStart)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
-	projectVMs := schedule.Projects
-	pid := schedule.ProjectID
-	days := make([]schedDay, 7)
-	for i := 0; i < 7; i++ {
-		d := weekStart.AddDate(0, 0, i)
-		days[i] = schedDay{
-			Index: i, Label: fmtWeekday(resolvedLang, d), Date: d.Format("2"),
-			ISO: d.Format("2006-01-02"), IsToday: sameDay(d, now),
-		}
-	}
-	// The day card on a phone sums the cells the grid shows for that day.
-	for _, row := range schedule.Rows {
-		for i := range days {
-			days[i].Min += row.Cells[i].Min
-		}
-	}
-	for i := range days {
-		days[i].Total = fmtDur(r, days[i].Min*60)
+	copyFrom, err := s.hasSchedulePlan(r, weekStart.AddDate(0, 0, -7))
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
 	}
 	data := schedulePage{
-		pageData:      pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
-		ScheduleReact: true,
-		WeekLabel:     fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
-		PrevWeek:      weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
-		NextWeek:      weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
-		ThisWeek:      weekStart.Format("2006-01-02"),
-		Days:          days,
-		Rows:          schedule.Rows,
-		Projects:      projectVMs,
-		ProjectID:     pid,
-		ProjectNames:  schedule.ProjectNames,
-		GrandTotal:    fmtDur(r, schedule.TotalMinutes*60),
-		GrandMin:      schedule.TotalMinutes,
-	}
-	canManageTeam := canManage(r)
-	for i := range schedule.Rows {
-		data.RowVMs = append(data.RowVMs, schedRowVM{Row: schedule.Rows[i], Projects: projectVMs, ProjectID: pid, CanManage: canManageTeam, Lang: lang})
+		pageData:       pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
+		ScheduleReact:  true,
+		WeekLabel:      fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
+		PrevWeek:       weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
+		NextWeek:       weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
+		ThisWeek:       weekStart.Format("2006-01-02"),
+		Days:           plan.Days,
+		People:         plan.People,
+		Projects:       projects,
+		GrandTotal:     plan.GrandTotal,
+		GrandMin:       plan.GrandMin,
+		CanManage:      canManage(r),
+		CopyFrom:       copyFrom,
+		WeekEmpty:      plan.WeekEmpty,
+		DurationFormat: durFmtOf(r),
 	}
 	s.renderPageForRequest(w, r, "Schedule", "schedule", &data)
 }
 
-// schedProject is the project being planned: ?project=, else the first.
-func schedProject(v string, projects []model.Project) int64 {
-	if id, err := strconv.ParseInt(v, 10, 64); err == nil {
-		for _, p := range projects {
-			if p.ID == id {
-				return id
-			}
-		}
-	}
-	if len(projects) > 0 {
-		return projects[0].ID
-	}
-	return 0
-}
-
-// scheduleRows is the week per person: cells are the chosen project's
-// minutes, the total and load are across all projects (a person's week is
-// shared by every project), load over the five working days.
-type scheduleRowsView struct {
-	Rows         []schedRow
-	ProjectNames map[int64]string
-	Projects     []projectView
-	ProjectID    int64
-	TotalMinutes int
-}
-
-func (s *Server) scheduleRows(r *http.Request, weekStart time.Time, project string) (scheduleRowsView, error) {
+// loadSchedulePlan builds one week for the page: people in name order, each
+// with the projects they have minutes on this week, by project name.
+func (s *Server) loadSchedulePlan(r *http.Request, weekStart time.Time) (schedPlan, []projectView, error) {
 	now := userNow(r)
 	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart, Now: now})
 	if err != nil {
-		return scheduleRowsView{}, err
+		return schedPlan{}, nil, err
 	}
-	pid := schedProject(project, snapshot.Projects)
-	out := make([]schedRow, 0, len(snapshot.Rows))
+	days := make([]schedDay, 7)
+	for i := range days {
+		d := weekStart.AddDate(0, 0, i)
+		days[i] = schedDay{
+			Index: i, Label: fmtWeekday(resolveLang(r), d), Date: d.Format("2"),
+			ISO: d.Format("2006-01-02"), IsToday: sameDay(d, now),
+		}
+	}
+	colors := make(map[int64]string, len(snapshot.Projects))
+	for _, project := range snapshot.Projects {
+		colors[project.ID] = project.Color
+	}
+	showTracked := canManage(r)
+	plan := schedPlan{Days: days, People: []schedPerson{}, GrandMin: snapshot.TotalMinutes, GrandTotal: fmtDur(r, snapshot.TotalMinutes*60)}
 	for _, rc := range snapshot.Rows {
-		row := schedRow{
-			UserID: rc.UserID, UserName: rc.UserName, Capacity: rc.Capacity,
-			TotalMin: rc.Total, Total: fmtDur(r, rc.Total*60), LoadPct: rc.LoadPercent,
+		person := schedPerson{
+			UserID: rc.UserID, UserName: rc.UserName, AdminMin: rc.AdminMinutes, AvailableMin: rc.AvailableMinutes,
+			AvailableLabel: fmtDur(r, rc.AvailableMinutes*60), Lines: []schedLine{},
+			PlannedMin: rc.Total, Total: fmtDur(r, rc.Total*60), LoadPct: rc.LoadPercent,
 		}
-		if canManage(r) {
-			row.TrackedLabel = fmtDur(r, rc.Tracked*60)
-			row.TrackedPct = rc.TrackedPercent
+		if showTracked {
+			person.TrackedLabel = fmtDur(r, rc.Tracked*60)
+			person.TrackedPct = rc.TrackedPercent
 		}
-		proj := rc.ByProject[pid]
-		for i := 0; i < 7; i++ {
-			d := weekStart.AddDate(0, 0, i)
-			row.Cells[i] = schedDay{
-				Index: i, ISO: d.Format("2006-01-02"),
-				Min: proj[i], Total: fmtDur(r, rc.Minutes[i]*60),
-				IsToday: sameDay(d, now),
+		var projectIDs []int64
+		for pid, cells := range rc.ByProject {
+			if cells[0]+cells[1]+cells[2]+cells[3]+cells[4]+cells[5]+cells[6] > 0 {
+				projectIDs = append(projectIDs, pid)
 			}
 		}
-		out = append(out, row)
+		sort.Slice(projectIDs, func(i, j int) bool {
+			a, b := snapshot.ProjectNames[projectIDs[i]], snapshot.ProjectNames[projectIDs[j]]
+			if a != b {
+				return a < b
+			}
+			return projectIDs[i] < projectIDs[j]
+		})
+		for _, pid := range projectIDs {
+			cells := rc.ByProject[pid]
+			line := schedLine{ProjectID: pid, ProjectName: snapshot.ProjectNames[pid], Color: colors[pid]}
+			for i := 0; i < 7; i++ {
+				line.Cells[i] = schedDay{Index: i, ISO: days[i].ISO, Min: cells[i], Total: fmtDur(r, cells[i]*60), IsToday: days[i].IsToday}
+				line.TotalMin += cells[i]
+			}
+			line.Total = fmtDur(r, line.TotalMin*60)
+			person.Lines = append(person.Lines, line)
+		}
+		for i := range days {
+			days[i].Min += rc.Minutes[i]
+		}
+		plan.People = append(plan.People, person)
 	}
-	return scheduleRowsView{
-		Rows: out, ProjectNames: snapshot.ProjectNames, Projects: projectViews(snapshot.Projects),
-		ProjectID: pid, TotalMinutes: snapshot.TotalMinutes,
-	}, nil
+	for i := range plan.Days {
+		plan.Days[i].Total = fmtDur(r, plan.Days[i].Min*60)
+	}
+	plan.WeekEmpty = snapshot.TotalMinutes == 0
+	return plan, projectViews(snapshot.Projects), nil
+}
+
+// hasSchedulePlan reports whether any member has planned time that week.
+func (s *Server) hasSchedulePlan(r *http.Request, weekStart time.Time) (bool, error) {
+	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart, Now: userNow(r)})
+	if err != nil {
+		return false, err
+	}
+	return snapshot.TotalMinutes > 0, nil
 }
 
 // handleScheduleCell writes one plan cell.
@@ -220,43 +264,87 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.toastL(w, r, "toast.saved", "", "success")
-	// The grid reloads the week from the JSON answer below.
-	s.respondScheduleRow(w, r, day)
+	s.respondSchedulePlan(w, r, startOfWeek(r, parsedDay))
 }
 
-func (s *Server) respondScheduleRow(w http.ResponseWriter, r *http.Request, day string) {
-	t, err := time.Parse("2006-01-02", day)
-	if err != nil {
-		http.Error(w, "bad date", 400)
+// handleScheduleCopy repeats the previous week in the week given by `week`.
+// The rule is checked on the server too: a week that already has a plan is
+// refused, never merged, and the page says why.
+func (s *Server) handleScheduleCopy(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
 		return
 	}
-	schedule, err := s.scheduleRows(r, startOfWeek(r, t), r.PostForm.Get("project_id"))
+	parsed, err := time.Parse("2006-01-02", strings.TrimSpace(r.PostForm.Get("week")))
+	if err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "week must be YYYY-MM-DD"})
+		return
+	}
+	target := startOfWeek(r, parsed)
+	if err := s.services.Scheduling.CopyScheduleWeek(r.Context(), appmodel.ScheduleCopyRequest{
+		TeamID: teamID(r), ActorID: authenticatedUserID(r), From: target.AddDate(0, 0, -7), To: target,
+	}); err != nil {
+		switch {
+		case errors.Is(err, appmodel.ErrScheduleWeekNotEmpty):
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "sch.copyNeedEmpty")})
+		case errors.Is(err, appmodel.ErrScheduleNothingToCopy):
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "sch.copyNoPrev")})
+		case errors.Is(err, appmodel.ErrInvalidScheduleCell):
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+		default:
+			s.writeInternalJSONError(w, err)
+		}
+		return
+	}
+	s.toastL(w, r, "sch.copyDone", "", "success")
+	s.respondSchedulePlan(w, r, target)
+}
+
+// handleScheduleAdmin sets a member's weekly admin time, in minutes.
+// Form: user_id, minutes, week (the week on screen, to answer with).
+func (s *Server) handleScheduleAdmin(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		return
+	}
+	uid, err1 := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("user_id")), 10, 64)
+	minutes, err2 := strconv.Atoi(strings.TrimSpace(r.PostForm.Get("minutes")))
+	week, err3 := time.Parse("2006-01-02", strings.TrimSpace(r.PostForm.Get("week")))
+	if err1 != nil || err2 != nil || err3 != nil || uid <= 0 || minutes < 0 {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "user_id, minutes, week required"})
+		return
+	}
+	if err := s.services.Scheduling.SetScheduleAdminMinutes(r.Context(), appmodel.ScheduleAdminRequest{
+		TeamID: teamID(r), ActorID: authenticatedUserID(r), UserID: uid, Minutes: minutes,
+	}); err != nil {
+		switch {
+		case errors.Is(err, appmodel.ErrInvalidScheduleCell):
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+		case errors.Is(err, appmodel.ErrNotFound):
+			s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		default:
+			s.writeInternalJSONError(w, err)
+		}
+		return
+	}
+	s.toastL(w, r, "toast.saved", "", "success")
+	s.respondSchedulePlan(w, r, startOfWeek(r, week))
+}
+
+// respondSchedulePlan answers a plan change with the week it touched.
+func (s *Server) respondSchedulePlan(w http.ResponseWriter, r *http.Request, weekStart time.Time) {
+	plan, _, err := s.loadSchedulePlan(r, weekStart)
 	if err != nil {
 		s.writeInternalJSONError(w, err)
 		return
 	}
-	s.writeJSON(w, scheduleCellResponse{
-		Rows: schedule.Rows, GrandTotal: fmtDur(r, schedule.TotalMinutes*60), GrandMin: schedule.TotalMinutes,
+	copyFrom, err := s.hasSchedulePlan(r, weekStart.AddDate(0, 0, -7))
+	if err != nil {
+		s.writeInternalJSONError(w, err)
+		return
+	}
+	s.writeJSON(w, schedulePlanResponse{
+		Days: plan.Days, People: plan.People, GrandTotal: plan.GrandTotal, GrandMin: plan.GrandMin,
+		WeekEmpty: plan.WeekEmpty, CopyFrom: copyFrom,
 	})
 }
-
-type scheduleCellResponse struct {
-	Rows       []schedRow `json:"rows"`
-	GrandTotal string     `json:"grandTotal"`
-	GrandMin   int        `json:"grandMin"`
-}
-
-func (scheduleCellResponse) isJSONResponse() {}
-
-// schedRowVM wraps a row + the project list for the cell editor.
-type schedRowVM struct {
-	Row       schedRow
-	Projects  []projectView
-	ProjectID int64
-	CanManage bool // members see the plan, managers edit it
-	Lang      string
-}
-
-func (schedRowVM) isTemplateData() {}
-
-func (v schedRowVM) T(key string) string { return i18n.T(i18n.Lang(v.Lang), key) }

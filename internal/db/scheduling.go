@@ -128,9 +128,10 @@ func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]
 }
 
 type scheduleUser struct {
-	id   int64
-	name string
-	cap  int
+	id    int64
+	name  string
+	cap   int
+	admin int
 }
 
 type scheduleCellKey struct {
@@ -145,7 +146,7 @@ type scheduleProjectCellKey struct {
 
 func loadScheduleUsers(ctx context.Context, tx *Tx, teamID int64) ([]scheduleUser, error) {
 	rows, err := tx.QueryContext(ctx,
-		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0)
+		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0), COALESCE(m.admin_minutes, 0)
 		 FROM memberships m JOIN users u ON u.id = m.user_id
 		 WHERE m.team_id = ? ORDER BY u.name`, teamID)
 	if err != nil {
@@ -156,7 +157,7 @@ func loadScheduleUsers(ctx context.Context, tx *Tx, teamID int64) ([]scheduleUse
 	for rows.Next() {
 		var user scheduleUser
 		var email string
-		if err := rows.Scan(&user.id, &user.name, &email, &user.cap); err != nil {
+		if err := rows.Scan(&user.id, &user.name, &email, &user.cap, &user.admin); err != nil {
 			return nil, err
 		}
 		if user.name == "" {
@@ -287,7 +288,7 @@ func buildScheduleRows(users []scheduleUser, entries map[scheduleCellKey]int, by
 		dayIndex[scheduleDay(weekStart.AddDate(0, 0, i))] = i
 	}
 	for i, user := range users {
-		rows[i] = ScheduleRow{UserID: user.id, UserName: user.name, Capacity: user.cap, ByProject: make(map[int64][7]int)}
+		rows[i] = ScheduleRow{UserID: user.id, UserName: user.name, Capacity: user.cap, AdminMinutes: user.admin, ByProject: make(map[int64][7]int)}
 		rowByUser[user.id] = i
 	}
 	for cell, minutes := range entries {
@@ -340,6 +341,213 @@ func (d *DB) PlannedMinutesByUser(ctx context.Context, teamID int64, from, to ti
 		planned[userID] = minutes
 	}
 	return planned, rows.Err()
+}
+
+// CopyScheduleWeek repeats every planned cell of the source week seven days
+// later. The target week is checked inside the same transaction as the copy,
+// so a cell written meanwhile cannot be overwritten.
+func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) error {
+	teamID := request.TeamID
+	if teamID <= 0 || request.ActorID <= 0 || request.From.IsZero() || request.To.IsZero() {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, teamID, request.ActorID); err != nil {
+		return err
+	}
+	var lockedID int64
+	if err := tx.QueryRowContext(ctx, `SELECT id FROM teams WHERE id = ? FOR UPDATE`, teamID).Scan(&lockedID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	var targetCells int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
+		teamID, scheduleDay(request.To), scheduleDay(request.To.AddDate(0, 0, 7))).Scan(&targetCells); err != nil {
+		return err
+	}
+	if targetCells > 0 {
+		return appmodel.ErrScheduleWeekNotEmpty
+	}
+	sourceRows, err := tx.QueryContext(ctx,
+		`SELECT user_id, project_id, day, minutes FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
+		teamID, scheduleDay(request.From), scheduleDay(request.From.AddDate(0, 0, 7)))
+	if err != nil {
+		return err
+	}
+	type cell struct {
+		userID, projectID int64
+		day               string
+		minutes           int
+	}
+	var cells []cell
+	for sourceRows.Next() {
+		var c cell
+		if err := sourceRows.Scan(&c.userID, &c.projectID, &c.day, &c.minutes); err != nil {
+			_ = sourceRows.Close()
+			return err
+		}
+		cells = append(cells, c)
+	}
+	if err := sourceRows.Err(); err != nil {
+		_ = sourceRows.Close()
+		return err
+	}
+	if err := sourceRows.Close(); err != nil {
+		return err
+	}
+	if len(cells) == 0 {
+		return appmodel.ErrScheduleNothingToCopy
+	}
+	now := FormatTime(time.Now().UTC())
+	for _, c := range cells {
+		day, err := time.Parse("2006-01-02", c.day)
+		if err != nil {
+			return fmt.Errorf("parse planned day %q: %w", c.day, err)
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO schedule_entries (team_id, user_id, project_id, day, minutes, note, created_at)
+			 VALUES (?, ?, ?, ?, ?, '', ?)
+			 ON CONFLICT (team_id, user_id, project_id, day) DO UPDATE SET minutes = excluded.minutes`,
+			teamID, c.userID, c.projectID, scheduleDay(day.AddDate(0, 0, 7)), c.minutes, now); err != nil {
+			return fmt.Errorf("copy planned cell: %w", err)
+		}
+	}
+	return tx.Commit()
+}
+
+// SetScheduleAdminMinutes stores a member's weekly admin time.
+func (d *DB) SetScheduleAdminMinutes(ctx context.Context, request appmodel.ScheduleAdminRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.ActorID); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx,
+		`UPDATE memberships SET admin_minutes = ? WHERE team_id = ? AND user_id = ?`,
+		request.Minutes, request.TeamID, request.UserID)
+	if err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit()
+}
+
+// PlannedMinutesForProject sums each member's planned minutes on one project
+// over every week it is planned in.
+func (d *DB) PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error) {
+	if teamID <= 0 || projectID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT user_id, COALESCE(SUM(minutes), 0) FROM schedule_entries WHERE team_id = ? AND project_id = ? GROUP BY user_id`,
+		teamID, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("sum project plan: %w", err)
+	}
+	defer rows.Close()
+	planned := make(map[int64]int)
+	for rows.Next() {
+		var userID int64
+		var minutes int
+		if err := rows.Scan(&userID, &minutes); err != nil {
+			return nil, err
+		}
+		planned[userID] = minutes
+	}
+	return planned, rows.Err()
+}
+
+// TrackedMinutesForProject sums the minutes each member logged on one project,
+// open timers included, over the whole history up to now. The sessions are
+// read in full: a team's history on one project is small enough for that.
+func (d *DB) TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error) {
+	if teamID <= 0 || projectID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT s.user_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
+		 FROM sessions s JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
+		 WHERE s.team_id = ? AND a.project_id = ?`,
+		teamID, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("read project sessions: %w", err)
+	}
+	defer rows.Close()
+	seconds := make(map[int64]int)
+	from := time.Unix(0, 0).UTC()
+	for rows.Next() {
+		var (
+			userID              sql.NullInt64
+			startAt             string
+			endAt, lastResumeAt sql.NullString
+			accumulated, paused int
+		)
+		if err := rows.Scan(&userID, &startAt, &endAt, &accumulated, &paused, &lastResumeAt); err != nil {
+			return nil, err
+		}
+		if !userID.Valid {
+			continue
+		}
+		session, err := scheduleSession(startAt, endAt, lastResumeAt, accumulated, paused)
+		if err != nil {
+			return nil, err
+		}
+		total, err := money.AddInt(seconds[userID.Int64], session.TrackedSecondsInWindow(from, now.AddDate(100, 0, 0), now))
+		if err != nil {
+			return nil, fmt.Errorf("sum project tracked time: %w", err)
+		}
+		seconds[userID.Int64] = total
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	minutes := make(map[int64]int, len(seconds))
+	for userID, sec := range seconds {
+		minutes[userID] = sec / 60
+	}
+	return minutes, nil
+}
+
+// scheduleSession rebuilds a stored session from its columns, the way the
+// tracked-time readers do.
+func scheduleSession(startAt string, endAt, lastResumeAt sql.NullString, accumulated, paused int) (model.Session, error) {
+	started, err := ScanTime(startAt)
+	if err != nil {
+		return model.Session{}, fmt.Errorf("parse session start: %w", err)
+	}
+	session := model.Session{StartAt: started, AccumulatedSeconds: accumulated, Paused: paused == 1}
+	if endAt.Valid {
+		ended, err := ScanTime(endAt.String)
+		if err != nil {
+			return model.Session{}, fmt.Errorf("parse session end: %w", err)
+		}
+		session.EndAt = &ended
+	}
+	if lastResumeAt.Valid {
+		resumed, err := ScanTime(lastResumeAt.String)
+		if err != nil {
+			return model.Session{}, fmt.Errorf("parse session resume time: %w", err)
+		}
+		session.LastResumeAt = &resumed
+	}
+	return session, nil
 }
 
 func scheduleDay(day time.Time) string { return day.Format("2006-01-02") }

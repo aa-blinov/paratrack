@@ -158,6 +158,13 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := s.buildProjectDetailPage(r, snapshot, extras)
+	people, plannedLabel, err := s.projectPeople(r, snapshot.Detail.Project)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	data.People = people
+	data.PlannedLabel = plannedLabel
 	// This page never read a flash before. Creating redirects here, so the
 	// "created" confirmation had nowhere to render: the query arrived and was
 	// dropped. Every other page that redirects to itself reads it.

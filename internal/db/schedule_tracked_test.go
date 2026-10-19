@@ -98,3 +98,60 @@ func TestPlannedMinutesByUserUsesHalfOpenDays(t *testing.T) {
 		t.Fatalf("planned = %d minutes, want 180 (120 + 60)", got)
 	}
 }
+
+// The project page's people table: each member's plan on the project over
+// every week, and what they tracked on the project's activities.
+func TestProjectPlanAndTrackedByMember(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+
+	ownerID := seedApprovalUser(t, d, "project-owner@test.local")
+	memberID := seedApprovalUser(t, d, "project-member@test.local")
+	teamID, err := d.CreateOwnedTeam(ctx, appmodel.TeamCreateRequest{Slug: "project-team", Name: "Команда", OwnerID: ownerID})
+	if err != nil {
+		t.Fatalf("create team: %v", err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)`,
+		teamID, memberID, FormatTime(time.Now().UTC())); err != nil {
+		t.Fatalf("join member: %v", err)
+	}
+	proj, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "Сайт", Slug: "", Color: "#7c3aed"})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	var activityID int64
+	if err := d.TestSQL().QueryRowContext(ctx,
+		`INSERT INTO activities (name, team_id, project_id) VALUES ('Верстка', ?, ?) RETURNING id`, teamID, proj.ID).Scan(&activityID); err != nil {
+		t.Fatalf("activity: %v", err)
+	}
+	weekStart := time.Date(2020, 3, 2, 0, 0, 0, 0, time.UTC)
+	seedClosedSession(t, d, teamID, memberID, activityID, weekStart.Add(10*time.Hour)) // one hour tracked by the member
+
+	// Planned in two weeks, by the member only.
+	for _, cell := range []struct {
+		day     time.Time
+		minutes int
+	}{{weekStart.AddDate(0, 0, 1), 120}, {weekStart.AddDate(0, 0, 8), 60}} {
+		if err := d.UpsertScheduleEntry(ctx, appmodel.ScheduleCellRequest{
+			TeamID: teamID, ActorID: ownerID, UserID: memberID, ProjectID: proj.ID, Day: cell.day, Minutes: cell.minutes,
+		}); err != nil {
+			t.Fatalf("plan: %v", err)
+		}
+	}
+
+	planned, err := d.PlannedMinutesForProject(ctx, teamID, proj.ID)
+	if err != nil {
+		t.Fatalf("planned for project: %v", err)
+	}
+	if planned[memberID] != 180 || planned[ownerID] != 0 {
+		t.Fatalf("planned = %v, want the member 180 minutes over both weeks", planned)
+	}
+	tracked, err := d.TrackedMinutesForProject(ctx, teamID, proj.ID, time.Date(2026, 10, 18, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatalf("tracked for project: %v", err)
+	}
+	if tracked[memberID] != 60 {
+		t.Fatalf("tracked = %v, want the member 60 minutes", tracked)
+	}
+}

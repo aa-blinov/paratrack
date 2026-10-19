@@ -62,7 +62,7 @@ func TestScheduleWithOnlyOwnerLinksToInvitations(t *testing.T) {
 	e.register("first-plan@x.test")
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Studio work"}}, nil))
 	page := readBody(t, e.do("GET", "/schedule", nil, nil))
-	if len(reactData[schedulePage](t, page).Projects) != 1 || len(reactData[schedulePage](t, page).Rows) != 1 || !reactData[schedulePage](t, page).CanManage {
+	if len(reactData[schedulePage](t, page).Projects) != 1 || len(reactData[schedulePage](t, page).People) != 1 || !reactData[schedulePage](t, page).CanManage {
 		t.Fatal("first schedule has no direct next step for adding teammates")
 	}
 }
@@ -74,17 +74,17 @@ func TestScheduleTrackedTimeIsManagersOnly(t *testing.T) {
 	e.register("tracked-owner@x.test")
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Tracked work"}}, nil))
 	owner := reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule", nil, nil)))
-	if len(owner.Rows) != 1 || owner.Rows[0].TrackedLabel == "" {
-		t.Fatalf("manager does not see tracked time: %+v", owner.Rows)
+	if len(owner.People) != 1 || owner.People[0].TrackedLabel == "" {
+		t.Fatalf("manager does not see tracked time: %+v", owner.People)
 	}
 	member := newAPIEnvSharedDB(t, e)
 	member.register("tracked-member@x.test")
 	joinStudio(t, e, map[string]*apiEnv{"tracked-member@x.test": member}, "tracked-member@x.test")
 	memberPage := reactData[schedulePage](t, readBody(t, member.do("GET", "/schedule", nil, nil)))
-	if len(memberPage.Rows) == 0 {
+	if len(memberPage.People) == 0 {
 		t.Fatal("member sees no schedule rows")
 	}
-	for _, row := range memberPage.Rows {
+	for _, row := range memberPage.People {
 		if row.TrackedLabel != "" || row.TrackedPct != 0 {
 			t.Fatalf("member sees tracked time of %s: %q %d%%", row.UserName, row.TrackedLabel, row.TrackedPct)
 		}

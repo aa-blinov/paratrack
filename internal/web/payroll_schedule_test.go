@@ -152,14 +152,14 @@ func TestPayrollAPI(t *testing.T) {
 		t.Fatalf("schedule cell update: status=%d content-type=%q body=%s", updated.StatusCode, updated.Header.Get("Content-Type"), readBody(t, updated))
 	}
 	var result struct {
-		Rows []schedRow `json:"rows"`
+		People []schedPerson `json:"people"`
 	}
 	if err := json.NewDecoder(updated.Body).Decode(&result); err != nil {
 		t.Fatalf("decode schedule update: %v", err)
 	}
 	updated.Body.Close()
-	if len(result.Rows) != 1 || result.Rows[0].Cells[0].Min != 120 {
-		t.Fatalf("schedule update response = %+v", result.Rows)
+	if len(result.People) != 1 || len(result.People[0].Lines) != 1 || result.People[0].Lines[0].Cells[0].Min != 120 {
+		t.Fatalf("schedule update response = %+v", result.People)
 	}
 }
 

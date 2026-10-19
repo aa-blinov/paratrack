@@ -11,6 +11,8 @@ import (
 var (
 	ErrInvalidScheduleCell       = errors.New("invalid schedule cell")
 	ErrNoScheduleProjects        = errors.New("schedule requires a project")
+	ErrScheduleWeekNotEmpty      = errors.New("schedule week already has plan")
+	ErrScheduleNothingToCopy     = errors.New("schedule previous week is empty")
 	ErrInvalidDefaultProject     = errors.New("default project must belong to the current workspace")
 	ErrInvalidPreferences        = errors.New("preferences exceed the allowed size")
 	ErrInvalidSavedReport        = errors.New("invalid saved report")

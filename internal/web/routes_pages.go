@@ -65,6 +65,8 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /api/member/pay", s.manage(s.handleMemberPay))
 	pages.HandleFunc("GET /schedule", s.module("schedule", s.handleSchedule))
 	pages.HandleFunc("POST /api/schedule/cell", s.module("schedule", s.manage(s.handleScheduleCell)))
+	pages.HandleFunc("POST /api/schedule/copy", s.module("schedule", s.manage(s.handleScheduleCopy)))
+	pages.HandleFunc("POST /api/schedule/admin", s.module("schedule", s.manage(s.handleScheduleAdmin)))
 
 	// Integration marketplace and saved report execution.
 	pages.HandleFunc("GET /integrations/marketplace", s.module("integrations", s.handleMarketplace))

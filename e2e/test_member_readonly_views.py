@@ -30,21 +30,26 @@ def boot(path, data, can_manage):
 
 
 def schedule_document(can_manage):
+    """The week as the server sends it: a block per person, a line per project."""
     cells = [{'Index': d['Index'], 'ISO': d['ISO'], 'Min': 120 if d['Index'] == 1 else 0,
               'Total': '2 ч' if d['Index'] == 1 else '0 мин', 'IsToday': d['IsToday']} for d in WEEK]
+    line = {'ProjectID': 7, 'ProjectName': 'Сайт для Nordwind', 'Color': '#7c3aed', 'Cells': cells,
+            'TotalMin': 120, 'Total': '2 ч'}
     return boot('/schedule', {
         'Lang': 'ru', 'Active': 'schedule', 'ScheduleReact': True, 'CSRFToken': 'test', 'CanManage': can_manage,
         'WeekLabel': '5 окт – 11 окт', 'PrevWeek': '2026-09-28', 'NextWeek': '2026-10-12',
-        'ThisWeek': '2026-10-05', 'ProjectID': 7, 'Days': WEEK,
+        'ThisWeek': '2026-10-05', 'Days': WEEK,
         'Projects': [{'ID': 7, 'Slug': 'nordwind', 'Name': 'Сайт для Nordwind', 'Color': '#7c3aed',
                       'Archived': False, 'Billable': True}],
-        'Rows': [{'UserID': 2, 'UserName': 'Маша Участница', 'Capacity': 480, 'Cells': cells,
-                  'Total': '2 ч', 'TotalMin': 120, 'LoadPct': 3,
-                  'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 3 if can_manage else 0},
-                 {'UserID': 1, 'UserName': 'Пётр Владелец', 'Capacity': 480, 'Cells': cells,
-                  'Total': '2 ч', 'TotalMin': 120, 'LoadPct': 3,
-                  'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 3 if can_manage else 0}],
-        'GrandTotal': '4 ч', 'GrandMin': 240,
+        'People': [{'UserID': 2, 'UserName': 'Маша Участница', 'AdminMin': 0, 'AvailableMin': 2400,
+                    'AvailableLabel': '40 ч', 'PlannedMin': 120, 'Total': '2 ч', 'LoadPct': 5,
+                    'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 5 if can_manage else 0,
+                    'Lines': [dict(line)]},
+                   {'UserID': 1, 'UserName': 'Пётр Владелец', 'AdminMin': 0, 'AvailableMin': 2400,
+                    'AvailableLabel': '40 ч', 'PlannedMin': 120, 'Total': '2 ч', 'LoadPct': 5,
+                    'TrackedLabel': '2 ч' if can_manage else '', 'TrackedPct': 5 if can_manage else 0,
+                    'Lines': [dict(line)]}],
+        'GrandTotal': '4 ч', 'GrandMin': 240, 'CopyFrom': False, 'WeekEmpty': False, 'DurationFormat': 'hm',
     }, can_manage)
 
 
@@ -114,7 +119,7 @@ async def check_schedule_member(browser):
 async def check_schedule_owner(browser):
     context, page, errors = await open_page(browser, schedule_document(True), '/schedule')
     await page.locator('table.week-grid').wait_for()
-    assert await page.get_by_role('spinbutton').count() == 14, 'An owner still edits the plan'
+    assert await page.locator('table.week-grid input[name="hours"]').count() == 14, 'An owner still edits the plan'
     assert await page.locator('[data-readonly-note]').count() == 0, \
         'An owner is not told to ask someone else for the plan'
     assert not errors, errors

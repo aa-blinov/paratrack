@@ -328,7 +328,8 @@ def main() -> int:
         pg.get_by_role("button", name="Create", exact=True).click()
         # Creating confirms like updating does, so the redirect carries the
         # confirmation code. Waiting on the bare path would never match.
-        pg.wait_for_url(f"**/projects/qa-client-{ts}")
+        # The redirect carries ?flash=project_created, so match the path by substring.
+        pg.wait_for_url(lambda url: f"/projects/qa-client-{ts}" in url)
         pg.wait_for_load_state("load")
         wait_ready(pg)
         check("project created", f"qa-client-{ts}" in pg.url)
@@ -366,9 +367,9 @@ def main() -> int:
         pg.wait_for_load_state("load")
         wait_ready(pg)
         check("schedule grid", pg.locator('main table tbody tr').count() >= 1)
-        scell = pg.locator('main table tbody input[type="number"]').first
+        scell = pg.locator('main table tbody input[name="hours"]').first
         if scell.count():
-            scell.fill("240")
+            scell.fill("4,5")
             scell.press("Tab")
             pg.wait_for_timeout(600)
             check("schedule cell edit", True)
