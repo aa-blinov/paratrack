@@ -680,6 +680,7 @@ export interface ExportData {
   Lang: string
   CanManage: boolean
   ReportsEnabled: boolean
+  CanExportWorkspace: boolean
 }
 
 export interface IntegrationsData {

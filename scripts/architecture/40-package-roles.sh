@@ -4,7 +4,7 @@
 # only the transport adapters may depend on the application service graph.
 leaf_packages="appmodel catalog depcheck httpjson httpretry httpurl i18n mailport model money netclients oidcport netpolicy postcommit providerstatus pushport reportstats requestctx teamslug timeparse translit webhookport"
 port_packages="cliport importport integrationport pushport webhookport"
-adapter_packages="mail oidcclient stripe"
+adapter_packages="mail oidcclient stripe workspacefile"
 # Port-implementing subpackages need explicit exceptions to the generic
 # workflow-import prohibition. Their owning workflows are enforced below;
 # composition and transport packages remain forbidden.

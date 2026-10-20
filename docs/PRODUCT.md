@@ -195,6 +195,7 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/projects /api/projects/{id}
 /api/tasks  (list; `?archived=1` for the archive; create)  /api/tasks/{id}  (update)
 /api/tasks/{id}/status  /api/tasks/{id}/archive  /api/tasks/{id}/restore
+/api/workspace/restore  (raw JSON body of an export, creates a workspace for the caller)
 /api/tasks/{id}/activities  /api/tasks/{id}/linkable
 /api/goals /api/tags
 /api/reports.csv  /api/reports/save  /api/reports/{id}/delete
@@ -213,6 +214,9 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 GET|POST   /api/v1/sessions
 PATCH|DELETE /api/v1/sessions/{id}
 GET        /api/v1/projects
+GET        /api/v1/clients
+GET        /api/v1/tags
+GET        /api/v1/tasks
 GET        /api/v1/reports/summary
 ```
 

@@ -6,6 +6,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /{$}", s.mine(s.handleDashboard))
 	pages.HandleFunc("GET /stats", s.handleStats)
 	pages.HandleFunc("GET /export", s.handleExport)
+	pages.HandleFunc("GET /export/workspace.json", s.manage(s.handleWorkspaceExport))
 	pages.HandleFunc("GET /graph", s.module("graph", s.handleGraph))
 	pages.HandleFunc("GET /goals", s.module("goals", s.handleGoals))
 	pages.HandleFunc("GET /tasks", s.module("tasks", s.handleTasks))

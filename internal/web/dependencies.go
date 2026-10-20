@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -37,6 +38,7 @@ type Dependencies struct {
 	Preferences          PreferenceWorkflow
 	Scheduling           SchedulingWorkflow
 	Tasks                TaskWorkflow
+	WorkspaceFile        WorkspaceFileWorkflow
 	Projects             ProjectDependencies
 	Clients              ClientWorkflow
 	ProjectPages         ProjectPageBuilding
@@ -504,6 +506,7 @@ func (s Dependencies) Validate() error {
 		dependency{"preferences", depcheck.IsNil(s.Preferences)},
 		dependency{"scheduling", depcheck.IsNil(s.Scheduling)},
 		dependency{"tasks", depcheck.IsNil(s.Tasks)},
+		dependency{"workspace file", depcheck.IsNil(s.WorkspaceFile)},
 		dependency{"project queries", depcheck.IsNil(s.Projects.Queries)},
 		dependency{"project commands", depcheck.IsNil(s.Projects.Commands)},
 		dependency{"project page builder", depcheck.IsNil(s.ProjectPages)},
@@ -535,6 +538,14 @@ func (s Dependencies) validate(required ...dependency) error {
 }
 
 // TaskWorkflow is the task board the HTTP adapter drives.
+// WorkspaceFileWorkflow writes a workspace's export file. The file is built in
+// full before it is sent, so the download is either whole or an error.
+type WorkspaceFileWorkflow interface {
+	Export(ctx context.Context, request appmodel.WorkspaceExportRequest) (appmodel.WorkspaceExport, []byte, error)
+	Restore(ctx context.Context, request appmodel.WorkspaceRestoreRequest) (appmodel.WorkspaceRestoreResult, error)
+	Decode(r io.Reader) (appmodel.WorkspaceExport, error)
+}
+
 type TaskWorkflow interface {
 	Create(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	Update(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
