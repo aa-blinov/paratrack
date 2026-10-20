@@ -95,6 +95,7 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 		PayrollPaid:        services.PayrollPaid,
 		Preferences:        services.Preferences,
 		Scheduling:         services.Scheduling,
+		Tasks:              services.Tasks,
 		Projects:           ProjectDependencies{Queries: services.Projects, Commands: services.Projects},
 		Clients:            services.Clients,
 		ProjectPages:       services.ProjectPages,

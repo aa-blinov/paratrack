@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, FileText, Flag, Folder, Languages, Link2, LogOut, Receipt, Settings, Tag, TrendingUp, Upload, Users, Zap } from "lucide-react"
+import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, FileText, Flag, Folder, Languages, Link2, ListChecks, LogOut, Receipt, Settings, Tag, TrendingUp, Upload, Users, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, sidebarRow } from "@/components/ui/button"
 import {
@@ -43,6 +43,7 @@ export const nav: ShellNavItem[] = [
   // so a route registered there alone is unreachable from the desktop menu.
   { group: "core", key: "clients", href: "/clients", icon: "contact", label: "nav.clients" },
   { group: "core", key: "timesheet", href: "/timesheet", icon: "calendar", label: "nav.timesheet" },
+  { group: "core", key: "tasks", href: "/tasks", icon: "list-checks", label: "nav.tasks", module: "tasks" },
   { group: "core", key: "stats", href: "/stats", icon: "trending-up", label: "nav.stats" },
   { group: "analysis", key: "graph", href: "/graph", icon: "clock", label: "nav.graph", module: "graph" },
   { group: "analysis", key: "goals", href: "/goals", icon: "flag", label: "nav.goals", module: "goals" },
@@ -102,6 +103,7 @@ export function Icon({ name }: { name: string }) {
     case "zap": return <Zap {...props} />
     case "receipt": return <Receipt {...props} />
     case "trending-up": return <TrendingUp {...props} />
+    case "list-checks": return <ListChecks {...props} />
     case "file-text": return <FileText {...props} />
     case "users": return <Users {...props} />
     case "contact": return <Contact {...props} />

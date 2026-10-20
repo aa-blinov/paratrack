@@ -23,7 +23,7 @@ from playwright.sync_api import expect, sync_playwright
 
 from target import BASE_URL as BASE
 
-OWNER_EMAIL = os.environ.get("PARATRACK_OWNER_EMAIL", "doc-1791228444@x.test")
+OWNER_EMAIL = os.environ.get("PARATRACK_OWNER_EMAIL", f"doc-owner-{int(time.time())}@x.test")
 OWNER_PASSWORD = os.environ.get("PARATRACK_OWNER_PASSWORD", "longenoughpw")
 INVITEE_EMAIL = f"doc-invitee-{int(time.time())}@x.test"
 
@@ -109,7 +109,12 @@ def run(browser) -> None:
     errors: list[str] = []
     owner.on("pageerror", lambda error: errors.append(str(error)))
 
-    sign_in(owner, OWNER_EMAIL, OWNER_PASSWORD)
+    # The owner is registered for this run unless PARATRACK_OWNER_EMAIL names
+    # an account that already exists on the stand.
+    if "PARATRACK_OWNER_EMAIL" in os.environ:
+        sign_in(owner, OWNER_EMAIL, OWNER_PASSWORD)
+    else:
+        register(owner, "Владелец", OWNER_EMAIL, OWNER_PASSWORD)
     open_invites(owner)
     rows_before = invite_rows(owner).count()
     used_before = invite_rows(owner).filter(has_text="использовано").count()

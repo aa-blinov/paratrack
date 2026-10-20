@@ -8,6 +8,8 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /export", s.handleExport)
 	pages.HandleFunc("GET /graph", s.module("graph", s.handleGraph))
 	pages.HandleFunc("GET /goals", s.module("goals", s.handleGoals))
+	pages.HandleFunc("GET /tasks", s.module("tasks", s.handleTasks))
+	pages.HandleFunc("GET /tasks/{id}", s.module("tasks", s.handleTaskDetail))
 	pages.HandleFunc("GET /tags", s.module("tags", s.handleTagsPage))
 	pages.HandleFunc("GET /help", s.handleHelp)
 	pages.HandleFunc("GET /access-denied", s.handleAccessDenied)

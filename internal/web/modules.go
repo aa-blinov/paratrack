@@ -21,6 +21,7 @@ type moduleDef struct {
 }
 
 var modules = []moduleDef{
+	{Key: "tasks", Icon: "list-checks", Label: "nav.tasks", Hint: "mod.tasks"},
 	{Key: "graph", Icon: "clock", Label: "nav.graph", Hint: "mod.graph"},
 	{Key: "goals", Icon: "flag", Label: "nav.goals", Hint: "mod.goals"},
 	{Key: "tags", Icon: "tag", Label: "nav.tags", Hint: "mod.tags"},
@@ -63,9 +64,9 @@ var presets = []struct {
 	Key, Title, Blurb, Icon string
 	Modules                 []string
 }{
-	{"solo", "preset.solo", "preset.soloBlurb", "user", []string{"graph", "goals", "tags", "integrations", "import"}},
-	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"graph", "goals", "tags", "invoices", "reports", "schedule", "integrations", "import"}},
-	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}},
+	{"solo", "preset.solo", "preset.soloBlurb", "user", []string{"tasks", "graph", "goals", "tags", "integrations", "import"}},
+	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "schedule", "integrations", "import"}},
+	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}},
 }
 
 // The active mode is the exact workspace section preset. Personal menu

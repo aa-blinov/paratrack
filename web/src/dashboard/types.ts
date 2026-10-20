@@ -910,9 +910,69 @@ export interface AuthPageData {
   InviteTeam?: string
 }
 
-export type ReactPageData = import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
+export type ReactPageData = TasksData | TaskDetailData | import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData
 	shell: import("@/shell/app-shell").AppShellData
+}
+
+export interface TaskActivity {
+  ID: number
+  Name: string
+  Color: string
+}
+
+export interface TaskPerson {
+  ID: number
+  Name: string
+}
+
+export interface TaskItem {
+  ID: number
+  Title: string
+  Status: string
+  ProjectID: number
+  ProjectName: string
+  ProjectColor: string
+  AssigneeID: number
+  AssigneeName: string
+  Due: string
+  DueLabel: string
+  Overdue: boolean
+  EstimateMin: number
+  EstimateLabel: string
+  TrackedMin: number
+  TrackedLabel: string
+  Activities: TaskActivity[]
+  CanArchive: boolean
+}
+
+export interface TasksData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  Lang: string
+  CSRFToken: string
+  TasksReact: boolean
+  View: string
+  ProjectID: number
+  Projects: Project[]
+  People: TaskPerson[]
+  Tasks: TaskItem[]
+  ViewerID: number
+}
+
+export interface TaskDetailData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  Lang: string
+  CSRFToken: string
+  TaskDetailReact: boolean
+  Task: TaskItem
+  Projects: Project[]
+  People: TaskPerson[]
+  Linkable: TaskActivity[]
+  ViewerID: number
 }
