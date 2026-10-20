@@ -15,23 +15,23 @@ import{n as e,t}from"./rolldown-runtime-CbXtAM7H.js";var n=t((e=>{var t=Symbol.f
     margin-right: ${s}px ${r};
     `,n===`padding`&&`padding-right: ${s}px ${r};`].filter(Boolean).join(``)}
   }
-  
+
   .${rn} {
     right: ${s}px ${r};
   }
-  
+
   .${an} {
     margin-right: ${s}px ${r};
   }
-  
+
   .${rn} .${rn} {
     right: 0 ${r};
   }
-  
+
   .${an} .${an} {
     margin-right: 0 ${r};
   }
-  
+
   body[${Nn}] {
     ${sn}: ${s}px;
   }
