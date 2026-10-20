@@ -113,6 +113,10 @@ func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]
 	if err != nil {
 		return nil, nil, fmt.Errorf("load schedule entries: %w", err)
 	}
+	lines, err := loadScheduleLines(ctx, tx, query.TeamID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("load schedule lines: %w", err)
+	}
 	tracked, err := loadScheduleTracked(ctx, tx, query)
 	if err != nil {
 		return nil, nil, fmt.Errorf("load schedule tracked time: %w", err)
@@ -120,6 +124,12 @@ func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]
 	rows := buildScheduleRows(users, entries, byProject, query.WeekStart)
 	for i := range rows {
 		rows[i].Tracked = tracked[rows[i].UserID]
+		// A line with no hours yet is still a line: it has a row, with zero cells.
+		for _, projectID := range lines[rows[i].UserID] {
+			if _, ok := rows[i].ByProject[projectID]; !ok {
+				rows[i].ByProject[projectID] = [7]int{}
+			}
+		}
 	}
 	if err := tx.Commit(); err != nil {
 		return nil, nil, fmt.Errorf("commit schedule snapshot: %w", err)
@@ -594,4 +604,79 @@ func authorizeSchedulePlan(ctx context.Context, tx *Tx, teamID, actorID, project
 		return model.ErrForbidden
 	}
 	return nil
+}
+
+// loadScheduleLines reads each person's project lines for the team.
+func loadScheduleLines(ctx context.Context, tx *Tx, teamID int64) (map[int64][]int64, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT user_id, project_id FROM schedule_lines WHERE team_id = ?`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	lines := make(map[int64][]int64)
+	for rows.Next() {
+		var userID, projectID int64
+		if err := rows.Scan(&userID, &projectID); err != nil {
+			return nil, err
+		}
+		lines[userID] = append(lines[userID], projectID)
+	}
+	return lines, rows.Err()
+}
+
+// AddScheduleLine puts a project on a person's schedule. A manager may add any
+// project, the project's lead only that one, the same rule as writing hours.
+func (d *DB) AddScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := authorizeSchedulePlan(ctx, tx, request.TeamID, request.ActorID, request.ProjectID); err != nil {
+		return err
+	}
+	if err := checkMemberInTeam(ctx, tx, request.UserID, request.TeamID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO schedule_lines (team_id, user_id, project_id, created_at) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (team_id, user_id, project_id) DO NOTHING`,
+		request.TeamID, request.UserID, request.ProjectID, FormatTime(d.currentTime().UTC())); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// RemoveScheduleLine takes a project off a person's schedule. A line that still
+// carries hours in any week is kept: removing it would drop planned time.
+func (d *DB) RemoveScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := authorizeSchedulePlan(ctx, tx, request.TeamID, request.ActorID, request.ProjectID); err != nil {
+		return err
+	}
+	var hours int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM schedule_entries WHERE team_id = ? AND user_id = ? AND project_id = ? AND minutes > 0`,
+		request.TeamID, request.UserID, request.ProjectID).Scan(&hours); err != nil {
+		return err
+	}
+	if hours > 0 {
+		return appmodel.ErrScheduleLineHasHours
+	}
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM schedule_lines WHERE team_id = ? AND user_id = ? AND project_id = ?`,
+		request.TeamID, request.UserID, request.ProjectID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

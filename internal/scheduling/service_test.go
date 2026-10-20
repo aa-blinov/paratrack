@@ -48,6 +48,13 @@ func (scheduleCellStoreStub) PlannedMinutesForProjectFrom(context.Context, int64
 	return 0, nil
 }
 
+func (scheduleCellStoreStub) AddScheduleLine(context.Context, appmodel.ScheduleLineRequest) error {
+	return nil
+}
+
+func (scheduleCellStoreStub) RemoveScheduleLine(context.Context, appmodel.ScheduleLineRequest) error {
+	return nil
+}
 func (s *scheduleCellStoreStub) UpsertScheduleEntry(_ context.Context, request appmodel.ScheduleCellRequest) error {
 	s.request = request
 	return nil
@@ -96,6 +103,13 @@ func (scheduleStoreStub) PlannedMinutesForProjectFrom(context.Context, int64, in
 	return 0, nil
 }
 
+func (scheduleStoreStub) AddScheduleLine(context.Context, appmodel.ScheduleLineRequest) error {
+	return nil
+}
+
+func (scheduleStoreStub) RemoveScheduleLine(context.Context, appmodel.ScheduleLineRequest) error {
+	return nil
+}
 func TestListCalculatesWeeklyLoadInSchedulingWorkflow(t *testing.T) {
 	projects := &scheduleProjectCatalogStub{projects: []model.Project{{ID: 9, Name: "Alpha"}}}
 	store := &scheduleStoreStub{rows: []appmodel.ScheduleRow{
