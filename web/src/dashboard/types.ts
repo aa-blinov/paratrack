@@ -946,6 +946,7 @@ export interface TaskItem {
   TrackedLabel: string
   Activities: TaskActivity[]
   CanArchive: boolean
+  Archived: boolean
 }
 
 export interface TasksData {

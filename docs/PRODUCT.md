@@ -193,8 +193,8 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/member/pay
 /api/team/stripe
 /api/projects /api/projects/{id}
-/api/tasks  (list, create)  /api/tasks/{id}  (update)
-/api/tasks/{id}/status  /api/tasks/{id}/archive
+/api/tasks  (list; `?archived=1` for the archive; create)  /api/tasks/{id}  (update)
+/api/tasks/{id}/status  /api/tasks/{id}/archive  /api/tasks/{id}/restore
 /api/tasks/{id}/activities  /api/tasks/{id}/linkable
 /api/goals /api/tags
 /api/reports.csv  /api/reports/save  /api/reports/{id}/delete

@@ -540,6 +540,7 @@ type TaskWorkflow interface {
 	Update(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
 	Archive(ctx context.Context, request appmodel.TaskArchiveRequest) error
+	Restore(ctx context.Context, request appmodel.TaskRestoreRequest) error
 	LinkActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error)
 	List(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
 	Linkable(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)

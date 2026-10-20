@@ -33,6 +33,7 @@ type taskItem struct {
 	TrackedLabel  string
 	Activities    []taskActivity
 	CanArchive    bool
+	Archived      bool
 }
 
 type taskActivity struct {
@@ -123,10 +124,14 @@ func (s *Server) taskPeople(r *http.Request) []taskPerson {
 	return out
 }
 
-// taskItems builds the board for a workspace, or for one project of it.
-func (s *Server) taskItems(r *http.Request, projectID int64) ([]taskItem, error) {
+// taskItems builds the tasks a query asks for: the open board or the archive,
+// for the whole workspace or one project, or a single task whether it is
+// archived or not.
+func (s *Server) taskItems(r *http.Request, query appmodel.TaskQuery) ([]taskItem, error) {
 	now := userNow(r)
-	rows, err := s.services.Tasks.List(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), ProjectID: projectID, Now: now})
+	query.TeamID = teamID(r)
+	query.Now = now
+	rows, err := s.services.Tasks.List(r.Context(), query)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +146,7 @@ func (s *Server) taskItems(r *http.Request, projectID int64) ([]taskItem, error)
 	for _, row := range rows {
 		task := row.Task
 		item := taskItem{
-			ID: task.ID, Title: task.Title, Status: task.Status,
+			ID: task.ID, Title: task.Title, Status: task.Status, Archived: task.Archived,
 			ProjectID: task.ProjectID, ProjectName: row.ProjectName, ProjectColor: row.ProjectColor,
 			AssigneeID: task.AssigneeID, AssigneeName: names[task.AssigneeID],
 			TrackedMin: row.TrackedMin, TrackedLabel: fmtDur(r, row.TrackedMin*60),
@@ -166,14 +171,16 @@ func (s *Server) taskItems(r *http.Request, projectID int64) ([]taskItem, error)
 	return items, nil
 }
 
-// handleTasks renders the task board: a table by default, or the columns.
+// handleTasks renders the task board: a table by default, the columns, or the
+// archive. The archive holds the tasks taken off the board; they stay readable
+// there and can be put back.
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	view := r.URL.Query().Get("view")
-	if view != "board" {
+	if view != "board" && view != "archive" {
 		view = "table"
 	}
 	projectID, _ := strconv.ParseInt(r.URL.Query().Get("project"), 10, 64)
-	items, err := s.taskItems(r, projectID)
+	items, err := s.taskItems(r, appmodel.TaskQuery{ProjectID: projectID, Archived: view == "archive"})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -192,41 +199,40 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTaskDetail renders one task: its fields, its activities, and the
-// activities of its project that it can still take on.
+// activities of its project that it can still take on. An archived task still
+// opens, read-only: it takes no new activities and can be put back on the board.
 func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
 		http.NotFound(w, r)
 		return
 	}
-	items, err := s.taskItems(r, 0)
+	items, err := s.taskItems(r, appmodel.TaskQuery{TaskID: id})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
 	}
-	var task *taskItem
-	for i := range items {
-		if items[i].ID == id {
-			task = &items[i]
-			break
-		}
-	}
-	if task == nil {
+	if len(items) == 0 {
 		http.NotFound(w, r)
 		return
 	}
-	linkable, err := s.services.Tasks.Linkable(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), ProjectID: task.ProjectID})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
+	task := items[0]
+	linkable := []taskActivity{}
+	if !task.Archived {
+		list, err := s.services.Tasks.Linkable(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), ProjectID: task.ProjectID})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		linkable = taskActivities(list)
 	}
 	data := taskDetailPage{
 		pageData:        pageData{Title: task.Title, Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
 		TaskDetailReact: true,
-		Task:            *task,
+		Task:            task,
 		Projects:        s.activeProjectViews(r),
 		People:          s.taskPeople(r),
-		Linkable:        taskActivities(linkable),
+		Linkable:        linkable,
 		ViewerID:        authenticatedUserID(r),
 	}
 	s.renderPageForRequest(w, r, task.Title, "tasks", &data)
@@ -250,7 +256,7 @@ func (s *Server) activeProjectViews(r *http.Request) []projectView {
 
 func (s *Server) handleTasksAPIList(w http.ResponseWriter, r *http.Request) {
 	projectID, _ := strconv.ParseInt(r.URL.Query().Get("project"), 10, 64)
-	items, err := s.taskItems(r, projectID)
+	items, err := s.taskItems(r, appmodel.TaskQuery{ProjectID: projectID, Archived: r.URL.Query().Get("archived") == "1"})
 	if err != nil {
 		s.writeInternalJSONError(w, err)
 		return
@@ -340,6 +346,21 @@ func (s *Server) handleTaskArchive(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, taskOKResponse{OK: true})
 }
 
+// handleTaskRestore puts an archived task back on the board, at the end of its column.
+func (s *Server) handleTaskRestore(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.taskIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	if err := s.services.Tasks.Restore(r.Context(), appmodel.TaskRestoreRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), TaskID: id,
+	}); err != nil {
+		s.writeTaskError(w, r, err)
+		return
+	}
+	s.writeJSON(w, taskOKResponse{OK: true})
+}
+
 // handleTaskActivity hangs an activity on a task: a new one by name, or one
 // the task's project already has that no task holds.
 func (s *Server) handleTaskActivity(w http.ResponseWriter, r *http.Request) {
@@ -368,23 +389,25 @@ func (s *Server) handleTaskLinkable(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	items, err := s.taskItems(r, 0)
+	items, err := s.taskItems(r, appmodel.TaskQuery{TaskID: id})
 	if err != nil {
 		s.writeInternalJSONError(w, err)
 		return
 	}
-	for _, item := range items {
-		if item.ID == id {
-			list, err := s.services.Tasks.Linkable(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), ProjectID: item.ProjectID})
-			if err != nil {
-				s.writeTaskError(w, r, err)
-				return
-			}
-			s.writeJSON(w, taskLinkableResponse{Activities: taskActivities(list)})
-			return
-		}
+	if len(items) == 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
 	}
-	s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+	if items[0].Archived {
+		s.writeJSON(w, taskLinkableResponse{Activities: []taskActivity{}})
+		return
+	}
+	list, err := s.services.Tasks.Linkable(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), ProjectID: items[0].ProjectID})
+	if err != nil {
+		s.writeTaskError(w, r, err)
+		return
+	}
+	s.writeJSON(w, taskLinkableResponse{Activities: taskActivities(list)})
 }
 
 func (s *Server) taskIDFromPath(w http.ResponseWriter, r *http.Request) (int64, bool) {
@@ -405,6 +428,8 @@ func (s *Server) writeTaskError(w http.ResponseWriter, r *http.Request, err erro
 		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
 	case errors.Is(err, appmodel.ErrTaskActivityTaken):
 		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "tasks.activityTaken")})
+	case errors.Is(err, appmodel.ErrTaskArchived):
+		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "tasks.archivedReadOnly")})
 	case errors.Is(err, appmodel.ErrInvalidTask):
 		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 	default:
