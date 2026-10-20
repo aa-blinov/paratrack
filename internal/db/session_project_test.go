@@ -20,7 +20,7 @@ func TestSessionProjectColumnIsMigrated(t *testing.T) {
 	d := openTestDB(t)
 	var n int
 	if err := d.TestSQL().QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM information_schema.columns WHERE table_name = 'sessions' AND column_name = 'project_id'`).Scan(&n); err != nil {
+		`SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'sessions' AND column_name = 'project_id'`).Scan(&n); err != nil {
 		t.Fatalf("read the sessions columns: %v", err)
 	}
 	if n != 1 {
