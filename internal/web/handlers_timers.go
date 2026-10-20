@@ -92,11 +92,27 @@ func (s *Server) writeTimerStartError(w http.ResponseWriter, r *http.Request, ac
 		http.Error(w, message, http.StatusConflict)
 		return
 	}
+	if s.writeTaskArchived(w, r, err) {
+		return
+	}
 	if errors.Is(err, model.ErrActiveSessionExists) {
 		http.Error(w, fmt.Sprintf("%q already has an active session", activityName), http.StatusConflict)
 		return
 	}
 	s.writeInternalError(w, err)
+}
+
+// writeTaskArchived answers a timer write aimed at an archived task's activity:
+// the task is read-only until it is put back on the board. It reports whether
+// err was that case.
+func (s *Server) writeTaskArchived(w http.ResponseWriter, r *http.Request, err error) bool {
+	if !errors.Is(err, appmodel.ErrTaskArchived) {
+		return false
+	}
+	message := i18n.T(resolveLang(r), "tasks.archivedTracking")
+	s.toast(w, message, "error")
+	http.Error(w, message, http.StatusConflict)
+	return true
 }
 
 func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
@@ -204,6 +220,9 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "session already stopped", http.StatusConflict)
 			return
 		}
+		if s.writeTaskArchived(w, r, err) {
+			return
+		}
 		if errors.Is(err, model.ErrSessionNotPaused) {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -284,6 +303,9 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			http.Error(w, "activity not found", http.StatusNotFound)
+			return
+		}
+		if s.writeTaskArchived(w, r, err) {
 			return
 		}
 		s.writeInternalError(w, err)

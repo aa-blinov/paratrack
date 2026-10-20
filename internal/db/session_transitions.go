@@ -166,6 +166,9 @@ func (d *DB) ResumeSession(ctx context.Context, request appmodel.TimerSessionReq
 		}
 		return s, nil
 	}
+	if err := requireActivityOpenForTime(ctx, tx, s.ActivityID); err != nil {
+		return model.Session{}, err
+	}
 	nowStr := FormatTime(now)
 	q := `UPDATE sessions
 		 SET paused = 0,
