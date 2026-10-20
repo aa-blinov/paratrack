@@ -24,6 +24,7 @@ type Task struct {
 	EstimateMinutes int
 	CreatedBy       int64
 	Archived        bool
+	ExternalURL     string // the GitHub item this task was imported from, "" if none
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
 }

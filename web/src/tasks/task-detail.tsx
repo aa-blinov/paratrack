@@ -107,6 +107,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
     <header className="space-y-1">
       <p className="flex items-center gap-2 text-sm text-muted-foreground"><span aria-hidden="true" className="size-2.5 rounded-full" style={{ backgroundColor: task.ProjectColor }} />{task.ProjectName}</p>
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+      {task.ExternalURL && <a href={task.ExternalURL} target="_blank" rel="noreferrer" className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">{t(lang, "tasks.openGitHub")}</a>}
     </header>
 
     {task.Archived && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
