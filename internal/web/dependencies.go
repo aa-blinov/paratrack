@@ -537,15 +537,14 @@ func (s Dependencies) validate(required ...dependency) error {
 	return nil
 }
 
-// TaskWorkflow is the task board the HTTP adapter drives.
-// WorkspaceFileWorkflow writes a workspace's export file. The file is built in
-// full before it is sent, so the download is either whole or an error.
+// WorkspaceFileWorkflow writes a workspace's export file as it reads the records,
+// and restores one from the body of a request.
 type WorkspaceFileWorkflow interface {
-	Export(ctx context.Context, request appmodel.WorkspaceExportRequest) (appmodel.WorkspaceExport, []byte, error)
-	Restore(ctx context.Context, request appmodel.WorkspaceRestoreRequest) (appmodel.WorkspaceRestoreResult, error)
-	Decode(r io.Reader) (appmodel.WorkspaceExport, error)
+	Export(ctx context.Context, request appmodel.WorkspaceExportRequest, w io.Writer, begin func(slug string, exportedAt time.Time)) error
+	Restore(ctx context.Context, callerID int64, body io.Reader) (appmodel.WorkspaceRestoreResult, error)
 }
 
+// TaskWorkflow is the task board the HTTP adapter drives.
 type TaskWorkflow interface {
 	Create(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	Update(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)

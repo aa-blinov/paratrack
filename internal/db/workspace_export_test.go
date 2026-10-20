@@ -1,13 +1,14 @@
 package db
 
 import (
-	"encoding/json"
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/workspacefile"
 )
 
 // A manager's export holds the whole workspace: people by email, clients,
@@ -20,12 +21,16 @@ func TestWorkspaceExportHoldsTheWorkButNoSecrets(t *testing.T) {
 	d := openTestDB(t)
 	ws := seedRichWorkspace(t, d, "export")
 
-	if _, err := d.ExportWorkspace(ctx, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.memberID}); !errors.Is(err, model.ErrForbidden) {
+	if _, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.memberID}); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("a member exports the workspace: %v, want forbidden", err)
 	}
-	out, err := d.ExportWorkspace(ctx, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
+	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
 	if err != nil {
 		t.Fatalf("export: %v", err)
+	}
+	out, err := workspacefile.Read(bytes.NewReader(file))
+	if err != nil {
+		t.Fatalf("read the file back: %v", err)
 	}
 	if out.Format != appmodel.WorkspaceExportFormat || out.Version != appmodel.WorkspaceExportVersion || out.Team.Currency != "RUB" || out.Team.RoundMinutes != 15 {
 		t.Fatalf("header and team settings are %q v%d %+v", out.Format, out.Version, out.Team)
@@ -75,12 +80,8 @@ func TestWorkspaceExportHoldsTheWorkButNoSecrets(t *testing.T) {
 		t.Fatalf("webhooks %d, integrations %d", len(out.Webhooks), len(out.Integrations))
 	}
 
-	raw, err := json.Marshal(out)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
 	for _, secret := range []string{"HASH_SECRET_TEST", "sk_live_SECRET_TEST", "whsec_SECRET", "gh_SECRET_TOKEN", "SECRET_LINK", "cs_SECRET_SESSION"} {
-		if strings.Contains(string(raw), secret) {
+		if strings.Contains(string(file), secret) {
 			t.Fatalf("the export contains a secret: %s", secret)
 		}
 	}
