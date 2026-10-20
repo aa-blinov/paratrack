@@ -22,6 +22,8 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 		return fmt.Sprintf(i18n.T(resolveLang(r), "pay.notApproved"), notApproved.Count, notApproved.First.In(loc).Format("02.01.2006"), notApproved.Last.In(loc).Format("02.01.2006"))
 	}
 	switch {
+	case errors.Is(err, appmodel.ErrNoPayRates):
+		return "no member has an hourly rate"
 	case errors.Is(err, appmodel.ErrNoPayableTime):
 		return "no paid members with tracked time in that period"
 	case errors.Is(err, appmodel.ErrInvalidPayrollPeriod):
@@ -59,7 +61,15 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	}
 	now := userNow(r)
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
+	// The current week cannot be approved until it ends, so a run over it is
+	// refused. The default stops at the last day of the finished weeks.
+	// In the first days of a month there is no finished week in it yet: the
+	// period then ends today, and the page shows why a run would be refused.
+	lastFinished := startOfWeek(r, now).AddDate(0, 0, -1)
 	data.DefEnd = now.Format("2006-01-02")
+	if !lastFinished.Before(time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())) {
+		data.DefEnd = lastFinished.Format("2006-01-02")
+	}
 	// Coming back from a create that overlapped earlier runs: ask first.
 	if q := r.URL.Query(); q.Get("overlap") != "" {
 		data.Overlap = q.Get("overlap")

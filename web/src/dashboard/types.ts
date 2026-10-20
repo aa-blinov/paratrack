@@ -294,6 +294,7 @@ export interface ProjectCreateData {
   /** The first palette colour this team is not already wearing. */
   SuggestedColor: string
   MemberOptions: Array<{ ID: number; Name: string }>
+  ClientOptions?: Array<{ ID: number; Name: string }>
 }
 
 export interface GoalView {

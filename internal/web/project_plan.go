@@ -109,5 +109,5 @@ func deadlineLabel(r *http.Request, deadline string) string {
 	if err != nil {
 		return ""
 	}
-	return fmtDay(resolveLang(r), day)
+	return fmtDate(resolveLang(r), day)
 }
