@@ -14,6 +14,8 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
   const [color, setColor] = React.useState(data.SuggestedColor || "#6366f1")
   const noLead = "__no_lead__"
   const [lead, setLead] = React.useState(noLead)
+  const noClient = "__no_client__"
+  const [client, setClient] = React.useState(noClient)
   const [currency, setCurrency] = React.useState("__workspace_currency__")
   const lang = data.Lang
 
@@ -28,7 +30,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder={t(lang, "ph.project")} autoFocus /></div>
         <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
-          <DisclosureTrigger className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-sm text-muted-foreground sm:min-h-0">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4" /></DisclosureTrigger>
+          <DisclosureTrigger className="group inline-flex min-h-11 cursor-pointer items-center gap-1 text-sm text-muted-foreground sm:min-h-0">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4 transition-transform group-data-[state=open]:rotate-180" /></DisclosureTrigger>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="sait-dlya-klienta" /></div>
         <fieldset className="space-y-2">
@@ -58,13 +60,26 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
           <Label htmlFor="new-project-deadline">{t(lang, "proj.deadlineField")}</Label>
           <DateField id="new-project-deadline" name="deadline" />
         </div>
+        <div className="space-y-2">
+          <Label htmlFor="new-project-client">{t(lang, "clients.heading")}</Label>
+          {data.ClientOptions?.length ? <>
+            <input type="hidden" name="client_id" value={client === noClient ? "" : client} />
+            <Select value={client} onValueChange={setClient}>
+              <SelectTrigger id="new-project-client" className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={noClient}>{t(lang, "project.noClient")}</SelectItem>
+                {data.ClientOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </> : <p className="text-sm text-muted-foreground">{t(lang, "project.noClientsYet")} <a href="/clients" className="font-medium text-foreground underline underline-offset-4">{t(lang, "clients.new")}</a></p>}
+        </div>
         {!!data.MemberOptions?.length && <div className="space-y-2">
           <Label htmlFor="new-project-lead">{t(lang, "proj.leadField")}</Label>
           <input type="hidden" name="lead_user_id" value={lead === noLead ? "" : lead} />
           <Select value={lead} onValueChange={setLead}>
             <SelectTrigger id="new-project-lead" className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={noLead}>{t(lang, "proj.noLead")}</SelectItem>
+              <SelectItem value={noLead}>{t(lang, "proj.leadNone")}</SelectItem>
               {data.MemberOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
             </SelectContent>
           </Select>

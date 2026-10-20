@@ -38,3 +38,21 @@ func TestPayrollPageNamesUnapprovedWeeksUntilApproved(t *testing.T) {
 		t.Fatalf("approved week still listed: %+v", page.UnapprovedWeeks)
 	}
 }
+
+// The payroll page's default period ends on the last finished day, so a fresh
+// visit does not start with a period the current week would refuse.
+func TestPayrollDefaultPeriodEndsBeforeTheCurrentWeek(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("payroll-default@x.test")
+	page := reactData[payrollPage](t, readBody(t, e.do("GET", "/payroll", nil, nil)))
+	now := time.Now()
+	lastFinished := startOfWeek(nil, now).AddDate(0, 0, -1)
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	want := now.Format("2006-01-02")
+	if !lastFinished.Before(monthStart) {
+		want = lastFinished.Format("2006-01-02")
+	}
+	if page.DefEnd != want {
+		t.Fatalf("default period ends %s, want %s", page.DefEnd, want)
+	}
+}

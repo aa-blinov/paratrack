@@ -16,8 +16,8 @@ import { translate as t } from "@/i18n"
 import type { ProjectDetailData } from "@/dashboard/types"
 import { ColorMark } from "@/components/color-mark"
 
-function SummaryCard({ title, value }: { title: string; value: string }) {
-  return <Card><CardContent className="space-y-2 p-5"><p className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</p><p className="font-mono text-3xl tabular-nums">{value}</p></CardContent></Card>
+function SummaryCard({ title, value, hint }: { title: string; value: string; hint?: string }) {
+  return <Card><CardContent className="space-y-2 p-5"><p className="text-xs font-semibold tracking-wide text-muted-foreground">{title}</p><p className="font-mono text-3xl tabular-nums">{value}</p>{hint && <p className="text-xs text-muted-foreground">{hint}</p>}</CardContent></Card>
 }
 
 // Пустое значение client_id = «без клиента», а Radix-селект не умеет держать
@@ -127,17 +127,19 @@ function ProjectEdit({ data }: { data: ProjectDetailData }) {
           <Label htmlFor="project-billable" className="font-normal">{t(data.Lang, "bill.billable")}</Label>
         </div>
 
-        {!!clientOptions.length && <div className="space-y-1.5">
+        <div className="space-y-1.5">
           <Label htmlFor="project-client">{t(data.Lang, "clients.heading")}</Label>
-          <input type="hidden" name="client_id" value={clientID === noClient ? "" : clientID} />
-          <Select value={clientID} onValueChange={value => setClientID(value === noClient ? "" : value)}>
-            <SelectTrigger id="project-client" aria-label={t(data.Lang, "clients.heading")} className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={noClient}>{t(data.Lang, "project.noClient")}</SelectItem>
-              {clientOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>}
+          {clientOptions.length ? <>
+            <input type="hidden" name="client_id" value={clientID === noClient ? "" : clientID} />
+            <Select value={clientID} onValueChange={value => setClientID(value === noClient ? "" : value)}>
+              <SelectTrigger id="project-client" aria-label={t(data.Lang, "clients.heading")} className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value={noClient}>{t(data.Lang, "project.noClient")}</SelectItem>
+                {clientOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </> : <p className="text-sm text-muted-foreground">{t(data.Lang, "project.noClientsYet")} <a href="/clients" className="font-medium text-foreground underline underline-offset-4">{t(data.Lang, "clients.new")}</a></p>}
+        </div>
         <div className="space-y-1.5">
           <Label htmlFor="project-deadline">{t(data.Lang, "proj.deadlineField")}</Label>
           <DateField id="project-deadline" name="deadline" defaultValue={data.DeadlineInput} />
@@ -148,7 +150,7 @@ function ProjectEdit({ data }: { data: ProjectDetailData }) {
           <Select value={leadID} onValueChange={setLeadID}>
             <SelectTrigger id="project-lead" aria-label={t(data.Lang, "proj.leadField")} className="w-full"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={noLead}>{t(data.Lang, "proj.noLead")}</SelectItem>
+              <SelectItem value={noLead}>{t(data.Lang, "proj.leadNone")}</SelectItem>
               {data.MemberOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -191,7 +193,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
       <SummaryCard title={t(data.Lang, "proj.plannedAll")} value={data.PlannedLabel} />
       {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} />}
-      {data.RemainingLabel && <SummaryCard title={t(data.Lang, "proj.remaining")} value={data.RemainingLabel} />}
+      {data.RemainingLabel && <SummaryCard title={t(data.Lang, "proj.remaining")} value={data.RemainingLabel} hint={t(data.Lang, "proj.remainingHint")} />}
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>
         <p className="font-mono text-lg tabular-nums">{data.EstimateLabel} <span className="text-muted-foreground">/</span> {data.Total}</p>
