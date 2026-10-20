@@ -148,12 +148,36 @@ func (d *DB) SetTaskStatus(ctx context.Context, request appmodel.TaskStatusReque
 	return tx.Commit()
 }
 
-// ArchiveTask takes a task off the board. Its activities and their time stay.
+// ArchiveTask takes a task off the board. Its activities and the time they
+// logged stay, and the timers running on those activities are stopped now.
 // A manager or the person who created the task may do it.
 func (d *DB) ArchiveTask(ctx context.Context, request appmodel.TaskArchiveRequest) error {
 	if request.TeamID <= 0 || request.CallerID <= 0 || request.TaskID <= 0 {
 		return ErrNotFound
 	}
+	if err := d.archiveTaskRow(ctx, request); err != nil {
+		return err
+	}
+	// Once the task is archived no session can start on its activities, so this
+	// closes every timer that was running. Each stop is the ordinary one, with
+	// the approval lock and the webhook event.
+	now := d.currentTime()
+	open, err := d.openSessionIDsForTask(ctx, request.TeamID, request.TaskID)
+	if err != nil {
+		return err
+	}
+	for _, id := range open {
+		if _, err := d.UpdateSessionEnd(ctx, appmodel.TimerStopRequest{TeamID: request.TeamID, SessionID: id, At: now}); err != nil && !errors.Is(err, ErrSessionNotActive) {
+			return err
+		}
+	}
+	return nil
+}
+
+// archiveTaskRow checks who may archive the task and marks it archived. It locks
+// the task's activities first: a timer starting on one of them waits for this
+// commit and is then refused, so none can slip in between.
+func (d *DB) archiveTaskRow(ctx context.Context, request appmodel.TaskArchiveRequest) error {
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -173,11 +197,62 @@ func (d *DB) ArchiveTask(ctx context.Context, request appmodel.TaskArchiveReques
 	if !role.CanManage() && createdBy != request.CallerID {
 		return model.ErrForbidden
 	}
+	rows, err := tx.QueryContext(ctx, `SELECT id FROM activities WHERE task_id = ? AND team_id = ? ORDER BY id FOR UPDATE`, request.TaskID, request.TeamID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		// The rows are only read to take their locks.
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return err
+	}
+	_ = rows.Close()
 	if _, err := tx.ExecContext(ctx, `UPDATE tasks SET archived = 1, updated_at = ? WHERE id = ? AND team_id = ?`,
 		FormatTime(d.currentTime().UTC()), request.TaskID, request.TeamID); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// openSessionIDsForTask lists the sessions still running on a task's activities,
+// whoever started them.
+func (d *DB) openSessionIDsForTask(ctx context.Context, teamID, taskID int64) ([]int64, error) {
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT s.id FROM sessions s JOIN activities a ON a.id = s.activity_id
+		 WHERE a.task_id = ? AND s.team_id = ? AND s.end_at IS NULL ORDER BY s.id`, taskID, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var ids []int64
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// requireActivityOpenForTime refuses new time on an activity that an archived
+// task holds: the task is read-only until it is put back on the board.
+func requireActivityOpenForTime(ctx context.Context, tx *Tx, activityID int64) error {
+	var archived int
+	err := tx.QueryRowContext(ctx,
+		`SELECT t.archived FROM activities a JOIN tasks t ON t.id = a.task_id WHERE a.id = ?`, activityID).Scan(&archived)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if archived != 0 {
+		return appmodel.ErrTaskArchived
+	}
+	return nil
 }
 
 // RestoreTask puts an archived task back on the board, at the end of its column.

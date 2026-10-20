@@ -15,7 +15,7 @@ Single Go binary, embedded web UI, Postgres. No Node at runtime, no CGO.
 | **Backfill** | Add a past session in natural language (`yesterday 09:00` → `11:30`) |
 | **Timesheet** | Week grid (activity × days), cell is the source of truth |
 | **Projects** | Colored projects, estimates vs actual, billable rate |
-| **Tasks** | Board and table per project or workspace. A task has a status, an assignee, a due date and an estimate, and holds many activities: time logged to any of them counts on the task. Archiving takes it off the board and keeps the time |
+| **Tasks** | Board and table per project or workspace. A task has a status, an assignee, a due date and an estimate, and holds many activities: time logged to any of them counts on the task. Archiving takes it off the board, stops a timer running on its activities and keeps the time; no new time is logged until it is restored |
 | **Stats / Graph** | Breakdown by project and activity, distribution, ECharts graph, CSV export |
 | **Goals** | Daily / weekly / monthly minute targets per activity |
 | **Tags** | Free-form labels on sessions, filterable |

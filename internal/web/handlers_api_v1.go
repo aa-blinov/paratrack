@@ -80,6 +80,8 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case errors.Is(err, model.ErrActiveSessionExists):
 				s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: "activity already has an active session"})
+			case errors.Is(err, appmodel.ErrTaskArchived):
+				s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: "task is archived: time is not logged to its activities"})
 			case errors.Is(err, appmodel.ErrInvalidSessionStart):
 				s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid timer start"})
 			case errors.Is(err, model.ErrNotFound):

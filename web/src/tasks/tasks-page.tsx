@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
+import { requestConfirmation } from "@/components/confirmation-dialog"
 import { translate as t } from "@/i18n"
 import type { TaskItem, TasksData } from "@/dashboard/types"
 
@@ -65,7 +66,8 @@ export function TasksPage({ data }: { data: TasksData }) {
     void run(() => post(`/api/tasks/${task.ID}`, data.CSRFToken, { assignee_id: value === noPerson ? "0" : value }))
   }
 
-  function archive(task: TaskItem) {
+  async function archive(task: TaskItem) {
+    if (!await requestConfirmation(t(lang, "tasks.archiveConfirm"), { action: t(lang, "tasks.archive") })) return
     void run(() => post(`/api/tasks/${task.ID}/archive`, data.CSRFToken, {}))
   }
 
@@ -259,7 +261,7 @@ export function TasksPage({ data }: { data: TasksData }) {
               <td className={`px-3 py-2 ${task.Overdue ? "text-destructive" : ""}`}>{task.DueLabel || "—"}{task.Overdue && <span className="ml-2 font-medium">{t(lang, "tasks.overdue")}</span>}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{task.EstimateLabel || "—"}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{task.TrackedLabel}</td>
-              <td className="px-3 py-2 text-right">{task.CanArchive && <Button type="button" variant="ghost" size="icon" aria-label={t(lang, "tasks.archive")} title={t(lang, "tasks.archive")} onClick={() => archive(task)}><Archive aria-hidden="true" /></Button>}</td>
+              <td className="px-3 py-2 text-right">{task.CanArchive && <Button type="button" variant="ghost" size="icon" aria-label={t(lang, "tasks.archive")} title={t(lang, "tasks.archive")} onClick={() => void archive(task)}><Archive aria-hidden="true" /></Button>}</td>
             </tr>)}</tbody>
           </table>
         </CardContent>
