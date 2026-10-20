@@ -1,0 +1,1 @@
+import{jt as e}from"./ui-BESJtUi5.js";var t=e();function n({message:e,ok:n}){return e?(0,t.jsx)(`p`,{role:n?`status`:`alert`,className:`rounded-md border p-3 text-sm ${n?`border-border`:`border-destructive/40 text-destructive`}`,children:e}):null}export{n as t};

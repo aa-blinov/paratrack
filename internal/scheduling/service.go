@@ -22,6 +22,8 @@ type Store interface {
 	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
+	AddScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
+	RemoveScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 }
 
 // ProjectCatalog supplies selectable projects for the schedule editor.
@@ -124,6 +126,28 @@ func (s *Service) ProjectPlanByMember(ctx context.Context, teamID, projectID int
 		return nil, nil, fmt.Errorf("load project tracked time: %w", err)
 	}
 	return planned, tracked, nil
+}
+
+// AddLine puts a project on a person's schedule, with no hours yet.
+func (s *Service) AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID <= 0 {
+		return ErrInvalidScheduleCell
+	}
+	if err := s.store.AddScheduleLine(ctx, request); err != nil {
+		return fmt.Errorf("add schedule line: %w", err)
+	}
+	return nil
+}
+
+// RemoveLine takes a project off a person's schedule, if it carries no hours.
+func (s *Service) RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error {
+	if request.TeamID <= 0 || request.ActorID <= 0 || request.UserID <= 0 || request.ProjectID <= 0 {
+		return ErrInvalidScheduleCell
+	}
+	if err := s.store.RemoveScheduleLine(ctx, request); err != nil {
+		return fmt.Errorf("remove schedule line: %w", err)
+	}
+	return nil
 }
 
 // PlannedAhead is the plan on a project from a day onward, in minutes.

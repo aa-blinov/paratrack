@@ -265,6 +265,19 @@ var compatibilityStatements = []string{
 	    UNIQUE (team_id, starts_at)
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_timesheet_approvals_team ON timesheet_approvals(team_id)`,
+	// A person's project line on the schedule. Hours live in schedule_entries by
+	// week; the line itself stays until someone takes it off, so a project a
+	// person is on with no hours yet does not vanish on reload.
+	`CREATE TABLE IF NOT EXISTS schedule_lines (
+		team_id BIGINT NOT NULL,
+		user_id BIGINT NOT NULL,
+		project_id BIGINT NOT NULL,
+		created_at TEXT NOT NULL,
+		PRIMARY KEY (team_id, user_id, project_id),
+		FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+		FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+	)`,
 	`CREATE TABLE IF NOT EXISTS schedule_overload_reminders (
 		team_id BIGINT NOT NULL,
 		user_id BIGINT NOT NULL,

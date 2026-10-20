@@ -183,6 +183,8 @@ type SchedulingWorkflow interface {
 	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
 	ProjectPlanByMember(ctx context.Context, teamID, projectID int64, now time.Time) (planned, tracked map[int64]int, err error)
 	PlannedAhead(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
+	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
+	RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 }
 
 // TagDependencies separates tag reads from mutations at the HTTP boundary.
