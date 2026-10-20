@@ -1116,7 +1116,11 @@ def main() -> int:
               and page.evaluate('document.documentElement.scrollWidth <= innerWidth'))
         page.goto(BASE + "/settings/sections")
         expect(page.locator("#main h1")).to_be_visible()
-        page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]) button').click()
+        # The preset is saved by a form post that redirects back here. Opening
+        # the reports before that navigation completes cancels the post, and the
+        # account keeps its old sections.
+        with page.expect_navigation(wait_until="load"):
+            page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]) button').click()
         page.goto(BASE + "/reports")
         expect(page.locator("#main h1")).to_be_visible()
         check("report action says it opens a read-only result",
