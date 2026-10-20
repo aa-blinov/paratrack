@@ -593,7 +593,7 @@ All notable changes to paratrack. Format: [Keep a Changelog](https://keepachange
 - **Type scale restored**: DaisyUI 5 resets `h1..h6` to `font-size: inherit`, which flattened the whole UI to one size. A minor-third scale (`--step--2` … `--step-4`) is now defined on `:root` and applied to headings, card titles, labels and meta.
 - **UI font is Inter** (variable, latin + latin-ext + cyrillic) replacing Manrope. Body is pinned to 16px with `font-optical-sizing: auto`.
 - **Logo wordmark is Fraunces** (variable "full" cut with SOFT/WONK axes) — used only for `.wordmark` "paratrack", with a Lucide `timer` glyph beside it. JetBrains Mono stays for code, kbd and timestamps.
-- **Lucide icon set** (ISC) vendored as an SVG sprite at `/static/icons.svg` (35 symbols) and exposed as `{{icon "play"}}`. Replaces the hand-drawn ▶/⏸/☰/● glyphs in nav, status pills and session actions (Focus/Pause/Resume/Stop/Start/Add).
+- **Lucide icon set** (ISC) vendored as an SVG sprite at `/static/icons.svg` (35 symbols) and exposed as `{{icon "play"}}`. Replaces the hand-drawn ▶///● glyphs in nav, status pills and session actions (Focus/Pause/Resume/Stop/Start/Add).
 
 #### Changed
 - **Typography and icons**: minor-third type scale on `:root` (DaisyUI 5 resets headings to `inherit`), Inter as the UI face, Fraunces for the wordmark only, JetBrains Mono for code and figures. Lucide replaces hand-drawn glyphs, vendored as one SVG sprite.
