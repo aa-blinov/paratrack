@@ -84,7 +84,7 @@ components:
     padding: "16px"
 ---
 
-# Design System: paratrack
+# Design system: paratrack
 
 ## Overview
 
@@ -168,7 +168,7 @@ The neutral tokens carry the interface. Light values are oklch and exact in `ui.
 - **Status is text plus tint.** Document statuses (draft, sent, paid) are
   badges with their name written out; colour repeats the word, never replaces it.
 
-### Named Rules
+### Named rules
 
 **The Ledger Paper Rule.** The page is a warm sheet, never pure white. The
 warmth is a hue of 85 at low chroma, so the activity colours stay the only
@@ -199,7 +199,7 @@ each activity token to a literal colour when it paints
 - **Body** (Inter 400, 1rem on a phone, 14px for dense desktop rows).
 - **Figure** (JetBrains Mono, tabular, `text-sm` to `text-base`): every time and sum.
 
-### Named Rules
+### Named rules
 
 **The Figures Rule.** Every figure that a person compares down a column is
 JetBrains Mono with `tabular-nums`.
@@ -243,7 +243,7 @@ not a shadow. Shadows appear only on layers that float above the page:
 Modal layers dim the page: the confirmation dialog at 50% black, the phone's
 bottom sheet at 10% black with a light backdrop blur where the browser supports it.
 
-### Named Rules
+### Named rules
 
 **The Resting Flat Rule.** Cards and rows are flat at rest. A shadow appears only
 as a response to a layer that floats above the page.
@@ -365,7 +365,7 @@ For each component: the character line first, then shape, colour and states.
 ### Feedback
 - **Success:** a toast at the bottom of the screen, short, the same words the
   server names (`X-Toast`). It leaves on its own after about four seconds.
-- **Undo:** stopping a timer offers the way back in the same strip, not a toast.
+- **Undo:** stopping a timer puts the way back in the same strip, not a toast.
 - **Errors:** the message under the control that failed, in the text the server
   names. JSON errors show their message, not their markup.
 - **Offline:** a banner says what is saved and what waits. Actions taken with no

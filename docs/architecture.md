@@ -363,8 +363,8 @@ protocol endpoints from separate hosts. Configuring the issuer therefore
 trusts that provider's discovery metadata to nominate those destinations; the
 issuer is process configuration, never user or workspace input. The authorization
 code uses PKCE S256. The callback validates the ID token signature, issuer,
-audience, expiration, subject, access token hash when present, and the one-time
-nonce before trusting userinfo claims.
+audience, expiration, subject, access token hash when present, and the nonce, which is
+used once, before trusting userinfo claims.
 The `internal/stripe` outbound adapter owns Checkout form encoding, response
 decoding, webhook event parsing, and signature verification. The invoicing
 workflow selects the workspace or process secret, validates payment outcome
@@ -630,7 +630,7 @@ the snapshot plus closes missing tasks in one transaction. Snapshots that hit th
 pagination cap are rejected before persistence so an incomplete page cannot
 incorrectly close tasks omitted by truncation.
 
-`internal/invoicing` owns the workflow that builds a billable-time snapshot and
+`internal/invoicing` owns the workflow that builds a snapshot of the billable time and
 creates an invoice draft. It also owns invoice metadata edits and draft
 deletion, and the non-blocking overlapping-document advisory check. The HTTP
 adapter handles form parsing and response mapping. `appmodel.InvoiceDraftRequest`
@@ -722,7 +722,7 @@ Project summaries used to decorate session rows and exports are also loaded
 through the service with a workspace constraint on the batch lookup.
 Project detail project, activity, recent-session, tracked-time and currency
 reads are assembled by one projects use case from a named, scoped
-`appmodel.ProjectDetailRequest`; it also returns the tracked-time total for the
+`appmodel.ProjectDetailRequest`; it also returns the total of the tracked time for the
 recent window and computes progress against the project estimate. The HTTP
 adapter maps sessions and formats totals and progress.
 Workspace currency and billing settings are read through their owning services.
@@ -801,7 +801,7 @@ workflow into persistence, keeping authorization scope attached to each write.
 
 `internal/webhooks` validates team-scoped endpoint registration, requires a
 signing secret and canonicalizes event subscriptions against the events the
-application actually emits. It owns durable outbox fan-out, subscription
+application emits. It owns durable outbox fan-out, subscription
 matching, payload signing, delivery logging and retry policy. The process
 composition root reads the private-target opt-in once and injects a transport
 neutral delivery port. `internal/webhooks/httpdelivery` builds HTTP requests
@@ -900,7 +900,7 @@ the same `invoice.paid` event. The manual transition runs its scoped invoice
 read and idempotent manager-authorized write through invoicing before billing
 records the audit. The database transaction writes the event to the outbox
 alongside the payment transition. Provider calls and external delivery remain
-outside database transactions; the DB transition is the source of truth and
+outside database transactions; the database transition decides, and
 external delivery is best effort. Every issued Stripe
 checkout session is stored against its invoice, so replacing the displayed
 payment link does not orphan an older valid link. Rebuilding a draft retires
