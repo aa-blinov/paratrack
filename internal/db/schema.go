@@ -67,6 +67,9 @@ func (d *DB) applySchemaContext(ctx context.Context) error {
 	cols()
 	stmts = append(stmts, compatibilityStatements...)
 	cols()
+	// A board item is imported once per workspace. The index follows the columns
+	// above, so a fresh database has them when it is created.
+	stmts = append(stmts, `CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_external ON tasks(team_id, external_ref) WHERE external_ref IS NOT NULL`)
 	stmts = append(stmts, `INSERT INTO invoice_stripe_sessions (stripe_session_id, team_id, invoice_id, created_at)
 		SELECT stripe_session_id, team_id, id, created_at FROM invoices
 		WHERE COALESCE(stripe_session_id, '') <> ''

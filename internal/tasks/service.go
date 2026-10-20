@@ -23,23 +23,32 @@ type Store interface {
 	LinkTaskActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error)
 	ListTasks(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
 	ListLinkableActivities(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
+	ImportTasks(ctx context.Context, request appmodel.TaskImportRequest) (appmodel.TaskImportResult, error)
+}
+
+// ProjectSource reads the items of a GitHub Projects board. The provider adapter
+// implements it; the token is used for the one read and not kept.
+type ProjectSource interface {
+	FetchGitHubProject(ctx context.Context, token, projectURL string) ([]appmodel.GitHubProjectItem, error)
 }
 
 // Service validates what a person typed, then hands it to the store.
 type Service struct {
-	store Store
-	now   func() time.Time
+	store  Store
+	source ProjectSource
+	now    func() time.Time
 }
 
-// New builds the task service. Now defaults to the wall clock.
-func New(store Store, now func() time.Time) (*Service, error) {
+// New builds the task service. The source may be nil: the GitHub import then
+// refuses to run. Now defaults to the wall clock.
+func New(store Store, source ProjectSource, now func() time.Time) (*Service, error) {
 	if store == nil {
 		return nil, fmt.Errorf("tasks store is required")
 	}
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{store: store, now: now}, nil
+	return &Service{store: store, source: source, now: now}, nil
 }
 
 // Statuses lists the board columns in order.
@@ -152,4 +161,60 @@ func (s *Service) Linkable(ctx context.Context, query appmodel.TaskQuery) ([]app
 		return nil, appmodel.ErrInvalidTask
 	}
 	return s.store.ListLinkableActivities(ctx, query)
+}
+
+// ColumnForGitHubItem maps a GitHub Projects item to a board column. A closed
+// issue or pull request is done whatever its Status says. Otherwise the Status
+// option name decides by its words, in English or Russian; an item with no
+// Status, or a name the words do not place, starts in «к работе».
+func ColumnForGitHubItem(status string, closed bool) string {
+	if closed {
+		return model.TaskStatusDone
+	}
+	name := strings.ToLower(strings.TrimSpace(status))
+	switch {
+	case containsAny(name, "done", "complete", "closed", "shipped", "готов", "выполн", "закрыт"):
+		return model.TaskStatusDone
+	case containsAny(name, "progress", "doing", "review", "active", "started", "в работе", "работ", "проверк"):
+		return model.TaskStatusDoing
+	default:
+		return model.TaskStatusTodo
+	}
+}
+
+func containsAny(s string, words ...string) bool {
+	for _, w := range words {
+		if strings.Contains(s, w) {
+			return true
+		}
+	}
+	return false
+}
+
+// ImportGitHubProject reads a GitHub Projects board and writes its items as
+// tasks of one project. Items already imported are updated, not copied, so a
+// second run is safe.
+func (s *Service) ImportGitHubProject(ctx context.Context, request appmodel.GitHubImportRequest) (appmodel.TaskImportResult, error) {
+	request.Token = strings.TrimSpace(request.Token)
+	request.ProjectURL = strings.TrimSpace(request.ProjectURL)
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.ProjectID <= 0 || request.Token == "" || request.ProjectURL == "" || len(request.Token) > 512 {
+		return appmodel.TaskImportResult{}, appmodel.ErrInvalidTask
+	}
+	if s.source == nil {
+		return appmodel.TaskImportResult{}, fmt.Errorf("github import is not configured")
+	}
+	board, err := s.source.FetchGitHubProject(ctx, request.Token, request.ProjectURL)
+	if err != nil {
+		return appmodel.TaskImportResult{}, err
+	}
+	items := make([]appmodel.TaskImportItem, 0, len(board))
+	for _, item := range board {
+		items = append(items, appmodel.TaskImportItem{
+			Ref: item.Ref, Title: item.Title, URL: item.URL,
+			Status: ColumnForGitHubItem(item.Status, item.Closed),
+		})
+	}
+	return s.store.ImportTasks(ctx, appmodel.TaskImportRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, ProjectID: request.ProjectID, Items: items,
+	})
 }
