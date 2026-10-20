@@ -425,7 +425,7 @@ def main() -> int:
         active_json = page.request.get(BASE + "/api/active").text()
         for sid in _seed_re.findall(r'"ID": (\d+)', active_json):
             api(page, 'post', BASE + f"/api/sessions/{sid}/stop")
-            api(page, 'patch', 
+            api(page, 'patch',
                 BASE + f"/api/sessions/{sid}",
                 form={"duration": "10m"},
             )
@@ -981,7 +981,7 @@ def main() -> int:
             "() => fetch('/api/goals').then(r => r.json()).then(j => j.goals.length)"
         )
         if widget_count == 0:
-            api(page, 'post', 
+            api(page, 'post',
                 BASE + "/api/goals",
                 form={"activity": "e2e-test", "period": "daily", "minutes": "5"},
             )
@@ -1013,7 +1013,7 @@ def main() -> int:
 
         # Delete the seeded goal via DELETE endpoint and verify it disappears.
         if first["goal"]["period"] == "daily":
-            del_resp = api(page, 'delete', 
+            del_resp = api(page, 'delete',
                 BASE
                 + f"/api/goals?activity={first['goal'].get('activity_id', '')}&period=daily"
             )
@@ -1040,7 +1040,7 @@ def main() -> int:
         expect(react_tag_chip).to_have_count(0)
 
         # Seed a tag + attach it to the first session in /stats.
-        created = api(page, 'post', 
+        created = api(page, 'post',
             BASE + "/api/tags",
             form={"name": "e2e-test"},
         )
@@ -1061,7 +1061,7 @@ def main() -> int:
         first_id_m = _re.search(r'id="row-(\d+)"', stats_html)
         if first_id_m:
             sid = int(first_id_m.group(1))
-            attach_resp = api(page, 'post', 
+            attach_resp = api(page, 'post',
                 BASE + f"/api/sessions/{sid}/tags",
                 form={"name": "e2e-test"},
             )
@@ -1080,7 +1080,7 @@ def main() -> int:
             check("tag-filter banner visible", filter_banner >= 1)
 
             # Detach + verify it disappears from the row.
-            api(page, 'delete', 
+            api(page, 'delete',
                 BASE + f"/api/sessions/{sid}/tags?name=e2e-test"
             )
 

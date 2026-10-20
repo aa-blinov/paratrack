@@ -1227,4 +1227,3 @@ body {
    button is set to position: relative above (for its hit area), which would beat a
    Tailwind class, so the trailing placement is set here with the same id scope. */
 #paratrack-react-root .date-field-trailing { position: absolute; }
-
