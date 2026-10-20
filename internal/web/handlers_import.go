@@ -109,6 +109,9 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	msg := fmt.Sprintf(i18n.T(resolveLang(r), "imp.done"), result.Imported, result.Skipped)
+	if result.ArchivedSkipped > 0 {
+		msg += " " + fmt.Sprintf(i18n.T(resolveLang(r), "imp.archivedSkipped"), result.ArchivedSkipped)
+	}
 	http.Redirect(w, r, "/stats?flash="+url.QueryEscape(encodeFlash(true, msg)), http.StatusSeeOther)
 }
 
