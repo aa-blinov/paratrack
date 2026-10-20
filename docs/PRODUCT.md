@@ -15,6 +15,7 @@ Single Go binary, embedded web UI, Postgres. No Node at runtime, no CGO.
 | **Backfill** | Add a past session in natural language (`yesterday 09:00` → `11:30`) |
 | **Timesheet** | Week grid (activity × days), cell is the source of truth |
 | **Projects** | Colored projects, estimates vs actual, billable rate |
+| **Tasks** | Board and table per project or workspace. A task has a status, an assignee, a due date and an estimate, and holds many activities: time logged to any of them counts on the task. Archiving takes it off the board and keeps the time |
 | **Stats / Graph** | Breakdown by project and activity, distribution, ECharts graph, CSV export |
 | **Goals** | Daily / weekly / monthly minute targets per activity |
 | **Tags** | Free-form labels on sessions, filterable |
@@ -120,6 +121,10 @@ redirects to `/welcome`. Open while unchosen: `/welcome`, `/help`, `/settings/*`
 posted with `from=welcome`). Saving any choice sets `sections_chosen = 1`. The column defaults to 1,
 so existing workspaces keep their menu.
 
+The `tasks` section is first in the catalogue and in every preset. A workspace with an explicit set
+gets `tasks` appended once at start-up (`schema_compat.go`); one that never chose (empty) or chose
+`none` is left alone.
+
 ### Numbers
 
 | Format | Shape |
@@ -168,6 +173,7 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /reports /reports/run
 /invoices /invoices/{id} /invoices/{id}/pdf
 /projects /projects/new /projects/{slug}
+/tasks /tasks/{id}
 /integrations /integrations/marketplace /integrations/{id}
 /settings/team|members|invites|profile|tokens|webhooks|audit|notifications
 /welcome /help
@@ -187,6 +193,9 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/member/pay
 /api/team/stripe
 /api/projects /api/projects/{id}
+/api/tasks  (list, create)  /api/tasks/{id}  (update)
+/api/tasks/{id}/status  /api/tasks/{id}/archive
+/api/tasks/{id}/activities  /api/tasks/{id}/linkable
 /api/goals /api/tags
 /api/reports.csv  /api/reports/save  /api/reports/{id}/delete
 /api/tokens  /api/tokens/{id}/delete
@@ -214,7 +223,8 @@ GET        /api/v1/reports/summary
 ## 5. Data model (Postgres)
 
 Core tables: `users`, `teams`, `memberships`, `activities`, `sessions`, `projects`,
-`tags`, `session_tags`, `goals`, `saved_reports`, `password_reset_tokens`.
+`tags`, `session_tags`, `goals`, `saved_reports`, `password_reset_tokens`, `tasks` (a task belongs to a project; `activities.task_id`
+holds at most one task per activity).
 
 Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoice_lines`,
 `audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`, `timesheet_approvals`,

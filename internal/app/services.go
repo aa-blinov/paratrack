@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/aa-blinov/paratrack/internal/reminders"
+	"github.com/aa-blinov/paratrack/internal/tasks"
 	"sync"
 	"time"
 
@@ -178,6 +179,10 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, err
 	}
+	taskService, err := tasks.New(database, now)
+	if err != nil {
+		return nil, err
+	}
 	reminderService, err := reminders.New(reminders.Dependencies{
 		Store: database, Planner: schedulingService, Sender: reminderPushNotifications{push: pushService}, Now: now,
 	})
@@ -278,6 +283,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Preferences:             preferenceService,
 		Scheduling:              schedulingService,
 		Reminders:               reminderService,
+		Tasks:                   taskService,
 		Projects:                projectService,
 		Clients:                 shared.Clients,
 		ProjectPages:            projectPageBuilder,
