@@ -270,6 +270,10 @@ func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Reque
 		s.respondTimesheetRow(w, r, actID, day, message)
 		return
 	}
+	if errors.Is(err, appmodel.ErrTaskArchived) {
+		s.respondTimesheetRow(w, r, actID, day, i18n.T(resolveLang(r), "tasks.archivedTracking"))
+		return
+	}
 	switch {
 	case errors.Is(err, appmodel.ErrInvalidSessionEdit):
 		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})

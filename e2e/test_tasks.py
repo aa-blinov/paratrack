@@ -55,6 +55,29 @@ def log_time(page: Page, activity: str, day: str, start: str, end: str) -> int:
     )
 
 
+def start_timer(page: Page, activity: str) -> int:
+    """Start a timer on an activity by name, the way the dashboard form does."""
+    token = next(c["value"] for c in page.context.cookies() if c["name"] == "paratrack_csrf")
+    return page.evaluate(
+        """async ([activity, token]) => {
+            const response = await fetch("/api/start", {
+                method: "POST", credentials: "same-origin",
+                headers: { "X-CSRF-Token": token, "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+                body: new URLSearchParams({ activity, csrf_token: token }),
+            })
+            return response.status
+        }""",
+        [activity, token],
+    )
+
+
+def confirm_archive(page: Page) -> None:
+    """Press the destructive button of the archive confirmation dialog."""
+    dialog = page.get_by_role("alertdialog")
+    expect(dialog).to_be_visible()
+    dialog.locator("button").last.click()
+
+
 def create_task(page: Page, title: str, estimate: str = "", due: str = "") -> None:
     page.goto(f"{BASE}/tasks", wait_until="networkidle")
     page.fill("#new-task-title", title)
@@ -184,8 +207,11 @@ def main() -> int:
         print("\n== 9. Archive keeps the card readable, and putting the task back restores it")
         page.set_viewport_size({"width": 1280, "height": 900})
         page.goto(f"{BASE}/tasks", wait_until="networkidle")
+        check("a timer starts on the task's activity", start_timer(page, layout) < 300)
         page.locator("tbody tr", has_text=layout).get_by_role("button", name="Убрать с доски").click()
+        confirm_archive(page)
         expect(page.locator("tbody tr", has_text=layout)).to_have_count(0)
+        check("a new timer on the archived task is refused", start_timer(page, layout) == 409)
         page.goto(f"{BASE}/tasks", wait_until="networkidle")
         check("an archived task leaves the table", page.locator("tbody tr", has_text=layout).count() == 0)
         check("the other task stays", page.locator("tbody tr", has_text=brief).count() == 1)
@@ -213,6 +239,7 @@ def main() -> int:
 
         print("\n== 10. Archive from the table, then the phone archive and a restore from it")
         page.locator("tbody tr", has_text=brief).get_by_role("button", name="Убрать с доски").click()
+        confirm_archive(page)
         expect(page.locator("tbody tr", has_text=brief)).to_have_count(0)
         page.goto(f"{BASE}/tasks", wait_until="networkidle")
         check("the second archive leaves the board", page.locator("tbody tr", has_text=brief).count() == 0)

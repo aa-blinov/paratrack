@@ -70,6 +70,10 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 		ProjectID: projectID, Start: start, End: end, Note: note,
 	})
 	if err != nil {
+		if errors.Is(err, appmodel.ErrTaskArchived) {
+			s.backfillError(w, r, "activity", i18n.T(resolveLang(r), "tasks.archivedTracking"))
+			return
+		}
 		if errors.Is(err, appmodel.ErrInvalidSessionStart) {
 			s.backfillError(w, r, "activity", i18n.T(resolveLang(r), "err.backfillRequired"))
 			return

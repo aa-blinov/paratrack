@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
+import { requestConfirmation } from "@/components/confirmation-dialog"
 import { translate as t } from "@/i18n"
 import type { TaskActivity, TaskDetailData } from "@/dashboard/types"
 
@@ -85,7 +86,8 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
     }
   }
 
-  function archive() {
+  async function archive() {
+    if (!await requestConfirmation(t(lang, "tasks.archiveConfirm"), { action: t(lang, "tasks.archive") })) return
     void run(async () => {
       await post(`/api/tasks/${task.ID}/archive`, data.CSRFToken, {})
       window.location.assign("/tasks")

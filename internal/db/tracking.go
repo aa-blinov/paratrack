@@ -131,6 +131,9 @@ func (d *DB) FocusActivity(ctx context.Context, request appmodel.TimerFocusReque
 		return result, err
 	}
 
+	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
+		return result, err
+	}
 	active, err := lockOpenSessions(ctx, tx, teamID, 0, false)
 	if err != nil {
 		return result, err

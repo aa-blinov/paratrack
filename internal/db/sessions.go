@@ -32,6 +32,9 @@ func (d *DB) createLegacySession(ctx context.Context, request legacySessionCreat
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
 		return model.Session{}, err
 	}
+	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
+		return model.Session{}, err
+	}
 	startStr := FormatTime(startAt)
 	var id int64
 	err = tx.QueryRowContext(ctx,
@@ -70,6 +73,9 @@ func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartReques
 	}
 
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
+		return model.Session{}, err
+	}
+	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
 		return model.Session{}, err
 	}
 
@@ -351,6 +357,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 }
 
 func insertClosedSessionTx(ctx context.Context, tx *Tx, teamID, activityID int64, startAt, endAt time.Time, note string) (int64, error) {
+	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
+		return 0, err
+	}
 	duration := endAt.Sub(startAt)
 	if duration <= 0 {
 		return 0, appmodel.ErrInvalidSessionPeriod
