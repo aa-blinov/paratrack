@@ -76,28 +76,36 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 	csvWriter.Flush()
 }
 
-// handleWorkspaceExport sends the whole workspace as one JSON file: the people,
+// handleWorkspaceExport streams the whole workspace as one JSON file: the people,
 // the work, the money and the plans, without secrets. Only owners and admins get
 // it, because the file carries every member's rates and every invoice. The
 // export is written to the audit log.
 func (s *Server) handleWorkspaceExport(w http.ResponseWriter, r *http.Request) {
-	export, body, err := s.services.WorkspaceFile.Export(r.Context(), appmodel.WorkspaceExportRequest{
+	started := false
+	err := s.services.WorkspaceFile.Export(r.Context(), appmodel.WorkspaceExportRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r),
+	}, w, func(slug string, exportedAt time.Time) {
+		started = true
+		s.audit(r, "workspace.export", slug, "")
+		name := fmt.Sprintf("paratrack-%s-%s.json", fileSlug(slug), exportedAt.Format("2006-01-02"))
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+		w.Header().Set("Cache-Control", "no-store")
 	})
-	if err != nil {
-		if errors.Is(err, model.ErrForbidden) {
-			http.Error(w, i18n.T(resolveLang(r), "err.managersOnly"), http.StatusForbidden)
-			return
-		}
-		s.writeInternalError(w, err)
+	if err == nil {
 		return
 	}
-	s.audit(r, "workspace.export", export.Team.Slug, "")
-	name := fmt.Sprintf("paratrack-%s-%s.json", fileSlug(export.Team.Slug), export.ExportedAt.Format("2006-01-02"))
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	w.Header().Set("Cache-Control", "no-store")
-	_, _ = w.Write(body)
+	if started {
+		// The download is under way, so the status cannot change now. The file stops
+		// short, and a restore refuses a cut-off file.
+		s.logger.Printf("paratrack web: workspace export stopped: %v", err)
+		return
+	}
+	if errors.Is(err, model.ErrForbidden) {
+		http.Error(w, i18n.T(resolveLang(r), "err.managersOnly"), http.StatusForbidden)
+		return
+	}
+	s.writeInternalError(w, err)
 }
 
 // fileSlug keeps the characters a file name can carry from a workspace slug.

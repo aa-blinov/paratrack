@@ -12,10 +12,12 @@ const (
 	WorkspaceExportVersion = 1
 )
 
-// WorkspaceExportRequest asks for one workspace export on behalf of a caller.
+// WorkspaceExportRequest asks for one workspace export on behalf of a caller. The
+// export hands its records to Sink one at a time, in file order.
 type WorkspaceExportRequest struct {
 	TeamID   int64
 	CallerID int64
+	Sink     WorkspaceSink
 }
 
 // WorkspaceExport is what a workspace holds that a person needs to move it:
@@ -263,17 +265,54 @@ type ExportIntegration struct {
 	Config   string
 }
 
-// WorkspaceRestoreRequest creates a new workspace from an export. The caller
-// becomes its owner.
-type WorkspaceRestoreRequest struct {
-	CallerID int64
-	Export   WorkspaceExport
+// WorkspaceSink takes an export one record at a time, in file order. The team
+// comes first, then the lists in the order of the methods below. A record only
+// refers to records that came before it, so a receiver can resolve each id as it
+// arrives, and a writer can stream the file without holding the workspace.
+type WorkspaceSink interface {
+	Header(exportedAt time.Time) error
+	Team(ExportTeam) error
+	Member(ExportMember) error
+	Client(ExportClient) error
+	Project(ExportProject) error
+	Tag(ExportTag) error
+	Task(ExportTask) error
+	Activity(ExportActivity) error
+	Goal(ExportGoal) error
+	Invoice(ExportInvoice) error
+	PayrollRun(ExportPayrollRun) error
+	Session(ExportSession) error
+	Schedule(ExportSchedule) error
+	ScheduleRow(ExportScheduleRow) error
+	Approval(ExportApproval) error
+	Report(ExportReport) error
+	Webhook(ExportWebhook) error
+	Integration(ExportIntegration) error
 }
 
-// WorkspaceRestoreResult names the workspace a restore created.
+// WorkspaceRestoreRequest creates a new workspace the caller owns. Users names the
+// account behind each email the file uses (see ResolveWorkspaceEmails). Write
+// hands the file's records to the sink it is given, one at a time; the restore
+// commits when Write returns nil and writes nothing when it returns an error.
+type WorkspaceRestoreRequest struct {
+	CallerID int64
+	Users    map[string]int64
+	Write    func(sink WorkspaceSink) error
+}
+
+// WorkspaceRestoreResult names the workspace a restore created, and the webhook
+// endpoints it recreated with the secrets they were given.
 type WorkspaceRestoreResult struct {
-	TeamID int64
-	Slug   string
+	TeamID   int64
+	Slug     string
+	Webhooks []RestoredWebhook
+}
+
+// RestoredWebhook is an endpoint a restore recreated. Its signing secret is new:
+// the file never holds one. It is shown once, to the person who restored.
+type RestoredWebhook struct {
+	URL    string
+	Secret string
 }
 
 // ErrUnsupportedWorkspaceFile means the file is not a paratrack workspace export
