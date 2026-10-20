@@ -297,7 +297,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
         className="h-8 w-20 px-2 text-center font-mono text-xs tabular-nums"
         name="admin"
         value={shown}
-        placeholder="—"
+        placeholder="0"
         title={t(lang, "sch.hourHint")}
         aria-label={`${t(lang, "sch.adminHours")}: ${person.UserName}`}
         disabled={saving !== null}

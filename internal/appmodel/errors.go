@@ -23,6 +23,7 @@ var (
 	ErrInvalidPayrollTeam        = errors.New("payroll team id must be positive")
 	ErrInvalidPayrollPeriod      = errors.New("payroll period must end after it starts")
 	ErrNoPayableTime             = model.ErrNoPayableTime
+	ErrNoPayRates                = model.ErrNoPayRates
 	ErrInvalidPushSubscription   = errors.New("invalid push subscription")
 	ErrInvalidTagTeam            = errors.New("tag team id must be positive")
 	ErrInvalidTag                = errors.New("tag name is required")

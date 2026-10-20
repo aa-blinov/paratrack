@@ -13,6 +13,7 @@ var (
 	ErrTokenInvalid            = errors.New("api token invalid")
 	ErrNoBillableTime          = errors.New("no billable time in that period")
 	ErrNoPayableTime           = errors.New("no paid members with tracked time in that period")
+	ErrNoPayRates              = errors.New("no member has an hourly rate")
 	ErrAlreadyExists           = errors.New("record already exists")
 	ErrAlreadyBilled           = errors.New("some of this time was just billed on another invoice; reload and try again")
 	ErrMixedCurrency           = errors.New("lines in different currencies")

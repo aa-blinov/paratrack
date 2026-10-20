@@ -201,6 +201,8 @@ type projectNewPage struct {
 	SuggestedColor string
 	// MemberOptions are the people a new project can be led by.
 	MemberOptions []memberOption
+	// ClientOptions are the clients a new project can be billed to.
+	ClientOptions []clientRef
 }
 
 func (projectNewPage) isTemplateData()    {}
@@ -215,7 +217,7 @@ func (p *projectNewPage) setLang(lang string)  { p.Lang = lang }
 func (s *Server) handleProjectNew(w http.ResponseWriter, r *http.Request) {
 	lang := string(resolveLang(r))
 	data := projectNewPage{Title: "New project", Active: "projects", ReactApp: true, NewProject: true, CSRFToken: ensureCSRF(w, r), Lang: lang,
-		Currencies: currencyOptions(), MemberOptions: s.memberOptions(r)}
+		Currencies: currencyOptions(), MemberOptions: s.memberOptions(r), ClientOptions: s.clientOptions(r)}
 	var err error
 	data.TeamCurrency, err = s.services.Teams.Settings.Currency(r.Context(), teamID(r))
 	if err != nil {
@@ -276,10 +278,15 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 	if leadErr != nil || lead < 0 {
 		lead = 0
 	}
+	// An empty or absent client is "no client"; a value that is not a number is not.
+	client, clientErr := strconv.ParseInt(strings.TrimSpace(r.Form.Get("client_id")), 10, 64)
+	if clientErr != nil || client < 0 {
+		client = 0
+	}
 	p, err := s.services.Projects.Commands.Create(r.Context(), appmodel.ProjectCreateRequest{
 		TeamID: tid, CallerID: authenticatedUserID(r), Name: r.Form.Get("name"),
 		Slug: r.Form.Get("slug"), Color: r.Form.Get("color"), RateCents: ratePtr, Currency: currency,
-		Deadline: deadline, LeadUserID: lead,
+		Deadline: deadline, LeadUserID: lead, ClientID: client,
 	})
 	if err != nil {
 		flash := encodeFlash(false, s.projectFlashError(err, "create"))
@@ -488,4 +495,21 @@ func (s *Server) handleProjectRate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(true, "updated"), http.StatusSeeOther)
+}
+
+// clientOptions lists the clients a project can be billed to; empty for anyone
+// who may not change a project.
+func (s *Server) clientOptions(r *http.Request) []clientRef {
+	if !canManage(r) {
+		return nil
+	}
+	cards, err := s.services.Clients.List(r.Context(), appmodel.ClientCatalogQuery{TeamID: teamID(r)})
+	if err != nil {
+		return nil
+	}
+	out := make([]clientRef, 0, len(cards))
+	for _, card := range cards {
+		out = append(out, clientRef{ID: card.ID, Name: card.Name})
+	}
+	return out
 }
