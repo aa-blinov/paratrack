@@ -19,6 +19,7 @@ type Store interface {
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
 	ArchiveTask(ctx context.Context, request appmodel.TaskArchiveRequest) error
+	RestoreTask(ctx context.Context, request appmodel.TaskRestoreRequest) error
 	LinkTaskActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error)
 	ListTasks(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
 	ListLinkableActivities(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
@@ -116,6 +117,14 @@ func (s *Service) Archive(ctx context.Context, request appmodel.TaskArchiveReque
 		return appmodel.ErrInvalidTask
 	}
 	return s.store.ArchiveTask(ctx, request)
+}
+
+// Restore puts an archived task back on the board.
+func (s *Service) Restore(ctx context.Context, request appmodel.TaskRestoreRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.RestoreTask(ctx, request)
 }
 
 // LinkActivity hangs an activity on a task.

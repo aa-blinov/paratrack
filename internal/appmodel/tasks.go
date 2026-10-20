@@ -11,6 +11,8 @@ var (
 	ErrInvalidTask       = errors.New("invalid task")
 	ErrTaskNotFound      = errors.New("task not found")
 	ErrTaskActivityTaken = errors.New("activity already belongs to another task")
+	// ErrTaskArchived refuses an edit to an archived task: it is read-only until restored.
+	ErrTaskArchived = errors.New("task is archived")
 )
 
 // TaskCreateRequest creates a task in a project, with its first activity.
@@ -51,6 +53,13 @@ type TaskArchiveRequest struct {
 	TaskID   int64
 }
 
+// TaskRestoreRequest puts an archived task back on the board.
+type TaskRestoreRequest struct {
+	TeamID   int64
+	CallerID int64
+	TaskID   int64
+}
+
 // TaskActivityRequest hangs an activity on a task: an existing one from the same
 // project (ActivityID), or a new one with Name.
 type TaskActivityRequest struct {
@@ -61,10 +70,14 @@ type TaskActivityRequest struct {
 	Name       string
 }
 
-// TaskQuery lists a workspace's tasks, optionally for one project.
+// TaskQuery lists a workspace's tasks: the open board by default, the archive
+// when Archived is set, optionally for one project. TaskID selects a single
+// task whether it is archived or not.
 type TaskQuery struct {
 	TeamID    int64
 	ProjectID int64
+	TaskID    int64
+	Archived  bool
 	Now       time.Time
 }
 

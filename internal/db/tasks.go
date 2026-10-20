@@ -180,6 +180,41 @@ func (d *DB) ArchiveTask(ctx context.Context, request appmodel.TaskArchiveReques
 	return tx.Commit()
 }
 
+// RestoreTask puts an archived task back on the board, at the end of its column.
+// Who may do it is the same as who may archive it: a manager or the creator.
+func (d *DB) RestoreTask(ctx context.Context, request appmodel.TaskRestoreRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.TaskID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	_, role, err := lockTeamRole(ctx, tx, request.TeamID, request.CallerID)
+	if err != nil {
+		return err
+	}
+	var createdBy int64
+	var status string
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(created_by, 0), status FROM tasks WHERE id = ? AND team_id = ?`, request.TaskID, request.TeamID).Scan(&createdBy, &status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return appmodel.ErrTaskNotFound
+		}
+		return err
+	}
+	if !role.CanManage() && createdBy != request.CallerID {
+		return model.ErrForbidden
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE tasks SET archived = 0, position = (SELECT COALESCE(MAX(position), 0) + 1 FROM tasks WHERE team_id = ? AND status = ?), updated_at = ?
+		 WHERE id = ? AND team_id = ?`,
+		request.TeamID, status, FormatTime(d.currentTime().UTC()), request.TaskID, request.TeamID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 // LinkTaskActivity hangs an activity on a task: an existing one from the same
 // project, or a new one with the given name. An activity holds one task at most.
 func (d *DB) LinkTaskActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error) {
@@ -240,14 +275,24 @@ func (d *DB) LinkTaskActivity(ctx context.Context, request appmodel.TaskActivity
 	return out, nil
 }
 
-// ListTasks returns the open tasks of a workspace, optionally for one project
-// or one task, with their activities and the time logged on them.
+// ListTasks returns the open board of a workspace, or its archive, optionally
+// for one project, or one task whether it is archived or not. Each row carries
+// the task's activities and the time logged on them.
 func (d *DB) ListTasks(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error) {
 	if query.TeamID <= 0 {
 		return nil, ErrNotFound
 	}
 	args := []any{query.TeamID}
-	where := ` WHERE t.team_id = ? AND t.archived = 0`
+	where := ` WHERE t.team_id = ?`
+	switch {
+	case query.TaskID > 0:
+		where += ` AND t.id = ?`
+		args = append(args, query.TaskID)
+	case query.Archived:
+		where += ` AND t.archived = 1`
+	default:
+		where += ` AND t.archived = 0`
+	}
 	if query.ProjectID > 0 {
 		where += ` AND t.project_id = ?`
 		args = append(args, query.ProjectID)
@@ -385,13 +430,22 @@ func scanTaskRow(r row) (model.Task, string, string, error) {
 	return t, projectName, color, nil
 }
 
+// taskProject returns the project of an open task. An archived task is read-only
+// until it is restored, so an edit to it is refused as archived, not as missing.
 func taskProject(ctx context.Context, tx *Tx, teamID, taskID int64) (int64, error) {
 	var projectID int64
-	err := tx.QueryRowContext(ctx, `SELECT project_id FROM tasks WHERE id = ? AND team_id = ? AND archived = 0`, taskID, teamID).Scan(&projectID)
+	var archived int
+	err := tx.QueryRowContext(ctx, `SELECT project_id, archived FROM tasks WHERE id = ? AND team_id = ?`, taskID, teamID).Scan(&projectID, &archived)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, appmodel.ErrTaskNotFound
 	}
-	return projectID, err
+	if err != nil {
+		return 0, err
+	}
+	if archived != 0 {
+		return 0, appmodel.ErrTaskArchived
+	}
+	return projectID, nil
 }
 
 func requireProjectInTeam(ctx context.Context, tx *Tx, projectID, teamID int64) error {
