@@ -130,7 +130,7 @@ func (d *DB) UnassignedActivities(ctx context.Context, teamID int64) ([]appmodel
 		SELECT a.id, a.name, COUNT(s.id) FILTER (WHERE s.invoice_id IS NULL),
 		       COUNT(s.id) FILTER (WHERE s.invoice_id IS NOT NULL)
 		FROM activities a JOIN sessions s ON s.activity_id = a.id
-		WHERE a.team_id = ? AND s.team_id = a.team_id AND a.project_id IS NULL AND s.end_at IS NOT NULL
+		WHERE a.team_id = ? AND s.team_id = a.team_id AND a.project_id IS NULL AND s.project_id IS NULL AND s.end_at IS NOT NULL
 		GROUP BY a.id, a.name
 		HAVING COUNT(s.id) FILTER (WHERE s.invoice_id IS NULL) > 0
 		ORDER BY a.name`, teamID)

@@ -56,7 +56,7 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 		       COALESCE(NULLIF(u.name, ''), u.email, '')
 		FROM sessions s
 		JOIN activities a ON a.id = s.activity_id
-		JOIN projects p ON p.id = a.project_id
+		JOIN projects p ON p.id = ` + sessionProject + `
 		LEFT JOIN users u ON u.id = s.user_id
 		LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		WHERE s.start_at >= ? AND s.start_at < ? AND s.end_at IS NOT NULL
@@ -65,7 +65,7 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 	q += ` AND s.team_id = ?`
 	args = append(args, teamID)
 	if projectID > 0 {
-		q += ` AND a.project_id = ?`
+		q += ` AND ` + sessionProject + ` = ?`
 		args = append(args, projectID)
 	}
 	q += ` AND a.team_id = ? AND p.team_id = ?`
@@ -175,14 +175,14 @@ func (d *DB) Unbilled(ctx context.Context, query appmodel.UnbilledProjectQuery) 
 	q := `SELECT p.id, p.name, p.slug,
 		         COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), t.currency, 'RUB'),
 		       COALESCE(p.billable_rate_cents, 0), MIN(x.since), SUM(x.secs)::bigint
-		FROM (SELECT s.activity_id, MIN(s.start_at COLLATE "C") AS since,
+		FROM (SELECT s.activity_id, s.project_id, MIN(s.start_at COLLATE "C") AS since,
 		             SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
 		                      ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END) AS secs
 		      FROM sessions s
 		      WHERE s.team_id = ? AND s.end_at IS NOT NULL AND s.invoice_id IS NULL AND s.start_at < ?
-		      GROUP BY s.activity_id) x
+		      GROUP BY s.activity_id, s.project_id) x
 		JOIN activities a ON a.id = x.activity_id AND a.team_id = ?
-		JOIN projects p ON p.id = a.project_id AND p.team_id = ?
+		JOIN projects p ON p.id = COALESCE(x.project_id, a.project_id) AND p.team_id = ?
 		JOIN teams t ON t.id = p.team_id
 		LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		WHERE COALESCE(p.billable, 1) = 1 AND COALESCE(p.billable_rate_cents, 0) > 0 AND p.archived = 0`

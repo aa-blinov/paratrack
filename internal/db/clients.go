@@ -247,7 +247,7 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 		 JOIN teams t ON t.id = p.team_id
 		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		 LEFT JOIN (
-		     SELECT a.project_id AS pid,
+		     SELECT `+sessionProject+` AS pid,
 		            SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
 		                     ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END) AS total_secs,
 		            SUM(CASE WHEN s.invoice_id IS NULL
@@ -257,7 +257,7 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 		     FROM sessions s
 		     JOIN activities a ON a.id = s.activity_id
 		     WHERE s.team_id = ? AND s.end_at IS NOT NULL
-		     GROUP BY a.project_id, a.id
+		     GROUP BY `+sessionProject+`, a.id
 		 ) x ON x.pid = p.id
 		 WHERE p.team_id = ?`,
 		query.TeamID, query.TeamID)

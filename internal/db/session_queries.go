@@ -88,7 +88,7 @@ func (d *DB) ListClosedSessions(ctx context.Context, query appmodel.ClosedSessio
 		args = append(args, *query.ActivityID)
 	}
 	if query.ProjectID != nil {
-		q += ` AND a.project_id = ?`
+		q += ` AND ` + sessionProject + ` = ?`
 		args = append(args, *query.ProjectID)
 	}
 	var sc string
@@ -106,7 +106,7 @@ const sessionSelect = `
 SELECT s.id, s.activity_id, s.team_id, s.user_id, s.start_at, s.end_at, s.note,
        s.paused, s.paused_at, s.accumulated_seconds, s.last_resume_at,
        s.created_at, s.updated_at,
-       a.name AS activity_name, a.project_id AS activity_project_id
+       a.name AS activity_name, ` + sessionProject + ` AS activity_project_id
 FROM sessions s
 JOIN activities a ON a.id = s.activity_id AND a.team_id IS NOT DISTINCT FROM s.team_id`
 
