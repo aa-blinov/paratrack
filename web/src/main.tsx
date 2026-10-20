@@ -22,7 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { loadDictionary, translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
-import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
@@ -50,6 +50,8 @@ const TimesheetPage = lazy(() => import("@/timesheet/timesheet-page").then(modul
 const Payroll = lazy(() => import("@/payroll/payroll-page").then(module => ({ default: module.PayrollPage })))
 const PayrollDetail = lazy(() => import("@/payroll/payroll-page").then(module => ({ default: module.PayrollDetail })))
 const SchedulePage = lazy(() => import("@/schedule/schedule-page").then(module => ({ default: module.SchedulePage })))
+const TasksPage = lazy(() => import("@/tasks/tasks-page").then(module => ({ default: module.TasksPage })))
+const TaskDetailPage = lazy(() => import("@/tasks/task-detail").then(module => ({ default: module.TaskDetailPage })))
 const InvoicesPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoicesPage })))
 const InvoiceDetailPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoiceDetailPage })))
 const InvoiceActPage = lazy(() => import("@/invoices/invoices-page").then(module => ({ default: module.InvoiceActPage })))
@@ -384,6 +386,10 @@ function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap:
               : <Payroll data={data as PayrollData} />
             : "ScheduleReact" in data && data.ScheduleReact
             ? <SchedulePage initial={data as ScheduleData} />
+            : "TasksReact" in data && data.TasksReact
+            ? <TasksPage data={data as TasksData} />
+            : "TaskDetailReact" in data && data.TaskDetailReact
+            ? <TaskDetailPage data={data as TaskDetailData} />
             : "InvoicesReact" in data && data.InvoicesReact
             ? <InvoicesPage data={data as InvoicesData} />
             : (("InvoiceReact" in data && data.InvoiceReact) || ("InvoiceActReact" in data && data.InvoiceActReact))
@@ -468,6 +474,8 @@ function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   if ("TimesheetReact" in data && data.TimesheetReact) return TimesheetPage.preload()
   if ("PayrollReact" in data && data.PayrollReact) return "PayrollDetail" in data && data.PayrollDetail ? PayrollDetail.preload() : Payroll.preload()
   if ("ScheduleReact" in data && data.ScheduleReact) return SchedulePage.preload()
+  if ("TasksReact" in data && data.TasksReact) return TasksPage.preload()
+  if ("TaskDetailReact" in data && data.TaskDetailReact) return TaskDetailPage.preload()
   if ("InvoicesReact" in data && data.InvoicesReact) return InvoicesPage.preload()
   if ("InvoiceActReact" in data && data.InvoiceActReact) return InvoiceActPage.preload()
   if ("InvoiceReact" in data && data.InvoiceReact) return InvoiceDetailPage.preload()

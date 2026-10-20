@@ -44,6 +44,12 @@ type FieldProps = {
   autoFocus?: boolean
   onValueChange?: (iso: string) => void
   /**
+   * Fired when the typed text stops being a date, and again when it becomes
+   * one. An empty value means both "no date" and "a date that could not be
+   * read", so a form that saves on this field needs this to tell them apart.
+   */
+  onBrokenChange?: (broken: boolean) => void
+  /**
    * Fired when the field is done with: blur, Enter, or a day picked from the
    * calendar. The session editor saves on this, exactly as it saved when the
    * native control reported a blur.
@@ -112,7 +118,7 @@ function MonthGrid({ lang, selected, onPick }: { lang: string; selected: string;
 }
 
 function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps }) {
-  const { id, name, defaultValue = "", required, disabled, className, style, ariaLabel, autoFocus, onValueChange, onCommit } = fieldProps
+  const { id, name, defaultValue = "", required, disabled, className, style, ariaLabel, autoFocus, onValueChange, onBrokenChange, onCommit } = fieldProps
   const parse = kind === "date" ? parseDateInput : parseDateTimeInput
   const show = kind === "date" ? formatDate : formatDateTime
 
@@ -235,7 +241,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
           // The text stays put so a half-finished date can be completed, but
           // nothing goes to the form: a value that could not be read must never
           // travel on as an invoice period.
-          setBroken(parsed === null && raw.trim().length > 0)
+          const broken = parsed === null && raw.trim().length > 0
+          setBroken(broken)
+          onBrokenChange?.(broken)
           accept(parsed === null ? "" : parsed)
         }}
         onBlur={() => onCommit?.()}
@@ -272,6 +280,8 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
               : `${day}T${(iso.split("T")[1] || "00:00").slice(0, 5)}`
           accept(next)
           setText(show(next, lang))
+          setBroken(false)
+          onBrokenChange?.(false)
           setOpen(false)
           onCommit?.()
         }}

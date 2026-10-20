@@ -36,6 +36,7 @@ type Dependencies struct {
 	PayrollPaid          PayrollPaymentWorkflow
 	Preferences          PreferenceWorkflow
 	Scheduling           SchedulingWorkflow
+	Tasks                TaskWorkflow
 	Projects             ProjectDependencies
 	Clients              ClientWorkflow
 	ProjectPages         ProjectPageBuilding
@@ -502,6 +503,7 @@ func (s Dependencies) Validate() error {
 		dependency{"payroll payment operations", depcheck.IsNil(s.PayrollPaid)},
 		dependency{"preferences", depcheck.IsNil(s.Preferences)},
 		dependency{"scheduling", depcheck.IsNil(s.Scheduling)},
+		dependency{"tasks", depcheck.IsNil(s.Tasks)},
 		dependency{"project queries", depcheck.IsNil(s.Projects.Queries)},
 		dependency{"project commands", depcheck.IsNil(s.Projects.Commands)},
 		dependency{"project page builder", depcheck.IsNil(s.ProjectPages)},
@@ -530,4 +532,15 @@ func (s Dependencies) validate(required ...dependency) error {
 		}
 	}
 	return nil
+}
+
+// TaskWorkflow is the task board the HTTP adapter drives.
+type TaskWorkflow interface {
+	Create(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
+	Update(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
+	SetStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
+	Archive(ctx context.Context, request appmodel.TaskArchiveRequest) error
+	LinkActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error)
+	List(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
+	Linkable(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
 }

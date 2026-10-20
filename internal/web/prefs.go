@@ -64,6 +64,7 @@ var navItems = []navItem{
 	{"stats", "/stats", "bar-chart-3", "nav.stats", "", false},
 	{"timesheet", "/timesheet", "calendar", "nav.timesheet", "", false},
 	{"projects", "/projects", "folder", "nav.projects", "", false},
+	{"tasks", "/tasks", "list-checks", "nav.tasks", "tasks", false},
 	{"clients", "/clients", "contact", "nav.clients", "", true},
 	{"graph", "/graph", "clock", "nav.graph", "graph", false},
 	{"goals", "/goals", "flag", "nav.goals", "goals", false},

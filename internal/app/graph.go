@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/aa-blinov/paratrack/internal/reminders"
+	"github.com/aa-blinov/paratrack/internal/tasks"
 	"io"
 
 	"github.com/aa-blinov/paratrack/internal/audit"
@@ -70,6 +71,7 @@ type Services struct {
 	Goals                   *goals.Service
 	Webhooks                *webhooks.Service
 	Reminders               *reminders.Service
+	Tasks                   *tasks.Service
 	MailQueue               *mailqueue.Service
 	Resources               io.Closer
 }

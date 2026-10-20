@@ -105,8 +105,8 @@ func TestSectionSaveAuditsOnlyChanges(t *testing.T) {
 	if err := e.db.TestSQL().QueryRowContext(ctx, `SELECT id FROM teams ORDER BY id LIMIT 1`).Scan(&teamID); err != nil {
 		t.Fatalf("load workspace: %v", err)
 	}
-	everything := []string{"graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
-	withoutTags := []string{"graph", "goals", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
+	everything := []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
+	withoutTags := []string{"tasks", "graph", "goals", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
 	save := func(modules []string) string {
 		t.Helper()
 		resp := e.do("POST", "/api/team/modules", url.Values{"modules": modules}, nil)
