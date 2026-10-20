@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Download, Plus } from "lucide-react"
+import { Download, Plus, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,6 +10,49 @@ import type { ImportData } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
 
 const providers = ["toggl", "harvest", "clockify"] as const
+
+// WorkspaceRestore uploads a whole-workspace export. The file goes up as a raw
+// JSON body with the CSRF header; a refused file says why, here, and nothing is
+// written. A restored workspace becomes the current one.
+function WorkspaceRestore({ lang, csrf }: { lang: string; csrf: string }) {
+  const [file, setFile] = React.useState<File | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState("")
+  async function restore(event: React.FormEvent) {
+    event.preventDefault()
+    if (!file) {
+      setError(t(lang, "imp.workspaceNeedFile"))
+      return
+    }
+    setBusy(true)
+    setError("")
+    try {
+      const response = await fetch("/api/workspace/restore", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        body: await file.text(),
+      })
+      const answer = (await response.json().catch(() => ({}))) as { error?: string }
+      if (!response.ok) throw new Error(answer.error || response.statusText)
+      window.location.assign("/")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+      setBusy(false)
+    }
+  }
+  return <Card><CardHeader><CardTitle>{t(lang, "imp.workspaceTitle")}</CardTitle></CardHeader><CardContent className="grid gap-3">
+    <p className="text-sm text-muted-foreground">{t(lang, "imp.workspaceBlurb")}</p>
+    <form onSubmit={event => void restore(event)} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end" aria-label={t(lang, "imp.workspaceTitle")}>
+      <div className="grid min-w-0 gap-1.5">
+        <Label htmlFor="workspace-file" className="text-xs">{t(lang, "imp.workspaceFile")}</Label>
+        <Input id="workspace-file" type="file" accept=".json,application/json" onChange={event => setFile(event.target.files?.[0] ?? null)} />
+      </div>
+      <Button type="submit" disabled={busy}><Upload aria-hidden="true" />{busy ? t(lang, "imp.workspaceUploading") : t(lang, "imp.workspaceRun")}</Button>
+    </form>
+    {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
+  </CardContent></Card>
+}
 
 export function ImportPage({ data }: { data: ImportData }) {
   const lang = data.Lang || "en"
@@ -26,6 +69,7 @@ export function ImportPage({ data }: { data: ImportData }) {
       <div className="grid gap-1.5"><Label htmlFor="import-from">{t(lang, "inv.from")}</Label><DateField id="import-from" name="from" /></div><div className="grid gap-1.5"><Label htmlFor="import-to">{t(lang, "inv.to")}</Label><DateField id="import-to" name="to" /></div>
       <Button type="submit" className="w-fit sm:col-span-2"><Download aria-hidden="true" />{t(lang, "imp.preview")}</Button>
     </form><p className="mt-3 text-xs text-muted-foreground">{t(lang, "imp.hint")}</p></CardContent></Card>
+    <WorkspaceRestore lang={lang} csrf={data.CSRFToken} />
     {data.Entries?.length > 0 && <Card><CardHeader><CardTitle>{t(lang, "imp.previewTitle")} ({data.Entries.length})</CardTitle></CardHeader><CardContent><form method="post" action="/import/run" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="provider" value={data.Provider} /><input type="hidden" name="secret" value={data.Secret} /><input type="hidden" name="extra" value={data.Extra} /><input type="hidden" name="from" value={data.From} /><input type="hidden" name="to" value={data.To} /><input type="hidden" name="tz" value={data.TZ} /><div className="grid gap-2">{data.Entries.map((entry, index) => <div key={`${entry.ExtID}-${index}`} className="grid gap-2 rounded-md border p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto]"><p className="min-w-0 truncate font-medium">{entry.Activity}</p><span className="font-mono text-xs text-muted-foreground">{timeLabel(entry.Start)} – {timeLabel(entry.End)}</span><span className="truncate text-xs text-muted-foreground">{entry.Note}</span></div>)}</div><Button type="submit" className="w-fit"><Plus aria-hidden="true" />{t(lang, "imp.run")} ({data.Entries.length})</Button></form></CardContent></Card>}
   </main>
 }

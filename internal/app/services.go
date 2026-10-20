@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/aa-blinov/paratrack/internal/reminders"
 	"github.com/aa-blinov/paratrack/internal/tasks"
+	"github.com/aa-blinov/paratrack/internal/workspacefile"
 	"sync"
 	"time"
 
@@ -217,6 +218,10 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, err
 	}
+	workspaceFileService, err := workspacefile.New(database)
+	if err != nil {
+		return nil, err
+	}
 	integrationService, err := integrations.New(integrations.Dependencies{
 		Manager: database, Catalog: database, Tasks: database, SyncStarter: database,
 		Audit: auditService, Logger: logger,
@@ -284,6 +289,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Scheduling:              schedulingService,
 		Reminders:               reminderService,
 		Tasks:                   taskService,
+		WorkspaceFile:           workspaceFileService,
 		Projects:                projectService,
 		Clients:                 shared.Clients,
 		ProjectPages:            projectPageBuilder,

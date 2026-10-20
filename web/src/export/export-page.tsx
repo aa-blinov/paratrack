@@ -30,6 +30,7 @@ export function ExportPage({ data }: { data: ExportData }) {
           <div className="flex flex-wrap items-center gap-3"><Button type="submit"><Download aria-hidden="true" />{t(lang, "export.download")}</Button><span className="font-mono text-sm text-muted-foreground">paratrack.csv</span></div>
         </form>
       </CardContent></Card>
+      {data.CanExportWorkspace && <Card><CardHeader><CardTitle>{t(lang, "export.workspace")}</CardTitle></CardHeader><CardContent className="grid justify-items-start gap-3"><p className="text-sm text-muted-foreground">{t(lang, "export.workspaceHint")}</p><Button asChild><a href="/export/workspace.json" download><Download aria-hidden="true" />{t(lang, "export.workspaceDownload")}</a></Button></CardContent></Card>}
       <Card><CardHeader><CardTitle>{t(lang, "export.summary")}</CardTitle></CardHeader><CardContent className="grid justify-items-start gap-3"><p className="text-sm text-muted-foreground">{t(lang, "export.summaryHint")}</p>{data.CanManage === false ? <p className="text-sm text-muted-foreground">{t(lang, "export.reportsRestricted")}</p> : data.ReportsEnabled ? <Button asChild variant="outline"><a href="/reports"><BarChart3 aria-hidden="true" />{t(lang, "export.chooseReport")}</a></Button> : <><p className="text-sm text-muted-foreground">{t(lang, "export.reportsOff")}</p><Button asChild variant="outline"><a href="/settings/sections"><Settings aria-hidden="true" />{t(lang, "export.enableReports")}</a></Button></>}</CardContent></Card>
     </div>
   </main>

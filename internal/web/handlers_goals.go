@@ -196,7 +196,8 @@ func periodRangeLabel(period string, lang i18n.Lang) string {
 
 type exportPage struct {
 	pageData
-	ReportsEnabled bool
+	ReportsEnabled     bool
+	CanExportWorkspace bool
 }
 
 // countRunning counts the timers that are ticking (not paused).
