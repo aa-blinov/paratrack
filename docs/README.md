@@ -18,7 +18,7 @@ works on the product. The documents of the house standard are in English.
 | [research/studio-interviews.md](research/studio-interviews.md) | The interview notes the product decisions are waiting on. |
 | [integration-favicon-sources.md](integration-favicon-sources.md) | Where the bundled favicons of the marketplace come from. |
 | [screenshots/README.md](screenshots/README.md) | The screenshots of the application, and where each one came from. |
-| [index.html](index.html) | The landing page. |
+| [index.html](../site/index.html) | The landing page. |
 | [../README.md](../README.md) | The front door: what it does and how to run it. |
 | [../AGENTS.md](../AGENTS.md) | The commands, the layout of the repository and the traps. |
 | [../PRODUCT.md](../PRODUCT.md) | The product truth of the repository: the users, the constraints, the principles. |
