@@ -116,7 +116,11 @@ func csrfProtect(next http.Handler) http.Handler {
 func limitRequestBody(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Body != nil && r.Body != http.NoBody {
-			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBody)
+			limit := int64(maxRequestBody)
+			if r.URL.Path == workspaceRestorePath {
+				limit = maxWorkspaceRestore
+			}
+			r.Body = http.MaxBytesReader(w, r.Body, limit)
 		}
 		next.ServeHTTP(w, r)
 	})

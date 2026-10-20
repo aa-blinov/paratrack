@@ -127,6 +127,7 @@ func main() {
 			Preferences:        services.Preferences,
 			Scheduling:         services.Scheduling,
 			Tasks:              services.Tasks,
+			WorkspaceFile:      services.WorkspaceFile,
 			Projects:           web.ProjectDependencies{Queries: services.Projects, Commands: services.Projects},
 			Clients:            services.Clients,
 			ProjectPages:       services.ProjectPages,

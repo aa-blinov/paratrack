@@ -32,6 +32,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/tasks/{id}/archive", s.module("tasks", s.handleTaskArchive))
 	api("POST", "/api/tasks/{id}/restore", s.module("tasks", s.handleTaskRestore))
 	api("POST", "/api/tasks/import/github", s.module("tasks", s.manage(s.handleTasksImportGitHub)))
+	api("POST", workspaceRestorePath, s.module("import", s.handleWorkspaceRestore))
 	api("POST", "/api/tasks/{id}/activities", s.module("tasks", s.handleTaskActivity))
 	api("GET", "/api/tasks/{id}/linkable", s.module("tasks", s.handleTaskLinkable))
 	api("GET", "/api/goals", s.module("goals", s.handleGoalsList))
@@ -94,6 +95,9 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("DELETE", "/api/v1/sessions/{id}", s.handleAPIv1Session)
 	api("GET", "/api/v1/projects", s.handleAPIv1Projects)
 	api("GET", "/api/v1/reports/summary", s.handleAPIv1Report)
+	api("GET", "/api/v1/clients", s.handleAPIv1Clients)
+	api("GET", "/api/v1/tags", s.handleAPIv1Tags)
+	api("GET", "/api/v1/tasks", s.module("tasks", s.handleAPIv1Tasks))
 
 	// Every api registration above passes through apiAuth.
 }

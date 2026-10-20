@@ -2,18 +2,23 @@ package web
 
 import (
 	"encoding/csv"
+	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	data := &exportPage{
-		pageData:       pageData{Title: "Export", Active: "export", ReactApp: true},
-		ReportsEnabled: s.teamModules(r)["reports"],
+		pageData:           pageData{Title: "Export", Active: "export", ReactApp: true},
+		ReportsEnabled:     s.teamModules(r)["reports"],
+		CanExportWorkspace: canManage(r),
 	}
 	s.renderPageForRequest(w, r, "Export", "export", data)
 }
@@ -69,4 +74,42 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	csvWriter.Flush()
+}
+
+// handleWorkspaceExport sends the whole workspace as one JSON file: the people,
+// the work, the money and the plans, without secrets. Only owners and admins get
+// it, because the file carries every member's rates and every invoice. The
+// export is written to the audit log.
+func (s *Server) handleWorkspaceExport(w http.ResponseWriter, r *http.Request) {
+	export, body, err := s.services.WorkspaceFile.Export(r.Context(), appmodel.WorkspaceExportRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r),
+	})
+	if err != nil {
+		if errors.Is(err, model.ErrForbidden) {
+			http.Error(w, i18n.T(resolveLang(r), "err.managersOnly"), http.StatusForbidden)
+			return
+		}
+		s.writeInternalError(w, err)
+		return
+	}
+	s.audit(r, "workspace.export", export.Team.Slug, "")
+	name := fmt.Sprintf("paratrack-%s-%s.json", fileSlug(export.Team.Slug), export.ExportedAt.Format("2006-01-02"))
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write(body)
+}
+
+// fileSlug keeps the characters a file name can carry from a workspace slug.
+func fileSlug(slug string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(slug) {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		}
+	}
+	if b.Len() == 0 {
+		return "workspace"
+	}
+	return b.String()
 }

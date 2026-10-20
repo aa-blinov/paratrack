@@ -216,6 +216,7 @@ jobs:
           python e2e/test_tasks.py 2>&1 | tee /tmp/e2e-tasks.log
           python e2e/test_revoke.py 2>&1 | tee /tmp/e2e-revoke.log
           python e2e/test_invite_link_actions.py 2>&1 | tee /tmp/e2e-invites.log
+          python e2e/test_workspace_move.py 2>&1 | tee /tmp/e2e-move.log
           python e2e/qa_full.py 2>&1 | tee /tmp/e2a-full.log
           # The phone shell. It was written and then never wired here, so it
           # drifted for as long as it sat unused — it still pointed at a class
