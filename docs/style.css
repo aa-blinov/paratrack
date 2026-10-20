@@ -1,0 +1,689 @@
+/* The house style for a landing page.
+ *
+ * One stylesheet, one set of tokens, one class vocabulary. A site that
+ * invents its own names is a site the next person cannot restyle.
+ *
+ * The tokens are the ones in the house standard's DESIGN.md: warm ground,
+ * warm ink, and three functional colours that only ever mean something.
+ */
+
+:root {
+  --bg: #1d2021;
+  --surface: #282828;
+  --surface-deep: #3c3836;
+  --fg: #ebdbb2;
+  --muted: #a89984;
+  --faint: #928374;
+  --rule: #504945;
+  --control: #928374;
+  --ring: #ebdbb2;
+  --ok: #b8bb26;
+  --danger: #ff8a7a;
+  --info: #83a598;
+
+  --radius: 6px;
+  --gap-xs: 4px;
+  --gap-sm: 8px;
+  --gap-md: 16px;
+  --gap-lg: 24px;
+  --gap-xl: 40px;
+
+  --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --wrap: 1080px;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #fbf1c7;
+    --surface: #f2e5bc;
+    --surface-deep: #ebdbb2;
+    --fg: #3c3836;
+    --muted: #665c54;
+    --faint: #928374;
+    --rule: #d5c4a1;
+    --control: #928374;
+    --ring: #3c3836;
+    --ok: #5f5f0e;
+    --danger: #cc241d;
+    --info: #076678;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+a {
+  color: var(--fg);
+  text-decoration-color: var(--faint);
+  text-underline-offset: 3px;
+}
+
+a:hover {
+  text-decoration-color: var(--fg);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+code,
+kbd,
+pre,
+.mono {
+  font-family: var(--mono);
+}
+
+code {
+  font-size: 0.9em;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 0.1em 0.35em;
+}
+
+pre {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--gap-md);
+  overflow-x: auto;
+  font-size: 0.85rem;
+  line-height: 1.55;
+}
+
+pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+}
+
+kbd {
+  display: inline-block;
+  padding: 2px 6px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  color: var(--fg);
+  background: var(--surface-deep);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin-inline: auto;
+  padding-inline: var(--gap-lg);
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  background: var(--surface);
+  color: var(--fg);
+  padding: var(--gap-sm) var(--gap-md);
+  border-radius: 0 0 var(--radius) 0;
+  z-index: 10;
+}
+
+.skip-link:focus {
+  left: 0;
+}
+
+/* -- header -------------------------------------------------------------- */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-lg);
+  min-height: 56px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-sm);
+  font-family: var(--mono);
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--fg);
+}
+
+.brand-mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: var(--gap-md);
+  margin-left: auto;
+  font-size: 0.9rem;
+}
+
+.site-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.site-nav a:hover {
+  color: var(--fg);
+}
+
+.header-github {
+  font-size: 0.9rem;
+  padding: var(--gap-xs) var(--gap-md);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--fg);
+}
+
+.header-github:hover {
+  border-color: var(--fg);
+}
+
+@media (max-width: 720px) {
+  .site-nav {
+    display: none;
+  }
+}
+
+/* -- hero ---------------------------------------------------------------- */
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: var(--gap-xl);
+  align-items: center;
+  padding-block: var(--gap-xl) var(--gap-lg);
+}
+
+.hero-copy h1 {
+  margin: 0 0 var(--gap-md);
+  font-size: clamp(1.9rem, 1.2rem + 2.4vw, 3rem);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+
+.lede {
+  margin: 0 0 var(--gap-lg);
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 1.05rem;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-sm);
+  margin-bottom: var(--gap-md);
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 0 var(--gap-lg);
+  background: var(--fg);
+  color: var(--bg);
+  border: 1px solid var(--fg);
+  border-radius: var(--radius);
+  font-size: 0.92rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 200ms, color 200ms;
+}
+
+.button:hover {
+  background: var(--surface-deep);
+  color: var(--fg);
+}
+
+.button-ghost {
+  background: transparent;
+  color: var(--fg);
+  border-color: var(--rule);
+}
+
+.button-ghost:hover {
+  border-color: var(--fg);
+  background: transparent;
+}
+
+.fine {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 860px) {
+  .hero {
+    grid-template-columns: 1fr;
+    gap: var(--gap-lg);
+  }
+}
+
+/* -- sections ------------------------------------------------------------ */
+
+.section {
+  padding-block: var(--gap-lg);
+  border-top: 1px solid var(--rule);
+}
+
+.section h2 {
+  margin: 0 0 var(--gap-md);
+  font-size: 1.4rem;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+
+.section h3 {
+  margin: var(--gap-lg) 0 var(--gap-sm);
+  font-size: 1.05rem;
+}
+
+.section p {
+  max-width: 70ch;
+  color: var(--muted);
+}
+
+.section p strong,
+.section li strong {
+  color: var(--fg);
+}
+
+.section ul {
+  max-width: 70ch;
+  color: var(--muted);
+  padding-left: 1.2em;
+}
+
+.section li {
+  margin-bottom: var(--gap-xs);
+}
+
+/* A rail inside a section. The list rules above are more specific than the
+   rail rules, so without this the rail is indented and capped. */
+.section .rail {
+  max-width: none;
+  padding-left: 0;
+}
+
+.rail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--gap-lg);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A section that comes in when it scrolls into view. The rule is scoped to
+   the js class, so a page whose script did not load shows everything. */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 400ms ease, transform 400ms ease;
+}
+
+.js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.rail h3 {
+  margin: 0 0 var(--gap-sm);
+  font-size: 1rem;
+}
+
+.rail p {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+/* -- tables -------------------------------------------------------------- */
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+th,
+td {
+  text-align: left;
+  padding: var(--gap-sm) var(--gap-md);
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}
+
+th {
+  color: var(--fg);
+  font-weight: 600;
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+td code {
+  white-space: nowrap;
+}
+
+/* -- status -------------------------------------------------------------- */
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px var(--gap-sm);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tag-ok {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.tag-warn {
+  color: var(--info);
+  border-color: var(--info);
+}
+
+.tag-bad {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+/* -- figures ------------------------------------------------------------- */
+
+figure {
+  margin: 0;
+}
+
+figcaption {
+  margin-top: var(--gap-sm);
+  color: var(--faint);
+  font-size: 0.85rem;
+}
+
+.shot {
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* -- footer -------------------------------------------------------------- */
+
+.site-footer {
+  margin-top: var(--gap-xl);
+  border-top: 1px solid var(--rule);
+  padding-block: var(--gap-lg);
+  color: var(--faint);
+  font-size: 0.88rem;
+}
+
+.footer-inner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-md);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap-md);
+}
+
+.footer-nav a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.footer-nav a:hover {
+  color: var(--fg);
+}
+
+/* -- the site's own rules ------------------------------------------------ */
+/* Everything below is specific to the paratrack landing page. The shared
+   vocabulary is above; the names below are the ones this page adds to it. */
+
+/* The faces the repository ships: Inter for the interface, JetBrains Mono
+   for the figures, Fraunces for the wordmark. The house tokens name a sans
+   and a mono, so the sans token points at the family the page has. */
+@font-face {
+  font-family: "Inter";
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("assets/fonts/inter-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("assets/fonts/jetbrainsmono-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Fraunces";
+  font-weight: 300 900;
+  font-display: swap;
+  src: url("assets/fonts/fraunces-latin.woff2") format("woff2");
+}
+
+:root {
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* The wordmark keeps the face DESIGN.md gives it: Fraunces, the site's
+   wordmark face. */
+.brand {
+  font-family: "Fraunces", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+/* The house .button was written for a link. This page's primary action is
+   a button that copies a command, and a button does not inherit the
+   family's font. */
+button.button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Two ledgers side by side: the timesheet and the invoice draft it feeds. */
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--gap-lg);
+  align-items: start;
+}
+
+.split h3 {
+  margin-top: 0;
+}
+
+/* The two ledgers share one row, so their cells are narrower than the
+   house table: the figures have to fit the column, not the page. */
+.split table {
+  font-size: 0.85rem;
+}
+
+.split th,
+.split td {
+  padding: var(--gap-sm);
+}
+
+.split p.fine {
+  margin-bottom: var(--gap-sm);
+}
+
+.split .table-wrap + p.fine {
+  margin-top: var(--gap-sm);
+}
+
+/* The note under the rail is a separate thought, not a fourth card. */
+.section .rail + p.fine {
+  margin-top: var(--gap-lg);
+}
+
+/* Figures stand in the columns: right aligned, in the mono family, with
+   tabular numerals so the digits line up. */
+.num {
+  text-align: right;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The total row carries the strong rule the ledger has. */
+tfoot th,
+tfoot td {
+  border-top: 2px solid var(--fg);
+  border-bottom: 0;
+  font-weight: 700;
+}
+
+/* The last row of a table is a row header as often as it is a row of
+   figures, and the rule under it is the one the frame already draws. */
+tbody tr:last-child th {
+  border-bottom: 0;
+}
+
+/* The second line of a column header: what the profile brings. */
+th small {
+  display: block;
+  margin-top: var(--gap-xs);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The struck minus of the repository's icon sprite, in an empty cell. */
+.icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.12em;
+  color: var(--faint);
+}
+
+/* The screenshot grid: one wide screen, one phone, three more. */
+.screens {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--gap-lg);
+  align-items: start;
+}
+
+.screens .span-8 {
+  grid-column: span 8;
+}
+
+.screens .span-4 {
+  grid-column: span 4;
+}
+
+/* The phone screen is taller than the desktop ones. The cap keeps the row
+   from opening a hole under the wide screen beside it. */
+.screens .span-4 img {
+  max-height: 30rem;
+  width: auto;
+  margin-inline: auto;
+}
+
+/* A label only the screen readers need. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+@media (max-width: 860px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .screens {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .screens .span-8,
+  .screens .span-4 {
+    grid-column: 1 / -1;
+  }
+}
