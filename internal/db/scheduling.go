@@ -510,7 +510,7 @@ func (d *DB) TrackedMinutesForProject(ctx context.Context, teamID, projectID int
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT s.user_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
 		 FROM sessions s JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
-		 WHERE s.team_id = ? AND a.project_id = ?`,
+		 WHERE s.team_id = ? AND `+sessionProject+` = ?`,
 		teamID, projectID)
 	if err != nil {
 		return nil, fmt.Errorf("read project sessions: %w", err)

@@ -1,0 +1,48 @@
+schema: spec-driven
+
+# Project context: constraints an agent cannot infer from the code.
+context: |
+  Paratrack is time tracking, projects, clients, invoices and payouts for small
+  teams, built as a functional analogue of Bitrix24 for CRM, time and projects.
+  It is not a copy of Bitrix24: no import from it, no copying its UI or data.
+  Stack: Go server in internal/, React UI in web/src built into
+  internal/web/static/ui (the bundle is committed), Postgres, Playwright e2e in e2e/.
+  Writes and reads of the product backlog use docs/backlog/*.md with stable ids
+  (TIME-01, FIN-02, ...). A change that closes a backlog item marks it [x] in the
+  same commit with the date.
+  Work lands on master. Commit and push only when the user asks; after every push
+  watch the GitHub Actions run to green (gh run watch) and fix a red run before
+  reporting done.
+  Deploy to production only on an explicit user word for each release. Never write
+  to production data. Production is paratrack.duckdns.org; QA stand is
+  127.0.0.1:8890, started with scripts/qa-env.sh up.
+  Middot "·" in invoice line labels is document text: OverlappingInvoices and the
+  stampLegacyInvoices migration match on it. Do not change its separator.
+  Dates: never use input type=date or datetime-local; use DateField or DateTimeField
+  from web/src/components/date-field.tsx. Tests for date parsing: npm run test:unit in web/.
+  Approved timesheet weeks lock edits for members; payouts are computed only from
+  approved weeks.
+  Go tests run through scripts/test.sh against a throwaway Postgres; architecture
+  guards run from scripts/check-architecture.sh and need rg on PATH.
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing

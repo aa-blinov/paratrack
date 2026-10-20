@@ -51,7 +51,7 @@ func (d *DB) ListTimesheet(ctx context.Context, request appmodel.TimesheetReques
 	weekEnd := request.WeekStart.AddDate(0, 0, 7)
 	query := `
 		SELECT s.activity_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at,
-		       a.name, a.project_id
+		       a.name, ` + sessionProject + `
 		FROM sessions s
 		JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
 		WHERE s.start_at < ?
@@ -310,7 +310,7 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 	// One sheet session 09:00 → 09:00+total.
 	start := dayStart.Add(9 * time.Hour)
 	end := start.Add(time.Duration(totalSecs) * time.Second)
-	if _, err := insertClosedSessionTx(ctx, tx, teamID, activityID, start, end, "timesheet"); err != nil {
+	if _, err := insertClosedSessionTx(ctx, tx, teamID, activityID, start, end, "timesheet", 0); err != nil {
 		return err
 	}
 	return tx.Commit()

@@ -31,8 +31,11 @@ type SessionUpdate struct {
 	StartAt            *time.Time
 	EndAt              *time.Time
 	AccumulatedSeconds *int
-	Note               string
-	UpdatedAt          time.Time
+	// ProjectID changes the session's own project. Nil keeps it; zero returns the
+	// session to its activity's project.
+	ProjectID *int64
+	Note      string
+	UpdatedAt time.Time
 }
 
 // InvoiceOptions are creation-time metadata saved with an invoice.

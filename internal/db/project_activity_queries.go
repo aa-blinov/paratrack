@@ -46,11 +46,11 @@ func (d *DB) ProjectSpans(ctx context.Context, query appmodel.ProjectSpansQuery)
 	if query.TeamID <= 0 || query.From.IsZero() || query.Through.Before(query.From) {
 		return nil, ErrNotFound
 	}
-	q := `SELECT a.project_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused
+	q := `SELECT ` + sessionProject + `, s.start_at, s.end_at, s.accumulated_seconds, s.paused
 		FROM sessions s
 		JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
-		JOIN projects p ON p.id = a.project_id AND p.team_id = s.team_id
-		WHERE s.team_id = ? AND a.project_id IS NOT NULL AND s.end_at IS NOT NULL
+		JOIN projects p ON p.id = ` + sessionProject + ` AND p.team_id = s.team_id
+		WHERE s.team_id = ? AND ` + sessionProject + ` IS NOT NULL AND s.end_at IS NOT NULL
 		  AND s.start_at <= ? AND s.end_at >= ?`
 	args := []any{query.TeamID, FormatTime(query.Through), FormatTime(query.From)}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
@@ -114,8 +114,8 @@ func (d *DB) ProjectSessions(ctx context.Context, query appmodel.ProjectActivity
 		return nil, ErrNotFound
 	}
 	q := sessionSelect + `
-	JOIN projects p ON p.id = a.project_id AND p.team_id = s.team_id
-		WHERE s.team_id = ? AND a.team_id = s.team_id AND p.team_id = s.team_id AND a.project_id = ?
+	JOIN projects p ON p.id = ` + sessionProject + ` AND p.team_id = s.team_id
+		WHERE s.team_id = ? AND a.team_id = s.team_id AND p.team_id = s.team_id AND ` + sessionProject + ` = ?
 		  AND s.end_at IS NOT NULL AND s.start_at <= ? AND s.end_at >= ?`
 	args := []any{query.TeamID, query.ProjectID, FormatTime(query.Through), FormatTime(query.From)}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
@@ -137,8 +137,8 @@ func (d *DB) ProjectTrackedTotal(ctx context.Context, query appmodel.ProjectScop
 		       ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END), 0)::bigint
 		FROM sessions s
 		JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
-		JOIN projects p ON p.id = a.project_id AND p.team_id = s.team_id
-		WHERE s.team_id = ? AND a.project_id = ? AND s.end_at IS NOT NULL`
+		JOIN projects p ON p.id = ` + sessionProject + ` AND p.team_id = s.team_id
+		WHERE s.team_id = ? AND ` + sessionProject + ` = ? AND s.end_at IS NOT NULL`
 	args := []any{query.TeamID, query.ProjectID}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
 	var total int64

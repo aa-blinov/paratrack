@@ -248,6 +248,16 @@ func (s *Server) writeSessionLockConflict(w http.ResponseWriter, r *http.Request
 		}
 		return true
 	}
+	if errors.Is(err, model.ErrAlreadyBilled) {
+		msg := i18n.T(resolveLang(r), "ts.projectLockedByInvoice")
+		s.toast(w, msg, "error")
+		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: msg})
+		} else {
+			http.Error(w, msg, http.StatusConflict)
+		}
+		return true
+	}
 	var lockErr *model.SessionInvoiceLockError
 	if !errors.As(err, &lockErr) {
 		return false

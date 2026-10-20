@@ -20,6 +20,7 @@ const (
 	invalidSessionUpdateBadStart    invalidSessionUpdateError = "bad start"
 	invalidSessionUpdateBadEnd      invalidSessionUpdateError = "bad end"
 	invalidSessionUpdateBadDuration invalidSessionUpdateError = "bad duration"
+	invalidSessionUpdateBadProject  invalidSessionUpdateError = "bad project"
 )
 
 func (e invalidSessionUpdateError) Error() string { return string(e) }
@@ -36,6 +37,8 @@ func sessionUpdateClientError(err invalidSessionUpdateError) (message, translati
 		return string(err), "err.sessionBadEnd"
 	case invalidSessionUpdateBadDuration:
 		return string(err), "err.sessionBadDuration"
+	case invalidSessionUpdateBadProject:
+		return string(err), "err.invalidInput"
 	default:
 		return "invalid form", "err.invalidInput"
 	}
@@ -84,6 +87,20 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 	} else if endStr != "" {
 		request.RecomputeDuration = true
 	}
+	// A project is changed only when the form carries the field; an empty value
+	// returns the session to its activity's project.
+	if r.Form.Has("project_id") {
+		project := int64(0)
+		if raw := strings.TrimSpace(r.FormValue("project_id")); raw != "" {
+			parsed, err := parseID(raw)
+			if err != nil || parsed <= 0 {
+				return 0, invalidSessionUpdateBadProject
+			}
+			project = parsed
+		}
+		update.ProjectID = &project
+	}
+	request.IP = clientIP(r)
 	request.Update = update
 	if err := s.services.Tracking.Commands.UpdateFields(r.Context(), request); err != nil {
 		return 0, err

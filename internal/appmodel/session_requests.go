@@ -70,5 +70,8 @@ type SessionUpdateRequest struct {
 	// RecomputeDuration derives the tracked duration from the resulting start
 	// and end values after persistence locks and loads the current session.
 	RecomputeDuration bool
-	Update            SessionUpdate
+	// IP is the client address of the request. It goes into the audit row of each
+	// changed field, written in the same transaction as the edit.
+	IP     string
+	Update SessionUpdate
 }
