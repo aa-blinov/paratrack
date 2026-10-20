@@ -385,13 +385,21 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
         })}
       </div>
 
-      {canEdit && <div className="grid gap-2 min-[68.75rem]:hidden">
+      {canEdit && <div className="grid gap-3 min-[68.75rem]:hidden">
         {data.People.map(person => {
-          const adder = addProjectSelect(person, linesOf(person))
-          return adder ? <div key={person.UserID} className="flex items-center justify-between gap-2">
+          const lines = linesOf(person)
+          const adder = addProjectSelect(person, lines)
+          // A line with no hours can be taken off here; one with hours cannot.
+          const empty = lines.filter(line => line.CanEdit && line.TotalMin === 0)
+          if (!adder && empty.length === 0) return null
+          return <div key={person.UserID} className="grid gap-2">
             <span className="min-w-0 truncate text-sm font-medium" title={person.UserName}>{person.UserName}</span>
+            {empty.map(line => <div key={line.ProjectID} className="flex items-center justify-between gap-2 text-sm">
+              <span className="min-w-0 truncate">{line.ProjectName}</span>
+              <Button type="button" variant="ghost" size="sm" disabled={saving !== null} onClick={() => void removeLine(person, line)}>{t(lang, "sch.removeLine")}</Button>
+            </div>)}
             {adder}
-          </div> : null
+          </div>
         })}
       </div>}
 
