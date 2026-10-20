@@ -1,5 +1,5 @@
 import * as React from "react"
-import { ArrowLeft, Archive, Plus } from "lucide-react"
+import { ArrowLeft, Archive, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -92,6 +92,13 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
     })
   }
 
+  function restore() {
+    void run(async () => {
+      await post(`/api/tasks/${task.ID}/restore`, data.CSRFToken, {})
+      window.location.reload()
+    })
+  }
+
   return <main className="mx-auto w-full max-w-3xl space-y-6">
     <a href="/tasks" className="inline-flex items-center gap-1 text-sm text-muted-foreground underline-offset-4 hover:underline"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "tasks.back")}</a>
 
@@ -100,24 +107,28 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
       <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
     </header>
 
+    {task.Archived && <div role="status" className="flex flex-wrap items-center justify-between gap-3 rounded-md border p-3 text-sm">
+      <span>{t(lang, "tasks.archivedNotice")}</span>
+      {task.CanArchive && <Button type="button" variant="outline" onClick={restore}><RotateCcw aria-hidden="true" />{t(lang, "tasks.restore")}</Button>}
+    </div>}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {saved && !error && <p role="status" className="text-sm text-muted-foreground">{t(lang, "tasks.saved")}</p>}
 
     <form onSubmit={save} className="grid gap-4 sm:grid-cols-2" aria-label={t(lang, "tasks.cardTitle")}>
       <div className="grid gap-1.5 sm:col-span-2">
         <Label htmlFor="task-title">{t(lang, "tasks.name")}</Label>
-        <Input id="task-title" value={title} onChange={event => setTitle(event.target.value)} required maxLength={200} />
+        <Input id="task-title" value={title} onChange={event => setTitle(event.target.value)} required maxLength={200} disabled={task.Archived} />
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="task-status">{t(lang, "tasks.status")}</Label>
-        <Select value={status} onValueChange={changeStatus}>
+        <Select value={status} onValueChange={changeStatus} disabled={task.Archived}>
           <SelectTrigger id="task-status" className="w-full"><SelectValue /></SelectTrigger>
           <SelectContent>{statuses.map(option => <SelectItem key={option} value={option}>{t(lang, `tasks.${option}`)}</SelectItem>)}</SelectContent>
         </Select>
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="task-assignee">{t(lang, "tasks.assignee")}</Label>
-        <Select value={assignee} onValueChange={setAssignee}>
+        <Select value={assignee} onValueChange={setAssignee} disabled={task.Archived}>
           <SelectTrigger id="task-assignee" className="w-full"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={noPerson}>{t(lang, "tasks.nobody")}</SelectItem>
@@ -127,17 +138,17 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="task-due">{t(lang, "tasks.due")}</Label>
-        <DateField id="task-due" name="due" defaultValue={task.Due} onValueChange={setDue} onBrokenChange={setDueBroken} />
+        <DateField id="task-due" name="due" defaultValue={task.Due} onValueChange={setDue} onBrokenChange={setDueBroken} disabled={task.Archived} />
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="task-estimate">{t(lang, "tasks.estimate")}</Label>
-        <Input id="task-estimate" type="number" min={0} step={30} inputMode="numeric" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder="480" />
+        <Input id="task-estimate" type="number" min={0} step={30} inputMode="numeric" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder="480" disabled={task.Archived} />
       </div>
       <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t(lang, "tasks.tracked")}: <span className="font-mono text-foreground">{task.TrackedLabel}</span></p>
         <div className="flex gap-2">
-          {task.CanArchive && <Button type="button" variant="ghost" onClick={archive}><Archive aria-hidden="true" />{t(lang, "tasks.archive")}</Button>}
-          <Button type="submit">{t(lang, "projects.save")}</Button>
+          {!task.Archived && task.CanArchive && <Button type="button" variant="ghost" onClick={archive}><Archive aria-hidden="true" />{t(lang, "tasks.archive")}</Button>}
+          {!task.Archived && <Button type="submit">{t(lang, "projects.save")}</Button>}
         </div>
       </div>
     </form>
@@ -150,7 +161,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
         </li>)}
       </ul>}
 
-      <Card><CardContent className="grid gap-4 p-4">
+      {!task.Archived && <Card><CardContent className="grid gap-4 p-4">
         <form onSubmit={event => { event.preventDefault(); void addActivity(newName.trim(), "") }} className="grid gap-2">
           <Label htmlFor="task-activity-name">{t(lang, "tasks.addActivity")}</Label>
           <div className="flex gap-2">
@@ -168,7 +179,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
             <Button type="submit" disabled={!linkID}>{t(lang, "tasks.linkExisting")}</Button>
           </div>
         </form>}
-      </CardContent></Card>
+      </CardContent></Card>}
     </section>
   </main>
 }

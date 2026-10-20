@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Archive, Plus } from "lucide-react"
+import { Archive, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -42,12 +42,13 @@ export function TasksPage({ data }: { data: TasksData }) {
   const [adding, setAdding] = React.useState(false)
   const [estimate, setEstimate] = React.useState("")
   const [creating, setCreating] = React.useState(false)
+  const archivedView = data.View === "archive"
 
   async function run(action: () => Promise<void>) {
     setError("")
     try {
       await action()
-      const response = await fetch(`/api/tasks?project=${data.ProjectID}`, { credentials: "same-origin", headers: { Accept: "application/json" } })
+      const response = await fetch(`/api/tasks?project=${data.ProjectID}${archivedView ? "&archived=1" : ""}`, { credentials: "same-origin", headers: { Accept: "application/json" } })
       const body = (await response.json()) as { tasks: TaskItem[] }
       setTasks(body.tasks)
     } catch (cause) {
@@ -66,6 +67,10 @@ export function TasksPage({ data }: { data: TasksData }) {
 
   function archive(task: TaskItem) {
     void run(() => post(`/api/tasks/${task.ID}/archive`, data.CSRFToken, {}))
+  }
+
+  function restore(task: TaskItem) {
+    void run(() => post(`/api/tasks/${task.ID}/restore`, data.CSRFToken, {}))
   }
 
   async function create(event: React.FormEvent) {
@@ -107,6 +112,7 @@ export function TasksPage({ data }: { data: TasksData }) {
       <nav className="flex items-center gap-1" aria-label={t(lang, "tasks.title")}>
         <Button asChild variant={data.View === "table" ? "secondary" : "ghost"} size="sm"><a href={viewHref("table")} aria-current={data.View === "table" ? "page" : undefined}>{t(lang, "tasks.table")}</a></Button>
         <Button asChild variant={data.View === "board" ? "secondary" : "ghost"} size="sm"><a href={viewHref("board")} aria-current={data.View === "board" ? "page" : undefined}>{t(lang, "tasks.board")}</a></Button>
+        <Button asChild variant={archivedView ? "secondary" : "ghost"} size="sm"><a href={viewHref("archive")} aria-current={archivedView ? "page" : undefined}>{t(lang, "tasks.archiveTab")}</a></Button>
       </nav>
     </header>
 
@@ -123,6 +129,7 @@ export function TasksPage({ data }: { data: TasksData }) {
       </Select>
     </div>
 
+    {!archivedView && <>
     <Button type="button" variant="outline" className="sm:hidden" aria-expanded={adding} aria-controls="new-task-form" onClick={() => setAdding(open => !open)}><Plus aria-hidden="true" />{t(lang, "tasks.new")}</Button>
     <form id="new-task-form" onSubmit={event => void create(event)} className={`${adding ? "grid" : "hidden"} gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_auto] lg:items-end`} aria-label={t(lang, "tasks.new")}>
       <div className="flex min-w-0 flex-col gap-1.5">
@@ -156,10 +163,11 @@ export function TasksPage({ data }: { data: TasksData }) {
       </div>
       <Button type="submit" className="self-end" disabled={creating || !project}><Plus aria-hidden="true" />{t(lang, "tasks.new")}</Button>
     </form>
+    </>}
 
     {tasks.length === 0 ? <Card><CardContent className="py-7 text-center">
-      <p className="font-medium">{t(lang, "tasks.empty")}</p>
-      <p className="mx-auto mt-1 text-sm text-muted-foreground">{t(lang, "tasks.emptyHint")}</p>
+      <p className="font-medium">{archivedView ? t(lang, "tasks.archiveEmpty") : t(lang, "tasks.empty")}</p>
+      <p className="mx-auto mt-1 text-sm text-muted-foreground">{archivedView ? t(lang, "tasks.archiveEmptyHint") : t(lang, "tasks.emptyHint")}</p>
     </CardContent></Card> : data.View === "board" ? (
       <div className="grid gap-4 md:grid-cols-3">
         {statuses.map(status => <section key={status} aria-label={t(lang, `tasks.${status}`)} className="grid content-start gap-2 rounded-lg bg-muted/40 p-3" onDragOver={event => event.preventDefault()} onDrop={() => { const task = tasks.find(item => item.ID === dragging); if (task) changeStatus(task, status); setDragging(null) }}>
@@ -180,6 +188,42 @@ export function TasksPage({ data }: { data: TasksData }) {
           </article>)}
         </section>)}
       </div>
+    ) : archivedView ? (
+      <>
+        <Card className="hidden overflow-hidden md:block">
+          <CardContent className="overflow-x-auto p-0">
+            <table className="w-full min-w-[40rem] border-collapse text-sm">
+              <thead><tr className="border-b text-left text-muted-foreground">
+                <th scope="col" className="px-3 py-2 font-medium">{t(lang, "tasks.title")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t(lang, "tasks.project")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t(lang, "tasks.status")}</th>
+                <th scope="col" className="px-3 py-2 font-medium">{t(lang, "tasks.assignee")}</th>
+                <th scope="col" className="px-3 py-2 text-right font-medium">{t(lang, "tasks.tracked")}</th>
+                <th scope="col" className="px-3 py-2"><span className="sr-only">{t(lang, "tasks.restore")}</span></th>
+              </tr></thead>
+              <tbody>{tasks.map(task => <tr key={task.ID} className="border-b last:border-0">
+                <td className="px-3 py-2"><a href={`/tasks/${task.ID}`} className="font-medium underline-offset-4 hover:underline">{task.Title}</a></td>
+                <td className="px-3 py-2">{task.ProjectName}</td>
+                <td className="px-3 py-2">{t(lang, `tasks.${task.Status}`)}</td>
+                <td className="px-3 py-2">{task.AssigneeName || t(lang, "tasks.nobody")}</td>
+                <td className="px-3 py-2 text-right font-mono tabular-nums">{task.TrackedLabel}</td>
+                <td className="px-3 py-2 text-right">{task.CanArchive && <Button type="button" variant="outline" size="sm" onClick={() => restore(task)}><RotateCcw aria-hidden="true" />{t(lang, "tasks.restore")}</Button>}</td>
+              </tr>)}</tbody>
+            </table>
+          </CardContent>
+        </Card>
+        <div className="grid gap-2 md:hidden">
+          {tasks.map(task => <Card key={task.ID}><CardContent className="grid gap-2 p-3 text-sm">
+            <a href={`/tasks/${task.ID}`} className="font-medium underline-offset-4 hover:underline">{task.Title}</a>
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-2"><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: task.ProjectColor }} />{task.ProjectName}</span>
+              <span>{t(lang, `tasks.${task.Status}`)}</span>
+              {task.TrackedLabel && <span className="font-mono">{task.TrackedLabel}</span>}
+            </span>
+            {task.CanArchive && <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => restore(task)}><RotateCcw aria-hidden="true" />{t(lang, "tasks.restore")}</Button>}
+          </CardContent></Card>)}
+        </div>
+      </>
     ) : <>
       <Card className="hidden overflow-hidden md:block">
         <CardContent className="overflow-x-auto p-0">
@@ -244,6 +288,6 @@ export function TasksPage({ data }: { data: TasksData }) {
       </div>
     </>}
 
-    <p className="text-sm text-muted-foreground">{t(lang, "tasks.hint")}</p>
+    {!archivedView && <p className="text-sm text-muted-foreground">{t(lang, "tasks.hint")}</p>}
   </main>
 }
