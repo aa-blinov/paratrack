@@ -62,6 +62,10 @@ func (d *DB) importEntries(ctx context.Context, teamID, callerID int64, provider
 		if err != nil {
 			return result, fmt.Errorf("resolve imported activities: %w", err)
 		}
+		accepted, result.ArchivedSkipped, err = dropArchivedActivityEntries(ctx, tx, teamID, accepted, activityIDs)
+		if err != nil {
+			return result, fmt.Errorf("check archived activities: %w", err)
+		}
 		result.Imported, err = insertImportedSessions(ctx, tx, teamID, callerID, accepted, activityIDs)
 		if err != nil {
 			return result, fmt.Errorf("create imported sessions: %w", err)
@@ -167,6 +171,48 @@ func (d *DB) ensureImportActivities(ctx context.Context, tx *Tx, teamID int64, e
 		}
 	}
 	return activityIDs, nil
+}
+
+// dropArchivedActivityEntries removes the entries that would land on an activity
+// an archived task holds: such a task takes no new time, and imported history is
+// new time on its activities too. It returns the entries kept and how many were
+// dropped.
+func dropArchivedActivityEntries(ctx context.Context, tx *Tx, teamID int64, entries []importport.ImportedEntry, activityIDs map[string]int64) ([]importport.ImportedEntry, int, error) {
+	ids := make([]int64, 0, len(activityIDs))
+	for _, id := range activityIDs {
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return entries, 0, nil
+	}
+	rows, err := tx.QueryContext(ctx,
+		`SELECT a.id FROM activities a JOIN tasks t ON t.id = a.task_id
+		 WHERE a.team_id = ? AND t.archived = 1 AND a.id = ANY(?::bigint[])`, teamID, ids)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	archived := make(map[int64]bool)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, 0, err
+		}
+		archived[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	kept := make([]importport.ImportedEntry, 0, len(entries))
+	dropped := 0
+	for _, entry := range entries {
+		if archived[activityIDs[strings.ToLower(strings.TrimSpace(entry.Activity))]] {
+			dropped++
+			continue
+		}
+		kept = append(kept, entry)
+	}
+	return kept, dropped, nil
 }
 
 func insertImportedSessions(ctx context.Context, tx *Tx, teamID, callerID int64, entries []importport.ImportedEntry, activityIDs map[string]int64) (int, error) {

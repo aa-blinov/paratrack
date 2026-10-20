@@ -25,4 +25,7 @@ type PayrollPaidResult struct {
 type ImportResult struct {
 	Imported int
 	Skipped  int
+	// ArchivedSkipped counts entries that would land on an activity of an archived
+	// task. They are not written, the same way new time is refused on such a task.
+	ArchivedSkipped int
 }

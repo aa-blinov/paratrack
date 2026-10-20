@@ -1030,6 +1030,7 @@
   "int.importFailed": "Couldn't load tasks: %s",
   "int.syncSuperseded": "A newer sync started while this one was running. Refresh to see its result.",
   "imp.done": "Imported %d entries. %d were already here and skipped.",
+  "imp.archivedSkipped": "Not written to activities of archived tasks: %d skipped.",
   "wh.deliveries": "Recent deliveries",
   "wh.test": "Send test",
   "wh.testBadge": "Test",
