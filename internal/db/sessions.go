@@ -104,11 +104,15 @@ func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartReques
 	}
 
 	startStr := FormatTime(startAt)
+	ownProject, err := sessionOwnProject(ctx, tx, teamID, activityID, request.ProjectID, startStr)
+	if err != nil {
+		return model.Session{}, err
+	}
 	var id int64
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at, user_id)
-		 VALUES (?, ?, ?, ?, 0, 0, ?, ?) RETURNING id`,
-		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr, actorOf(ctx),
+		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at, user_id, project_id)
+		 VALUES (?, ?, ?, ?, 0, 0, ?, ?, ?) RETURNING id`,
+		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr, actorOf(ctx), ownProject,
 	).Scan(&id)
 	if err != nil {
 		return model.Session{}, err
@@ -202,6 +206,14 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 		sets = append(sets, `accumulated_seconds = ?`)
 		args = append(args, *update.AccumulatedSeconds)
 	}
+	if update.ProjectID != nil {
+		projectArg, err := sessionEditProject(ctx, tx, teamID, lockedSession, *update.ProjectID)
+		if err != nil {
+			return err
+		}
+		sets = append(sets, `project_id = ?`)
+		args = append(args, projectArg)
+	}
 	sets = append(sets, `note = ?`, `updated_at = ?`)
 	args = append(args, nullableString(update.Note), FormatTime(update.UpdatedAt))
 	args = append(args, id)
@@ -223,6 +235,9 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 	} else if affected == 0 {
 		return ErrNotFound
 	}
+	if err := sessionEditAudit(ctx, tx, teamID, actorID, request.IP, id, lockedSession, update, FormatTime(d.currentTime().UTC())); err != nil {
+		return err
+	}
 	if lockedSession.wasOpen && update.EndAt != nil {
 		startAt, err := ScanTime(lockedSession.startAt)
 		if err != nil {
@@ -242,11 +257,14 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 }
 
 type sessionEditState struct {
-	invoiceID  int64
-	activityID int64
-	startAt    string
-	endAt      sql.NullString
-	wasOpen    bool
+	invoiceID          int64
+	activityID         int64
+	startAt            string
+	endAt              sql.NullString
+	wasOpen            bool
+	note               sql.NullString
+	accumulatedSeconds int64
+	ownProject         int64
 }
 
 // resolveLockedSessionUpdate supplies the domain resolver with values read
@@ -282,7 +300,7 @@ func resolveLockedSessionUpdate(state sessionEditState, request appmodel.Session
 // lockSessionForEdit serializes a session edit with invoice status changes.
 // Sent and paid invoices freeze their linked sessions; drafts remain editable.
 func lockSessionForEdit(ctx context.Context, tx *Tx, teamID, id, scopeUserID int64) (sessionEditState, error) {
-	query := `SELECT COALESCE(invoice_id, 0), activity_id, start_at, end_at FROM sessions WHERE id = ?`
+	query := `SELECT COALESCE(invoice_id, 0), activity_id, start_at, end_at, note, accumulated_seconds, COALESCE(project_id, 0) FROM sessions WHERE id = ?`
 	args := []any{id}
 	if teamID > 0 {
 		query += ` AND team_id = ?`
@@ -296,7 +314,8 @@ func lockSessionForEdit(ctx context.Context, tx *Tx, teamID, id, scopeUserID int
 	var state sessionEditState
 	var startAt string
 	var endAt sql.NullString
-	if err := tx.QueryRowContext(ctx, query, args...).Scan(&state.invoiceID, &state.activityID, &startAt, &endAt); err != nil {
+	if err := tx.QueryRowContext(ctx, query, args...).Scan(&state.invoiceID, &state.activityID, &startAt, &endAt,
+		&state.note, &state.accumulatedSeconds, &state.ownProject); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return sessionEditState{}, ErrNotFound
 		}
@@ -342,7 +361,7 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
 		return model.Session{}, err
 	}
-	id, err := insertClosedSessionTx(ctx, tx, teamID, activityID, startAt, endAt, note)
+	id, err := insertClosedSessionTx(ctx, tx, teamID, activityID, startAt, endAt, note, request.ProjectID)
 	if err != nil {
 		return model.Session{}, err
 	}
@@ -356,7 +375,7 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	return session, nil
 }
 
-func insertClosedSessionTx(ctx context.Context, tx *Tx, teamID, activityID int64, startAt, endAt time.Time, note string) (int64, error) {
+func insertClosedSessionTx(ctx context.Context, tx *Tx, teamID, activityID int64, startAt, endAt time.Time, note string, projectID int64) (int64, error) {
 	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
 		return 0, err
 	}
@@ -369,12 +388,16 @@ func insertClosedSessionTx(ctx context.Context, tx *Tx, teamID, activityID int64
 	}
 	startStr := FormatTime(startAt)
 	endStr := FormatTime(endAt)
+	ownProject, err := sessionOwnProject(ctx, tx, teamID, activityID, projectID, startStr)
+	if err != nil {
+		return 0, err
+	}
 	var id int64
-	err := tx.QueryRowContext(ctx,
-		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at, user_id)
-		 VALUES (?, ?, ?, ?, ?, 0, ?, NULL, ?) RETURNING id`,
+	err = tx.QueryRowContext(ctx,
+		`INSERT INTO sessions (activity_id, team_id, start_at, end_at, note, paused, accumulated_seconds, last_resume_at, user_id, project_id)
+		 VALUES (?, ?, ?, ?, ?, 0, ?, NULL, ?, ?) RETURNING id`,
 		activityID, nullableInt64(teamID), startStr, endStr, nullableString(note),
-		max(0, int(endAt.Sub(startAt).Seconds())), actorOf(ctx), // a closed session carries its tracked total
+		max(0, int(endAt.Sub(startAt).Seconds())), actorOf(ctx), ownProject, // a closed session carries its tracked total
 	).Scan(&id)
 	if err != nil {
 		return 0, err

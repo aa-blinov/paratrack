@@ -125,12 +125,13 @@ func (s *Service) StartActivity(ctx context.Context, request appmodel.TimerStart
 	if request.CallerID <= 0 || request.CallerID != requestctx.ActorID(ctx) {
 		return model.Activity{}, model.Session{}, model.ErrForbidden
 	}
-	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name, request.ProjectID)
+	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name)
 	if err != nil {
 		return model.Activity{}, model.Session{}, err
 	}
 	session, err := s.Start(ctx, appmodel.TimerStartRequest{
 		TeamID: request.TeamID, ActivityID: activity.ID, At: request.At, Note: request.Note,
+		ProjectID: request.ProjectID,
 	})
 	if err != nil {
 		return activity, model.Session{}, err
@@ -148,13 +149,13 @@ func (s *Service) AddClosedActivity(ctx context.Context, request appmodel.TimerA
 	if err := validateClosedSessionRequest(ctx, request.CallerID, request.Start, request.End); err != nil {
 		return model.Activity{}, model.Session{}, err
 	}
-	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name, request.ProjectID)
+	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name)
 	if err != nil {
 		return activity, model.Session{}, err
 	}
 	session, err := s.AddClosed(ctx, appmodel.TimerAddByIDRequest{
 		TeamID: request.TeamID, CallerID: request.CallerID, ActivityID: activity.ID,
-		Start: request.Start, End: request.End, Note: request.Note,
+		Start: request.Start, End: request.End, Note: request.Note, ProjectID: request.ProjectID,
 	})
 	if err != nil {
 		return activity, model.Session{}, err
@@ -173,7 +174,7 @@ func (s *Service) AddClosed(ctx context.Context, request appmodel.TimerAddByIDRe
 	}
 	session, err := s.closedSessions.AddClosed(ctx, appmodel.TimerAddRequest{
 		TeamID: request.TeamID, ActivityID: request.ActivityID,
-		Start: request.Start, End: request.End, Note: request.Note,
+		Start: request.Start, End: request.End, Note: request.Note, ProjectID: request.ProjectID,
 	})
 	if err != nil {
 		return model.Session{}, err
@@ -205,24 +206,13 @@ func validateClosedSessionRequest(ctx context.Context, callerID int64, start, en
 	return nil
 }
 
-func (s *Service) resolveActivity(ctx context.Context, teamID, callerID int64, name string, projectID int64) (model.Activity, error) {
-	activity, err := s.resolver.ResolveActivityForMember(ctx, appmodel.ActivityResolveRequest{
+// resolveActivity finds or creates the activity by name. It never changes the
+// activity's project: a project chosen for a start is the session's own, see
+// sessionProject in the database layer.
+func (s *Service) resolveActivity(ctx context.Context, teamID, callerID int64, name string) (model.Activity, error) {
+	return s.resolver.ResolveActivityForMember(ctx, appmodel.ActivityResolveRequest{
 		TeamID: teamID, CallerID: callerID, Name: name,
 	})
-	if err != nil {
-		return model.Activity{}, err
-	}
-	if projectID <= 0 {
-		return activity, nil
-	}
-	if err := s.projects.AssignActivity(ctx, appmodel.AssignActivityProjectRequest{
-		TeamID: teamID, ActivityID: activity.ID,
-		ProjectID: projectID, CallerID: callerID,
-	}); err != nil {
-		return activity, err
-	}
-	activity.ProjectID = projectID
-	return activity, nil
 }
 
 // Start begins tracking and publishes side effects once the session write
@@ -313,7 +303,7 @@ func (s *Service) FocusActivityForMember(ctx context.Context, request appmodel.T
 	if request.CallerID != requestctx.ActorID(ctx) {
 		return model.Activity{}, appmodel.FocusResult{}, appmodel.ErrForbidden
 	}
-	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name, 0)
+	activity, err := s.resolveActivity(ctx, request.TeamID, request.CallerID, name)
 	if err != nil {
 		return model.Activity{}, appmodel.FocusResult{}, err
 	}

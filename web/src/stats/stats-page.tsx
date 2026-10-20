@@ -47,6 +47,7 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   const [end, setEnd] = React.useState(session.EndInput || "")
   const [duration, setDuration] = React.useState(session.DurationInput)
   const [note, setNote] = React.useState(session.Note)
+  const [project, setProject] = React.useState(session.ProjectID ? String(session.ProjectID) : "")
   const [tag, setTag] = React.useState("")
   const [error, setError] = React.useState("")
   const busy = React.useRef(false)
@@ -57,6 +58,25 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     busy.current = true
     setError("")
     try { await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken); window.location.reload() }
+    catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
+    finally { busy.current = false }
+  }
+
+  // A project change touches this entry only. The user confirms it first, and the
+  // select goes back to the stored project if the confirmation is refused.
+  async function changeProject(next: string) {
+    const confirmed = await requestConfirmation(t(data.Lang, "stats.projectConfirm", session.ActivityName), { title: t(data.Lang, "stats.changeProject") })
+    if (!confirmed) {
+      setProject(session.ProjectID ? String(session.ProjectID) : "")
+      return
+    }
+    setProject(next)
+    // Only the project is sent, with the stored note: the edit rewrites the note, and
+    // the other fields are left out so a zero-length entry can change its project.
+    if (busy.current) return
+    busy.current = true
+    setError("")
+    try { await send(`/api/sessions/${session.ID}`, "PATCH", new URLSearchParams({ note: session.Note ?? "", project_id: next }), data.CSRFToken); window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
     finally { busy.current = false }
   }
@@ -79,6 +99,7 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-1`} className="text-xs">{t(data.Lang, "stats.end")}</Label><DateTimeField id={`session-${session.ID}-1`} style={{ fontSize: 16 }} onValueChange={setEnd} onCommit={() => { if (end !== session.EndInput) void save() }} defaultValue={session.EndInput || ""} ariaLabel={`${t(data.Lang, "stats.end")} — ${session.ActivityName}`} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-2`} className="text-xs">{t(data.Lang, "dash.duration")}</Label><Input id={`session-${session.ID}-2`} aria-label={`${t(data.Lang, "dash.duration")} — ${session.ActivityName}`} title={t(data.Lang, "stats.durationTitle")} placeholder={t(data.Lang, "ph.duration")} value={duration} onChange={event => setDuration(event.target.value)} onBlur={() => { if (duration !== session.DurationInput) void save() }} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-3`} className="text-xs">{t(data.Lang, "stats.note")}</Label><Input id={`session-${session.ID}-3`} aria-label={`${t(data.Lang, "stats.note")} — ${session.ActivityName}`} placeholder={t(data.Lang, "dash.noteShort")} value={note} onChange={event => setNote(event.target.value)} onBlur={() => { if (note !== session.Note) void save() }} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-4`} className="text-xs">{t(data.Lang, "stats.sessionProject")}</Label><Select value={project} onValueChange={value => void changeProject(value)}><SelectTrigger id={`session-${session.ID}-4`} aria-label={`${t(data.Lang, "stats.sessionProject")}: ${session.ActivityName}`} style={{ fontSize: 16 }}><SelectValue /></SelectTrigger><SelectContent>{data.Projects.filter(item => !item.Archived || item.ID === session.ProjectID).map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select></div>
   </>
   return <>
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{fields}</div>

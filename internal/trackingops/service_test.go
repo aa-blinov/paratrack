@@ -23,10 +23,12 @@ type sessionStarterStub struct {
 	resolved        model.Activity
 	project         appmodel.AssignActivityProjectRequest
 	closed          appmodel.TimerAddRequest
+	started         appmodel.TimerStartRequest
 	startCalls      int
 }
 
-func (s *sessionStarterStub) Start(context.Context, appmodel.TimerStartRequest) (model.Session, error) {
+func (s *sessionStarterStub) Start(_ context.Context, request appmodel.TimerStartRequest) (model.Session, error) {
+	s.started = request
 	s.startCalls++
 	return s.session, s.err
 }
@@ -107,7 +109,7 @@ func dependencies(sessions *sessionStarterStub, audit *auditRecorderStub) Depend
 	}
 }
 
-func TestStartActivityResolvesAssignsAndStartsThroughOneOperation(t *testing.T) {
+func TestStartActivityResolvesAndStartsWithTheSessionProject(t *testing.T) {
 	sessions := &sessionStarterStub{session: model.Session{ID: 81}}
 	audit := &auditRecorderStub{}
 	service, err := New(dependencies(sessions, audit))
@@ -122,11 +124,16 @@ func TestStartActivityResolvesAssignsAndStartsThroughOneOperation(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if activity.ID != 7 || activity.Name != "Deep work" || activity.ProjectID != 9 || session.ID != 81 {
+	if activity.ID != 7 || activity.Name != "Deep work" || session.ID != 81 {
 		t.Fatalf("start activity result = activity %+v, session %+v", activity, session)
 	}
-	if sessions.project.TeamID != 4 || sessions.project.CallerID != 12 || sessions.project.ActivityID != 7 || sessions.project.ProjectID != 9 {
-		t.Fatalf("project assignment request = %+v", sessions.project)
+	// The project rides on the session: the activity keeps its project and no
+	// assignment happens on the start path.
+	if sessions.started.ProjectID != 9 || sessions.started.ActivityID != 7 {
+		t.Fatalf("start request = %+v, want the session on project 9", sessions.started)
+	}
+	if sessions.project.ProjectID != 0 {
+		t.Fatalf("the start assigned project %d to the activity", sessions.project.ProjectID)
 	}
 	if audit.calls != 1 || audit.action != "session.start" {
 		t.Fatalf("start audit = %+v", audit)
@@ -216,14 +223,17 @@ func TestAddClosedActivityResolvesAssignsAndPersistsClosedSession(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if activity.ID != 7 || activity.ProjectID != 9 || session.ID != 82 {
+	if activity.ID != 7 || activity.ProjectID != 0 || session.ID != 82 {
 		t.Fatalf("backfill result = activity %+v, session %+v", activity, session)
+	}
+	if sessions.closed.ProjectID != 9 {
+		t.Fatalf("closed-session request carries project %d, want 9", sessions.closed.ProjectID)
 	}
 	if sessions.closed.TeamID != 4 || sessions.closed.ActivityID != 7 || !sessions.closed.Start.Equal(start) || !sessions.closed.End.Equal(end) || sessions.closed.Note != "note" {
 		t.Fatalf("closed-session request = %+v", sessions.closed)
 	}
-	if sessions.project.ProjectID != 9 || sessions.project.ActivityID != 7 {
-		t.Fatalf("project assignment request = %+v", sessions.project)
+	if sessions.project.ProjectID != 0 {
+		t.Fatalf("the backfill assigned project %d to the activity", sessions.project.ProjectID)
 	}
 	if audit.calls != 1 || audit.team != 4 || audit.actor != 12 || audit.action != "session.add" || audit.target != "82" || audit.ip != "" {
 		t.Fatalf("historical-session audit = %+v", audit)

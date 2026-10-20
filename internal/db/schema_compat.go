@@ -66,6 +66,10 @@ var columnMigrations = []struct {
 	{"projects", "client_details", "TEXT NOT NULL DEFAULT ''"},
 	{"projects", "client_email", "TEXT NOT NULL DEFAULT ''"},
 	{"sessions", "invoice_id", "BIGINT"},
+	// The session's own project. Empty means the session takes its activity's project.
+	// No foreign key, the same as activities.project_id: a deleted project leaves its
+	// references behind for the reports to drop.
+	{"sessions", "project_id", "BIGINT"},
 	{"invoices", "project_id", "BIGINT"},
 	{"invoices", "client_email", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "receipt", "TEXT NOT NULL DEFAULT ''"},
@@ -154,6 +158,7 @@ var compatibilityStatements = []string{
 	`CREATE INDEX IF NOT EXISTS idx_sessions_team_user_start ON sessions(team_id, user_id, start_at)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_activity_start ON sessions(activity_id, start_at)`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_invoice ON sessions(invoice_id) WHERE invoice_id IS NOT NULL`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_project ON sessions(project_id) WHERE project_id IS NOT NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_sessions_unbilled ON sessions(team_id, activity_id) INCLUDE (start_at, end_at, accumulated_seconds) WHERE invoice_id IS NULL AND end_at IS NOT NULL`,
 	// One row per name in a team. The timer, goals and reports find an activity by
 	// its name; a second row would split the time from its goal. Rows written

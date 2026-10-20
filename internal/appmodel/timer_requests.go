@@ -7,6 +7,9 @@ type TimerStartRequest struct {
 	ActivityID int64
 	At         time.Time
 	Note       string
+	// ProjectID is the project the session counts under when it differs from the
+	// activity's project. Zero means the session takes its activity's project.
+	ProjectID int64
 }
 
 // TimerStartByNameRequest is the transport-neutral timer start action that
@@ -78,6 +81,7 @@ type TimerAddRequest struct {
 	Start      time.Time
 	End        time.Time
 	Note       string
+	ProjectID  int64
 }
 
 // TimerAddByIDRequest carries a selected activity and actor through the
@@ -89,6 +93,7 @@ type TimerAddByIDRequest struct {
 	Start      time.Time
 	End        time.Time
 	Note       string
+	ProjectID  int64
 }
 
 // TimerAddByNameRequest captures backfill input before activity resolution.
