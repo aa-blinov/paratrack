@@ -20,7 +20,6 @@ type PlanUpdate = {
   error?: string
 }
 
-type PendingLine = { ProjectID: number; ProjectName: string; Color: string }
 
 const DAY_MAX = 24 * 60
 const ADMIN_MAX = 7 * 24 * 60
@@ -82,7 +81,6 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   const [data, setData] = React.useState(initial)
   const [drafts, setDrafts] = React.useState<Record<string, string>>({})
   const [adminDrafts, setAdminDrafts] = React.useState<Record<number, string>>({})
-  const [pending, setPending] = React.useState<Record<number, PendingLine[]>>({})
   const [saving, setSaving] = React.useState<string | null>(null)
   const [error, setError] = React.useState("")
   const lang = data.Lang
@@ -208,36 +206,43 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     return { dayMins, planned, pct, over }
   }
 
+  // The project filter narrows the rows, never what can be added.
   function linesOf(person: SchedulePerson): ScheduleLine[] {
-    const known = new Set((person.Lines ?? []).map(line => line.ProjectID))
-    const extra: ScheduleLine[] = (pending[person.UserID] ?? [])
-      .filter(line => !known.has(line.ProjectID))
-      .map(line => ({
-        ProjectID: line.ProjectID,
-        ProjectName: line.ProjectName,
-        Color: line.Color,
-        Cells: data.Days.map(day => ({ ...day, Min: 0, Total: "" })),
-        TotalMin: 0,
-        Total: "",
-        CanEdit: true,
+    return (person.Lines ?? []).filter(line => !projectFilter || line.ProjectID === projectFilter)
+  }
+
+  // A project line is saved on the server the moment it is added, so it is
+  // there after a reload even with no hours yet.
+  async function addLine(person: SchedulePerson, projectId: number) {
+    setSaving(`line:${person.UserID}:${projectId}`)
+    setError("")
+    try {
+      applyPlan(await send("/api/schedule/line", {
+        user_id: String(person.UserID),
+        project_id: String(projectId),
+        week: data.ThisWeek,
       }))
-    // The project filter narrows the rows, never what can be added.
-    return [...(person.Lines ?? []), ...extra].filter(line => !projectFilter || line.ProjectID === projectFilter)
+    } catch (cause) {
+      fail(cause)
+    } finally {
+      setSaving(null)
+    }
   }
 
-  // A line added on this page is not saved until it has hours: it stays only
-  // until the page is reloaded.
-  function isPendingLine(person: SchedulePerson, line: ScheduleLine): boolean {
-    return !person.Lines.some(saved => saved.ProjectID === line.ProjectID)
-  }
-
-  function addPending(person: SchedulePerson, projectId: number) {
-    const project = data.Projects.find(item => item.ID === projectId)
-    if (!project) return
-    setPending(previous => ({
-      ...previous,
-      [person.UserID]: [...(previous[person.UserID] ?? []), { ProjectID: project.ID, ProjectName: project.Name, Color: project.Color }],
-    }))
+  async function removeLine(person: SchedulePerson, line: ScheduleLine) {
+    setSaving(`line:${person.UserID}:${line.ProjectID}`)
+    setError("")
+    try {
+      applyPlan(await send("/api/schedule/line/remove", {
+        user_id: String(person.UserID),
+        project_id: String(line.ProjectID),
+        week: data.ThisWeek,
+      }))
+    } catch (cause) {
+      fail(cause)
+    } finally {
+      setSaving(null)
+    }
   }
 
   function cellInput(person: SchedulePerson, line: ScheduleLine, index: number) {
@@ -274,10 +279,10 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   }
 
   function addProjectSelect(person: SchedulePerson, _lines: ScheduleLine[]) {
-    const used = new Set([...(person.Lines ?? []), ...(pending[person.UserID] ?? [])].map(line => line.ProjectID))
+    const used = new Set((person.Lines ?? []).map(line => line.ProjectID))
     const free = (data.EditableProjects ?? []).filter(project => !used.has(project.ID))
     if (free.length === 0) return null
-    return <Select value="" onValueChange={value => addPending(person, Number(value))}>
+    return <Select value="" onValueChange={value => void addLine(person, Number(value))}>
       <SelectTrigger aria-label={`${t(lang, "sch.addProject")}: ${person.UserName}`} className="h-9 w-full max-w-64 bg-background text-foreground">
         <Plus aria-hidden="true" className="size-4" /><SelectValue placeholder={t(lang, "sch.addProject")} />
       </SelectTrigger>
@@ -422,7 +427,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
                     return <TableRow key={line.ProjectID} className="border-b last:border-0">
                       <TableHead scope="row" className="sticky left-0 z-10 max-w-56 bg-card px-3 py-2 text-left font-normal">
                         <span className="flex min-w-0 items-center gap-2"><span aria-hidden="true" className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: line.Color }} /><span className="truncate">{line.ProjectName}</span></span>
-                        {isPendingLine(person, line) && <span className="block text-xs text-muted-foreground">{t(lang, "sch.pendingLine")}</span>}
+                        {line.CanEdit && line.TotalMin === 0 && <button type="button" className="mt-0.5 block text-xs text-muted-foreground underline underline-offset-4 disabled:opacity-50" disabled={saving !== null} onClick={() => void removeLine(person, line)}>{t(lang, "sch.removeLine")}</button>}
                       </TableHead>
                       {data.Days.map((day, index) => <TableCell key={day.ISO} className={`p-1 text-center ${day.IsToday ? "bg-muted/70" : ""}`}>{cellInput(person, line, index)}</TableCell>)}
                       <TableCell className="px-3 py-2 text-right font-mono tabular-nums">{total ? durationLabel(total, format, lang) : "—"}</TableCell>

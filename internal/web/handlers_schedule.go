@@ -190,10 +190,10 @@ func (s *Server) loadSchedulePlan(r *http.Request, weekStart time.Time) (schedPl
 			person.TrackedPct = rc.TrackedPercent
 		}
 		var projectIDs []int64
-		for pid, cells := range rc.ByProject {
-			if cells[0]+cells[1]+cells[2]+cells[3]+cells[4]+cells[5]+cells[6] > 0 {
-				projectIDs = append(projectIDs, pid)
-			}
+		// Every project in ByProject is on this person's schedule: one with
+		// hours, or a line that has no hours yet.
+		for pid := range rc.ByProject {
+			projectIDs = append(projectIDs, pid)
 		}
 		sort.Slice(projectIDs, func(i, j int) bool {
 			a, b := snapshot.ProjectNames[projectIDs[i]], snapshot.ProjectNames[projectIDs[j]]
@@ -377,4 +377,65 @@ func editableProjects(projects []projectView, manager bool, viewer int64) []proj
 		}
 	}
 	return out
+}
+
+// handleScheduleLine puts a project on a person's schedule, with no hours yet.
+// Form: user_id, project_id, week (the week on screen, to answer with).
+func (s *Server) handleScheduleLine(w http.ResponseWriter, r *http.Request) {
+	request, week, ok := s.scheduleLineForm(w, r)
+	if !ok {
+		return
+	}
+	if err := s.services.Scheduling.AddLine(r.Context(), request); err != nil {
+		s.writeScheduleLineError(w, r, err)
+		return
+	}
+	s.toastL(w, r, "toast.saved", "", "success")
+	s.respondSchedulePlan(w, r, week)
+}
+
+// handleScheduleLineRemove takes a project off a person's schedule. A line that
+// still has hours is refused: the hours would go with it.
+func (s *Server) handleScheduleLineRemove(w http.ResponseWriter, r *http.Request) {
+	request, week, ok := s.scheduleLineForm(w, r)
+	if !ok {
+		return
+	}
+	if err := s.services.Scheduling.RemoveLine(r.Context(), request); err != nil {
+		s.writeScheduleLineError(w, r, err)
+		return
+	}
+	s.toastL(w, r, "toast.saved", "", "success")
+	s.respondSchedulePlan(w, r, week)
+}
+
+func (s *Server) scheduleLineForm(w http.ResponseWriter, r *http.Request) (appmodel.ScheduleLineRequest, time.Time, bool) {
+	if err := r.ParseForm(); err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		return appmodel.ScheduleLineRequest{}, time.Time{}, false
+	}
+	uid, err1 := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("user_id")), 10, 64)
+	pid, err2 := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("project_id")), 10, 64)
+	day, err3 := time.Parse("2006-01-02", strings.TrimSpace(r.PostForm.Get("week")))
+	if err1 != nil || err2 != nil || err3 != nil || uid <= 0 || pid <= 0 {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "user_id, project_id, week required"})
+		return appmodel.ScheduleLineRequest{}, time.Time{}, false
+	}
+	request := appmodel.ScheduleLineRequest{TeamID: teamID(r), ActorID: authenticatedUserID(r), UserID: uid, ProjectID: pid}
+	return request, startOfWeek(r, day), true
+}
+
+func (s *Server) writeScheduleLineError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, appmodel.ErrScheduleLineHasHours):
+		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "sch.lineHasHours")})
+	case errors.Is(err, model.ErrForbidden):
+		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
+	case errors.Is(err, model.ErrNotFound), errors.Is(err, appmodel.ErrNotFound):
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+	case errors.Is(err, appmodel.ErrInvalidScheduleCell):
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+	default:
+		s.writeInternalJSONError(w, err)
+	}
 }

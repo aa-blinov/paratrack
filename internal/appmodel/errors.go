@@ -13,6 +13,7 @@ var (
 	ErrNoScheduleProjects        = errors.New("schedule requires a project")
 	ErrScheduleWeekNotEmpty      = errors.New("schedule week already has plan")
 	ErrScheduleNothingToCopy     = errors.New("schedule previous week is empty")
+	ErrScheduleLineHasHours      = errors.New("project line still has planned hours")
 	ErrInvalidDefaultProject     = errors.New("default project must belong to the current workspace")
 	ErrInvalidPreferences        = errors.New("preferences exceed the allowed size")
 	ErrInvalidSavedReport        = errors.New("invalid saved report")

@@ -27,3 +27,11 @@ type ScheduleQuery struct {
 	// Now closes the open timers, so the tracked column includes them.
 	Now time.Time
 }
+
+// ScheduleLineRequest adds or takes off a person's line on one project.
+type ScheduleLineRequest struct {
+	TeamID    int64
+	ActorID   int64
+	UserID    int64
+	ProjectID int64
+}
