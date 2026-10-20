@@ -11,13 +11,17 @@ import { DateField } from "@/components/date-field"
 
 const providers = ["toggl", "harvest", "clockify"] as const
 
-// WorkspaceRestore uploads a whole-workspace export. The file goes up as a raw
-// JSON body with the CSRF header; a refused file says why, here, and nothing is
-// written. A restored workspace becomes the current one.
+type RestoredWebhook = { url: string; secret: string }
+
+// WorkspaceRestore uploads a whole-workspace export. The file goes up as the raw
+// request body, streamed from disk, with the CSRF header; a refused file says why,
+// here, and nothing is written. The restored webhooks come back with new secrets,
+// shown once on this screen before the restored workspace opens.
 function WorkspaceRestore({ lang, csrf }: { lang: string; csrf: string }) {
   const [file, setFile] = React.useState<File | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [webhooks, setWebhooks] = React.useState<RestoredWebhook[] | null>(null)
   async function restore(event: React.FormEvent) {
     event.preventDefault()
     if (!file) {
@@ -31,15 +35,27 @@ function WorkspaceRestore({ lang, csrf }: { lang: string; csrf: string }) {
         method: "POST",
         credentials: "same-origin",
         headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrf },
-        body: await file.text(),
+        body: file,
       })
-      const answer = (await response.json().catch(() => ({}))) as { error?: string }
+      const answer = (await response.json().catch(() => ({}))) as { error?: string; webhooks?: RestoredWebhook[] }
       if (!response.ok) throw new Error(answer.error || response.statusText)
+      if (answer.webhooks && answer.webhooks.length > 0) {
+        setWebhooks(answer.webhooks)
+        setBusy(false)
+        return
+      }
       window.location.assign("/")
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
       setBusy(false)
     }
+  }
+  if (webhooks) {
+    return <Card><CardHeader><CardTitle>{t(lang, "imp.workspaceWebhooksTitle")}</CardTitle></CardHeader><CardContent className="grid gap-3">
+      <p className="text-sm text-muted-foreground">{t(lang, "imp.workspaceWebhooksBlurb")}</p>
+      <ul className="grid gap-2">{webhooks.map(hook => <li key={hook.url} className="grid min-w-0 gap-1 rounded-md border p-3"><span className="truncate text-sm font-medium">{hook.url}</span><code className="break-all font-mono text-xs">{hook.secret}</code></li>)}</ul>
+      <Button type="button" className="w-fit" onClick={() => window.location.assign("/")}>{t(lang, "imp.workspaceOpen")}</Button>
+    </CardContent></Card>
   }
   return <Card><CardHeader><CardTitle>{t(lang, "imp.workspaceTitle")}</CardTitle></CardHeader><CardContent className="grid gap-3">
     <p className="text-sm text-muted-foreground">{t(lang, "imp.workspaceBlurb")}</p>

@@ -22,6 +22,9 @@ type WebhookDelivery = webhookport.WebhookDeliverySummary
 const deliveryBodyLimit = 2000
 
 // CreateWebhook registers an endpoint.
+// defaultWebhookEvents is what a new endpoint listens to when none is named.
+const defaultWebhookEvents = "session.stopped,invoice.created"
+
 func (d *DB) CreateWebhook(ctx context.Context, request appmodel.WebhookRegistrationCommand) (webhookport.WebhookSummary, error) {
 	teamID, callerID := request.TeamID, request.CallerID
 	url, secret, events := strings.TrimSpace(request.URL), request.Secret, request.Events
@@ -29,7 +32,7 @@ func (d *DB) CreateWebhook(ctx context.Context, request appmodel.WebhookRegistra
 		return webhookport.WebhookSummary{}, fmt.Errorf("url must be http(s)")
 	}
 	if events == "" {
-		events = "session.stopped,invoice.created"
+		events = defaultWebhookEvents
 	}
 	now := FormatTime(d.currentTime().UTC())
 	sealedSecret, err := d.sealSecret(secret)

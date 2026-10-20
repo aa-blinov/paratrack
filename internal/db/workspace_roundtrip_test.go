@@ -1,6 +1,8 @@
 package db
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"reflect"
 	"sort"
@@ -9,11 +11,13 @@ import (
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/workspacefile"
 )
 
 // summarizeExport describes what an export holds, by names and never by ids, so
 // two workspaces that hold the same work compare equal though their ids differ.
-// Webhooks and integrations are left out: a restore does not bring them back.
+// Webhooks and integrations are left out: a restore recreates the webhooks with new
+// secrets, which the summary does not compare, and brings no integration back.
 func summarizeExport(out appmodel.WorkspaceExport) []string {
 	projectSlug := map[int64]string{}
 	for _, p := range out.Projects {
@@ -137,21 +141,29 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 	ctx := t.Context()
 	d := openTestDB(t)
 	ws := seedRichWorkspace(t, d, "roundtrip")
-	before, err := d.ExportWorkspace(ctx, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
+	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
+	before, err := workspacefile.Read(bytes.NewReader(file))
+	if err != nil {
+		t.Fatalf("read the export: %v", err)
+	}
 
-	restored, err := d.RestoreWorkspace(ctx, appmodel.WorkspaceRestoreRequest{CallerID: ws.ownerID, Export: before})
+	restored, err := restoreFile(ctx, d, ws.ownerID, file)
 	if err != nil {
 		t.Fatalf("restore: %v", err)
 	}
 	if restored.TeamID == ws.teamID || restored.Slug != "roundtrip-2" {
 		t.Fatalf("restored workspace is %+v, want a new one with a free slug", restored)
 	}
-	after, err := d.ExportWorkspace(ctx, appmodel.WorkspaceExportRequest{TeamID: restored.TeamID, CallerID: ws.ownerID})
+	again, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: restored.TeamID, CallerID: ws.ownerID})
 	if err != nil {
 		t.Fatalf("export the restored workspace: %v", err)
+	}
+	after, err := workspacefile.Read(bytes.NewReader(again))
+	if err != nil {
+		t.Fatalf("read the restored export: %v", err)
 	}
 	if after.Team.Currency != before.Team.Currency || after.Team.RoundMinutes != before.Team.RoundMinutes || after.Team.Name != before.Team.Name ||
 		after.Team.Logo != before.Team.Logo || after.Team.Requisites != before.Team.Requisites || before.Team.Logo == "" {
@@ -168,28 +180,56 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 	}
 }
 
+// A restore recreates each webhook of the file with a new secret. The owner sees
+// that secret once, in the result; the file never held the old one, and the
+// stored secret is the one returned.
+func TestRestoreRecreatesWebhooksWithNewSecrets(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	ws := seedRichWorkspace(t, d, "hooks")
+	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	restored, err := restoreFile(ctx, d, ws.ownerID, file)
+	if err != nil {
+		t.Fatalf("restore: %v", err)
+	}
+	if len(restored.Webhooks) != 1 {
+		t.Fatalf("restored %d webhooks, want the one the workspace had", len(restored.Webhooks))
+	}
+	hook := restored.Webhooks[0]
+	if hook.URL == "" || len(hook.Secret) < 32 || strings.Contains(string(file), hook.Secret) {
+		t.Fatalf("the restored webhook %+v has no usable new secret", hook)
+	}
+	var url, sealed string
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT url, secret FROM webhooks WHERE team_id = ?`, restored.TeamID).Scan(&url, &sealed); err != nil {
+		t.Fatalf("read the restored webhook: %v", err)
+	}
+	stored, err := d.openSecret(sealed)
+	if err != nil {
+		t.Fatalf("open the stored secret: %v", err)
+	}
+	if url != hook.URL || stored != hook.Secret {
+		t.Fatalf("stored webhook %q with secret %q, want %q with the returned secret", url, stored, hook.URL)
+	}
+}
+
 // A file that names someone this installation does not know is refused before any
 // row is written, and the refusal names every such person.
 func TestRestoreRefusesUnknownPeopleWithoutWriting(t *testing.T) {
 	ctx := t.Context()
 	d := openTestDB(t)
 	ws := seedRichWorkspace(t, d, "unknown-people")
-	before, err := d.ExportWorkspace(ctx, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
+	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
-	before.Sessions[0].UserEmail = "ghost@nowhere.test"
-	before.Tasks[0].AssigneeEmail = "phantom@nowhere.test"
-	count := func() int {
-		var n int
-		if err := d.TestSQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM teams WHERE owner_id = ?`, ws.ownerID).Scan(&n); err != nil {
-			t.Fatalf("count workspaces: %v", err)
-		}
-		return n
-	}
-	workspacesBefore := count()
+	file = bytes.ReplaceAll(file, []byte("unknown-people-member@test.local"), []byte("ghost@nowhere.test"))
+	file = bytes.ReplaceAll(file, []byte("unknown-people-owner@test.local"), []byte("phantom@nowhere.test"))
+	workspacesBefore := workspacesOwnedBy(ctx, t, d, ws.ownerID)
 
-	_, err = d.RestoreWorkspace(ctx, appmodel.WorkspaceRestoreRequest{CallerID: ws.ownerID, Export: before})
+	_, err = restoreFile(ctx, d, ws.ownerID, file)
 	if !errors.Is(err, appmodel.ErrRestorePeopleMissing) {
 		t.Fatalf("restore with unknown people: %v, want ErrRestorePeopleMissing", err)
 	}
@@ -198,9 +238,61 @@ func TestRestoreRefusesUnknownPeopleWithoutWriting(t *testing.T) {
 			t.Fatalf("the refusal %q does not name %s", err.Error(), email)
 		}
 	}
-	if count() != workspacesBefore {
+	if workspacesOwnedBy(ctx, t, d, ws.ownerID) != workspacesBefore {
 		t.Fatalf("a refused restore left a workspace behind")
 	}
+}
+
+// A file cut short, as a dropped upload leaves it, is refused and nothing is kept.
+func TestRestoreRefusesACutOffFileWithoutWriting(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	ws := seedRichWorkspace(t, d, "cut-off")
+	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
+	if err != nil {
+		t.Fatalf("export: %v", err)
+	}
+	workspacesBefore := workspacesOwnedBy(ctx, t, d, ws.ownerID)
+
+	if _, err := restoreFile(ctx, d, ws.ownerID, file[:len(file)/2]); !errors.Is(err, workspacefile.ErrUnsupportedFile) {
+		t.Fatalf("restore of a cut-off file: %v, want ErrUnsupportedFile", err)
+	}
+	if workspacesOwnedBy(ctx, t, d, ws.ownerID) != workspacesBefore {
+		t.Fatalf("a cut-off restore left a workspace behind")
+	}
+}
+
+// exportFile writes the workspace the way a download does, and returns the file.
+func exportFile(ctx context.Context, d *DB, request appmodel.WorkspaceExportRequest) ([]byte, error) {
+	svc, err := workspacefile.New(d)
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := svc.Export(ctx, request, &buf, nil); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// restoreFile restores a file into a new workspace of the caller.
+func restoreFile(ctx context.Context, d *DB, callerID int64, file []byte) (appmodel.WorkspaceRestoreResult, error) {
+	svc, err := workspacefile.New(d)
+	if err != nil {
+		return appmodel.WorkspaceRestoreResult{}, err
+	}
+	return svc.Restore(ctx, callerID, bytes.NewReader(file))
+}
+
+// workspacesOwnedBy counts the workspaces a person owns, to show a refused restore
+// left none behind.
+func workspacesOwnedBy(ctx context.Context, t *testing.T, d *DB, ownerID int64) int {
+	t.Helper()
+	var n int
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM teams WHERE owner_id = ?`, ownerID).Scan(&n); err != nil {
+		t.Fatalf("count workspaces: %v", err)
+	}
+	return n
 }
 
 func hasLinePrefix(lines []string, prefix string) bool {
