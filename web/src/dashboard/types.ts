@@ -947,6 +947,7 @@ export interface TaskItem {
   Activities: TaskActivity[]
   CanArchive: boolean
   Archived: boolean
+  ExternalURL: string
 }
 
 export interface TasksData {
@@ -962,6 +963,9 @@ export interface TasksData {
   People: TaskPerson[]
   Tasks: TaskItem[]
   ViewerID: number
+  CanImport: boolean
+  Flash: string
+  FlashOK: boolean
 }
 
 export interface TaskDetailData {

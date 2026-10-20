@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ type taskItem struct {
 	Activities    []taskActivity
 	CanArchive    bool
 	Archived      bool
+	ExternalURL   string
 }
 
 type taskActivity struct {
@@ -57,6 +59,9 @@ type tasksPage struct {
 	People     []taskPerson
 	Tasks      []taskItem
 	ViewerID   int64
+	CanImport  bool
+	Flash      string
+	FlashOK    bool
 }
 
 func (p *tasksPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
@@ -150,7 +155,8 @@ func (s *Server) taskItems(r *http.Request, query appmodel.TaskQuery) ([]taskIte
 			ProjectID: task.ProjectID, ProjectName: row.ProjectName, ProjectColor: row.ProjectColor,
 			AssigneeID: task.AssigneeID, AssigneeName: names[task.AssigneeID],
 			TrackedMin: row.TrackedMin, TrackedLabel: fmtDur(r, row.TrackedMin*60),
-			CanArchive: manage || (task.CreatedBy > 0 && task.CreatedBy == viewer),
+			CanArchive:  manage || (task.CreatedBy > 0 && task.CreatedBy == viewer),
+			ExternalURL: task.ExternalURL,
 		}
 		if task.Due != "" {
 			if day, err := time.ParseInLocation("2006-01-02", task.Due, userLoc(r)); err == nil {
@@ -194,6 +200,10 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		People:     s.taskPeople(r),
 		Tasks:      items,
 		ViewerID:   authenticatedUserID(r),
+		CanImport:  canManage(r),
+	}
+	if flash := r.URL.Query().Get("flash"); flash != "" {
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	s.renderPageForRequest(w, r, "Tasks", "tasks", &data)
 }
@@ -434,5 +444,52 @@ func (s *Server) writeTaskError(w http.ResponseWriter, r *http.Request, err erro
 		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 	default:
 		s.writeInternalJSONError(w, fmt.Errorf("task: %w", err))
+	}
+}
+
+// handleTasksImportGitHub moves the items of a GitHub Projects board into a
+// project's tasks and answers with a flash on the board. The token serves this
+// request only: it is not stored, logged or shown back.
+func (s *Server) handleTasksImportGitHub(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/tasks?flash="+url.QueryEscape(encodeFlash(false, i18n.T(resolveLang(r), "err.invalidInput"))), http.StatusSeeOther)
+		return
+	}
+	projectID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("project_id")), 10, 64)
+	back := "/tasks?view=table"
+	if projectID > 0 {
+		back += "&project=" + strconv.FormatInt(projectID, 10)
+	}
+	result, err := s.services.Tasks.ImportGitHubProject(r.Context(), appmodel.GitHubImportRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), ProjectID: projectID,
+		ProjectURL: r.PostForm.Get("project_url"), Token: r.PostForm.Get("token"),
+	})
+	var flash string
+	if err != nil {
+		flash = encodeFlash(false, s.githubImportMessage(r, err))
+	} else {
+		flash = encodeFlash(true, fmt.Sprintf(i18n.T(resolveLang(r), "tasks.githubDone"),
+			result.Created, result.Updated, result.Unchanged, result.Archived))
+	}
+	http.Redirect(w, r, back+"&flash="+url.QueryEscape(flash), http.StatusSeeOther)
+}
+
+// githubImportMessage says why an import failed, in the words a manager can act on.
+func (s *Server) githubImportMessage(r *http.Request, err error) string {
+	lang := resolveLang(r)
+	switch {
+	case errors.Is(err, appmodel.ErrGitHubProjectURL):
+		return i18n.T(lang, "tasks.githubBadURL")
+	case errors.Is(err, appmodel.ErrGitHubProjectNotFound):
+		return i18n.T(lang, "tasks.githubNotFound")
+	case errors.Is(err, appmodel.ErrGitHubTokenRejected):
+		return i18n.T(lang, "tasks.githubTokenRejected")
+	case errors.Is(err, appmodel.ErrGitHubProjectTooLarge):
+		return i18n.T(lang, "tasks.githubTooLarge")
+	case errors.Is(err, appmodel.ErrInvalidTask), errors.Is(err, model.ErrForbidden):
+		return i18n.T(lang, "err.invalidInput")
+	default:
+		s.logInternalError(err)
+		return i18n.T(lang, "err.internal")
 	}
 }

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
+import { Flash } from "@/components/flash"
 import { translate as t } from "@/i18n"
 import type { TaskItem, TasksData } from "@/dashboard/types"
 
@@ -43,6 +44,7 @@ export function TasksPage({ data }: { data: TasksData }) {
   const [adding, setAdding] = React.useState(false)
   const [estimate, setEstimate] = React.useState("")
   const [creating, setCreating] = React.useState(false)
+  const [importProject, setImportProject] = React.useState(String(data.ProjectID || data.Projects[0]?.ID || ""))
   const archivedView = data.View === "archive"
 
   async function run(action: () => Promise<void>) {
@@ -118,6 +120,7 @@ export function TasksPage({ data }: { data: TasksData }) {
       </nav>
     </header>
 
+    <Flash message={data.Flash} ok={data.FlashOK} />
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
     <div className="flex flex-wrap items-center gap-2">
@@ -289,6 +292,34 @@ export function TasksPage({ data }: { data: TasksData }) {
         </CardContent></Card>)}
       </div>
     </>}
+
+    {data.CanImport && !archivedView && <Card><CardContent className="grid gap-3 p-4">
+      <div className="grid gap-1">
+        <h2 className="font-medium">{t(lang, "tasks.githubTitle")}</h2>
+        <p className="text-sm text-muted-foreground">{t(lang, "tasks.githubBlurb")}</p>
+      </div>
+      {data.Projects.length === 0 ? <p className="text-sm text-muted-foreground">{t(lang, "tasks.githubNoProject")}</p> : <form method="post" action="/api/tasks/import/github" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1.2fr)_auto] lg:items-end" aria-label={t(lang, "tasks.githubTitle")}>
+        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+        <input type="hidden" name="project_id" value={importProject} />
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="github-project" className="text-xs">{t(lang, "tasks.project")}</Label>
+          <Select value={importProject} onValueChange={setImportProject}>
+            <SelectTrigger id="github-project" className="w-full"><SelectValue className="min-w-0 truncate" /></SelectTrigger>
+            <SelectContent>{data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent>
+          </Select>
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="github-url" className="text-xs">{t(lang, "tasks.githubURL")}</Label>
+          <Input id="github-url" name="project_url" type="url" required placeholder="https://github.com/orgs/acme/projects/3" />
+        </div>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <Label htmlFor="github-token" className="text-xs">{t(lang, "tasks.githubToken")}</Label>
+          <Input id="github-token" name="token" type="password" autoComplete="off" required />
+        </div>
+        <Button type="submit" disabled={!importProject}>{t(lang, "tasks.githubRun")}</Button>
+        <p className="text-xs text-muted-foreground lg:col-span-4">{t(lang, "tasks.githubTokenHint")}</p>
+      </form>}
+    </CardContent></Card>}
 
     {!archivedView && <p className="text-sm text-muted-foreground">{t(lang, "tasks.hint")}</p>}
   </main>

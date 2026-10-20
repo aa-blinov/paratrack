@@ -15,8 +15,28 @@ import (
 
 const taskSelect = `SELECT t.id, t.team_id, t.project_id, t.title, t.status, t.position,
 	COALESCE(t.assignee_user_id, 0), COALESCE(t.due_date, ''), COALESCE(t.estimate_minutes, 0),
-	COALESCE(t.created_by, 0), t.archived, t.created_at, t.updated_at, p.name, p.color
+	COALESCE(t.created_by, 0), t.archived, COALESCE(t.external_url, ''), t.created_at, t.updated_at, p.name, p.color
 	FROM tasks t JOIN projects p ON p.id = t.project_id`
+
+// insertTaskTx writes a task at the end of its column, with its first activity.
+// The caller owns the transaction and has checked the project and the actor.
+func insertTaskTx(ctx context.Context, tx *Tx, request appmodel.TaskCreateRequest, now string) (int64, error) {
+	var id int64
+	if err := tx.QueryRowContext(ctx,
+		`INSERT INTO tasks (team_id, project_id, title, status, position, assignee_user_id, due_date, estimate_minutes, created_by, archived, created_at, updated_at, external_ref, external_url)
+		 VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tasks WHERE team_id = ? AND status = ?), ?, ?, ?, ?, 0, ?, ?, ?, ?)
+		 RETURNING id`,
+		request.TeamID, request.ProjectID, request.Title, request.Status, request.TeamID, request.Status,
+		nullIfZero(request.AssigneeID), nullIfEmpty(request.Due), nullIfZero(int64(request.EstimateMinutes)), request.CallerID, now, now,
+		nullIfEmpty(request.ExternalRef), nullIfEmpty(request.ExternalURL),
+	).Scan(&id); err != nil {
+		return 0, fmt.Errorf("insert task: %w", err)
+	}
+	if err := insertTaskActivity(ctx, tx, request.TeamID, request.ProjectID, id, request.Title, now); err != nil {
+		return 0, err
+	}
+	return id, nil
+}
 
 // CreateTask adds a task to a project. It starts with one activity of the same
 // name, so the timer has something to write to from the first minute.
@@ -40,18 +60,8 @@ func (d *DB) CreateTask(ctx context.Context, request appmodel.TaskCreateRequest)
 			return model.Task{}, err
 		}
 	}
-	now := FormatTime(d.currentTime().UTC())
-	var id int64
-	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO tasks (team_id, project_id, title, status, position, assignee_user_id, due_date, estimate_minutes, created_by, archived, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, (SELECT COALESCE(MAX(position), 0) + 1 FROM tasks WHERE team_id = ? AND status = ?), ?, ?, ?, ?, 0, ?, ?)
-		 RETURNING id`,
-		request.TeamID, request.ProjectID, request.Title, request.Status, request.TeamID, request.Status,
-		nullIfZero(request.AssigneeID), nullIfEmpty(request.Due), nullIfZero(int64(request.EstimateMinutes)), request.CallerID, now, now,
-	).Scan(&id); err != nil {
-		return model.Task{}, fmt.Errorf("insert task: %w", err)
-	}
-	if err := insertTaskActivity(ctx, tx, request.TeamID, request.ProjectID, id, request.Title, now); err != nil {
+	id, err := insertTaskTx(ctx, tx, request, FormatTime(d.currentTime().UTC()))
+	if err != nil {
 		return model.Task{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -491,7 +501,7 @@ func scanTaskRow(r row) (model.Task, string, string, error) {
 		projectName, color string
 	)
 	if err := r.Scan(&t.ID, &t.TeamID, &t.ProjectID, &t.Title, &t.Status, &t.Position, &t.AssigneeID, &t.Due,
-		&t.EstimateMinutes, &t.CreatedBy, &archived, &created, &updated, &projectName, &color); err != nil {
+		&t.EstimateMinutes, &t.CreatedBy, &archived, &t.ExternalURL, &created, &updated, &projectName, &color); err != nil {
 		return model.Task{}, "", "", err
 	}
 	t.Archived = archived != 0

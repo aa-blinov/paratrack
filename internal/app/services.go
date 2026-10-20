@@ -179,10 +179,6 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, err
 	}
-	taskService, err := tasks.New(database, now)
-	if err != nil {
-		return nil, err
-	}
 	reminderService, err := reminders.New(reminders.Dependencies{
 		Store: database, Planner: schedulingService, Sender: reminderPushNotifications{push: pushService}, Now: now,
 	})
@@ -216,6 +212,10 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct integration provider client: %w", err)
+	}
+	taskService, err := tasks.New(database, providerClient, now)
+	if err != nil {
+		return nil, err
 	}
 	integrationService, err := integrations.New(integrations.Dependencies{
 		Manager: database, Catalog: database, Tasks: database, SyncStarter: database,

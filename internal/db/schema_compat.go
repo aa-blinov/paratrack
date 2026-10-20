@@ -24,6 +24,8 @@ var columnMigrations = []struct {
 	{"projects", "deadline_reminded", "TEXT"},
 	// An activity may belong to one task; a task holds many activities.
 	{"activities", "task_id", "BIGINT"},
+	{"tasks", "external_ref", "TEXT"},
+	{"tasks", "external_url", "TEXT"},
 	{"projects", "billable_rate_cents", "BIGINT"},
 	{"projects", "billable", "BIGINT NOT NULL DEFAULT 1"},
 	{"teams", "stripe_key", "TEXT"},

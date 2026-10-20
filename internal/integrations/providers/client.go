@@ -33,7 +33,12 @@ type extItem = Task
 type Config struct {
 	JiraSite   string
 	GitLabSite string
+	// GitHubGraphQL is the GitHub GraphQL endpoint; empty means github.com. Tests
+	// point it at a local server.
+	GitHubGraphQL string
 }
+
+const defaultGitHubGraphQL = "https://api.github.com/graphql"
 
 // Client fetches paginated task snapshots from supported providers.
 type Client struct {
@@ -63,6 +68,9 @@ func NewWithConfigAndRetryWaits(client *http.Client, waits []time.Duration, conf
 	}
 	config.JiraSite = strings.TrimRight(strings.TrimSpace(config.JiraSite), "/")
 	config.GitLabSite = strings.TrimRight(strings.TrimSpace(config.GitLabSite), "/")
+	if config.GitHubGraphQL == "" {
+		config.GitHubGraphQL = defaultGitHubGraphQL
+	}
 	return &Client{httpClient: client, retryWaits: append([]time.Duration(nil), waits...), config: config}, nil
 }
 

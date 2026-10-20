@@ -15,7 +15,8 @@ var (
 	ErrTaskArchived = errors.New("task is archived")
 )
 
-// TaskCreateRequest creates a task in a project, with its first activity.
+// TaskCreateRequest creates a task in a project, with its first activity. An
+// imported task also carries the reference of the item it came from.
 type TaskCreateRequest struct {
 	TeamID          int64
 	CallerID        int64
@@ -25,6 +26,8 @@ type TaskCreateRequest struct {
 	AssigneeID      int64
 	Due             string
 	EstimateMinutes int
+	ExternalRef     string
+	ExternalURL     string
 }
 
 // TaskUpdateRequest changes the fields a form sends; a nil field is left alone.
@@ -88,6 +91,61 @@ type TaskRow struct {
 	ProjectColor string
 	Activities   []Activity
 	TrackedMin   int
+}
+
+// Errors of a GitHub Projects import. They live here so the web layer can answer
+// them without importing the provider adapter.
+var (
+	ErrGitHubProjectURL      = errors.New("github project url is not an organization or user project")
+	ErrGitHubProjectNotFound = errors.New("github project not found or not readable with this token")
+	ErrGitHubTokenRejected   = errors.New("github rejected the token")
+	ErrGitHubProjectTooLarge = errors.New("github project has too many items to import at once")
+)
+
+// GitHubImportRequest moves the items of a GitHub Projects board into a project's
+// tasks. The token serves this one request and is never stored.
+type GitHubImportRequest struct {
+	TeamID     int64
+	CallerID   int64
+	ProjectID  int64
+	ProjectURL string
+	Token      string
+}
+
+// GitHubProjectItem is one item of a GitHub Projects board as the provider reads
+// it. Ref is the item's stable identity: its issue or pull request URL, or the
+// item id for a draft.
+type GitHubProjectItem struct {
+	Ref    string
+	Title  string
+	URL    string
+	Status string
+	Closed bool
+}
+
+// TaskImportItem is a board item already mapped to a board column.
+type TaskImportItem struct {
+	Ref    string
+	Title  string
+	URL    string
+	Status string
+}
+
+// TaskImportRequest writes mapped board items as tasks of one project.
+type TaskImportRequest struct {
+	TeamID    int64
+	CallerID  int64
+	ProjectID int64
+	Items     []TaskImportItem
+}
+
+// TaskImportResult counts what an import did to the workspace's tasks. A task
+// that was archived is left alone and counted as Archived.
+type TaskImportResult struct {
+	Created   int
+	Updated   int
+	Unchanged int
+	Archived  int
 }
 
 // Activity is the public view of an activity the task holds.
