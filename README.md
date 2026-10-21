@@ -96,7 +96,7 @@ Every page and every `/api/*` call goes through `requireAuth`: a session cookie 
 
 Money is integer cents. A line's time is rounded to hundredths of an hour and priced from the rounded value, so the total on the screen, in the PDF and in the payout agree.
 
-The dependency map, the resource ownership and the rules between the layers are in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). The SQL lives in `internal/db/schema.sql`, and the startup migrations and the compatibility with older databases belong to `internal/db`.
+The dependency map, the resource ownership and the rules between the layers are in [docs/architecture.md](docs/architecture.md). The SQL lives in `internal/db/schema.sql`, and the startup migrations and the compatibility with older databases belong to `internal/db`.
 
 ## Configuration
 
@@ -161,7 +161,7 @@ scripts/test.sh -run TestName ./internal/web
 
 CI runs four jobs on every push and pull request: the UI build with the typecheck and the React unit tests, the static and architecture gates, the race-enabled Go tests on Postgres, and the Playwright suite against a freshly built server. The site in `site/` goes out to GitHub Pages from a separate workflow when it changes.
 
-The documents beside this file: [docs/PRODUCT.md](docs/PRODUCT.md) for the capabilities and the money and time rules, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the packages, [docs/QA.md](docs/QA.md) for the check matrix, [docs/JOURNEY.md](docs/JOURNEY.md) for the screen map, [DESIGN.md](DESIGN.md) for the design system, [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
+The documents beside this file: [docs/PRODUCT.md](docs/PRODUCT.md) for the capabilities and the money and time rules, [docs/architecture.md](docs/architecture.md) for the packages, [docs/QA.md](docs/QA.md) for the check matrix, [docs/JOURNEY.md](docs/JOURNEY.md) for the screen map, [DESIGN.md](DESIGN.md) for the design system, [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 
