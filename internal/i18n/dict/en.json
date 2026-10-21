@@ -321,7 +321,7 @@
   "team.roleMember": "member",
   "team.you": "this is you",
   "team.remove": "Remove",
-  "team.confirmRemove": "Remove this member from the team?",
+  "team.confirmRemove": "Remove this member from the team? Their sessions keep their name, tasks they are assigned to show “Assignee left the team”, and their tokens stop working in this team. Their own workspace stays as it is.",
   "team.noMembers": "No members yet.",
   "team.inviteTitle": "Invite a teammate",
   "team.inviteBlurb": "Send the link any way you like. It lives 7 days and can be revoked.",
