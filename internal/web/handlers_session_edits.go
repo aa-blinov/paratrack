@@ -84,7 +84,9 @@ func (s *Server) applySessionUpdateRequest(r *http.Request) (int64, error) {
 			return 0, invalidSessionUpdateBadDuration
 		}
 		request.DurationSeconds = &secs
-	} else if endStr != "" {
+	} else if startStr != "" || endStr != "" {
+		// Moving either edge keeps the other one and recomputes the length from
+		// the two, so the stored seconds stay exact.
 		request.RecomputeDuration = true
 	}
 	// A project is changed only when the form carries the field; an empty value

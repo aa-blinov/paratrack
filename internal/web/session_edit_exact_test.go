@@ -72,25 +72,21 @@ func TestSessionNoteEditLeavesTheExactEndAlone(t *testing.T) {
 	}
 }
 
-// A start edit keeps the length: the end moves with the start, seconds intact.
-func TestSessionStartEditKeepsTheLength(t *testing.T) {
+// A start edit keeps the end where it was and recomputes the length from the
+// two, so the stored seconds stay exact.
+func TestSessionStartEditKeepsTheEndAndRecomputesTheLength(t *testing.T) {
 	e, id, _, _ := closedExactSession(t, "exact-start@x.test")
 	startBefore, endBefore, _, _ := storedSession(t, e, id)
 	start := mustParseStored(t, startBefore)
-	end := mustParseStored(t, endBefore)
-
 	patchSession(t, e, id, url.Values{"start_at": {start.Add(10 * time.Minute).Format("2006-01-02T15:04")}})
 
-	startRaw, endRaw, acc, _ := storedSession(t, e, id)
-	newStart, newEnd := mustParseStored(t, startRaw), mustParseStored(t, endRaw)
-	if got := newEnd.Sub(newStart); got != 5420*time.Second {
-		t.Fatalf("length after start edit = %v, want 1h30m20s", got)
+	startRaw, endAfter, acc, _ := storedSession(t, e, id)
+	if endAfter != endBefore {
+		t.Fatalf("start edit moved the end: %s→%s", endBefore, endAfter)
 	}
-	if moved := newEnd.Sub(end); moved != newStart.Sub(start) {
-		t.Fatalf("end moved by %v, start by %v: they should move together", moved, newStart.Sub(start))
-	}
-	if acc != 5420 {
-		t.Fatalf("seconds = %d, want 5420", acc)
+	want := int64(mustParseStored(t, endAfter).Sub(mustParseStored(t, startRaw)) / time.Second)
+	if acc != want || acc == 5420 {
+		t.Fatalf("seconds = %d after start edit, want the span %d", acc, want)
 	}
 }
 

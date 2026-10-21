@@ -284,16 +284,6 @@ func resolveLockedSessionUpdate(state sessionEditState, request appmodel.Session
 		}
 		end = &parsed
 	}
-	// A start edit moves the session and keeps its length: the end follows the
-	// new start. The length comes from the locked row, so the stored seconds stay
-	// exact; a length read off the form would drop them.
-	if update.StartAt != nil && update.EndAt == nil && request.DurationSeconds == nil && !request.RecomputeDuration && end != nil {
-		seconds := int(state.accumulatedSeconds)
-		if seconds <= 0 {
-			seconds = int(end.Sub(start) / time.Second)
-		}
-		request.DurationSeconds = &seconds
-	}
 	resolved, err := model.ResolveSessionIntervalEdit(start, end, model.SessionIntervalEdit{
 		StartAt: update.StartAt, EndAt: update.EndAt,
 		AccumulatedSeconds: update.AccumulatedSeconds,
