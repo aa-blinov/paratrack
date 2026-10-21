@@ -288,7 +288,7 @@
   "proj.lead": "Project lead",
   "proj.leadNone": "No project lead",
   "proj.deadlineHint": "Everyone sees the deadline. The project lead plans the project and sees tracked time by person.",
-  "proj.plannedAll": "Planned, all weeks",
+  "proj.totalAllTime": "Total, all time",
   "proj.people": "By person",
   "proj.noPlanned": "Nobody is planned on this project yet.",
   "projects.edit": "Edit",

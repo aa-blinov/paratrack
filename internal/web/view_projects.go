@@ -20,6 +20,9 @@ type projectDetailData struct {
 	// PlannedLabel is the schedule's minutes on this project over every
 	// week; People is the table of plan and tracked time per member.
 	PlannedLabel string
+	// TrackedLabel is the total of the people table's tracked column, empty
+	// for a viewer who does not see tracked time.
+	TrackedLabel string
 	// RemainingLabel is the estimate less tracked time and the plan still
 	// ahead; RemainingOver marks a project already past its estimate.
 	RemainingLabel string

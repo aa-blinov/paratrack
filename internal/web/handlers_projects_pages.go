@@ -165,6 +165,7 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	data.People = plan.People
 	data.PlannedLabel = plan.PlannedLabel
+	data.TrackedLabel = plan.TrackedLabel
 	data.RemainingLabel = plan.RemainingLabel
 	data.RemainingOver = plan.RemainingOver
 	data.LeadLabel = plan.LeadLabel

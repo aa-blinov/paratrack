@@ -247,6 +247,7 @@ export interface ProjectDetailData {
   Activities: Activity[]
   Sessions: Session[]
   PlannedLabel: string
+  TrackedLabel: string
   People: Array<{ Name: string; Planned: string; Tracked: string }>
   RemainingLabel: string
   RemainingOver: boolean
