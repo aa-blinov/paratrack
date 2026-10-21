@@ -125,12 +125,12 @@ def main() -> int:
         row_id = first_row.get_attribute("id")
         dur = first_row.locator('input[name="duration"]')
         if dur.count():
-            dur.fill("2h 15m")
+            dur.fill("2:15")
             page.keyboard.press("Tab")
             page.wait_for_timeout(600)
             shot(page, "e2-stats-inline-edit")
             new_dur = page.locator(f"#{row_id} input[name='duration']").input_value()
-            check("duration edit round-trips", "2h" in new_dur or "135" in new_dur, f"val={new_dur}")
+            check("duration edit round-trips", new_dur == "2:15", f"val={new_dur}")
             # tags must survive inline edit
             # (row re-rendered; tags column still present)
             check("row still has tags cell", page.locator(f"#{row_id} [data-label='Tags']").count() == 1)

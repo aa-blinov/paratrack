@@ -228,11 +228,11 @@ def main() -> int:
         row = pg.locator("#main article").first
         dur = row.locator('input[name="duration"]')
         if dur.count():
-            dur.fill("2h")
+            dur.fill("2:00")
             dur.press("Tab")
             pg.wait_for_timeout(600)
             newv = pg.locator("#main article").first.locator('input[name="duration"]').input_value()
-            check("inline duration edit", "2h" in newv, f"val={newv}")
+            check("inline duration edit", newv == "2:00", f"val={newv}")
 
         # tag filter
         pg.goto(BASE + "/stats?tag=deep-work&period=yesterday")
