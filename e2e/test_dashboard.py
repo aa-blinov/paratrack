@@ -796,13 +796,13 @@ def main() -> int:
         page.wait_for_selector("article.rounded-md.border input[data-slot=\"input\"]")
         before = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2).input_value()
         d_in = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2)
-        d_in.fill("2h 30m")
+        d_in.fill("2:30")
         d_in.press("Tab")
         page.wait_for_timeout(700)  # HTMX PATCH + swap
         after = page.locator("article.rounded-md.border input[data-slot=\"input\"]").nth(2).input_value()
         check(
-            "duration edit applied (2h 30m)",
-            after == "2h 30m",
+            "duration edit applied (2:30)",
+            after == "2:30",
             f"before={before} after={after}",
         )
 
