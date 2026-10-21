@@ -52,9 +52,13 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   const [error, setError] = React.useState("")
   const busy = React.useRef(false)
 
-  async function save(patch: Partial<{ start_at: string; end_at: string; duration: string; note: string }> = {}) {
+  // Only the field that changed is sent. The stored note travels with it, because
+  // the server writes the note on every update. Sending every field would rewrite
+  // the others too: a duration shown in minutes drops its seconds, and the end
+  // moves with it.
+  async function save(patch: Partial<{ start_at: string; end_at: string; duration: string; note: string }>) {
     if (busy.current) return
-    const body = new URLSearchParams({ start_at: start, end_at: end, duration, note, ...patch })
+    const body = new URLSearchParams({ note: session.Note ?? "", ...patch })
     busy.current = true
     setError("")
     try { await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken); window.location.reload() }
@@ -62,8 +66,8 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     finally { busy.current = false }
   }
 
-  function commitDuration() { if (duration !== session.DurationInput) void save() }
-  function commitNote() { if (note !== session.Note) void save() }
+  function commitDuration() { if (duration !== session.DurationInput) void save({ duration }) }
+  function commitNote() { if (note !== session.Note) void save({ note }) }
 
   // Enter saves like leaving the field. A composition in progress is not a finished
   // entry: Enter there only picks the word, so it must not save.
@@ -104,9 +108,9 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   }
 
   const fields = <>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-0`} className="text-xs">{t(data.Lang, "dash.startLabel")}</Label><DateTimeField id={`session-${session.ID}-0`} style={{ fontSize: 16 }} onValueChange={setStart} onCommit={() => { if (start !== session.StartInput) void save() }} defaultValue={session.StartInput || ""} ariaLabel={`${t(data.Lang, "dash.startLabel")} — ${session.ActivityName}`} /></div>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-1`} className="text-xs">{t(data.Lang, "stats.end")}</Label><DateTimeField id={`session-${session.ID}-1`} style={{ fontSize: 16 }} onValueChange={setEnd} onCommit={() => { if (end !== session.EndInput) void save() }} defaultValue={session.EndInput || ""} ariaLabel={`${t(data.Lang, "stats.end")} — ${session.ActivityName}`} /></div>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-2`} className="text-xs">{t(data.Lang, "dash.duration")}</Label><Input id={`session-${session.ID}-2`} aria-label={`${t(data.Lang, "dash.duration")} — ${session.ActivityName}`} title={t(data.Lang, "stats.durationTitle")} placeholder={t(data.Lang, "ph.duration")} value={duration} onChange={event => setDuration(event.target.value)} onBlur={commitDuration} onKeyDown={event => commitOnEnter(event, commitDuration)} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-0`} className="text-xs">{t(data.Lang, "dash.startLabel")}</Label><DateTimeField id={`session-${session.ID}-0`} style={{ fontSize: 16 }} onValueChange={setStart} onCommit={() => { if (start !== session.StartInput) void save({ start_at: start }) }} defaultValue={session.StartInput || ""} ariaLabel={`${t(data.Lang, "dash.startLabel")} — ${session.ActivityName}`} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-1`} className="text-xs">{t(data.Lang, "stats.end")}</Label><DateTimeField id={`session-${session.ID}-1`} style={{ fontSize: 16 }} onValueChange={setEnd} onCommit={() => { if (end !== session.EndInput) void save({ end_at: end }) }} defaultValue={session.EndInput || ""} ariaLabel={`${t(data.Lang, "stats.end")} — ${session.ActivityName}`} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-2`} className="text-xs">{t(data.Lang, "dash.duration")}</Label><Input id={`session-${session.ID}-2`} aria-label={`${t(data.Lang, "dash.duration")} — ${session.ActivityName}`} title={t(data.Lang, "stats.durationTitle")} placeholder={t(data.Lang, "ph.duration")} value={duration} onChange={event => setDuration(event.target.value)} onBlur={commitDuration} onKeyDown={event => commitOnEnter(event, commitDuration)} /><p className="text-xs text-muted-foreground">{t(data.Lang, "stats.durationFormat")}</p></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-3`} className="text-xs">{t(data.Lang, "stats.note")}</Label><Input id={`session-${session.ID}-3`} aria-label={`${t(data.Lang, "stats.note")} — ${session.ActivityName}`} placeholder={t(data.Lang, "dash.noteShort")} value={note} onChange={event => setNote(event.target.value)} onBlur={commitNote} onKeyDown={event => commitOnEnter(event, commitNote)} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-4`} className="text-xs">{t(data.Lang, "stats.sessionProject")}</Label><Select value={project} onValueChange={value => void changeProject(value)}><SelectTrigger id={`session-${session.ID}-4`} aria-label={`${t(data.Lang, "stats.sessionProject")}: ${session.ActivityName}`} style={{ fontSize: 16 }}><SelectValue /></SelectTrigger><SelectContent>{data.Projects.filter(item => !item.Archived || item.ID === session.ProjectID).map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select></div>
   </>
@@ -171,7 +175,7 @@ export function StatsPage({ data }: { data: StatsData }) {
         the object has one home. The way in stays visible here — its count is a
         fact about this screen's own filters, not something to expand for. */}
     <p className="text-sm text-muted-foreground"><a href="/reports" className="underline underline-offset-4">{t(lang, "reports.savedTitle")} ({data.SavedReports?.length ?? 0})</a></p>
-    <Card><CardHeader><div className="flex items-start justify-between gap-3"><div><CardTitle>{t(lang, "stats.editorTitle")} ({data.SessionCount})</CardTitle><p className="text-sm text-muted-foreground">{editorOpen ? t(lang, "stats.editHint") : t(lang, "stats.editorFolded")}</p></div><Button type="button" variant="outline" size="sm" className="lg:hidden" aria-expanded={editorOpen} onClick={() => setEditorOpen(value => !value)}>{editorOpen ? t(lang, "stats.editorHide") : t(lang, "stats.editorShow")}</Button></div></CardHeader><CardContent className={`${editorOpen ? "grid" : "hidden lg:grid"} gap-4 px-4 pb-4`}>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<datalist id="known-tags-all">{data.AllTagNames?.map(name => <option key={name} value={name} />)}</datalist>
+    <Card><CardHeader><div className="flex items-start justify-between gap-3"><div><CardTitle>{t(lang, "stats.editorTitle")} ({data.SessionCount})</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "stats.editHint")}</p></div><Button type="button" variant="outline" size="sm" className="lg:hidden" aria-expanded={editorOpen} onClick={() => setEditorOpen(value => !value)}>{editorOpen ? t(lang, "stats.editorHide") : t(lang, "stats.editorShow")}</Button></div></CardHeader><CardContent className={`${editorOpen ? "grid" : "hidden lg:grid"} gap-4 px-4 pb-4`}>{error && <p role="alert" className="text-sm text-destructive">{error}</p>}<datalist id="known-tags-all">{data.AllTagNames?.map(name => <option key={name} value={name} />)}</datalist>
       {data.Sessions?.length ? <div className="grid gap-3">{data.Sessions.map(session => <article key={session.ID} className="min-w-0 rounded-md border p-2 sm:p-3"><div className="mb-3 flex flex-wrap items-start justify-between gap-2"><div className="flex min-w-0 items-start gap-2"><ColorMark color={activityColor(session.Color)} /><div className="min-w-0"><strong className="break-words">{session.ActivityName}</strong>{session.PersonName && <p className="text-xs text-muted-foreground">{session.PersonName}</p>}</div></div>{session.ProjectName && <Badge variant="outline">{session.ProjectName}</Badge>}</div><EditableSession data={data} session={session} onRemove={id => void removeSession(id)} /></article>)}</div> : <div className="pb-2"><p className="font-medium text-muted-foreground">{t(lang, "stats.noSessions")}</p><p className="text-sm text-muted-foreground">{t(lang, "stats.noSessionsHint")}</p>{data.Elsewhere?.length ? <p data-elsewhere className="mt-2 text-sm text-muted-foreground">{t(lang, "stats.elsewhere")} {data.Elsewhere.map(option => <span key={option.Label} className="whitespace-nowrap">{" "}<a className="underline underline-offset-4" href={queryFor(data, option.Label)}>{periodName(lang, option.Label)} — {option.Total}</a></span>)}</p> : null}<Button asChild variant="outline" size="sm" className="mt-3"><a href="/">{t(lang, "stats.toDashboard")}</a></Button></div>}
       {data.SessionsCut && <p className="text-sm text-muted-foreground">{t(lang, "stats.logCut", data.Sessions.length, data.SessionCount)} {data.Sessions.length < 500 && <a className="underline" href={data.ShowAllURL}>{t(lang, "stats.logAll")}</a>} <a className="underline" href="/export">{t(lang, "nav.csvExport")}</a></p>}
     </CardContent></Card>

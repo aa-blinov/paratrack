@@ -36,6 +36,29 @@ func TestFmtDurationLadder(t *testing.T) {
 	}
 }
 
+// The editor shows a session in the clock form its hint teaches, and the
+// server reads that same text back. Under a minute the seconds stay.
+func TestDurationToHumanShowsTheClockFormAndReadsItBack(t *testing.T) {
+	cases := map[int]string{
+		5400: "1:30",
+		3900: "1:05",
+		45:   "45s",
+	}
+	for sec, want := range cases {
+		got := durationToHuman(i18n.En, sec)
+		if got != want {
+			t.Errorf("durationToHuman(%d) = %q, want %q", sec, got, want)
+		}
+		back, err := timeparse.ParseDuration(got)
+		if err != nil || back != sec {
+			t.Errorf("ParseDuration(%q) = %d, %v; want %d", got, back, err, sec)
+		}
+	}
+	if got := durationToHuman(i18n.Ru, 45); got != "45 с" {
+		t.Errorf("durationToHuman(ru, 45) = %q, want 45 с", got)
+	}
+}
+
 func TestToSessionViewDurationSecsMatchesLabel(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	end := start.Add(90 * time.Minute)

@@ -9,8 +9,9 @@ import (
 	"github.com/aa-blinov/paratrack/internal/money"
 )
 
-// durationToHuman is an alias of fmtDurL so the editable field
-// matches the read-only cells.
+// durationToHuman is the editable form of a session's length. It is the clock
+// form the editor's hint teaches ("1:30"), so what the field shows is what the
+// server reads back. Under a minute the seconds stay, since "0:00" would hide them.
 func durationToHuman(lang i18n.Lang, sec int) string {
 	if sec > 0 && sec < 60 {
 		if lang == i18n.Ru {
@@ -18,7 +19,7 @@ func durationToHuman(lang i18n.Lang, sec int) string {
 		}
 		return fmt.Sprintf("%ds", sec)
 	}
-	return fmtDurL(lang, sec)
+	return fmtDurF(lang, "clock", sec)
 }
 
 // fmtDuration is the English duration label (API, CSV, tests).
