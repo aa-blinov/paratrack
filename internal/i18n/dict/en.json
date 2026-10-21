@@ -137,6 +137,8 @@
   "invite.joinNamed": "Join “%s”",
   "bill.prefixInvalid": "Letters, digits and hyphens only, up to 12.",
   "auth.invitedTo": "You are invited to “%s”. Sign in or sign up to join.",
+  "stripe.keyRejected": "Stripe rejected the key. Check the key in the Online payments section of the workspace settings.",
+  "stripe.notConfigured": "The Stripe key is not set. Set it in the Online payments section of the workspace settings.",
   "stripe.nothing": "Enter a key or a secret: an empty form changes nothing.",
   "stripe.state": "Now: key %s, webhook secret %s.",
   "stripe.set": "set",

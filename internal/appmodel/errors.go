@@ -81,6 +81,7 @@ var (
 	ErrHistoryConfirmationRequired = errors.New("confirmation is required before assigning activity history for billing")
 	ErrInvalidReceipt              = errors.New("invoice receipt must be at most 300 characters")
 	ErrStripeUnavailable           = errors.New("stripe payment processing is not configured")
+	ErrStripeKeyRejected           = errors.New("stripe rejected the configured key")
 	ErrInvalidStripeSignature      = errors.New("invalid Stripe webhook signature")
 	ErrInvalidStripePayload        = errors.New("invalid Stripe webhook payload")
 	ErrInvalidStripeMetadata       = errors.New("invalid Stripe payment metadata")

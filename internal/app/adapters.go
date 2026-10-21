@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/aa-blinov/paratrack/internal/reminders"
 	"net/http"
 	"time"
@@ -90,6 +92,12 @@ func (p stripeProtocol) CreateCheckout(ctx context.Context, key string, input in
 		Currency: input.Currency, InvoiceNumber: input.InvoiceNumber, SuccessURL: input.SuccessURL,
 	})
 	if err != nil {
+		// A key Stripe refuses is a fault the owner can fix in the settings; an outage is not.
+		// The wrap keeps Stripe's text for the log, and the caller tells the two apart.
+		var status *stripeadapter.StatusError
+		if errors.As(err, &status) && (status.Code == http.StatusUnauthorized || status.Code == http.StatusForbidden) {
+			return "", "", fmt.Errorf("%w: %w", appmodel.ErrStripeKeyRejected, err)
+		}
 		return "", "", err
 	}
 	return session.ID, session.URL, nil
