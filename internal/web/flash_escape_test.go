@@ -9,14 +9,16 @@ import (
 	"testing"
 )
 
-// flashEscapeSlips finds a flash escaped twice: url.QueryEscape around encodeFlash,
-// or encodeFlash placed in url.Values, which escapes its value again on Encode.
+// flashEscapeSlips finds a flash escaped twice. In this package an identifier named
+// flash always holds a value encodeFlash already escaped, and encodeFlash(...) itself
+// returns one. Escaping either again, with url.QueryEscape or with url.Values, turns
+// the message into text the page cannot read back.
 func flashEscapeSlips(fset *token.FileSet, file *ast.File) []token.Pos {
 	var slips []token.Pos
 	ast.Inspect(file, func(n ast.Node) bool {
 		switch node := n.(type) {
 		case *ast.CallExpr:
-			if isPkgSelector(node.Fun, "url", "QueryEscape") && len(node.Args) == 1 && isCallNamed(node.Args[0], "encodeFlash") {
+			if isPkgSelector(node.Fun, "url", "QueryEscape") && len(node.Args) == 1 && isEncodedFlash(node.Args[0]) {
 				slips = append(slips, node.Pos())
 			}
 		case *ast.CompositeLit:
@@ -33,7 +35,7 @@ func flashEscapeSlips(fset *token.FileSet, file *ast.File) []token.Pos {
 					continue
 				}
 				for _, v := range values.Elts {
-					if isCallNamed(v, "encodeFlash") {
+					if isEncodedFlash(v) {
 						slips = append(slips, v.Pos())
 					}
 				}
@@ -42,6 +44,15 @@ func flashEscapeSlips(fset *token.FileSet, file *ast.File) []token.Pos {
 		return true
 	})
 	return slips
+}
+
+// isEncodedFlash is true for a value that already went through encodeFlash: the call
+// itself, or an identifier named flash, which by the package's convention holds one.
+func isEncodedFlash(expr ast.Expr) bool {
+	if ident, ok := expr.(*ast.Ident); ok {
+		return ident.Name == "flash"
+	}
+	return isCallNamed(expr, "encodeFlash")
 }
 
 func isPkgSelector(expr ast.Expr, pkg, name string) bool {
@@ -67,8 +78,8 @@ func isStringKey(expr ast.Expr, value string) bool {
 	return ok && lit.Kind == token.STRING && lit.Value == `"`+value+`"`
 }
 
-// The package's own sources must never escape a flash twice: that turns a message
-// into text the page cannot read back. The check names the file and line.
+// The package's own sources must never escape a flash twice. The check names the file
+// and the line of each place.
 func TestNoFlashIsEscapedTwice(t *testing.T) {
 	fset := token.NewFileSet()
 	pkgs, err := parser.ParseDir(fset, ".", func(info os.FileInfo) bool {
@@ -80,27 +91,31 @@ func TestNoFlashIsEscapedTwice(t *testing.T) {
 	for _, pkg := range pkgs {
 		for _, file := range pkg.Files {
 			for _, pos := range flashEscapeSlips(fset, file) {
-				t.Errorf("%s: flash escaped twice; route it through encodeFlash only", fset.Position(pos))
+				t.Errorf("%s: flash escaped twice; the flash arrives escaped, route it through the redirect as it is", fset.Position(pos))
 			}
 		}
 	}
 }
 
-// The detector itself is checked on both shapes, so a silent miss cannot pass.
-func TestFlashEscapeDetectorFindsBothDoubleEscapes(t *testing.T) {
+// The detector itself is checked on each shape, so a silent miss cannot pass. The sample
+// holds the two shapes of the double escape (a call and a variable), the plain
+// concatenation and the raw code, which are right.
+func TestFlashEscapeDetectorFindsEveryDoubleEscape(t *testing.T) {
 	src := `package web
 import "net/url"
 func a() string { return url.QueryEscape(encodeFlash(true, "x")) }
 func b() url.Values { return url.Values{"flash": {encodeFlash(false, "y")}} }
-func c() string { return "/x?flash=" + encodeFlash(true, "z") }
-func d() url.Values { return url.Values{"flash": {flashCode(false, "w")}} }
+func c(flash string) string { return "/x?flash=" + url.QueryEscape(flash) }
+func d() string { flash := encodeFlash(true, "z"); return "/x?flash=" + flash }
+func e() string { return "/x?flash=" + encodeFlash(true, "w") }
+func f() url.Values { return url.Values{"flash": {flashCode(false, "v")}} }
 `
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "sample.go", src, 0)
 	if err != nil {
 		t.Fatalf("parse sample: %v", err)
 	}
-	if got := len(flashEscapeSlips(fset, file)); got != 2 {
-		t.Fatalf("detector found %d double escapes in the sample, want 2 (the plain concatenation and the raw code are fine)", got)
+	if got := len(flashEscapeSlips(fset, file)); got != 3 {
+		t.Fatalf("detector found %d double escapes in the sample, want 3 (QueryEscape of encodeFlash, url.Values of encodeFlash, QueryEscape of a flash)", got)
 	}
 }
