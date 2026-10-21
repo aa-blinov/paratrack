@@ -1324,7 +1324,7 @@
   "projects.settingsHint": "Project name, hourly rate, time budget and archiving.",
   "settings.docsHint": "Your billing details for new invoices and statements.",
   "settings.billingHint": "Applies to new invoices; issued ones stay as they are.",
-  "stats.editHint": "Start, end, duration and note are saved when you leave the field. Editing time changes the tracked total.",
+  "stats.editHint": "Start, end, duration and note are saved on Enter or when you leave the field. Editing time changes the tracked total.",
   "dash.mode": "Mode: %s",
   "dash.mode.custom": "Custom",
   "dash.teamActions": "Team actions",
