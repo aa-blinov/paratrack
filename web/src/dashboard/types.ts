@@ -942,6 +942,7 @@ export interface TaskItem {
   ProjectColor: string
   AssigneeID: number
   AssigneeName: string
+  AssigneeGone: boolean
   Due: string
   DueLabel: string
   Overdue: boolean

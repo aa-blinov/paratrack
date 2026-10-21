@@ -16,14 +16,17 @@ import (
 
 // taskItem is one task as the board, the table and the task card show it.
 type taskItem struct {
-	ID            int64
-	Title         string
-	Status        string
-	ProjectID     int64
-	ProjectName   string
-	ProjectColor  string
-	AssigneeID    int64
-	AssigneeName  string
+	ID           int64
+	Title        string
+	Status       string
+	ProjectID    int64
+	ProjectName  string
+	ProjectColor string
+	AssigneeID   int64
+	AssigneeName string
+	// AssigneeGone is set when the task still names an assignee who is no longer
+	// in the team: the reference stays, so the task is not an unassigned one.
+	AssigneeGone  bool
 	Due           string
 	DueLabel      string
 	Overdue       bool
@@ -153,7 +156,8 @@ func (s *Server) taskItems(r *http.Request, query appmodel.TaskQuery) ([]taskIte
 			ID: task.ID, Title: task.Title, Status: task.Status, Archived: task.Archived,
 			ProjectID: task.ProjectID, ProjectName: row.ProjectName, ProjectColor: row.ProjectColor,
 			AssigneeID: task.AssigneeID, AssigneeName: names[task.AssigneeID],
-			TrackedMin: row.TrackedMin, TrackedLabel: fmtDur(r, row.TrackedMin*60),
+			AssigneeGone: task.AssigneeID > 0 && names[task.AssigneeID] == "",
+			TrackedMin:   row.TrackedMin, TrackedLabel: fmtDur(r, row.TrackedMin*60),
 			CanArchive:  manage || (task.CreatedBy > 0 && task.CreatedBy == viewer),
 			ExternalURL: task.ExternalURL,
 		}
