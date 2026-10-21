@@ -13,8 +13,10 @@ import (
 // projectPlanView is what the project page shows about the team's time on
 // it: the plan, the tracked time, what is left of the estimate, and the people.
 type projectPlanView struct {
-	People         []projectPersonRow
-	PlannedLabel   string
+	People       []projectPersonRow
+	PlannedLabel string
+	// TrackedLabel is the team's tracked time on the project, for those who see it.
+	TrackedLabel   string
 	RemainingLabel string
 	RemainingOver  bool
 	// LeadLabel names the project lead, or is empty when there is none.
@@ -67,6 +69,9 @@ func (s *Server) projectPlan(r *http.Request, project model.Project) (projectPla
 	}
 	sort.Slice(view.People, func(i, j int) bool { return view.People[i].Name < view.People[j].Name })
 	view.PlannedLabel = fmtDur(r, plannedTotal*60)
+	if showTracked {
+		view.TrackedLabel = fmtDur(r, trackedTotal*60)
+	}
 	if project.EstimateMinutes != nil && showTracked {
 		left := *project.EstimateMinutes - trackedTotal - ahead
 		if left < 0 {

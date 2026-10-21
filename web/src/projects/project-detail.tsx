@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { ProjectDetailData } from "@/dashboard/types"
@@ -191,7 +191,6 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
     <section aria-label={t(data.Lang, "projects.allTime")} className={`grid gap-4 sm:grid-cols-2 ${data.EstimateLabel && data.RateLabel ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
       <SummaryCard title={t(data.Lang, "projects.last30")} value={data.MonthTotal} />
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
-      <SummaryCard title={t(data.Lang, "proj.plannedAll")} value={data.PlannedLabel} />
       {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} />}
       {data.RemainingLabel && <SummaryCard title={t(data.Lang, "proj.remaining")} value={data.RemainingLabel} hint={t(data.Lang, "proj.remainingHint")} />}
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
@@ -221,6 +220,11 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
             <TableCell className="p-2 text-right font-mono tabular-nums">{person.Planned}</TableCell>
             {data.CanManage && <TableCell className="p-2 text-right font-mono tabular-nums">{person.Tracked || "—"}</TableCell>}
           </TableRow>)}</TableBody>
+          <TableFooter><TableRow className="font-medium">
+            <TableCell className="p-2">{t(data.Lang, "proj.totalAllTime")}</TableCell>
+            <TableCell className="p-2 text-right font-mono tabular-nums">{data.PlannedLabel}</TableCell>
+            {data.CanManage && <TableCell className="p-2 text-right font-mono tabular-nums">{data.TrackedLabel}</TableCell>}
+          </TableRow></TableFooter>
         </Table> : <p className="text-sm text-muted-foreground">{t(data.Lang, "proj.noPlanned")}</p>}
       </CardContent>
     </Card>
