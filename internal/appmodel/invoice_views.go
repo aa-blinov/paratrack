@@ -60,6 +60,11 @@ type InvoiceDetailResult struct {
 	Lines                []model.InvoiceLine
 	TotalCents           int
 	TotalHoursHundredths int
+	// InvoicedSeconds is the time the lines carry. TrackedSeconds is the time the
+	// invoice's sessions carry now; it is read for drafts only, the statuses whose
+	// sessions can still change.
+	InvoicedSeconds int
+	TrackedSeconds  int
 }
 
 // InvoiceDocumentRequest scopes the shared invoice detail read used by the

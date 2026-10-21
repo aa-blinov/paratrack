@@ -94,7 +94,7 @@ Start the local service with `make e2e-up` before running them. Set
 | C. Timesheet | cell 120 m → **2h**; cell 0 clears the day |
 | D. Estimates | 600 m = **10h** / 2h tracked |
 | E. Payroll | `PAY-YYYY-NNN` from tracked time × 100.00/h |
-| F. Reports | 5 templates render; CSV `key,hours,seconds,rate_cents,amount_cents,share` |
+| F. Reports | 5 templates render; CSV `key,hours,seconds,rate,amount,currency,share` |
 | G. Marketplace | 11 cards |
 | H. API | `pt_` bearer works on `/api/v1/*`; bad token → 401 |
 | I. Webhooks / audit | webhook created, audit rows present |

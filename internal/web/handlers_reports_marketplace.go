@@ -1,9 +1,7 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -18,6 +16,7 @@ import (
 
 type reportRow struct {
 	Key         string // group label
+	Currency    string // the row's currency, for the CSV
 	Secs        int
 	Hours       string
 	Rate        string
@@ -108,6 +107,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 			Key: key, Secs: row.Seconds, Hours: reportHours(r, tpl.Billable, row.Seconds), Share: row.Share,
 			Rate: rate, Amount: moneyL(resolveLang(r), row.AmountCents, row.Currency),
 			AmountCents: row.AmountCents, RateCents: row.RateCents, RateVaries: row.RateVaries,
+			Currency: row.Currency,
 		}
 		if showPlan {
 			item.PlannedSecs = planned[row.UserID] * 60
@@ -223,14 +223,7 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("format") == "csv" {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="`+tpl.ID+`.csv"`)
-		fmt.Fprintf(w, "key,hours,seconds,rate_cents,amount_cents,share\n")
-		for _, row := range vm.Rows {
-			rateCents := ""
-			if !row.RateVaries {
-				rateCents = strconv.Itoa(row.RateCents)
-			}
-			fmt.Fprintf(w, "%q,%s,%d,%s,%d,%.1f\n", row.Key, row.Hours, row.Secs, rateCents, row.AmountCents, row.Share)
-		}
+		_ = writeReportCSV(w, vm.Rows)
 		return
 	}
 	lang := string(resolveLang(r))

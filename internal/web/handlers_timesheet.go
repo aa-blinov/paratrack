@@ -67,6 +67,9 @@ type timesheetData struct {
 	Added           []int64        // rows added by hand this visit
 	DateISO         string
 	Approval        timesheetApproval
+	// Flash is the answer of the last approve or reopen, shown above the week.
+	Flash   string
+	FlashOK bool
 }
 
 // handleTimesheet renders the weekly grid. ?date= any day inside the
@@ -180,6 +183,9 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		Others:          activityViews(grid.Others, string(resolveLang(r))),
 		Added:           added,
 		DateISO:         weekStart.Format("2006-01-02"),
+	}
+	if flash := r.URL.Query().Get("flash"); flash != "" {
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	data.Approval = approval
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", &data)
