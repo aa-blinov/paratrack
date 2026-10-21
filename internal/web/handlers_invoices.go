@@ -111,7 +111,7 @@ func invoiceMailText(lang i18n.Lang, vm invoiceVM, seller string) (string, strin
 
 // invoiceBack redirects to the invoice detail page with a result message.
 func (s *Server) invoiceBack(w http.ResponseWriter, r *http.Request, ok bool, msg string) {
-	http.Redirect(w, r, "/invoices/"+r.PathValue("id")+"?flash="+url.QueryEscape(encodeFlash(ok, msg)), http.StatusSeeOther)
+	http.Redirect(w, r, "/invoices/"+r.PathValue("id")+"?flash="+encodeFlash(ok, msg), http.StatusSeeOther)
 }
 
 // invoiceErrorMessage maps workflow and domain errors to user-facing text.

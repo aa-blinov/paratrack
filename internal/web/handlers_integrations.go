@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -222,9 +221,9 @@ func (s *Server) importFlash(r *http.Request, n int, err error) string {
 		default:
 			s.logInternalError(err)
 		}
-		return url.QueryEscape(encodeFlash(false, fmt.Sprintf(i18n.T(lang, "int.importFailed"), message)))
+		return encodeFlash(false, fmt.Sprintf(i18n.T(lang, "int.importFailed"), message))
 	}
-	return url.QueryEscape(encodeFlash(true, fmt.Sprintf(i18n.T(lang, "int.imported"), n)))
+	return encodeFlash(true, fmt.Sprintf(i18n.T(lang, "int.imported"), n))
 }
 
 // ---------------------------------------------------------------------------

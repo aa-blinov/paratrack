@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	netmail "net/mail"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -30,10 +29,10 @@ func (s *Server) handleInvoiceAssignActivity(w http.ResponseWriter, r *http.Requ
 		http.Error(w, i18n.T(resolveLang(r), "inv.assignInvalid"), http.StatusBadRequest)
 		return
 	} else if err != nil {
-		http.Redirect(w, r, "/invoices?flash="+url.QueryEscape(encodeFlash(false, i18n.T(resolveLang(r), "inv.assignFailed"))), http.StatusSeeOther)
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "inv.assignFailed")), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/invoices?project="+strconv.FormatInt(projectID, 10)+"&flash="+url.QueryEscape(encodeFlash(true, i18n.T(resolveLang(r), "inv.assignDone"))), http.StatusSeeOther)
+	http.Redirect(w, r, "/invoices?project="+strconv.FormatInt(projectID, 10)+"&flash="+encodeFlash(true, i18n.T(resolveLang(r), "inv.assignDone")), http.StatusSeeOther)
 }
 
 // handleInvoiceCreate generates a draft from tracked time.
@@ -98,7 +97,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(created.Overlaps) > 0 {
 		msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.overlap"), strings.Join(created.Overlaps, ", "))
-		http.Redirect(w, r, "/invoices/"+strconv.FormatInt(inv.ID, 10)+"?flash="+url.QueryEscape(encodeFlash(false, msg)), http.StatusSeeOther)
+		http.Redirect(w, r, "/invoices/"+strconv.FormatInt(inv.ID, 10)+"?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/invoices/"+strconv.FormatInt(inv.ID, 10), http.StatusSeeOther)

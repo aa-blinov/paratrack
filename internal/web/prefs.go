@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/url"
 	"strconv"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -240,7 +239,7 @@ func (s *Server) handleAPIPreferences(w http.ResponseWriter, r *http.Request) {
 		} else {
 			s.logInternalError(err)
 		}
-		http.Redirect(w, r, "/settings/preferences?flash="+url.QueryEscape(encodeFlash(false, msg)), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/preferences?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/settings/preferences?flash=updated", http.StatusSeeOther)

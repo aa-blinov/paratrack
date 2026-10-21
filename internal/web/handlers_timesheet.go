@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -437,7 +436,7 @@ func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, appr
 	first, err1 := time.ParseInLocation("2006-01-02", r.PostForm.Get("start"), loc)
 	last, err2 := time.ParseInLocation("2006-01-02", r.PostForm.Get("end"), loc)
 	if err1 != nil || err2 != nil || last.Before(first) {
-		http.Redirect(w, r, "/timesheet?flash="+url.QueryEscape(encodeFlash(false, i18n.T(lang, "err.invalidInput"))), http.StatusSeeOther)
+		http.Redirect(w, r, "/timesheet?flash="+encodeFlash(false, i18n.T(lang, "err.invalidInput")), http.StatusSeeOther)
 		return
 	}
 	back := "/timesheet?date=" + first.Format("2006-01-02")
@@ -449,11 +448,11 @@ func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, appr
 		change = s.services.Tracking.Commands.ApproveWeek
 	}
 	if err := change(r.Context(), request); err != nil {
-		http.Redirect(w, r, back+"&flash="+url.QueryEscape(encodeFlash(false, approvalMessage(lang, err))), http.StatusSeeOther)
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, approvalMessage(lang, err)), http.StatusSeeOther)
 		return
 	}
 	s.audit(r, action, first.Format("2006-01-02")+".."+last.Format("2006-01-02"), "")
-	http.Redirect(w, r, back+"&flash="+url.QueryEscape(encodeFlash(true, i18n.T(lang, okKey))), http.StatusSeeOther)
+	http.Redirect(w, r, back+"&flash="+encodeFlash(true, i18n.T(lang, okKey)), http.StatusSeeOther)
 }
 
 // weekLockedMessage names the approved week and says who can reopen it. The
