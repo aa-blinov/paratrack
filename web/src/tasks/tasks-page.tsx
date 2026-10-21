@@ -181,7 +181,7 @@ export function TasksPage({ data }: { data: TasksData }) {
             <a href={`/tasks/${task.ID}`} className="font-medium underline-offset-4 hover:underline">{task.Title}</a>
             <span className="flex items-center gap-2 text-xs text-muted-foreground"><span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ backgroundColor: task.ProjectColor }} />{task.ProjectName}</span>
             <span className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-              {task.AssigneeName && <span>{task.AssigneeName}</span>}
+              {task.AssigneeGone ? <span className="text-destructive">{t(lang, "tasks.assigneeGone")}</span> : task.AssigneeName && <span>{task.AssigneeName}</span>}
               {task.DueLabel && <span className={task.Overdue ? "text-destructive" : undefined}>{task.DueLabel}</span>}
               {task.Overdue && <span className="font-medium text-destructive">{t(lang, "tasks.overdue")}</span>}
               {task.TrackedLabel && <span className="font-mono">{task.TrackedLabel}</span>}
@@ -210,7 +210,7 @@ export function TasksPage({ data }: { data: TasksData }) {
                 <td className="px-3 py-2"><a href={`/tasks/${task.ID}`} className="font-medium underline-offset-4 hover:underline">{task.Title}</a></td>
                 <td className="px-3 py-2">{task.ProjectName}</td>
                 <td className="px-3 py-2">{t(lang, `tasks.${task.Status}`)}</td>
-                <td className="px-3 py-2">{task.AssigneeName || t(lang, "tasks.nobody")}</td>
+                <td className="px-3 py-2">{task.AssigneeGone ? <span className="text-destructive">{t(lang, "tasks.assigneeGone")}</span> : task.AssigneeName || t(lang, "tasks.nobody")}</td>
                 <td className="px-3 py-2 text-right font-mono tabular-nums">{task.TrackedLabel}</td>
                 <td className="px-3 py-2 text-right">{task.CanArchive && <Button type="button" variant="outline" size="sm" onClick={() => restore(task)}><RotateCcw aria-hidden="true" />{t(lang, "tasks.restore")}</Button>}</td>
               </tr>)}</tbody>

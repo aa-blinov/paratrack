@@ -1498,6 +1498,7 @@
   "tasks.allProjects": "All projects",
   "tasks.assignee": "Assignee",
   "tasks.nobody": "Unassigned",
+  "tasks.assigneeGone": "Assignee left the team",
   "tasks.due": "Due",
   "tasks.dueInvalid": "The date is not recognised. Type it as mm/dd/yyyy or pick it in the calendar.",
   "tasks.restore": "Put back on the board",
