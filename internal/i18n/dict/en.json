@@ -74,6 +74,7 @@
   "dash.today": "Today",
   "dash.active": "Running",
   "dash.trackedToday": "Tracked today",
+  "dash.dayNorm": "Day norm: %s",
   "dash.topActivity": "Top activity",
   "dash.backfillTitle": "Add a past session",
   "dash.backfillBlurb": "Times in free form: “yesterday 14:00”, “10:30”, “2h ago”.",
