@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/mail"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -345,7 +344,7 @@ func clientIDFromPath(r *http.Request) (int64, bool) {
 }
 
 func (s *Server) redirectClientFlash(w http.ResponseWriter, r *http.Request, id int64, flash string) {
-	http.Redirect(w, r, "/clients?flash="+url.QueryEscape(flash)+"#client-"+strconv.FormatInt(id, 10), http.StatusSeeOther)
+	http.Redirect(w, r, "/clients?flash="+flash+"#client-"+strconv.FormatInt(id, 10), http.StatusSeeOther)
 }
 
 func (s *Server) clientFlashError(err error, lang i18n.Lang) string {
