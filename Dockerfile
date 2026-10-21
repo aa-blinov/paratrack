@@ -31,7 +31,7 @@ RUN apk add --no-cache postgresql17 postgresql17-contrib >/dev/null \
 ARG VERSION=dev
 RUN go build -trimpath -ldflags="-s -w -X main.Version=${VERSION}" -o /out/paratrack ./cmd/paratrack
 
-FROM alpine:3.20
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates tzdata
 COPY --from=build /out/paratrack /usr/local/bin/paratrack
 EXPOSE 8000
