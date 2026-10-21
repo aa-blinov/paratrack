@@ -7,7 +7,7 @@ works on the product. The documents of the house standard are in English.
 
 | Document | What it covers |
 | --- | --- |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | How the service is put together: the runtime shape, the modules, the dependency rules and the boundaries. |
+| [architecture.md](architecture.md) | How the service is put together: the runtime shape, the modules, the dependency rules and the boundaries. |
 | [PRODUCT.md](PRODUCT.md) | The product truth for the service: the capabilities, the constraints and the principles. |
 | [SCREENS.md](SCREENS.md) | The index of the screen documents, with the depth of the key action on each screen. |
 | [screens/](screens/) | One document per screen: what it is for, who comes to it, and what gets in the way. |
@@ -27,13 +27,13 @@ works on the product. The documents of the house standard are in English.
 ## Reading order
 
 New here: [../README.md](../README.md), then
-[ARCHITECTURE.md](ARCHITECTURE.md) for the shape of the service.
+[architecture.md](architecture.md) for the shape of the service.
 
 Working on a screen: the document for that screen in [screens/](screens/),
 then [SCREENS.md](SCREENS.md) for the index and the depth of the key
 action.
 
-Changing the code: [ARCHITECTURE.md](ARCHITECTURE.md), then
+Changing the code: [architecture.md](architecture.md), then
 [../AGENTS.md](../AGENTS.md) for the traps.
 
 Before a release: [QA.md](QA.md).
