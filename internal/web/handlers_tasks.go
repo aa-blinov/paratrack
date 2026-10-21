@@ -12,6 +12,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
 // taskItem is one task as the board, the table and the task card show it.
@@ -170,7 +171,7 @@ func (s *Server) taskItems(r *http.Request, query appmodel.TaskQuery) ([]taskIte
 		}
 		if task.EstimateMinutes > 0 {
 			item.EstimateMin = task.EstimateMinutes
-			item.EstimateLabel = fmtDur(r, task.EstimateMinutes*60)
+			item.EstimateLabel = fmtDurF(resolveLang(r), "clock", task.EstimateMinutes*60)
 		}
 		for _, a := range row.Activities {
 			item.Activities = append(item.Activities, taskActivity{ID: a.ID, Name: a.Name, Color: a.Color})
@@ -277,6 +278,21 @@ func (s *Server) handleTasksAPIList(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, tasksListResponse{Tasks: items})
 }
 
+// taskEstimateMinutes reads a task estimate written as hours and minutes ("1:30"),
+// as the forms show it. Plain minutes ("90") still parse, so older clients keep
+// working. Empty means no estimate.
+func taskEstimateMinutes(raw string) (int, error) {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return 0, nil
+	}
+	seconds, err := timeparse.ParseDuration(value)
+	if err != nil {
+		return 0, err
+	}
+	return seconds / 60, nil
+}
+
 func (s *Server) handleTaskCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
@@ -284,7 +300,11 @@ func (s *Server) handleTaskCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	projectID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("project_id")), 10, 64)
 	assignee, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("assignee_id")), 10, 64)
-	estimate, _ := strconv.Atoi(strings.TrimSpace(r.PostForm.Get("estimate_minutes")))
+	estimate, err := taskEstimateMinutes(r.PostForm.Get("estimate_minutes"))
+	if err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid estimate"})
+		return
+	}
 	task, err := s.services.Tasks.Create(r.Context(), appmodel.TaskCreateRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), ProjectID: projectID,
 		Title: r.PostForm.Get("title"), Status: strings.TrimSpace(r.PostForm.Get("status")),
@@ -321,7 +341,11 @@ func (s *Server) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {
 		request.Due = &due
 	}
 	if _, sent := r.PostForm["estimate_minutes"]; sent {
-		estimate, _ := strconv.Atoi(strings.TrimSpace(r.PostForm.Get("estimate_minutes")))
+		estimate, err := taskEstimateMinutes(r.PostForm.Get("estimate_minutes"))
+		if err != nil {
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid estimate"})
+			return
+		}
 		request.EstimateMinutes = &estimate
 	}
 	if _, err := s.services.Tasks.Update(r.Context(), request); err != nil {
