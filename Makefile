@@ -31,6 +31,7 @@ GO_PACKAGES = $(shell GO="$(GO)" scripts/go-packages.sh)
 ui:
 	cd web && $(NPM) ci
 	cd web && $(NPM) run build
+	python3 scripts/normalize-bundle.py internal/web/static/ui
 
 # VERSION is stamped into the binary so the footer shows what is actually
 # running. Override for a release:  make build VERSION=0.0.1
