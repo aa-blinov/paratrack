@@ -26,6 +26,7 @@
 //	"90s"              seconds
 //	"1h 30m", "2h30m"  compound
 //	"1 hour", "30 minutes"  long forms
+//	"1:30"             1 hour 30 minutes, the form the session editor shows
 package timeparse
 
 import (
@@ -173,6 +174,20 @@ func ParseDuration(s string) (int, error) {
 	if strings.HasPrefix(s, "-") {
 		return 0, fmt.Errorf("duration must be positive: %q", s)
 	}
+	// Clock form: the editor shows and accepts "1:30". Minutes stay under 60, so
+	// "1:60" is refused rather than read as an hour.
+	if clock := clockDurationRe.FindStringSubmatch(s); clock != nil {
+		hours, _ := strconv.Atoi(clock[1])
+		minutes, _ := strconv.Atoi(clock[2])
+		total := (hours*60 + minutes) * 60
+		if total <= 0 {
+			return 0, fmt.Errorf("duration must be positive: %q", s)
+		}
+		if total > maxDurationSeconds() {
+			return 0, ErrDurationOverflow
+		}
+		return total, nil
+	}
 	// Bare number → minutes
 	if n, err := strconv.Atoi(s); err == nil {
 		if n > maxDurationSeconds()/60 {
@@ -319,6 +334,8 @@ func parseHHMM(s string) (hhmm, error) {
 
 var (
 	agoRe = regexp.MustCompile(`^(\d+(?:\.\d+)?)\s+(hour|hours|hr|hrs|minute|minutes|min|mins|day|days|week|weeks)\s+ago$`)
+	// clockDurationRe matches hours and minutes with a colon: "1:30", "12:05".
+	clockDurationRe = regexp.MustCompile(`^(\d{1,3}):([0-5]\d)$`)
 	// durationTokenRe matches number + unit word; the unit alternative
 	// is bounded (no \b) so that "2h30m" splits at "2h" + "30m".
 	durationTokenRe = regexp.MustCompile(`(\d+(?:\.\d+)?)\s*(hours?|hrs?|h|minutes?|mins?|m|seconds?|secs?|s|days?|d|weeks?|w|часа|часов|час|ч|минуты|минута|минут|мин|м|сек|с|дней|дня|день|дн|д|недели|неделя|недель|нед|н)`)
