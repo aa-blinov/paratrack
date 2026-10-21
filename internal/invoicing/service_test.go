@@ -224,16 +224,17 @@ func (s stripeCredentialsStub) TeamStripe(context.Context, int64) (string, strin
 }
 
 type stripeGatewayStub struct {
-	key      string
-	request  StripeCheckoutRequest
-	event    StripeWebhookEvent
-	parseErr error
-	header   string
-	body     []byte
-	secret   string
-	now      time.Time
-	valid    bool
-	expire   struct {
+	checkoutErr error
+	key         string
+	request     StripeCheckoutRequest
+	event       StripeWebhookEvent
+	parseErr    error
+	header      string
+	body        []byte
+	secret      string
+	now         time.Time
+	valid       bool
+	expire      struct {
 		key, sessionID string
 		ctxErr         error
 		err            error
@@ -246,6 +247,9 @@ func (s *stripeGatewayStub) ParseWebhookEvent([]byte) (StripeWebhookEvent, error
 
 func (s *stripeGatewayStub) CreateCheckout(_ context.Context, key string, request StripeCheckoutRequest) (string, string, error) {
 	s.key, s.request = key, request
+	if s.checkoutErr != nil {
+		return "", "", s.checkoutErr
+	}
 	return "cs_123", "https://checkout.example/session", nil
 }
 
