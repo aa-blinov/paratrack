@@ -452,7 +452,7 @@ func (s *Server) writeTaskError(w http.ResponseWriter, r *http.Request, err erro
 // request only: it is not stored, logged or shown back.
 func (s *Server) handleTasksImportGitHub(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Redirect(w, r, "/tasks?flash="+url.QueryEscape(encodeFlash(false, i18n.T(resolveLang(r), "err.invalidInput"))), http.StatusSeeOther)
+		http.Redirect(w, r, "/tasks?flash="+encodeFlash(false, i18n.T(resolveLang(r), "err.invalidInput")), http.StatusSeeOther)
 		return
 	}
 	projectID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("project_id")), 10, 64)

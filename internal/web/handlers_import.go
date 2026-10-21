@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -112,7 +111,7 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request) {
 	if result.ArchivedSkipped > 0 {
 		msg += " " + fmt.Sprintf(i18n.T(resolveLang(r), "imp.archivedSkipped"), result.ArchivedSkipped)
 	}
-	http.Redirect(w, r, "/stats?flash="+url.QueryEscape(encodeFlash(true, msg)), http.StatusSeeOther)
+	http.Redirect(w, r, "/stats?flash="+encodeFlash(true, msg), http.StatusSeeOther)
 }
 
 func (s *Server) importFailureMessage(r *http.Request, err error) string {

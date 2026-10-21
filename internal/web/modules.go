@@ -2,7 +2,6 @@ package web
 
 import (
 	"net/http"
-	"net/url"
 	"strings"
 	"sync"
 
@@ -154,7 +153,7 @@ func (s *Server) module(key string, h http.HandlerFunc) http.HandlerFunc {
 			to = "/settings/sections"
 		}
 		// Not a failure: the person followed a link to a section that is switched off.
-		http.Redirect(w, r, to+"?flash="+url.QueryEscape(encodeFlash(true, msg)), http.StatusSeeOther)
+		http.Redirect(w, r, to+"?flash="+encodeFlash(true, msg), http.StatusSeeOther)
 	}
 }
 
@@ -255,7 +254,7 @@ func (s *Server) handleAPITeamModules(w http.ResponseWriter, r *http.Request) {
 		err = settings.UpdateModules(r.Context(), appmodel.TeamModulesRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Selected: on})
 	}
 	if err != nil {
-		http.Redirect(w, r, "/settings/sections?flash="+url.QueryEscape(encodeFlash(false, s.teamErrorMessage(r, err))), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/sections?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
 	if changes := appmodel.SectionChanges(before, on); changes != "" {

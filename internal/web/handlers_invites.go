@@ -26,7 +26,7 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 		// The address already has a link that still works: show it again
 		// instead of issuing a second one.
 		link := s.publicBaseURL(r) + "/invites/" + inv.Token
-		query := url.Values{"flash": {encodeFlash(false, fmt.Sprintf(i18n.T(lang, "flash.inviteAlreadyLive"), to))}, "invite": {link}}
+		query := url.Values{"flash": {flashCode(false, fmt.Sprintf(i18n.T(lang, "flash.inviteAlreadyLive"), to))}, "invite": {link}}
 		http.Redirect(w, r, "/settings/invites?"+query.Encode(), http.StatusSeeOther)
 		return
 	}
@@ -51,7 +51,7 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 // own to offer a copy button; leaving it inside the flash sentence would keep
 // it unselectable and uncopyable.
 func redirectWithFreshInvite(w http.ResponseWriter, r *http.Request, message, link string) {
-	query := url.Values{"flash": {encodeFlash(true, message)}, "invite": {link}}
+	query := url.Values{"flash": {flashCode(true, message)}, "invite": {link}}
 	http.Redirect(w, r, "/settings/invites?"+query.Encode(), http.StatusSeeOther)
 }
 
