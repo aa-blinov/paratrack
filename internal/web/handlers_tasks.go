@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -471,7 +470,7 @@ func (s *Server) handleTasksImportGitHub(w http.ResponseWriter, r *http.Request)
 		flash = encodeFlash(true, fmt.Sprintf(i18n.T(resolveLang(r), "tasks.githubDone"),
 			result.Created, result.Updated, result.Unchanged, result.Archived))
 	}
-	http.Redirect(w, r, back+"&flash="+url.QueryEscape(flash), http.StatusSeeOther)
+	http.Redirect(w, r, back+"&flash="+flash, http.StatusSeeOther)
 }
 
 // githubImportMessage says why an import failed, in the words a manager can act on.
