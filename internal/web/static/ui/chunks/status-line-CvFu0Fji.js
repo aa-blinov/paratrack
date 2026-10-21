@@ -1,1 +1,0 @@
-import{jt as e}from"./ui-CKAJS1Fx.js";var t=e();function n({text:e,className:n=`text-xs text-muted-foreground`,...r}){return(0,t.jsx)(`p`,{role:`status`,"aria-live":`polite`,...r,className:e?n:`sr-only`,children:e})}export{n as t};
