@@ -531,6 +531,7 @@
   "sch.copyWeek": "Repeat last week",
   "sch.adminHours": "admin, h a week",
   "sch.overload": "overloaded",
+  "sch.idle": "idle",
   "sch.of": "of",
   "sch.addProject": "Add project",
   "sch.blurb": "The week's plan: hours by person and project. An empty field clears the day.",

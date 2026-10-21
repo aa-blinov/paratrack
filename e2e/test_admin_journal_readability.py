@@ -5,8 +5,8 @@ Two checks on a fresh account, through the product's own forms and the audit pag
 1. Each row names its author by the account's name, not by an id.
 2. A created API token shows its name on the page, where the journal used to show an id.
 
-Role changes and the former-member filter need a second account; the Go tests cover them
-through the real routes.
+Role changes and the former-member filter need a second account: test_admin_journal_members.py
+covers them with one.
 """
 import sys
 import time

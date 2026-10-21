@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
 import type { ScheduleData, ScheduleDay, SchedulePerson, ScheduleLine } from "@/dashboard/types"
+import { loadState } from "@/schedule/load-state"
 
 // The plan as the server sends it after any change: the week, again.
 type PlanUpdate = {
@@ -201,9 +202,9 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     const dayMins = data.Days.map((_, index) => lines.reduce((sum, line) => sum + cellMinutes(person, line, index), 0))
     const planned = dayMins.reduce((sum, minutes) => sum + minutes, 0)
     const available = person.AvailableMin
-    const over = available > 0 ? planned > available : planned > 0
+    const load = loadState(planned, available)
     const pct = available > 0 ? Math.floor((planned * 100) / available) : 0
-    return { dayMins, planned, pct, over }
+    return { dayMins, planned, pct, load }
   }
 
   // The project filter narrows the rows, never what can be added.
@@ -421,8 +422,8 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
                   <TableRow className="border-b bg-muted/30">
                     <TableHead scope="rowgroup" className="sticky left-0 z-10 max-w-56 bg-muted/30 px-3 py-2 text-left font-medium">
                       <span className="grid-name block truncate" title={person.UserName}>{person.UserName}</span>
-                      <span className={`block text-xs font-mono ${live.over ? "text-destructive" : "text-muted-foreground"}`}>
-                        {t(lang, "sch.planned")} {durationLabel(live.planned, format, lang)} {t(lang, "sch.of")} {person.AvailableLabel}{person.AvailableMin > 0 ? `, ${live.pct}%` : ""}{live.over ? `, ${t(lang, "sch.overload")}` : ""}
+                      <span className={`block text-xs font-mono ${live.load === "overload" ? "text-destructive" : "text-muted-foreground"}`}>
+                        {t(lang, "sch.planned")} {durationLabel(live.planned, format, lang)} {t(lang, "sch.of")} {person.AvailableLabel}{person.AvailableMin > 0 ? `, ${live.pct}%` : ""}{live.load === "overload" ? `, ${t(lang, "sch.overload")}` : live.load === "idle" ? `, ${t(lang, "sch.idle")}` : ""}
                       </span>
                       {data.CanManage && <span className="block text-xs font-mono text-muted-foreground">{t(lang, "sch.tracked")} {person.TrackedLabel}{person.AvailableMin > 0 ? `, ${person.TrackedPct}%` : ""}</span>}
                       {adminField(person)}
