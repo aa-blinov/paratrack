@@ -5,7 +5,7 @@ One finished entry on a fresh account:
 1. Enter in the duration sends one save, and the page reloads with the new duration.
 2. Enter with nothing changed sends nothing.
 3. Enter in the note saves the note.
-4. The editor's hint names both ways to save (on a phone, once the editor is open).
+4. The editor's hint names both ways to save, and the duration format is shown under its field.
 5. An entry in an approved past week: an Enter that the server refuses shows the
    refusal under the entry, and the stored duration stays.
 
@@ -70,7 +70,8 @@ def main() -> int:
         browser = launch(p)
         context = browser.new_context(viewport={"width": 1280, "height": 900})
         page = context.new_page()
-        page.on("request", lambda r: saves.append(r.url) if r.method == "PATCH" and "/api/sessions/" in r.url else None)
+        # Each save keeps its form body, so a check can see which fields it carried.
+        page.on("request", lambda r: saves.append(r.post_data or "") if r.method == "PATCH" and "/api/sessions/" in r.url else None)
         register(page, context, "Редактор Enter", f"session-enter{stamp}@example.com", "session-enter-qa-pass-2026")
 
         print("\n== 1. One finished entry")
@@ -83,11 +84,11 @@ def main() -> int:
 
         print("\n== 2. Enter in the duration saves once")
         before = len(saves)
-        duration.fill("1ч 30м")
+        duration.fill("1:30")
         with page.expect_navigation(wait_until="networkidle"):
             duration.press("Enter")
         check("Enter sends one save", len(saves) - before == 1, str(len(saves) - before))
-        check("the saved session carries 1 ч 30 мин", shown_duration(page, activity) == "1 ч 30 мин",
+        check("the saved session carries 1:30", shown_duration(page, activity) == "1:30",
               shown_duration(page, activity))
 
         print("\n== 3. Enter with nothing changed sends nothing")
@@ -103,15 +104,18 @@ def main() -> int:
         with page.expect_navigation(wait_until="networkidle"):
             note.press("Enter")
         check("Enter in the note sends one save", len(saves) - before == 1, str(len(saves) - before))
+        note_body = saves[-1]
+        check("the note save carries only the note, so the length and the end stay exact",
+              "duration=" not in note_body and "start_at=" not in note_body and "end_at=" not in note_body,
+              note_body)
         check("the note is stored", session_of(page, activity)["Note"] == "Сохранено по Enter",
               str(session_of(page, activity)["Note"]))
 
-        print("\n== 5. The hint names both ways to save")
-        # The hint is shown once the editor is open, which on a phone is the "Показать" toggle.
-        page.set_viewport_size({"width": 375, "height": 800})
-        page.get_by_role("button", name="Показать", exact=True).click()
-        check("the editor hint says Enter or leaving the field", "по Enter или после выхода из поля" in page.inner_text("body"))
-        page.set_viewport_size({"width": 1280, "height": 900})
+        print("\n== 5. The hint names both ways to save, and the format is shown under the field")
+        body = page.inner_text("body")
+        check("the editor hint says Enter or leaving the field, on desktop without opening anything",
+              "по Enter или после выхода из поля" in body)
+        check("the duration format is shown under the field", "например 1:30" in body)
 
         print("\n== 6. A refused save shows the refusal under the entry")
         # Only a week that has ended can be approved, so the entry sits in a past week.
@@ -128,7 +132,7 @@ def main() -> int:
         page.goto(past_url, wait_until="networkidle")
         past_duration = page.get_by_label(re.compile(rf"Длительность.*{re.escape(past)}"))
         before = len(saves)
-        past_duration.fill("2ч")
+        past_duration.fill("2:00")
         past_duration.press("Enter")
         refusal = page.get_by_role("alert").filter(has_text="утверждена")
         expect(refusal).to_be_visible()
@@ -136,7 +140,7 @@ def main() -> int:
         check("the refusal says the week is approved", refusal.count() == 1, str(refusal.count()))
         page.goto(past_url, wait_until="networkidle")
         stored = next(s for s in page_data(page)["Sessions"] if s["ActivityName"] == past)["DurationInput"]
-        check("the stored duration stays 1 ч", stored.replace(" ", " ") == "1 ч", stored)
+        check("the stored duration stays 1:00", stored == "1:00", stored)
 
         browser.close()
 

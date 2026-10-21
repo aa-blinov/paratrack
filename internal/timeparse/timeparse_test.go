@@ -56,6 +56,12 @@ func TestParseDuration(t *testing.T) {
 		// Plural aliases.
 		{"1 hr 30 mins", 5400},
 		{"2 hrs 15 mins", 2*3600 + 15*60},
+
+		// Clock form, the one the session editor shows.
+		{"1:30", 5400},
+		{"1:05", 3900},
+		{"0:45", 2700},
+		{"12:00", 12 * 3600},
 	}
 	for _, tt := range tests {
 		got, err := ParseDuration(tt.in)
@@ -76,7 +82,7 @@ func TestParseDuration(t *testing.T) {
 
 	// Explicit error cases. -1h is now rejected — the regex would
 	// otherwise strip the leading "-" and silently parse "1h".
-	for _, bad := range []string{"", "abc", "1 unknown-unit", "-1h", "-30m", "junk2h", "2h trailing", "1e309h"} {
+	for _, bad := range []string{"", "abc", "1 unknown-unit", "-1h", "-30m", "junk2h", "2h trailing", "1e309h", "1:60", "1:5", "0:00", "1:30:00"} {
 		if _, err := ParseDuration(bad); err == nil {
 			t.Errorf("ParseDuration(%q) should error, got nil", bad)
 		}
