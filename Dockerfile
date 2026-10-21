@@ -2,7 +2,7 @@
 # docker compose. Stages: the React UI (Tailwind + Vite) -> tests + static Go
 # binary -> a small runtime image.
 
-FROM node:22-alpine AS css
+FROM node:26-alpine AS css
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
