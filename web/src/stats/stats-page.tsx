@@ -62,6 +62,15 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     finally { busy.current = false }
   }
 
+  function commitDuration() { if (duration !== session.DurationInput) void save() }
+  function commitNote() { if (note !== session.Note) void save() }
+
+  // Enter saves like leaving the field. A composition in progress is not a finished
+  // entry: Enter there only picks the word, so it must not save.
+  function commitOnEnter(event: React.KeyboardEvent<HTMLInputElement>, commit: () => void) {
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) commit()
+  }
+
   // A project change touches this entry only. The user confirms it first, and the
   // select goes back to the stored project if the confirmation is refused.
   async function changeProject(next: string) {
@@ -97,8 +106,8 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   const fields = <>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-0`} className="text-xs">{t(data.Lang, "dash.startLabel")}</Label><DateTimeField id={`session-${session.ID}-0`} style={{ fontSize: 16 }} onValueChange={setStart} onCommit={() => { if (start !== session.StartInput) void save() }} defaultValue={session.StartInput || ""} ariaLabel={`${t(data.Lang, "dash.startLabel")} — ${session.ActivityName}`} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-1`} className="text-xs">{t(data.Lang, "stats.end")}</Label><DateTimeField id={`session-${session.ID}-1`} style={{ fontSize: 16 }} onValueChange={setEnd} onCommit={() => { if (end !== session.EndInput) void save() }} defaultValue={session.EndInput || ""} ariaLabel={`${t(data.Lang, "stats.end")} — ${session.ActivityName}`} /></div>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-2`} className="text-xs">{t(data.Lang, "dash.duration")}</Label><Input id={`session-${session.ID}-2`} aria-label={`${t(data.Lang, "dash.duration")} — ${session.ActivityName}`} title={t(data.Lang, "stats.durationTitle")} placeholder={t(data.Lang, "ph.duration")} value={duration} onChange={event => setDuration(event.target.value)} onBlur={() => { if (duration !== session.DurationInput) void save() }} /></div>
-    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-3`} className="text-xs">{t(data.Lang, "stats.note")}</Label><Input id={`session-${session.ID}-3`} aria-label={`${t(data.Lang, "stats.note")} — ${session.ActivityName}`} placeholder={t(data.Lang, "dash.noteShort")} value={note} onChange={event => setNote(event.target.value)} onBlur={() => { if (note !== session.Note) void save() }} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-2`} className="text-xs">{t(data.Lang, "dash.duration")}</Label><Input id={`session-${session.ID}-2`} aria-label={`${t(data.Lang, "dash.duration")} — ${session.ActivityName}`} title={t(data.Lang, "stats.durationTitle")} placeholder={t(data.Lang, "ph.duration")} value={duration} onChange={event => setDuration(event.target.value)} onBlur={commitDuration} onKeyDown={event => commitOnEnter(event, commitDuration)} /></div>
+    <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-3`} className="text-xs">{t(data.Lang, "stats.note")}</Label><Input id={`session-${session.ID}-3`} aria-label={`${t(data.Lang, "stats.note")} — ${session.ActivityName}`} placeholder={t(data.Lang, "dash.noteShort")} value={note} onChange={event => setNote(event.target.value)} onBlur={commitNote} onKeyDown={event => commitOnEnter(event, commitNote)} /></div>
     <div className="grid min-w-0 gap-1.5"><Label htmlFor={`session-${session.ID}-4`} className="text-xs">{t(data.Lang, "stats.sessionProject")}</Label><Select value={project} onValueChange={value => void changeProject(value)}><SelectTrigger id={`session-${session.ID}-4`} aria-label={`${t(data.Lang, "stats.sessionProject")}: ${session.ActivityName}`} style={{ fontSize: 16 }}><SelectValue /></SelectTrigger><SelectContent>{data.Projects.filter(item => !item.Archived || item.ID === session.ProjectID).map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select></div>
   </>
   return <>
