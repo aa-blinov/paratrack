@@ -324,6 +324,8 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   const [open, setOpen] = useState(false)
   const [fields, setFields] = useState(() => ({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }))
   const [dismissed, setDismissed] = useState<string[]>([])
+  // A session without a project stays out of project reports: the first save asks, the second one saves.
+  const [confirmNoProject, setConfirmNoProject] = useState(false)
   const startRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     setDismissed([])
@@ -334,13 +336,14 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   const fieldError = (key: string) => failure?.field === key && !dismissed.includes(key) ? failure.message : ""
   return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="flex min-h-11 cursor-pointer list-none items-center py-1 text-sm font-medium text-muted-foreground hover:text-foreground sm:min-h-0">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
-    <form className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (await onSubmit(fields)) setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) }}>
+    <form className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (!fields.project_id && !confirmNoProject) { setConfirmNoProject(true); return }; if (await onSubmit(fields)) { setConfirmNoProject(false); setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) } }}>
       <div className="grid gap-1.5"><Label htmlFor="b-activity" className="text-xs">{t(lang, "dash.activity")}</Label><Input id="b-activity" list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}<span className="text-xs text-muted-foreground">{t(lang, "ts.noProjectHint")}</span></div>
       <div className="grid gap-1.5"><Label htmlFor="b-start" className="text-xs">{t(lang, "dash.startLabel")}</Label><Input id="b-start" ref={startRef} aria-invalid={fieldError("start") ? true : undefined} aria-describedby="b-start-error" placeholder={t(lang, "ph.start")} value={fields.start} onChange={event => set("start", event.target.value)} required /><span id="b-start-error" role="alert" className="text-xs text-destructive">{fieldError("start")}</span></div>
       <div className="grid gap-1.5"><Label htmlFor="b-end" className="text-xs">{t(lang, "stats.end")}</Label><Input id="b-end" aria-invalid={fieldError("end") ? true : undefined} placeholder={t(lang, "ph.end")} value={fields.end} onChange={event => set("end", event.target.value)} required /><span id="b-end-error" role="alert" className="text-xs text-destructive">{fieldError("end")}</span></div>
-      <div className="grid gap-1.5"><Label htmlFor="b-project" className="text-xs">{t(lang, "dash.projectLabel")}</Label><Select value={fields.project_id || "none"} onValueChange={value => set("project_id", value === "none" ? "" : value)}><SelectTrigger id="b-project" data-value={fields.project_id || "0"}><SelectValue placeholder={t(lang, "dash.projectLabel")} /></SelectTrigger><SelectContent><SelectItem value="none">{t(lang, "dash.uncategorized")}</SelectItem>{data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select></div>
+      <div className="grid gap-1.5"><Label htmlFor="b-project" className="text-xs">{t(lang, "dash.projectLabel")}</Label><Select value={fields.project_id || "none"} onValueChange={value => { set("project_id", value === "none" ? "" : value); setConfirmNoProject(false) }}><SelectTrigger id="b-project" data-value={fields.project_id || "0"}><SelectValue placeholder={t(lang, "dash.projectLabel")} /></SelectTrigger><SelectContent><SelectItem value="none">{t(lang, "dash.uncategorized")}</SelectItem>{data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select></div>
       <div className="grid gap-1.5"><Label htmlFor="b-note" className="text-xs">{t(lang, "stats.note")}</Label><Input id="b-note" name="note" placeholder={t(lang, "dash.noteShort")} value={fields.note} onChange={event => set("note", event.target.value)} /></div>
-      <Button type="submit" className="self-end" disabled={busy}>{t(lang, "dash.addSession")}</Button>
+      {confirmNoProject && <p role="alert" className="text-sm text-muted-foreground sm:col-span-2 lg:col-span-3">{t(lang, "dash.noProjectWarning")}</p>}
+      <Button type="submit" className="self-end" disabled={busy}>{t(lang, confirmNoProject ? "dash.saveWithoutProject" : "dash.addSession")}</Button>
     </form>
   </div></Disclosure></section>
 }
