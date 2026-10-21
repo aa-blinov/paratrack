@@ -1109,6 +1109,7 @@
   "inv.queued": "Invoice email queued for %s.",
   "inv.mailBody": "Hello,\n\nPlease find invoice %s for %s, total %s, attached as a PDF.\n\n%s",
   "inv.edit": "Edit",
+  "inv.drift": "The timesheet changed: the invoice has %s h, tracked %s h.",
   "inv.rebuild": "Recompute from the ledger",
   "inv.rebuildConfirm": "The draft's lines are recomputed from the period's sessions. Manual edits to them are lost.",
   "inv.rebuildHint": "A draft takes the period's finished sessions that aren't on other invoices. Changed some hours? Recompute.",

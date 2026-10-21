@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/money"
 )
@@ -23,17 +24,19 @@ type invoiceLineVM struct {
 }
 
 type invoiceVM struct {
-	ID                                    int64
-	Number                                string
-	ClientName                            string
-	PeriodLabel                           string
-	PeriodISO                             string
-	Status                                string
-	Notes                                 string
-	Lines                                 []invoiceLineVM
-	Total                                 string
-	TotalCents                            int
-	Hours                                 string
+	ID          int64
+	Number      string
+	ClientName  string
+	PeriodLabel string
+	PeriodISO   string
+	Status      string
+	Notes       string
+	Lines       []invoiceLineVM
+	Total       string
+	TotalCents  int
+	Hours       string
+	// DriftMessage tells a draft that its tracked time moved away from its lines.
+	DriftMessage                          string
 	PaymentURL                            string
 	Currency                              string
 	IssuedLabel                           string
@@ -155,8 +158,21 @@ func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (mo
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
 	}
+	vm.DriftMessage = invoiceDriftMessage(lang, inv.Status, details.InvoicedSeconds, details.TrackedSeconds)
 	vm.Logo = logoURL(snapshot.BillingRules.Logo)
 	return inv, vm, snapshot.StripeReady, nil
+}
+
+// invoiceDriftMessage names the two hours of a draft whose tracked time moved away
+// from its lines. A sent or paid invoice never drifts: its sessions are locked. An
+// empty message means no drift.
+func invoiceDriftMessage(lang i18n.Lang, status string, invoicedSeconds, trackedSeconds int) string {
+	if status != "draft" || invoicedSeconds == trackedSeconds {
+		return ""
+	}
+	return fmt.Sprintf(i18n.T(lang, "inv.drift"),
+		fmtHoursL(lang, money.HoursHundredths(invoicedSeconds)),
+		fmtHoursL(lang, money.HoursHundredths(trackedSeconds)))
 }
 
 func unbilledViewsFrom(list []appmodel.UnbilledProject, r *http.Request) []unbilledView {
