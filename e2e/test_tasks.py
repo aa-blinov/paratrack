@@ -120,7 +120,7 @@ def main() -> int:
         check("the refused token is not shown back", "ghp_qa_not_a_real_token" not in page.content())
         page.screenshot(path=str(SHOTS / "tasks-empty-desktop.png"), full_page=True)
 
-        create_task(page, brief, estimate="240")
+        create_task(page, brief, estimate="4:00")
         page.wait_for_url(lambda url: re.search(r"/tasks/\d+$", urlsplit(url).path) is not None, timeout=15000)
         task_path = urlsplit(page.url).path
         check("creating a task opens its card", True)
@@ -139,7 +139,7 @@ def main() -> int:
         page.reload(wait_until="networkidle")
         tracked = page.get_by_text("Учтено:").locator("..")
         check("the card shows 45 minutes from both activities", "45 мин" in text_of(tracked), text_of(tracked))
-        check("the estimate is kept on the card", page.locator("#task-estimate").input_value() == "240")
+        check("the estimate is kept on the card as 4:00", page.locator("#task-estimate").input_value() == "4:00")
 
         print("\n== 4. A status change, kept after a reload")
         page.click("#task-status")

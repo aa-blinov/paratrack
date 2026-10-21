@@ -36,7 +36,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [assignee, setAssignee] = React.useState(task.AssigneeID ? String(task.AssigneeID) : noPerson)
   const [due, setDue] = React.useState(task.Due)
   const [dueBroken, setDueBroken] = React.useState(false)
-  const [estimate, setEstimate] = React.useState(task.EstimateMin ? String(task.EstimateMin) : "")
+  const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
   const [newName, setNewName] = React.useState("")
@@ -145,7 +145,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
       </div>
       <div className="grid gap-1.5">
         <Label htmlFor="task-estimate">{t(lang, "tasks.estimate")}</Label>
-        <Input id="task-estimate" type="number" min={0} step={30} inputMode="numeric" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder="480" disabled={task.Archived} />
+        <Input id="task-estimate" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder={t(lang, "ph.duration")} disabled={task.Archived} /><span className="text-xs text-muted-foreground">{t(lang, "stats.durationFormat")}</span>
       </div>
       <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t(lang, "tasks.tracked")}: <span className="font-mono text-foreground">{task.TrackedLabel}</span></p>

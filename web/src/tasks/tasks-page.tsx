@@ -164,7 +164,7 @@ export function TasksPage({ data }: { data: TasksData }) {
       </div>
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-task-estimate" className="text-xs">{t(lang, "tasks.estimate")}</Label>
-        <Input id="new-task-estimate" type="number" min={0} step={30} inputMode="numeric" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder="480" />
+        <Input id="new-task-estimate" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder={t(lang, "ph.duration")} /><span className="text-xs text-muted-foreground">{t(lang, "stats.durationFormat")}</span>
       </div>
       <Button type="submit" className="self-end" disabled={creating || !project}><Plus aria-hidden="true" />{t(lang, "tasks.new")}</Button>
     </form>
