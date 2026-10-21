@@ -9,6 +9,10 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 )
 
+// dayNormSeconds is the daily norm from the working regulation: six hours. The
+// overview shows it beside today's total so a person sees how much of it is done.
+const dayNormSeconds = 6 * 3600
+
 // buildDashboardData adapts the dashboard workflow snapshot into template
 // view models. Request preferences and query-string hints stay at the HTTP
 // boundary; aggregation data remains owned by the dashboard workflow.
@@ -77,6 +81,7 @@ func buildDashboardData(r *http.Request, now time.Time, snapshot appmodel.Dashbo
 	}
 
 	data.TodayTotal = fmtDur(r, snapshot.TodayTotalSeconds)
+	data.DayNormLabel = fmtDur(r, dayNormSeconds)
 	data.TodaySecs = snapshot.TodayTotalSeconds
 	data.TopToday = shortSummary(snapshot.TopActivityName)
 

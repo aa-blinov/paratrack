@@ -62,6 +62,8 @@ type dashboardData struct {
 	RunningCount int
 	PausedCount  int
 	TodayTotal   string
+	// DayNormLabel is the daily norm shown beside today's total ("6 ч").
+	DayNormLabel string
 	TodaySecs    int // seed for the live-ticking «учтено»
 	TopToday     string
 	Goals        []goalView

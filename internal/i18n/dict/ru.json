@@ -74,6 +74,7 @@
   "dash.today": "Сегодня",
   "dash.active": "Активных",
   "dash.trackedToday": "Учтено сегодня",
+  "dash.dayNorm": "Норма дня: %s",
   "dash.topActivity": "Топ-активность",
   "dash.backfillTitle": "Добавить прошедшую сессию",
   "dash.backfillBlurb": "Время в свободной форме: «вчера 14:00», «10:30», «2 ч назад».",
