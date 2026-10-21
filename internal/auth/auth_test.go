@@ -294,7 +294,7 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 2 || entries[0].Action != "auth.api_token_delete" || entries[0].Target != fmt.Sprint(token.ID) {
+	if len(entries) != 2 || entries[0].Action != "auth.api_token_delete" || entries[0].Target != fmt.Sprint(token.ID) || entries[0].Meta != "automation" {
 		t.Fatalf("token deletion audit = %+v", entries)
 	}
 }

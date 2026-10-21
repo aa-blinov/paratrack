@@ -86,6 +86,11 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 			s.backfillError(w, r, "form", i18n.T(resolveLang(r), "act.rebindForbidden"))
 			return
 		}
+		var approvalErr *model.SessionApprovalLockError
+		if errors.As(err, &approvalErr) {
+			s.backfillError(w, r, "form", weekLockedMessage(resolveLang(r), userLoc(r), approvalErr))
+			return
+		}
 		if errors.Is(err, model.ErrAlreadyBilled) {
 			s.backfillError(w, r, "form", i18n.T(resolveLang(r), "inv.activityProjectLocked"))
 			return

@@ -69,7 +69,7 @@ While a window is approved, any write whose session **start** falls inside it re
 `SessionApprovalLockError`: session edit, delete, stop, reopen, a backfilled or added closed
 session, a timesheet cell and a row clear. The check runs in the same transaction as the
 write. The start decides because the grid files a session under the day it starts on.
-Managers reopen a week to change it; the owner is not exempt.
+Managers reopen a week to change it; the owner is not exempt. The refusal names the week by its first and last day and says that the owner or an admin can reopen it. The same sentence reaches the editor, the backfill, the timesheet cell and the `/api/v1` `409`.
 
 
 ### Money
@@ -106,7 +106,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - A project has an optional deadline (`projects.deadline`, YYYY-MM-DD) and an optional lead (`projects.lead_user_id`, a current member). The lead writes plan cells on that project only (`UpsertScheduleEntry` checks the lead, and membership, in the same transaction) and sees tracked time by person on the project page. Only managers change the deadline and the lead.
 - Reminders (`internal/reminders`, once an hour): a deadline within three days goes to the managers and the lead, once per deadline (`projects.deadline_reminded`); a person planned past their available time this week goes to the managers, once per person and week (`schedule_overload_reminders`). Topics `project.deadline` and `schedule.overload` can be muted.
 - Managers see tracked time; a member sees only the plan.
-- The team utilization report (`/reports`, `utilization`) puts each member's planned minutes over the period beside their tracked time. A member with a plan and no tracked time gets a row with zero time.
+- The team utilization report (`/reports`, `utilization`) puts each member's planned minutes over the period beside their tracked time. A member with a plan and no tracked time gets a row with zero time. Without an explicit period it covers the current week, so the days still to come count toward the plan. Its load column is tracked time over planned time for the same days, empty when there is no plan. That is not the Schedule's Load%, which is planned over available.
 
 ### Sections and onboarding
 

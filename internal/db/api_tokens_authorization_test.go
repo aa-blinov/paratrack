@@ -51,10 +51,10 @@ func TestAPITokenManagementRequiresAuthenticatedOwner(t *testing.T) {
 		t.Fatalf("owner list = (%d tokens, %v), want one token", len(tokens), err)
 	}
 	remove := appmodel.APITokenDeleteRequest{UserID: ownerID, CallerID: ownerID, TokenID: token.ID}
-	if err := d.DeleteAPIToken(requestctx.WithActor(ctx, otherID), remove); !errors.Is(err, model.ErrForbidden) {
+	if _, err := d.DeleteAPIToken(requestctx.WithActor(ctx, otherID), remove); !errors.Is(err, model.ErrForbidden) {
 		t.Fatalf("delete with another actor = %v, want forbidden", err)
 	}
-	if err := d.DeleteAPIToken(ownerCtx, remove); err != nil {
+	if _, err := d.DeleteAPIToken(ownerCtx, remove); err != nil {
 		t.Fatalf("owner delete = %v, want success", err)
 	}
 }
