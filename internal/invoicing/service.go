@@ -20,6 +20,7 @@ type Reader interface {
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
 	OverlappingInvoices(context.Context, appmodel.InvoiceOverlapQuery) ([]string, error)
+	TrackedSecondsForInvoice(ctx context.Context, teamID, invoiceID int64) (int, error)
 }
 
 // ProjectBillingReader provides the project catalog data needed to prepare

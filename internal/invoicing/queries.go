@@ -136,10 +136,21 @@ func (s *Service) Get(ctx context.Context, query appmodel.InvoiceLookupQuery) (a
 	if err != nil {
 		return appmodel.InvoiceDetailResult{}, fmt.Errorf("summarize invoice %d: %w", details.Invoice.ID, err)
 	}
-	return appmodel.InvoiceDetailResult{
+	result := appmodel.InvoiceDetailResult{
 		Invoice: details.Invoice, Lines: details.Lines,
 		TotalCents: totalCents, TotalHoursHundredths: totalHours,
-	}, nil
+	}
+	for _, line := range details.Lines {
+		result.InvoicedSeconds += line.Seconds
+	}
+	if details.Invoice.Status == "draft" {
+		tracked, err := s.reader.TrackedSecondsForInvoice(ctx, query.TeamID, query.InvoiceID)
+		if err != nil {
+			return appmodel.InvoiceDetailResult{}, fmt.Errorf("sum tracked time of invoice %d: %w", query.InvoiceID, err)
+		}
+		result.TrackedSeconds = tracked
+	}
+	return result, nil
 }
 
 func invoiceLineTotals(lines []model.InvoiceLine) (int, int, error) {

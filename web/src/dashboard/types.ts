@@ -408,6 +408,8 @@ export interface TimesheetApproval {
 
 export interface TimesheetData {
   Approval: TimesheetApproval
+  Flash: string
+  FlashOK: boolean
   Title: string
   Active: string
   ReactApp: boolean
@@ -596,6 +598,7 @@ export interface InvoiceDetailData {
     Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string }>
     Total: string
     Hours: string
+    DriftMessage: string
     PaymentURL: string
     Currency: string
     IssuedLabel: string

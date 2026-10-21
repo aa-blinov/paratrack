@@ -1,4 +1,5 @@
 import { StatusLine } from "@/components/status-line"
+import { Flash } from "@/components/flash"
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
@@ -251,6 +252,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     : t(lang, notice.kind === "restored" ? "ts.undone" : "ts.saved", notice.activity, notice.date ? dayName(notice.date) : "")
 
   return <main className="mx-auto w-full max-w-6xl space-y-4">
+    <Flash message={initial.Flash} ok={initial.FlashOK} />
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "ts.title")}</h1></div>
       <nav className="week-nav flex items-center gap-1" aria-label={t(lang, "ts.title")}>
