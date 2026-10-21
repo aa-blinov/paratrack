@@ -105,12 +105,11 @@ func (s *Server) handleInvoicePayLink(w http.ResponseWriter, r *http.Request) {
 		SuccessURL: s.publicBaseURL(r) + "/invoices/" + strconv.FormatInt(invoiceID, 10),
 	})
 	if err != nil {
-		if errors.Is(err, model.ErrForbidden) {
+		if errors.Is(err, model.ErrForbidden) || errors.Is(err, appmodel.ErrInvalidInvoice) {
 			fail(s.invoiceErrorMessage(r, err))
-		} else if errors.Is(err, appmodel.ErrStripeUnavailable) {
-			fail("stripe key is not configured (team settings or process configuration)")
-		} else if errors.Is(err, appmodel.ErrInvalidInvoice) {
-			fail(s.invoiceErrorMessage(r, err))
+		} else if reason, ok := stripeLinkReason(resolveLang(r), err); ok {
+			s.logger.Printf("web: stripe payment link for invoice %d: %v", invoiceID, err)
+			fail(reason)
 		} else {
 			s.logInternalError(err)
 			fail(i18n.T(resolveLang(r), "err.internal"))
@@ -119,6 +118,19 @@ func (s *Server) handleInvoicePayLink(w http.ResponseWriter, r *http.Request) {
 	}
 	http.Redirect(w, r, "/invoices/"+strconv.FormatInt(invoiceID, 10)+"?flash="+encodeFlash(true, "payment link created"),
 		http.StatusSeeOther)
+}
+
+// stripeLinkReason names the setting a refused Stripe link depends on. ok is false for
+// an outage or any other failure: the owner cannot fix those in the settings, so they
+// keep the general sentence and go to the log.
+func stripeLinkReason(lang i18n.Lang, err error) (reason string, ok bool) {
+	switch {
+	case errors.Is(err, appmodel.ErrStripeKeyRejected):
+		return i18n.T(lang, "stripe.keyRejected"), true
+	case errors.Is(err, appmodel.ErrStripeUnavailable):
+		return i18n.T(lang, "stripe.notConfigured"), true
+	}
+	return "", false
 }
 
 // handleStripeWebhook marks an invoice paid when Stripe says

@@ -172,6 +172,7 @@ var (
 	ErrHistoryConfirmationRequired = appmodel.ErrHistoryConfirmationRequired
 	ErrInvalidReceipt              = appmodel.ErrInvalidReceipt
 	ErrStripeUnavailable           = appmodel.ErrStripeUnavailable
+	ErrStripeKeyRejected           = appmodel.ErrStripeKeyRejected
 	ErrInvalidStripeSignature      = appmodel.ErrInvalidStripeSignature
 	ErrInvalidStripePayload        = appmodel.ErrInvalidStripePayload
 	ErrInvalidStripeMetadata       = appmodel.ErrInvalidStripeMetadata

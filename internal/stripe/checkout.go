@@ -16,6 +16,22 @@ import (
 	"time"
 )
 
+// StatusError is a Stripe answer that was not 200. The code tells an invalid key
+// (401, 403) from an outage (5xx) without reading the text; the text stays for the log.
+type StatusError struct {
+	Code int
+	Body string
+	// Action names the call when it is not the checkout itself, so the log says which.
+	Action string
+}
+
+func (e *StatusError) Error() string {
+	if e.Action == "" {
+		return fmt.Sprintf("stripe returned status %d: %s", e.Code, e.Body)
+	}
+	return fmt.Sprintf("stripe returned status %d while %s: %s", e.Code, e.Action, e.Body)
+}
+
 type WebhookEvent struct {
 	Type          string
 	SessionID     string
@@ -107,7 +123,7 @@ func CreateCheckout(ctx context.Context, client *http.Client, secret string, inp
 		return CheckoutSession{}, fmt.Errorf("read Stripe checkout response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return CheckoutSession{}, fmt.Errorf("stripe returned status %d: %s", resp.StatusCode, string(body)[:min(180, len(body))])
+		return CheckoutSession{}, &StatusError{Code: resp.StatusCode, Body: string(body)[:min(180, len(body))]}
 	}
 	var result struct {
 		ID  string `json:"id"`
@@ -144,7 +160,7 @@ func ExpireCheckout(ctx context.Context, client *http.Client, secret, sessionID 
 		return fmt.Errorf("read Stripe checkout expiration response: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("stripe returned status %d while expiring checkout: %s", resp.StatusCode, string(body)[:min(180, len(body))])
+		return &StatusError{Code: resp.StatusCode, Body: string(body)[:min(180, len(body))], Action: "expiring checkout"}
 	}
 	return nil
 }
