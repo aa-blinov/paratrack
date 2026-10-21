@@ -1498,6 +1498,7 @@
   "tasks.allProjects": "Все проекты",
   "tasks.assignee": "Исполнитель",
   "tasks.nobody": "Не назначен",
+  "tasks.assigneeGone": "Исполнитель вне команды",
   "tasks.due": "Срок",
   "tasks.dueInvalid": "Срок не распознан. Введите дату как дд.мм.гггг или выберите её в календаре.",
   "tasks.restore": "Вернуть на доску",
