@@ -54,7 +54,7 @@ type PasswordResetStore interface {
 type APITokenStore interface {
 	CreateAPIToken(context.Context, appmodel.APITokenCreateRequest) (string, model.APIToken, error)
 	ListAPITokens(context.Context, appmodel.APITokenListRequest) ([]model.APIToken, error)
-	DeleteAPIToken(context.Context, appmodel.APITokenDeleteRequest) error
+	DeleteAPIToken(context.Context, appmodel.APITokenDeleteRequest) (string, error)
 	APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (model.APIToken, error)
 }
 

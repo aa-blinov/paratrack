@@ -203,6 +203,9 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	from := now.AddDate(0, 0, -30)
 	to := now.Add(24 * time.Hour)
+	if tpl.GroupBy == appmodel.ReportGroupUser {
+		from, to = currentWeekWindow(r, now)
+	}
 	if v := r.URL.Query().Get("from"); v != "" {
 		if t, err := time.Parse("2006-01-02", v); err == nil {
 			from = t
@@ -234,6 +237,14 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 	}
 	data := reportRunPage{pageData: pageData{Title: title, Active: "reports", Lang: lang, ReactApp: true}, VM: vm, ReportRunReact: true}
 	s.renderPageForRequest(w, r, title, "reports", &data)
+}
+
+// currentWeekWindow is the default window of a report that compares plan with
+// tracked time. It covers the whole current week, so the days still to come
+// count toward the plan; a window that ends today cuts the week's plan short.
+func currentWeekWindow(r *http.Request, now time.Time) (from, to time.Time) {
+	from = startOfWeek(r, now)
+	return from, from.AddDate(0, 0, 7)
 }
 
 type reportRunPage struct {

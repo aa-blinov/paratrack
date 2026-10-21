@@ -6,6 +6,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
 // Audit persistence
@@ -20,6 +21,17 @@ func (d *DB) Audit(ctx context.Context, record model.AuditRecord) error {
 		`INSERT INTO audit_log (team_id, user_id, action, target, meta, ip, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		record.TeamID, record.UserID, record.Action, record.Target, record.Meta, record.IP, FormatTime(d.currentTime().UTC()))
+	return err
+}
+
+// auditInTx writes an event inside the transaction of the change it records, so the
+// row exists exactly when the change does. A refused change leaves no row behind,
+// which the after-commit writer in the web layer cannot promise.
+func auditInTx(ctx context.Context, tx *Tx, teamID, actorID int64, action, target, meta, now string) error {
+	_, err := tx.ExecContext(ctx,
+		`INSERT INTO audit_log (team_id, user_id, action, target, meta, ip, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		teamID, actorID, action, target, meta, requestctx.ClientIP(ctx), now)
 	return err
 }
 

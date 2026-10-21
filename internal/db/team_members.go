@@ -125,6 +125,10 @@ func (d *DB) RemoveTeamMember(ctx context.Context, request appmodel.TeamMemberRe
 		}
 		return fmt.Errorf("lock removed member: %w", err)
 	}
+	var memberName string
+	if err := tx.QueryRowContext(ctx, `SELECT name FROM users WHERE id = ?`, userID).Scan(&memberName); err != nil {
+		return err
+	}
 	var callerRole, targetRole string
 	if err := tx.QueryRowContext(ctx,
 		`SELECT role FROM memberships WHERE team_id = ? AND user_id = ? FOR UPDATE`, teamID, callerID).Scan(&callerRole); err != nil {
@@ -172,6 +176,12 @@ func (d *DB) RemoveTeamMember(ctx context.Context, request appmodel.TeamMemberRe
 		return err
 	} else if affected == 0 {
 		return model.ErrNotFound
+	}
+	// The trail shows the target, so the name goes there: a code would read as data.
+	// The id stays in meta. A self-leave has the same author and target.
+	if err := auditInTx(ctx, tx, teamID, callerID, "member.remove", memberName,
+		fmt.Sprintf("user:%d", userID), FormatTime(d.currentTime().UTC())); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

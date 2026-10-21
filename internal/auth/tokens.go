@@ -74,13 +74,14 @@ func (s *Service) DeleteAPIToken(ctx context.Context, request appmodel.APITokenD
 	if request.UserID != request.CallerID {
 		return ErrForbidden
 	}
-	if err := s.tokens.DeleteAPIToken(ctx, request); err != nil {
+	name, err := s.tokens.DeleteAPIToken(ctx, request)
+	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
 			return ErrNotFound
 		}
 		return fmt.Errorf("delete API token: %w", err)
 	}
-	s.recordAudit(ctx, requestctx.TeamID(ctx), request.UserID, "auth.api_token_delete", fmt.Sprint(request.TokenID), "")
+	s.recordAudit(ctx, requestctx.TeamID(ctx), request.UserID, "auth.api_token_delete", fmt.Sprint(request.TokenID), name)
 	return nil
 }
 

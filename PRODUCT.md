@@ -78,7 +78,8 @@ Against Toggl, Clockify and Harvest, four things hold together (confirmed):
   sign-on and a browser extension sit around them.
 - A manager approves a week of the timesheet. While a window is approved, any
   write whose session starts inside it is refused, so the numbers a payout is
-  computed from cannot change underneath it.
+  computed from cannot change underneath it. The refusal names the week and says
+  that the owner or an admin can reopen it.
 
 ## Capabilities and Constraints
 

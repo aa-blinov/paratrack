@@ -97,6 +97,8 @@ type ClientWorkflow interface {
 type AuditWorkflow interface {
 	List(context.Context, appmodel.AuditListQuery) ([]model.AuditEntry, error)
 	Record(context.Context, model.AuditRecord) error
+	Actors(context.Context, int64) ([]int64, error)
+	Labels(context.Context, []int64) (map[int64]string, error)
 }
 
 // BillingWorkflow processes provider payment events and coordinates their
