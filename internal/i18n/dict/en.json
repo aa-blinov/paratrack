@@ -74,6 +74,8 @@
   "dash.today": "Today",
   "dash.active": "Running",
   "dash.trackedToday": "Tracked today",
+  "dash.noProjectWarning": "Without a project the session stays out of project reports. Pick a project or save without one.",
+  "dash.saveWithoutProject": "Save without project",
   "dash.dayNorm": "Day norm: %s",
   "dash.topActivity": "Top activity",
   "dash.backfillTitle": "Add a past session",
