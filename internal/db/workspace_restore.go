@@ -72,6 +72,19 @@ func (d *DB) RestoreWorkspace(ctx context.Context, request appmodel.WorkspaceRes
 			return appmodel.WorkspaceRestoreResult{}, err
 		}
 	}
+	// The restored workspace opens its own trail with this row, so a restore never
+	// starts from a blank log.
+	var members, invoices int64
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships WHERE team_id = ?`, r.teamID).Scan(&members); err != nil {
+		return appmodel.WorkspaceRestoreResult{}, err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM invoices WHERE team_id = ?`, r.teamID).Scan(&invoices); err != nil {
+		return appmodel.WorkspaceRestoreResult{}, err
+	}
+	if err := auditInTx(ctx, tx, r.teamID, r.callerID, "workspace.restore", fmt.Sprintf("team:%d", r.teamID),
+		fmt.Sprintf("участников: %d, счетов: %d", members, invoices), r.now); err != nil {
+		return appmodel.WorkspaceRestoreResult{}, err
+	}
 	if err := tx.Commit(); err != nil {
 		return appmodel.WorkspaceRestoreResult{}, err
 	}

@@ -161,24 +161,22 @@ func (d *DB) ListAPITokens(ctx context.Context, request appmodel.APITokenListReq
 	return out, rows.Err()
 }
 
-// DeleteAPIToken removes one token.
-func (d *DB) DeleteAPIToken(ctx context.Context, request appmodel.APITokenDeleteRequest) error {
+// DeleteAPIToken removes one token and returns its name, so the audit row for the
+// revocation can say which token it was.
+func (d *DB) DeleteAPIToken(ctx context.Context, request appmodel.APITokenDeleteRequest) (string, error) {
 	if request.UserID <= 0 || request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
-		return model.ErrForbidden
+		return "", model.ErrForbidden
 	}
-	res, err := d.sql.ExecContext(ctx,
-		`DELETE FROM api_tokens WHERE id = ? AND user_id = ?`, request.TokenID, request.UserID)
+	var name string
+	err := d.sql.QueryRowContext(ctx,
+		`DELETE FROM api_tokens WHERE id = ? AND user_id = ? RETURNING name`, request.TokenID, request.UserID).Scan(&name)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrNotFound
+	}
 	if err != nil {
-		return err
+		return "", err
 	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return name, nil
 }
 
 // APITokenByRaw looks up a bearer token and touches last_used_at.

@@ -42,7 +42,7 @@ func TestAPITokensLifecycle(t *testing.T) {
 	if _, err := d.APITokenByRaw(ctx, appmodel.APITokenLookupRequest{Raw: "pt_nope"}); err == nil {
 		t.Fatal("bad token accepted")
 	}
-	if err := d.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: 1, CallerID: 1, TokenID: tok.ID}); err != nil {
+	if _, err := d.DeleteAPIToken(ctx, appmodel.APITokenDeleteRequest{UserID: 1, CallerID: 1, TokenID: tok.ID}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := d.APITokenByRaw(ctx, appmodel.APITokenLookupRequest{Raw: raw}); err == nil {

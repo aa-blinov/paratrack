@@ -670,7 +670,7 @@ export interface ReportRunData {
     PeriodLabel: string
     From: string
     To: string
-    Rows: Array<{ Key: string; Hours: string; Planned: string; Rate: string; Amount: string; Share: number }>
+    Rows: Array<{ Key: string; Secs: number; Hours: string; PlannedSecs: number; Planned: string; Rate: string; Amount: string; Share: number }>
     Total: string
     TotalAmount: string
     ShowPlan: boolean
@@ -845,7 +845,7 @@ export interface AuditData {
   Active: string
   Lang: string
   AuditReact: boolean
-  Items: Array<{ Time: string; Action: string; Target: string; IP: string }>
+  Items: Array<{ Time: string; Action: string; Actor: string; Target: string; Detail: string; IP: string }>
   /** Current filter state, echoed from the address so a shared link reopens the same list. */
   From: string
   To: string

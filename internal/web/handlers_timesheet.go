@@ -266,7 +266,7 @@ func (s *Server) handleTimesheetRowClear(w http.ResponseWriter, r *http.Request)
 func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Request, actID int64, day time.Time, err error) {
 	var approvalErr *model.SessionApprovalLockError
 	if errors.As(err, &approvalErr) {
-		s.respondTimesheetRow(w, r, actID, day, i18n.T(resolveLang(r), "ts.weekApproved"))
+		s.respondTimesheetRow(w, r, actID, day, weekLockedMessage(resolveLang(r), userLoc(r), approvalErr))
 		return
 	}
 	var lockErr *model.SessionInvoiceLockError
@@ -454,6 +454,15 @@ func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, appr
 	}
 	s.audit(r, action, first.Format("2006-01-02")+".."+last.Format("2006-01-02"), "")
 	http.Redirect(w, r, back+"&flash="+url.QueryEscape(encodeFlash(true, i18n.T(lang, okKey))), http.StatusSeeOther)
+}
+
+// weekLockedMessage names the approved week and says who can reopen it. The
+// store keeps the end of the span exclusive, so the last day shown is the one
+// before it; the dates follow the person's timezone, not the server's.
+func weekLockedMessage(lang i18n.Lang, loc *time.Location, lock *model.SessionApprovalLockError) string {
+	first := lock.From.In(loc)
+	last := lock.To.In(loc).AddDate(0, 0, -1)
+	return fmt.Sprintf(i18n.T(lang, "ts.weekLocked"), fmtDay(lang, first), fmtDay(lang, last))
 }
 
 // approvalMessage turns an approval refusal into the sentence the manager reads.

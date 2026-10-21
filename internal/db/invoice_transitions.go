@@ -56,6 +56,10 @@ func (d *DB) DeleteInvoice(ctx context.Context, request appmodel.InvoiceMutation
 	if n == 0 {
 		return ErrNotFound
 	}
+	if err := auditInTx(ctx, tx, teamID, callerID, "invoice.delete", number,
+		fmt.Sprintf("invoice:%d", id), FormatTime(d.currentTime().UTC())); err != nil {
+		return err
+	}
 	return tx.Commit()
 }
 

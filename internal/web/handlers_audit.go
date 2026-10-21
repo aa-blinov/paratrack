@@ -41,14 +41,33 @@ func (s *Server) handleAuditPage(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
-	people := make([]auditPerson, 0, len(members))
+	// The filter offers everyone who left a row, former members included: their
+	// accounts outlive the membership, so the journal can still name them. Current
+	// members come first.
+	actorIDs, err := s.services.AuditLog.Actors(r.Context(), team)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	ids := make([]int64, 0, len(members)+len(actorIDs))
 	for _, member := range members {
-		// A member may have no display name yet; the address identifies them.
-		label := strings.TrimSpace(member.Name)
-		if label == "" {
-			label = member.Email
+		ids = append(ids, member.UserID)
+	}
+	ids = append(ids, actorIDs...)
+	names, err := s.services.AuditLog.Labels(r.Context(), ids)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	people := make([]auditPerson, 0, len(ids))
+	listed := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		label, named := names[id]
+		if !named || listed[id] {
+			continue
 		}
-		people = append(people, auditPerson{ID: member.UserID, Name: label})
+		listed[id] = true
+		people = append(people, auditPerson{ID: id, Name: label})
 	}
 	actions := auditActionCodes(trail)
 	filters := requestedAuditFilters(r, userNow(r), people, actions)
@@ -64,14 +83,31 @@ func (s *Server) handleAuditPage(w http.ResponseWriter, r *http.Request) {
 	if cut {
 		list = list[:filters.window]
 	}
+	// A role change names the member it was made for, who may have left since;
+	// the name comes from the accounts, not from the current members.
+	roleNames, err := s.services.AuditLog.Labels(r.Context(), auditRoleTargets(list))
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	for id, label := range roleNames {
+		names[id] = label
+	}
+	// A restore row names the workspace it restored; the row lives in that workspace's
+	// trail, so the name is the workspace's own.
+	teamName := ""
+	if workspace, err := s.services.Teams.Directory.FindByID(r.Context(), team); err == nil {
+		teamName = workspace.Name
+	}
 	lang := string(resolveLang(r))
 	// An empty list must reach the page as an empty array: "nothing matched"
 	// is a state the filter screen has to render, not a missing field.
 	data := auditPage{pageData: pageData{Title: "Audit log", Active: "settings-audit", Lang: lang, ReactApp: true}, AuditReact: true, Items: []auditRow{}}
 	for _, e := range list {
+		target, detail := auditRowTexts(resolveLang(r), e, names, team, teamName)
 		data.Items = append(data.Items, auditRow{
 			Time: e.CreatedAt.Format("2006-01-02 15:04"), Action: e.Action,
-			Target: e.Target, IP: e.IP,
+			Actor: names[e.UserID], Target: target, Detail: detail, IP: e.IP,
 		})
 	}
 	data.From, data.To, data.UserID, data.Action = filters.fromRaw, filters.toRaw, filters.userID, filters.action
@@ -212,7 +248,9 @@ func auditActionKnown(actions []string, want string) bool {
 type auditRow struct {
 	Time   string
 	Action string
+	Actor  string
 	Target string
+	Detail string
 	IP     string
 }
 

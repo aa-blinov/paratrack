@@ -20,6 +20,8 @@ type storeStub struct {
 	recordErr   error
 	listErr     error
 	entries     []model.AuditEntry
+	actors      []int64
+	names       map[int64]string
 }
 
 func (s *storeStub) Audit(_ context.Context, record model.AuditRecord) error {
@@ -32,6 +34,21 @@ func (s *storeStub) ListAudit(_ context.Context, query appmodel.AuditListQuery) 
 	s.listCalls++
 	s.listTeamID, s.listLimit = query.TeamID, query.Limit
 	return s.entries, s.listErr
+}
+
+func (s *storeStub) ListAuditActors(_ context.Context, teamID int64) ([]int64, error) {
+	s.listTeamID = teamID
+	return s.actors, nil
+}
+
+func (s *storeStub) UserLabels(_ context.Context, ids []int64) (map[int64]string, error) {
+	labels := make(map[int64]string, len(ids))
+	for _, id := range ids {
+		if name, ok := s.names[id]; ok {
+			labels[id] = name
+		}
+	}
+	return labels, nil
 }
 
 func TestRecordRejectsInvalidInputBeforePersistence(t *testing.T) {

@@ -14,6 +14,8 @@ import (
 type Store interface {
 	Audit(context.Context, model.AuditRecord) error
 	ListAudit(context.Context, appmodel.AuditListQuery) ([]model.AuditEntry, error)
+	ListAuditActors(context.Context, int64) ([]int64, error)
+	UserLabels(context.Context, []int64) (map[int64]string, error)
 }
 
 type Service struct{ store Store }
@@ -72,4 +74,26 @@ func (s *Service) List(ctx context.Context, query appmodel.AuditListQuery) ([]mo
 		return nil, fmt.Errorf("list audit events: %w", err)
 	}
 	return items, nil
+}
+
+// Actors lists everyone who left a row in the workspace's journal, former members
+// included, so the journal's filter can offer them.
+func (s *Service) Actors(ctx context.Context, teamID int64) ([]int64, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScope
+	}
+	ids, err := s.store.ListAuditActors(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("list audit actors: %w", err)
+	}
+	return ids, nil
+}
+
+// Labels names users for the journal. Ids without an account are left out.
+func (s *Service) Labels(ctx context.Context, ids []int64) (map[int64]string, error) {
+	labels, err := s.store.UserLabels(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("name audit users: %w", err)
+	}
+	return labels, nil
 }

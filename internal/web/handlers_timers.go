@@ -239,7 +239,7 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 func (s *Server) writeSessionLockConflict(w http.ResponseWriter, r *http.Request, err error) bool {
 	var approvalErr *model.SessionApprovalLockError
 	if errors.As(err, &approvalErr) {
-		msg := i18n.T(resolveLang(r), "ts.weekApproved")
+		msg := weekLockedMessage(resolveLang(r), userLoc(r), approvalErr)
 		s.toast(w, msg, "error")
 		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
 			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: msg})
