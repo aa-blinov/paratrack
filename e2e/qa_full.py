@@ -201,6 +201,9 @@ def main() -> int:
         pg.fill('#b-activity', "consulting")
         pg.fill('#b-start', "yesterday 09:00")
         pg.fill('#b-end', "yesterday 11:30")
+        # No project yet: the first save only asks (TIME-12), the second one saves.
+        pg.locator('#backfill form button[type="submit"]').click()
+        pg.wait_for_timeout(300)
         pg.locator('#backfill form button[type="submit"]').click()
         pg.wait_for_timeout(600)
         check("backfill", True)  # toast confirms; assert via stats later
@@ -484,6 +487,9 @@ def main() -> int:
         pg.fill('#b-activity', "consulting")
         pg.fill('#b-start', f"{past_day} 09:00")
         pg.fill('#b-end', f"{past_day} 11:00")
+        # No project: the first save only asks (TIME-12), the second one saves.
+        pg.locator('#backfill form button[type="submit"]').click()
+        pg.wait_for_timeout(300)
         pg.locator('#backfill form button[type="submit"]').click()
         pg.wait_for_timeout(600)
         pg.goto(BASE + f"/timesheet?date={past_monday.isoformat()}")

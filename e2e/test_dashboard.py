@@ -1189,6 +1189,8 @@ def main() -> int:
         page.fill("#b-start", "not a time")
         page.fill("#b-end", "yesterday 11:00")
         page.fill('#backfill input[name="note"]', "keep this note")
+        # Without a project the first save only asks (TIME-12); the second one sends the time.
+        page.locator('#backfill button[type="submit"]').click()
         page.locator('#backfill button[type="submit"]').click()
         page.locator("#b-start-error").get_by_text("not a time").wait_for()
         check("invalid backfill keeps every entered field and focuses start",
