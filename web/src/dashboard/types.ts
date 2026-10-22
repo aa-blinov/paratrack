@@ -1009,6 +1009,7 @@ export interface TaskReportRow {
   Title: string
   ProjectName: string
   AssigneeName: string
+  AssigneeGone: boolean
   Status: string
   EstimateMin: number
   EstimateLabel: string

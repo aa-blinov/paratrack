@@ -43,7 +43,7 @@ export function TaskReport({ lang, from, to, note, rows, total }: { lang: string
               {rows.map((row, index) => <tr key={index} className="border-b last:border-0">
                 <td className="px-3 py-2 font-medium [overflow-wrap:anywhere]">{row.Title}{row.Archived && <span className="ms-2 text-xs font-normal text-muted-foreground">{t(lang, "tasks.reportArchived")}</span>}</td>
                 <td className="px-3 py-2">{row.ProjectName}</td>
-                <td className="px-3 py-2">{row.AssigneeName}</td>
+                <td className="px-3 py-2">{row.AssigneeGone ? <span className="text-destructive">{t(lang, "tasks.assigneeGone")}</span> : row.AssigneeName || t(lang, "tasks.nobody")}</td>
                 <td className="px-3 py-2">{t(lang, `tasks.${row.Status}`)}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{row.EstimateLabel}</td>
                 <td className="px-3 py-2 text-right tabular-nums">{row.TrackedLabel}</td>
