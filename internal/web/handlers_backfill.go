@@ -7,12 +7,16 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
+
+// longSessionLimit is the length past which a session is worth splitting.
+const longSessionLimit = 10 * time.Hour
 
 func (s *Server) backfillError(w http.ResponseWriter, r *http.Request, field, message string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -57,6 +61,16 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 	}
 	if !end.After(start) {
 		s.backfillError(w, r, "end", i18n.T(resolveLang(r), "err.endBeforeStart"))
+		return
+	}
+	// A session longer than ten hours is usually a timer left running (TIME-18).
+	// The form asks once and sends confirm_long=1 with the second save; the API
+	// does not ask unless a client sends the field without it.
+	if end.Sub(start) > longSessionLimit && r.FormValue("confirm_long") != "1" {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Backfill-Confirm", "long")
+		w.WriteHeader(http.StatusConflict)
+		fmt.Fprint(w, i18n.T(resolveLang(r), "stats.longSessionConfirm"))
 		return
 	}
 	var projectID int64

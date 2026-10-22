@@ -53,6 +53,11 @@ def stored_duration(page: Page, activity: str) -> str:
     return session["DurationInput"].replace(" ", " ")
 
 
+def local_stamp(seconds_ago: int) -> str:
+    moment = time.localtime(time.time() - seconds_ago)
+    return time.strftime("%Y-%m-%d %H:%M:%S", moment)
+
+
 def main() -> int:
     stamp = int(time.time())
     activity = f"Длинная сессия {stamp}"
@@ -99,6 +104,27 @@ def main() -> int:
         page.goto(f"{BASE}/stats", wait_until="networkidle")
         check("the stored duration is 10:30", stored_duration(page, activity) == "10:30",
               stored_duration(page, activity))
+
+        print("\n== 5. A manual entry of more than ten hours asks before it saves")
+        page.goto(f"{BASE}/", wait_until="networkidle")
+        manual = f"Вручную {stamp}"
+        page.get_by_text("Добавить прошедшую сессию").click()
+        page.fill("#b-activity", manual)
+        page.fill("#b-start", local_stamp(30 * 3600))
+        page.fill("#b-end", local_stamp(18 * 3600))
+        # No project: the first save only asks about it (TIME-12); the second one
+        # reaches the server, which asks about the length.
+        page.locator('form:has(#b-activity) button[type="submit"]').first.click()
+        page.wait_for_timeout(300)
+        page.locator('form:has(#b-activity) button[type="submit"]').first.click()
+        expect(page.get_by_role("alertdialog")).to_be_visible()
+        check("the manual entry asks about the long session",
+              "больше 10 часов" in page.get_by_role("alertdialog").inner_text())
+        page.get_by_role("alertdialog").locator("button").last.click()
+        page.wait_for_function("document.querySelector('#b-activity').value === ''")
+        page.goto(f"{BASE}/stats?period=week", wait_until="networkidle")
+        check("the confirmed manual entry is saved",
+              any(s["ActivityName"] == manual for s in page_data(page)["Sessions"]))
 
         browser.close()
 

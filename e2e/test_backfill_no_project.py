@@ -70,8 +70,8 @@ def main() -> int:
         page.locator('form:has(#b-activity) button[type="submit"]').first.click()
         page.wait_for_timeout(300)
         page.locator('form:has(#b-activity) button[type="submit"]').first.click()
-        page.wait_for_load_state("networkidle")
-        page.goto(f"{BASE}/stats", wait_until="networkidle")
+        page.wait_for_function("document.querySelector('#b-activity').value === ''")
+        page.goto(f"{BASE}/stats?period=week", wait_until="networkidle")
         check("the session is saved after the second save", any(s["ActivityName"] == activity for s in page_data(page)["Sessions"]))
 
         browser.close()
