@@ -23,6 +23,7 @@ type Store interface {
 	LinkTaskActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error)
 	ListTasks(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
 	ListLinkableActivities(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
+	ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error)
 	ImportTasks(ctx context.Context, request appmodel.TaskImportRequest) (appmodel.TaskImportResult, error)
 }
 
@@ -137,6 +138,14 @@ func (s *Service) Restore(ctx context.Context, request appmodel.TaskRestoreReque
 }
 
 // LinkActivity hangs an activity on a task.
+// ActivityHasTask reports whether time logged to the activity is on a task.
+func (s *Service) ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error) {
+	if teamID <= 0 {
+		return false, appmodel.ErrInvalidTask
+	}
+	return s.store.ActivityHasTask(ctx, teamID, activityID)
+}
+
 func (s *Service) LinkActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error) {
 	if request.TeamID <= 0 {
 		return appmodel.Activity{}, appmodel.ErrInvalidTask
