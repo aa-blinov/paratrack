@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -212,13 +213,32 @@ func (s *Service) notify(ctx context.Context, teamID int64, userIDs []int64, not
 	return err
 }
 
-// NotifiableUsers keeps the people who have not muted the topic: the filter the
-// push channel applies, reused by the email channel (TIME-14).
-func (s *Service) NotifiableUsers(ctx context.Context, teamID int64, userIDs []int64, topic string) ([]int64, error) {
+// MailRecipients keeps the people who have not muted the topic, for the email
+// channel (TIME-14, TASK-05). The device filter cannot serve here: it only
+// finds people with a subscribed browser, and a letter has to reach the mailbox
+// of anyone who never allowed notifications. The switch on /settings/notifications
+// still decides who gets it.
+func (s *Service) MailRecipients(ctx context.Context, teamID int64, userIDs []int64, topic string) ([]int64, error) {
 	if teamID <= 0 {
 		return nil, ErrNoWorkspace
 	}
-	return s.targets(ctx, teamID, userIDs, topic)
+	if topic == "" {
+		return userIDs, nil
+	}
+	recipients := make([]int64, 0, len(userIDs))
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			continue
+		}
+		muted, err := s.MutedTopics(ctx, appmodel.NotificationTopicsQuery{TeamID: teamID, UserID: userID})
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(muted, topic) {
+			recipients = append(recipients, userID)
+		}
+	}
+	return recipients, nil
 }
 
 // deliver sends a message to the active endpoints for the selected users.
