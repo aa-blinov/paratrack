@@ -431,6 +431,10 @@ def main() -> int:
             pg.fill('input[data-date-input="start"]', assign["from"])
             pg.fill('input[data-date-input="end"]', assign["to"])
         pg.locator('form[action="/invoices"] button[type="submit"]').click()
+        # The window is this week, which nobody can approve yet, so the invoice asks
+        # the manager first (FIN-12). This run is the manager, and it confirms.
+        pg.get_by_role("alertdialog").wait_for(timeout=10000)
+        pg.get_by_role("alertdialog").locator("button").last.click()
         pg.wait_for_url("**/invoices/*")
         # The shell renders the document from JSON, so the page chrome is there
         # before the invoice itself is.

@@ -218,6 +218,10 @@ jobs:
           python e2e/test_invite_link_actions.py 2>&1 | tee /tmp/e2e-invites.log
           python e2e/test_workspace_move.py 2>&1 | tee /tmp/e2e-move.log
           python e2e/qa_full.py 2>&1 | tee /tmp/e2a-full.log
+          # Invoices that wait for the manager (FIN-12): the form must still post when
+          # no week is unapproved, and the question must name the unapproved weeks.
+          python e2e/test_invoice_form_submits.py 2>&1 | tee /tmp/e2e-invoice-form.log
+          python e2e/test_invoice_unapproved_weeks.py 2>&1 | tee /tmp/e2e-invoice-weeks.log
           # The phone shell. It was written and then never wired here, so it
           # drifted for as long as it sat unused — it still pointed at a class
           # that had been deleted, and the press-state rule it protects was
