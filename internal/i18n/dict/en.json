@@ -1353,6 +1353,7 @@
   "stats.projectConfirm": "Only this entry changes. Other entries of the activity \"%s\" keep their project. Change the project?",
   "stats.changeProject": "Change the project?",
   "stats.durationFormat": "Hours and minutes with a colon, for example 1:30.",
+  "stats.longSessionConfirm": "This session runs longer than 10 hours. It is better to split it. Save it as it is?",
   "stats.editorShow": "Show",
   "stats.editorHide": "Hide",
   "dash.modeCounts": "Mode “%s”: %d of %d sections open",
