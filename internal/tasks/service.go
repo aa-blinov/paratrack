@@ -29,6 +29,7 @@ type Store interface {
 	ListLinkableActivities(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
 	ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error)
 	LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error)
+	TrackedSecondsByTask(ctx context.Context, query appmodel.TaskReportQuery) (map[int64]int, error)
 	ImportTasks(ctx context.Context, request appmodel.TaskImportRequest) (appmodel.TaskImportResult, error)
 }
 
@@ -189,6 +190,15 @@ func (s *Service) LinkedActivityIDs(ctx context.Context, teamID int64) (map[int6
 		return nil, appmodel.ErrInvalidTask
 	}
 	return s.store.LinkedActivityIDs(ctx, teamID)
+}
+
+// TrackedSecondsByTask returns the seconds each task got inside a period, for the
+// task report (TASK-04).
+func (s *Service) TrackedSecondsByTask(ctx context.Context, query appmodel.TaskReportQuery) (map[int64]int, error) {
+	if query.TeamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.TrackedSecondsByTask(ctx, query)
 }
 
 func (s *Service) LinkActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error) {

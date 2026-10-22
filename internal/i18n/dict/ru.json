@@ -1611,5 +1611,16 @@
   "tasks.back": "Ко всем задачам",
   "tasks.cardTitle": "Задача",
   "tasks.open": "Открыть",
+  "tasks.reportTab": "Отчёт",
+  "tasks.reportFrom": "С",
+  "tasks.reportTo": "По",
+  "tasks.reportShow": "Показать",
+  "tasks.reportCSV": "Скачать CSV",
+  "tasks.reportEmpty": "За этот период по задачам нет учтённого времени.",
+  "tasks.reportTotal": "Итого",
+  "tasks.reportTask": "Задача",
+  "tasks.reportArchived": "в архиве",
+  "tasks.reportHint": "Учтённое время считается по дням периода, таймеры, которые ещё идут, входят. Архивные задачи тоже в отчёте.",
+  "tasks.reportBadPeriod": "Дата «С» позже даты «По».",
   "tasks.hint": "Перетащите карточку в другой столбец или выберите статус. Время пишется в активности задачи."
 }

@@ -459,9 +459,23 @@ func (d *DB) attachTaskActivities(ctx context.Context, teamID int64, out []appmo
 	return rows.Err()
 }
 
-// trackedMinutesByTask sums what the sessions of each task's activities logged,
-// open timers included, the same way the timesheet counts them.
+// trackedMinutesByTask is the all-time figure the task table shows per task.
 func (d *DB) trackedMinutesByTask(ctx context.Context, teamID int64, now time.Time) (map[int64]int, error) {
+	seconds, err := d.trackedSecondsByTask(ctx, teamID, time.Unix(0, 0).UTC(), now.AddDate(100, 0, 0), now)
+	if err != nil {
+		return nil, err
+	}
+	minutes := make(map[int64]int, len(seconds))
+	for id, sec := range seconds {
+		minutes[id] = sec / 60
+	}
+	return minutes, nil
+}
+
+// trackedSecondsByTask sums what the sessions of each task's activities logged
+// inside [from, until), open timers counted up to now, the same way the timesheet
+// counts them.
+func (d *DB) trackedSecondsByTask(ctx context.Context, teamID int64, from, until, now time.Time) (map[int64]int, error) {
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT a.task_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
 		 FROM sessions s JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
@@ -471,8 +485,6 @@ func (d *DB) trackedMinutesByTask(ctx context.Context, teamID int64, now time.Ti
 	}
 	defer rows.Close()
 	seconds := map[int64]int{}
-	from := time.Unix(0, 0).UTC()
-	until := now.AddDate(100, 0, 0)
 	for rows.Next() {
 		var taskID int64
 		var startAt string
@@ -494,11 +506,7 @@ func (d *DB) trackedMinutesByTask(ctx context.Context, teamID int64, now time.Ti
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	minutes := make(map[int64]int, len(seconds))
-	for id, sec := range seconds {
-		minutes[id] = sec / 60
-	}
-	return minutes, nil
+	return seconds, nil
 }
 
 func scanTaskRow(r row) (model.Task, string, string, error) {

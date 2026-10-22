@@ -564,6 +564,7 @@ type TaskWorkflow interface {
 	List(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
 	Linkable(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
 	ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error)
+	TrackedSecondsByTask(ctx context.Context, query appmodel.TaskReportQuery) (map[int64]int, error)
 	ImportGitHubProject(ctx context.Context, request appmodel.GitHubImportRequest) (appmodel.TaskImportResult, error)
 	AddComment(ctx context.Context, request appmodel.TaskCommentRequest) (appmodel.TaskComment, error)
 	TaskOfActivity(ctx context.Context, teamID, activityID int64) (int64, error)
