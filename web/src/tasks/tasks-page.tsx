@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
+import { askPlanMove } from "./plan-move"
 import { Flash } from "@/components/flash"
 import { translate as t } from "@/i18n"
 import type { TaskItem, TasksData } from "@/dashboard/types"
@@ -67,7 +68,11 @@ export function TasksPage({ data }: { data: TasksData }) {
   }
 
   function changeAssignee(task: TaskItem, value: string) {
-    void run(() => post(`/api/tasks/${task.ID}`, data.CSRFToken, { assignee_id: value === noPerson ? "0" : value }))
+    const to = value === noPerson ? 0 : Number(value)
+    void run(async () => {
+      const movePlan = await askPlanMove(task.ID, task.AssigneeID, to, lang)
+      await post(`/api/tasks/${task.ID}`, data.CSRFToken, movePlan ? { assignee_id: String(to), move_plan: "1" } : { assignee_id: value === noPerson ? "0" : value })
+    })
   }
 
   async function archive(task: TaskItem) {

@@ -44,6 +44,14 @@ func (scheduleCellStoreStub) TrackedMinutesForProject(context.Context, int64, in
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) PlannedFromDayForUser(context.Context, int64, int64, int64, time.Time) (int, error) {
+	return 0, nil
+}
+
+func (scheduleCellStoreStub) MovePlanFromDay(context.Context, appmodel.PlanMoveRequest) (int, error) {
+	return 0, nil
+}
+
 func (scheduleCellStoreStub) SetProjectWeeklyNorm(context.Context, appmodel.ProjectWeeklyNormRequest) error {
 	return nil
 }
@@ -109,6 +117,14 @@ func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64)
 
 func (scheduleStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
 	return nil, nil
+}
+
+func (scheduleStoreStub) PlannedFromDayForUser(context.Context, int64, int64, int64, time.Time) (int, error) {
+	return 0, nil
+}
+
+func (scheduleStoreStub) MovePlanFromDay(context.Context, appmodel.PlanMoveRequest) (int, error) {
+	return 0, nil
 }
 
 func (scheduleStoreStub) SetProjectWeeklyNorm(context.Context, appmodel.ProjectWeeklyNormRequest) error {

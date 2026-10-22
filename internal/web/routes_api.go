@@ -30,6 +30,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/tasks/{id}", s.module("tasks", s.handleTaskUpdate))
 	api("POST", "/api/tasks/{id}/status", s.module("tasks", s.handleTaskStatus))
 	api("POST", "/api/tasks/{id}/comments", s.module("tasks", s.handleTaskComment))
+	api("GET", "/api/tasks/{id}/plan-move", s.module("tasks", s.handleTaskPlanMove))
 	api("POST", "/api/tasks/{id}/archive", s.module("tasks", s.handleTaskArchive))
 	api("POST", "/api/tasks/{id}/restore", s.module("tasks", s.handleTaskRestore))
 	api("POST", "/api/tasks/import/github", s.module("tasks", s.manage(s.handleTasksImportGitHub)))
