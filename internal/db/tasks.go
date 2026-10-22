@@ -564,6 +564,25 @@ func insertTaskActivityRow(ctx context.Context, tx *Tx, teamID, projectID, taskI
 
 // ListLinkableActivities lists the project's activities that no task holds yet:
 // the ones a task can take on.
+// LinkedActivityIDs returns the activities that a task holds, as a set.
+func (d *DB) LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error) {
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT id FROM activities WHERE team_id = ? AND task_id IS NOT NULL AND task_id > 0`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	linked := make(map[int64]bool)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		linked[id] = true
+	}
+	return linked, rows.Err()
+}
+
 // ActivityHasTask reports whether an activity is hung on a task. Time logged to
 // an activity without one is kept, but it is on no task.
 func (d *DB) ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error) {

@@ -232,6 +232,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	reportBuilder, err := savedreports.NewBuilder(savedreports.BuilderDependencies{
 		Sessions: trackingService, Teams: teamService,
 		Projects: projectService, Users: authService, Tags: taggingService, Decorations: sessionDecorationBuilder,
+		Tasks: taskService,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct report builder: %w", err)

@@ -101,6 +101,8 @@ type ReportAggregateResult struct {
 	TotalCents   int
 	ByCurrency   map[string]int
 	TeamCurrency string
+	// UnlinkedSeconds is the part of TotalSeconds on activities that no task holds.
+	UnlinkedSeconds int
 }
 
 type ReportStatsBreakdown struct {
