@@ -40,6 +40,16 @@ func (scheduleCellStoreStub) PlannedMinutesForProject(context.Context, int64, in
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) SetDayMark(context.Context, appmodel.DayMarkRequest) error { return nil }
+
+func (scheduleCellStoreStub) DayMarks(context.Context, int64, string, string) ([]appmodel.DayMark, error) {
+	return nil, nil
+}
+
+func (scheduleCellStoreStub) TrackedSecondsByPersonDay(context.Context, appmodel.PersonDayQuery) (map[int64][]int, error) {
+	return nil, nil
+}
+
 func (scheduleCellStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
 	return nil, nil
 }
@@ -112,6 +122,16 @@ func (scheduleStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.Sched
 }
 
 func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64) (map[int64]int, error) {
+	return nil, nil
+}
+
+func (scheduleStoreStub) SetDayMark(context.Context, appmodel.DayMarkRequest) error { return nil }
+
+func (scheduleStoreStub) DayMarks(context.Context, int64, string, string) ([]appmodel.DayMark, error) {
+	return nil, nil
+}
+
+func (scheduleStoreStub) TrackedSecondsByPersonDay(context.Context, appmodel.PersonDayQuery) (map[int64][]int, error) {
 	return nil, nil
 }
 

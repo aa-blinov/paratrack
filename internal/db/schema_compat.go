@@ -173,6 +173,19 @@ var compatibilityStatements = []string{
 	    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS uniq_invoice_share_token ON invoice_share_links(token_hash)`,
+	// A member's mark on a day: an overload or an idle day, one per member and day, which
+	// the manager sees on the team week (TIME-13).
+	`CREATE TABLE IF NOT EXISTS day_marks (
+	    team_id BIGINT NOT NULL,
+	    user_id BIGINT NOT NULL,
+	    day TEXT NOT NULL,
+	    kind TEXT NOT NULL,
+	    note TEXT NOT NULL DEFAULT '',
+	    created_at TEXT NOT NULL,
+	    PRIMARY KEY (team_id, user_id, day),
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`,
 	// Big teams: every member view filters team + person + time; the
 	// unbilled total wants closed sessions not on an invoice.
 	`CREATE INDEX IF NOT EXISTS idx_sessions_team_start ON sessions(team_id, start_at)`,

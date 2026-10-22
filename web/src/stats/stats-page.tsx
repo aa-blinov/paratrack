@@ -16,6 +16,8 @@ import { DateTimeField } from "@/components/date-field"
 import { SegmentedControl } from "@/components/segmented"
 import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
+import { TeamWeekCard } from "@/stats/team-week-card"
+import { DayMarkCard } from "@/stats/day-mark-card"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"]
 
@@ -187,6 +189,8 @@ export function StatsPage({ data }: { data: StatsData }) {
       {data.PersonFilter > 0 && <input type="hidden" name="person" value={String(data.PersonFilter)} />}
       <Button type="submit">{t(lang, "graph.applyPeriod")}</Button>
     </form>}
+    {data.TeamWeek && <TeamWeekCard week={data.TeamWeek} lang={lang} />}
+    {data.MarkWeek && <DayMarkCard week={data.MarkWeek} lang={lang} csrfToken={data.CSRFToken} />}
     {!!data.People?.length && <div className="flex flex-wrap items-center gap-2"><Label htmlFor="stats-person">{t(lang, "stats.person")}</Label><Select value={String(data.PersonFilter || "all")} onValueChange={value => { window.location.href = queryFor(data, data.Period.Label, data.ProjectFilter, data.TagFilter, value === "all" ? 0 : Number(value)) }}><SelectTrigger id="stats-person" className="w-full max-w-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t(lang, "stats.everyone")}</SelectItem>{data.People.map(person => <SelectItem key={person.ID} value={String(person.ID)}>{person.Name}</SelectItem>)}</SelectContent></Select></div>}
     {(data.TagFilter || data.ProjectFilter) && <Card><CardContent className="flex flex-wrap items-center gap-2 p-3"><span className="text-xs uppercase text-muted-foreground">{t(lang, "stats.filteredBy")}</span>{data.ProjectFilter && <Badge variant="secondary">{data.ProjectFilter}</Badge>}{data.TagFilter && <Badge variant="secondary">#{data.TagFilter}</Badge>}<Button asChild size="sm" variant="ghost" className="ml-auto"><a href={queryFor(data, data.Period.Label, "", "")}>{t(lang, "stats.clearFilters")}</a></Button></CardContent></Card>}
 

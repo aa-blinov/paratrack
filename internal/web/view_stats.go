@@ -24,9 +24,13 @@ type statsData struct {
 	ProjectFilter    string          // current ?project=slug value, empty if unfiltered
 	People           []personOpt     // managers of a shared workspace: filter by person
 	PersonFilter     int64
-	Sessions         []sessionView
-	Total            string
-	SessionCount     int
+	// TeamWeek is the workspace's week for managers (PLAN-04); nil for members.
+	TeamWeek *teamWeekView
+	// MarkWeek is the viewer's own week for marking an overload or idle day (TIME-13).
+	MarkWeek     *markWeekView
+	Sessions     []sessionView
+	Total        string
+	SessionCount int
 	// Running timers are not in the totals until they stop; the page says
 	// how many run and how much time they hold in this period.
 	RunningCount int
