@@ -42,6 +42,10 @@ var columnMigrations = []struct {
 	// Currency: the workspace default, a project override ('' = inherit),
 	// and the currency fixed on each document when it is created.
 	{"teams", "currency", "TEXT NOT NULL DEFAULT 'RUB'"},
+	// The workspace's own time zone and first day of the week; blank leaves each
+	// member's own choice in force (ADM-07).
+	{"teams", "timezone", "TEXT NOT NULL DEFAULT ''"},
+	{"teams", "week_start", "TEXT NOT NULL DEFAULT ''"},
 	{"projects", "currency", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "currency", "TEXT NOT NULL DEFAULT ''"},
 	{"payroll_runs", "currency", "TEXT NOT NULL DEFAULT ''"},

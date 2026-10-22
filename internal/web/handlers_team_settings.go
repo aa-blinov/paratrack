@@ -26,6 +26,21 @@ func (s *Server) handleAPITeamRename(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings/team?flash=renamed", http.StatusSeeOther)
 }
 
+// handleAPITeamCalendar sets the workspace's time zone and first day of the week. A
+// blank choice gives it back to each member (ADM-07).
+func (s *Server) handleAPITeamCalendar(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	request := appmodel.TeamCalendarRequest{
+		TeamID: team.ID, CallerID: authenticatedUserID(r),
+		TimeZone: strings.TrimSpace(r.FormValue("timezone")), WeekStart: r.FormValue("week_start"),
+	}
+	if err := s.services.Teams.Administration.SetCalendar(r.Context(), request); err != nil {
+		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#calendar", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/settings/team?flash=updated#calendar", http.StatusSeeOther)
+}
+
 // handleAPITeamCurrency sets the workspace currency. Documents already
 // issued keep theirs; new projects without their own currency follow it.
 

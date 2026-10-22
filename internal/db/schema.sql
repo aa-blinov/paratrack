@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS teams (
     name TEXT NOT NULL,
     owner_id BIGINT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    timezone TEXT NOT NULL DEFAULT '',
+    week_start TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE RESTRICT
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_teams_slug ON teams(slug);

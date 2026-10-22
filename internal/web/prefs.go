@@ -39,7 +39,16 @@ func has(list []string, k string) bool {
 
 func durFmtOf(r *http.Request) string { return prefsOf(r).Duration }
 
-func weekStartsSunday(r *http.Request) bool { return prefsOf(r).WeekStart == "sun" }
+// weekStartsSunday reads the first day of the week: the workspace's choice when it
+// made one (ADM-07), otherwise the member's own.
+func weekStartsSunday(r *http.Request) bool {
+	if r != nil {
+		if team, ok := TeamFrom(r.Context()); ok && team.WeekStart != "" {
+			return team.WeekStart == "sun"
+		}
+	}
+	return prefsOf(r).WeekStart == "sun"
+}
 
 func defaultProject(p Prefs, teamID int64) int64 {
 	return p.DefaultProject[strconv.FormatInt(teamID, 10)]
