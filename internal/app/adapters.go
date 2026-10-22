@@ -50,7 +50,7 @@ func (e reminderEmail) Email(ctx context.Context, notification reminders.Notific
 	if e.sender == nil || !mail.Available(e.sender) {
 		return nil
 	}
-	recipients, err := e.push.NotifiableUsers(ctx, notification.TeamID, notification.UserIDs, notification.Topic)
+	recipients, err := e.push.MailRecipients(ctx, notification.TeamID, notification.UserIDs, notification.Topic)
 	if err != nil || len(recipients) == 0 {
 		return err
 	}
