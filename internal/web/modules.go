@@ -143,17 +143,17 @@ func (s *Server) module(key string, h http.HandlerFunc) http.HandlerFunc {
 			h(w, r)
 			return
 		}
-		msg := i18n.T(resolveLang(r), "mod.off")
+		// Only a manager can switch a section on, so a member is told whom to ask (UI-06).
+		msg, ok, to := i18n.T(resolveLang(r), "mod.offMember"), false, "/"
+		if canManage(r) {
+			msg, ok, to = i18n.T(resolveLang(r), "mod.off"), true, "/settings/sections"
+		}
 		if r.Method != http.MethodGet || strings.HasPrefix(r.URL.Path, "/api/") {
 			http.Error(w, msg, http.StatusNotFound)
 			return
 		}
-		to := "/"
-		if canManage(r) {
-			to = "/settings/sections"
-		}
 		// Not a failure: the person followed a link to a section that is switched off.
-		http.Redirect(w, r, to+"?flash="+encodeFlash(true, msg), http.StatusSeeOther)
+		http.Redirect(w, r, to+"?flash="+encodeFlash(ok, msg), http.StatusSeeOther)
 	}
 }
 

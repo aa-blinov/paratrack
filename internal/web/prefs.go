@@ -109,8 +109,12 @@ var zones = []string{
 	"Europe/Kaliningrad", "Europe/Moscow", "Europe/Samara", "Asia/Yekaterinburg", "Asia/Omsk",
 	"Asia/Novosibirsk", "Asia/Krasnoyarsk", "Asia/Irkutsk", "Asia/Yakutsk", "Asia/Vladivostok",
 	"Asia/Magadan", "Asia/Kamchatka", "Europe/Minsk", "Asia/Almaty", "Asia/Tashkent", "Asia/Tbilisi",
-	"Asia/Yerevan", "Asia/Baku", "Europe/Istanbul", "Asia/Dubai", "Asia/Bangkok", "Asia/Bali",
+	"Asia/Yerevan", "Asia/Baku", "Europe/Istanbul", "Asia/Dubai", "Asia/Bangkok", "Asia/Makassar",
 	"Europe/London", "Europe/Berlin", "Europe/Belgrade", "Europe/Lisbon", "America/New_York",
+	"Europe/Paris", "Europe/Kyiv", "Europe/Rome", "Europe/Madrid", "Europe/Amsterdam", "Europe/Vienna",
+	"Europe/Warsaw", "Asia/Shanghai", "Asia/Hong_Kong", "Asia/Tokyo", "Asia/Seoul", "Asia/Singapore",
+	"Asia/Kolkata", "Asia/Jerusalem", "Asia/Riyadh", "Africa/Cairo", "Australia/Sydney", "Pacific/Auckland",
+	"America/Chicago", "America/Denver", "America/Toronto", "America/Sao_Paulo",
 	"America/Los_Angeles", "UTC",
 }
 

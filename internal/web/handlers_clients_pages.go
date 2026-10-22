@@ -446,6 +446,8 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 // clientDetailData is the envelope for /clients/{id}: one customer with the
 // work and the documents that belong to them.
 type clientDetailData struct {
+	// InvoicesOn is the invoices module: the invoice block goes with it (UI-03).
+	InvoicesOn        bool
 	Title             string
 	Active            string
 	ReactApp          bool
@@ -603,6 +605,7 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		ReactApp:          true,
 		ClientDetailReact: true,
 		Projects:          projectRows,
+		InvoicesOn:        s.teamModules(r)["invoices"],
 		Invoices:          invoiceRows,
 		CanManage:         canManage(r),
 		Client: clientDetailRow{

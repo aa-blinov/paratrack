@@ -39,7 +39,10 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 			people = append(people, personOpt{ID: member.UserID, Name: member.Name, Selected: member.Selected})
 		}
 	}
-	rows, activities, projects := s.statsPresentation(r, period, now, names, stats)
+	rows, activities, projects, err := s.statsPresentation(r, period, now, names, stats)
+	if err != nil {
+		return statsData{}, err
+	}
 	shown := rows
 	logCap := statsLogRows
 	if r.URL.Query().Get("log") == "all" {
@@ -246,7 +249,11 @@ func (s *Server) statsPresentation(
 	now time.Time,
 	personNames map[int64]string,
 	stats appmodel.ReportStatsResult,
-) ([]sessionView, []aggRow, []projectAggRow) {
+) ([]sessionView, []aggRow, []projectAggRow, error) {
+	approvals, err := s.services.Tracking.Queries.TimesheetApprovals(r.Context(), teamID(r), period.Start, period.End)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("load timesheet approvals: %w", err)
+	}
 	rows := make([]sessionView, 0, len(stats.Sessions))
 	for _, active := range stats.Sessions {
 		row := toSessionView(active.Session, active.Activity, period.Start, period.End, now, resolveLang(r), durFmtOf(r))
@@ -256,12 +263,27 @@ func (s *Server) statsPresentation(
 		for _, tag := range stats.TagsBySession[row.ID] {
 			row.Tags = append(row.Tags, tagChip{ID: tag.ID, Name: tag.Name})
 		}
+		if week, ok := approvedWeekOf(approvals, active.Session.StartAt); ok {
+			row.Locked = true
+			row.LockNote = fmt.Sprintf(i18n.T(resolveLang(r), "stats.weekLocked"), fmtDay(resolveLang(r), week.Start), fmtDay(resolveLang(r), week.End.AddDate(0, 0, -1)))
+		}
 		rows = append(rows, row)
 	}
 	attachSessionProjects(rows, stats.ProjectsByID)
 
 	activities, projects := statsAggregateViews(r, s.activityColors(r), stats.Summary)
-	return rows, activities, projects
+	return rows, activities, projects, nil
+}
+
+// approvedWeekOf finds the approved span a session starts in. The end of a span is
+// exclusive, as the store keeps it.
+func approvedWeekOf(approvals []appmodel.TimesheetApproval, start time.Time) (appmodel.TimesheetApproval, bool) {
+	for _, week := range approvals {
+		if !start.Before(week.Start) && start.Before(week.End) {
+			return week, true
+		}
+	}
+	return appmodel.TimesheetApproval{}, false
 }
 
 func statsAggregateViews(r *http.Request, colors map[string]string, summary appmodel.ReportStatsSummary) ([]aggRow, []projectAggRow) {
