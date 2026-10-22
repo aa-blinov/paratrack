@@ -425,6 +425,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
                       <span className={`block text-xs font-mono ${live.load === "overload" ? "text-destructive" : "text-muted-foreground"}`}>
                         {t(lang, "sch.planned")} {durationLabel(live.planned, format, lang)} {t(lang, "sch.of")} {person.AvailableLabel}{person.AvailableMin > 0 ? `, ${live.pct}%` : ""}{live.load === "overload" ? `, ${t(lang, "sch.overload")}` : live.load === "idle" ? `, ${t(lang, "sch.idle")}` : ""}
                       </span>
+                      {live.load === "overload" && !data.CanManage && <span className="block text-xs text-muted-foreground">{t(lang, "sch.overloadHint")}</span>}
                       {data.CanManage && <span className="block text-xs font-mono text-muted-foreground">{t(lang, "sch.tracked")} {person.TrackedLabel}{person.AvailableMin > 0 ? `, ${person.TrackedPct}%` : ""}</span>}
                       {adminField(person)}
                     </TableHead>
