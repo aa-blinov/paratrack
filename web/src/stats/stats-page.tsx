@@ -42,6 +42,28 @@ async function send(url: string, method: string, body: URLSearchParams | undefin
   if (!response.ok) throw new Error(await responseMessage(response))
 }
 
+// A session longer than this is worth splitting (TIME-18). The save still goes
+// through once the person confirms it.
+const LONG_SESSION_MINUTES = 10 * 60
+
+function clockMinutes(value: string): number | null {
+  const match = /^(\d{1,3}):([0-5]\d)$/.exec(value.trim())
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null
+}
+
+// The editor sends start and end as local "YYYY-MM-DDTHH:MM" values.
+function spanMinutes(start: string, end: string): number | null {
+  const from = Date.parse(start)
+  const to = Date.parse(end)
+  return Number.isNaN(from) || Number.isNaN(to) ? null : (to - from) / 60000
+}
+
+function resultingMinutes(patch: { start_at?: string; end_at?: string; duration?: string }, start: string, end: string): number | null {
+  if (patch.duration !== undefined) return clockMinutes(patch.duration)
+  if (patch.start_at !== undefined || patch.end_at !== undefined) return spanMinutes(start, end)
+  return null
+}
+
 function EditableSession({ data, session, onRemove }: { data: StatsData; session: Session; onRemove: (id: number) => void }) {
   const [start, setStart] = React.useState(session.StartInput || "")
   const [end, setEnd] = React.useState(session.EndInput || "")
@@ -57,12 +79,18 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   // the others too: a duration shown in minutes drops its seconds, and the end
   // moves with it.
   async function save(patch: Partial<{ start_at: string; end_at: string; duration: string; note: string }>) {
+    // Held for the whole save, the confirmation included: the field losing focus
+    // to the dialog would otherwise start a second save over the first one.
     if (busy.current) return
-    const body = new URLSearchParams({ note: session.Note ?? "", ...patch })
     busy.current = true
-    setError("")
-    try { await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken); window.location.reload() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
+    try {
+      const length = resultingMinutes(patch, start, end)
+      if (length !== null && length > LONG_SESSION_MINUTES && !(await requestConfirmation(t(data.Lang, "stats.longSessionConfirm")))) return
+      const body = new URLSearchParams({ note: session.Note ?? "", ...patch })
+      setError("")
+      await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken)
+      window.location.reload()
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
     finally { busy.current = false }
   }
 
@@ -72,7 +100,9 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   // Enter saves like leaving the field. A composition in progress is not a finished
   // entry: Enter there only picks the word, so it must not save.
   function commitOnEnter(event: React.KeyboardEvent<HTMLInputElement>, commit: () => void) {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) commit()
+    // The default action is cancelled: a confirmation opened by this key takes focus,
+    // and the same keypress would otherwise press its first button.
+    if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); commit() }
   }
 
   // A project change touches this entry only. The user confirms it first, and the
