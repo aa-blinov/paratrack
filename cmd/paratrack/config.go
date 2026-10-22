@@ -162,6 +162,10 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 	}
 	now := time.Now
 	logger := log.Default()
+	smtp := mail.SMTPConfig{
+		Host: getenv("PARATRACK_SMTP_HOST"), Username: getenv("PARATRACK_SMTP_USER"),
+		Password: getenv("PARATRACK_SMTP_PASS"), From: getenv("PARATRACK_MAIL_FROM"),
+	}
 	return processConfig{
 		database: makeDatabaseConfig(environment, getenv("PARATRACK_DATABASE_URL"), getenv("PARATRACK_SECRET_KEY"), logger, now),
 		services: app.Config{
@@ -174,11 +178,10 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 			JiraSite:                getenv("PARATRACK_JIRA_SITE"),
 			GitLabSite:              getenv("PARATRACK_GITLAB_SITE"),
 			DefaultTimezone:         defaultTimezone,
+			SMTP:                    smtp,
+			PublicURL:               publicURL,
 		},
-		mailer: mail.SMTPConfig{
-			Host: getenv("PARATRACK_SMTP_HOST"), Username: getenv("PARATRACK_SMTP_USER"),
-			Password: getenv("PARATRACK_SMTP_PASS"), From: getenv("PARATRACK_MAIL_FROM"),
-		},
+		mailer: smtp,
 		web: web.Config{
 			Logger:          logger,
 			AppVersion:      Version,
