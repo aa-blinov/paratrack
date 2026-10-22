@@ -76,6 +76,7 @@
   "dash.trackedToday": "Tracked today",
   "dash.noProjectWarning": "Without a project the session stays out of project reports. Pick a project or save without one.",
   "dash.saveWithoutProject": "Save without project",
+  "dash.startNoProjectConfirm": "This timer has no project: its time will not reach project reports. Start it anyway?",
   "dash.dayNorm": "Day norm: %s",
   "dash.topActivity": "Top activity",
   "dash.backfillTitle": "Add a past session",
