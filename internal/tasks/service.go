@@ -15,6 +15,8 @@ import (
 // Store is the persistence the task board needs. Authorisation is enforced
 // there, in the same transaction as each write.
 type Store interface {
+	AddTaskComment(ctx context.Context, request appmodel.TaskCommentRequest) (appmodel.TaskComment, error)
+	ListTaskComments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error)
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
@@ -145,6 +147,22 @@ func (s *Service) ActivityHasTask(ctx context.Context, teamID, activityID int64)
 		return false, appmodel.ErrInvalidTask
 	}
 	return s.store.ActivityHasTask(ctx, teamID, activityID)
+}
+
+// AddComment writes a line to a task's feed (TASK-02).
+func (s *Service) AddComment(ctx context.Context, request appmodel.TaskCommentRequest) (appmodel.TaskComment, error) {
+	if request.TeamID <= 0 {
+		return appmodel.TaskComment{}, appmodel.ErrInvalidTask
+	}
+	return s.store.AddTaskComment(ctx, request)
+}
+
+// Comments returns a task's feed in the order it was written.
+func (s *Service) Comments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.ListTaskComments(ctx, teamID, taskID)
 }
 
 // LinkedActivityIDs returns the activities that tasks hold, for reports.

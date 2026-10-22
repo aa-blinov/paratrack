@@ -970,6 +970,7 @@ export interface TaskItem {
   DueLabel: string
   Overdue: boolean
   EstimateMin: number
+  Description: string
   EstimateLabel: string
   TrackedMin: number
   TrackedLabel: string
@@ -1008,5 +1009,6 @@ export interface TaskDetailData {
   Projects: Project[]
   People: TaskPerson[]
   Linkable: TaskActivity[]
+  Comments: Array<{ ID: number; Author: string; Body: string; When: string }>
   ViewerID: number
 }
