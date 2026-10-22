@@ -19,6 +19,7 @@ type Reader interface {
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
+	ListUnapprovedTimeDays(context.Context, int64, int64, time.Time, time.Time) ([]string, error)
 	OverlappingInvoices(context.Context, appmodel.InvoiceOverlapQuery) ([]string, error)
 	TrackedSecondsForInvoice(ctx context.Context, teamID, invoiceID int64) (int, error)
 }

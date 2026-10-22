@@ -49,7 +49,7 @@ func TestPaymentLinkWithoutKeySaysWhyOnTheInvoice(t *testing.T) {
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Оплата"}, "rate": {"2500"}}, nil))
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:00"}, "project_id": {"1"}}, map[string]string{"HX-Request": "true"}))
 	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-	created := e.do("POST", "/invoices", url.Values{"client": {"ООО «Оплата»"}, "start": {day}, "end": {day}}, nil)
+	created := e.do("POST", "/invoices", url.Values{"confirm_unapproved": {"1"}, "client": {"ООО «Оплата»"}, "start": {day}, "end": {day}}, nil)
 	loc := created.Header.Get("Location")
 	created.Body.Close()
 	if !strings.HasPrefix(loc, "/invoices/") {

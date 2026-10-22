@@ -16,6 +16,7 @@ import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { InvoiceDetailData, InvoicesData } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
+import { requestConfirmation } from "@/components/confirmation-dialog"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // The badge variant stays neutral on purpose: `variant` paints a utility
@@ -69,6 +70,38 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     return t(lang, "inv.roundHint", rule)
   })()
 
+  // A period with unapproved billable time asks the manager first (FIN-12). The
+  // server checks again when the form posts, so this only decides whether to ask.
+  const unapprovedChecked = React.useRef(false)
+  async function askAboutUnapprovedWeeks(event: React.FormEvent<HTMLFormElement>) {
+    const form = event.currentTarget
+    if (unapprovedChecked.current) {
+      unapprovedChecked.current = false
+      return
+    }
+    event.preventDefault()
+    const fields = new FormData(form)
+    const query = new URLSearchParams({ start: String(fields.get("start") ?? ""), end: String(fields.get("end") ?? ""), project_id: String(fields.get("project_id") ?? "") })
+    // Any failure here falls through to the form: the server still makes the same check.
+    let weeks: string[] = []
+    try {
+      const response = await fetch(`/invoices/unapproved?${query}`, { credentials: "same-origin" })
+      if (response.ok) weeks = ((await response.json()) as { weeks: string[] }).weeks
+    } catch {
+      weeks = []
+    }
+    if (weeks.length > 0) {
+      const confirmed = await requestConfirmation(t(lang, "inv.unapprovedBody", weeks.join(", ")), { title: t(lang, "inv.unapprovedTitle"), action: t(lang, "inv.unapprovedConfirm") })
+      if (!confirmed) return
+      const answer = document.createElement("input")
+      answer.type = "hidden"
+      answer.name = "confirm_unapproved"
+      answer.value = "1"
+      form.append(answer)
+    }
+    unapprovedChecked.current = true
+    form.requestSubmit()
+  }
   const flash = <InvoiceFlash data={data} />
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
@@ -134,7 +167,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
       </div>
     </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "inv.empty")}</p>}
     <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
-      <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2">
+      <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2" onSubmit={askAboutUnapprovedWeeks}>
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <input type="hidden" name="project_id" value={project === "__all__" ? "" : project} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-project">{t(lang, "dash.projectLabel")}</Label>

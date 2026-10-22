@@ -12,6 +12,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/mailport"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 func (s *Server) handleInvoiceAssignActivity(w http.ResponseWriter, r *http.Request) {
@@ -47,14 +48,11 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	endStr := strings.TrimSpace(r.PostForm.Get("end"))
 	notes := strings.TrimSpace(r.PostForm.Get("notes"))
 	projectStr := strings.TrimSpace(r.PostForm.Get("project_id"))
-	start, err1 := time.ParseInLocation("2006-01-02", startStr, userLoc(r))
-	end, err2 := time.ParseInLocation("2006-01-02", endStr, userLoc(r))
-	if err1 != nil || err2 != nil || end.Before(start) {
+	start, end, ok := invoicePeriod(r, startStr, endStr)
+	if !ok {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad period")), http.StatusSeeOther)
 		return
 	}
-	// end is exclusive: make it the end of the chosen day
-	end = end.AddDate(0, 0, 1)
 	var projectID int64
 	if projectStr != "" {
 		parsedID, parseErr := strconv.ParseInt(projectStr, 10, 64)
@@ -74,9 +72,16 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 			ClientDetails: clientDetails, ClientEmail: clientEmail,
 			ProjectID: projectID, ByPerson: byPerson, RememberClient: projectID > 0,
 		},
+		ConfirmUnapproved: r.PostForm.Get("confirm_unapproved") == "1",
 	})
 	if errors.Is(err, appmodel.ErrNoBillableTime) {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.no billable time in that period")), http.StatusSeeOther)
+		return
+	}
+	var unapproved *model.UnapprovedWeeksError
+	if errors.As(err, &unapproved) {
+		msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.unapprovedFlash"), strings.Join(unapprovedWeekLabels(resolveLang(r), unapproved.Weeks), ", "))
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
 	}
 	if errors.Is(err, appmodel.ErrMixedCurrency) {
@@ -263,3 +268,49 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 // sellerName is who issues the documents: the workspace, or for a
 // personal one ("Пространство: Аня") the owner's own name, which is what
 // belongs on an invoice or act.
+
+// unapprovedWeeksResponse carries the weeks the invoice form asks the manager
+// about before it submits (FIN-12).
+type unapprovedWeeksResponse struct {
+	Weeks []string `json:"weeks"`
+}
+
+func (unapprovedWeeksResponse) isJSONResponse() {}
+
+// handleInvoiceUnapproved names the weeks of a period that still carry unapproved
+// billable time, so the invoice form asks the manager before it submits (FIN-12).
+func (s *Server) handleInvoiceUnapproved(w http.ResponseWriter, r *http.Request) {
+	start, end, ok := invoicePeriod(r, r.URL.Query().Get("start"), r.URL.Query().Get("end"))
+	if !ok {
+		http.Error(w, "invalid period", http.StatusBadRequest)
+		return
+	}
+	projectID, _ := strconv.ParseInt(r.URL.Query().Get("project_id"), 10, 64)
+	weeks, err := s.services.Invoicing.Queries.UnapprovedWeeks(r.Context(), teamID(r), projectID, start, end)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	s.writeJSON(w, unapprovedWeeksResponse{Weeks: unapprovedWeekLabels(resolveLang(r), weeks)})
+}
+
+// invoicePeriod reads a day-based period: both days are inclusive in the form,
+// so the returned end is the day after the last one (exclusive).
+func invoicePeriod(r *http.Request, from, to string) (time.Time, time.Time, bool) {
+	start, err1 := time.ParseInLocation("2006-01-02", from, userLoc(r))
+	end, err2 := time.ParseInLocation("2006-01-02", to, userLoc(r))
+	if err1 != nil || err2 != nil || end.Before(start) {
+		return time.Time{}, time.Time{}, false
+	}
+	return start, end.AddDate(0, 0, 1), true
+}
+
+// unapprovedWeekLabels prints each week by its first and last day, the way the
+// rest of the invoice prints its dates.
+func unapprovedWeekLabels(lang i18n.Lang, weeks []time.Time) []string {
+	labels := make([]string, 0, len(weeks))
+	for _, monday := range weeks {
+		labels = append(labels, fmtDay(lang, monday)+" – "+fmtDay(lang, monday.AddDate(0, 0, 6)))
+	}
+	return labels
+}
