@@ -15,6 +15,8 @@ import (
 // Store is the persistence the task board needs. Authorisation is enforced
 // there, in the same transaction as each write.
 type Store interface {
+	TaskOfActivity(ctx context.Context, teamID, activityID int64) (int64, error)
+	StartTaskWork(ctx context.Context, request appmodel.TaskStartRequest) error
 	AddTaskComment(ctx context.Context, request appmodel.TaskCommentRequest) (appmodel.TaskComment, error)
 	ListTaskComments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error)
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
@@ -147,6 +149,22 @@ func (s *Service) ActivityHasTask(ctx context.Context, teamID, activityID int64)
 		return false, appmodel.ErrInvalidTask
 	}
 	return s.store.ActivityHasTask(ctx, teamID, activityID)
+}
+
+// TaskOfActivity returns the task an activity belongs to, or zero (TIME-04).
+func (s *Service) TaskOfActivity(ctx context.Context, teamID, activityID int64) (int64, error) {
+	if teamID <= 0 {
+		return 0, appmodel.ErrInvalidTask
+	}
+	return s.store.TaskOfActivity(ctx, teamID, activityID)
+}
+
+// StartWork moves a task to "in progress" when time starts on it (TIME-04).
+func (s *Service) StartWork(ctx context.Context, request appmodel.TaskStartRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.StartTaskWork(ctx, request)
 }
 
 // AddComment writes a line to a task's feed (TASK-02).

@@ -283,6 +283,14 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     <Card>
       <CardContent className="grid gap-5 p-5">
         <form onSubmit={start} noValidate className="grid gap-3">
+          {data.OpenTasks?.length ? <div className="grid gap-1.5">
+            <Label htmlFor="start-task" className="text-xs">{t(lang, "dash.taskChoose")}</Label>
+            {/* Choosing a task starts the time on its own activity; the task moves to "in progress" (TIME-04). */}
+            <Select value="" onValueChange={value => { const task = (data.OpenTasks ?? []).find(item => String(item.ID) === value); if (task) { setActivity(task.Title); setActivityRequired(false); setProject(String(task.ProjectID)) } }}>
+              <SelectTrigger id="start-task" className="w-full"><SelectValue placeholder={t(lang, "dash.taskPlaceholder")} /></SelectTrigger>
+              <SelectContent>{data.OpenTasks.map(task => <SelectItem key={task.ID} value={String(task.ID)}>{task.Title}</SelectItem>)}</SelectContent>
+            </Select>
+          </div> : null}
           <Label htmlFor="activity">{labels.what}</Label>
           <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <Input id="activity" name="activity" list="known-activities" autoComplete="off" value={activity} onChange={e => { setActivity(e.target.value); setActivityRequired(false); const known = activities.find(item => item.Name.toLocaleLowerCase() === e.target.value.trim().toLocaleLowerCase()); setRebindWarning(Boolean(known && String(known.ProjectID) !== (project || "0"))) }} placeholder={t(lang, "dash.activityHint")} required aria-invalid={activityRequired || undefined} aria-describedby={activityRequired ? "activity-required" : undefined} />
@@ -356,6 +364,12 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="flex min-h-11 cursor-pointer list-none items-center py-1 text-sm font-medium text-muted-foreground hover:text-foreground sm:min-h-0">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
     <form className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (!fields.project_id && !confirmNoProject) { setConfirmNoProject(true); return }; if (await onSubmit(fields)) { setConfirmNoProject(false); setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) } }}>
+      {data.OpenTasks?.length ? <div className="grid gap-1.5"><Label htmlFor="b-task" className="text-xs">{t(lang, "dash.taskChoose")}</Label>
+        <Select value="" onValueChange={value => { const task = (data.OpenTasks ?? []).find(item => String(item.ID) === value); if (task) { set("activity", task.Title); set("project_id", String(task.ProjectID)) } }}>
+          <SelectTrigger id="b-task" className="w-full"><SelectValue placeholder={t(lang, "dash.taskPlaceholder")} /></SelectTrigger>
+          <SelectContent>{data.OpenTasks.map(task => <SelectItem key={task.ID} value={String(task.ID)}>{task.Title}</SelectItem>)}</SelectContent>
+        </Select>
+      </div> : null}
       <div className="grid gap-1.5"><Label htmlFor="b-activity" className="text-xs">{t(lang, "dash.activity")}</Label><Input id="b-activity" list="known-activities" placeholder={t(lang, "ph.activity")} value={fields.activity} onChange={event => set("activity", event.target.value)} required />{fieldError("activity") && <span className="text-xs text-destructive">{fieldError("activity")}</span>}<span className="text-xs text-muted-foreground">{t(lang, "ts.noProjectHint")}</span></div>
       <div className="grid gap-1.5"><Label htmlFor="b-start" className="text-xs">{t(lang, "dash.startLabel")}</Label><Input id="b-start" ref={startRef} aria-invalid={fieldError("start") ? true : undefined} aria-describedby="b-start-error" placeholder={t(lang, "ph.start")} value={fields.start} onChange={event => set("start", event.target.value)} required /><span id="b-start-error" role="alert" className="text-xs text-destructive">{fieldError("start")}</span></div>
       <div className="grid gap-1.5"><Label htmlFor="b-end" className="text-xs">{t(lang, "stats.end")}</Label><Input id="b-end" aria-invalid={fieldError("end") ? true : undefined} placeholder={t(lang, "ph.end")} value={fields.end} onChange={event => set("end", event.target.value)} required /><span id="b-end-error" role="alert" className="text-xs text-destructive">{fieldError("end")}</span></div>
