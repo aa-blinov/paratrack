@@ -66,6 +66,29 @@ type tasksPage struct {
 	CanImport  bool
 	Flash      string
 	FlashOK    bool
+	// The task report (TASK-04): managers only, for a period of days.
+	CanReport   bool
+	ReportFrom  string
+	ReportTo    string
+	ReportNote  string
+	ReportRows  []taskReportRow
+	ReportTotal string
+}
+
+// taskReportRow is one task in the period report: its time inside the period, and
+// the attributes the report shows next to it.
+type taskReportRow struct {
+	Title         string
+	ProjectName   string
+	AssigneeName  string
+	Status        string
+	EstimateMin   int
+	EstimateLabel string
+	Due           string
+	DueLabel      string
+	Archived      bool
+	Seconds       int
+	TrackedLabel  string
 }
 
 func (p *tasksPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
@@ -207,14 +230,19 @@ func (s *Server) taskItems(r *http.Request, query appmodel.TaskQuery) ([]taskIte
 // there and can be put back.
 func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	view := r.URL.Query().Get("view")
-	if view != "board" && view != "archive" {
+	// The report is for managers; anyone else gets the table.
+	if view != "board" && view != "archive" && !(view == "report" && canManage(r)) {
 		view = "table"
 	}
 	projectID, _ := strconv.ParseInt(r.URL.Query().Get("project"), 10, 64)
-	items, err := s.taskItems(r, appmodel.TaskQuery{ProjectID: projectID, Archived: view == "archive"})
-	if err != nil {
-		s.writeInternalError(w, err)
-		return
+	items := []taskItem{} // never null: the page reads it as a list
+	if view != "report" {
+		var err error
+		items, err = s.taskItems(r, appmodel.TaskQuery{ProjectID: projectID, Archived: view == "archive"})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
 	}
 	data := tasksPage{
 		pageData:   pageData{Title: "Tasks", Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
@@ -226,11 +254,113 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		Tasks:      items,
 		ViewerID:   authenticatedUserID(r),
 		CanImport:  canManage(r),
+		CanReport:  canManage(r),
+	}
+	if view == "report" {
+		if err := s.fillTaskReport(r, &data); err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	s.renderPageForRequest(w, r, "Tasks", "tasks", &data)
+}
+
+// fillTaskReport sets the task report for the period in the query (TASK-04). Both
+// days are included, in the viewer's zone. Without a period, or with one that ends
+// before it starts, the report shows the last seven days or says why it does not.
+func (s *Server) fillTaskReport(r *http.Request, data *tasksPage) error {
+	loc := userLoc(r)
+	today := startOfDay(userNow(r))
+	from, to := today.AddDate(0, 0, -6), today
+	if day, err := time.ParseInLocation("2006-01-02", r.URL.Query().Get("from"), loc); err == nil {
+		from = day
+	}
+	if day, err := time.ParseInLocation("2006-01-02", r.URL.Query().Get("to"), loc); err == nil {
+		to = day
+	}
+	data.ReportFrom, data.ReportTo = from.Format("2006-01-02"), to.Format("2006-01-02")
+	data.ReportRows = []taskReportRow{} // never null: the page reads it as a list
+	if to.Before(from) {
+		data.ReportNote = i18n.T(resolveLang(r), "tasks.reportBadPeriod")
+		return nil
+	}
+	rows, total, err := s.taskReport(r, from, to.AddDate(0, 0, 1))
+	if err != nil {
+		return err
+	}
+	data.ReportRows = rows
+	data.ReportTotal = fmtDur(r, total)
+	return nil
+}
+
+// taskReport lists the tasks with time inside [start, end), sorted by project and
+// title, and the total of their time. An archived task stays in: archiving keeps
+// its time, so it keeps its line.
+func (s *Server) taskReport(r *http.Request, start, end time.Time) ([]taskReportRow, int, error) {
+	seconds, err := s.services.Tasks.TrackedSecondsByTask(r.Context(), appmodel.TaskReportQuery{
+		TeamID: teamID(r), Start: start, End: end, Now: userNow(r),
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	rows := []taskReportRow{}
+	if len(seconds) == 0 {
+		return rows, 0, nil
+	}
+	active, err := s.taskItems(r, appmodel.TaskQuery{})
+	if err != nil {
+		return nil, 0, err
+	}
+	archived, err := s.taskItems(r, appmodel.TaskQuery{Archived: true})
+	if err != nil {
+		return nil, 0, err
+	}
+	total := 0
+	for _, item := range append(active, archived...) {
+		tracked := seconds[item.ID]
+		if tracked <= 0 {
+			continue
+		}
+		total += tracked
+		rows = append(rows, taskReportRow{
+			Title: item.Title, ProjectName: item.ProjectName, AssigneeName: item.AssigneeName,
+			Status: item.Status, EstimateMin: item.EstimateMin, EstimateLabel: item.EstimateLabel,
+			Due: item.Due, DueLabel: item.DueLabel, Archived: item.Archived,
+			Seconds: tracked, TrackedLabel: fmtDur(r, tracked),
+		})
+	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].ProjectName != rows[j].ProjectName {
+			return rows[i].ProjectName < rows[j].ProjectName
+		}
+		return rows[i].Title < rows[j].Title
+	})
+	return rows, total, nil
+}
+
+// handleTaskReportCSV downloads the task report for the period in the query (TASK-04).
+func (s *Server) handleTaskReportCSV(w http.ResponseWriter, r *http.Request) {
+	loc := userLoc(r)
+	from, errFrom := time.ParseInLocation("2006-01-02", r.URL.Query().Get("from"), loc)
+	to, errTo := time.ParseInLocation("2006-01-02", r.URL.Query().Get("to"), loc)
+	if errFrom != nil || errTo != nil || to.Before(from) {
+		http.Error(w, i18n.T(resolveLang(r), "export.invalidPeriod"), http.StatusBadRequest)
+		return
+	}
+	rows, _, err := s.taskReport(r, from, to.AddDate(0, 0, 1))
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="tasks-%s-%s.csv"`,
+		from.Format("2006-01-02"), to.Format("2006-01-02")))
+	if err := writeTaskReportCSV(w, rows); err != nil {
+		s.logInternalError(err)
+	}
 }
 
 // handleTaskDetail renders one task: its fields, its activities, and the

@@ -12,6 +12,7 @@ import { askPlanMove } from "./plan-move"
 import { Flash } from "@/components/flash"
 import { translate as t } from "@/i18n"
 import type { TaskItem, TasksData } from "@/dashboard/types"
+import { TaskReport } from "@/tasks/task-report"
 
 const statuses = ["todo", "doing", "done"] as const
 const noPerson = "0"
@@ -49,6 +50,7 @@ export function TasksPage({ data }: { data: TasksData }) {
   const [creating, setCreating] = React.useState(false)
   const [importProject, setImportProject] = React.useState(String(data.ProjectID || data.Projects[0]?.ID || ""))
   const archivedView = data.View === "archive"
+  const reportView = data.View === "report"
 
   async function run(action: () => Promise<void>) {
     setError("")
@@ -124,13 +126,14 @@ export function TasksPage({ data }: { data: TasksData }) {
         <Button asChild variant={data.View === "table" ? "secondary" : "ghost"} size="sm"><a href={viewHref("table")} aria-current={data.View === "table" ? "page" : undefined}>{t(lang, "tasks.table")}</a></Button>
         <Button asChild variant={data.View === "board" ? "secondary" : "ghost"} size="sm"><a href={viewHref("board")} aria-current={data.View === "board" ? "page" : undefined}>{t(lang, "tasks.board")}</a></Button>
         <Button asChild variant={archivedView ? "secondary" : "ghost"} size="sm"><a href={viewHref("archive")} aria-current={archivedView ? "page" : undefined}>{t(lang, "tasks.archiveTab")}</a></Button>
+        {data.CanReport && <Button asChild variant={reportView ? "secondary" : "ghost"} size="sm"><a href={viewHref("report")} aria-current={reportView ? "page" : undefined}>{t(lang, "tasks.reportTab")}</a></Button>}
       </nav>
     </header>
 
     <Flash message={data.Flash} ok={data.FlashOK} />
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
 
-    <div className="flex flex-wrap items-center gap-2">
+    {!reportView && <div className="flex flex-wrap items-center gap-2">
       <Label htmlFor="tasks-project" className="text-sm text-muted-foreground">{t(lang, "tasks.project")}</Label>
       <Select value={String(data.ProjectID)} onValueChange={value => window.location.assign(`/tasks?view=${data.View}&project=${value}`)}>
         <SelectTrigger id="tasks-project" className="w-full bg-background text-foreground sm:w-64"><SelectValue /></SelectTrigger>
@@ -139,9 +142,9 @@ export function TasksPage({ data }: { data: TasksData }) {
           {data.Projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}
         </SelectContent>
       </Select>
-    </div>
+    </div>}
 
-    {!archivedView && <>
+    {!archivedView && !reportView && <>
     <Button type="button" variant="outline" className="sm:hidden" aria-expanded={adding} aria-controls="new-task-form" onClick={() => setAdding(open => !open)}><Plus aria-hidden="true" />{t(lang, "tasks.new")}</Button>
     <form id="new-task-form" onSubmit={event => void create(event)} className={`${adding ? "grid" : "hidden"} gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_auto] lg:items-end`} aria-label={t(lang, "tasks.new")}>
       <div className="flex min-w-0 flex-col gap-1.5">
@@ -181,7 +184,8 @@ export function TasksPage({ data }: { data: TasksData }) {
     </form>
     </>}
 
-    {tasks.length === 0 ? <Card><CardContent className="py-7 text-center">
+    {reportView ? <TaskReport lang={lang} from={data.ReportFrom} to={data.ReportTo} note={data.ReportNote} rows={data.ReportRows} total={data.ReportTotal} />
+    : tasks.length === 0 ? <Card><CardContent className="py-7 text-center">
       <p className="font-medium">{archivedView ? t(lang, "tasks.archiveEmpty") : t(lang, "tasks.empty")}</p>
       <p className="mx-auto mt-1 text-sm text-muted-foreground">{archivedView ? t(lang, "tasks.archiveEmptyHint") : t(lang, "tasks.emptyHint")}</p>
     </CardContent></Card> : data.View === "board" ? (
@@ -304,7 +308,7 @@ export function TasksPage({ data }: { data: TasksData }) {
       </div>
     </>}
 
-    {data.CanImport && !archivedView && <Card><CardContent className="grid gap-3 p-4">
+    {data.CanImport && !archivedView && !reportView && <Card><CardContent className="grid gap-3 p-4">
       <div className="grid gap-1">
         <h2 className="font-medium">{t(lang, "tasks.githubTitle")}</h2>
         <p className="text-sm text-muted-foreground">{t(lang, "tasks.githubBlurb")}</p>
@@ -332,6 +336,6 @@ export function TasksPage({ data }: { data: TasksData }) {
       </form>}
     </CardContent></Card>}
 
-    {!archivedView && <p className="text-sm text-muted-foreground">{t(lang, "tasks.hint")}</p>}
+    {!archivedView && !reportView && <p className="text-sm text-muted-foreground">{t(lang, "tasks.hint")}</p>}
   </main>
 }
