@@ -173,6 +173,17 @@ var compatibilityStatements = []string{
 	    FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE CASCADE
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS uniq_invoice_share_token ON invoice_share_links(token_hash)`,
+	// The start and the end of a member's working day (TIME-06).
+	`CREATE TABLE IF NOT EXISTS workday_marks (
+	    team_id BIGINT NOT NULL,
+	    user_id BIGINT NOT NULL,
+	    day TEXT NOT NULL,
+	    started_at TEXT NOT NULL,
+	    ended_at TEXT NOT NULL DEFAULT '',
+	    PRIMARY KEY (team_id, user_id, day),
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`,
 	// A member's mark on a day: an overload or an idle day, one per member and day, which
 	// the manager sees on the team week (TIME-13).
 	`CREATE TABLE IF NOT EXISTS day_marks (
