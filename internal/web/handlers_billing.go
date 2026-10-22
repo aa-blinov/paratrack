@@ -98,13 +98,13 @@ func (s *Server) handleSharedInvoicePDF(w http.ResponseWriter, r *http.Request) 
 // one row each, for one client and a period of invoice dates in the viewer's zone (FIN-05).
 func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request) {
 	loc := userLoc(r)
-	query := appmodel.InvoiceExportQuery{TeamID: teamID(r), Client: strings.TrimSpace(r.URL.Query().Get("client"))}
+	query := appmodel.InvoiceExportQuery{TeamID: teamID(r), Client: strings.TrimSpace(r.URL.Query().Get("export_client"))}
 	valid := true
-	if value := r.URL.Query().Get("from"); value != "" {
+	if value := r.URL.Query().Get("export_from"); value != "" {
 		day, err := time.ParseInLocation("2006-01-02", value, loc)
 		query.From, valid = day, valid && err == nil
 	}
-	if value := r.URL.Query().Get("to"); value != "" {
+	if value := r.URL.Query().Get("export_to"); value != "" {
 		day, err := time.ParseInLocation("2006-01-02", value, loc)
 		query.To, valid = day.AddDate(0, 0, 1), valid && err == nil
 	}
