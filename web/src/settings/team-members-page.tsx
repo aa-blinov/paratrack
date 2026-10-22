@@ -28,6 +28,12 @@ export function TeamMembersPage({ data }: { data: TeamMembersData }) {
         </article>
       }) : <p className="text-sm text-muted-foreground">{t(lang, "team.noMembers")}</p>}
     </CardContent></Card>
+    {data.CanManage && data.Former.length > 0 && <Card><CardHeader><CardTitle>{t(lang, "team.formerTitle")} ({data.Former.length})</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.formerBlurb")}</p></CardHeader><CardContent className="grid divide-y">
+      {data.Former.map(member => <article key={member.UserID} className="flex min-w-0 flex-wrap items-center justify-between gap-3 py-3">
+        <div className="min-w-0"><p className="truncate font-medium">{member.Name}</p><p className="truncate text-sm text-muted-foreground">{member.Email}</p><p className="text-xs text-muted-foreground">{t(lang, "team.formerLeft", member.LeftAt)}</p></div>
+        <form method="post" action={`/api/team/members/${member.UserID}/return`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant="outline">{t(lang, "team.formerReturn")}</Button></form>
+      </article>)}
+    </CardContent></Card>}
     {data.IsOwner && data.Members.length > 1 && <Card><CardHeader><CardTitle>{t(lang, "team.transferTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.transferHint")}</p></CardHeader><CardContent><form method="post" action="/api/team/transfer" data-confirm={t(lang, "team.transferConfirm")} className="flex flex-wrap items-end gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><div className="grid min-w-[12rem] flex-1 gap-1.5"><Label htmlFor="transfer-member">{t(lang, "team.transferPick")}</Label><Select name="user_id" required><SelectTrigger id="transfer-member"><SelectValue placeholder="…" /></SelectTrigger><SelectContent>{data.Members.filter(member => member.UserID !== data.User.ID).map(member => <SelectItem key={member.UserID} value={String(member.UserID)}>{member.Name} ({member.Email})</SelectItem>)}</SelectContent></Select></div><Button type="submit" variant="outline">{t(lang, "team.transferBtn")}</Button></form></CardContent></Card>}
   </main>
 }

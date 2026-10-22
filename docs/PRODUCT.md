@@ -95,6 +95,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 
 - Member carries `hourly_pay_cents` (0 = not on payroll) and `capacity_minutes` (default 480)
 - Runs skip members with pay 0
+- Removing a member stops their timers and keeps their pay in `former_members`; their sessions, tasks and history stay. A manager brings a former member back from `/settings/members` as a member, with that pay, and the departure row goes (`ReturnTeamMember`, ADM-04). Someone still in the workspace is refused
 - Sessions attribute via `sessions.user_id` (stamped on timer start)
 - Legacy rows without a user fall on the team's first paid member
 - A run counts **only time inside approved weeks**. A closed session in the period that starts

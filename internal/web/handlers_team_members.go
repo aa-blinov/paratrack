@@ -24,6 +24,23 @@ func (s *Server) handleAPIMemberRole(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings/members?flash=updated", http.StatusSeeOther)
 }
 
+// handleAPIMemberReturn brings a former member back into the workspace as a member,
+// with the pay they left with (ADM-04).
+func (s *Server) handleAPIMemberReturn(w http.ResponseWriter, r *http.Request) {
+	team, _ := TeamFrom(r.Context())
+	user, _ := UserFrom(r.Context())
+	target, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Redirect(w, r, "/settings/members?flash=bad_request", http.StatusSeeOther)
+		return
+	}
+	if err := s.services.Teams.Administration.ReturnMember(operationContext(r), appmodel.TeamMemberReturnRequest{TeamID: team.ID, TargetUserID: target, CallerID: user.ID}); err != nil {
+		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/settings/members?flash=returned", http.StatusSeeOther)
+}
+
 // handleAPITeamTransfer hands the workspace to another member (owner only).
 
 func (s *Server) handleAPITeamTransfer(w http.ResponseWriter, r *http.Request) {
