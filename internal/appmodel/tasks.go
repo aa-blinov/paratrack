@@ -176,3 +176,10 @@ type TaskComment struct {
 	Body      string
 	CreatedAt time.Time
 }
+
+// TaskStartRequest records that work started on a task.
+type TaskStartRequest struct {
+	TeamID   int64
+	TaskID   int64
+	CallerID int64
+}

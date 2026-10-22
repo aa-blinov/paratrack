@@ -57,7 +57,8 @@ type dashboardData struct {
 	Mode           string // selected workspace preset, or custom
 	Widgets        map[string]bool
 	Activities     []activityView
-	Projects       []projectView // for the project picker on the start form
+	OpenTasks      []dashboardTask // open tasks for the start form (TIME-04)
+	Projects       []projectView   // for the project picker on the start form
 	ActiveSessions []sessionView
 	Recent         []sessionView
 	ActiveCount    int
