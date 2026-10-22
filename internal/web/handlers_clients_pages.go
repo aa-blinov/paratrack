@@ -109,23 +109,30 @@ func (s *Server) handleClientsList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Contacts and money are for the people who bill (D-2). A member sees the
+	// client's name, its projects and the time on them.
+	manage := canManage(r)
 	rows := make([]clientRow, 0, len(cards))
 	for _, c := range cards {
-		row := clientRow{
-			ID: c.ID, Name: c.Name, Email: c.Email, Details: c.Details,
-			Notes: c.Notes, Currency: c.Currency, Archived: c.Archived,
+		row := clientRow{ID: c.ID, Name: c.Name, Currency: c.Currency, Archived: c.Archived}
+		if manage {
+			row.Email, row.Details, row.Notes = c.Email, c.Details, c.Notes
 		}
 		if agg := rollup[c.ID]; agg != nil {
 			row.Projects = agg.projects
 			row.TrackedLabel = fmtDur(r, int(agg.seconds))
-			// Invoiced money is what is left once the unbilled part is taken
-			// out — the same subtraction the project screen shows, per currency.
-			row.BilledLabel = moneyByCurrencyOrDash(lang, agg.billedPerCurrency(c.Currency))
-			row.UnbilledLabel = moneyByCurrencyOrDash(lang, mergeCurrencies(agg.unbilled, c.Currency))
+			if manage {
+				// Invoiced money is what is left once the unbilled part is taken
+				// out — the same subtraction the project screen shows, per currency.
+				row.BilledLabel = moneyByCurrencyOrDash(lang, agg.billedPerCurrency(c.Currency))
+				row.UnbilledLabel = moneyByCurrencyOrDash(lang, mergeCurrencies(agg.unbilled, c.Currency))
+			}
 		} else {
 			row.TrackedLabel = fmtDur(r, 0)
-			row.BilledLabel = "—"
-			row.UnbilledLabel = "—"
+			if manage {
+				row.BilledLabel = "—"
+				row.UnbilledLabel = "—"
+			}
 		}
 		rows = append(rows, row)
 	}
@@ -513,6 +520,7 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	manage := canManage(r)
 	projects, err := s.services.Clients.Projects(r.Context(), scope)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -522,6 +530,10 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
+	}
+	// Invoices are money and the documents behind it, which the people who bill see (D-2).
+	if !manage {
+		invoices = nil
 	}
 	budgets, err := s.services.Clients.Budgets(r.Context(), appmodel.ProjectBudgetQuery{TeamID: scope.TeamID})
 	if err != nil {
@@ -548,11 +560,14 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		row := clientProjectRow{
 			Slug: p.Slug, Name: p.Name, Color: p.Color, Archived: p.Archived,
 			TrackedLabel: fmtDur(r, int(b.TrackedSeconds)),
-			SpentLabel:   moneyL(lang, b.SpentCents, b.Currency),
 		}
-		if p.BudgetCents != nil && *p.BudgetCents > 0 {
-			row.BudgetLabel = moneyL(lang, *p.BudgetCents, b.Currency)
-			row.Over = b.OverBudget
+		// A project's budget and spend are money (D-2), so only the people who bill see them.
+		if manage {
+			row.SpentLabel = moneyL(lang, b.SpentCents, b.Currency)
+			if p.BudgetCents != nil && *p.BudgetCents > 0 {
+				row.BudgetLabel = moneyL(lang, *p.BudgetCents, b.Currency)
+				row.Over = b.OverBudget
+			}
 		}
 		projectRows = append(projectRows, row)
 	}
@@ -591,13 +606,15 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		Invoices:          invoiceRows,
 		CanManage:         canManage(r),
 		Client: clientDetailRow{
-			ID: card.ID, Name: card.Name, Email: card.Email, Details: card.Details,
-			Notes: card.Notes, Currency: card.Currency, Archived: card.Archived,
-			TrackedLabel:  fmtDur(r, int(seconds)),
-			BilledLabel:   moneyByCurrencyOrDash(lang, subtractPerCurrency(spentByCurrency, unbilledByCurrency)),
-			UnbilledLabel: moneyByCurrencyOrDash(lang, unbilledByCurrency),
-			BilledTotal:   moneyByCurrencyOrDash(lang, invoicedByCurrency),
+			ID: card.ID, Name: card.Name, Currency: card.Currency, Archived: card.Archived,
+			TrackedLabel: fmtDur(r, int(seconds)),
 		},
+	}
+	if manage {
+		data.Client.Email, data.Client.Details, data.Client.Notes = card.Email, card.Details, card.Notes
+		data.Client.BilledLabel = moneyByCurrencyOrDash(lang, subtractPerCurrency(spentByCurrency, unbilledByCurrency))
+		data.Client.UnbilledLabel = moneyByCurrencyOrDash(lang, unbilledByCurrency)
+		data.Client.BilledTotal = moneyByCurrencyOrDash(lang, invoicedByCurrency)
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, lang)

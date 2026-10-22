@@ -75,12 +75,12 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
   // Архивный клиент остаётся видимым, но приглушён: спрятать его совсем —
   // значит потерять историю проектов, которые на него ссылаются.
   const archiveAction = client.Archived ? "restore" : "archive"
-  const numbers = [
+  // Money is for the people who bill (D-2); a member sees the name, projects and time.
+  const numbers: Array<[string, string | number]> = [
     [t(lang, "clients.projects"), client.Projects],
     [t(lang, "clients.tracked"), client.TrackedLabel],
-    [t(lang, "clients.billed"), client.BilledLabel],
-    [t(lang, "clients.unbilled"), client.UnbilledLabel],
-  ] as const
+    ...(canManage ? [[t(lang, "clients.billed"), client.BilledLabel], [t(lang, "clients.unbilled"), client.UnbilledLabel]] as Array<[string, string]> : []),
+  ]
 
   return <>
     <tr className={`border-t align-top ${client.Archived ? "opacity-60" : ""}`}>
@@ -100,8 +100,8 @@ function ClientRows({ client, lang, csrf, currencies, canManage, editing, onTogg
       </th>
       <td className={numberCell}>{client.Projects}</td>
       <td className={numberCell}>{client.TrackedLabel}</td>
-      <td className={numberCell}>{client.BilledLabel}</td>
-      <td className={numberCell}>{client.UnbilledLabel}</td>
+      {canManage && <td className={numberCell}>{client.BilledLabel}</td>}
+      {canManage && <td className={numberCell}>{client.UnbilledLabel}</td>}
       <td className="px-4 py-3 text-right whitespace-nowrap">
         {canManage && <div className="flex items-center justify-end gap-1">
           {/* On a phone the two actions are icons, so the name keeps the room
@@ -173,8 +173,8 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
               <th scope="col" className="px-4 py-3 font-medium">{t(lang, "clients.name")}</th>
               <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.projects")}</th>
               <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.tracked")}</th>
-              <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.billed")}</th>
-              <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.unbilled")}</th>
+              {data.CanManage && <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.billed")}</th>}
+              {data.CanManage && <th scope="col" className="hidden px-4 py-3 text-right font-medium xl:table-cell">{t(lang, "clients.unbilled")}</th>}
               <th scope="col" className="px-4 py-3"><span className="sr-only">{t(lang, "clients.actions")}</span></th>
             </tr>
           </thead>

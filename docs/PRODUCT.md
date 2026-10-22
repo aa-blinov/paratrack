@@ -152,6 +152,7 @@ gets `tasks` appended once at start-up (`schema_compat.go`); one that never chos
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
 | Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))` |
 | Sessions | HttpOnly + `Secure` cookies when the request is TLS |
+| Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
 
 ---
 
