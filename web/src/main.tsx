@@ -79,6 +79,12 @@ const InviteAcceptPage = lazy(() => import("@/settings/invite-accept-page").then
 const AuthPage = lazy(() => import("@/auth/auth-page").then(module => ({ default: module.AuthPage })))
 
 const messageFrom = responseMessage
+// A timer running past this is usually one left on by mistake (TIME-18).
+const LONG_TIMER_MS = 10 * 60 * 60 * 1000
+function timerIsLong(session: { StartISO: string }) {
+  const started = Date.parse(session.StartISO)
+  return !Number.isNaN(started) && Date.now() - started > LONG_TIMER_MS
+}
 
 function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; restoreFocus: boolean }) {
   const [data, setData] = useState(initial)
@@ -129,7 +135,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     return () => { window.clearTimeout(id); document.removeEventListener("visibilitychange", fire) }
   }, [runningCount, data.TodaySecs])
 
-  async function mutate(url: string, fields: Record<string, string> = {}) {
+  async function mutate(url: string, fields: Record<string, string> = {}): Promise<boolean> {
     setBusy(true)
     setError("")
     if (url === "/api/sessions/backfill") setBackfillFailure(null)
@@ -140,6 +146,11 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
         body,
       })
+      if (url === "/api/sessions/backfill" && response.headers.get("X-Backfill-Confirm") === "long") {
+        // Only the confirmed save goes through, so the form sends the same fields again.
+        const accepted = await requestConfirmation(await messageFrom(response))
+        return accepted ? mutate(url, { ...fields, confirm_long: "1" }) : false
+      }
       if (!response.ok) throw new Error(await messageFrom(response))
       if (url === "/api/sessions/backfill" && response.headers.get("X-Backfill-Saved") !== "true") {
         const message = await messageFrom(response)
@@ -229,7 +240,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     return <div className="-ml-2 flex justify-start gap-1 sm:ml-0 sm:justify-end">
       <Button variant="ghost" size="sm" disabled={busy} title={t(lang, "dash.focusTitle")} onClick={() => void mutate(`/api/focus/${encodeURIComponent(session.ActivityName)}`)}>{labels.focus}</Button>
       <Button variant="ghost" size="sm" disabled={busy} onClick={() => void mutate(`/api/sessions/${session.ID}/${session.Paused ? "resume" : "pause"}`)}>{session.Paused ? labels.resume : labels.pause}</Button>
-      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busy} onClick={() => void mutate(`/api/sessions/${session.ID}/stop`)}>{labels.stop}</Button>
+      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busy} onClick={async () => { if (timerIsLong(session) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate(`/api/sessions/${session.ID}/stop`) }}>{labels.stop}</Button>
     </div>
   }
 
@@ -294,7 +305,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         <section id="active-list" aria-labelledby="active-heading" className="grid gap-3">
           <div className="flex items-center justify-between gap-2"><CardTitle id="active-heading" className="text-sm font-medium">{labels.active}</CardTitle>{active.length > 1 && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-10" disabled={busy} aria-label={t(lang, "dash.allTimers")} title={t(lang, "dash.allTimers")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
             <DropdownMenuItem disabled={data.RunningCount === 0} onSelect={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }) && void mutate("/api/active/stop-all")}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => { if (!(await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }))) return; if (active.some(timerIsLong) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate("/api/active/stop-all") }}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
           </DropdownMenuContent></DropdownMenu>}</div>
           {active.length ? <div className="grid gap-3">{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             {/* Название и часы на одной строке: часы и есть ответ на «сколько
