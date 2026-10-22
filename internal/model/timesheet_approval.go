@@ -37,3 +37,14 @@ type PayrollNotApprovedError struct {
 func (e *PayrollNotApprovedError) Error() string { return ErrWeekNotApproved.Error() }
 
 func (e *PayrollNotApprovedError) Unwrap() error { return ErrWeekNotApproved }
+
+// UnapprovedWeeksError lists the weeks of an invoice period that still carry
+// billable time outside every approved week. The invoice waits for the manager
+// to confirm it (D-3), so nothing is written. Each week is named by its Monday, UTC.
+type UnapprovedWeeksError struct {
+	Weeks []time.Time
+}
+
+func (e *UnapprovedWeeksError) Error() string { return ErrWeekNotApproved.Error() }
+
+func (e *UnapprovedWeeksError) Unwrap() error { return ErrWeekNotApproved }

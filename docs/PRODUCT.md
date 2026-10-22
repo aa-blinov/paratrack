@@ -87,6 +87,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Invoice period `start`/`end` are dates; `end` is exclusive (`2026-09-25`–`2026-09-25` = one day)
 - A draft carries an optional payment due day (`invoices.due_date`, `YYYY-MM-DD`, empty = none). It is set with the draft details and frozen when the invoice is sent (FIN-07)
 - A sent invoice still unpaid after its due day is overdue: the list and the invoice page mark it. The due day itself is not late, a draft is never overdue, and a paid invoice is never overdue
+- An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
 
 **Payroll**
 

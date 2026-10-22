@@ -39,6 +39,16 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return DraftCreation{}, ErrInvalidTeam
 	}
+	// Unapproved time is a warning, not a lock: the manager confirms it once (D-3).
+	if !request.ConfirmUnapproved {
+		weeks, err := s.UnapprovedWeeks(ctx, request.TeamID, request.Options.ProjectID, request.Start, request.End)
+		if err != nil {
+			return DraftCreation{}, fmt.Errorf("check approved weeks: %w", err)
+		}
+		if len(weeks) > 0 {
+			return DraftCreation{}, &model.UnapprovedWeeksError{Weeks: weeks}
+		}
+	}
 	invoice, lines, err := s.createDraft(ctx, request)
 	if err != nil {
 		return DraftCreation{}, err

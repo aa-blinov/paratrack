@@ -42,6 +42,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Project billing rates and invoices.
 	pages.HandleFunc("POST /projects/{slug}/rate", s.manage(s.handleProjectRate))
 	pages.HandleFunc("GET /invoices", s.module("invoices", s.manage(s.handleInvoices)))
+	pages.HandleFunc("GET /invoices/unapproved", s.module("invoices", s.manage(s.handleInvoiceUnapproved)))
 	pages.HandleFunc("POST /invoices", s.module("invoices", s.manage(s.handleInvoiceCreate)))
 	pages.HandleFunc("POST /invoices/assign", s.module("invoices", s.manage(s.handleInvoiceAssignActivity)))
 	pages.HandleFunc("GET /invoices/{id}", s.module("invoices", s.manage(s.handleInvoiceDetail)))

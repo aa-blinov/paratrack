@@ -204,7 +204,7 @@ func TestUnassignedTimeCanBeAssignedBeforeBillingButNotAfter(t *testing.T) {
 	if a, _ := e.db.GetActivity(t.Context(), appmodel.ActivityLookupQuery{TeamID: 1, ActivityID: activityID}); a.ProjectID != 1 {
 		t.Fatal("past sessions did not move with the activity")
 	}
-	bill := e.do("POST", "/invoices", url.Values{"project_id": {"1"}, "client": {"Customer"}, "start": {day}, "end": {day}}, nil)
+	bill := e.do("POST", "/invoices", url.Values{"confirm_unapproved": {"1"}, "project_id": {"1"}, "client": {"Customer"}, "start": {day}, "end": {day}}, nil)
 	loc := bill.Header.Get("Location")
 	bill.Body.Close()
 	if !strings.HasPrefix(loc, "/invoices/") || strings.Contains(loc, "flash=") {
