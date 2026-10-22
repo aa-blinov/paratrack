@@ -808,6 +808,9 @@ export interface TeamSettingsData {
   CanManage: boolean
   TeamSettingsReact: boolean
   Team: { ID: number; Name: string; CreatedAt: string }
+  TimeZone: string
+  WeekStart: string
+  Zones: string[]
   Currency: string
   Currencies: Array<{ Code: string; Label: string }>
   Requisites: string

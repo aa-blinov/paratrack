@@ -34,6 +34,7 @@ type TeamStore interface {
 	FindTeamBySlug(context.Context, string) (model.Team, error)
 	ListTeamsForUser(context.Context, int64) ([]model.Team, error)
 	RenameTeam(context.Context, appmodel.TeamRenameRequest) error
+	SetTeamCalendar(context.Context, appmodel.TeamCalendarRequest) error
 	DeleteTeamAndListRemaining(context.Context, appmodel.WorkspaceDeleteRequest) ([]model.Team, error)
 }
 
@@ -237,6 +238,24 @@ func (s *Service) MembershipForUser(ctx context.Context, query appmodel.TeamMemb
 		return model.TeamMembership{}, false, ErrNotFound
 	}
 	return s.memberships.FindMembershipForUser(ctx, query)
+}
+
+// SetCalendar sets the workspace's time zone and first day of the week (ADM-07). A
+// blank value leaves that choice to each member; anything else must be a zone the
+// server knows or a week that starts on mon or sun.
+func (s *Service) SetCalendar(ctx context.Context, request appmodel.TeamCalendarRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return ErrNotFound
+	}
+	if request.TimeZone != "" {
+		if _, err := time.LoadLocation(request.TimeZone); err != nil {
+			return fmt.Errorf("%w: unknown time zone", ErrValidation)
+		}
+	}
+	if request.WeekStart != "" && request.WeekStart != "mon" && request.WeekStart != "sun" {
+		return fmt.Errorf("%w: week must start on mon or sun", ErrValidation)
+	}
+	return mapStoreError(s.teams.SetTeamCalendar(ctx, request))
 }
 
 // Rename changes the team's display name. Slug stays the same to keep
