@@ -272,6 +272,14 @@ type InvoiceDependencies struct {
 	Queries      InvoiceQueries
 	Drafts       InvoiceDrafts
 	PaymentLinks InvoicePaymentLinks
+	Shares       InvoiceShares
+}
+
+// InvoiceShares makes and opens the links a client uses to read an invoice without an
+// account (FIN-13).
+type InvoiceShares interface {
+	CreateShareLink(context.Context, appmodel.InvoiceShareRequest) (string, time.Time, error)
+	ResolveShareLink(context.Context, string, time.Time) (appmodel.InvoiceShareLookup, error)
 }
 
 // InvoiceQueries provides the read capabilities used by invoice pages and
@@ -514,6 +522,7 @@ func (s Dependencies) Validate() error {
 		dependency{"invoice queries", depcheck.IsNil(s.Invoicing.Queries)},
 		dependency{"invoice drafts", depcheck.IsNil(s.Invoicing.Drafts)},
 		dependency{"invoice payment links", depcheck.IsNil(s.Invoicing.PaymentLinks)},
+		dependency{"invoice shares", depcheck.IsNil(s.Invoicing.Shares)},
 		dependency{"invoice documents", depcheck.IsNil(s.InvoiceDocuments)},
 		dependency{"payroll", depcheck.IsNil(s.Payroll)},
 		dependency{"payroll payment operations", depcheck.IsNil(s.PayrollPaid)},

@@ -146,6 +146,12 @@ func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (mo
 	if err != nil || id <= 0 {
 		return model.Invoice{}, invoiceVM{}, false, model.ErrNotFound
 	}
+	return s.invoiceVMFor(r, id, includeStripeReadiness)
+}
+
+// invoiceVMFor builds the shared invoice presentation of one invoice in the request's
+// workspace. A client's link reaches it without the invoice path in the address.
+func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness bool) (model.Invoice, invoiceVM, bool, error) {
 	snapshot, err := s.services.InvoiceDocuments.Build(r.Context(), appmodel.InvoiceDocumentRequest{
 		TeamID: teamID(r), InvoiceID: id, IncludeStripeReadiness: includeStripeReadiness,
 	})
