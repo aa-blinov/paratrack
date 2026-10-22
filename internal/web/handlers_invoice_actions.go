@@ -13,6 +13,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/mailport"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 )
 
 func (s *Server) handleInvoiceAssignActivity(w http.ResponseWriter, r *http.Request) {
@@ -313,4 +314,89 @@ func unapprovedWeekLabels(lang i18n.Lang, weeks []time.Time) []string {
 		labels = append(labels, fmtDay(lang, monday)+" – "+fmtDay(lang, monday.AddDate(0, 0, 6)))
 	}
 	return labels
+}
+
+// handleInvoiceLetter hands the invoice letter, PDF attached, to the sender's own
+// mail program (FIN-10). It is the way out when this server has no SMTP host: a
+// mailto link cannot carry the file.
+func (s *Server) handleInvoiceLetter(w http.ResponseWriter, r *http.Request) {
+	_, vm, _, err := s.loadInvoiceVM(r, false)
+	if err != nil {
+		s.invoiceLoadError(w, r, err)
+		return
+	}
+	lang := resolveLang(r)
+	seller := s.sellerName(r)
+	pdf, err := renderInvoicePDF(vm, seller, lang)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	subj, ev := invoiceEmail(lang, vm, seller)
+	msg, err := s.buildEmail(r, vm.ClientEmail, subj, ev, mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	from := "paratrack@localhost"
+	if u, ok := UserFrom(r.Context()); ok && u.Email != "" {
+		from = u.Email
+	}
+	renderer, ok := s.runtime.Mailer.(mailport.EMLRenderer)
+	if !ok {
+		s.writeInternalError(w, errors.New("mail sender cannot render a letter"))
+		return
+	}
+	raw, err := renderer.EML(from, msg)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "message/rfc822")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+strings.TrimSuffix(invoicePDFName(vm), ".pdf")+`.eml"`)
+	_, _ = w.Write(raw)
+}
+
+// handleInvoicePayment books a payment into the invoice's journal (FIN-08). The
+// amount is typed as money ("1 500,50"); the store refuses more than is still owed.
+func (s *Server) handleInvoicePayment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	lang := resolveLang(r)
+	cents, err := money.ParseCents(moneyTyped(r.PostForm.Get("amount")))
+	if err != nil || cents <= 0 {
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.paymentAmountBad"))
+		return
+	}
+	settled, err := s.services.Invoicing.Drafts.BookPayment(r.Context(), appmodel.InvoicePaymentRequest{
+		TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r),
+		PaidOn: strings.TrimSpace(r.PostForm.Get("paid_on")), AmountCents: cents, Note: r.PostForm.Get("note"),
+	})
+	switch {
+	case errors.Is(err, model.ErrPaymentAmount):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.paymentTooMuch"))
+	case errors.Is(err, model.ErrPaymentDate):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.paymentDateBad"))
+	case errors.Is(err, model.ErrInvoiceNotPayable):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.paymentNotSent"))
+	case err != nil:
+		s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+	case settled:
+		s.invoiceBack(w, r, true, i18n.T(lang, "inv.paymentSettled"))
+	default:
+		s.invoiceBack(w, r, true, i18n.T(lang, "inv.paymentSaved"))
+	}
+}
+
+// moneyTyped reads an amount the way a person types it: spaces between the digits
+// (including the non-breaking ones) and a decimal comma are both fine, "1 500,50".
+func moneyTyped(value string) string {
+	return strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "", ",", ".").Replace(value)
 }

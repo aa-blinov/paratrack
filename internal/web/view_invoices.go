@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
@@ -36,7 +37,7 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		case "paid":
 			paid[inv.Currency] += item.TotalCents
 		case "sent":
-			outstanding[inv.Currency] += item.TotalCents
+			outstanding[inv.Currency] += item.TotalCents - item.PaidCents
 		}
 		data.Items = append(data.Items, invoiceSummary{
 			ID: inv.ID, Number: inv.Number, Client: inv.ClientName, Status: inv.Status,
@@ -45,6 +46,8 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			Period: fmtDay(resolveLang(r), inv.PeriodStart) + " – " +
 				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
 			Due: invoiceDueLabel(resolveLang(r), inv.DueDate), Overdue: invoiceOverdue(inv.Status, inv.DueDate, today),
+			Issued:  inv.CreatedAt.In(userLoc(r)).Format("2006-01-02"),
+			Partial: partialLabel(resolveLang(r), item),
 		})
 	}
 	data.Outstanding = moneyByCurrency(resolveLang(r), outstanding)
@@ -92,4 +95,12 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	return data, nil
+}
+
+// partialLabel says how far a partly paid invoice got, or nothing otherwise.
+func partialLabel(lang i18n.Lang, item appmodel.InvoiceSummaryResult) string {
+	if item.PaidCents <= 0 || item.PaidCents >= item.TotalCents {
+		return ""
+	}
+	return fmt.Sprintf(i18n.T(lang, "inv.partialOf"), moneyL(lang, item.PaidCents, item.Invoice.Currency), moneyL(lang, item.TotalCents, item.Invoice.Currency))
 }

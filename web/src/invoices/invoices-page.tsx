@@ -17,6 +17,7 @@ import { translate as t } from "@/i18n"
 import type { InvoiceDetailData, InvoicesData } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
+import { filterInvoices } from "./invoice-filter"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // The badge variant stays neutral on purpose: `variant` paints a utility
@@ -70,6 +71,12 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     return t(lang, "inv.roundHint", rule)
   })()
 
+  // The list filters on what the page already has: no second request for a small list.
+  const [statusFilter, setStatusFilter] = React.useState("all")
+  const [issuedFrom, setIssuedFrom] = React.useState("")
+  const [issuedTo, setIssuedTo] = React.useState("")
+  const [unpaidOnly, setUnpaidOnly] = React.useState(false)
+  const visible = filterInvoices(data.Items, { status: statusFilter, issuedFrom, issuedTo, unpaidOnly })
   // A period with unapproved billable time asks the manager first (FIN-12). The
   // server checks again when the form posts, so this only decides whether to ask.
   const unapprovedChecked = React.useRef(false)
@@ -153,11 +160,20 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
 
 
 
-    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "inv.list")}</CardTitle></CardHeader><CardContent>
-      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/invoices/${item.ID}`} className="py-1 font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><InvoiceStatus lang={lang} status={item.Status} /></div><p className="font-medium">{item.Client}</p><p className="text-xs text-muted-foreground">{item.Period}</p>{item.Overdue && <p className="text-xs text-destructive">{t(lang, "inv.overdueOn", item.Due)}</p>}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>{data.HasOutstanding ? <p className="flex items-baseline justify-between gap-2 border-t pt-3 text-sm font-semibold sm:hidden"><span className="text-xs text-muted-foreground">{t(lang, "inv.outstanding")}</span><span className="font-mono tabular-nums">{data.Outstanding}</span></p> : null}
+    {data.Items.length ? <div className="flex flex-wrap items-end gap-3">
+      <div className="grid min-w-40 gap-2"><Label htmlFor="inv-filter-status">{t(lang, "inv.filterStatus")}</Label>
+        <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger id="inv-filter-status" className="w-full"><SelectValue /></SelectTrigger><SelectContent>
+          <SelectItem value="all">{t(lang, "inv.filterAll")}</SelectItem><SelectItem value="draft">{t(lang, "status.draft")}</SelectItem><SelectItem value="sent">{t(lang, "status.sent")}</SelectItem><SelectItem value="paid">{t(lang, "status.paid")}</SelectItem><SelectItem value="overdue">{t(lang, "inv.overdue")}</SelectItem>
+        </SelectContent></Select></div>
+      <div className="grid gap-2"><Label htmlFor="inv-filter-from">{t(lang, "inv.filterFrom")}</Label><DateField id="inv-filter-from" onValueChange={setIssuedFrom} /></div>
+      <div className="grid gap-2"><Label htmlFor="inv-filter-to">{t(lang, "inv.filterTo")}</Label><DateField id="inv-filter-to" onValueChange={setIssuedTo} /></div>
+      <label className="flex cursor-pointer items-center gap-2 pb-2 text-sm"><Checkbox checked={unpaidOnly} onCheckedChange={value => setUnpaidOnly(value === true)} />{t(lang, "inv.filterUnpaid")}</label>
+    </div> : null}
+    {visible.length ? <Card><CardHeader><CardTitle>{t(lang, "inv.list")}</CardTitle></CardHeader><CardContent>
+      <div className="grid gap-3 sm:hidden">{visible.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/invoices/${item.ID}`} className="py-1 font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><InvoiceStatus lang={lang} status={item.Status} /></div><p className="font-medium">{item.Client}</p><p className="text-xs text-muted-foreground">{item.Period}</p>{item.Partial && <p className="text-xs text-muted-foreground">{item.Partial}</p>}{item.Overdue && <p className="text-xs text-destructive">{t(lang, "inv.overdueOn", item.Due)}</p>}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>{data.HasOutstanding ? <p className="flex items-baseline justify-between gap-2 border-t pt-3 text-sm font-semibold sm:hidden"><span className="text-xs text-muted-foreground">{t(lang, "inv.outstanding")}</span><span className="font-mono tabular-nums">{data.Outstanding}</span></p> : null}
       <div className="hidden overflow-x-auto sm:block"><Table>
         <TableHeader><TableRow><TableHead>{t(lang, "inv.number")}</TableHead><TableHead>{t(lang, "inv.client")}</TableHead><TableHead>{t(lang, "inv.period")}</TableHead><TableHead>{t(lang, "inv.hours")}</TableHead><TableHead>{t(lang, "inv.amount")}</TableHead><TableHead>{t(lang, "team.status")}</TableHead></TableRow></TableHeader>
-        <TableBody>{data.Items.map(item => <TableRow key={item.ID}><TableCell><a href={`/invoices/${item.ID}`} className="whitespace-nowrap font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell>{item.Client}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><InvoiceStatus lang={lang} status={item.Status} />{item.Overdue && <p className="mt-1 text-xs text-destructive">{t(lang, "inv.overdueOn", item.Due)}</p>}</TableCell></TableRow>)}</TableBody>
+        <TableBody>{visible.map(item => <TableRow key={item.ID}><TableCell><a href={`/invoices/${item.ID}`} className="whitespace-nowrap font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell>{item.Client}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><InvoiceStatus lang={lang} status={item.Status} />{item.Overdue && <p className="mt-1 text-xs text-destructive">{t(lang, "inv.overdueOn", item.Due)}</p>}{item.Partial && <p className="mt-1 text-xs text-muted-foreground">{item.Partial}</p>}</TableCell></TableRow>)}</TableBody>
         {/* What the client still owes. Every row carried its own amount and
             nothing carried the sum, so "they say they paid 50 000" had no
             answer on this screen. Footer only when something is outstanding —
@@ -165,7 +181,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         {data.HasOutstanding ? <TableFooter><TableRow className="border-t font-semibold"><TableCell colSpan={5}>{t(lang, "inv.outstanding")}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums text-right">{data.Outstanding}</TableCell></TableRow></TableFooter> : null}
       </Table>
       </div>
-    </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "inv.empty")}</p>}
+    </CardContent></Card> : <p className="text-sm text-muted-foreground">{data.Items.length ? t(lang, "inv.filterEmpty") : t(lang, "inv.empty")}</p>}
     <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2" onSubmit={askAboutUnapprovedWeeks}>
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
@@ -243,8 +259,27 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
       <p className="text-xs text-muted-foreground">{t(lang, "inv.footNote")}</p>
     </CardContent></Card>
 
+    <Card className="no-print"><CardHeader><CardTitle className="text-base">{t(lang, "inv.payments")}</CardTitle></CardHeader><CardContent className="space-y-4">
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <div><dt className="text-xs text-muted-foreground">{t(lang, "inv.paidSoFar")}</dt><dd className="font-mono tabular-nums">{inv.PaidLabel}</dd></div>
+        <div><dt className="text-xs text-muted-foreground">{t(lang, "inv.remaining")}</dt><dd className="font-mono tabular-nums">{inv.RemainingLabel}</dd></div>
+      </dl>
+      {inv.Payments.length ? <ul className="divide-y">{inv.Payments.map((payment, index) => <li key={index} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2 text-sm">
+        <span className="font-mono">{payment.Date}</span>
+        <span className="min-w-0 flex-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">{payment.Note || payment.Source}</span>
+        <span className="font-mono tabular-nums">{payment.Amount}</span>
+      </li>)}</ul> : null}
+      {inv.Remaining && <form method="POST" action={`/invoices/${inv.ID}/payments`} className="grid gap-3 border-t pt-4 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end">
+        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+        <div className="space-y-2"><Label htmlFor="pay-amount">{t(lang, "inv.payAmount")}</Label><Input id="pay-amount" type="text" inputMode="decimal" name="amount" required placeholder="0" /></div>
+        <div className="space-y-2"><Label htmlFor="pay-date">{t(lang, "inv.payDate")}</Label><DateField id="pay-date" name="paid_on" required defaultValue={inv.TodayISO} /></div>
+        <div className="space-y-2"><Label htmlFor="pay-note">{t(lang, "inv.payNote")}</Label><Input id="pay-note" type="text" name="note" maxLength={200} /></div>
+        <Button type="submit" size="sm">{t(lang, "inv.recordPayment")}</Button>
+      </form>}
+      <p className="text-xs text-muted-foreground">{t(lang, "inv.paymentsHint")}</p>
+    </CardContent></Card>
     <Card className="no-print"><CardHeader><CardTitle className="text-base">{t(lang, "inv.send")}</CardTitle></CardHeader><CardContent className="space-y-5">
-      <div>{data.MailReady ? <><form method="POST" action={`/invoices/${inv.ID}/send`} className="flex flex-wrap gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="send-to">{t(lang, "inv.clientEmail")}</Label><Input id="send-to" type="email" name="to" required defaultValue={inv.ClientEmail} placeholder="buh@romashka.ru" className="min-w-56 flex-1" /><Button type="submit" size="sm"><Mail aria-hidden="true" />{t(lang, "inv.send")}</Button></form><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.sendHint")}</p></> : <><Button asChild size="sm" variant="ghost"><a href={data.MailtoURL}><Mail aria-hidden="true" />{t(lang, "inv.sendMailto")}</a></Button><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.mailtoHint")}</p></>}</div>
+      <div>{data.MailReady ? <><form method="POST" action={`/invoices/${inv.ID}/send`} className="flex flex-wrap gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="send-to">{t(lang, "inv.clientEmail")}</Label><Input id="send-to" type="email" name="to" required defaultValue={inv.ClientEmail} placeholder="buh@romashka.ru" className="min-w-56 flex-1" /><Button type="submit" size="sm"><Mail aria-hidden="true" />{t(lang, "inv.send")}</Button></form><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.sendHint")}</p></> : <><div className="flex flex-wrap gap-2"><Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/letter.eml`}><Download aria-hidden="true" />{t(lang, "inv.letterFile")}</a></Button><Button asChild size="sm" variant="ghost"><a href={data.MailtoURL}><Mail aria-hidden="true" />{t(lang, "inv.sendMailto")}</a></Button></div><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.mailtoHint")}</p><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.letterFileHint")}</p></>}</div>
 
       {inv.DriftMessage && <p role="status" className="rounded-md border p-3 text-sm">{inv.DriftMessage}</p>}
       {inv.Status === "draft" && <Disclosure className="group border-t pt-4">

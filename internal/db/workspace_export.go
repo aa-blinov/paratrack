@@ -266,6 +266,20 @@ func exportGoals(ctx context.Context, tx *Tx, teamID int64, sink appmodel.Worksp
 // exportInvoices reads the invoice lines first, then each invoice with its lines.
 // Session ids and payment-provider links are not part of an invoice.
 func exportInvoices(ctx context.Context, tx *Tx, teamID int64, sink appmodel.WorkspaceSink) error {
+	payments := map[int64][]appmodel.ExportInvoicePayment{}
+	if err := queryRows(ctx, tx, "export invoice payments",
+		`SELECT invoice_id, paid_on, amount_cents, note, source, created_at FROM invoice_payments WHERE team_id = ? ORDER BY id`,
+		func(rows *sql.Rows) error {
+			var invoice int64
+			var payment appmodel.ExportInvoicePayment
+			if err := rows.Scan(&invoice, &payment.PaidOn, &payment.AmountCents, &payment.Note, &payment.Source, &payment.CreatedAt); err != nil {
+				return err
+			}
+			payments[invoice] = append(payments[invoice], payment)
+			return nil
+		}, teamID); err != nil {
+		return err
+	}
 	lines := map[int64][]appmodel.ExportInvoiceLine{}
 	err := queryRows(ctx, tx, "export invoice lines",
 		`SELECT invoice_id, label, COALESCE(detail, ''), COALESCE(seconds, 0), COALESCE(rate_cents, 0), COALESCE(amount_cents, 0)
@@ -299,6 +313,10 @@ func exportInvoices(ctx context.Context, tx *Tx, teamID int64, sink appmodel.Wor
 			inv.Lines = lines[inv.ID]
 			if inv.Lines == nil {
 				inv.Lines = []appmodel.ExportInvoiceLine{}
+			}
+			inv.Payments = payments[inv.ID]
+			if inv.Payments == nil {
+				inv.Payments = []appmodel.ExportInvoicePayment{}
 			}
 			return sink.Invoice(inv)
 		}, teamID)

@@ -229,6 +229,38 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
       </CardContent>
     </Card>
 
+    {/* The weekly norm (PLAN-02): a week that strays from it by more than a tenth is marked.
+        Past weeks are judged by the tracked time where the viewer may see it, the rest by the plan. */}
+    {data.Weeks?.length ? <Card>
+      <CardContent className="space-y-4 p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "proj.weeksTitle")}</h3>
+          {data.WeeklyNormLabel && <p className="text-sm"><span className="text-muted-foreground">{t(data.Lang, "proj.weekNorm")}: </span><span className="font-mono tabular-nums">{data.WeeklyNormLabel}</span></p>}
+        </div>
+        <Table className="w-full text-sm">
+          <TableHeader><TableRow className="border-b text-muted-foreground">
+            <TableHead className="p-2 text-left font-medium">{t(data.Lang, "proj.weekCol")}</TableHead>
+            <TableHead className="p-2 text-right font-medium">{t(data.Lang, "sch.planned")}</TableHead>
+            {data.CanManage && <TableHead className="p-2 text-right font-medium">{t(data.Lang, "sch.tracked")}</TableHead>}
+            <TableHead className="p-2 text-right font-medium">{t(data.Lang, "proj.deviation")}</TableHead>
+          </TableRow></TableHeader>
+          <TableBody>{data.Weeks.map(week => <TableRow key={week.Start} className={`border-b last:border-0 ${week.Current ? "font-medium" : ""}`}>
+            <TableCell className="p-2">{week.Label}</TableCell>
+            <TableCell className="p-2 text-right font-mono tabular-nums">{week.Planned}</TableCell>
+            {data.CanManage && <TableCell className="p-2 text-right font-mono tabular-nums">{week.Tracked || "—"}</TableCell>}
+            <TableCell className={`p-2 text-right font-mono tabular-nums ${week.Off ? "font-medium text-warning-ink" : "text-muted-foreground"}`}>{week.Deviation || "—"}</TableCell>
+          </TableRow>)}</TableBody>
+        </Table>
+        {data.CanManage && <form method="POST" action={`/projects/${encodeURIComponent(data.Project.Slug)}/norm`} className="flex flex-wrap items-end gap-3 border-t pt-4">
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <div className="space-y-1.5"><Label htmlFor="project-weekly-norm">{t(data.Lang, "proj.weekNorm")}</Label>
+            <Input id="project-weekly-norm" type="text" name="weekly_norm" inputMode="numeric" autoComplete="off" defaultValue={data.WeeklyNormInput} placeholder="30:00" className="w-28" /></div>
+          <Button type="submit" size="sm">{t(data.Lang, "proj.weekNormSave")}</Button>
+          <p className="basis-full text-xs text-muted-foreground">{t(data.Lang, "proj.weekNormHint")}</p>
+        </form>}
+      </CardContent>
+    </Card> : null}
+
     <div className="grid min-w-0 gap-6 lg:grid-cols-3 lg:items-start">
       <Card className="min-w-0 lg:col-span-2">
         <CardHeader><CardTitle>{t(data.Lang, "projects.recentSessions")}</CardTitle></CardHeader>

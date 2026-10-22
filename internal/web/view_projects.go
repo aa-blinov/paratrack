@@ -13,10 +13,13 @@ import (
 
 // projectDetailData is the presentation envelope for /projects/{slug}.
 type projectDetailData struct {
-	Title    string
-	Active   string
-	ReactApp bool
-	Project  projectView
+	Weeks           []projectWeekRow
+	WeeklyNormLabel string
+	WeeklyNormInput string
+	Title           string
+	Active          string
+	ReactApp        bool
+	Project         projectView
 	// PlannedLabel is the schedule's minutes on this project over every
 	// week; People is the table of plan and tracked time per member.
 	PlannedLabel string

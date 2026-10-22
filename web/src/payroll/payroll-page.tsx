@@ -26,7 +26,16 @@ export function PayrollPage({ data }: { data: PayrollData }) {
 
     {data.UnapprovedWeeks?.length ? <div role="status" className="space-y-2 rounded-lg border border-border p-4 text-sm">
       <p>{t(lang, "pay.unapprovedHint")}</p>
-      <ul className="flex flex-wrap gap-x-5 gap-y-1">{data.UnapprovedWeeks.map(week => <li key={week.Date}><a className="font-medium underline underline-offset-4" href={`/timesheet?date=${week.Date}`}>{t(lang, "pay.unapprovedWeek", week.Label, week.Count)}</a></li>)}</ul>
+      <ul className="flex flex-col gap-2">{data.UnapprovedWeeks.map(week => <li key={week.Date} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <a className="font-medium underline underline-offset-4" href={`/timesheet?date=${week.Date}`}>{t(lang, "pay.unapprovedWeek", week.Label, week.Count)}</a>
+        {/* Approving here saves the trip to the timesheet; the approval itself is the same one the timesheet makes. */}
+        <form method="POST" action="/api/timesheet/approve" className="inline">
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <input type="hidden" name="start" value={week.Date} />
+          <input type="hidden" name="end" value={week.Last} />
+          <Button type="submit" size="sm" variant="outline">{t(lang, "pay.approveWeek")}</Button>
+        </form>
+      </li>)}</ul>
     </div> : null}
     {!!data.Overlap && <div role="alert" className="flex flex-wrap items-start gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
       <span className="min-w-0 flex-1">{t(lang, "pay.overlap", data.Overlap)}</span>
