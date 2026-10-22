@@ -114,7 +114,11 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("X-Backfill-Saved", "true")
-	s.toastL(w, r, "toast.added", act.Name+" "+start.Format("15:04")+"→"+end.Format("15:04"), "success")
+	detail := act.Name + " " + start.Format("15:04") + "→" + end.Format("15:04")
+	if linked, err := s.services.Tasks.ActivityHasTask(r.Context(), teamID(r), act.ID); err == nil && !linked {
+		detail += ". " + i18n.T(resolveLang(r), "toast.noTaskWarning")
+	}
+	s.toastL(w, r, "toast.added", detail, "success")
 	// Refresh the active list (unchanged) so HTMX has a target; the
 	// user then looks at /stats for the closed row.
 	s.respondActiveList(w, r)
