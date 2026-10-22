@@ -12,6 +12,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage } from "@/co
 import { AppSidebar, type ShellNavItem } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
 import { OfflineBanner } from "@/offline/offline-banner"
+import { GlobalSearch } from "@/shell/global-search"
 import { translate as t } from "@/i18n"
 
 type ShellUser = { id: number; name: string; email: string } | null
@@ -126,7 +127,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
   // choice promised what the choice might take away.
   const navigable = Boolean(shell.user) && shell.active !== "welcome"
   return <TooltipProvider><SidebarProvider className="app-shell-provider min-h-svh bg-background text-foreground">
-    <ConfirmationDialog lang={shell.lang}/><a href="#main" className="app-shell-skip">{t(shell.lang, "nav.skip")}</a>
+    <ConfirmationDialog lang={shell.lang}/>{navigable && <GlobalSearch lang={shell.lang} />}<a href="#main" className="app-shell-skip">{t(shell.lang, "nav.skip")}</a>
     {navigable && <AppSidebar shell={shell} themeControl={<ThemeControl shell={shell} />} />}
     <div data-slot="sidebar-inset" className="app-shell-inset relative flex w-full min-w-0 flex-1 flex-col bg-background">
       {shell.user && <header className="app-shell-header no-print">

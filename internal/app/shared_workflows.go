@@ -8,6 +8,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/goals"
 	"github.com/aa-blinov/paratrack/internal/projects"
+	"github.com/aa-blinov/paratrack/internal/search"
 	"github.com/aa-blinov/paratrack/internal/tagging"
 	"github.com/aa-blinov/paratrack/internal/tracking"
 )
@@ -22,6 +23,7 @@ type sharedWorkflows struct {
 	Tagging  *tagging.Service
 	Goals    *goals.Service
 	Audit    *audit.Service
+	Search   *search.Service
 }
 
 func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
@@ -67,7 +69,13 @@ func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
 		return sharedWorkflows{}, fmt.Errorf("construct goals service: %w", err)
 	}
 
+	searchService, err := search.New(search.Dependencies{Store: database})
+	if err != nil {
+		return sharedWorkflows{}, fmt.Errorf("construct search service: %w", err)
+	}
+
 	return sharedWorkflows{
+		Search:   searchService,
 		Projects: projectService,
 		Clients:  clientService,
 		Tracking: trackingService,
