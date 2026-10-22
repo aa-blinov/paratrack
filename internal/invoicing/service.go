@@ -168,6 +168,7 @@ var (
 	ErrStripeSessionPending        = appmodel.ErrStripeSessionPending
 	ErrInvalidInvoice              = appmodel.ErrInvalidInvoice
 	ErrInvalidClient               = appmodel.ErrInvalidClient
+	ErrInvalidDue                  = appmodel.ErrInvalidDue
 	ErrInvalidPaymentLink          = appmodel.ErrInvalidPaymentLink
 	ErrHistoryConfirmationRequired = appmodel.ErrHistoryConfirmationRequired
 	ErrInvalidReceipt              = appmodel.ErrInvalidReceipt

@@ -181,6 +181,7 @@ type ExportInvoice struct {
 	Notes         string
 	Receipt       string
 	PaidAt        string
+	DueDate       string
 	Currency      string
 	SellerDetails string
 	VATNote       string

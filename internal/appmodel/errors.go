@@ -77,6 +77,7 @@ var (
 	ErrStripeSessionPending        = model.ErrStripeSessionPending
 	ErrInvalidInvoice              = errors.New("invalid invoice transition request")
 	ErrInvalidClient               = errors.New("invoice client is required")
+	ErrInvalidDue                  = errors.New("invoice due date is not a date")
 	ErrInvalidPaymentLink          = errors.New("payment link must be a valid http(s) URL")
 	ErrHistoryConfirmationRequired = errors.New("confirmation is required before assigning activity history for billing")
 	ErrInvalidReceipt              = errors.New("invoice receipt must be at most 300 characters")

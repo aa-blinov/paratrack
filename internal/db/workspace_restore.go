@@ -334,10 +334,10 @@ func (r *restorer) Invoice(inv appmodel.ExportInvoice) error {
 	}
 	id, err := r.insertID("invoice "+inv.Number,
 		`INSERT INTO invoices (team_id, number, client_name, client_email, client_details, project_id, period_start, period_end,
-		                       status, notes, receipt, paid_at, currency, seller_details, vat_note, by_person, revision, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		                       status, notes, receipt, paid_at, due_date, currency, seller_details, vat_note, by_person, revision, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		r.teamID, inv.Number, inv.ClientName, inv.ClientEmail, inv.ClientDetails, projectID, inv.PeriodStart, inv.PeriodEnd,
-		inv.Status, inv.Notes, inv.Receipt, nullIfEmpty(inv.PaidAt), inv.Currency, inv.SellerDetails, inv.VATNote,
+		inv.Status, inv.Notes, inv.Receipt, nullIfEmpty(inv.PaidAt), inv.DueDate, inv.Currency, inv.SellerDetails, inv.VATNote,
 		boolInt(inv.ByPerson), inv.Revision, inv.CreatedAt)
 	if err != nil {
 		return err

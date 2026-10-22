@@ -72,6 +72,7 @@ type InvoiceDraftUpdateRequest struct {
 	Details   string
 	Email     string
 	Notes     string
+	DueDate   string
 }
 
 // ScheduleCellRequest describes one planned user/project cell mutation.
