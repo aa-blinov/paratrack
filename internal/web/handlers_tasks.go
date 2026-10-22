@@ -81,6 +81,7 @@ type taskReportRow struct {
 	Title         string
 	ProjectName   string
 	AssigneeName  string
+	AssigneeGone  bool
 	Status        string
 	EstimateMin   int
 	EstimateLabel string
@@ -326,7 +327,7 @@ func (s *Server) taskReport(r *http.Request, start, end time.Time) ([]taskReport
 		}
 		total += tracked
 		rows = append(rows, taskReportRow{
-			Title: item.Title, ProjectName: item.ProjectName, AssigneeName: item.AssigneeName,
+			Title: item.Title, ProjectName: item.ProjectName, AssigneeName: item.AssigneeName, AssigneeGone: item.AssigneeGone,
 			Status: item.Status, EstimateMin: item.EstimateMin, EstimateLabel: item.EstimateLabel,
 			Due: item.Due, DueLabel: item.DueLabel, Archived: item.Archived,
 			Seconds: tracked, TrackedLabel: fmtDur(r, tracked),
