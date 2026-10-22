@@ -100,6 +100,18 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 			data.Elsewhere = elsewhere
 		}
 	}
+	if canManage(r) {
+		week, err := s.teamWeekOf(r, now)
+		if err != nil {
+			return statsData{}, fmt.Errorf("build team week: %w", err)
+		}
+		data.TeamWeek = week
+	}
+	markWeek, err := s.markWeekOf(r, now)
+	if err != nil {
+		return statsData{}, fmt.Errorf("build mark week: %w", err)
+	}
+	data.MarkWeek = markWeek
 	return data, nil
 }
 

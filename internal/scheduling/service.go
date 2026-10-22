@@ -21,6 +21,9 @@ type Store interface {
 	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
 	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
+	TrackedSecondsByPersonDay(ctx context.Context, query appmodel.PersonDayQuery) (map[int64][]int, error)
+	SetDayMark(ctx context.Context, request appmodel.DayMarkRequest) error
+	DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
 	GetProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
@@ -114,6 +117,31 @@ func (s *Service) CopyScheduleWeek(ctx context.Context, request appmodel.Schedul
 		return fmt.Errorf("copy schedule week: %w", err)
 	}
 	return nil
+}
+
+// TrackedSecondsByPersonDay is what each member tracked on each day of a stretch of
+// days, for the team week (PLAN-04).
+func (s *Service) TrackedSecondsByPersonDay(ctx context.Context, query appmodel.PersonDayQuery) (map[int64][]int, error) {
+	if query.TeamID <= 0 || len(query.Days) == 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.TrackedSecondsByPersonDay(ctx, query)
+}
+
+// SetDayMark records or clears a member's own mark on a day (TIME-13).
+func (s *Service) SetDayMark(ctx context.Context, request appmodel.DayMarkRequest) error {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.Day == "" {
+		return ErrInvalidScheduleCell
+	}
+	return s.store.SetDayMark(ctx, request)
+}
+
+// DayMarks lists the workspace's marks for the days from `from` up to `until` (TIME-13).
+func (s *Service) DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.DayMarks(ctx, teamID, from, until)
 }
 
 // ProjectPlanByMember is each member's planned and tracked minutes on one

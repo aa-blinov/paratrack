@@ -640,6 +640,15 @@ export interface InvoiceDetailData {
 }
 
 export interface StatsData {
+  TeamWeek?: {
+    Norm: string
+    Days: Array<{ Label: string; Date: string; Today: boolean }>
+    Rows: Array<{ Name: string; Cells: Array<{ Label: string; Below: boolean; Mark: string; Note: string }>; Total: string }>
+  } | null
+  MarkWeek?: {
+    Days: Array<{ Value: string; Label: string; Today: boolean }>
+    Marks: Array<{ Day: string; DayLabel: string; Kind: string; KindLabel: string; Note: string }>
+  } | null
   Title: string
   Active: string
   Lang: string
