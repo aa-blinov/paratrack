@@ -23,6 +23,7 @@ func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Mode = presetKeyForModules(s.teamModules(r))
 	data.OpenTasks = s.openTaskOptions(r)
+	data.Workday = s.workdayOf(r)
 	data.SectionsOpen, data.SectionsTotal = sectionsOpenFor(s.userModules(r), canManage(r))
 	data.SectionsPersonal = !canManage(r)
 	s.render(w, r, &data)
@@ -45,6 +46,7 @@ func (s *Server) handleAPIDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Mode = presetKeyForModules(s.teamModules(r))
 	data.OpenTasks = s.openTaskOptions(r)
+	data.Workday = s.workdayOf(r)
 	// Same as the page: without the counts the mode line lost «открыто N из M»
 	// on every refresh, and the dashboard refreshes each minute a timer runs.
 	data.SectionsOpen, data.SectionsTotal = sectionsOpenFor(s.userModules(r), canManage(r))

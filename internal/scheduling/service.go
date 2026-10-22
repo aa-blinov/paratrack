@@ -23,6 +23,8 @@ type Store interface {
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
 	TrackedSecondsByPersonDay(ctx context.Context, query appmodel.PersonDayQuery) (map[int64][]int, error)
 	SetDayMark(ctx context.Context, request appmodel.DayMarkRequest) error
+	MarkWorkday(ctx context.Context, request appmodel.WorkdayRequest) error
+	WorkdayOf(ctx context.Context, teamID, userID int64, day string) (appmodel.WorkdayMark, bool, error)
 	DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
@@ -142,6 +144,22 @@ func (s *Service) DayMarks(ctx context.Context, teamID int64, from, until string
 		return nil, ErrInvalidScheduleCell
 	}
 	return s.store.DayMarks(ctx, teamID, from, until)
+}
+
+// MarkWorkday sets the start or the end of a member's working day (TIME-06).
+func (s *Service) MarkWorkday(ctx context.Context, request appmodel.WorkdayRequest) error {
+	if request.TeamID <= 0 || request.UserID <= 0 || request.Day == "" {
+		return ErrInvalidScheduleCell
+	}
+	return s.store.MarkWorkday(ctx, request)
+}
+
+// WorkdayOf reads a member's working day in the workspace (TIME-06).
+func (s *Service) WorkdayOf(ctx context.Context, teamID, userID int64, day string) (appmodel.WorkdayMark, bool, error) {
+	if teamID <= 0 || userID <= 0 {
+		return appmodel.WorkdayMark{}, false, ErrInvalidScheduleCell
+	}
+	return s.store.WorkdayOf(ctx, teamID, userID, day)
 }
 
 // ProjectPlanByMember is each member's planned and tracked minutes on one

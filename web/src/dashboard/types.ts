@@ -69,6 +69,7 @@ export interface UnbilledItem {
 }
 
 export interface DashboardData {
+  Workday?: { Started: string; Ended: string }
   OpenTasks?: Array<{ ID: number; Title: string; ProjectID: number; ProjectName: string }>
   Mode?: "solo" | "freelance" | "studio" | "custom"
   SectionsOpen?: number
