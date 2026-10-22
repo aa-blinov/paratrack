@@ -47,6 +47,15 @@ func loadZone(name string) *time.Location {
 }
 
 func userLoc(r *http.Request) *time.Location {
+	// A workspace that set its own zone gives it to every member, so the same day
+	// and the same week read alike for all of them (ADM-07).
+	if r != nil {
+		if team, ok := TeamFrom(r.Context()); ok {
+			if l := loadZone(team.TimeZone); l != nil {
+				return l
+			}
+		}
+	}
 	if l := loadZone(prefsOf(r).TZ); l != nil {
 		return l // set by hand in settings: wins over the browser
 	}

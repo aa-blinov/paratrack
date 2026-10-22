@@ -30,6 +30,9 @@ type settingsPageData struct {
 	FlashOK bool
 	// Team settings: workspace currency and the menu of choices.
 	Currency   string
+	TimeZone   string   // the workspace's own zone; blank: each member's own (ADM-07)
+	WeekStart  string   // mon or sun; blank: each member's own
+	Zones      []string // the zone menu the calendar card offers
 	Currencies []currencyOption
 	Requisites string
 	VATNote    string
@@ -156,6 +159,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Currency = settings.Currency
 	data.Currencies = currencyOptions()
+	data.TimeZone, data.WeekStart, data.Zones = team.TimeZone, team.WeekStart, zones
 	data.Requisites, data.VATNote = settings.Requisites, settings.VATNote
 	data.StripeKeySet, data.StripeSecretSet = settings.StripeKeySet, settings.StripeSecretSet
 	// Deleting the workspace is the owner's alone; the page says so and hides it from admins.

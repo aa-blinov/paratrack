@@ -13,7 +13,7 @@ import (
 
 func (d *DB) FindTeam(ctx context.Context, id int64) (model.Team, error) {
 	return scanTeam(d.sql.QueryRowContext(ctx,
-		`SELECT id, slug, name, owner_id, created_at FROM teams WHERE id = ?`, id))
+		`SELECT id, slug, name, owner_id, created_at, timezone, week_start FROM teams WHERE id = ?`, id))
 }
 
 // FindTeams returns existing workspaces for a set of IDs in bounded batches.
@@ -23,7 +23,7 @@ func (d *DB) FindTeams(ctx context.Context, ids []int64) (map[int64]model.Team, 
 	for start := 0; start < len(ids); start += batchSize {
 		end := min(start+batchSize, len(ids))
 		batch := ids[start:end]
-		query := `SELECT id, slug, name, owner_id, created_at FROM teams WHERE id IN (` + strings.TrimSuffix(strings.Repeat(`?,`, len(batch)), `,`) + `)`
+		query := `SELECT id, slug, name, owner_id, created_at, timezone, week_start FROM teams WHERE id IN (` + strings.TrimSuffix(strings.Repeat(`?,`, len(batch)), `,`) + `)`
 		args := make([]any, len(batch))
 		for i, id := range batch {
 			args[i] = id
@@ -53,7 +53,7 @@ func (d *DB) FindTeams(ctx context.Context, ids []int64) (map[int64]model.Team, 
 
 func (d *DB) FindTeamBySlug(ctx context.Context, slug string) (model.Team, error) {
 	return scanTeam(d.sql.QueryRowContext(ctx,
-		`SELECT id, slug, name, owner_id, created_at FROM teams WHERE slug = ?`, slug))
+		`SELECT id, slug, name, owner_id, created_at, timezone, week_start FROM teams WHERE slug = ?`, slug))
 }
 
 func (d *DB) ListTeamsForUser(ctx context.Context, userID int64) ([]model.Team, error) {
@@ -66,7 +66,7 @@ type teamQueryer interface {
 
 func listTeamsForUser(ctx context.Context, queryer teamQueryer, userID int64) ([]model.Team, error) {
 	rows, err := queryer.QueryContext(ctx, `
-		SELECT t.id, t.slug, t.name, t.owner_id, t.created_at
+		SELECT t.id, t.slug, t.name, t.owner_id, t.created_at, t.timezone, t.week_start
 		FROM teams t JOIN memberships m ON m.team_id = t.id
 		WHERE m.user_id = ? ORDER BY (m.role = 'owner') DESC, m.joined_at`, userID)
 	if err != nil {
@@ -148,6 +148,12 @@ func (d *DB) FindMembershipForUser(ctx context.Context, query appmodel.TeamMembe
 
 func (d *DB) RenameTeam(ctx context.Context, request appmodel.TeamRenameRequest) error {
 	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET name = ? WHERE id = ?`, request.Name, request.TeamID)
+}
+
+// SetTeamCalendar sets the workspace's time zone and first day of the week (ADM-07).
+func (d *DB) SetTeamCalendar(ctx context.Context, request appmodel.TeamCalendarRequest) error {
+	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID,
+		`UPDATE teams SET timezone = ?, week_start = ? WHERE id = ?`, request.TimeZone, request.WeekStart, request.TeamID)
 }
 
 func (d *DB) CountTeamMembers(ctx context.Context, teamID int64) (int, error) {
@@ -246,7 +252,7 @@ func (d *DB) ListTeamMembers(ctx context.Context, teamID int64) ([]model.TeamMem
 func scanTeam(row interface{ Scan(...any) error }) (model.Team, error) {
 	var team model.Team
 	var created string
-	if err := row.Scan(&team.ID, &team.Slug, &team.Name, &team.OwnerID, &created); err != nil {
+	if err := row.Scan(&team.ID, &team.Slug, &team.Name, &team.OwnerID, &created, &team.TimeZone, &team.WeekStart); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Team{}, ErrNotFound
 		}

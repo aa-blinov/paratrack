@@ -39,6 +39,15 @@ type TeamRenameRequest struct {
 	Name     string
 }
 
+// TeamCalendarRequest sets the workspace's time zone and first day of the week
+// (ADM-07). Blank values give the members their own choice back.
+type TeamCalendarRequest struct {
+	TeamID    int64
+	CallerID  int64
+	TimeZone  string
+	WeekStart string
+}
+
 type TeamInviteRevokeRequest struct {
 	TeamID   int64
 	CallerID int64

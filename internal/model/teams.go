@@ -22,6 +22,10 @@ type Team struct {
 	Name      string
 	OwnerID   int64
 	CreatedAt time.Time
+	// TimeZone and WeekStart are the workspace's own calendar (ADM-07). Blank means
+	// each member keeps their own choice.
+	TimeZone  string
+	WeekStart string
 }
 
 // TeamMember contains a user's workspace membership and display fields.

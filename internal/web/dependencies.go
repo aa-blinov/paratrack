@@ -466,6 +466,7 @@ type TeamAdministration interface {
 	RemoveMember(context.Context, appmodel.TeamMemberRemovalRequest) error
 	ReturnMember(context.Context, appmodel.TeamMemberReturnRequest) error
 	Rename(context.Context, appmodel.TeamRenameRequest) error
+	SetCalendar(context.Context, appmodel.TeamCalendarRequest) error
 }
 
 // TeamOperations contains workspace mutations whose audit records are part of
