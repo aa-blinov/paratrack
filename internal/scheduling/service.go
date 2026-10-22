@@ -25,6 +25,8 @@ type Store interface {
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
 	GetProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
 	ListProjectWeekTotals(ctx context.Context, teamID, projectID int64, weeks []time.Time, now time.Time) ([]appmodel.ProjectWeekTotal, error)
+	PlannedFromDayForUser(ctx context.Context, teamID, projectID, userID int64, from time.Time) (int, error)
+	MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error)
 	AddScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 }
@@ -237,6 +239,26 @@ func (s *Service) SetProjectWeeklyNorm(ctx context.Context, request appmodel.Pro
 		return fmt.Errorf("save project weekly norm: %w", err)
 	}
 	return nil
+}
+
+// PlannedFromDayForUser is what one person has planned on a project from a day on (TASK-03).
+func (s *Service) PlannedFromDayForUser(ctx context.Context, teamID, projectID, userID int64, from time.Time) (int, error) {
+	if teamID <= 0 || projectID <= 0 || userID <= 0 {
+		return 0, ErrInvalidScheduleCell
+	}
+	return s.store.PlannedFromDayForUser(ctx, teamID, projectID, userID, from)
+}
+
+// MovePlanFromDay moves a person's plan on a project from a day on to another person (TASK-03).
+func (s *Service) MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error) {
+	if request.TeamID <= 0 || request.ProjectID <= 0 || request.CallerID <= 0 {
+		return 0, ErrInvalidScheduleCell
+	}
+	moved, err := s.store.MovePlanFromDay(ctx, request)
+	if err != nil {
+		return 0, fmt.Errorf("move plan: %w", err)
+	}
+	return moved, nil
 }
 
 // ProjectWeeklyNorm reads a project's weekly norm in minutes; ok is false when the

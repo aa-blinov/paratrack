@@ -171,8 +171,13 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	message := strings.NewReplacer("{name}", stopped.ActivityName, "{dur}", dur).
 		Replace(i18n.T(resolveLang(r), "toast.stoppedFull"))
 	// Time on an activity with no task is kept, but it is on no task: say so (TIME-05).
-	if linked, err := s.services.Tasks.ActivityHasTask(ctx, teamID(r), stopped.Session.ActivityID); err == nil && !linked {
+	// A task it is on gets the one-line result the stop card offers (TASK-02).
+	taskID, err := s.services.Tasks.TaskOfActivity(ctx, teamID(r), stopped.Session.ActivityID)
+	if err == nil && taskID <= 0 {
 		message += " " + i18n.T(resolveLang(r), "toast.noTaskWarning")
+	}
+	if err == nil && taskID > 0 {
+		w.Header().Set("X-Toast-Task", strconv.FormatInt(taskID, 10))
 	}
 	s.toast(w, message, "success")
 	// Stop is instant; the toast carries the way back (and a discard for
