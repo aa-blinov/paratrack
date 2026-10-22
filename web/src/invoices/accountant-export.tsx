@@ -16,15 +16,15 @@ export function AccountantExport({ lang, clients }: { lang: string; clients: str
       <form method="get" action="/invoices/export.csv" className="flex flex-wrap items-end gap-3">
         <div className="grid gap-1.5">
           <Label htmlFor="export-from" className="text-xs">{t(lang, "inv.exportFrom")}</Label>
-          <DateField id="export-from" name="from" />
+          <DateField id="export-from" name="export_from" />
         </div>
         <div className="grid gap-1.5">
           <Label htmlFor="export-to" className="text-xs">{t(lang, "inv.exportTo")}</Label>
-          <DateField id="export-to" name="to" />
+          <DateField id="export-to" name="export_to" />
         </div>
         <div className="grid min-w-0 gap-1.5">
           <Label htmlFor="export-client" className="text-xs">{t(lang, "inv.exportClient")}</Label>
-          <Input id="export-client" name="client" list="export-clients" placeholder={t(lang, "inv.exportAllClients")} className="min-w-0 sm:w-64" />
+          <Input id="export-client" name="export_client" list="export-clients" placeholder={t(lang, "inv.exportAllClients")} className="min-w-0 sm:w-64" />
           <datalist id="export-clients">{clients.map(name => <option key={name} value={name} />)}</datalist>
         </div>
         <Button type="submit" variant="outline" size="sm"><Download aria-hidden="true" />{t(lang, "inv.exportDownload")}</Button>
