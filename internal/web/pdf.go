@@ -87,6 +87,9 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 	pdf.SetFont("Inter", "", 9)
 	grey()
 	pdf.CellFormat(0, 5, T("inv.period")+": "+inv.PeriodLabel, "", 1, "L", false, 0, "")
+	if inv.DueLabel != "" {
+		pdf.CellFormat(0, 5, T("inv.due")+": "+inv.DueLabel, "", 1, "L", false, 0, "")
+	}
 	ink()
 	pdf.Ln(5)
 

@@ -29,6 +29,7 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		Projects:      make([]invoiceProjectOpt, 0, len(snapshot.DraftOptions.Projects)),
 		Unbilled:      make([]unbilledView, 0, len(snapshot.Unbilled)),
 	}
+	today := userNow(r).Format("2006-01-02")
 	for _, item := range snapshot.Invoices {
 		inv := item.Invoice
 		switch inv.Status {
@@ -43,6 +44,7 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			Hours: fmtHoursL(resolveLang(r), item.TotalHoursHundredths),
 			Period: fmtDay(resolveLang(r), inv.PeriodStart) + " – " +
 				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
+			Due: invoiceDueLabel(resolveLang(r), inv.DueDate), Overdue: invoiceOverdue(inv.Status, inv.DueDate, today),
 		})
 	}
 	data.Outstanding = moneyByCurrency(resolveLang(r), outstanding)

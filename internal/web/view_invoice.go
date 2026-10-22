@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -42,6 +43,8 @@ type invoiceVM struct {
 	IssuedLabel                           string
 	SellerDetails, ClientDetails, VATNote string
 	ClientEmail, Receipt                  string
+	DueISO, DueLabel                      string
+	Overdue                               bool
 	TeamID                                int64
 	Logo                                  template.URL
 }
@@ -68,13 +71,15 @@ type unbilledView struct {
 }
 
 type invoiceSummary struct {
-	ID     int64
-	Number string
-	Client string
-	Status string
-	Total  string
-	Hours  string
-	Period string
+	ID      int64
+	Number  string
+	Client  string
+	Status  string
+	Total   string
+	Hours   string
+	Period  string
+	Due     string
+	Overdue bool
 }
 
 type invoicesPage struct {
@@ -157,10 +162,28 @@ func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (mo
 		IssuedLabel:   fmtDate(lang, inv.CreatedAt.In(userLoc(r))),
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
+		DueISO: inv.DueDate, DueLabel: invoiceDueLabel(lang, inv.DueDate),
+		Overdue: invoiceOverdue(inv.Status, inv.DueDate, userNow(r).Format("2006-01-02")),
 	}
 	vm.DriftMessage = invoiceDriftMessage(lang, inv.Status, details.InvoicedSeconds, details.TrackedSeconds)
 	vm.Logo = logoURL(snapshot.BillingRules.Logo)
 	return inv, vm, snapshot.StripeReady, nil
+}
+
+// invoiceOverdue marks a sent invoice that is still unpaid past its due day
+// (FIN-07). A draft is not overdue: nothing has been asked of the client yet.
+func invoiceOverdue(status, due, today string) bool {
+	return due != "" && due < today && status != "draft" && status != "paid"
+}
+
+// invoiceDueLabel prints the due day the way the document prints its dates,
+// or nothing when the invoice has no due day.
+func invoiceDueLabel(lang i18n.Lang, due string) string {
+	day, err := time.Parse("2006-01-02", due)
+	if due == "" || err != nil {
+		return ""
+	}
+	return fmtDay(lang, day)
 }
 
 // invoiceDriftMessage names the two hours of a draft whose tracked time moved away

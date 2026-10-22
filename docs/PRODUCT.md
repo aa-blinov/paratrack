@@ -85,6 +85,8 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - `amount_cents = seconds × rate / 3600` (truncated to the cent)
 - The rate is snapshotted onto the line at creation time
 - Invoice period `start`/`end` are dates; `end` is exclusive (`2026-09-25`–`2026-09-25` = one day)
+- A draft carries an optional payment due day (`invoices.due_date`, `YYYY-MM-DD`, empty = none). It is set with the draft details and frozen when the invoice is sent (FIN-07)
+- A sent invoice still unpaid after its due day is overdue: the list and the invoice page mark it. The due day itself is not late, a draft is never overdue, and a paid invoice is never overdue
 
 **Payroll**
 
