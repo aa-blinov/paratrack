@@ -126,7 +126,7 @@ func TestManualPaymentLinkEndpoint(t *testing.T) {
 		t.Fatalf("assign: %v", err)
 	}
 
-	resp = e.do("POST", "/invoices", url.Values{
+	resp = e.do("POST", "/invoices", url.Values{"confirm_unapproved": {"1"},
 		"client": {"Acme"}, "start": {start}, "end": {end},
 	}, nil)
 	if resp.StatusCode != 303 {
@@ -170,7 +170,7 @@ func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Ромашка"}, "rate": {"2 500,50"}}, nil))
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:00"}, "project_id": {"1"}}, map[string]string{"HX-Request": "true"}))
 	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-	resp := e.do("POST", "/invoices", url.Values{"client": {"ООО «Ромашка»"}, "client_details": {"КПП 770001001"}, "start": {day}, "end": {day}}, nil)
+	resp := e.do("POST", "/invoices", url.Values{"confirm_unapproved": {"1"}, "client": {"ООО «Ромашка»"}, "client_details": {"КПП 770001001"}, "start": {day}, "end": {day}}, nil)
 	loc := resp.Header.Get("Location")
 	resp.Body.Close()
 	if !strings.HasPrefix(loc, "/invoices/") {

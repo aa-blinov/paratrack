@@ -241,3 +241,43 @@ func lockApprovedSessionByID(ctx context.Context, tx *Tx, teamID, sessionID int6
 	}
 	return lockApprovedSessionStart(ctx, tx, teamID, startAt)
 }
+
+// ListUnapprovedTimeDays returns the days (YYYY-MM-DD, UTC) that hold billable
+// time not yet on an invoice and outside every approved week, in order. The
+// predicate is the one unbilled time uses, so the invoice warning covers exactly
+// the time that would land on the invoice (FIN-12).
+func (d *DB) ListUnapprovedTimeDays(ctx context.Context, teamID, projectID int64, from, to time.Time) ([]string, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidInvoiceQuery
+	}
+	q := `SELECT DISTINCT substr(s.start_at, 1, 10)
+		FROM sessions s
+		JOIN activities a ON a.id = s.activity_id AND a.team_id = ?
+		JOIN projects p ON p.id = COALESCE(s.project_id, a.project_id) AND p.team_id = ?
+		WHERE s.team_id = ? AND s.end_at IS NOT NULL AND s.invoice_id IS NULL
+		  AND s.start_at >= ? AND s.start_at < ?
+		  AND COALESCE(p.billable, 1) = 1 AND COALESCE(p.billable_rate_cents, 0) > 0 AND p.archived = 0
+		  AND NOT EXISTS (
+		    SELECT 1 FROM timesheet_approvals ap
+		     WHERE ap.team_id = s.team_id AND ap.starts_at <= s.start_at AND ap.ends_at > s.start_at)`
+	args := []any{teamID, teamID, teamID, FormatTime(from), FormatTime(to)}
+	if projectID > 0 {
+		q += ` AND p.id = ?`
+		args = append(args, projectID)
+	}
+	q += ` ORDER BY 1`
+	rows, err := d.sql.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var days []string
+	for rows.Next() {
+		var day string
+		if err := rows.Scan(&day); err != nil {
+			return nil, err
+		}
+		days = append(days, day)
+	}
+	return days, rows.Err()
+}

@@ -46,6 +46,9 @@ type InvoiceDraftRequest struct {
 	Start    time.Time
 	End      time.Time
 	Options  InvoiceOptions
+	// ConfirmUnapproved is the manager's answer to the unapproved-weeks warning
+	// (FIN-12): without it a period with unapproved billable time is refused.
+	ConfirmUnapproved bool
 }
 
 // InvoiceCreateRequest carries a prepared invoice and its lines through the

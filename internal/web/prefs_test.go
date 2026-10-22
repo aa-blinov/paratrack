@@ -138,7 +138,7 @@ func TestBillingRules(t *testing.T) {
 	}
 
 	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
-	resp = e.do("POST", "/invoices", url.Values{"project_id": {"1"}, "client": {"ООО «Ромашка»"}, "start": {day}, "end": {day}}, nil)
+	resp = e.do("POST", "/invoices", url.Values{"confirm_unapproved": {"1"}, "project_id": {"1"}, "client": {"ООО «Ромашка»"}, "start": {day}, "end": {day}}, nil)
 	resp.Body.Close()
 	loc := resp.Header.Get("Location")
 	page := readBody(t, e.do("GET", loc, nil, nil))

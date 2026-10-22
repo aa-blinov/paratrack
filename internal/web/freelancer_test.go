@@ -47,7 +47,7 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	}
 	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	mk := func() *httpResult {
-		resp := e.do("POST", "/invoices", url.Values{"project_id": {"1"}, "client": {"ООО «Ромашка»"},
+		resp := e.do("POST", "/invoices", url.Values{"confirm_unapproved": {"1"}, "project_id": {"1"}, "client": {"ООО «Ромашка»"},
 			"client_email": {"buh@romashka.ru"}, "start": {day}, "end": {day}}, nil)
 		defer resp.Body.Close()
 		return &httpResult{resp.StatusCode, resp.Header.Get("Location")}
