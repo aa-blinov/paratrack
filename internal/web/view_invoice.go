@@ -178,8 +178,8 @@ func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (mo
 		Overdue: invoiceOverdue(inv.Status, inv.DueDate, userNow(r).Format("2006-01-02")),
 	}
 	vm.DriftMessage = invoiceDriftMessage(lang, inv.Status, details.InvoicedSeconds, details.TrackedSeconds)
-	owed := details.TotalCents - details.PaidCents
-	vm.PaidLabel = moneyL(lang, details.PaidCents, inv.Currency)
+	paid, owed := journalTotals(inv.Status, details.TotalCents, details.PaidCents)
+	vm.PaidLabel = moneyL(lang, paid, inv.Currency)
 	vm.RemainingLabel = moneyL(lang, owed, inv.Currency)
 	vm.Remaining = inv.Status == "sent" && owed > 0
 	vm.PartialPaid = details.PaidCents > 0 && owed > 0
@@ -273,4 +273,13 @@ func paymentSource(lang i18n.Lang, source string) string {
 		return i18n.T(lang, "inv.paySourceStripe")
 	}
 	return i18n.T(lang, "inv.paySourceManual")
+}
+
+// journalTotals is what an invoice has been paid and what it still owes. An
+// invoice marked paid before the journal existed has no entries, and is paid in full.
+func journalTotals(status string, total, journal int) (paid, owed int) {
+	if status == "paid" {
+		return total, 0
+	}
+	return journal, total - journal
 }

@@ -11,6 +11,9 @@ var (
 	ErrInvalidTask       = errors.New("invalid task")
 	ErrTaskNotFound      = errors.New("task not found")
 	ErrTaskActivityTaken = errors.New("activity already belongs to another task")
+	// ErrTaskNameTaken refuses a task activity whose name an existing activity of the
+	// team already holds, when that activity cannot be reused safely (TASK-15).
+	ErrTaskNameTaken = errors.New("an activity with this name is taken")
 	// ErrTaskArchived refuses an edit to an archived task: it is read-only until restored.
 	ErrTaskArchived = errors.New("task is archived")
 )

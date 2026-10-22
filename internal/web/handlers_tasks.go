@@ -465,6 +465,8 @@ func (s *Server) writeTaskError(w http.ResponseWriter, r *http.Request, err erro
 		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
 	case errors.Is(err, appmodel.ErrTaskActivityTaken):
 		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "tasks.activityTaken")})
+	case errors.Is(err, appmodel.ErrTaskNameTaken):
+		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "tasks.nameTaken")})
 	case errors.Is(err, appmodel.ErrTaskArchived):
 		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "tasks.archivedReadOnly")})
 	case errors.Is(err, appmodel.ErrInvalidTask):
