@@ -31,6 +31,7 @@ type TaskCreateRequest struct {
 	EstimateMinutes int
 	ExternalRef     string
 	ExternalURL     string
+	Description     string
 }
 
 // TaskUpdateRequest changes the fields a form sends; a nil field is left alone.
@@ -42,6 +43,7 @@ type TaskUpdateRequest struct {
 	AssigneeID      *int64
 	Due             *string
 	EstimateMinutes *int
+	Description     *string
 }
 
 // TaskStatusRequest moves a task to another board column.
@@ -156,4 +158,21 @@ type Activity struct {
 	ID    int64
 	Name  string
 	Color string
+}
+
+// TaskCommentRequest adds a line to a task's feed.
+type TaskCommentRequest struct {
+	TeamID   int64
+	TaskID   int64
+	CallerID int64
+	Body     string
+}
+
+// TaskComment is one line of a task's feed: who wrote it and when.
+type TaskComment struct {
+	ID        int64
+	TaskID    int64
+	Author    string
+	Body      string
+	CreatedAt time.Time
 }

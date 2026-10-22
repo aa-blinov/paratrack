@@ -222,13 +222,13 @@ func exportTasks(ctx context.Context, tx *Tx, teamID int64, emails map[int64]str
 	return queryRows(ctx, tx, "export tasks",
 		`SELECT id, project_id, title, status, position, COALESCE(assignee_user_id, 0), COALESCE(due_date, ''),
 		        COALESCE(estimate_minutes, 0), COALESCE(created_by, 0), archived, COALESCE(external_ref, ''),
-		        COALESCE(external_url, ''), created_at, updated_at
+		        COALESCE(external_url, ''), created_at, updated_at, COALESCE(description, '')
 		 FROM tasks WHERE team_id = ? ORDER BY id`,
 		func(rows *sql.Rows) error {
 			var t appmodel.ExportTask
 			var assignee, creator, archived int64
 			if err := rows.Scan(&t.ID, &t.ProjectID, &t.Title, &t.Status, &t.Position, &assignee, &t.DueDate,
-				&t.EstimateMinutes, &creator, &archived, &t.ExternalRef, &t.ExternalURL, &t.CreatedAt, &t.UpdatedAt); err != nil {
+				&t.EstimateMinutes, &creator, &archived, &t.ExternalRef, &t.ExternalURL, &t.CreatedAt, &t.UpdatedAt, &t.Description); err != nil {
 				return err
 			}
 			t.AssigneeEmail, t.CreatedByEmail, t.Archived = emails[assignee], emails[creator], archived != 0

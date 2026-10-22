@@ -22,6 +22,7 @@ type Task struct {
 	AssigneeID      int64
 	Due             string // YYYY-MM-DD, "" for none
 	EstimateMinutes int
+	Description     string // what has to be done and how to tell it is done (TASK-01)
 	CreatedBy       int64
 	Archived        bool
 	ExternalURL     string // the GitHub item this task was imported from, "" if none
