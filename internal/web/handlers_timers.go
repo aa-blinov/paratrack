@@ -138,8 +138,13 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	// Say what stopped, how long it ran, and where it went.
 	// A session that ran at all reads "<1 min", never "0 min".
 	dur := fmtDur(r, max(1, stopped.DurationSeconds))
-	s.toast(w, strings.NewReplacer("{name}", stopped.ActivityName, "{dur}", dur).
-		Replace(i18n.T(resolveLang(r), "toast.stoppedFull")), "success")
+	message := strings.NewReplacer("{name}", stopped.ActivityName, "{dur}", dur).
+		Replace(i18n.T(resolveLang(r), "toast.stoppedFull"))
+	// Time on an activity with no task is kept, but it is on no task: say so (TIME-05).
+	if linked, err := s.services.Tasks.ActivityHasTask(ctx, teamID(r), stopped.Session.ActivityID); err == nil && !linked {
+		message += " " + i18n.T(resolveLang(r), "toast.noTaskWarning")
+	}
+	s.toast(w, message, "success")
 	// Stop is instant; the toast carries the way back (and a discard for
 	// accidental sub-minute sessions).
 	w.Header().Set("X-Toast-Undo", "/api/sessions/"+strconv.FormatInt(id, 10)+"/reopen")

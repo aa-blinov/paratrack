@@ -564,6 +564,19 @@ func insertTaskActivityRow(ctx context.Context, tx *Tx, teamID, projectID, taskI
 
 // ListLinkableActivities lists the project's activities that no task holds yet:
 // the ones a task can take on.
+// ActivityHasTask reports whether an activity is hung on a task. Time logged to
+// an activity without one is kept, but it is on no task.
+func (d *DB) ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error) {
+	var linked bool
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT task_id IS NOT NULL AND task_id > 0 FROM activities WHERE id = ? AND team_id = ?`,
+		activityID, teamID).Scan(&linked)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	return linked, err
+}
+
 func (d *DB) ListLinkableActivities(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error) {
 	if query.TeamID <= 0 || query.ProjectID <= 0 {
 		return nil, ErrNotFound

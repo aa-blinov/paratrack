@@ -160,6 +160,9 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         if (field !== "form") return false
         throw new Error(message)
       }
+      // A saved entry names its outcome in a toast; the card shows it with no undo.
+      const savedNote = decodeURIComponent(response.headers.get("X-Toast") || "")
+      if (url === "/api/sessions/backfill" && savedNote) setStopped({ ids: [], message: savedNote })
       // The server answers a stop with the way back: X-Toast-Undo names the
       // reopen route for each record it just wrote — one for a single stop, one
       // per session when every timer was stopped at once.
