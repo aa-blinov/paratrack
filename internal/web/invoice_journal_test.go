@@ -73,3 +73,24 @@ func TestInvoicePaymentFormBooksTypedMoney(t *testing.T) {
 		t.Fatalf("status after the payments cover the total = %q, want paid", status)
 	}
 }
+
+// The page's paid and owed figures come from the journal, except for an invoice
+// marked paid before the journal existed: that one is paid in full, owing nothing.
+func TestJournalTotalsKnowLegacyPaidInvoices(t *testing.T) {
+	cases := []struct {
+		status          string
+		total, journal  int
+		wantPaid, owing int
+	}{
+		{"paid", 20000, 0, 20000, 0},
+		{"sent", 20000, 5000, 5000, 15000},
+		{"sent", 20000, 0, 0, 20000},
+		{"draft", 20000, 0, 0, 20000},
+	}
+	for _, c := range cases {
+		paid, owed := journalTotals(c.status, c.total, c.journal)
+		if paid != c.wantPaid || owed != c.owing {
+			t.Errorf("journalTotals(%s, %d, %d) = %d, %d; want %d, %d", c.status, c.total, c.journal, paid, owed, c.wantPaid, c.owing)
+		}
+	}
+}
