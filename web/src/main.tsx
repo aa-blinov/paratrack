@@ -151,6 +151,11 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         const accepted = await requestConfirmation(await messageFrom(response))
         return accepted ? mutate(url, { ...fields, confirm_long: "1" }) : false
       }
+      if (url === "/api/start" && response.headers.get("X-Start-Confirm") === "no-project") {
+        // A timer with no project asks once; the confirmed start carries the answer.
+        const accepted = await requestConfirmation(await messageFrom(response))
+        return accepted ? mutate(url, { ...fields, confirm_no_project: "1" }) : false
+      }
       if (!response.ok) throw new Error(await messageFrom(response))
       if (url === "/api/sessions/backfill" && response.headers.get("X-Backfill-Saved") !== "true") {
         const message = await messageFrom(response)
@@ -200,7 +205,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       return
     }
     setActivityRequired(false)
-    if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note })) {
+    if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note, ask_no_project: "1" })) {
       setActivity("")
       setNote("")
       // A project picked for one timer stuck to the next ones, and personal
