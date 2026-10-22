@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -87,7 +86,7 @@ func (s *Server) handleWorkspaceExport(w http.ResponseWriter, r *http.Request) {
 	}, w, func(slug string, exportedAt time.Time) {
 		started = true
 		s.audit(r, "workspace.export", slug, "")
-		name := fmt.Sprintf("paratrack-%s-%s.json", fileSlug(slug), exportedAt.Format("2006-01-02"))
+		name := fmt.Sprintf("paratrack-export-%s.json", exportedAt.Format("2006-01-02"))
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
 		w.Header().Set("Cache-Control", "no-store")
@@ -106,18 +105,4 @@ func (s *Server) handleWorkspaceExport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeInternalError(w, err)
-}
-
-// fileSlug keeps the characters a file name can carry from a workspace slug.
-func fileSlug(slug string) string {
-	var b strings.Builder
-	for _, r := range strings.ToLower(slug) {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			b.WriteRune(r)
-		}
-	}
-	if b.Len() == 0 {
-		return "workspace"
-	}
-	return b.String()
 }
