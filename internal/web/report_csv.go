@@ -37,6 +37,33 @@ func writeReportCSV(w io.Writer, rows []reportRow) error {
 	return out.Error()
 }
 
+// taskReportCSVHeader is the column order of the task report's CSV (TASK-04). The
+// status is the stored code, so a spreadsheet filters on the same words the app uses.
+var taskReportCSVHeader = []string{"task", "project", "assignee", "status", "estimate_hours", "tracked_hours", "tracked_seconds", "due"}
+
+// writeTaskReportCSV writes the task report as RFC 4180 CSV, hours with a decimal
+// point as in writeReportCSV. An empty estimate stays empty, not 0.00.
+func writeTaskReportCSV(w io.Writer, rows []taskReportRow) error {
+	out := csv.NewWriter(w)
+	if err := out.Write(taskReportCSVHeader); err != nil {
+		return err
+	}
+	for _, row := range rows {
+		estimate := ""
+		if row.EstimateMin > 0 {
+			estimate = formatHoursDecimal(row.EstimateMin * 60)
+		}
+		if err := out.Write([]string{
+			row.Title, row.ProjectName, row.AssigneeName, row.Status, estimate,
+			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds), row.Due,
+		}); err != nil {
+			return err
+		}
+	}
+	out.Flush()
+	return out.Error()
+}
+
 // formatHoursDecimal writes seconds as hours with two digits after a decimal point,
 // rounded the way the invoices round.
 func formatHoursDecimal(seconds int) string {

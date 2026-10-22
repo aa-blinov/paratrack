@@ -997,6 +997,26 @@ export interface TasksData {
   CanImport: boolean
   Flash: string
   FlashOK: boolean
+  CanReport: boolean
+  ReportFrom: string
+  ReportTo: string
+  ReportNote: string
+  ReportRows: TaskReportRow[]
+  ReportTotal: string
+}
+
+export interface TaskReportRow {
+  Title: string
+  ProjectName: string
+  AssigneeName: string
+  Status: string
+  EstimateMin: number
+  EstimateLabel: string
+  Due: string
+  DueLabel: string
+  Archived: boolean
+  Seconds: number
+  TrackedLabel: string
 }
 
 export interface TaskDetailData {

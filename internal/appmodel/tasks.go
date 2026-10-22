@@ -89,6 +89,15 @@ type TaskQuery struct {
 	Now       time.Time
 }
 
+// TaskReportQuery bounds the task report to a period [Start, End) (TASK-04). A
+// session counts for the part of it inside the period; an open timer counts up to Now.
+type TaskReportQuery struct {
+	TeamID int64
+	Start  time.Time
+	End    time.Time
+	Now    time.Time
+}
+
 // TaskRow is one task as the board and the table show it.
 type TaskRow struct {
 	Task         model.Task

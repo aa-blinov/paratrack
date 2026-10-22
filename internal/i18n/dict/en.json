@@ -1611,5 +1611,16 @@
   "tasks.back": "All tasks",
   "tasks.cardTitle": "Task",
   "tasks.open": "Open",
+  "tasks.reportTab": "Report",
+  "tasks.reportFrom": "From",
+  "tasks.reportTo": "To",
+  "tasks.reportShow": "Show",
+  "tasks.reportCSV": "Download CSV",
+  "tasks.reportEmpty": "No time was tracked on tasks in this period.",
+  "tasks.reportTotal": "Total",
+  "tasks.reportTask": "Task",
+  "tasks.reportArchived": "archived",
+  "tasks.reportHint": "Tracked time counts the days of the period, and timers still running are included. Archived tasks are in the report too.",
+  "tasks.reportBadPeriod": "The From date is later than the To date.",
   "tasks.hint": "Drag a card to another column or pick a status. Time is logged to the task's activities."
 }
