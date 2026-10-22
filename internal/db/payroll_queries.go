@@ -160,3 +160,40 @@ func scanPayrollRun(r interface{ Scan(...any) error }) (PayrollRun, error) {
 	}
 	return run, nil
 }
+
+// ListMemberPayrollLines returns one person's lines on the pay runs of a workspace,
+// newest period first. It reads that person's lines and nobody else's (FIN-11).
+func (d *DB) ListMemberPayrollLines(ctx context.Context, query appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT r.number, r.status, r.period_start, r.period_end,
+		        COALESCE(NULLIF(r.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = r.team_id), 'RUB'),
+		        l.seconds, l.rate_cents, l.amount_cents
+		   FROM payroll_lines l
+		   JOIN payroll_runs r ON r.id = l.run_id
+		  WHERE r.team_id = ? AND l.user_id = ?
+		  ORDER BY r.period_start DESC, r.id DESC`, query.TeamID, query.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []appmodel.MemberPayrollLine
+	for rows.Next() {
+		var line appmodel.MemberPayrollLine
+		var periodStart, periodEnd string
+		if err := rows.Scan(&line.RunNumber, &line.RunStatus, &periodStart, &periodEnd, &line.Currency,
+			&line.Seconds, &line.RateCents, &line.AmountCents); err != nil {
+			return nil, err
+		}
+		if line.PeriodStart, err = ScanTime(periodStart); err != nil {
+			return nil, err
+		}
+		if line.PeriodEnd, err = ScanTime(periodEnd); err != nil {
+			return nil, err
+		}
+		out = append(out, line)
+	}
+	return out, rows.Err()
+}

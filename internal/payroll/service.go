@@ -22,6 +22,7 @@ import (
 type Store interface {
 	CreatePayrollDraft(context.Context, appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error)
 	ListPayrollRunDetails(context.Context, appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunDetails, error)
+	ListMemberPayrollLines(context.Context, appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error)
 	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (appmodel.PayrollRunDetails, error)
 	MarkPayrollPaidWithRecipients(context.Context, appmodel.PayrollMutationRequest) (bool, []int64, error)
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
@@ -86,6 +87,18 @@ func (s *Service) UnapprovedPayrollTime(ctx context.Context, teamID int64, from,
 		return nil, fmt.Errorf("check approved payroll time: %w", err)
 	}
 	return notApproved, nil
+}
+
+// MemberLines returns one person's own pay lines in the workspace, read-only (FIN-11).
+func (s *Service) MemberLines(ctx context.Context, query appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error) {
+	if query.TeamID <= 0 || query.UserID <= 0 {
+		return nil, ErrInvalidTeam
+	}
+	lines, err := s.store.ListMemberPayrollLines(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list member payroll lines: %w", err)
+	}
+	return lines, nil
 }
 
 func (s *Service) ListRuns(ctx context.Context, query appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error) {

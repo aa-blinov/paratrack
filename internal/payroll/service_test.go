@@ -49,6 +49,10 @@ func (s *payrollClockStore) CreatePayrollDraft(_ context.Context, request appmod
 	return s.run, nil, nil
 }
 
+func (s *payrollClockStore) ListMemberPayrollLines(_ context.Context, _ appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error) {
+	return nil, nil
+}
+
 func (s *payrollClockStore) ListPayrollRunDetails(_ context.Context, query appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunDetails, error) {
 	s.list = query
 	return s.runs, nil

@@ -24,6 +24,21 @@ type profilePageData struct {
 	CSRFToken    string
 	Lang         string
 	ProfileReact bool
+	// The viewer's own pay in this workspace, read-only (FIN-11): the lines, and the
+	// sums still to be paid and already paid.
+	Pay     []profilePayRow
+	PayOpen string
+	PayPaid string
+}
+
+// profilePayRow is one of the viewer's own pay lines as the profile shows it.
+type profilePayRow struct {
+	Run    string
+	Period string
+	Hours  string
+	Rate   string
+	Amount string
+	Paid   bool
 }
 
 func (profilePageData) isTemplateData() {}
@@ -52,6 +67,12 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 		data.Team = teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt}
 		data.Role = string(role)
 		data.CanLeave = role != model.TeamRoleOwner
+		lines, err := s.services.Payroll.MemberLines(r.Context(), appmodel.MemberPayrollQuery{TeamID: team.ID, UserID: user.ID})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		data.Pay, data.PayOpen, data.PayPaid = profilePay(r, lines)
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -61,6 +82,39 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 
 // handleAPITeamLeave removes the caller's own membership. The service refuses
 // the last owner, and a member's personal workspace stays where it is.
+// profilePay turns the viewer's pay lines into rows, and sums what is still to be paid
+// and what is paid. The sums use the currency of the first line; a line in another
+// currency stays in the rows and out of the sums, so no total mixes currencies.
+func profilePay(r *http.Request, lines []appmodel.MemberPayrollLine) ([]profilePayRow, string, string) {
+	lang := resolveLang(r)
+	rows := make([]profilePayRow, 0, len(lines))
+	if len(lines) == 0 {
+		return rows, "", ""
+	}
+	currency := lines[0].Currency
+	open, paid := 0, 0
+	for _, line := range lines {
+		isPaid := line.RunStatus == "paid"
+		rows = append(rows, profilePayRow{
+			Run:    line.RunNumber,
+			Period: fmtDay(lang, line.PeriodStart) + " – " + fmtDay(lang, line.PeriodEnd.AddDate(0, 0, -1)),
+			Hours:  fmtDur(r, line.Seconds),
+			Rate:   moneyL(lang, line.RateCents, line.Currency),
+			Amount: moneyL(lang, line.AmountCents, line.Currency),
+			Paid:   isPaid,
+		})
+		if line.Currency != currency {
+			continue
+		}
+		if isPaid {
+			paid += line.AmountCents
+		} else {
+			open += line.AmountCents
+		}
+	}
+	return rows, moneyL(lang, open, currency), moneyL(lang, paid, currency)
+}
+
 func (s *Server) handleAPITeamLeave(w http.ResponseWriter, r *http.Request) {
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
