@@ -18,6 +18,7 @@ import type { InvoiceDetailData, InvoicesData } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { filterInvoices } from "./invoice-filter"
+import { AccountantExport } from "./accountant-export"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // The badge variant stays neutral on purpose: `variant` paints a utility
@@ -113,6 +114,8 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
     {flash}
+
+    <AccountantExport lang={lang} clients={Array.from(new Set(data.Items.map(item => item.Client).filter(Boolean)))} />
 
     {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
 
@@ -221,6 +224,7 @@ function InvoiceActions({ data }: { data: InvoiceDetailData }) {
       {inv.Status !== "paid" && <form method="POST" action={`/invoices/${inv.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant={inv.Status === "sent" ? "default" : "ghost"}>{t(lang, "inv.markPaid")}</Button></form>}
       <Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/pdf`}><Download aria-hidden="true" />PDF</a></Button>
       <Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/act`}>{t(lang, "act.title")}</a></Button>
+      <Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/sessions.csv`}><Download aria-hidden="true" />{t(lang, "inv.sessionsCSV")}</a></Button>
       <Button type="button" size="sm" variant="ghost" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
       {inv.PaymentURL ? <Button asChild size="sm" variant="ghost"><a href={inv.PaymentURL} target="_blank" rel="noopener"><LinkIcon aria-hidden="true" />{t(lang, "inv.payOnline")}</a></Button> : data.StripeReady ? <form method="POST" action={`/invoices/${inv.ID}/pay`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="mode" value="stripe" /><Button type="submit" size="sm" variant="ghost"><LinkIcon aria-hidden="true" />{t(lang, "inv.payLink")}</Button></form> : inv.Status !== "paid" && <span className="text-xs text-muted-foreground">{t(lang, "inv.noOnlineHint")}</span>}
       <form method="POST" action={`/invoices/${inv.ID}/delete`} className="ml-auto" data-confirm={t(lang, "inv.confirmDelete", inv.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="icon" variant="ghost" className="text-destructive" aria-label={t(lang, "inv.delete")}><Trash2 aria-hidden="true" /></Button></form>

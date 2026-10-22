@@ -105,3 +105,37 @@ type InvoiceIndexSnapshot struct {
 
 // WebhookManagementSnapshot contains the credential-free data needed by the
 // webhook settings page.
+
+// InvoiceSessionRow is one tracked session billed on an invoice, as the invoice's
+// appendix lists it: who, where, when and how long (FIN-06).
+type InvoiceSessionRow struct {
+	Person   string
+	Project  string
+	Activity string
+	Start    time.Time
+	End      time.Time
+	Seconds  int
+}
+
+// InvoiceExportQuery selects the invoice lines an accountant downloads: the issued
+// invoices of one workspace, optionally for one client and a period of invoice dates
+// (FIN-05). A zero From or To leaves that side open; To is exclusive.
+type InvoiceExportQuery struct {
+	TeamID int64
+	Client string
+	From   time.Time
+	To     time.Time
+}
+
+// InvoiceExportLine is one line of an issued invoice, as the accountant's export lists it.
+type InvoiceExportLine struct {
+	InvoiceNumber string
+	IssuedAt      time.Time
+	Client        string
+	Status        string
+	Label         string
+	Seconds       int
+	RateCents     int
+	AmountCents   int
+	Currency      string
+}

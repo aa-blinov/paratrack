@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/money"
 )
 
@@ -56,6 +58,52 @@ func writeTaskReportCSV(w io.Writer, rows []taskReportRow) error {
 		if err := out.Write([]string{
 			row.Title, row.ProjectName, row.AssigneeName, row.Status, estimate,
 			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds), row.Due,
+		}); err != nil {
+			return err
+		}
+	}
+	out.Flush()
+	return out.Error()
+}
+
+// invoiceSessionsCSVHeader is the column order of an invoice's sessions appendix (FIN-06).
+var invoiceSessionsCSVHeader = []string{"date", "start", "end", "person", "project", "activity", "hours", "seconds"}
+
+// writeInvoiceSessionsCSV writes the billed sessions, one row each, in the zone the
+// viewer reads the time in. Hours use a decimal point, as in the other exports.
+func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc *time.Location) error {
+	out := csv.NewWriter(w)
+	if err := out.Write(invoiceSessionsCSVHeader); err != nil {
+		return err
+	}
+	for _, row := range rows {
+		start, end := row.Start.In(loc), row.End.In(loc)
+		if err := out.Write([]string{
+			start.Format("2006-01-02"), start.Format("15:04"), end.Format("15:04"),
+			row.Person, row.Project, row.Activity, formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds),
+		}); err != nil {
+			return err
+		}
+	}
+	out.Flush()
+	return out.Error()
+}
+
+// invoicesExportCSVHeader is the column order of the accountant's invoice export (FIN-05).
+var invoicesExportCSVHeader = []string{"invoice", "date", "client", "executor", "position", "hours", "rate", "amount", "currency", "status"}
+
+// writeInvoicesExportCSV writes one row per invoice line. Amounts are decimal in the
+// currency of the line; the executor is the workspace's seller name on every row.
+func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, executor string, loc *time.Location) error {
+	out := csv.NewWriter(w)
+	if err := out.Write(invoicesExportCSVHeader); err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := out.Write([]string{
+			row.InvoiceNumber, row.IssuedAt.In(loc).Format("2006-01-02"), row.Client, executor, row.Label,
+			formatHoursDecimal(row.Seconds), money.FormatCents(row.RateCents), money.FormatCents(row.AmountCents),
+			row.Currency, row.Status,
 		}); err != nil {
 			return err
 		}
