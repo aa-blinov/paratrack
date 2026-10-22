@@ -42,6 +42,10 @@ func (s *draftReaderStub) UnassignedActivities(context.Context, int64) ([]appmod
 	return s.unassigned, nil
 }
 
+func (s *draftReaderStub) ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error) {
+	return nil, nil
+}
+
 func (s *draftReaderStub) GetInvoiceDetails(_ context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error) {
 	s.getCalls++
 	s.lookup = query

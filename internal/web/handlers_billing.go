@@ -2,10 +2,12 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -17,6 +19,59 @@ import (
 // ---------------------------------------------------------------------------
 
 // handleInvoicePDF streams a downloadable PDF of the invoice.
+// handleInvoicesExportCSV is the accountant's download: the lines of the issued invoices,
+// one row each, for one client and a period of invoice dates in the viewer's zone (FIN-05).
+func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request) {
+	loc := userLoc(r)
+	query := appmodel.InvoiceExportQuery{TeamID: teamID(r), Client: strings.TrimSpace(r.URL.Query().Get("client"))}
+	valid := true
+	if value := r.URL.Query().Get("from"); value != "" {
+		day, err := time.ParseInLocation("2006-01-02", value, loc)
+		query.From, valid = day, valid && err == nil
+	}
+	if value := r.URL.Query().Get("to"); value != "" {
+		day, err := time.ParseInLocation("2006-01-02", value, loc)
+		query.To, valid = day.AddDate(0, 0, 1), valid && err == nil
+	}
+	if !valid || (!query.From.IsZero() && !query.To.IsZero() && query.To.Before(query.From)) {
+		http.Error(w, i18n.T(resolveLang(r), "export.invalidPeriod"), http.StatusBadRequest)
+		return
+	}
+	rows, err := s.services.Invoicing.Queries.ExportLines(r.Context(), query)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	s.audit(r, "invoice.export", "", "")
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="invoices-export.csv"`)
+	if err := writeInvoicesExportCSV(w, rows, s.sellerName(r), loc); err != nil {
+		s.logInternalError(err)
+	}
+}
+
+// handleInvoiceSessionsCSV is the invoice's appendix: the sessions it bills, one row
+// each, by day, in the viewer's zone (FIN-06). The page lists the invoice's lines summed;
+// this is where the hours can be checked against the time they came from.
+func (s *Server) handleInvoiceSessionsCSV(w http.ResponseWriter, r *http.Request) {
+	inv, _, _, err := s.loadInvoiceVM(r, false)
+	if err != nil {
+		s.invoiceLoadError(w, r, err)
+		return
+	}
+	rows, err := s.services.Invoicing.Queries.Sessions(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: inv.ID})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	s.audit(r, "invoice.sessions", inv.Number, "")
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="invoice-%d-sessions.csv"`, inv.ID))
+	if err := writeInvoiceSessionsCSV(w, rows, userLoc(r)); err != nil {
+		s.logInternalError(err)
+	}
+}
+
 func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 	inv, vm, _, err := s.loadInvoiceVM(r, false)
 	if err != nil {
