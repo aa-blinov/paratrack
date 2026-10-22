@@ -19,6 +19,7 @@ import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { filterInvoices } from "./invoice-filter"
 import { AccountantExport } from "./accountant-export"
+import { ClientLink } from "./client-link"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // The badge variant stays neutral on purpose: `variant` paints a utility
@@ -229,6 +230,7 @@ function InvoiceActions({ data }: { data: InvoiceDetailData }) {
       {inv.PaymentURL ? <Button asChild size="sm" variant="ghost"><a href={inv.PaymentURL} target="_blank" rel="noopener"><LinkIcon aria-hidden="true" />{t(lang, "inv.payOnline")}</a></Button> : data.StripeReady ? <form method="POST" action={`/invoices/${inv.ID}/pay`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="mode" value="stripe" /><Button type="submit" size="sm" variant="ghost"><LinkIcon aria-hidden="true" />{t(lang, "inv.payLink")}</Button></form> : inv.Status !== "paid" && <span className="text-xs text-muted-foreground">{t(lang, "inv.noOnlineHint")}</span>}
       <form method="POST" action={`/invoices/${inv.ID}/delete`} className="ml-auto" data-confirm={t(lang, "inv.confirmDelete", inv.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="icon" variant="ghost" className="text-destructive" aria-label={t(lang, "inv.delete")}><Trash2 aria-hidden="true" /></Button></form>
     </div>
+    <ClientLink invoiceID={inv.ID} csrfToken={data.CSRFToken} lang={lang} />
   </div>
 }
 

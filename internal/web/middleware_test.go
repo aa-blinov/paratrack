@@ -88,7 +88,7 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 		},
 		Invoicing: InvoiceDependencies{
 			Queries: services.Invoicing, Drafts: services.Invoicing,
-			PaymentLinks: services.Invoicing,
+			PaymentLinks: services.Invoicing, Shares: services.Invoicing,
 		},
 		InvoiceDocuments:   services.InvoiceDocuments,
 		Payroll:            services.Payroll,
