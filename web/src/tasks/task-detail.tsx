@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
+import { askPlanMove } from "./plan-move"
 import { translate as t } from "@/i18n"
 import type { TaskActivity, TaskDetailData } from "@/dashboard/types"
 
@@ -66,9 +67,14 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
       setError(t(lang, "tasks.dueInvalid"))
       return
     }
-    void run(() => post(`/api/tasks/${task.ID}`, data.CSRFToken, {
-      title, assignee_id: assignee === noPerson ? "0" : assignee, due, estimate_minutes: estimate || "0", description,
-    }))
+    const to = assignee === noPerson ? 0 : Number(assignee)
+    void run(async () => {
+      const movePlan = await askPlanMove(task.ID, task.AssigneeID, to, lang)
+      await post(`/api/tasks/${task.ID}`, data.CSRFToken, {
+        title, assignee_id: assignee === noPerson ? "0" : assignee, due, estimate_minutes: estimate || "0", description,
+        ...(movePlan ? { move_plan: "1" } : {}),
+      })
+    })
   }
 
   // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).

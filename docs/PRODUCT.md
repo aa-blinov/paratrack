@@ -111,6 +111,8 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Copying a week (`POST /api/schedule/copy`) is allowed only into an empty week from a week with a plan; otherwise it is refused, never merged.
 - A project has an optional deadline (`projects.deadline`, YYYY-MM-DD) and an optional lead (`projects.lead_user_id`, a current member). The lead writes plan cells on that project only (`UpsertScheduleEntry` checks the lead, and membership, in the same transaction) and sees tracked time by person on the project page. Only managers change the deadline and the lead.
 - A task's activity has the task's name. A team holds one activity per name, so a task named like a free activity of its own project takes that activity over; a name whose activity belongs to another task, another project or the archive is refused with a reason (TASK-15)
+- A task has a feed of comments (`task_comments`, `POST /api/tasks/{id}/comments`); an archived task takes none. Stopping a timer on a task's activity answers with the task id (`X-Toast-Task`), and the stop card offers one line of result, saved to that feed (TASK-02). Stopping all timers at once offers no line
+- Reassigning a task with `move_plan=1` moves the previous assignee's plan on the task's project, from today on, to the new assignee, day by day, in one transaction (TASK-03). The plan is per person, project and day, so a task has no plan of its own. Managers and the project lead may move it; for anyone else the reassignment stands and the move is refused with a reason
 - Weekly norm (PLAN-02): a project may carry a norm in hours a week (`project_weekly_norms`). The project page lists six weeks around today with the plan and, where the viewer may see it, the tracked time. A week more than a tenth off the norm is marked. A past week is judged by its tracked time where the viewer may see it, and by the plan otherwise
 - Reminders (`internal/reminders`, once an hour): a deadline within three days goes to the managers and the lead, once per deadline (`projects.deadline_reminded`); a person planned past their available time this week goes to the managers, once per person and week (`schedule_overload_reminders`). Topics `project.deadline`, `schedule.overload` and `task.due` can be muted. When SMTP is configured, the overload reminder also goes by email to the same managers, with the same mute rule (TIME-14). A task's assignee gets a nudge when its due date is today or tomorrow, and another when it is overdue: once per due date, by push and, with SMTP, by email (TASK-05).
 - Managers see tracked time; a member sees only the plan.
@@ -206,7 +208,7 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/tasks  (list; `?archived=1` for the archive; create)  /api/tasks/{id}  (update)
 /api/tasks/{id}/status  /api/tasks/{id}/archive  /api/tasks/{id}/restore
 /api/workspace/restore  (raw JSON body of an export, creates a workspace for the caller)
-/api/tasks/{id}/activities  /api/tasks/{id}/linkable
+/api/tasks/{id}/activities  /api/tasks/{id}/linkable  /api/tasks/{id}/comments  /api/tasks/{id}/plan-move
 /api/goals /api/tags
 /api/reports.csv  /api/reports/save  /api/reports/{id}/delete
 /api/tokens  /api/tokens/{id}/delete

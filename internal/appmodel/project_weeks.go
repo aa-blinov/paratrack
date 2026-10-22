@@ -17,3 +17,14 @@ type ProjectWeeklyNormRequest struct {
 	CallerID  int64
 	Minutes   int
 }
+
+// PlanMoveRequest moves what one person has planned on a project from a day onward
+// to another person (TASK-03). From is the first day it applies to.
+type PlanMoveRequest struct {
+	TeamID     int64
+	ProjectID  int64
+	FromUserID int64
+	ToUserID   int64
+	CallerID   int64
+	From       time.Time
+}

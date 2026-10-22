@@ -191,6 +191,8 @@ type SchedulingWorkflow interface {
 	ProjectWeekTotals(ctx context.Context, teamID, projectID int64, weeks []time.Time, now time.Time) ([]appmodel.ProjectWeekTotal, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
 	ProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
+	PlannedFromDayForUser(ctx context.Context, teamID, projectID, userID int64, from time.Time) (int, error)
+	MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error)
 	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 }

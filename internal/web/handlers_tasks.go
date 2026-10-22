@@ -384,11 +384,89 @@ func (s *Server) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {
 		description := strings.TrimSpace(r.PostForm.Get("description"))
 		request.Description = &description
 	}
+	var before []appmodel.TaskRow
+	if _, sent := r.PostForm["assignee_id"]; sent && r.PostForm.Get("move_plan") == "1" {
+		before, _ = s.services.Tasks.List(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), TaskID: id})
+	}
 	if _, err := s.services.Tasks.Update(r.Context(), request); err != nil {
 		s.writeTaskError(w, r, err)
 		return
 	}
+	if len(before) > 0 && request.AssigneeID != nil && *request.AssigneeID != before[0].Task.AssigneeID && before[0].Task.AssigneeID > 0 {
+		// The plan follows the task only when the person asked for it (TASK-03).
+		if _, err := s.services.Scheduling.MovePlanFromDay(r.Context(), appmodel.PlanMoveRequest{
+			TeamID: teamID(r), ProjectID: before[0].Task.ProjectID, FromUserID: before[0].Task.AssigneeID, ToUserID: *request.AssigneeID,
+			CallerID: authenticatedUserID(r), From: startOfDay(userNow(r)),
+		}); err != nil {
+			if errors.Is(err, model.ErrForbidden) {
+				s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(resolveLang(r), "tasks.planMoveForbidden")})
+				return
+			}
+			s.writeInternalJSONError(w, fmt.Errorf("move plan: %w", err))
+			return
+		}
+	}
 	s.writeJSON(w, taskOKResponse{OK: true})
+}
+
+// taskPlanPreview says how much plan would move with a task to another person (TASK-03).
+type taskPlanPreview struct {
+	Minutes int    `json:"minutes"`
+	Hours   string `json:"hours"`
+	CanMove bool   `json:"can_move"`
+}
+
+func (taskPlanPreview) isJSONResponse() {}
+
+// handleTaskPlanMove answers before a reassignment is saved: the plan the current
+// assignee still has on the task's project from today on (TASK-03).
+func (s *Server) handleTaskPlanMove(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.taskIDFromPath(w, r)
+	if !ok {
+		return
+	}
+	to, _ := strconv.ParseInt(r.URL.Query().Get("to"), 10, 64)
+	rows, err := s.services.Tasks.List(r.Context(), appmodel.TaskQuery{TeamID: teamID(r), TaskID: id})
+	if err != nil {
+		s.writeTaskError(w, r, err)
+		return
+	}
+	if len(rows) == 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
+	}
+	task := rows[0].Task
+	minutes := 0
+	if task.AssigneeID > 0 && to > 0 && to != task.AssigneeID {
+		minutes, err = s.services.Scheduling.PlannedFromDayForUser(r.Context(), teamID(r), task.ProjectID, task.AssigneeID, startOfDay(userNow(r)))
+		if err != nil {
+			s.writeInternalJSONError(w, err)
+			return
+		}
+	}
+	// Who may move the plan is the same rule the write checks (MovePlanFromDay): a
+	// manager, or the lead of the task's project.
+	canMove := canManage(r) || s.leadsProject(r, task.ProjectID)
+	s.writeJSON(w, taskPlanPreview{Minutes: minutes, Hours: fmtDur(r, minutes*60), CanMove: canMove})
+}
+
+// leadsProject reports whether the signed-in person leads the project. It only
+// shapes the question shown before a reassignment; the write checks it again.
+func (s *Server) leadsProject(r *http.Request, projectID int64) bool {
+	viewer := authenticatedUserID(r)
+	if viewer <= 0 {
+		return false
+	}
+	list, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: true})
+	if err != nil {
+		return false
+	}
+	for _, project := range list {
+		if project.ID == projectID {
+			return project.LeadUserID == viewer
+		}
+	}
+	return false
 }
 
 func (s *Server) handleTaskStatus(w http.ResponseWriter, r *http.Request) {

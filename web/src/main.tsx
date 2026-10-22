@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { loadDictionary, translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
+import { StopResult } from "@/dashboard/stop-result"
 import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { responseMessage } from "@/lib/response-message"
@@ -95,7 +96,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   // The server answers a stop with the way back: X-Toast-Undo points at
   // reopen for the record it just wrote. Keep the id; the name and length come
   // from the snapshot that refresh() loads a moment later.
-  const [stopped, setStopped] = useState<{ ids: number[]; message: string } | null>(null)
+  const [stopped, setStopped] = useState<{ ids: number[]; message: string; taskId?: number } | null>(null)
   const [error, setError] = useState("")
   const [showNext, setShowNext] = useState(true)
   const [backfillFailure, setBackfillFailure] = useState<{ field: string; message: string } | null>(null)
@@ -173,7 +174,9 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       // per session when every timer was stopped at once.
       const undoHeader = response.headers.get("X-Toast-Undo") || ""
       const ids = [...undoHeader.matchAll(/\/sessions\/(\d+)\//g)].map(match => Number(match[1]))
-      setStopped(ids.length ? { ids, message: decodeURIComponent(response.headers.get("X-Toast") || "") } : null)
+      // A stop on a task also names it (X-Toast-Task), so the card can take the result line.
+      const taskId = Number(response.headers.get("X-Toast-Task") || 0)
+      setStopped(ids.length ? { ids, message: decodeURIComponent(response.headers.get("X-Toast") || ""), taskId } : null)
       await refresh()
       // The stopped row left the page and took the focus with it, so the
       // keyboard lands on «Отменить»: the next thing a person may want.
@@ -267,6 +270,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         <Button variant="ghost" size="sm" className="min-w-0 shrink" disabled={busy} aria-label={row ? t(lang, "dash.fix", row.ActivityName) : undefined} onClick={() => { setStopped(null); window.location.assign(`/stats?log=all&session=${id}`) }}><span className="truncate">{row && !many ? t(lang, "dash.fix", row.ActivityName) : t(lang, "dash.fixShort")}</span></Button>
       </span>
     })}
+    {!!stopped.taskId && stopped.ids.length === 1 && <StopResult taskId={stopped.taskId} csrfToken={data.CSRFToken} lang={lang} />}
   </CardContent></Card>
 
   const goalsWidget = data.Widgets?.goals && data.Mods?.goals && data.Goals?.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.goals}</CardTitle><a className="py-1 text-sm underline underline-offset-4" href="/goals">{labels.manage}</a></CardHeader><CardContent className="grid gap-4">{data.Goals.map(goal => <div key={goal.ID} className="grid gap-2"><div className="flex flex-col gap-1 text-sm xl:flex-row xl:justify-between xl:gap-2"><span className="min-w-0 [overflow-wrap:anywhere]">{goal.ActivityName} <span className="text-muted-foreground">{goal.PeriodRangeLabel}</span></span><span className="shrink-0 font-mono xl:whitespace-nowrap">{goal.AchievedLabel} / {goal.TargetLabel}</span></div><Progress value={Math.min(goal.Percent, 100)} aria-label={goal.ActivityName} /></div>)}</CardContent></Card>
