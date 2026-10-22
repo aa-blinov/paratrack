@@ -48,6 +48,11 @@ type UserReader interface {
 	FindIdentitiesByID(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
 }
 
+// TaskLinkReader tells which activities a task holds (TIME-05).
+type TaskLinkReader interface {
+	LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error)
+}
+
 type BuilderDependencies struct {
 	Sessions    SessionReader
 	Teams       TeamReader
@@ -55,6 +60,7 @@ type BuilderDependencies struct {
 	Users       UserReader
 	Tags        TagReader
 	Decorations SessionDecorationBuilder
+	Tasks       TaskLinkReader
 }
 
 type ReportLabels = appmodel.ReportLabels
@@ -68,6 +74,7 @@ type Builder struct {
 	users       UserReader
 	tags        TagReader
 	decorations SessionDecorationBuilder
+	tasks       TaskLinkReader
 }
 
 func NewBuilder(deps BuilderDependencies) (*Builder, error) {
@@ -77,6 +84,7 @@ func NewBuilder(deps BuilderDependencies) (*Builder, error) {
 	}{
 		{"sessions", deps.Sessions}, {"teams", deps.Teams},
 		{"projects", deps.Projects}, {"users", deps.Users}, {"tags", deps.Tags}, {"session decorations", deps.Decorations},
+		{"tasks", deps.Tasks},
 	}
 	for _, dependency := range missing {
 		if depcheck.IsNil(dependency.port) {
@@ -86,6 +94,7 @@ func NewBuilder(deps BuilderDependencies) (*Builder, error) {
 	return &Builder{
 		sessions: deps.Sessions, teams: deps.Teams,
 		projects: deps.Projects, users: deps.Users, tags: deps.Tags, decorations: deps.Decorations,
+		tasks: deps.Tasks,
 	}, nil
 }
 
@@ -306,6 +315,16 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report sessions: %w", err)
 	}
+	linked, err := b.tasks.LinkedActivityIDs(ctx, query.TeamID)
+	if err != nil {
+		return AggregateResult{}, fmt.Errorf("load report task links: %w", err)
+	}
+	unlinkedSeconds := 0
+	for _, session := range sessions {
+		if !linked[session.Activity.ID] {
+			unlinkedSeconds += session.Session.TrackedSecondsInWindow(query.From, query.To, query.Now)
+		}
+	}
 	teamCurrency, err := b.teams.Currency(ctx, query.TeamID)
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report currency: %w", err)
@@ -376,6 +395,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("aggregate report: %w", err)
 	}
+	result.UnlinkedSeconds = unlinkedSeconds
 	return result, nil
 }
 

@@ -24,6 +24,7 @@ type Store interface {
 	ListTasks(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.TaskRow, error)
 	ListLinkableActivities(ctx context.Context, query appmodel.TaskQuery) ([]appmodel.Activity, error)
 	ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error)
+	LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error)
 	ImportTasks(ctx context.Context, request appmodel.TaskImportRequest) (appmodel.TaskImportResult, error)
 }
 
@@ -144,6 +145,14 @@ func (s *Service) ActivityHasTask(ctx context.Context, teamID, activityID int64)
 		return false, appmodel.ErrInvalidTask
 	}
 	return s.store.ActivityHasTask(ctx, teamID, activityID)
+}
+
+// LinkedActivityIDs returns the activities that tasks hold, for reports.
+func (s *Service) LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.LinkedActivityIDs(ctx, teamID)
 }
 
 func (s *Service) LinkActivity(ctx context.Context, request appmodel.TaskActivityRequest) (appmodel.Activity, error) {
