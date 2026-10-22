@@ -89,6 +89,9 @@ func (d *DB) MarkInvoicePaidOnce(ctx context.Context, request appmodel.InvoiceMu
 		return number, false, nil
 	}
 	transitionTime := d.currentTime().UTC()
+	if err := recordRemainingPaymentTx(ctx, tx, teamID, id, "manual", transitionTime); err != nil {
+		return "", false, err
+	}
 	_, err = tx.ExecContext(ctx,
 		`UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND team_id = ?`, FormatTime(transitionTime), id, teamID)
 	if err != nil {
@@ -142,6 +145,9 @@ func (d *DB) MarkInvoicePaidFromStripe(ctx context.Context, request appmodel.Inv
 		return false, nil
 	}
 	transitionTime := d.currentTime().UTC()
+	if err := recordRemainingPaymentTx(ctx, tx, teamID, id, "stripe", transitionTime); err != nil {
+		return false, err
+	}
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE invoices SET status = 'paid', paid_at = ? WHERE id = ? AND team_id = ?`,
 		FormatTime(transitionTime), id, teamID); err != nil {

@@ -291,3 +291,22 @@ func orDefault(v, def string) string {
 	}
 	return v
 }
+
+// EML renders a letter as an .eml file. A server without SMTP cannot send the
+// letter itself, and a mailto link cannot carry the invoice PDF, so the letter
+// goes to the sender's mail program as a file with the attachment inside (FIN-10).
+func (LogSender) EML(from string, m Message) ([]byte, error) {
+	return renderEML(from, m)
+}
+
+// EML renders the letter the SMTP sender would deliver, as a file (FIN-10).
+func (s SMTPSender) EML(from string, m Message) ([]byte, error) {
+	return renderEML(from, m)
+}
+
+func renderEML(from string, m Message) ([]byte, error) {
+	if err := validateMessageHeaders(from, m); err != nil {
+		return nil, err
+	}
+	return buildMessage(from, m), nil
+}

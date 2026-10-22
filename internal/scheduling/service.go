@@ -22,6 +22,9 @@ type Store interface {
 	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
+	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
+	GetProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
+	ListProjectWeekTotals(ctx context.Context, teamID, projectID int64, weeks []time.Time, now time.Time) ([]appmodel.ProjectWeekTotal, error)
 	AddScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveScheduleLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 }
@@ -209,4 +212,42 @@ func (s *Service) SetCell(ctx context.Context, request appmodel.ScheduleCellRequ
 		return fmt.Errorf("save schedule cell: %w", err)
 	}
 	return nil
+}
+
+// ProjectWeekTotals is the plan and the tracked time on one project for each of
+// the given weeks, by the first day of each week (PLAN-02).
+func (s *Service) ProjectWeekTotals(ctx context.Context, teamID, projectID int64, weeks []time.Time, now time.Time) ([]appmodel.ProjectWeekTotal, error) {
+	if teamID <= 0 || projectID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	totals, err := s.store.ListProjectWeekTotals(ctx, teamID, projectID, weeks, now)
+	if err != nil {
+		return nil, fmt.Errorf("load project weeks: %w", err)
+	}
+	return totals, nil
+}
+
+// SetProjectWeeklyNorm stores a project's weekly norm; zero minutes removes it.
+// Only a manager may set it, and the store checks that under its own lock.
+func (s *Service) SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error {
+	if request.TeamID <= 0 || request.ProjectID <= 0 || request.CallerID <= 0 || request.Minutes < 0 || request.Minutes > 7*24*60 {
+		return ErrInvalidScheduleCell
+	}
+	if err := s.store.SetProjectWeeklyNorm(ctx, request); err != nil {
+		return fmt.Errorf("save project weekly norm: %w", err)
+	}
+	return nil
+}
+
+// ProjectWeeklyNorm reads a project's weekly norm in minutes; ok is false when the
+// project has none.
+func (s *Service) ProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (minutes int, ok bool, err error) {
+	if teamID <= 0 || projectID <= 0 {
+		return 0, false, ErrInvalidScheduleCell
+	}
+	minutes, ok, err = s.store.GetProjectWeeklyNorm(ctx, teamID, projectID)
+	if err != nil {
+		return 0, false, fmt.Errorf("load project weekly norm: %w", err)
+	}
+	return minutes, ok, nil
 }

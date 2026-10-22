@@ -189,6 +189,16 @@ type ExportInvoice struct {
 	Revision      int64
 	CreatedAt     string
 	Lines         []ExportInvoiceLine
+	Payments      []ExportInvoicePayment
+}
+
+// ExportInvoicePayment is one entry of an invoice's payment journal (FIN-08).
+type ExportInvoicePayment struct {
+	PaidOn      string
+	AmountCents int
+	Note        string
+	Source      string
+	CreatedAt   string
 }
 
 type ExportInvoiceLine struct {

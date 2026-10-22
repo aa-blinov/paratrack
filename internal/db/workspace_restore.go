@@ -350,6 +350,13 @@ func (r *restorer) Invoice(inv appmodel.ExportInvoice) error {
 			return err
 		}
 	}
+	for _, payment := range inv.Payments {
+		if err := r.exec("payment of "+inv.Number,
+			`INSERT INTO invoice_payments (team_id, invoice_id, paid_on, amount_cents, note, source, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			r.teamID, id, payment.PaidOn, payment.AmountCents, payment.Note, payment.Source, payment.CreatedAt); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -41,6 +41,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 
 	// Project billing rates and invoices.
 	pages.HandleFunc("POST /projects/{slug}/rate", s.manage(s.handleProjectRate))
+	pages.HandleFunc("POST /projects/{slug}/norm", s.manage(s.handleProjectWeeklyNorm))
 	pages.HandleFunc("GET /invoices", s.module("invoices", s.manage(s.handleInvoices)))
 	pages.HandleFunc("GET /invoices/unapproved", s.module("invoices", s.manage(s.handleInvoiceUnapproved)))
 	pages.HandleFunc("POST /invoices", s.module("invoices", s.manage(s.handleInvoiceCreate)))
@@ -54,10 +55,12 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /invoices/{id}/rebuild", s.module("invoices", s.manage(s.handleInvoiceRebuild)))
 	pages.HandleFunc("POST /invoices/{id}/receipt", s.module("invoices", s.manage(s.handleInvoiceReceipt)))
 	pages.HandleFunc("POST /invoices/{id}/send", s.module("invoices", s.manage(s.handleInvoiceSend)))
+	pages.HandleFunc("GET /invoices/{id}/letter.eml", s.module("invoices", s.manage(s.handleInvoiceLetter)))
 	pages.HandleFunc("GET /settings/email-preview", s.manage(s.handleEmailPreview))
 	pages.HandleFunc("GET /invoices/{id}/act.pdf", s.module("invoices", s.manage(s.handleInvoiceActPDF)))
 	pages.HandleFunc("POST /invoices/{id}/pay", s.module("invoices", s.manage(s.handleInvoicePayLink)))
 	pages.HandleFunc("POST /invoices/{id}/paid", s.module("invoices", s.manage(s.handleInvoiceMarkPaid)))
+	pages.HandleFunc("POST /invoices/{id}/payments", s.module("invoices", s.manage(s.handleInvoicePayment)))
 	pages.HandleFunc("POST /api/team/stripe", s.manage(s.handleTeamStripe))
 
 	// Payroll and resource scheduling.

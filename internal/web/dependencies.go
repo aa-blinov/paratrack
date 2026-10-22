@@ -188,6 +188,9 @@ type SchedulingWorkflow interface {
 	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
 	ProjectPlanByMember(ctx context.Context, teamID, projectID int64, now time.Time) (planned, tracked map[int64]int, err error)
 	PlannedAhead(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
+	ProjectWeekTotals(ctx context.Context, teamID, projectID int64, weeks []time.Time, now time.Time) ([]appmodel.ProjectWeekTotal, error)
+	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
+	ProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
 	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 }
@@ -284,6 +287,7 @@ type InvoiceDrafts interface {
 	CreateDraftWithOverlapCheck(context.Context, appmodel.InvoiceDraftRequest) (appmodel.InvoiceDraftCreation, error)
 	DeleteDraft(context.Context, appmodel.InvoiceMutationRequest) error
 	MarkSent(context.Context, appmodel.InvoiceMutationRequest) error
+	BookPayment(context.Context, appmodel.InvoicePaymentRequest) (bool, error)
 	RebuildDraft(context.Context, appmodel.InvoiceMutationRequest) error
 	SetReceipt(context.Context, appmodel.InvoiceReceiptRequest) error
 	UpdateDraftDetails(context.Context, appmodel.InvoiceDraftUpdateRequest) error

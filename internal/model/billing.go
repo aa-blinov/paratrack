@@ -37,6 +37,20 @@ type PayrollLine struct {
 }
 
 // Invoice is an issued billing document and its creation-time snapshots.
+// InvoicePayment is one entry of an invoice's payment journal (FIN-08). Entries
+// are only added: what the client paid is the history of entries, not a field
+// that an edit could overwrite.
+type InvoicePayment struct {
+	ID          int64
+	TeamID      int64
+	InvoiceID   int64
+	PaidOn      string // YYYY-MM-DD
+	AmountCents int
+	Note        string
+	Source      string // "manual" or "stripe"
+	CreatedAt   time.Time
+}
+
 type Invoice struct {
 	ID            int64
 	TeamID        int64

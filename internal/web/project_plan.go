@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
@@ -21,6 +22,22 @@ type projectPlanView struct {
 	RemainingOver  bool
 	// LeadLabel names the project lead, or is empty when there is none.
 	LeadLabel string
+	// Weeks are the weeks around today, and the norm in clock form when there is one (PLAN-02).
+	Weeks           []projectWeekRow
+	WeeklyNormLabel string
+	WeeklyNormInput string
+}
+
+// projectWeekRow is one week of the project: the plan, the tracked time when the
+// viewer may see it, and how far the week strays from the weekly norm.
+type projectWeekRow struct {
+	Start     string
+	Label     string
+	Planned   string
+	Tracked   string
+	Deviation string
+	Off       bool
+	Current   bool
 }
 
 // projectPlan builds the plan view. The tracked column and the left-of-estimate
@@ -68,6 +85,22 @@ func (s *Server) projectPlan(r *http.Request, project model.Project) (projectPla
 		view.People = append(view.People, row)
 	}
 	sort.Slice(view.People, func(i, j int) bool { return view.People[i].Name < view.People[j].Name })
+	weekStarts := projectWeeks(now, 3, 2)
+	weeks, err := s.services.Scheduling.ProjectWeekTotals(r.Context(), teamID(r), project.ID, weekStarts, now)
+	if err != nil {
+		return projectPlanView{}, err
+	}
+	norm, hasNorm, err := s.services.Scheduling.ProjectWeeklyNorm(r.Context(), teamID(r), project.ID)
+	if err != nil {
+		return projectPlanView{}, err
+	}
+	for i, week := range weekStarts {
+		view.Weeks = append(view.Weeks, projectWeekRowOf(r, week, weeks[i], norm*60, hasNorm, now, showTracked))
+	}
+	if hasNorm {
+		view.WeeklyNormLabel = fmtDur(r, norm*60)
+		view.WeeklyNormInput = fmtDurF(lang, "clock", norm*60)
+	}
 	view.PlannedLabel = fmtDur(r, plannedTotal*60)
 	if showTracked {
 		view.TrackedLabel = fmtDur(r, trackedTotal*60)
@@ -115,4 +148,61 @@ func deadlineLabel(r *http.Request, deadline string) string {
 		return ""
 	}
 	return fmtDate(resolveLang(r), day)
+}
+
+// projectWeeks lists the weeks around now by their first day (Monday), from back
+// weeks before this one to ahead weeks after it.
+func projectWeeks(now time.Time, back, ahead int) []time.Time {
+	monday := startOfDay(now).AddDate(0, 0, -((int(now.Weekday()) + 6) % 7))
+	weeks := make([]time.Time, 0, back+ahead+1)
+	for i := -back; i <= ahead; i++ {
+		weeks = append(weeks, monday.AddDate(0, 0, 7*i))
+	}
+	return weeks
+}
+
+// projectWeekRowOf prints one week. A week that is over is judged by the time
+// tracked in it, but only where the viewer may see that time: anyone else is
+// judged by the plan, so the norm does not leak the tracked figures (PLAN-02).
+func projectWeekRowOf(r *http.Request, week time.Time, total appmodel.ProjectWeekTotal, normSeconds int, hasNorm bool, now time.Time, showTracked bool) projectWeekRow {
+	lang := resolveLang(r)
+	nextWeek := week.AddDate(0, 0, 7)
+	row := projectWeekRow{
+		Start:   week.Format("2006-01-02"),
+		Label:   fmtDay(lang, week) + " – " + fmtDay(lang, nextWeek.AddDate(0, 0, -1)),
+		Planned: fmtDur(r, total.PlannedMinutes*60),
+		Current: !now.Before(week) && now.Before(nextWeek),
+	}
+	if showTracked {
+		row.Tracked = fmtDur(r, total.TrackedSeconds)
+	}
+	if hasNorm {
+		figure := total.PlannedMinutes * 60
+		if showTracked && !now.Before(nextWeek) {
+			figure = total.TrackedSeconds
+		}
+		row.Off = weekOff(figure, normSeconds)
+		row.Deviation = deviationLabel(r, figure-normSeconds)
+	}
+	return row
+}
+
+// weekOff reports whether a week strays from the norm by more than a tenth of it.
+// A week a little short is normal; a week far off in either direction is not.
+func weekOff(figure, norm int) bool {
+	diff := figure - norm
+	if diff < 0 {
+		diff = -diff
+	}
+	return norm > 0 && diff*10 > norm
+}
+
+// deviationLabel signs a difference from the norm: "+4:00" over, "-4:00" under.
+func deviationLabel(r *http.Request, diffSeconds int) string {
+	sign := "+"
+	if diffSeconds < 0 {
+		sign = "-"
+		diffSeconds = -diffSeconds
+	}
+	return sign + fmtDur(r, diffSeconds)
 }

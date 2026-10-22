@@ -165,6 +165,9 @@ func (s *Server) handleProjectDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	data.People = plan.People
 	data.PlannedLabel = plan.PlannedLabel
+	data.Weeks = plan.Weeks
+	data.WeeklyNormLabel = plan.WeeklyNormLabel
+	data.WeeklyNormInput = plan.WeeklyNormInput
 	data.TrackedLabel = plan.TrackedLabel
 	data.RemainingLabel = plan.RemainingLabel
 	data.RemainingOver = plan.RemainingOver
@@ -513,4 +516,36 @@ func (s *Server) clientOptions(r *http.Request) []clientRef {
 		out = append(out, clientRef{ID: card.ID, Name: card.Name})
 	}
 	return out
+}
+
+// handleProjectWeeklyNorm sets a project's weekly norm from the form, in clock form
+// ("30:00"). An empty field removes the norm (PLAN-02).
+func (s *Server) handleProjectWeeklyNorm(w http.ResponseWriter, r *http.Request) {
+	slug := r.PathValue("slug")
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "invalid form", http.StatusBadRequest)
+		return
+	}
+	lang := resolveLang(r)
+	project, err := s.services.Projects.Queries.GetBySlug(r.Context(), appmodel.ProjectSlugQuery{TeamID: teamID(r), Slug: slug})
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	minutes := 0
+	if raw := strings.TrimSpace(r.PostForm.Get("weekly_norm")); raw != "" {
+		parsed, parseErr := taskEstimateMinutes(raw)
+		if parseErr != nil || parsed <= 0 {
+			http.Redirect(w, r, "/projects/"+url.PathEscape(slug)+"?flash="+encodeFlash(false, i18n.T(lang, "proj.weekNormBad")), http.StatusSeeOther)
+			return
+		}
+		minutes = parsed
+	}
+	if err := s.services.Scheduling.SetProjectWeeklyNorm(r.Context(), appmodel.ProjectWeeklyNormRequest{
+		TeamID: teamID(r), ProjectID: project.ID, CallerID: authenticatedUserID(r), Minutes: minutes,
+	}); err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	http.Redirect(w, r, "/projects/"+url.PathEscape(slug)+"?flash="+encodeFlash(true, i18n.T(lang, "proj.weekNormSaved")), http.StatusSeeOther)
 }

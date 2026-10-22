@@ -229,3 +229,26 @@ func (s *Service) SetReceipt(ctx context.Context, request appmodel.InvoiceReceip
 	}
 	return nil
 }
+
+// BookPayment records a payment the manager typed in (FIN-08). The day is checked
+// here; the amount against what is still owed and the sent-only rule are checked
+// by the store, under the invoice's row lock. The result says whether this payment
+// settled the invoice.
+func (s *Service) BookPayment(ctx context.Context, request appmodel.InvoicePaymentRequest) (bool, error) {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.CallerID <= 0 {
+		return false, ErrInvalidInvoice
+	}
+	if _, err := time.Parse("2006-01-02", request.PaidOn); err != nil {
+		return false, model.ErrPaymentDate
+	}
+	request.Note = strings.TrimSpace(request.Note)
+	if runes := []rune(request.Note); len(runes) > 200 {
+		request.Note = string(runes[:200])
+	}
+	settled, err := s.writer.RecordInvoicePayment(ctx, request)
+	if err != nil {
+		return false, fmt.Errorf("record invoice payment: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.payment", strconv.FormatInt(request.InvoiceID, 10), strconv.Itoa(request.AmountCents))
+	return settled, nil
+}

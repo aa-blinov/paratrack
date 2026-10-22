@@ -87,6 +87,8 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Invoice period `start`/`end` are dates; `end` is exclusive (`2026-09-25`–`2026-09-25` = one day)
 - A draft carries an optional payment due day (`invoices.due_date`, `YYYY-MM-DD`, empty = none). It is set with the draft details and frozen when the invoice is sent (FIN-07)
 - A sent invoice still unpaid after its due day is overdue: the list and the invoice page mark it. The due day itself is not late, a draft is never overdue, and a paid invoice is never overdue
+- A sent invoice takes payments into a journal (`invoice_payments`: date, amount, note, source). It is paid when the journal covers the total; marking it paid books what is still owed, so the journal always adds up to the total. A partial payment leaves it sent and shows how far it got. The journal is only ever added to, and it is exported with the workspace (FIN-08)
+- The invoice list filters by status (overdue included), by the day it was issued, and by "not paid" (FIN-09). Without SMTP the invoice letter can still go out as an `.eml` file with the PDF inside (FIN-10)
 - An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
 
 **Payroll**
@@ -99,7 +101,8 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
   outside every approved window refuses the run with `PayrollNotApprovedError`, which carries the
   count and the first and last start; the message names them. The current week can be paid only
   after it has ended and been approved. `/payroll` lists the finished, unapproved weeks with tracked
-  time from the last eight, each linking to its timesheet.
+  time from the last eight, each linking to its timesheet, with a button that approves that week
+  from here (the same approval the timesheet makes; the form sends the Monday and the Sunday).
 
 **Schedule**
 
@@ -107,6 +110,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - `Available = capacity × 5 − admin`: the week's time for clients. `Load% = planned / available`, and `Tracked%` is the same ratio over the time the week's sessions logged, open timers included. A row says `overloaded` when planned time is over available time, and `idle` when it is strictly under half of a positive available time; overload takes precedence, and with no available time neither word appears. Admin time is set per member by a manager and never below zero available.
 - Copying a week (`POST /api/schedule/copy`) is allowed only into an empty week from a week with a plan; otherwise it is refused, never merged.
 - A project has an optional deadline (`projects.deadline`, YYYY-MM-DD) and an optional lead (`projects.lead_user_id`, a current member). The lead writes plan cells on that project only (`UpsertScheduleEntry` checks the lead, and membership, in the same transaction) and sees tracked time by person on the project page. Only managers change the deadline and the lead.
+- Weekly norm (PLAN-02): a project may carry a norm in hours a week (`project_weekly_norms`). The project page lists six weeks around today with the plan and, where the viewer may see it, the tracked time. A week more than a tenth off the norm is marked. A past week is judged by its tracked time where the viewer may see it, and by the plan otherwise
 - Reminders (`internal/reminders`, once an hour): a deadline within three days goes to the managers and the lead, once per deadline (`projects.deadline_reminded`); a person planned past their available time this week goes to the managers, once per person and week (`schedule_overload_reminders`). Topics `project.deadline`, `schedule.overload` and `task.due` can be muted. When SMTP is configured, the overload reminder also goes by email to the same managers, with the same mute rule (TIME-14). A task's assignee gets a nudge when its due date is today or tomorrow, and another when it is overdue: once per due date, by push and, with SMTP, by email (TASK-05).
 - Managers see tracked time; a member sees only the plan.
 - The project page shows the plan once, in the total row under "By person" (labelled "Total, all time"). That total is the sum of the person rows, and its tracked cell is the sum of the tracked column, so it appears only where that column does. A project nobody has planned shows no table and no total row. The remaining-estimate figure counts the plan from today onward and says so.
@@ -209,7 +213,8 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/integrations  /api/integrations/{id}/sync|delete  /api/integrations/start
 /api/me  /api/external-tasks
 /api/push/key  /api/push/subscribe  /api/push/unsubscribe
-/invoices  /invoices/{id}/status|delete|pay|paid
+/invoices  /invoices/{id}/status|delete|pay|paid|payments|letter.eml
+/projects/{slug}/norm (weekly norm, manager)
 /payroll  /payroll/{id}/paid|delete
 ```
 

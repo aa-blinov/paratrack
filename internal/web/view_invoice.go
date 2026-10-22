@@ -47,6 +47,16 @@ type invoiceVM struct {
 	Overdue                               bool
 	TeamID                                int64
 	Logo                                  template.URL
+	// The payment journal (FIN-08): what is paid, what is still owed, and the entries.
+	PaidLabel, RemainingLabel string
+	Remaining, PartialPaid    bool
+	TodayISO                  string
+	Payments                  []paymentVM
+}
+
+// paymentVM is one entry of the payment journal on the invoice page.
+type paymentVM struct {
+	Date, Amount, Note, Source string
 }
 
 type invoiceProjectOpt struct {
@@ -80,6 +90,8 @@ type invoiceSummary struct {
 	Period  string
 	Due     string
 	Overdue bool
+	Issued  string
+	Partial string
 }
 
 type invoicesPage struct {
@@ -166,6 +178,19 @@ func (s *Server) loadInvoiceVM(r *http.Request, includeStripeReadiness bool) (mo
 		Overdue: invoiceOverdue(inv.Status, inv.DueDate, userNow(r).Format("2006-01-02")),
 	}
 	vm.DriftMessage = invoiceDriftMessage(lang, inv.Status, details.InvoicedSeconds, details.TrackedSeconds)
+	owed := details.TotalCents - details.PaidCents
+	vm.PaidLabel = moneyL(lang, details.PaidCents, inv.Currency)
+	vm.RemainingLabel = moneyL(lang, owed, inv.Currency)
+	vm.Remaining = inv.Status == "sent" && owed > 0
+	vm.PartialPaid = details.PaidCents > 0 && owed > 0
+	vm.TodayISO = userNow(r).Format("2006-01-02")
+	vm.Payments = make([]paymentVM, 0, len(details.Payments))
+	for _, p := range details.Payments {
+		vm.Payments = append(vm.Payments, paymentVM{
+			Date: paymentDay(lang, p.PaidOn), Amount: moneyL(lang, p.AmountCents, inv.Currency),
+			Note: p.Note, Source: paymentSource(lang, p.Source),
+		})
+	}
 	vm.Logo = logoURL(snapshot.BillingRules.Logo)
 	return inv, vm, snapshot.StripeReady, nil
 }
@@ -231,4 +256,21 @@ func (s *Server) sellerName(r *http.Request) string {
 		}
 	}
 	return t.Name
+}
+
+// paymentDay prints the day the money arrived the way the document prints dates.
+func paymentDay(lang i18n.Lang, iso string) string {
+	day, err := time.Parse("2006-01-02", iso)
+	if err != nil {
+		return iso
+	}
+	return fmtDay(lang, day)
+}
+
+// paymentSource names how a journal entry came in.
+func paymentSource(lang i18n.Lang, source string) string {
+	if source == "stripe" {
+		return i18n.T(lang, "inv.paySourceStripe")
+	}
+	return i18n.T(lang, "inv.paySourceManual")
 }

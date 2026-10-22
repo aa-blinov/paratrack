@@ -44,6 +44,18 @@ func (scheduleCellStoreStub) TrackedMinutesForProject(context.Context, int64, in
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) SetProjectWeeklyNorm(context.Context, appmodel.ProjectWeeklyNormRequest) error {
+	return nil
+}
+
+func (scheduleCellStoreStub) GetProjectWeeklyNorm(context.Context, int64, int64) (int, bool, error) {
+	return 0, false, nil
+}
+
+func (scheduleCellStoreStub) ListProjectWeekTotals(context.Context, int64, int64, []time.Time, time.Time) ([]appmodel.ProjectWeekTotal, error) {
+	return nil, nil
+}
+
 func (scheduleCellStoreStub) PlannedMinutesForProjectFrom(context.Context, int64, int64, time.Time) (int, error) {
 	return 0, nil
 }
@@ -96,6 +108,18 @@ func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64)
 }
 
 func (scheduleStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
+	return nil, nil
+}
+
+func (scheduleStoreStub) SetProjectWeeklyNorm(context.Context, appmodel.ProjectWeeklyNormRequest) error {
+	return nil
+}
+
+func (scheduleStoreStub) GetProjectWeeklyNorm(context.Context, int64, int64) (int, bool, error) {
+	return 0, false, nil
+}
+
+func (scheduleStoreStub) ListProjectWeekTotals(context.Context, int64, int64, []time.Time, time.Time) ([]appmodel.ProjectWeekTotal, error) {
 	return nil, nil
 }
 
