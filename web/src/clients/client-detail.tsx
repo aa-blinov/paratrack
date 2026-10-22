@@ -81,13 +81,14 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
 
     <Flash message={data.Flash} ok={data.FlashOK} />
 
+    {data.CanManage && <p className="text-xs text-muted-foreground">{t(lang, "clients.allTimeCaption")}</p>}
     <dl className="grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
       <Fact label={t(lang, "clients.tracked")} value={client.TrackedLabel} />
       {/* Money is for the people who bill (D-2). */}
       {data.CanManage && <>
         <Fact label={t(lang, "clients.billed")} value={client.BilledLabel} />
         <Fact label={t(lang, "clients.unbilled")} value={client.UnbilledLabel} />
-        <Fact label={t(lang, "inv.amount")} value={client.BilledTotal} />
+        <Fact label={t(lang, "clients.invoicedTotal")} value={client.BilledTotal} />
       </>}
     </dl>
 
@@ -104,7 +105,7 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
       </CardContent></Card> : <EmptyBlock icon={<FolderKanban aria-hidden="true" className="size-5 text-muted-foreground" />} text={t(lang, "projects.empty")} />}
     </section>
 
-    {data.CanManage && <section className="space-y-3">
+    {data.CanManage && data.InvoicesOn && <section className="space-y-3">
       <h2 className="text-sm font-medium">{t(lang, "inv.title")}</h2>
       {invoices.length ? <Card><CardContent className="grid gap-3 p-5">
         {invoices.map(invoice => <InvoiceRow key={invoice.ID} lang={lang} invoice={invoice} />)}

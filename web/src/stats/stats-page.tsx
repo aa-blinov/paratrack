@@ -149,8 +149,9 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     <div className="mt-2 flex flex-wrap items-center gap-2">
       {session.Tags?.map(item => <Badge key={item.ID} variant="outline" className="gap-1"><a href={queryFor(data, data.Period.Label, data.ProjectFilter, item.Name, data.PersonFilter)} title={t(data.Lang, "stats.filterByTag")} className="underline-offset-4 hover:underline">#{item.Name}</a><Button variant="ghost" size="icon-sm" className="size-5" type="button" aria-label={`${t(data.Lang, "stats.removeTag")} ${item.Name}`} onClick={() => void removeTag(item.Name)}><X aria-hidden="true" className="size-3" /></Button></Badge>)}
       <form className="flex max-w-xs items-center gap-1" onSubmit={addTag}><Input list="known-tags-all" aria-label={`${t(data.Lang, "stats.addTag")} — ${session.ActivityName}`} placeholder={t(data.Lang, "stats.addTag")} value={tag} onChange={event => setTag(event.target.value)} /><Button type="submit" size="icon" variant="outline" aria-label={t(data.Lang, "stats.attachTag")}><Plus aria-hidden="true" /></Button></form>
-      <Button type="button" size="icon" variant="ghost" className="ml-auto text-destructive" title={t(data.Lang, "stats.deleteSession")} aria-label={t(data.Lang, "stats.deleteSession")} onClick={async () => await requestConfirmation(t(data.Lang, "stats.confirmDelete")) && onRemove(session.ID)}><Trash2 aria-hidden="true" /></Button>
+      <Button type="button" size="icon" variant="ghost" className="ml-auto text-destructive" disabled={session.Locked} title={session.Locked ? session.LockNote : t(data.Lang, "stats.deleteSession")} aria-label={t(data.Lang, "stats.deleteSession")} onClick={async () => await requestConfirmation(t(data.Lang, "stats.confirmDelete")) && onRemove(session.ID)}><Trash2 aria-hidden="true" /></Button>
     </div>
+    {session.Locked && <p className="mt-2 text-xs text-muted-foreground">{session.LockNote}</p>}
     {error && <p role="alert" className="mt-2 text-xs text-destructive">{error}</p>}
   </>
 }

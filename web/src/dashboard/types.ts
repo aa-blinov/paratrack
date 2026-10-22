@@ -25,6 +25,8 @@ export interface Session {
   ActivityID: number
   ActivityName: string
   PersonName?: string
+  Locked?: boolean
+  LockNote?: string
   Color: string
   ProjectID: number
   ProjectName: string
@@ -208,6 +210,7 @@ export interface ClientDetailInvoice {
 }
 
 export interface ClientDetailData {
+  InvoicesOn: boolean
   Title: string
   Active: string
   ClientDetailReact: true
