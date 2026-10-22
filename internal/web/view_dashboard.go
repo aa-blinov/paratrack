@@ -38,9 +38,12 @@ type sessionView struct {
 	DurationInput      string // user-editable representation ("1h 30m")
 	AccumulatedSeconds int
 	Paused             bool
-	Note               string
-	Tags               []tagChip // attached tags from the dashboard read snapshot
-	Lang               string    // i18n for fragment templates (session-row, active-list)
+	// Locked: the session's week is approved, so it cannot change; LockNote says why (UI-05).
+	Locked   bool
+	LockNote string
+	Note     string
+	Tags     []tagChip // attached tags from the dashboard read snapshot
+	Lang     string    // i18n for fragment templates (session-row, active-list)
 }
 
 func (sessionView) isTemplateData() {}
