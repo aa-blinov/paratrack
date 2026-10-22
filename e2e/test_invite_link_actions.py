@@ -192,7 +192,9 @@ def run(browser) -> None:
     # this run created so the workspace looks the way it did before.
     invite_rows(owner).filter(has_text=INVITEE_EMAIL).locator("form[action$='/remove'] button").click()
     answer_dialog(owner, accept=True)
-    expect(owner.locator(ROOT)).not_to_contain_text(INVITEE_EMAIL)
+    # A removed person leaves the member rows and waits under former members, with a way back (ADM-04).
+    expect(owner.locator("article", has_text=INVITEE_EMAIL).locator("form[action$='/remove']")).to_have_count(0)
+    expect(owner.locator("article", has_text=INVITEE_EMAIL).locator("form[action$='/return']")).to_have_count(1)
 
     open_invites(owner)
     for _ in range(4):

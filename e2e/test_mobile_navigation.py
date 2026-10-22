@@ -311,7 +311,7 @@ def members_document(path='/settings/members', lang='ru'):
     end = html.index('</div>', start)
     payload = json.loads(html[start:end])
     payload['shell'].update(active='members', requestPath=path, canManage=True)
-    payload['data'].update(Lang=lang, CanManage=True, IsOwner=True, MembersReact=True, Members=MEMBERS,
+    payload['data'].update(Lang=lang, CanManage=True, IsOwner=True, MembersReact=True, Members=MEMBERS, Former=[],
                            Pay={'1': {'Rate': '', 'Capacity': 480}, '2': {'Rate': '', 'Capacity': 480}},
                            User={'ID': 1}, Flash='', FlashOK=False, CSRFToken='test')
     return html[:start] + json.dumps(payload, ensure_ascii=False) + html[end:]
