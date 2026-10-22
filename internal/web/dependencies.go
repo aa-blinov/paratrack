@@ -564,5 +564,7 @@ type TaskWorkflow interface {
 	ActivityHasTask(ctx context.Context, teamID, activityID int64) (bool, error)
 	ImportGitHubProject(ctx context.Context, request appmodel.GitHubImportRequest) (appmodel.TaskImportResult, error)
 	AddComment(ctx context.Context, request appmodel.TaskCommentRequest) (appmodel.TaskComment, error)
+	TaskOfActivity(ctx context.Context, teamID, activityID int64) (int64, error)
+	StartWork(ctx context.Context, request appmodel.TaskStartRequest) error
 	Comments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error)
 }

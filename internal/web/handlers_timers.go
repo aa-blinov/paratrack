@@ -77,7 +77,21 @@ func (s *Server) startTimer(r *http.Request, name, note string) (model.Activity,
 	if err != nil {
 		return act, err
 	}
+	s.markTaskStarted(r, act.ID)
 	return act, nil
+}
+
+// markTaskStarted moves the task an activity belongs to into "in progress" when
+// work starts on it (TIME-04). The timer is already running, so a failure here is
+// logged, not reported to the person who started it.
+func (s *Server) markTaskStarted(r *http.Request, activityID int64) {
+	taskID, err := s.services.Tasks.TaskOfActivity(r.Context(), teamID(r), activityID)
+	if err != nil || taskID <= 0 {
+		return
+	}
+	if err := s.services.Tasks.StartWork(r.Context(), appmodel.TaskStartRequest{TeamID: teamID(r), TaskID: taskID, CallerID: authenticatedUserID(r)}); err != nil {
+		s.logInternalError(fmt.Errorf("mark task %d started: %w", taskID, err))
+	}
 }
 
 // activityHasProject reports whether time started on the named activity lands on
