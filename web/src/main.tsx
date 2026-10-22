@@ -23,6 +23,7 @@ import { loadDictionary, translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import { StopResult } from "@/dashboard/stop-result"
+import { WorkdayPanel } from "@/dashboard/workday-panel"
 import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { responseMessage } from "@/lib/response-message"
@@ -281,6 +282,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         стоит в шапке, а не четвёртой цифрой в ряду под таймерами. */}
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{modeLine}</a> : <span>{modeLine}</span>}</div></div>
       <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span><span className="text-xs text-muted-foreground">{t(lang, "dash.dayNorm", data.DayNormLabel)}</span>{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
+    <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />
     {undoWidget}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {!data.HasSession && <section className="rounded-md border p-4 max-lg:rounded-xl max-lg:border-0 max-lg:bg-card"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} data-chip variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}

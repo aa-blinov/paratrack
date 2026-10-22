@@ -58,6 +58,7 @@ type dashboardData struct {
 	Widgets        map[string]bool
 	Activities     []activityView
 	OpenTasks      []dashboardTask // open tasks for the start form (TIME-04)
+	Workday        workdayView     // the start and end of today's working day (TIME-06)
 	Projects       []projectView   // for the project picker on the start form
 	ActiveSessions []sessionView
 	Recent         []sessionView

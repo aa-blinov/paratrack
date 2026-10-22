@@ -40,6 +40,12 @@ func (scheduleCellStoreStub) PlannedMinutesForProject(context.Context, int64, in
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) MarkWorkday(context.Context, appmodel.WorkdayRequest) error { return nil }
+
+func (scheduleCellStoreStub) WorkdayOf(context.Context, int64, int64, string) (appmodel.WorkdayMark, bool, error) {
+	return appmodel.WorkdayMark{}, false, nil
+}
+
 func (scheduleCellStoreStub) SetDayMark(context.Context, appmodel.DayMarkRequest) error { return nil }
 
 func (scheduleCellStoreStub) DayMarks(context.Context, int64, string, string) ([]appmodel.DayMark, error) {
@@ -123,6 +129,12 @@ func (scheduleStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.Sched
 
 func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64) (map[int64]int, error) {
 	return nil, nil
+}
+
+func (scheduleStoreStub) MarkWorkday(context.Context, appmodel.WorkdayRequest) error { return nil }
+
+func (scheduleStoreStub) WorkdayOf(context.Context, int64, int64, string) (appmodel.WorkdayMark, bool, error) {
+	return appmodel.WorkdayMark{}, false, nil
 }
 
 func (scheduleStoreStub) SetDayMark(context.Context, appmodel.DayMarkRequest) error { return nil }
