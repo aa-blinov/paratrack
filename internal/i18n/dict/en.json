@@ -612,6 +612,7 @@
   "push.ev3": "Payroll run marked paid",
   "push.ev5": "A project deadline is three days away",
   "push.ev6": "A person is planned past their available time this week",
+  "push.ev7": "A task is due soon or is overdue",
   "push.ev4": "Goal thresholds (when a goal is met)",
   "push.active": "Push is on for this browser.",
   "push.off": "Push is off for this browser.",

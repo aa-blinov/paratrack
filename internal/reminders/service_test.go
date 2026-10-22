@@ -25,8 +25,12 @@ func (f *fakeStore) MarkDeadlineReminded(_ context.Context, request appmodel.Dea
 	f.reminded = append(f.reminded, request.Deadline)
 	return nil
 }
-func (f *fakeStore) ManagerIDs(context.Context, int64) ([]int64, error) { return f.managers, nil }
-func (f *fakeStore) TeamIDs(context.Context) ([]int64, error)           { return f.teams, nil }
+func (f *fakeStore) ManagerIDs(context.Context, int64) ([]int64, error)             { return f.managers, nil }
+func (f *fakeStore) TasksDueOn(context.Context, string) ([]appmodel.DueTask, error) { return nil, nil }
+func (f *fakeStore) MarkTaskDueReminded(context.Context, appmodel.TaskDueReminderRequest) error {
+	return nil
+}
+func (f *fakeStore) TeamIDs(context.Context) ([]int64, error) { return f.teams, nil }
 func (f *fakeStore) ClaimOverloadNotice(_ context.Context, request appmodel.OverloadNoticeRequest) (bool, error) {
 	key := request.Week
 	if f.claimed[key] {

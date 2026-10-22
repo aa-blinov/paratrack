@@ -1,7 +1,7 @@
 """Notification topics and a verification send: the screen says what happened.
 
 Drives a running paratrack server with Playwright. Signs in once and opens
-/settings/notifications. The three checkboxes are the events the application
+/settings/notifications. The checkboxes are the events the application
 really sends, and a fresh account starts with all of them on: a person who
 never touched the setting must not lose notifications. The verification button
 never reports a success it cannot prove — in a headless browser the permission
@@ -36,6 +36,10 @@ STAMP = uuid.uuid4().hex[:8]
 SESSION_STOPPED = "Сессия остановлена (вручную или по концу таймера)"
 GOAL_MET = "Достижение целей"
 PAYROLL_PAID = "Расчёт помечен выплаченным"
+DEADLINE = "Срок проекта близко (за три дня)"
+OVERLOAD = "Участник запланирован больше, чем у него есть на неделе"
+TASK_DUE = "Срок задачи близко или задача просрочена"
+SELECTABLE = [SESSION_STOPPED, GOAL_MET, PAYROLL_PAID, DEADLINE, OVERLOAD, TASK_DUE]
 INVOICE_PAID = "Счёт помечен оплаченным"
 
 results: list[tuple[str, bool, str]] = []
@@ -105,17 +109,17 @@ def main() -> int:
         sign_in(page)
 
         # ------------------------------------------------------------------ 1
-        print("\n== 1. The three events the app really sends are listed and on")
+        print("\n== 1. The six events the app really sends are listed and on")
         before = stored_topics(page)
         page.goto(BASE + "/settings/notifications")
         page.locator("#main h1").wait_for()
-        for label in (SESSION_STOPPED, GOAL_MET, PAYROLL_PAID):
+        for label in SELECTABLE:
             expect(checkbox_for(page, label)).to_be_visible()
             check(f"«{label}» is offered and on", checkbox_for(page, label).is_checked())
-        check("the screen offers exactly three events", page.get_by_role("checkbox").count() == 3,
+        check("the screen offers exactly the six events", page.get_by_role("checkbox").count() == len(SELECTABLE),
               f"{page.get_by_role('checkbox').count()} checkboxes")
-        # The app only ever sends these three, so the screen must not offer a
-        # fourth one nobody delivers — not even with a "coming soon" note.
+        # The app only ever sends these six, so the screen must not offer one
+        # nobody delivers — not even with a "coming soon" note.
         check("no phantom topic is offered",
               INVOICE_PAID not in [box.get_attribute("aria-label") or "" for box in page.get_by_role("checkbox").all()],
               str([box.get_attribute("aria-label") for box in page.get_by_role("checkbox").all()]))
