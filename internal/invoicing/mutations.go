@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -137,6 +138,10 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	}
 	request.ProjectID = current.Invoice.ProjectID
 	request.Details, request.Email, request.Notes = strings.TrimSpace(request.Details), strings.TrimSpace(request.Email), strings.TrimSpace(request.Notes)
+	request.DueDate = strings.TrimSpace(request.DueDate)
+	if _, err := time.Parse("2006-01-02", request.DueDate); request.DueDate != "" && err != nil {
+		return ErrInvalidDue
+	}
 	if err := s.writer.UpdateInvoiceMetaAndProjectClient(ctx, request); err != nil {
 		return fmt.Errorf("update invoice details: %w", err)
 	}

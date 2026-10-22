@@ -285,13 +285,13 @@ func exportInvoices(ctx context.Context, tx *Tx, teamID int64, sink appmodel.Wor
 
 	return queryRows(ctx, tx, "export invoices",
 		`SELECT id, number, client_name, client_email, client_details, COALESCE(project_id, 0), period_start, period_end,
-		        status, notes, receipt, COALESCE(paid_at, ''), currency, seller_details, vat_note, by_person, revision, created_at
+		        status, notes, receipt, COALESCE(paid_at, ''), COALESCE(due_date, ''), currency, seller_details, vat_note, by_person, revision, created_at
 		 FROM invoices WHERE team_id = ? ORDER BY id`,
 		func(rows *sql.Rows) error {
 			var inv appmodel.ExportInvoice
 			var byPerson int64
 			if err := rows.Scan(&inv.ID, &inv.Number, &inv.ClientName, &inv.ClientEmail, &inv.ClientDetails, &inv.ProjectID,
-				&inv.PeriodStart, &inv.PeriodEnd, &inv.Status, &inv.Notes, &inv.Receipt, &inv.PaidAt, &inv.Currency,
+				&inv.PeriodStart, &inv.PeriodEnd, &inv.Status, &inv.Notes, &inv.Receipt, &inv.PaidAt, &inv.DueDate, &inv.Currency,
 				&inv.SellerDetails, &inv.VATNote, &byPerson, &inv.Revision, &inv.CreatedAt); err != nil {
 				return err
 			}

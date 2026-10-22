@@ -100,7 +100,7 @@ func nextInvoiceNumberWithRules(ctx context.Context, queryer invoiceQueryer, tea
 // ListInvoices returns the team's invoices, newest first.
 func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
+		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, due_date, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
 		 FROM invoices WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func (d *DB) GetInvoice(ctx context.Context, query appmodel.InvoiceLookupQuery) 
 }
 
 func getInvoice(ctx context.Context, queryer invoiceQueryer, teamID, id int64, lock bool) (Invoice, error) {
-	query := `SELECT id, team_id, number, client_name, period_start, period_end, status, notes, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
+	query := `SELECT id, team_id, number, client_name, period_start, period_end, status, notes, due_date, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
 		 FROM invoices WHERE id = ? AND team_id = ?`
 	if lock {
 		query += ` FOR UPDATE`
@@ -256,7 +256,7 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 // ListInvoiceDetails loads invoice snapshots with their lines for one team.
 func (d *DB) ListInvoiceDetails(ctx context.Context, teamID int64) ([]appmodel.InvoiceDetails, error) {
 	rows, err := d.sql.QueryContext(ctx, `
-		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes,
+		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes, i.due_date,
 			i.payment_url, COALESCE(NULLIF(i.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = i.team_id), 'RUB'),
 			i.seller_details, i.client_details, i.vat_note, COALESCE(i.project_id, 0), i.client_email,
 			i.receipt, i.by_person, i.created_at, i.revision,
@@ -282,7 +282,7 @@ func scanInvoiceDetails(rows *sql.Rows) ([]appmodel.InvoiceDetails, error) {
 		var lineID, lineInvoiceID, seconds, rate, amount sql.NullInt64
 		var label, detail sql.NullString
 		if err := rows.Scan(&inv.ID, &inv.TeamID, &inv.Number, &inv.ClientName,
-			&start, &end, &inv.Status, &inv.Notes, &paymentURL, &inv.Currency,
+			&start, &end, &inv.Status, &inv.Notes, &inv.DueDate, &paymentURL, &inv.Currency,
 			&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.ProjectID,
 			&inv.ClientEmail, &inv.Receipt, &byPerson, &created, &inv.Revision,
 			&lineID, &lineInvoiceID, &label, &detail, &seconds, &rate, &amount); err != nil {
@@ -324,7 +324,7 @@ func (d *DB) GetInvoiceDetails(ctx context.Context, query appmodel.InvoiceLookup
 		return appmodel.InvoiceDetails{}, ErrNotFound
 	}
 	rows, err := d.sql.QueryContext(ctx, `
-		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes,
+		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes, i.due_date,
 			i.payment_url, COALESCE(NULLIF(i.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = i.team_id), 'RUB'),
 			i.seller_details, i.client_details, i.vat_note, COALESCE(i.project_id, 0), i.client_email,
 			i.receipt, i.by_person, i.created_at, i.revision,
@@ -358,7 +358,7 @@ func scanInvoice(row interface{ Scan(...any) error }) (Invoice, error) {
 	var paymentURL sql.NullString
 	var byPerson int
 	err := row.Scan(&inv.ID, &inv.TeamID, &inv.Number, &inv.ClientName,
-		&start, &end, &inv.Status, &inv.Notes, &paymentURL, &inv.Currency,
+		&start, &end, &inv.Status, &inv.Notes, &inv.DueDate, &paymentURL, &inv.Currency,
 		&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.ProjectID,
 		&inv.ClientEmail, &inv.Receipt, &byPerson, &created, &inv.Revision)
 	if err != nil {

@@ -73,6 +73,7 @@ var columnMigrations = []struct {
 	{"sessions", "project_id", "BIGINT"},
 	{"invoices", "project_id", "BIGINT"},
 	{"invoices", "client_email", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "due_date", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "receipt", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "by_person", "BIGINT NOT NULL DEFAULT 0"}, // lines split per team member
 	{"invoices", "revision", "BIGINT NOT NULL DEFAULT 1"},

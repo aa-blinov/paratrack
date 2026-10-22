@@ -545,6 +545,8 @@ export interface InvoiceSummary {
   Total: string
   Hours: string
   Period: string
+  Due: string
+  Overdue: boolean
 }
 
 export interface InvoiceProjectOption {
@@ -609,6 +611,9 @@ export interface InvoiceDetailData {
     VATNote: string
     ClientEmail: string
     Receipt: string
+    DueISO: string
+    DueLabel: string
+    Overdue: boolean
     Logo: string
   }
   Seller: string

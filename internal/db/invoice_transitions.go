@@ -197,7 +197,7 @@ func lockInvoiceSessions(ctx context.Context, tx *Tx, teamID, invoiceID int64) e
 // against a concurrent send between the handler's read and this write.
 func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appmodel.InvoiceDraftUpdateRequest) error {
 	teamID, id, projectID, callerID := request.TeamID, request.InvoiceID, request.ProjectID, request.CallerID
-	client, details, email, notes := request.Client, request.Details, request.Email, request.Notes
+	client, details, email, notes, due := request.Client, request.Details, request.Email, request.Notes, request.DueDate
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin invoice update: %w", err)
@@ -207,9 +207,9 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 		return err
 	}
 	res, err := tx.ExecContext(ctx,
-		`UPDATE invoices SET client_name = ?, client_details = ?, client_email = ?, notes = ?, revision = revision + 1
+		`UPDATE invoices SET client_name = ?, client_details = ?, client_email = ?, notes = ?, due_date = ?, revision = revision + 1
 		 WHERE id = ? AND team_id = ? AND status = 'draft'`,
-		client, details, email, notes, id, teamID)
+		client, details, email, notes, due, id, teamID)
 	if err != nil {
 		return err
 	}

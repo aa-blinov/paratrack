@@ -132,6 +132,7 @@ type ExportInvoice struct {
 	Notes         string              `json:"notes"`
 	Receipt       string              `json:"receipt"`
 	PaidAt        string              `json:"paid_at"`
+	DueDate       string              `json:"due_date"`
 	Currency      string              `json:"currency"`
 	SellerDetails string              `json:"seller_details"`
 	VATNote       string              `json:"vat_note"`
@@ -488,6 +489,7 @@ func encodeExportInvoice(v appmodel.ExportInvoice) ExportInvoice {
 	out.Notes = v.Notes
 	out.Receipt = v.Receipt
 	out.PaidAt = v.PaidAt
+	out.DueDate = v.DueDate
 	out.Currency = v.Currency
 	out.SellerDetails = v.SellerDetails
 	out.VATNote = v.VATNote
@@ -517,6 +519,7 @@ func decodeExportInvoice(v ExportInvoice) appmodel.ExportInvoice {
 	out.Notes = v.Notes
 	out.Receipt = v.Receipt
 	out.PaidAt = v.PaidAt
+	out.DueDate = v.DueDate
 	out.Currency = v.Currency
 	out.SellerDetails = v.SellerDetails
 	out.VATNote = v.VATNote

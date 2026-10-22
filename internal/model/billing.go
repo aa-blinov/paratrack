@@ -46,6 +46,7 @@ type Invoice struct {
 	PeriodEnd     time.Time
 	Status        string
 	Notes         string
+	DueDate       string // day the payment is due (YYYY-MM-DD, "" = none), FIN-07
 	PaymentURL    string
 	Currency      string
 	SellerDetails string
