@@ -137,6 +137,7 @@ func main() {
 			SessionDecorations: services.SessionDecorations,
 			MemberAdmin:        services.MemberAdmin,
 			Push:               services.Push,
+			Search:             services.Search,
 			Tagging: web.TagDependencies{
 				Queries: services.Tagging, Commands: services.Tagging,
 			},
