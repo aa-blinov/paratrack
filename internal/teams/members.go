@@ -32,6 +32,23 @@ func (s *Service) Members(ctx context.Context, teamID int64) ([]Member, error) {
 	return s.memberships.ListTeamMembers(ctx, teamID)
 }
 
+// FormerMembers lists the people who left the workspace and can be brought back (ADM-04).
+func (s *Service) FormerMembers(ctx context.Context, teamID int64) ([]model.FormerMember, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	return s.memberships.ListFormerMembers(ctx, teamID)
+}
+
+// ReturnMember brings a former member back into the workspace as a member, with the
+// pay they left with. Owners and admins can do it; the store checks that under its lock.
+func (s *Service) ReturnMember(ctx context.Context, request appmodel.TeamMemberReturnRequest) error {
+	if request.TeamID <= 0 || request.TargetUserID <= 0 || request.CallerID <= 0 {
+		return ErrNotFound
+	}
+	return mapStoreError(s.memberships.ReturnTeamMember(ctx, request))
+}
+
 // SetRole changes a member's role. Only the owner decides who manages
 // money and settings; the owner role itself isn't handed out here.
 func (s *Service) SetRole(ctx context.Context, request appmodel.TeamMemberRoleRequest) error {

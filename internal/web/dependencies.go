@@ -461,6 +461,7 @@ type TeamSettingsManagement interface {
 type TeamAdministration interface {
 	Create(context.Context, appmodel.TeamCreateRequest) (model.Team, error)
 	RemoveMember(context.Context, appmodel.TeamMemberRemovalRequest) error
+	ReturnMember(context.Context, appmodel.TeamMemberReturnRequest) error
 	Rename(context.Context, appmodel.TeamRenameRequest) error
 }
 

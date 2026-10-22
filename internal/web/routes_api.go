@@ -66,6 +66,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("DELETE", "/api/team/invites/{token}", s.manage(s.handleAPIInviteRevoke))
 	api("POST", "/api/team/members/{id}/remove", s.handleAPIMemberRemove)
 	api("POST", "/api/team/members/{id}/role", s.manage(s.handleAPIMemberRole))
+	api("POST", "/api/team/members/{id}/return", s.manage(s.handleAPIMemberReturn))
 	api("POST", "/api/team/transfer", s.manage(s.handleAPITeamTransfer))
 	api("POST", "/api/invites/{token}/accept", s.handleAPIInviteAccept)
 	api("POST", "/api/profile", s.handleAPIProfileUpdate)
