@@ -4,6 +4,8 @@ import (
 	"errors"
 	"log"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/mail"
 )
 
 var (
@@ -22,6 +24,9 @@ type Config struct {
 	GitLabSite              string
 	DefaultTimezone         string
 	Now                     func() time.Time
+	// SMTP and PublicURL let reminders reach managers by email (TIME-14).
+	SMTP      mail.SMTPConfig
+	PublicURL string
 }
 
 // CLIConfig contains only the process dependency required by CLI workflows.

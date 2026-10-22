@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aa-blinov/paratrack/internal/reminders"
 	"net/http"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
+	"github.com/aa-blinov/paratrack/internal/mail"
 	"github.com/aa-blinov/paratrack/internal/push"
+	"github.com/aa-blinov/paratrack/internal/reminders"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 	stripeadapter "github.com/aa-blinov/paratrack/internal/stripe"
 	"github.com/aa-blinov/paratrack/internal/teams"
@@ -32,6 +33,44 @@ func (w workspaceLifecycle) DeleteAndListRemaining(ctx context.Context, request 
 }
 
 type payrollPushNotifications struct{ push *push.Service }
+
+// reminderEmail mails a reminder to the people it names who have not muted its
+// topic: the same filter the push channel applies (TIME-14). A person with no
+// email address is skipped.
+type reminderEmail struct {
+	push       *push.Service
+	identities interface {
+		FindIdentitiesByID(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
+	}
+	sender    mail.Sender
+	publicURL string
+}
+
+func (e reminderEmail) Email(ctx context.Context, notification reminders.Notification) error {
+	if e.sender == nil || !mail.Available(e.sender) {
+		return nil
+	}
+	recipients, err := e.push.NotifiableUsers(ctx, notification.TeamID, notification.UserIDs, notification.Topic)
+	if err != nil || len(recipients) == 0 {
+		return err
+	}
+	identities, err := e.identities.FindIdentitiesByID(ctx, recipients)
+	if err != nil {
+		return err
+	}
+	body := notification.Body + "\n\n" + e.publicURL + notification.URL
+	var sendErrs []error
+	for _, id := range recipients {
+		user, ok := identities[id]
+		if !ok || user.Email == "" {
+			continue
+		}
+		if err := e.sender.Send(ctx, user.Email, notification.Title, body); err != nil {
+			sendErrs = append(sendErrs, err)
+		}
+	}
+	return errors.Join(sendErrs...)
+}
 
 // reminderPushNotifications sends the project and overload reminders through
 // the push queue, like every other event.
