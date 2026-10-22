@@ -83,9 +83,12 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
 
     <dl className="grid grid-cols-2 gap-3 text-xs text-muted-foreground sm:grid-cols-4">
       <Fact label={t(lang, "clients.tracked")} value={client.TrackedLabel} />
-      <Fact label={t(lang, "clients.billed")} value={client.BilledLabel} />
-      <Fact label={t(lang, "clients.unbilled")} value={client.UnbilledLabel} />
-      <Fact label={t(lang, "inv.amount")} value={client.BilledTotal} />
+      {/* Money is for the people who bill (D-2). */}
+      {data.CanManage && <>
+        <Fact label={t(lang, "clients.billed")} value={client.BilledLabel} />
+        <Fact label={t(lang, "clients.unbilled")} value={client.UnbilledLabel} />
+        <Fact label={t(lang, "inv.amount")} value={client.BilledTotal} />
+      </>}
     </dl>
 
     {/* Пустое поле не рисуем: заголовок без текста обесценивает сам факт его отсутствия. */}
@@ -101,11 +104,11 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
       </CardContent></Card> : <EmptyBlock icon={<FolderKanban aria-hidden="true" className="size-5 text-muted-foreground" />} text={t(lang, "projects.empty")} />}
     </section>
 
-    <section className="space-y-3">
+    {data.CanManage && <section className="space-y-3">
       <h2 className="text-sm font-medium">{t(lang, "inv.title")}</h2>
       {invoices.length ? <Card><CardContent className="grid gap-3 p-5">
         {invoices.map(invoice => <InvoiceRow key={invoice.ID} lang={lang} invoice={invoice} />)}
       </CardContent></Card> : <EmptyBlock icon={<Receipt aria-hidden="true" className="size-5 text-muted-foreground" />} text={t(lang, "inv.empty")} hint={t(lang, "clients.noInvoicesHint")} />}
-    </section>
+    </section>}
   </main>
 }
