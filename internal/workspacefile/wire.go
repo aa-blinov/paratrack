@@ -115,6 +115,7 @@ type ExportTask struct {
 	Archived        bool   `json:"archived"`
 	ExternalRef     string `json:"external_ref"`
 	ExternalURL     string `json:"external_url"`
+	Description     string `json:"description,omitempty"`
 	CreatedAt       string `json:"created_at"`
 	UpdatedAt       string `json:"updated_at"`
 }
@@ -461,6 +462,7 @@ func encodeExportTask(v appmodel.ExportTask) ExportTask {
 	out.Archived = v.Archived
 	out.ExternalRef = v.ExternalRef
 	out.ExternalURL = v.ExternalURL
+	out.Description = v.Description
 	out.CreatedAt = v.CreatedAt
 	out.UpdatedAt = v.UpdatedAt
 	return out
@@ -480,6 +482,7 @@ func decodeExportTask(v ExportTask) appmodel.ExportTask {
 	out.Archived = v.Archived
 	out.ExternalRef = v.ExternalRef
 	out.ExternalURL = v.ExternalURL
+	out.Description = v.Description
 	out.CreatedAt = v.CreatedAt
 	out.UpdatedAt = v.UpdatedAt
 	return out

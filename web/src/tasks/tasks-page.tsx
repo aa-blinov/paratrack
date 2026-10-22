@@ -3,6 +3,7 @@ import { Archive, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
@@ -43,6 +44,7 @@ export function TasksPage({ data }: { data: TasksData }) {
   const [dueBroken, setDueBroken] = React.useState(false)
   const [adding, setAdding] = React.useState(false)
   const [estimate, setEstimate] = React.useState("")
+  const [description, setDescription] = React.useState("")
   const [creating, setCreating] = React.useState(false)
   const [importProject, setImportProject] = React.useState(String(data.ProjectID || data.Projects[0]?.ID || ""))
   const archivedView = data.View === "archive"
@@ -92,7 +94,7 @@ export function TasksPage({ data }: { data: TasksData }) {
         headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
         body: new URLSearchParams({
           csrf_token: data.CSRFToken, title, project_id: project,
-          assignee_id: assignee === noPerson ? "0" : assignee, due, estimate_minutes: estimate || "0",
+          assignee_id: assignee === noPerson ? "0" : assignee, due, estimate_minutes: estimate || "0", description,
         }),
       })
       const body = (await response.json()) as { id?: number; error?: string }
@@ -165,6 +167,10 @@ export function TasksPage({ data }: { data: TasksData }) {
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-task-estimate" className="text-xs">{t(lang, "tasks.estimate")}</Label>
         <Input id="new-task-estimate" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder={t(lang, "ph.duration")} /><span className="text-xs text-muted-foreground">{t(lang, "stats.durationFormat")}</span>
+      </div>
+      <div className="flex basis-full min-w-0 flex-col gap-1.5">
+        <Label htmlFor="new-task-description" className="text-xs">{t(lang, "tasks.description")}</Label>
+        <Textarea id="new-task-description" value={description} onChange={event => setDescription(event.target.value)} placeholder={t(lang, "tasks.descriptionPh")} rows={3} maxLength={5000} />
       </div>
       <Button type="submit" className="self-end" disabled={creating || !project}><Plus aria-hidden="true" />{t(lang, "tasks.new")}</Button>
     </form>

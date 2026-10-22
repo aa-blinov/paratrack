@@ -151,6 +151,7 @@ type ExportGoal struct {
 
 type ExportTask struct {
 	ID              int64
+	Description     string
 	ProjectID       int64
 	Title           string
 	Status          string

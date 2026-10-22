@@ -33,6 +33,7 @@ type taskItem struct {
 	Overdue       bool
 	EstimateMin   int
 	EstimateLabel string
+	Description   string
 	TrackedMin    int
 	TrackedLabel  string
 	Activities    []taskActivity
@@ -78,7 +79,26 @@ type taskDetailPage struct {
 	People          []taskPerson
 	Linkable        []taskActivity
 	ViewerID        int64
+	Comments        []taskCommentView
 }
+
+// taskCommentView is one line of a task's feed as the page shows it.
+type taskCommentView struct {
+	ID     int64
+	Author string
+	Body   string
+	When   string
+}
+
+// taskCommentResponse answers a comment that was written, as the feed shows it.
+type taskCommentResponse struct {
+	ID     int64  `json:"id"`
+	Author string `json:"author"`
+	Body   string `json:"body"`
+	When   string `json:"when"`
+}
+
+func (taskCommentResponse) isJSONResponse() {}
 
 func (p *taskDetailPage) setCSRF(t string)   { p.pageData.setCSRF(t) }
 func (p *taskDetailPage) usesReactApp() bool { return p.TaskDetailReact }
@@ -169,6 +189,7 @@ func (s *Server) taskItems(r *http.Request, query appmodel.TaskQuery) ([]taskIte
 				item.Overdue = task.Status != model.TaskStatusDone && day.Before(today)
 			}
 		}
+		item.Description = task.Description
 		if task.EstimateMinutes > 0 {
 			item.EstimateMin = task.EstimateMinutes
 			item.EstimateLabel = fmtDurF(resolveLang(r), "clock", task.EstimateMinutes*60)
@@ -240,7 +261,17 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		linkable = taskActivities(list)
 	}
+	comments, err := s.services.Tasks.Comments(r.Context(), teamID(r), id)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	feed := make([]taskCommentView, 0, len(comments))
+	for _, c := range comments {
+		feed = append(feed, taskCommentView{ID: c.ID, Author: c.Author, Body: c.Body, When: fmtWhen(resolveLang(r), c.CreatedAt.In(userLoc(r)), userNow(r))})
+	}
 	data := taskDetailPage{
+		Comments:        feed,
 		pageData:        pageData{Title: task.Title, Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
 		TaskDetailReact: true,
 		Task:            task,
@@ -309,6 +340,7 @@ func (s *Server) handleTaskCreate(w http.ResponseWriter, r *http.Request) {
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), ProjectID: projectID,
 		Title: r.PostForm.Get("title"), Status: strings.TrimSpace(r.PostForm.Get("status")),
 		AssigneeID: assignee, Due: strings.TrimSpace(r.PostForm.Get("due")), EstimateMinutes: estimate,
+		Description: strings.TrimSpace(r.PostForm.Get("description")),
 	})
 	if err != nil {
 		s.writeTaskError(w, r, err)
@@ -347,6 +379,10 @@ func (s *Server) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		request.EstimateMinutes = &estimate
+	}
+	if _, sent := r.PostForm["description"]; sent {
+		description := strings.TrimSpace(r.PostForm.Get("description"))
+		request.Description = &description
 	}
 	if _, err := s.services.Tasks.Update(r.Context(), request); err != nil {
 		s.writeTaskError(w, r, err)
@@ -521,4 +557,26 @@ func (s *Server) githubImportMessage(r *http.Request, err error) string {
 		s.logInternalError(err)
 		return i18n.T(lang, "err.internal")
 	}
+}
+
+// handleTaskComment appends a line to a task's feed (TASK-02).
+func (s *Server) handleTaskComment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		return
+	}
+	comment, err := s.services.Tasks.AddComment(r.Context(), appmodel.TaskCommentRequest{
+		TeamID: teamID(r), TaskID: id, CallerID: authenticatedUserID(r), Body: r.PostForm.Get("body"),
+	})
+	if err != nil {
+		s.writeTaskError(w, r, err)
+		return
+	}
+	s.writeJSON(w, taskCommentResponse{ID: comment.ID, Author: comment.Author, Body: comment.Body,
+		When: fmtWhen(resolveLang(r), comment.CreatedAt.In(userLoc(r)), userNow(r))})
 }

@@ -287,10 +287,10 @@ func (r *restorer) Task(t appmodel.ExportTask) error {
 	}
 	id, err := r.insertID("task "+t.Title,
 		`INSERT INTO tasks (team_id, project_id, title, status, position, assignee_user_id, due_date, estimate_minutes,
-		                    created_by, archived, created_at, updated_at, external_ref, external_url)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+		                    created_by, archived, created_at, updated_at, external_ref, external_url, description)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 		r.teamID, projectID, t.Title, t.Status, t.Position, assignee, nullIfEmpty(t.DueDate), nullIfZero(int64(t.EstimateMinutes)),
-		creator, boolInt(t.Archived), t.CreatedAt, t.UpdatedAt, nullIfEmpty(t.ExternalRef), nullIfEmpty(t.ExternalURL))
+		creator, boolInt(t.Archived), t.CreatedAt, t.UpdatedAt, nullIfEmpty(t.ExternalRef), nullIfEmpty(t.ExternalURL), t.Description)
 	if err != nil {
 		return err
 	}

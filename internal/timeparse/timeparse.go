@@ -132,6 +132,10 @@ func ParseDateTime(s string, now time.Time) (time.Time, error) {
 		}
 	}
 
+	if t, ok := parseRussianDay(low, now); ok {
+		return t, nil
+	}
+
 	// Explicit datetimes. Naive layouts use the location carried by the
 	// caller's clock so configured process timezones apply consistently.
 	candidate := orig
@@ -146,6 +150,10 @@ func ParseDateTime(s string, now time.Time) (time.Time, error) {
 		"2006-01-02 15:04:05",
 		"2006-01-02 15:04",
 		"2006-01-02",
+		"02.01.2006 15:04",
+		"02.01.2006 15:04:05",
+		"2.1.2006 15:04",
+		"2.1.2006",
 		"02.01.2006",
 		"02/01/2006",
 	} {
@@ -436,4 +444,49 @@ func weekdayIndex(name string) int {
 
 func atStartOfDay(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())
+}
+
+// russianDayRe is "13 окт", "13 окт. 2026", "13 октября 10:00", "13 окт 2026 9:30".
+var russianDayRe = regexp.MustCompile(`^(\d{1,2})\s+([а-яё]+)\.?(?:\s+(\d{4}))?(?:\s+(\d{1,2}:\d{2}))?$`)
+
+// russianMonths keys on the first three letters of a month, which is what both the
+// short and the long Russian forms share ("окт", "октября"); "мая" is its own word.
+var russianMonths = map[string]time.Month{
+	"янв": time.January, "фев": time.February, "мар": time.March, "апр": time.April,
+	"мая": time.May, "май": time.May, "июн": time.June, "июл": time.July, "авг": time.August,
+	"сен": time.September, "окт": time.October, "ноя": time.November, "дек": time.December,
+}
+
+// parseRussianDay reads a day written the way people write it in Russian. The year
+// is the current one when it is left out (ISO and dotted dates go through the layouts).
+func parseRussianDay(s string, now time.Time) (time.Time, bool) {
+	m := russianDayRe.FindStringSubmatch(s)
+	if m == nil {
+		return time.Time{}, false
+	}
+	word := []rune(m[2])
+	if len(word) < 3 {
+		return time.Time{}, false
+	}
+	month, ok := russianMonths[string(word[:3])]
+	if !ok {
+		return time.Time{}, false
+	}
+	day, _ := strconv.Atoi(m[1])
+	year := now.Year()
+	if m[3] != "" {
+		year, _ = strconv.Atoi(m[3])
+	}
+	at := time.Date(year, month, day, 0, 0, 0, 0, now.Location())
+	if at.Day() != day {
+		return time.Time{}, false
+	}
+	if m[4] != "" {
+		clock, err := parseHHMM(m[4])
+		if err != nil {
+			return time.Time{}, false
+		}
+		at = at.Add(time.Duration(clock.h)*time.Hour + time.Duration(clock.m)*time.Minute)
+	}
+	return at, true
 }

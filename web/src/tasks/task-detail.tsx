@@ -3,6 +3,7 @@ import { ArrowLeft, Archive, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DateField } from "@/components/date-field"
@@ -36,6 +37,9 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [assignee, setAssignee] = React.useState(task.AssigneeID ? String(task.AssigneeID) : noPerson)
   const [due, setDue] = React.useState(task.Due)
   const [dueBroken, setDueBroken] = React.useState(false)
+  const [description, setDescription] = React.useState(task.Description)
+  const [comments, setComments] = React.useState(data.Comments)
+  const [comment, setComment] = React.useState("")
   const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
@@ -63,8 +67,30 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
       return
     }
     void run(() => post(`/api/tasks/${task.ID}`, data.CSRFToken, {
-      title, assignee_id: assignee === noPerson ? "0" : assignee, due, estimate_minutes: estimate || "0",
+      title, assignee_id: assignee === noPerson ? "0" : assignee, due, estimate_minutes: estimate || "0", description,
     }))
+  }
+
+  // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).
+  async function addComment(event: React.FormEvent) {
+    event.preventDefault()
+    const body = comment.trim()
+    if (!body) return
+    setError("")
+    try {
+      const response = await fetch(`/api/tasks/${task.ID}/comments`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
+        body: new URLSearchParams({ csrf_token: data.CSRFToken, body }),
+      })
+      const json = (await response.json()) as { id?: number; author?: string; body?: string; when?: string; error?: string }
+      if (!response.ok || !json.id) throw new Error(json.error || response.statusText)
+      setComments(list => [...list, { ID: json.id ?? 0, Author: json.author ?? "", Body: json.body ?? "", When: json.when ?? "" }])
+      setComment("")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
   }
 
   function changeStatus(value: string) {
@@ -147,6 +173,10 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
         <Label htmlFor="task-estimate">{t(lang, "tasks.estimate")}</Label>
         <Input id="task-estimate" value={estimate} onChange={event => setEstimate(event.target.value)} placeholder={t(lang, "ph.duration")} disabled={task.Archived} /><span className="text-xs text-muted-foreground">{t(lang, "stats.durationFormat")}</span>
       </div>
+      <div className="grid gap-1.5 sm:col-span-2">
+        <Label htmlFor="task-description">{t(lang, "tasks.description")}</Label>
+        <Textarea id="task-description" value={description} onChange={event => setDescription(event.target.value)} placeholder={t(lang, "tasks.descriptionPh")} rows={4} maxLength={5000} disabled={task.Archived} />
+      </div>
       <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">{t(lang, "tasks.tracked")}: <span className="font-mono text-foreground">{task.TrackedLabel}</span></p>
         <div className="flex gap-2">
@@ -183,6 +213,18 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
           </div>
         </form>}
       </CardContent></Card>}
+      <section aria-label={t(lang, "tasks.feed")} className="grid gap-3">
+        <h2 className="text-sm font-medium">{t(lang, "tasks.feed")}</h2>
+        {comments.length ? <ul className="grid gap-3">{comments.map(item => <li key={item.ID} className="grid gap-1 border-b pb-3 last:border-0">
+          <p className="text-xs text-muted-foreground"><span className="font-medium text-foreground">{item.Author}</span>, {item.When}</p>
+          <p className="whitespace-pre-line text-sm [overflow-wrap:anywhere]">{item.Body}</p>
+        </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "tasks.feedEmpty")}</p>}
+        {!task.Archived && <form onSubmit={addComment} className="grid gap-2">
+          <Label htmlFor="task-comment">{t(lang, "tasks.feedAdd")}</Label>
+          <Textarea id="task-comment" value={comment} onChange={event => setComment(event.target.value)} rows={2} maxLength={2000} />
+          <div><Button type="submit" size="sm" disabled={!comment.trim()}>{t(lang, "tasks.feedSend")}</Button></div>
+        </form>}
+      </section>
     </section>
   </main>
 }
