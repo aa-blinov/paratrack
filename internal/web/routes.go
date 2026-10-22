@@ -45,6 +45,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("POST /api/stripe/webhook", s.handleStripeWebhook)
 	// Browser error reports are relayed to Sentry only for our configured DSN.
 	mux.HandleFunc("POST /sentry-tunnel", s.handleSentryTunnel)
+	// A client's link to an invoice's PDF: the token is the key, and the rate limit keeps
+	// guessing slow (FIN-13).
+	mux.Handle("GET /share/invoices/{token}", s.rateLimit("share-invoice", 120, time.Minute)(http.HandlerFunc(s.handleSharedInvoicePDF)))
 
 	pageRoutes := http.NewServeMux()
 	s.registerPageRoutes(pageRoutes)

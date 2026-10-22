@@ -17,6 +17,7 @@ import (
 type Reader interface {
 	ListInvoiceDetails(context.Context, int64) ([]appmodel.InvoiceDetails, error)
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
+	FindInvoiceShareLink(context.Context, appmodel.InvoiceShareLookupQuery) (appmodel.InvoiceShareLookup, error)
 	ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
@@ -40,6 +41,7 @@ type Writer interface {
 	MarkInvoicePaidOnce(context.Context, appmodel.InvoiceMutationRequest) (string, bool, error)
 	MarkInvoicePaidFromStripe(context.Context, appmodel.InvoiceStripePaymentRequest) (bool, error)
 	RebuildInvoice(context.Context, appmodel.InvoiceMutationRequest) error
+	CreateInvoiceShareLink(context.Context, appmodel.InvoiceShareRequest) error
 	DeleteInvoice(context.Context, appmodel.InvoiceMutationRequest) error
 	UpdateInvoiceMetaAndProjectClient(context.Context, appmodel.InvoiceDraftUpdateRequest) error
 	RecordInvoicePayment(context.Context, appmodel.InvoicePaymentRequest) (bool, error)

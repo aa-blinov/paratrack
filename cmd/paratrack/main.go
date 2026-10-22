@@ -119,7 +119,7 @@ func main() {
 			},
 			Invoicing: web.InvoiceDependencies{
 				Queries: services.Invoicing, Drafts: services.Invoicing,
-				PaymentLinks: services.Invoicing,
+				PaymentLinks: services.Invoicing, Shares: services.Invoicing,
 			},
 			InvoiceDocuments:   services.InvoiceDocuments,
 			Payroll:            services.Payroll,

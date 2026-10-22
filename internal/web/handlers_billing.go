@@ -19,6 +19,81 @@ import (
 // ---------------------------------------------------------------------------
 
 // handleInvoicePDF streams a downloadable PDF of the invoice.
+// invoiceShareResponse is the link a manager just made: shown once, with its end.
+type invoiceShareResponse struct {
+	URL       string `json:"url"`
+	ExpiresAt string `json:"expires_at"`
+}
+
+func (invoiceShareResponse) isJSONResponse() {}
+
+// handleInvoiceShare makes a client's link to the invoice's PDF. The address is the only
+// answer that carries the token; the manager sends it on (FIN-13).
+func (s *Server) handleInvoiceShare(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
+	}
+	now := userNow(r)
+	token, expires, err := s.services.Invoicing.Shares.CreateShareLink(r.Context(), appmodel.InvoiceShareRequest{
+		TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r), Now: now,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrNotFound):
+			s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		case errors.Is(err, model.ErrForbidden):
+			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
+		default:
+			s.writeInternalJSONError(w, err)
+		}
+		return
+	}
+	s.audit(r, "invoice.share", strconv.FormatInt(id, 10), "")
+	s.writeJSON(w, invoiceShareResponse{
+		URL:       s.publicBaseURL(r) + "/share/invoices/" + token + ".pdf",
+		ExpiresAt: fmtDate(resolveLang(r), expires.In(userLoc(r))),
+	})
+}
+
+// handleSharedInvoicePDF serves an invoice to a client without an account, by the link a
+// manager made (FIN-13). An unknown or expired token is not found, so the answer never
+// says whether an invoice exists. Nothing from the page is cached.
+func (s *Server) handleSharedInvoicePDF(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSuffix(r.PathValue("token"), ".pdf")
+	link, err := s.services.Invoicing.Shares.ResolveShareLink(r.Context(), token, s.config.Now())
+	if errors.Is(err, model.ErrNotFound) {
+		http.NotFound(w, r)
+		return
+	}
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	team, err := s.services.Teams.Directory.FindByID(r.Context(), link.TeamID)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	r = r.WithContext(WithTeam(r.Context(), team))
+	_, vm, _, err := s.invoiceVMFor(r, link.InvoiceID, false)
+	if err != nil {
+		s.invoiceLoadError(w, r, err)
+		return
+	}
+	pdf, err := renderInvoicePDF(vm, s.sellerName(r), resolveLang(r))
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", `attachment; filename="`+invoicePDFName(vm)+`"`)
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("X-Robots-Tag", "noindex")
+	_, _ = w.Write(pdf)
+}
+
 // handleInvoicesExportCSV is the accountant's download: the lines of the issued invoices,
 // one row each, for one client and a period of invoice dates in the viewer's zone (FIN-05).
 func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request) {

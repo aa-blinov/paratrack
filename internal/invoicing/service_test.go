@@ -42,6 +42,10 @@ func (s *draftReaderStub) UnassignedActivities(context.Context, int64) ([]appmod
 	return s.unassigned, nil
 }
 
+func (s *draftReaderStub) FindInvoiceShareLink(context.Context, appmodel.InvoiceShareLookupQuery) (appmodel.InvoiceShareLookup, error) {
+	return appmodel.InvoiceShareLookup{}, nil
+}
+
 func (s *draftReaderStub) ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error) {
 	return nil, nil
 }
