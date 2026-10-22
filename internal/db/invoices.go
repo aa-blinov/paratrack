@@ -267,7 +267,11 @@ func (d *DB) ListInvoiceDetails(ctx context.Context, teamID int64) ([]appmodel.I
 		return nil, err
 	}
 	defer rows.Close()
-	return scanInvoiceDetails(rows)
+	details, err := scanInvoiceDetails(rows)
+	if err != nil {
+		return nil, err
+	}
+	return d.attachPayments(ctx, teamID, details)
 }
 
 func scanInvoiceDetails(rows *sql.Rows) ([]appmodel.InvoiceDetails, error) {
@@ -342,6 +346,11 @@ func (d *DB) GetInvoiceDetails(ctx context.Context, query appmodel.InvoiceLookup
 	if len(details) == 0 {
 		return appmodel.InvoiceDetails{}, ErrNotFound
 	}
+	payments, err := d.ListInvoicePayments(ctx, query.TeamID, query.InvoiceID)
+	if err != nil {
+		return appmodel.InvoiceDetails{}, err
+	}
+	details[0].Payments = payments
 	return details[0], nil
 }
 

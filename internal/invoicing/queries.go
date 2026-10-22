@@ -25,6 +25,7 @@ func (s *Service) list(ctx context.Context, teamID int64) ([]appmodel.InvoiceSum
 		}
 		summaries = append(summaries, appmodel.InvoiceSummaryResult{
 			Invoice: item.Invoice, TotalCents: totalCents, TotalHoursHundredths: totalHours,
+			PaidCents: paidCentsOf(item.Payments),
 		})
 	}
 	return summaries, nil
@@ -139,6 +140,7 @@ func (s *Service) Get(ctx context.Context, query appmodel.InvoiceLookupQuery) (a
 	result := appmodel.InvoiceDetailResult{
 		Invoice: details.Invoice, Lines: details.Lines,
 		TotalCents: totalCents, TotalHoursHundredths: totalHours,
+		PaidCents: paidCentsOf(details.Payments), Payments: details.Payments,
 	}
 	for _, line := range details.Lines {
 		result.InvoicedSeconds += line.Seconds
@@ -167,4 +169,13 @@ func invoiceLineTotals(lines []model.InvoiceLine) (int, int, error) {
 		}
 	}
 	return totalCents, totalHours, nil
+}
+
+// paidCentsOf sums an invoice's payment journal (FIN-08).
+func paidCentsOf(payments []model.InvoicePayment) int {
+	paid := 0
+	for _, p := range payments {
+		paid += p.AmountCents
+	}
+	return paid
 }

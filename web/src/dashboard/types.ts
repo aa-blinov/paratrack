@@ -250,6 +250,9 @@ export interface ProjectDetailData {
   PlannedLabel: string
   TrackedLabel: string
   People: Array<{ Name: string; Planned: string; Tracked: string }>
+  Weeks: Array<{ Start: string; Label: string; Planned: string; Tracked: string; Deviation: string; Off: boolean; Current: boolean }>
+  WeeklyNormLabel: string
+  WeeklyNormInput: string
   RemainingLabel: string
   RemainingOver: boolean
   LeadLabel: string
@@ -454,7 +457,7 @@ export interface PayrollData {
   DefEnd: string
   DefNotes: string
   Overlap: string
-  UnapprovedWeeks?: Array<{ Date: string; Label: string; Count: number }>
+  UnapprovedWeeks?: Array<{ Date: string; Last: string; Label: string; Count: number }>
   Flash: string
   FlashOK: boolean
 }
@@ -547,6 +550,8 @@ export interface InvoiceSummary {
   Period: string
   Due: string
   Overdue: boolean
+  Issued: string
+  Partial: string
 }
 
 export interface InvoiceProjectOption {
@@ -614,6 +619,12 @@ export interface InvoiceDetailData {
     DueISO: string
     DueLabel: string
     Overdue: boolean
+    PaidLabel: string
+    RemainingLabel: string
+    Remaining: boolean
+    PartialPaid: boolean
+    TodayISO: string
+    Payments: Array<{ Date: string; Amount: string; Note: string; Source: string }>
     Logo: string
   }
   Seller: string

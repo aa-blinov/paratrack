@@ -103,6 +103,7 @@ func (s *Server) unapprovedPayrollWeeks(r *http.Request, now time.Time) []payrol
 		}
 		weeks = append(weeks, payrollWeekHint{
 			Date:  start.Format("2006-01-02"),
+			Last:  end.AddDate(0, 0, -1).Format("2006-01-02"),
 			Label: fmtDay(lang, start) + " – " + fmtDay(lang, end.AddDate(0, 0, -1)),
 			Count: notApproved.Count,
 		})
@@ -136,6 +137,7 @@ type payrollPage struct {
 
 type payrollWeekHint struct {
 	Date  string // Monday, YYYY-MM-DD: the timesheet opens on it
+	Last  string // Sunday, the last day an approval of this week takes
 	Label string
 	Count int
 }

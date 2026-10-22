@@ -120,26 +120,36 @@ type ExportTask struct {
 }
 
 type ExportInvoice struct {
-	ID            int64               `json:"id"`
-	Number        string              `json:"number"`
-	ClientName    string              `json:"client_name"`
-	ClientEmail   string              `json:"client_email"`
-	ClientDetails string              `json:"client_details"`
-	ProjectID     int64               `json:"project_id"`
-	PeriodStart   string              `json:"period_start"`
-	PeriodEnd     string              `json:"period_end"`
-	Status        string              `json:"status"`
-	Notes         string              `json:"notes"`
-	Receipt       string              `json:"receipt"`
-	PaidAt        string              `json:"paid_at"`
-	DueDate       string              `json:"due_date"`
-	Currency      string              `json:"currency"`
-	SellerDetails string              `json:"seller_details"`
-	VATNote       string              `json:"vat_note"`
-	ByPerson      bool                `json:"by_person"`
-	Revision      int64               `json:"revision"`
-	CreatedAt     string              `json:"created_at"`
-	Lines         []ExportInvoiceLine `json:"lines"`
+	ID            int64                  `json:"id"`
+	Number        string                 `json:"number"`
+	ClientName    string                 `json:"client_name"`
+	ClientEmail   string                 `json:"client_email"`
+	ClientDetails string                 `json:"client_details"`
+	ProjectID     int64                  `json:"project_id"`
+	PeriodStart   string                 `json:"period_start"`
+	PeriodEnd     string                 `json:"period_end"`
+	Status        string                 `json:"status"`
+	Notes         string                 `json:"notes"`
+	Receipt       string                 `json:"receipt"`
+	PaidAt        string                 `json:"paid_at"`
+	DueDate       string                 `json:"due_date"`
+	Currency      string                 `json:"currency"`
+	SellerDetails string                 `json:"seller_details"`
+	VATNote       string                 `json:"vat_note"`
+	ByPerson      bool                   `json:"by_person"`
+	Revision      int64                  `json:"revision"`
+	CreatedAt     string                 `json:"created_at"`
+	Lines         []ExportInvoiceLine    `json:"lines"`
+	Payments      []ExportInvoicePayment `json:"payments,omitempty"`
+}
+
+// ExportInvoicePayment is one entry of an invoice's payment journal in the file.
+type ExportInvoicePayment struct {
+	PaidOn      string `json:"paid_on"`
+	AmountCents int    `json:"amount_cents"`
+	Note        string `json:"note"`
+	Source      string `json:"source"`
+	CreatedAt   string `json:"created_at"`
 }
 
 type ExportInvoiceLine struct {
@@ -502,6 +512,9 @@ func encodeExportInvoice(v appmodel.ExportInvoice) ExportInvoice {
 			out.Lines = append(out.Lines, encodeExportInvoiceLine(e))
 		}
 	}
+	for _, p := range v.Payments {
+		out.Payments = append(out.Payments, ExportInvoicePayment{PaidOn: p.PaidOn, AmountCents: p.AmountCents, Note: p.Note, Source: p.Source, CreatedAt: p.CreatedAt})
+	}
 	return out
 }
 
@@ -531,6 +544,9 @@ func decodeExportInvoice(v ExportInvoice) appmodel.ExportInvoice {
 		for _, e := range v.Lines {
 			out.Lines = append(out.Lines, decodeExportInvoiceLine(e))
 		}
+	}
+	for _, p := range v.Payments {
+		out.Payments = append(out.Payments, appmodel.ExportInvoicePayment{PaidOn: p.PaidOn, AmountCents: p.AmountCents, Note: p.Note, Source: p.Source, CreatedAt: p.CreatedAt})
 	}
 	return out
 }

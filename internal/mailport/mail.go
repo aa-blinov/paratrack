@@ -22,6 +22,13 @@ type Attachment struct {
 }
 
 // Message is a full letter with plain text, optional HTML, and optional files.
+// EMLRenderer renders a letter as the bytes of an .eml file (FIN-10). A sender
+// renders the same MIME tree it would deliver, so the file and the SMTP letter
+// cannot drift apart.
+type EMLRenderer interface {
+	EML(from string, m Message) ([]byte, error)
+}
+
 type Message struct {
 	To, Subject, Text, HTML string
 	Files                   []Attachment

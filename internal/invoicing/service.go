@@ -41,6 +41,7 @@ type Writer interface {
 	RebuildInvoice(context.Context, appmodel.InvoiceMutationRequest) error
 	DeleteInvoice(context.Context, appmodel.InvoiceMutationRequest) error
 	UpdateInvoiceMetaAndProjectClient(context.Context, appmodel.InvoiceDraftUpdateRequest) error
+	RecordInvoicePayment(context.Context, appmodel.InvoicePaymentRequest) (bool, error)
 	SetPaymentURL(context.Context, appmodel.InvoicePaymentLinkSaveRequest) error
 	AssignUnassignedActivityForBilling(context.Context, appmodel.AssignActivityProjectRequest) error
 	SetInvoiceReceipt(context.Context, appmodel.InvoiceReceiptRequest) error

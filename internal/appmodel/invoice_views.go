@@ -20,8 +20,9 @@ type InvoiceProjectOption struct {
 
 // InvoiceDetails joins an invoice with its immutable line snapshot for reads.
 type InvoiceDetails struct {
-	Invoice model.Invoice
-	Lines   []model.InvoiceLine
+	Invoice  model.Invoice
+	Lines    []model.InvoiceLine
+	Payments []model.InvoicePayment
 }
 
 // UnbilledProject is billable project time not yet assigned to an invoice.
@@ -65,6 +66,9 @@ type InvoiceDetailResult struct {
 	// sessions can still change.
 	InvoicedSeconds int
 	TrackedSeconds  int
+	// PaidCents is what the payment journal holds; Payments is the journal itself.
+	PaidCents int
+	Payments  []model.InvoicePayment
 }
 
 // InvoiceDocumentRequest scopes the shared invoice detail read used by the
@@ -87,6 +91,7 @@ type InvoiceSummaryResult struct {
 	Invoice              model.Invoice
 	TotalCents           int
 	TotalHoursHundredths int
+	PaidCents            int
 }
 
 // InvoiceIndexSnapshot contains the workflow data needed by the invoice list
