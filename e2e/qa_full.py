@@ -26,6 +26,8 @@ ALIGN_PAGES = ["/", "/projects", "/clients", "/stats", "/graph", "/goals",
 
 results: list[tuple[str, bool, str]] = []
 console_errors: list[str] = []
+# A timer question is answered with a 409 the browser logs; those are expected, one per question.
+expected_question_conflicts = 0
 
 
 
@@ -53,6 +55,18 @@ def wait_ready(pg, timeout=10000):
 def check(name: str, ok: bool, detail: str = "") -> None:
     results.append((name, ok, detail))
     print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
+
+
+def confirm_no_project_start(pg) -> None:
+    """A timer with no project asks once (TIME-12); answer yes when it does."""
+    global expected_question_conflicts
+    question = pg.get_by_role("alertdialog")
+    try:
+        question.wait_for(state="visible", timeout=1500)
+    except Exception:
+        return
+    expected_question_conflicts += 1
+    question.locator("button").last.click()
 
 
 def shot(page, name: str) -> None:
@@ -173,12 +187,14 @@ def main() -> int:
         open_disclosures(pg.locator('#activity').locator("xpath=ancestor::form"), "#timer-note")
         pg.fill('#timer-note', "chapter 1")
         pg.click('button[type="submit"]:has-text("Start")')
+        confirm_no_project_start(pg)
         pg.wait_for_timeout(600)
         check("start timer", "reading" in pg.locator("#active-list").inner_text())
         shot(pg, "b1-started")
 
         pg.fill('#activity', "writing")
         pg.click('button[type="submit"]:has-text("Start")')
+        confirm_no_project_start(pg)
         pg.wait_for_timeout(500)
         check("parallel timers", pg.locator("#active-list [data-session-id]").count() >= 2)
 
@@ -752,12 +768,18 @@ def main() -> int:
     print("\n" + "=" * 60)
     passed = sum(1 for _, ok, _ in results if ok)
     print(f"  {passed}/{len(results)} checks passed")
-    if console_errors:
-        print(f"\n  console errors ({len(console_errors)}):")
-        for e in console_errors[:10]:
+    unexplained = list(console_errors)
+    for _ in range(expected_question_conflicts):
+        for index, message in enumerate(unexplained):
+            if "409 (Conflict)" in message:
+                del unexplained[index]
+                break
+    if unexplained:
+        print(f"\n  console errors ({len(unexplained)}):")
+        for e in unexplained[:10]:
             print(f"    {e[:160]}")
     print(f"  screenshots: {OUT}")
-    return 0 if passed == len(results) and not console_errors else 1
+    return 0 if passed == len(results) and not unexplained else 1
 
 
 if __name__ == "__main__":

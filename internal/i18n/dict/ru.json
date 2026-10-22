@@ -76,6 +76,7 @@
   "dash.trackedToday": "Учтено сегодня",
   "dash.noProjectWarning": "Без проекта сессия не попадёт в отчёт по проекту. Выберите проект или сохраните без него.",
   "dash.saveWithoutProject": "Сохранить без проекта",
+  "dash.startNoProjectConfirm": "Таймер без проекта: это время не попадёт в отчёты по проекту. Запустить всё равно?",
   "dash.dayNorm": "Норма дня: %s",
   "dash.topActivity": "Топ-активность",
   "dash.backfillTitle": "Добавить прошедшую сессию",

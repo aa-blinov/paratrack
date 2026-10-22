@@ -51,6 +51,15 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	note := strings.TrimSpace(r.FormValue("note"))
+	// The dashboard form asks once before a timer that would have no project (TIME-12).
+	// The confirmed start goes through; API clients are not asked.
+	if r.FormValue("ask_no_project") == "1" && projectIDFromForm(r) == 0 && r.FormValue("confirm_no_project") != "1" && !s.activityHasProject(r, name) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Start-Confirm", "no-project")
+		w.WriteHeader(http.StatusConflict)
+		fmt.Fprint(w, i18n.T(resolveLang(r), "dash.startNoProjectConfirm"))
+		return
+	}
 	act, err := s.startTimer(r, name, note)
 	if err != nil {
 		s.writeTimerStartError(w, r, act.Name, err)
@@ -69,6 +78,13 @@ func (s *Server) startTimer(r *http.Request, name, note string) (model.Activity,
 		return act, err
 	}
 	return act, nil
+}
+
+// activityHasProject reports whether time started on the named activity lands on
+// a project: an existing activity's project, not the form's.
+func (s *Server) activityHasProject(r *http.Request, name string) bool {
+	act, err := s.services.Tracking.Queries.FindActivity(r.Context(), appmodel.ActivityNameQuery{TeamID: teamID(r), Name: name})
+	return err == nil && act.ProjectID > 0
 }
 
 func projectIDFromForm(r *http.Request) int64 {
