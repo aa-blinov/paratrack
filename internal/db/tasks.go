@@ -346,7 +346,7 @@ func (d *DB) LinkTaskActivity(ctx context.Context, request appmodel.TaskActivity
 		if name == "" {
 			return appmodel.Activity{}, appmodel.ErrInvalidTask
 		}
-		if activityID, err = insertTaskActivityRow(ctx, tx, request.TeamID, projectID, request.TaskID, name, now); err != nil {
+		if activityID, err = taskActivityFor(ctx, tx, request.TeamID, projectID, request.TaskID, name, now); err != nil {
 			return appmodel.Activity{}, err
 		}
 	}
@@ -543,8 +543,39 @@ func requireProjectInTeam(ctx context.Context, tx *Tx, projectID, teamID int64) 
 }
 
 func insertTaskActivity(ctx context.Context, tx *Tx, teamID, projectID, taskID int64, name, now string) error {
-	_, err := insertTaskActivityRow(ctx, tx, teamID, projectID, taskID, name, now)
+	_, err := taskActivityFor(ctx, tx, teamID, projectID, taskID, name, now)
 	return err
+}
+
+// taskActivityFor is the activity a task writes its time to, under the given name.
+// A team holds one activity per name (activities_team_name_key), so the name cannot
+// be written twice. An existing activity is reused when it is free and already in
+// the task's project: its sessions and its time stay where they were. Anything else
+// would move another task's or another project's time, so it is refused (TASK-15).
+func taskActivityFor(ctx context.Context, tx *Tx, teamID, projectID, taskID int64, name, now string) (int64, error) {
+	var id int64
+	var taskValue, projectValue sql.NullInt64
+	var archived int64
+	err := tx.QueryRowContext(ctx,
+		`SELECT id, task_id, project_id, archived FROM activities
+		  WHERE team_id = ? AND (name_key = ? OR (name_key IS NULL AND name = ?))
+		  ORDER BY id LIMIT 1`,
+		teamID, strings.ToLower(name), name).Scan(&id, &taskValue, &projectValue, &archived)
+	if errors.Is(err, sql.ErrNoRows) {
+		return insertTaskActivityRow(ctx, tx, teamID, projectID, taskID, name, now)
+	}
+	if err != nil {
+		return 0, err
+	}
+	if (taskValue.Valid && taskValue.Int64 > 0) || archived != 0 || !projectValue.Valid || projectValue.Int64 != projectID {
+		return 0, appmodel.ErrTaskNameTaken
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE activities SET task_id = ?, name_key = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
+		taskID, strings.ToLower(name), now, id, teamID); err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 // insertTaskActivityRow writes an activity for a task and gives it its colour,
