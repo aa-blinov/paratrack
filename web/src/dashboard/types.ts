@@ -677,6 +677,9 @@ export interface ReportRunData {
     TotalAmount: string
     ShowPlan: boolean
     TotalPlan: string
+    ShowUnlinked: boolean
+    UnlinkedLabel: string
+    UnlinkedPercent: string
   }
 }
 

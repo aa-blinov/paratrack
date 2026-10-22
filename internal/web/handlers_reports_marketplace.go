@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -42,6 +43,10 @@ type reportVM struct {
 	TotalCents  int
 	ShowPlan    bool
 	TotalPlan   string
+	// ShowUnlinked is set when some of the time sits on no task (TIME-05).
+	ShowUnlinked    bool
+	UnlinkedLabel   string
+	UnlinkedPercent string
 }
 
 // buildReport adapts request-specific labels and formatting around the
@@ -129,18 +134,29 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	lastDay := to.Add(-time.Second)
 
 	return reportVM{
-		Template:    tpl,
-		PeriodLabel: fmtDate(resolveLang(r), from) + " – " + fmtDate(resolveLang(r), lastDay),
-		From:        from.Format("2006-01-02"),
-		To:          lastDay.Format("2006-01-02"),
-		Rows:        rows,
-		Total:       reportHours(r, tpl.Billable, result.TotalSeconds),
-		TotalSecs:   result.TotalSeconds,
-		TotalAmount: moneyByCurrency(resolveLang(r), result.ByCurrency),
-		TotalCents:  result.TotalCents,
-		ShowPlan:    showPlan,
-		TotalPlan:   reportHours(r, false, totalPlanned),
+		Template:        tpl,
+		PeriodLabel:     fmtDate(resolveLang(r), from) + " – " + fmtDate(resolveLang(r), lastDay),
+		From:            from.Format("2006-01-02"),
+		To:              lastDay.Format("2006-01-02"),
+		Rows:            rows,
+		Total:           reportHours(r, tpl.Billable, result.TotalSeconds),
+		TotalSecs:       result.TotalSeconds,
+		TotalAmount:     moneyByCurrency(resolveLang(r), result.ByCurrency),
+		TotalCents:      result.TotalCents,
+		ShowPlan:        showPlan,
+		TotalPlan:       reportHours(r, false, totalPlanned),
+		ShowUnlinked:    result.UnlinkedSeconds > 0,
+		UnlinkedLabel:   reportHours(r, false, result.UnlinkedSeconds),
+		UnlinkedPercent: unlinkedPercent(result.UnlinkedSeconds, result.TotalSeconds),
 	}, nil
+}
+
+// unlinkedPercent is the share of the period's time that sits on no task.
+func unlinkedPercent(unlinked, total int) string {
+	if total <= 0 {
+		return "0%"
+	}
+	return strconv.Itoa(unlinked*100/total) + "%"
 }
 
 // handleReports lists the template gallery.
