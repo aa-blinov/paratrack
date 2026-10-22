@@ -2,6 +2,7 @@ package app
 
 import (
 	"github.com/aa-blinov/paratrack/internal/reminders"
+	"github.com/aa-blinov/paratrack/internal/search"
 	"github.com/aa-blinov/paratrack/internal/tasks"
 	"github.com/aa-blinov/paratrack/internal/workspacefile"
 	"io"
@@ -42,6 +43,7 @@ import (
 // persistence and outbound adapters. Transport packages receive only their
 // own consumer-defined interfaces.
 type Services struct {
+	Search                  *search.Service
 	Billing                 *billing.Service
 	Auth                    *auth.Service
 	TokenAdmin              *tokenadmin.Builder

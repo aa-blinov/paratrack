@@ -111,6 +111,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		return nil, fmt.Errorf("construct session decoration builder: %w", err)
 	}
 	goalService := shared.Goals
+	searchService := shared.Search
 	auditService := shared.Audit
 	authService, err := auth.NewService(auth.Dependencies{
 		Users: database, Sessions: database, Resets: database,
@@ -310,6 +311,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		MemberAdmin:             memberAdminService,
 		Push:                    pushService,
 		Tagging:                 taggingService,
+		Search:                  searchService,
 		Goals:                   goalService,
 		Webhooks:                webhookService,
 		MailQueue:               mailQueueService,

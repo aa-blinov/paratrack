@@ -106,6 +106,7 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 		SessionDecorations: services.SessionDecorations,
 		MemberAdmin:        services.MemberAdmin,
 		Push:               services.Push,
+		Search:             services.Search,
 		Tagging: TagDependencies{
 			Queries: services.Tagging, Commands: services.Tagging,
 		},

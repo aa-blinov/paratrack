@@ -48,6 +48,7 @@ type Dependencies struct {
 	SessionDecorations   SessionDecorationBuilding
 	Push                 PushWorkflow
 	Tagging              TagDependencies
+	Search               SearchWorkflow
 	Goals                GoalWorkflow
 	Webhooks             WebhookWorkflow
 	MailQueue            InvoiceMailQueue
@@ -198,6 +199,11 @@ type SchedulingWorkflow interface {
 	MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error)
 	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
+}
+
+// SearchWorkflow answers the global search across the workspace (UI-01).
+type SearchWorkflow interface {
+	Find(context.Context, appmodel.SearchQuery) (appmodel.SearchResults, error)
 }
 
 // TagDependencies separates tag reads from mutations at the HTTP boundary.
@@ -526,6 +532,7 @@ func (s Dependencies) Validate() error {
 		dependency{"invoice drafts", depcheck.IsNil(s.Invoicing.Drafts)},
 		dependency{"invoice payment links", depcheck.IsNil(s.Invoicing.PaymentLinks)},
 		dependency{"invoice shares", depcheck.IsNil(s.Invoicing.Shares)},
+		dependency{"search", depcheck.IsNil(s.Search)},
 		dependency{"invoice documents", depcheck.IsNil(s.InvoiceDocuments)},
 		dependency{"payroll", depcheck.IsNil(s.Payroll)},
 		dependency{"payroll payment operations", depcheck.IsNil(s.PayrollPaid)},
