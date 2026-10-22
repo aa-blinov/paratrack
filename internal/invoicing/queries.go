@@ -9,6 +9,43 @@ import (
 	"github.com/aa-blinov/paratrack/internal/money"
 )
 
+// ExportLines returns the lines of the issued invoices a query selects, for the
+// accountant (FIN-05). A draft is not issued yet, so it stays out.
+func (s *Service) ExportLines(ctx context.Context, query appmodel.InvoiceExportQuery) ([]appmodel.InvoiceExportLine, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrInvalidTeam
+	}
+	items, err := s.reader.ListInvoiceDetails(ctx, query.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("list invoices for export: %w", err)
+	}
+	var out []appmodel.InvoiceExportLine
+	for _, item := range items {
+		inv := item.Invoice
+		if inv.Status == "draft" || (query.Client != "" && inv.ClientName != query.Client) {
+			continue
+		}
+		if !query.From.IsZero() && inv.CreatedAt.Before(query.From) {
+			continue
+		}
+		if !query.To.IsZero() && !inv.CreatedAt.Before(query.To) {
+			continue
+		}
+		for _, line := range item.Lines {
+			currency := line.Currency
+			if currency == "" {
+				currency = inv.Currency
+			}
+			out = append(out, appmodel.InvoiceExportLine{
+				InvoiceNumber: inv.Number, IssuedAt: inv.CreatedAt, Client: inv.ClientName, Status: inv.Status,
+				Label: line.Label, Seconds: line.Seconds, RateCents: line.RateCents, AmountCents: line.AmountCents,
+				Currency: currency,
+			})
+		}
+	}
+	return out, nil
+}
+
 func (s *Service) list(ctx context.Context, teamID int64) ([]appmodel.InvoiceSummaryResult, error) {
 	if teamID <= 0 {
 		return nil, ErrInvalidTeam
@@ -123,6 +160,18 @@ func (s *Service) overlappingDocuments(ctx context.Context, query appmodel.Invoi
 		return nil, fmt.Errorf("find overlapping invoices: %w", err)
 	}
 	return numbers, nil
+}
+
+// Sessions lists the sessions billed on one invoice, for its appendix (FIN-06).
+func (s *Service) Sessions(ctx context.Context, query appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return nil, ErrInvalidInvoice
+	}
+	rows, err := s.reader.ListInvoiceSessions(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("list invoice sessions: %w", err)
+	}
+	return rows, nil
 }
 
 func (s *Service) Get(ctx context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error) {

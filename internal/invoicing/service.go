@@ -17,6 +17,7 @@ import (
 type Reader interface {
 	ListInvoiceDetails(context.Context, int64) ([]appmodel.InvoiceDetails, error)
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
+	ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
 	ListUnapprovedTimeDays(context.Context, int64, int64, time.Time, time.Time) ([]string, error)
