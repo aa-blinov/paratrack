@@ -277,7 +277,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </form>
       )}
       {data.Approval.CanManage && !approved && data.Approval.Finished && (
-        <form method="post" action="/api/timesheet/approve">
+        <form method="post" action="/api/timesheet/approve" data-confirm={t(lang, "ts.approveConfirm")}>
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
           <input type="hidden" name="start" value={data.Approval.StartISO} />
           <input type="hidden" name="end" value={data.Approval.EndISO} />
