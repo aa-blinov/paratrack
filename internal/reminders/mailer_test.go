@@ -27,7 +27,8 @@ func (m *failingMailer) Email(_ context.Context, notification Notification) erro
 // the shared fake marks the whole week, which would hold back the second person.
 type perPersonClaims struct {
 	*fakeStore
-	seen map[int64]bool
+	seen  map[int64]bool
+	tasks []appmodel.DueTask
 }
 
 func (p perPersonClaims) ClaimOverloadNotice(_ context.Context, request appmodel.OverloadNoticeRequest) (bool, error) {
@@ -66,4 +67,18 @@ func TestOverloadNudgeAlsoGoesByEmail(t *testing.T) {
 	if mailer.calls[1].Topic != TopicOverload {
 		t.Fatalf("mailed topic = %q, want %q", mailer.calls[1].Topic, TopicOverload)
 	}
+}
+
+// TasksDueOn returns the tasks the fake keeps, so a test can plant due tasks.
+func (p perPersonClaims) TasksDueOn(_ context.Context, _ string) ([]appmodel.DueTask, error) {
+	return p.tasks, nil
+}
+
+func (p perPersonClaims) MarkTaskDueReminded(_ context.Context, request appmodel.TaskDueReminderRequest) error {
+	for i := range p.tasks {
+		if p.tasks[i].TaskID == request.TaskID {
+			p.tasks[i].Reminded = request.Marker
+		}
+	}
+	return nil
 }

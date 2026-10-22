@@ -18,6 +18,24 @@ type DeadlineReminderRequest struct {
 	Deadline  string
 }
 
+// DueTask is an open, assigned task with a due date: a candidate for a due-date
+// reminder. Reminded holds the marker of the last reminder it got (TASK-05).
+type DueTask struct {
+	TeamID     int64
+	TaskID     int64
+	Title      string
+	Due        string
+	AssigneeID int64
+	Reminded   string
+}
+
+// TaskDueReminderRequest records which reminder a task got for its due date.
+type TaskDueReminderRequest struct {
+	TeamID int64
+	TaskID int64
+	Marker string
+}
+
 // OverloadNoticeRequest claims the one overload notice a person gets in a week.
 type OverloadNoticeRequest struct {
 	TeamID int64

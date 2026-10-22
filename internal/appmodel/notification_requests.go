@@ -11,6 +11,7 @@ const (
 	NotificationTopicPayrollPaid      = "payroll.paid"
 	NotificationTopicProjectDeadline  = "project.deadline"
 	NotificationTopicScheduleOverload = "schedule.overload"
+	NotificationTopicTaskDue          = "task.due"
 )
 
 // ErrInvalidNotificationTopic means a caller asked to mute something the

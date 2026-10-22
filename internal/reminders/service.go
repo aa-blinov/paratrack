@@ -16,6 +16,7 @@ import (
 const (
 	TopicDeadline = "project.deadline"
 	TopicOverload = "schedule.overload"
+	TopicTaskDue  = "task.due"
 )
 
 // Store is the persistence the reminders need. Each claim is idempotent, so a
@@ -26,6 +27,8 @@ type Store interface {
 	ManagerIDs(ctx context.Context, teamID int64) ([]int64, error)
 	TeamIDs(ctx context.Context) ([]int64, error)
 	ClaimOverloadNotice(ctx context.Context, request appmodel.OverloadNoticeRequest) (bool, error)
+	TasksDueOn(ctx context.Context, through string) ([]appmodel.DueTask, error)
+	MarkTaskDueReminded(ctx context.Context, request appmodel.TaskDueReminderRequest) error
 }
 
 // Planner reads a team's week, the same way the schedule page does.
@@ -84,6 +87,45 @@ func New(deps Dependencies) (*Service, error) {
 	return &Service{store: deps.Store, planner: deps.Planner, sender: deps.Sender, mailer: deps.Mailer, now: now}, nil
 }
 
+// taskDues nudges the assignee of an open task that is due today or tomorrow,
+// and once more when it is overdue (TASK-05). Each marker goes out once per due
+// date, so a change of the due date or of the state sends a fresh nudge.
+func (s *Service) taskDues(ctx context.Context, now time.Time) error {
+	today := now.Format("2006-01-02")
+	tasks, err := s.store.TasksDueOn(ctx, now.AddDate(0, 0, 1).Format("2006-01-02"))
+	if err != nil {
+		return err
+	}
+	var mailErrs []error
+	for _, task := range tasks {
+		marker := "soon:" + task.Due
+		title, body := "Срок задачи близко", fmt.Sprintf("«%s»: срок %s", task.Title, task.Due)
+		if task.Due < today {
+			marker = "overdue:" + task.Due
+			title, body = "Задача просрочена", fmt.Sprintf("«%s»: срок был %s", task.Title, task.Due)
+		}
+		if task.Reminded == marker {
+			continue
+		}
+		notification := Notification{
+			TeamID: task.TeamID, UserIDs: []int64{task.AssigneeID}, Topic: TopicTaskDue,
+			Title: title, Body: body, URL: "/tasks",
+		}
+		if err := s.sender.Send(ctx, notification); err != nil {
+			return err
+		}
+		if s.mailer != nil {
+			if err := s.mailer.Email(ctx, notification); err != nil {
+				mailErrs = append(mailErrs, err)
+			}
+		}
+		if err := s.store.MarkTaskDueReminded(ctx, appmodel.TaskDueReminderRequest{TeamID: task.TeamID, TaskID: task.TaskID, Marker: marker}); err != nil {
+			return err
+		}
+	}
+	return errors.Join(mailErrs...)
+}
+
 // Run does a pass now and then every interval until ctx ends.
 func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
@@ -105,6 +147,9 @@ func (s *Service) Pass(ctx context.Context) error {
 	now := s.now().UTC()
 	if err := s.deadlines(ctx, now); err != nil {
 		return fmt.Errorf("deadline reminders: %w", err)
+	}
+	if err := s.taskDues(ctx, now); err != nil {
+		return fmt.Errorf("task due reminders: %w", err)
 	}
 	if err := s.overloads(ctx, now); err != nil {
 		return fmt.Errorf("overload reminders: %w", err)
