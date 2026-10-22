@@ -23,6 +23,7 @@ import (
 var (
 	ErrInvalidSubscription    = appmodel.ErrInvalidPushSubscription
 	ErrIncompleteDependencies = errors.New("push service dependencies are incomplete")
+	ErrNoWorkspace            = errors.New("push notifications need a workspace")
 	ErrDeliveryQueueFull      = errors.New("push delivery queue is full")
 	ErrServiceStopping        = errors.New("push service is stopping")
 	ErrNilShutdownContext     = errors.New("push shutdown context is nil")
@@ -209,6 +210,15 @@ func (s *Service) Shutdown(ctx context.Context) error {
 func (s *Service) notify(ctx context.Context, teamID int64, userIDs []int64, notification Notification) error {
 	_, err := s.deliver(ctx, teamID, userIDs, notification)
 	return err
+}
+
+// NotifiableUsers keeps the people who have not muted the topic: the filter the
+// push channel applies, reused by the email channel (TIME-14).
+func (s *Service) NotifiableUsers(ctx context.Context, teamID int64, userIDs []int64, topic string) ([]int64, error) {
+	if teamID <= 0 {
+		return nil, ErrNoWorkspace
+	}
+	return s.targets(ctx, teamID, userIDs, topic)
 }
 
 // deliver sends a message to the active endpoints for the selected users.

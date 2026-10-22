@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/mail"
 	"github.com/aa-blinov/paratrack/internal/reminders"
 	"github.com/aa-blinov/paratrack/internal/tasks"
 	"github.com/aa-blinov/paratrack/internal/workspacefile"
@@ -180,8 +181,16 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, err
 	}
+	reminderMailer := mail.Sender(nil)
+	if config.SMTP.Host != "" {
+		reminderMailer, err = mail.NewSender(config.SMTP, config.Logger)
+		if err != nil {
+			return nil, fmt.Errorf("construct reminder mail sender: %w", err)
+		}
+	}
 	reminderService, err := reminders.New(reminders.Dependencies{
 		Store: database, Planner: schedulingService, Sender: reminderPushNotifications{push: pushService}, Now: now,
+		Mailer: reminderEmail{push: pushService, identities: authService, sender: reminderMailer, publicURL: config.PublicURL},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)

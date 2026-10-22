@@ -5,6 +5,7 @@ package reminders
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -47,19 +48,27 @@ type Sender interface {
 	Send(ctx context.Context, notification Notification) error
 }
 
+// Mailer sends a nudge by email to the people it names. The implementation drops
+// those who muted the topic, as the push channel does (TIME-14).
+type Mailer interface {
+	Email(ctx context.Context, notification Notification) error
+}
+
 // Service runs one pass of reminders on an interval.
 type Service struct {
 	store   Store
 	planner Planner
 	sender  Sender
+	mailer  Mailer
 	now     func() time.Time
 }
 
-// Dependencies are the ports a reminder pass needs.
+// Dependencies are the ports a reminder pass needs. Mailer is optional.
 type Dependencies struct {
 	Store   Store
 	Planner Planner
 	Sender  Sender
+	Mailer  Mailer
 	Now     func() time.Time
 }
 
@@ -72,7 +81,7 @@ func New(deps Dependencies) (*Service, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{store: deps.Store, planner: deps.Planner, sender: deps.Sender, now: now}, nil
+	return &Service{store: deps.Store, planner: deps.Planner, sender: deps.Sender, mailer: deps.Mailer, now: now}, nil
 }
 
 // Run does a pass now and then every interval until ctx ends.
@@ -144,6 +153,7 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 		return err
 	}
 	week := weekStart(now)
+	var mailErrs []error
 	for _, teamID := range teams {
 		snapshot, err := s.planner.List(ctx, appmodel.ScheduleQuery{TeamID: teamID, WeekStart: week, Now: now})
 		if err != nil {
@@ -164,17 +174,25 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 			if !claimed {
 				continue
 			}
-			if err := s.sender.Send(ctx, Notification{
+			notification := Notification{
 				TeamID: teamID, UserIDs: managers, Topic: TopicOverload,
 				Title: "Перегрузка на неделе",
 				Body:  fmt.Sprintf("%s: запланировано %d мин из %d доступных", row.UserName, row.Total, row.AvailableMinutes),
 				URL:   "/schedule?date=" + week.Format("2006-01-02"),
-			}); err != nil {
+			}
+			if err := s.sender.Send(ctx, notification); err != nil {
 				return err
+			}
+			// Email repeats the same nudge. One failed mailbox must not hold back
+			// the other managers' reminders, so its error is kept, not returned early.
+			if s.mailer != nil {
+				if err := s.mailer.Email(ctx, notification); err != nil {
+					mailErrs = append(mailErrs, err)
+				}
 			}
 		}
 	}
-	return nil
+	return errors.Join(mailErrs...)
 }
 
 // weekStart is the Monday of the week containing t, in UTC.
