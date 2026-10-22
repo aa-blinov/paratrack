@@ -827,6 +827,7 @@ export interface TeamMembersData {
   MembersReact: boolean
   User: { ID: number; Email: string; Name: string }
   Members: Array<{ UserID: number; Email: string; Name: string; Role: string }>
+  Former: Array<{ UserID: number; Email: string; Name: string; LeftAt: string }>
   Pay: Record<string, { Rate: string; Capacity: number }>
   IsOwner: boolean
   Flash: string

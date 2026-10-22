@@ -20,23 +20,30 @@ type PayrollSettingsReader interface {
 	MemberSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 }
 
+// FormerMemberReader lists the people who left the workspace (ADM-04).
+type FormerMemberReader interface {
+	FormerMembers(context.Context, int64) ([]model.FormerMember, error)
+}
+
 type Dependencies struct {
 	Members MemberReader
 	Payroll PayrollSettingsReader
+	Former  FormerMemberReader
 }
 
 type Service struct {
 	members MemberReader
 	payroll PayrollSettingsReader
+	former  FormerMemberReader
 }
 
 var ErrIncompleteDependencies = errors.New("member administration dependencies are incomplete")
 
 func New(deps Dependencies) (*Service, error) {
-	if depcheck.IsNil(deps.Members) || depcheck.IsNil(deps.Payroll) {
+	if depcheck.IsNil(deps.Members) || depcheck.IsNil(deps.Payroll) || depcheck.IsNil(deps.Former) {
 		return nil, ErrIncompleteDependencies
 	}
-	return &Service{members: deps.Members, payroll: deps.Payroll}, nil
+	return &Service{members: deps.Members, payroll: deps.Payroll, former: deps.Former}, nil
 }
 
 func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.TeamMemberManagementSnapshot, error) {
@@ -51,5 +58,9 @@ func (s *Service) Management(ctx context.Context, teamID int64) (appmodel.TeamMe
 	if err != nil {
 		return appmodel.TeamMemberManagementSnapshot{}, fmt.Errorf("load team member payroll settings: %w", err)
 	}
-	return appmodel.TeamMemberManagementSnapshot{Members: members, PaySettings: paySettings}, nil
+	former, err := s.former.FormerMembers(ctx, teamID)
+	if err != nil {
+		return appmodel.TeamMemberManagementSnapshot{}, fmt.Errorf("list former team members: %w", err)
+	}
+	return appmodel.TeamMemberManagementSnapshot{Members: members, PaySettings: paySettings, Former: former}, nil
 }

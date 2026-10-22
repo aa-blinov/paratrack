@@ -33,6 +33,15 @@ type TeamMember struct {
 	JoinedAt time.Time
 }
 
+// FormerMember is someone who left the workspace and can be brought back: their
+// sessions, tasks and payroll history stay (ADM-04).
+type FormerMember struct {
+	UserID int64
+	Email  string
+	Name   string
+	LeftAt time.Time
+}
+
 // TeamMembership is one user's relationship to a workspace, used when the
 // UI needs workspace identity and role together.
 type TeamMembership struct {

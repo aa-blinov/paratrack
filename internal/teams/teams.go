@@ -47,6 +47,8 @@ type MembershipStore interface {
 	TransferTeamOwnership(context.Context, appmodel.TeamOwnershipTransferRequest) error
 	CountTeamOwners(context.Context, int64) (int, error)
 	RemoveTeamMember(context.Context, appmodel.TeamMemberRemovalRequest) error
+	ListFormerMembers(context.Context, int64) ([]model.FormerMember, error)
+	ReturnTeamMember(context.Context, appmodel.TeamMemberReturnRequest) error
 }
 
 // InviteStore provides workspace invitation operations.

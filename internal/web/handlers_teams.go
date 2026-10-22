@@ -22,6 +22,8 @@ type settingsPageData struct {
 	User              userView
 	// Members + invites populated by their respective handlers.
 	Members []memberView
+	// Former are the people who left the workspace and can be brought back (ADM-04).
+	Former  []formerMemberView
 	Invites []inviteView
 	Pay     map[int64]memberPayView // members page: current pay + capacity
 	Flash   string                  // success / error banner shown above the form
@@ -74,6 +76,26 @@ func memberViews(members []model.TeamMember) []memberView {
 		views = append(views, memberView{
 			UserID: member.UserID, Email: member.Email,
 			Name: member.Name, Role: string(member.Role),
+		})
+	}
+	return views
+}
+
+// formerMemberView is someone who left the workspace, as the members page lists them.
+type formerMemberView struct {
+	UserID int64  `json:"UserID"`
+	Email  string `json:"Email"`
+	Name   string `json:"Name"`
+	LeftAt string `json:"LeftAt"`
+}
+
+// formerViews shows when each person left, in the viewer's zone and language.
+func formerViews(r *http.Request, former []model.FormerMember) []formerMemberView {
+	views := make([]formerMemberView, 0, len(former))
+	for _, member := range former {
+		views = append(views, formerMemberView{
+			UserID: member.UserID, Email: member.Email, Name: member.Name,
+			LeftAt: fmtWhen(resolveLang(r), member.LeftAt.In(userLoc(r)), userNow(r)),
 		})
 	}
 	return views
@@ -167,6 +189,7 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Team:         teamView{ID: team.ID, Name: team.Name, CreatedAt: team.CreatedAt},
 		User:         userViewOf(user),
 		Members:      memberViews(snapshot.Members),
+		Former:       formerViews(r, snapshot.Former),
 		IsOwner:      RoleFrom(r.Context()) == model.TeamRoleOwner,
 		Pay:          map[int64]memberPayView{},
 	}
@@ -278,6 +301,8 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.revoked"), true
 	case "removed":
 		return i18n.T(lang, "flash.removed"), true
+	case "returned":
+		return i18n.T(lang, "flash.returned"), true
 	case "invoice_deleted":
 		return i18n.T(lang, "inv.deleted"), true
 	case "left":

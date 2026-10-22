@@ -5,6 +5,7 @@ import "github.com/aa-blinov/paratrack/internal/model"
 type TeamMemberManagementSnapshot struct {
 	Members     []model.TeamMember
 	PaySettings []model.MemberPayrollSettings
+	Former      []model.FormerMember
 }
 
 // TeamInvitePageSnapshot contains the invitation and its workspace for the

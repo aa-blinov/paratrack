@@ -31,3 +31,11 @@ type TeamMemberRemovalRequest struct {
 	CallerID     int64
 	LeftAt       time.Time
 }
+
+// TeamMemberReturnRequest brings a former member back into the workspace with the
+// pay they left with (ADM-04).
+type TeamMemberReturnRequest struct {
+	TeamID       int64
+	TargetUserID int64
+	CallerID     int64
+}

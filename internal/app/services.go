@@ -173,7 +173,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct payroll service: %w", err)
 	}
-	memberAdminService, err := memberadmin.New(memberadmin.Dependencies{Members: teamService, Payroll: payrollService})
+	memberAdminService, err := memberadmin.New(memberadmin.Dependencies{Members: teamService, Payroll: payrollService, Former: teamService})
 	if err != nil {
 		return nil, fmt.Errorf("construct member administration service: %w", err)
 	}

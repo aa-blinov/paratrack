@@ -30,10 +30,16 @@ func (s *payrollSettingsReaderStub) MemberSettings(_ context.Context, teamID int
 	return s.result, s.err
 }
 
+type formerStub struct{}
+
+func (formerStub) FormerMembers(context.Context, int64) ([]model.FormerMember, error) {
+	return nil, nil
+}
+
 func TestManagementAssemblesTeamScopedMemberAndPayrollSnapshot(t *testing.T) {
 	members := &memberReaderStub{result: []model.TeamMember{{UserID: 5, Name: "Alex"}}}
 	payroll := &payrollSettingsReaderStub{result: []model.MemberPayrollSettings{{UserID: 5, PayCents: 4200, CapacityMinutes: 360}}}
-	service, err := New(Dependencies{Members: members, Payroll: payroll})
+	service, err := New(Dependencies{Members: members, Payroll: payroll, Former: formerStub{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +59,7 @@ func TestManagementStopsWhenMemberReadFails(t *testing.T) {
 	wantErr := errors.New("member store unavailable")
 	members := &memberReaderStub{err: wantErr}
 	payroll := &payrollSettingsReaderStub{}
-	service, err := New(Dependencies{Members: members, Payroll: payroll})
+	service, err := New(Dependencies{Members: members, Payroll: payroll, Former: formerStub{}})
 	if err != nil {
 		t.Fatal(err)
 	}
