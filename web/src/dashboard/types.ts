@@ -763,6 +763,9 @@ export interface ProfileData {
   Team?: { ID: number; Name: string; CreatedAt: string }
   Role?: string
   CanLeave?: boolean
+  Pay?: Array<{ Run: string; Period: string; Hours: string; Rate: string; Amount: string; Paid: boolean }>
+  PayOpen?: string
+  PayPaid?: string
 }
 
 export interface PreferencesData {

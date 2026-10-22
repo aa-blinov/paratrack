@@ -254,6 +254,7 @@ type PayrollWorkflow interface {
 	DeleteDraft(context.Context, appmodel.PayrollMutationRequest) error
 	GetRun(context.Context, int64, int64) (appmodel.PayrollRunDetail, error)
 	ListRuns(context.Context, appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error)
+	MemberLines(context.Context, appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
 	MemberSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UpdateMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error

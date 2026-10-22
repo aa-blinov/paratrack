@@ -18,6 +18,35 @@ export function ProfilePage({ data }: { data: ProfileData }) {
       <p className="text-sm"><span className="text-muted-foreground">{t(lang, "profile.role")}: </span>{t(lang, `role.${data.Role}`)}</p>
       {data.CanLeave ? <form method="post" action="/api/team/leave" data-confirm={t(lang, "profile.leaveConfirm")} className="grid gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><p className="text-xs text-muted-foreground">{t(lang, "profile.leaveHint")}</p><Button type="submit" variant="outline" className="w-fit text-destructive">{t(lang, "profile.leave")}</Button></form> : <p className="text-xs text-muted-foreground">{t(lang, "profile.leaveHint")}</p>}
     </CardContent></Card>}
+    {/* Read-only: what the workspace has accrued to the viewer, and what has been paid out. */}
+    {data.Team && data.Team.ID > 0 && <Card><CardHeader><CardTitle>{t(lang, "profile.payTitle")}</CardTitle><CardDescription>{t(lang, "profile.payBlurb")}</CardDescription></CardHeader><CardContent className="grid gap-3">
+      {data.Pay?.length ? <>
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <p><span className="text-muted-foreground">{t(lang, "profile.payOpen")}: </span><span className="font-medium tabular-nums">{data.PayOpen}</span></p>
+          <p><span className="text-muted-foreground">{t(lang, "profile.payDone")}: </span><span className="font-medium tabular-nums">{data.PayPaid}</span></p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] border-collapse text-sm">
+            <thead><tr className="border-b text-left text-muted-foreground">
+              <th scope="col" className="px-3 py-2 font-medium">{t(lang, "profile.payRun")}</th>
+              <th scope="col" className="px-3 py-2 font-medium">{t(lang, "profile.payPeriod")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t(lang, "profile.payHours")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t(lang, "profile.payRate")}</th>
+              <th scope="col" className="px-3 py-2 text-right font-medium">{t(lang, "profile.paySum")}</th>
+              <th scope="col" className="px-3 py-2 font-medium">{t(lang, "profile.payStatus")}</th>
+            </tr></thead>
+            <tbody>{data.Pay.map((row, index) => <tr key={index} className="border-b last:border-0">
+              <td className="px-3 py-2 font-medium">{row.Run}</td>
+              <td className="px-3 py-2 whitespace-nowrap">{row.Period}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{row.Hours}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{row.Rate}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{row.Amount}</td>
+              <td className="px-3 py-2">{row.Paid ? t(lang, "profile.payStatusPaid") : t(lang, "profile.payStatusOpen")}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </> : <p className="text-sm text-muted-foreground">{t(lang, "profile.payEmpty")}</p>}
+    </CardContent></Card>}
     <Card><CardHeader><CardTitle>{t(lang, "profile.nameCard")}</CardTitle></CardHeader><CardContent>
       <form method="post" action="/api/profile" className="grid max-w-xl gap-3">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
