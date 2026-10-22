@@ -38,12 +38,16 @@ func (s *Server) handleAPIv1Clients(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalJSONError(w, err)
 		return
 	}
+	// Contacts, requisites and internal notes are for the people who bill (D-2).
+	// A member gets the client's name, its currency and its state.
+	manage := canManage(r)
 	out := make([]apiV1Client, 0, len(list))
 	for _, c := range list {
-		out = append(out, apiV1Client{
-			ID: c.ID, Name: c.Name, Email: c.Email, Details: c.Details, Currency: c.Currency,
-			Notes: c.Notes, Archived: c.Archived, CreatedAt: c.CreatedAt,
-		})
+		row := apiV1Client{ID: c.ID, Name: c.Name, Currency: c.Currency, Archived: c.Archived, CreatedAt: c.CreatedAt}
+		if manage {
+			row.Email, row.Details, row.Notes = c.Email, c.Details, c.Notes
+		}
+		out = append(out, row)
 	}
 	s.writeJSON(w, apiV1ClientsResponse{Clients: out})
 }
