@@ -574,13 +574,14 @@ def main() -> int:
         check("detail page shows project name", proj_name in page.content())
         check("project detail mounts React/shadcn session and edit cards",
               page.locator('#paratrack-react-root [data-slot="card"]').count() >= 3
-              and page.locator('#paratrack-react-root form[action^="/projects/"]').count() == 2)
+              and page.locator('#paratrack-react-root form[action^="/projects/"]').count() >= 2)
         updated_project_name = proj_name + " updated"
         # The edit fields sit behind a disclosure that starts closed.
         open_disclosures(page.locator("h1").locator("xpath=ancestor::main"), "#project-name")
         page.fill("#project-name", updated_project_name)
         page.fill("#project-estimate", "480")
-        page.locator('#paratrack-react-root form[method="POST"][action^="/projects/"] button[type="submit"]').first.click()
+        # The settings form posts to the project itself; the weekly norm form has its own action.
+        page.locator(f'#paratrack-react-root form[method="POST"][action="/projects/{proj_slug}"] button[type="submit"]').first.click()
         page.wait_for_url(f"**/projects/{proj_slug}")
         proj_name = updated_project_name
         expect(page.locator("h1")).to_contain_text(proj_name)
