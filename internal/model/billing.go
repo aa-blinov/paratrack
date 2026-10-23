@@ -66,6 +66,7 @@ type Invoice struct {
 	SellerDetails string
 	ClientDetails string
 	VATNote       string
+	VATRate       int // percent; the invoice's VAT is included in its prices (FIN-16)
 	ProjectID     int64
 	ClientEmail   string
 	Receipt       string
@@ -104,6 +105,7 @@ type TeamSettings struct {
 	Currency   string
 	Requisites string
 	VATNote    string
+	VATRate    int // percent, 0 for none (FIN-16)
 	// HideExecutorNames keeps the members' names off by-person invoice lines (FIN-15).
 	HideExecutorNames bool
 	Billing           BillingRules

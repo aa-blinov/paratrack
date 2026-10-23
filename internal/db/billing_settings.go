@@ -89,7 +89,7 @@ func (d *DB) TeamRequisites(ctx context.Context, teamID int64) (requisites, vatN
 }
 
 func (d *DB) SetTeamRequisites(ctx context.Context, request appmodel.TeamRequisitesRequest) error {
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET requisites = ?, vat_note = ?, hide_executor_names = ? WHERE id = ?`, request.Requisites, request.VATNote, boolInt(request.HideExecutorNames), request.TeamID)
+	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET requisites = ?, vat_note = ?, hide_executor_names = ?, vat_rate = ? WHERE id = ?`, request.Requisites, request.VATNote, boolInt(request.HideExecutorNames), request.VATRate, request.TeamID)
 }
 
 // TeamCurrency is the workspace default (RUB when unset or no team).
@@ -240,4 +240,16 @@ func (d *DB) SetTeamStripe(ctx context.Context, request appmodel.TeamStripeCrede
 		   stripe_webhook_secret = CASE WHEN ? = '' THEN stripe_webhook_secret ELSE ? END
 		 WHERE id = ?`,
 		request.Key, sealedKey, request.Secret, sealedWebhookSecret, request.TeamID)
+}
+
+// TeamVATRate is the VAT rate in percent that new invoices take, 0 for none (FIN-16).
+func (d *DB) TeamVATRate(ctx context.Context, teamID int64) (int, error) {
+	var rate int64
+	if err := d.sql.QueryRowContext(ctx, `SELECT vat_rate FROM teams WHERE id = ?`, teamID).Scan(&rate); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, model.ErrNotFound
+		}
+		return 0, err
+	}
+	return int(rate), nil
 }

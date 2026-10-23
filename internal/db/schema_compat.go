@@ -58,6 +58,9 @@ var columnMigrations = []struct {
 	{"teams", "requisites", "TEXT NOT NULL DEFAULT ''"},
 	// Whether clients' invoices leave out the members' names on by-person lines (FIN-15).
 	{"teams", "hide_executor_names", "BIGINT NOT NULL DEFAULT 0"},
+	// VAT rate in percent, 0 for none; an invoice keeps the rate it was drafted with (FIN-16).
+	{"teams", "vat_rate", "BIGINT NOT NULL DEFAULT 0"},
+	{"invoices", "vat_rate", "BIGINT NOT NULL DEFAULT 0"},
 	{"teams", "vat_note", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "seller_details", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "client_details", "TEXT NOT NULL DEFAULT ''"},
