@@ -27,7 +27,7 @@ def timesheet_document(minutes=45):
         ],
     } for activity, name in ((1, "Разработка"), (2, "Сопровождение"))]
     boot = {
-        "data": {"Lang": "ru", "Active": "timesheet", "TimesheetReact": True, "CSRFToken": "test",
+        "data": {"Lang": "ru", "Active": "timesheet", "TimesheetReact": True, "EditRequests": [], "CanDecide": False, "CSRFToken": "test",
                  "Approval": {"Approved": False, "Finished": True, "ApprovedOn": "", "CanManage": True,
                               "StartISO": "2026-10-05", "EndISO": "2026-10-11"}, "Rows": rows,
                  "ProjectNames": {"1": "Первый проект", "2": "Второй проект"}, "Days": DAYS,

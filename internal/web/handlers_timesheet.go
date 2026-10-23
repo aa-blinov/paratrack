@@ -48,7 +48,10 @@ func (timesheetRow) isTemplateData() {}
 
 type timesheetData struct {
 	pageData
-	TimesheetReact  bool
+	TimesheetReact bool
+	// EditRequests are the time edit requests the viewer may see; a manager decides them (TIME-19).
+	EditRequests    []timeEditView
+	CanDecide       bool
 	WeekStart       time.Time
 	WeekEnd         time.Time
 	PrevWeek        string // link query
@@ -161,11 +164,18 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	edits, err := s.timeEditViews(r)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	data := timesheetData{
 		pageData: pageData{
 			Title: "Timesheet", Active: "timesheet", Lang: lang, ReactApp: true,
 		},
 		TimesheetReact:  true,
+		EditRequests:    edits,
+		CanDecide:       canManage(r),
 		WeekStart:       weekStart,
 		WeekEnd:         weekEnd,
 		WeekLabel:       fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekEnd),
