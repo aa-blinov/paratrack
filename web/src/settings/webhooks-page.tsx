@@ -12,7 +12,7 @@ import { WebhookRotate } from "@/settings/webhook-rotate"
 
 // "*" comes first so one box subscribes the endpoint to everything, including
 // events added later. The rest are the published event names.
-const events = ["*", "session.started", "session.stopped", "invoice.created", "invoice.paid", "invoice.payment_link_created", "import.completed"]
+const events = ["*", "session.started", "session.stopped", "invoice.created", "invoice.paid", "invoice.payment_link_created", "import.completed", "task.created", "task.done"]
 
 export function WebhooksPage({ data }: { data: WebhooksData }) {
   const lang = data.Lang || "en"

@@ -30,6 +30,10 @@ func DecodeEvent(name EventName, payload []byte) (Event, error) {
 		event = &PaymentLinkCreatedEvent{}
 	case EventImportCompleted:
 		event = &ImportCompletedEvent{}
+	case EventTaskCreated:
+		event = &TaskCreatedEvent{}
+	case EventTaskDone:
+		event = &TaskDoneEvent{}
 	default:
 		return nil, ErrUnknownEvent
 	}
@@ -65,6 +69,8 @@ const (
 	EventInvoicePaid        EventName = "invoice.paid"
 	EventPaymentLinkCreated EventName = "invoice.payment_link_created"
 	EventImportCompleted    EventName = "import.completed"
+	EventTaskCreated        EventName = "task.created"
+	EventTaskDone           EventName = "task.done"
 )
 
 // SessionStartedEvent is published after a timer starts or focus creates one.
@@ -123,3 +129,23 @@ type ImportCompletedEvent struct {
 
 func (ImportCompletedEvent) EventName() EventName { return EventImportCompleted }
 func (ImportCompletedEvent) webhookEvent()        {}
+
+// TaskCreatedEvent is published in the same transaction as a new task (ADM-14).
+type TaskCreatedEvent struct {
+	TaskID    int64  `json:"task_id"`
+	ProjectID int64  `json:"project_id"`
+	Title     string `json:"title"`
+}
+
+func (TaskCreatedEvent) EventName() EventName { return EventTaskCreated }
+func (TaskCreatedEvent) webhookEvent()        {}
+
+// TaskDoneEvent is published in the same transaction as a task moves to done (ADM-14).
+type TaskDoneEvent struct {
+	TaskID    int64  `json:"task_id"`
+	ProjectID int64  `json:"project_id"`
+	Title     string `json:"title"`
+}
+
+func (TaskDoneEvent) EventName() EventName { return EventTaskDone }
+func (TaskDoneEvent) webhookEvent()        {}

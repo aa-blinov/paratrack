@@ -33,6 +33,7 @@ const deliveryLogTimeout = 5 * time.Second
 var knownEvents = map[webhookport.EventName]struct{}{
 	webhookport.EventSessionStarted: {}, webhookport.EventSessionStopped: {}, webhookport.EventInvoiceCreated: {},
 	webhookport.EventInvoicePaid: {}, webhookport.EventPaymentLinkCreated: {}, webhookport.EventImportCompleted: {},
+	webhookport.EventTaskCreated: {}, webhookport.EventTaskDone: {},
 	"*": {},
 }
 
