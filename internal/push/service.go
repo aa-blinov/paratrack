@@ -93,6 +93,17 @@ type Service struct {
 	closed bool
 }
 
+// NotifyUsers queues one push for the people named, filtered by their choice on its topic (TASK-12).
+func (s *Service) NotifyUsers(ctx context.Context, request appmodel.PushNotifyRequest) error {
+	if request.TeamID <= 0 {
+		return ErrNoWorkspace
+	}
+	if len(request.UserIDs) == 0 {
+		return nil
+	}
+	return s.enqueue(request.TeamID, request.UserIDs, Notification{Title: request.Title, Body: request.Body, URL: request.URL, Topic: request.Topic})
+}
+
 // EnqueueNotification is the asynchronous delivery surface used by HTTP.
 func (s *Service) EnqueueNotification(request EnqueueNotificationRequest) error {
 	return s.enqueue(request.TeamID, request.UserIDs, request.Notification)

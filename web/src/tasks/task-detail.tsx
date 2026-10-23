@@ -47,6 +47,8 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [subtask, setSubtask] = React.useState("")
   const [waitFor, setWaitFor] = React.useState("")
   const [file, setFile] = React.useState<File | null>(null)
+  const [watchPerson, setWatchPerson] = React.useState("")
+  const [watchRole, setWatchRole] = React.useState("watcher")
   const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
@@ -84,6 +86,19 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   }
 
   // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).
+  // setWatch follows or stops following the task; a manager may name the person and their role (TASK-12).
+  async function setWatch(watch: boolean, userID?: string, role?: string) {
+    setError("")
+    try {
+      const fields: Record<string, string> = { watch: watch ? "1" : "0" }
+      if (userID) fields.user_id = userID
+      if (role) fields.role = role
+      await postStep("/watch", fields)
+      window.location.reload()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
   // addFile attaches a picked file to the task; the server decides its kind from its bytes (TASK-13).
   async function addFile(event: React.FormEvent) {
     event.preventDefault()
@@ -356,6 +371,28 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
           </div>
         </form>}
       </CardContent></Card>}
+      <section aria-label={t(lang, "tasks.watchers")} className="grid gap-3">
+        <h2 className="text-sm font-medium">{t(lang, "tasks.watchers")}</h2>
+        {data.Watchers.length ? <ul className="grid gap-1">{data.Watchers.map(item => <li key={item.UserID} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span className="min-w-0 [overflow-wrap:anywhere]">{item.Name}</span>
+          <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+            {item.RoleLabel}
+            {data.CanManage && <Button type="button" variant="ghost" size="sm" onClick={() => void setWatch(false, String(item.UserID))}>{t(lang, "tasks.fileDelete")}</Button>}
+          </span>
+        </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "tasks.watchersEmpty")}</p>}
+        <div><Button type="button" size="sm" variant={data.Watching ? "outline" : "default"} onClick={() => void setWatch(!data.Watching)}>{data.Watching ? t(lang, "tasks.unwatch") : t(lang, "tasks.watch")}</Button></div>
+        {data.CanManage && <form onSubmit={event => { event.preventDefault(); if (watchPerson) void setWatch(true, watchPerson, watchRole) }} className="flex flex-wrap gap-2">
+          <Select value={watchPerson} onValueChange={setWatchPerson}>
+            <SelectTrigger id="task-watch-person" className="min-w-0 flex-1"><SelectValue placeholder={t(lang, "tasks.watcherAdd")} /></SelectTrigger>
+            <SelectContent>{data.People.map(person => <SelectItem key={person.ID} value={String(person.ID)}>{person.Name}</SelectItem>)}</SelectContent>
+          </Select>
+          <Select value={watchRole} onValueChange={setWatchRole}>
+            <SelectTrigger id="task-watch-role" className="w-40"><SelectValue /></SelectTrigger>
+            <SelectContent><SelectItem value="watcher">{t(lang, "tasks.watcher")}</SelectItem><SelectItem value="co-assignee">{t(lang, "tasks.coAssignee")}</SelectItem></SelectContent>
+          </Select>
+          <Button type="submit" size="sm" disabled={!watchPerson}>{t(lang, "tasks.watcherAdd")}</Button>
+        </form>}
+      </section>
       <section aria-label={t(lang, "tasks.files")} className="grid gap-3">
         <h2 className="text-sm font-medium">{t(lang, "tasks.files")}</h2>
         {data.Attachments.length ? <ul className="grid gap-2">{data.Attachments.map(item => <li key={item.ID} className="flex flex-wrap items-center justify-between gap-2 text-sm">
