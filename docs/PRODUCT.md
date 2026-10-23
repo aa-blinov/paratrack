@@ -135,6 +135,10 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 
 - A GitHub token is checked when the connection is saved: GitHub refusing it (401) stops the save with a message, not at the first sync (ADM-10). A network failure does not block the save, and only GitHub is checked here
 
+**Task files**
+
+- A task holds files: pictures, PDF and plain text, up to 5 MB each (TASK-13). The kind is decided from the bytes, not the name, so HTML is refused whatever it is called. A file downloads as an attachment with `nosniff` and is never rendered in the page. Its author or a manager removes it. Files are stored in the database with the task and go with it
+
 **Task dependencies**
 
 - A task can wait for another task of its project (TASK-11). A wait that would loop back, or a task waiting for itself, is refused. The page shows what the task waits for, what it blocks, and marks the task blocked while anything it waits for is not done. The block is information only: a status change is not refused
