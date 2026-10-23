@@ -72,7 +72,9 @@ type TeamRequisitesRequest struct {
 	Requisites string
 	// HideExecutorNames keeps the members' names off by-person invoice lines (FIN-15).
 	HideExecutorNames bool
-	VATNote           string
+	// VATRate is the VAT rate in percent, 0 for none (FIN-16).
+	VATRate int
+	VATNote string
 }
 
 type TeamCreateRequest struct {
