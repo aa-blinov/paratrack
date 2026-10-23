@@ -27,6 +27,10 @@ type Store interface {
 	AddTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error
 	DeleteTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error
 	TaskDependencies(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskLink, []appmodel.TaskLink, error)
+	AddTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentAddRequest) (appmodel.TaskAttachmentInfo, error)
+	ListTaskAttachments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskAttachmentInfo, error)
+	GetTaskAttachment(ctx context.Context, teamID, taskID, attachmentID int64) (appmodel.TaskAttachmentFile, error)
+	DeleteTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentDeleteRequest) error
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
@@ -227,6 +231,35 @@ func (s *Service) TaskDependencies(ctx context.Context, teamID, taskID int64) ([
 		return nil, nil, appmodel.ErrInvalidTask
 	}
 	return s.store.TaskDependencies(ctx, teamID, taskID)
+}
+
+// AddTaskAttachment, ListTaskAttachments, GetTaskAttachment and DeleteTaskAttachment keep a task's files (TASK-13).
+func (s *Service) AddTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentAddRequest) (appmodel.TaskAttachmentInfo, error) {
+	if request.TeamID <= 0 {
+		return appmodel.TaskAttachmentInfo{}, appmodel.ErrInvalidTask
+	}
+	return s.store.AddTaskAttachment(ctx, request)
+}
+
+func (s *Service) ListTaskAttachments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskAttachmentInfo, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.ListTaskAttachments(ctx, teamID, taskID)
+}
+
+func (s *Service) GetTaskAttachment(ctx context.Context, teamID, taskID, attachmentID int64) (appmodel.TaskAttachmentFile, error) {
+	if teamID <= 0 {
+		return appmodel.TaskAttachmentFile{}, appmodel.ErrInvalidTask
+	}
+	return s.store.GetTaskAttachment(ctx, teamID, taskID, attachmentID)
+}
+
+func (s *Service) DeleteTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentDeleteRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.DeleteTaskAttachment(ctx, request)
 }
 
 // Subtasks lists a task's live subtasks, for the parent's page and rollup (TASK-09).

@@ -46,6 +46,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [step, setStep] = React.useState("")
   const [subtask, setSubtask] = React.useState("")
   const [waitFor, setWaitFor] = React.useState("")
+  const [file, setFile] = React.useState<File | null>(null)
   const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
@@ -83,6 +84,38 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   }
 
   // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).
+  // addFile attaches a picked file to the task; the server decides its kind from its bytes (TASK-13).
+  async function addFile(event: React.FormEvent) {
+    event.preventDefault()
+    if (!file) return
+    setError("")
+    const body = new FormData()
+    body.append("csrf_token", data.CSRFToken)
+    body.append("file", file)
+    try {
+      const response = await fetch(`/api/tasks/${task.ID}/attachments`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "X-CSRF-Token": data.CSRFToken },
+        body,
+      })
+      const json = (await response.json()) as { id?: number; error?: string }
+      if (!response.ok || !json.id) throw new Error(json.error || response.statusText)
+      window.location.reload()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
+  // removeFile deletes an attached file; its author or a manager may do it.
+  async function removeFile(id: number) {
+    setError("")
+    try {
+      await postStep(`/attachments/${id}/delete`, {})
+      window.location.reload()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
   // addDependency makes this task wait for another one in its project, then shows the new state (TASK-11).
   async function addDependency(event: React.FormEvent) {
     event.preventDefault()
@@ -323,6 +356,19 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
           </div>
         </form>}
       </CardContent></Card>}
+      <section aria-label={t(lang, "tasks.files")} className="grid gap-3">
+        <h2 className="text-sm font-medium">{t(lang, "tasks.files")}</h2>
+        {data.Attachments.length ? <ul className="grid gap-2">{data.Attachments.map(item => <li key={item.ID} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <a href={item.URL} className="min-w-0 break-words underline underline-offset-4">{item.Name}</a>
+          <span className="text-xs text-muted-foreground">{item.Size} · {item.Author}, {item.When}</span>
+          {!task.Archived && <Button type="button" variant="ghost" size="sm" onClick={() => void removeFile(item.ID)}>{t(lang, "tasks.fileDelete")}</Button>}
+        </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "tasks.filesEmpty")}</p>}
+        {!task.Archived && <form onSubmit={addFile} className="flex flex-wrap items-center gap-2">
+          <Label htmlFor="task-file" className="sr-only">{t(lang, "tasks.filesAdd")}</Label>
+          <Input id="task-file" type="file" accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain" onChange={event => setFile(event.target.files?.[0] ?? null)} className="min-w-0 flex-1" />
+          <Button type="submit" size="sm" disabled={!file}>{t(lang, "tasks.filesAdd")}</Button>
+        </form>}
+      </section>
       <section aria-label={t(lang, "tasks.dependencies")} className="grid gap-3">
         <h2 className="text-sm font-medium">{t(lang, "tasks.dependencies")}</h2>
         {data.Blocked && <p role="status" className="text-sm">{t(lang, "tasks.blockedNote")}</p>}

@@ -610,5 +610,9 @@ type TaskWorkflow interface {
 	AddTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error
 	DeleteTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error
 	TaskDependencies(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskLink, []appmodel.TaskLink, error)
+	AddTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentAddRequest) (appmodel.TaskAttachmentInfo, error)
+	ListTaskAttachments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskAttachmentInfo, error)
+	GetTaskAttachment(ctx context.Context, teamID, taskID, attachmentID int64) (appmodel.TaskAttachmentFile, error)
+	DeleteTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentDeleteRequest) error
 	LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]appmodel.ActivityTask, error)
 }
