@@ -20,7 +20,7 @@ func TestWorkspaceSettingsReturnDomainNotFound(t *testing.T) {
 	if _, err := d.TeamModules(ctx, 999); !errors.Is(err, model.ErrNotFound) {
 		t.Errorf("TeamModules error = %v, want model.ErrNotFound", err)
 	}
-	if _, _, err := d.TeamRequisites(ctx, 999); !errors.Is(err, model.ErrNotFound) {
+	if _, _, _, err := d.TeamRequisites(ctx, 999); !errors.Is(err, model.ErrNotFound) {
 		t.Errorf("TeamRequisites error = %v, want model.ErrNotFound", err)
 	}
 }

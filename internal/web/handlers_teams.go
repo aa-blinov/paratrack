@@ -36,6 +36,8 @@ type settingsPageData struct {
 	Currencies []currencyOption
 	Requisites string
 	VATNote    string
+	// HideExecutorNames: the requisites card's switch for the members' names on invoices (FIN-15).
+	HideExecutorNames bool
 	// Stripe state for the money tab: set or not, never the values.
 	StripeKeySet    bool
 	StripeSecretSet bool
@@ -161,6 +163,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	data.Currencies = currencyOptions()
 	data.TimeZone, data.WeekStart, data.Zones = team.TimeZone, team.WeekStart, zones
 	data.Requisites, data.VATNote = settings.Requisites, settings.VATNote
+	data.HideExecutorNames = settings.HideExecutorNames
 	data.StripeKeySet, data.StripeSecretSet = settings.StripeKeySet, settings.StripeSecretSet
 	// Deleting the workspace is the owner's alone; the page says so and hides it from admins.
 	data.IsOwner = RoleFrom(r.Context()) == model.TeamRoleOwner

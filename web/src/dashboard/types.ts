@@ -825,6 +825,8 @@ export interface NotificationsData {
 }
 
 export interface TeamSettingsData {
+  // The requisites card's switch: the members' names stay off by-person invoice lines (FIN-15).
+  HideExecutorNames: boolean
   Active: string
   Lang: string
   CSRFToken: string

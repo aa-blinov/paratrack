@@ -71,7 +71,7 @@ func (s *Service) Settings(ctx context.Context, teamID int64) (model.TeamSetting
 	if settings.Currency, err = s.settings.TeamCurrency(ctx, teamID); err != nil {
 		return model.TeamSettings{}, fmt.Errorf("load team currency: %w", err)
 	}
-	if settings.Requisites, settings.VATNote, err = s.settings.TeamRequisites(ctx, teamID); err != nil {
+	if settings.Requisites, settings.VATNote, settings.HideExecutorNames, err = s.settings.TeamRequisites(ctx, teamID); err != nil {
 		return model.TeamSettings{}, fmt.Errorf("load team requisites: %w", err)
 	}
 	if settings.Billing, err = s.settings.TeamBilling(ctx, teamID); err != nil {
