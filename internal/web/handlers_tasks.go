@@ -108,6 +108,8 @@ type taskDetailPage struct {
 	Subtasks          []taskSubtaskView
 	SubtaskRollup     string
 	Attachments       []taskAttachmentView
+	Watchers          []taskWatcherView
+	Watching          bool
 	WaitsFor          []taskLinkView
 	Blocks            []taskLinkView
 	DependencyOptions []taskLinkView
@@ -254,7 +256,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := tasksPage{
-		pageData:   pageData{Title: "Tasks", Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
+		pageData:   pageData{Title: "Tasks", Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true, CanManage: canManage(r)},
 		TasksReact: true,
 		View:       view,
 		ProjectID:  projectID,
@@ -405,6 +407,11 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	watchers, watching, err := s.taskWatcherViews(r, id)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	attachments, err := s.taskAttachmentViews(r, id)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -439,6 +446,8 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		Subtasks:          subtasks,
 		SubtaskRollup:     rollup,
 		Attachments:       attachments,
+		Watchers:          watchers,
+		Watching:          watching,
 		WaitsFor:          waits,
 		Blocks:            blocks,
 		DependencyOptions: options,
@@ -646,12 +655,14 @@ func (s *Server) handleTaskStatus(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	status := strings.TrimSpace(r.FormValue("status"))
 	if err := s.services.Tasks.SetStatus(r.Context(), appmodel.TaskStatusRequest{
-		TeamID: teamID(r), CallerID: authenticatedUserID(r), TaskID: id, Status: strings.TrimSpace(r.FormValue("status")),
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), TaskID: id, Status: status,
 	}); err != nil {
 		s.writeTaskError(w, r, err)
 		return
 	}
+	s.notifyTaskWatchers(r, id, i18n.T(resolveLang(r), "watch.statusTitle"), status)
 	s.writeJSON(w, taskOKResponse{OK: true})
 }
 
@@ -827,6 +838,7 @@ func (s *Server) handleTaskComment(w http.ResponseWriter, r *http.Request) {
 		s.writeTaskError(w, r, err)
 		return
 	}
+	s.notifyTaskWatchers(r, id, i18n.T(resolveLang(r), "watch.commentTitle"), comment.Body)
 	s.writeJSON(w, taskCommentResponse{ID: comment.ID, Author: comment.Author, Body: comment.Body,
 		When: fmtWhen(resolveLang(r), comment.CreatedAt.In(userLoc(r)), userNow(r))})
 }

@@ -130,6 +130,7 @@ type PushWorkflow interface {
 	SubscriptionCount(context.Context, int64) (int, error)
 	UnsubscribeForMember(context.Context, appmodel.PushUnsubscribeRequest) error
 	MutedTopics(context.Context, appmodel.NotificationTopicsQuery) ([]string, error)
+	NotifyUsers(context.Context, appmodel.PushNotifyRequest) error
 	SaveMutedTopics(context.Context, appmodel.NotificationTopicsCommand) error
 	TestNotification(context.Context, appmodel.NotificationTestRequest) (appmodel.NotificationTestResult, error)
 }
@@ -614,5 +615,8 @@ type TaskWorkflow interface {
 	ListTaskAttachments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskAttachmentInfo, error)
 	GetTaskAttachment(ctx context.Context, teamID, taskID, attachmentID int64) (appmodel.TaskAttachmentFile, error)
 	DeleteTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentDeleteRequest) error
+	SetTaskWatcher(ctx context.Context, request appmodel.TaskWatchRequest) error
+	ListTaskWatchers(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskWatcher, error)
+	TaskWatcherIDs(ctx context.Context, teamID, taskID int64) ([]int64, error)
 	LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]appmodel.ActivityTask, error)
 }

@@ -135,6 +135,10 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 
 - A GitHub token is checked when the connection is saved: GitHub refusing it (401) stops the save with a message, not at the first sync (ADM-10). A network failure does not block the save, and only GitHub is checked here
 
+**Task watchers**
+
+- A member follows a task themselves; a manager adds anyone and may name a co-assignee (TASK-12). Anyone following a task gets a push when someone else comments on it or changes its status, on the topic `task.watch` that a person can switch off. A member stops only their own watch. Every member could already track time on any activity, so a co-assignee gets no new right: the role marks the task and adds the notices
+
 **Task files**
 
 - A task holds files: pictures, PDF and plain text, up to 5 MB each (TASK-13). The kind is decided from the bytes, not the name, so HTML is refused whatever it is called. A file downloads as an attachment with `nosniff` and is never rendered in the page. Its author or a manager removes it. Files are stored in the database with the task and go with it
