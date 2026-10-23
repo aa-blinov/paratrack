@@ -31,6 +31,9 @@ type Store interface {
 	ListTaskAttachments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskAttachmentInfo, error)
 	GetTaskAttachment(ctx context.Context, teamID, taskID, attachmentID int64) (appmodel.TaskAttachmentFile, error)
 	DeleteTaskAttachment(ctx context.Context, request appmodel.TaskAttachmentDeleteRequest) error
+	SetTaskWatcher(ctx context.Context, request appmodel.TaskWatchRequest) error
+	ListTaskWatchers(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskWatcher, error)
+	TaskWatcherIDs(ctx context.Context, teamID, taskID int64) ([]int64, error)
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
@@ -260,6 +263,28 @@ func (s *Service) DeleteTaskAttachment(ctx context.Context, request appmodel.Tas
 		return appmodel.ErrInvalidTask
 	}
 	return s.store.DeleteTaskAttachment(ctx, request)
+}
+
+// SetTaskWatcher, ListTaskWatchers and TaskWatcherIDs keep who follows a task (TASK-12).
+func (s *Service) SetTaskWatcher(ctx context.Context, request appmodel.TaskWatchRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.SetTaskWatcher(ctx, request)
+}
+
+func (s *Service) ListTaskWatchers(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskWatcher, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.ListTaskWatchers(ctx, teamID, taskID)
+}
+
+func (s *Service) TaskWatcherIDs(ctx context.Context, teamID, taskID int64) ([]int64, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.TaskWatcherIDs(ctx, teamID, taskID)
 }
 
 // Subtasks lists a task's live subtasks, for the parent's page and rollup (TASK-09).

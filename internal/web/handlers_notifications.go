@@ -54,6 +54,7 @@ var selectableNotificationTopics = []struct {
 	{appmodel.NotificationTopicProjectDeadline, "push.ev5"},
 	{appmodel.NotificationTopicScheduleOverload, "push.ev6"},
 	{appmodel.NotificationTopicTaskDue, "push.ev7"},
+	{appmodel.NotificationTopicTaskWatch, "push.evWatch"},
 }
 
 // notificationTopicViews applies the caller's selection to the selectable

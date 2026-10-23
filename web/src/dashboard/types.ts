@@ -1095,4 +1095,8 @@ export interface TaskDetailData {
   DependencyOptions: Array<{ ID: number; Title: string; Done: boolean }>
   Blocked: boolean
   ViewerID: number
+  // Who follows the task, whether the viewer does, and whether the viewer may add others (TASK-12).
+  Watchers: Array<{ UserID: number; Name: string; Role: string; RoleLabel: string }>
+  Watching: boolean
+  CanManage: boolean
 }
