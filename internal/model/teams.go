@@ -15,6 +15,10 @@ const (
 
 func (r TeamRole) CanManage() bool { return r == TeamRoleOwner || r == TeamRoleAdmin }
 
+// IsOwner reports whether the role is the workspace owner's, the only one that changes
+// the currency, the invoice rules, Stripe and webhooks (ADM-15).
+func (r TeamRole) IsOwner() bool { return r == TeamRoleOwner }
+
 // Team is a workspace and its owner.
 type Team struct {
 	ID        int64

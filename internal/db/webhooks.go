@@ -44,7 +44,7 @@ func (d *DB) CreateWebhook(ctx context.Context, request appmodel.WebhookRegistra
 		return webhookport.WebhookSummary{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+	if err := lockTeamOwner(ctx, tx, teamID, callerID); err != nil {
 		return webhookport.WebhookSummary{}, err
 	}
 	var id int64
@@ -137,7 +137,7 @@ func (d *DB) DeleteWebhook(ctx context.Context, request appmodel.WebhookDeleteRe
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+	if err := lockTeamOwner(ctx, tx, teamID, callerID); err != nil {
 		return err
 	}
 	res, err := tx.ExecContext(ctx,
@@ -168,7 +168,7 @@ func (d *DB) GetWebhookForDelivery(ctx context.Context, request appmodel.Webhook
 		return webhookport.Webhook{}, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+	if err := lockTeamOwner(ctx, tx, teamID, callerID); err != nil {
 		return webhookport.Webhook{}, err
 	}
 	hook, err := d.scanWebhook(tx.QueryRowContext(ctx,

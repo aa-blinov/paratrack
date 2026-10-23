@@ -21,7 +21,7 @@ func (d *DB) RotateWebhookSecret(ctx context.Context, request appmodel.WebhookRo
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+	if err := lockTeamOwner(ctx, tx, request.TeamID, request.CallerID); err != nil {
 		return err
 	}
 	res, err := tx.ExecContext(ctx,

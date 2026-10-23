@@ -63,7 +63,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /invoices/{id}/pay", s.module("invoices", s.manage(s.handleInvoicePayLink)))
 	pages.HandleFunc("POST /invoices/{id}/paid", s.module("invoices", s.manage(s.handleInvoiceMarkPaid)))
 	pages.HandleFunc("POST /invoices/{id}/payments", s.module("invoices", s.manage(s.handleInvoicePayment)))
-	pages.HandleFunc("POST /api/team/stripe", s.manage(s.handleTeamStripe))
+	pages.HandleFunc("POST /api/team/stripe", s.owner(s.handleTeamStripe))
 
 	// Payroll and resource scheduling.
 	pages.HandleFunc("GET /payroll", s.module("payroll", s.manage(s.handlePayroll)))
@@ -125,11 +125,11 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /invites/{token}", s.handleInviteAcceptPage)
 
 	// Webhook management and audit history.
-	pages.HandleFunc("GET /settings/webhooks", s.manage(s.handleWebhooksPage))
-	pages.HandleFunc("POST /api/webhooks", s.manage(s.handleWebhookCreate))
-	pages.HandleFunc("POST /api/webhooks/{id}/test", s.manage(s.handleWebhookTest))
-	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.manage(s.handleWebhookDelete))
-	pages.HandleFunc("POST /api/webhooks/{id}/secret", s.manage(s.handleWebhookRotate))
+	pages.HandleFunc("GET /settings/webhooks", s.owner(s.handleWebhooksPage))
+	pages.HandleFunc("POST /api/webhooks", s.owner(s.handleWebhookCreate))
+	pages.HandleFunc("POST /api/webhooks/{id}/test", s.owner(s.handleWebhookTest))
+	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.owner(s.handleWebhookDelete))
+	pages.HandleFunc("POST /api/webhooks/{id}/secret", s.owner(s.handleWebhookRotate))
 	pages.HandleFunc("GET /settings/audit", s.manage(s.handleAuditPage))
 
 	// Page routes are mounted behind pageAuth by routes().
