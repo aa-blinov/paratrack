@@ -354,7 +354,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 		return AggregateResult{}, fmt.Errorf("load report project currencies: %w", err)
 	}
 	userNames := make(map[int64]string)
-	if query.GroupBy == appmodel.ReportGroupUser {
+	if query.GroupBy == appmodel.ReportGroupUser || query.GroupBy == appmodel.ReportGroupDayPerson {
 		members, err := b.teams.Members(ctx, query.TeamID)
 		if err != nil {
 			return AggregateResult{}, fmt.Errorf("load report members: %w", err)

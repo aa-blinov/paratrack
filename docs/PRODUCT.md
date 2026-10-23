@@ -111,6 +111,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Runs skip members with pay 0
 - A member sees their own pay lines on the profile page, read-only: the runs in this workspace that hold a line for them, newest period first, with hours, rate, amount and whether the run is paid. The sums are the amount still to be paid and the amount paid, in the currency of the first line (FIN-11). It reads only that person's lines (`ListMemberPayrollLines`)
 - Removing a member stops their timers and keeps their pay in `former_members`; their sessions, tasks and history stay. A manager brings a former member back from `/settings/members` as a member, with that pay, and the departure row goes (`ReturnTeamMember`, ADM-04). Someone still in the workspace is refused
+- A payroll line opens to the hours its person logged on each day of the run. Days with no time are left out, and a run longer than 370 days shows its totals only (FIN-18)
 - Sessions attribute via `sessions.user_id` (stamped on timer start)
 - Legacy rows without a user fall on the team's first paid member
 - A run counts **only time inside approved weeks**. A closed session in the period that starts
@@ -123,6 +124,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 
 **Reports**
 
+- The day-by-person report (`by-day-person`) splits each day's time by member, in calendar order, with the member's name after the day (PLAN-07)
 - The activity grouping keys each row by activity id (D-7). Activities that share a name stay apart: the repeated name carries the id after it, such as `созвон (#12)`, and each row names its project and the task the activity holds (TIME-15, TIME-16). The API's `by_activity` map uses the same labels
 
 **API v1**

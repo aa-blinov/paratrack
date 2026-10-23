@@ -90,6 +90,8 @@ type ReportAggregateRow struct {
 	ActivityID int64
 	Project    string
 	Task       string
+	// Person names the member of a day-by-person row (PLAN-07).
+	Person string
 	// UserID is set on member rows only (zero for other groupings and for
 	// time with no member).
 	UserID      int64
