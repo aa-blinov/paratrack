@@ -61,10 +61,20 @@ func (d *DB) CreateTask(ctx context.Context, request appmodel.TaskCreateRequest)
 			return model.Task{}, err
 		}
 	}
+	if request.ParentID > 0 {
+		if err := checkSubtaskParent(ctx, tx, request.TeamID, request.ProjectID, request.ParentID); err != nil {
+			return model.Task{}, err
+		}
+	}
 	now := d.currentTime().UTC()
 	id, err := insertTaskTx(ctx, tx, request, FormatTime(now))
 	if err != nil {
 		return model.Task{}, err
+	}
+	if request.ParentID > 0 {
+		if _, err := tx.ExecContext(ctx, `UPDATE tasks SET parent_id = ? WHERE id = ? AND team_id = ?`, request.ParentID, id, request.TeamID); err != nil {
+			return model.Task{}, err
+		}
 	}
 	if err := d.recordWebhookEventTx(ctx, tx, request.TeamID, webhookport.TaskCreatedEvent{TaskID: id, ProjectID: request.ProjectID, Title: request.Title}, now); err != nil {
 		return model.Task{}, err
@@ -681,6 +691,47 @@ func (d *DB) ListLinkableActivities(ctx context.Context, query appmodel.TaskQuer
 			return nil, err
 		}
 		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+// checkSubtaskParent allows a subtask under a top-level task of the same project only: the
+// tree stays one level deep, so a subtask's rollup is the parent's and nothing more (TASK-09).
+func checkSubtaskParent(ctx context.Context, tx *Tx, teamID, projectID, parentID int64) error {
+	var parentProject, grandParent int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT project_id, parent_id FROM tasks WHERE id = ? AND team_id = ?`, parentID, teamID).Scan(&parentProject, &grandParent); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if parentProject != projectID || grandParent != 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return nil
+}
+
+// SubtasksOf lists the live subtasks of a task, oldest first (TASK-09).
+func (d *DB) SubtasksOf(ctx context.Context, teamID, parentID int64) ([]model.Task, error) {
+	if teamID <= 0 || parentID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT id, title, status FROM tasks WHERE team_id = ? AND parent_id = ? AND archived = 0 ORDER BY id`,
+		teamID, parentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []model.Task
+	for rows.Next() {
+		var sub model.Task
+		if err := rows.Scan(&sub.ID, &sub.Title, &sub.Status); err != nil {
+			return nil, err
+		}
+		sub.TeamID, sub.ParentID = teamID, parentID
+		out = append(out, sub)
 	}
 	return out, rows.Err()
 }

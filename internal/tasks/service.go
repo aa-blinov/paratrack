@@ -23,6 +23,7 @@ type Store interface {
 	SetChecklistItem(ctx context.Context, request appmodel.TaskChecklistSetRequest) error
 	DeleteChecklistItem(ctx context.Context, request appmodel.TaskChecklistDeleteRequest) error
 	ListChecklist(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskChecklistItem, error)
+	SubtasksOf(ctx context.Context, teamID, parentID int64) ([]model.Task, error)
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
@@ -201,6 +202,14 @@ func (s *Service) DeleteChecklistItem(ctx context.Context, request appmodel.Task
 		return appmodel.ErrInvalidTask
 	}
 	return s.store.DeleteChecklistItem(ctx, request)
+}
+
+// Subtasks lists a task's live subtasks, for the parent's page and rollup (TASK-09).
+func (s *Service) Subtasks(ctx context.Context, teamID, parentID int64) ([]model.Task, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.SubtasksOf(ctx, teamID, parentID)
 }
 
 func (s *Service) Checklist(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskChecklistItem, error) {

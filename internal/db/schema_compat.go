@@ -27,6 +27,8 @@ var columnMigrations = []struct {
 	{"tasks", "due_reminder", "TEXT"},
 	{"tasks", "description", "TEXT NOT NULL DEFAULT ''"},
 	{"tasks", "external_ref", "TEXT"},
+	// The task a subtask belongs to, 0 for a top-level task (TASK-09).
+	{"tasks", "parent_id", "BIGINT NOT NULL DEFAULT 0"},
 	{"tasks", "external_url", "TEXT"},
 	{"projects", "billable_rate_cents", "BIGINT"},
 	{"projects", "billable", "BIGINT NOT NULL DEFAULT 1"},
