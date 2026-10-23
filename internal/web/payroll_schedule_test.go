@@ -208,7 +208,12 @@ func TestPayrollOverlapWarns(t *testing.T) {
 	if n != 1 {
 		t.Fatalf("%d runs after the warning, want 1", n)
 	}
-	if loc := create(url.Values{"confirm": {"1"}}); !strings.HasPrefix(loc, "/payroll/") {
+	// Paying the same hours again needs a written reason (FIN-22): without one the form
+	// comes back with a message and no run is written.
+	if loc := create(url.Values{"confirm": {"1"}}); !strings.Contains(loc, "flash=") || strings.HasPrefix(loc, "/payroll/") {
+		t.Fatalf("confirmed run without a reason: %q", loc)
+	}
+	if loc := create(url.Values{"confirm": {"1"}, "overlap_reason": {"пересчёт после правки табеля"}}); !strings.HasPrefix(loc, "/payroll/") {
 		t.Fatalf("confirmed run: %q", loc)
 	}
 }

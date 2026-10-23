@@ -4,6 +4,8 @@ package webhooks
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -45,6 +47,7 @@ const (
 type Store interface {
 	CreateWebhook(context.Context, appmodel.WebhookRegistrationCommand) (webhookport.WebhookSummary, error)
 	DeleteWebhook(context.Context, appmodel.WebhookDeleteRequest) error
+	RotateWebhookSecret(context.Context, appmodel.WebhookRotateRequest) error
 	ListWebhookSummaries(context.Context, appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error)
 	ListWebhooks(context.Context, appmodel.WebhookListQuery) ([]webhookport.Webhook, error)
 	GetWebhookForDelivery(context.Context, appmodel.WebhookLookupCommand) (webhookport.Webhook, error)
@@ -160,6 +163,24 @@ func normalizeEvents(values []string) (string, error) {
 		return defaultEvents, nil
 	}
 	return strings.Join(selected, ","), nil
+}
+
+// RotateSecret replaces a webhook's signing secret with a new random one and returns it.
+// The old secret stops signing at once; the caller shows the new one once (ADM-13).
+func (s *Service) RotateSecret(ctx context.Context, request appmodel.WebhookRotateRequest) (string, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.WebhookID <= 0 {
+		return "", ErrInvalidWebhook
+	}
+	raw := make([]byte, 32)
+	if _, err := rand.Read(raw); err != nil {
+		return "", fmt.Errorf("make webhook secret: %w", err)
+	}
+	request.Secret = hex.EncodeToString(raw)
+	if err := s.store.RotateWebhookSecret(ctx, request); err != nil {
+		return "", fmt.Errorf("rotate webhook secret: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "webhook.rotate", fmt.Sprintf("%d", request.WebhookID), "")
+	return request.Secret, nil
 }
 
 func (s *Service) Delete(ctx context.Context, request appmodel.WebhookDeleteRequest) error {
