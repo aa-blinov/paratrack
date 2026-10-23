@@ -104,6 +104,7 @@ type taskDetailPage struct {
 	Linkable        []taskActivity
 	ViewerID        int64
 	Comments        []taskCommentView
+	Checklist       []taskChecklistView
 }
 
 // taskCommentView is one line of a task's feed as the page shows it.
@@ -392,6 +393,15 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		linkable = taskActivities(list)
 	}
+	steps, err := s.services.Tasks.Checklist(r.Context(), teamID(r), id)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	checklist := make([]taskChecklistView, 0, len(steps))
+	for _, step := range steps {
+		checklist = append(checklist, taskChecklistView{ID: step.ID, Body: step.Body, Done: step.Done})
+	}
 	comments, err := s.services.Tasks.Comments(r.Context(), teamID(r), id)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -403,6 +413,7 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	data := taskDetailPage{
 		Comments:        feed,
+		Checklist:       checklist,
 		pageData:        pageData{Title: task.Title, Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
 		TaskDetailReact: true,
 		Task:            task,

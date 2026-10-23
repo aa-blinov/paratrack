@@ -198,3 +198,33 @@ type TaskStartRequest struct {
 	TaskID   int64
 	CallerID int64
 }
+
+// TaskChecklistItem is one step of a task's checklist (TASK-10).
+type TaskChecklistItem struct {
+	ID     int64
+	TaskID int64
+	Body   string
+	Done   bool
+}
+
+type TaskChecklistAddRequest struct {
+	TeamID   int64
+	TaskID   int64
+	CallerID int64
+	Body     string
+}
+
+type TaskChecklistSetRequest struct {
+	TeamID   int64
+	TaskID   int64
+	CallerID int64
+	ItemID   int64
+	Done     bool
+}
+
+type TaskChecklistDeleteRequest struct {
+	TeamID   int64
+	TaskID   int64
+	CallerID int64
+	ItemID   int64
+}

@@ -1064,5 +1064,6 @@ export interface TaskDetailData {
   People: TaskPerson[]
   Linkable: TaskActivity[]
   Comments: Array<{ ID: number; Author: string; Body: string; When: string }>
+  Checklist: Array<{ ID: number; Body: string; Done: boolean }>
   ViewerID: number
 }
