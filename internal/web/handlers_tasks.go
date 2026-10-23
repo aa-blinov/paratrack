@@ -97,16 +97,20 @@ func (p *tasksPage) usesReactApp() bool { return p.TasksReact }
 
 type taskDetailPage struct {
 	pageData
-	TaskDetailReact bool
-	Task            taskItem
-	Projects        []projectView
-	People          []taskPerson
-	Linkable        []taskActivity
-	ViewerID        int64
-	Comments        []taskCommentView
-	Checklist       []taskChecklistView
-	Subtasks        []taskSubtaskView
-	SubtaskRollup   string
+	TaskDetailReact   bool
+	Task              taskItem
+	Projects          []projectView
+	People            []taskPerson
+	Linkable          []taskActivity
+	ViewerID          int64
+	Comments          []taskCommentView
+	Checklist         []taskChecklistView
+	Subtasks          []taskSubtaskView
+	SubtaskRollup     string
+	WaitsFor          []taskLinkView
+	Blocks            []taskLinkView
+	DependencyOptions []taskLinkView
+	Blocked           bool
 }
 
 // taskCommentView is one line of a task's feed as the page shows it.
@@ -395,6 +399,11 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		linkable = taskActivities(list)
 	}
+	waits, blocks, options, blocked, err := s.dependencyViews(r, task)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	subtasks, rollup, err := s.subtaskViews(r, task)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -419,17 +428,21 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		feed = append(feed, taskCommentView{ID: c.ID, Author: c.Author, Body: c.Body, When: fmtWhen(resolveLang(r), c.CreatedAt.In(userLoc(r)), userNow(r))})
 	}
 	data := taskDetailPage{
-		Comments:        feed,
-		Checklist:       checklist,
-		Subtasks:        subtasks,
-		SubtaskRollup:   rollup,
-		pageData:        pageData{Title: task.Title, Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
-		TaskDetailReact: true,
-		Task:            task,
-		Projects:        s.activeProjectViews(r),
-		People:          s.taskPeople(r),
-		Linkable:        linkable,
-		ViewerID:        authenticatedUserID(r),
+		Comments:          feed,
+		Checklist:         checklist,
+		Subtasks:          subtasks,
+		SubtaskRollup:     rollup,
+		WaitsFor:          waits,
+		Blocks:            blocks,
+		DependencyOptions: options,
+		Blocked:           blocked,
+		pageData:          pageData{Title: task.Title, Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
+		TaskDetailReact:   true,
+		Task:              task,
+		Projects:          s.activeProjectViews(r),
+		People:            s.taskPeople(r),
+		Linkable:          linkable,
+		ViewerID:          authenticatedUserID(r),
 	}
 	s.renderPageForRequest(w, r, task.Title, "tasks", &data)
 }
