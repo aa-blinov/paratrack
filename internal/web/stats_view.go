@@ -106,6 +106,11 @@ func (s *Server) buildStatsData(r *http.Request) (statsData, error) {
 			return statsData{}, fmt.Errorf("build team week: %w", err)
 		}
 		data.TeamWeek = week
+		overview, err := s.overviewOf(r, now)
+		if err != nil {
+			return statsData{}, fmt.Errorf("build team overview: %w", err)
+		}
+		data.Overview = overview
 	}
 	markWeek, err := s.markWeekOf(r, now)
 	if err != nil {

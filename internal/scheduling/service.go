@@ -24,6 +24,7 @@ type Store interface {
 	TrackedSecondsByPersonDay(ctx context.Context, query appmodel.PersonDayQuery) (map[int64][]int, error)
 	SetDayMark(ctx context.Context, request appmodel.DayMarkRequest) error
 	MarkWorkday(ctx context.Context, request appmodel.WorkdayRequest) error
+	TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error)
 	WorkdayOf(ctx context.Context, teamID, userID int64, day string) (appmodel.WorkdayMark, bool, error)
 	DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
@@ -144,6 +145,15 @@ func (s *Service) DayMarks(ctx context.Context, teamID int64, from, until string
 		return nil, ErrInvalidScheduleCell
 	}
 	return s.store.DayMarks(ctx, teamID, from, until)
+}
+
+// TrackedSecondsByProject is what the workspace tracked on each project over a stretch of
+// days, for the project plan against fact (PLAN-05).
+func (s *Service) TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error) {
+	if query.TeamID <= 0 || len(query.Days) == 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.TrackedSecondsByProject(ctx, query)
 }
 
 // MarkWorkday sets the start or the end of a member's working day (TIME-06).

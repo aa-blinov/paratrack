@@ -647,6 +647,11 @@ export interface InvoiceDetailData {
 }
 
 export interface StatsData {
+  Overview?: {
+    DayNorm: string
+    Projects: Array<{ Name: string; Plan: string; Fact: string; Over: boolean }>
+    People: Array<{ Name: string; Planned: string; Available: string; Tracked: string; Mark: string }>
+  } | null
   TeamWeek?: {
     Norm: string
     Days: Array<{ Label: string; Date: string; Today: boolean }>

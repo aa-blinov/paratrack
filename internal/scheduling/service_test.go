@@ -40,6 +40,10 @@ func (scheduleCellStoreStub) PlannedMinutesForProject(context.Context, int64, in
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) TrackedSecondsByProject(context.Context, appmodel.PersonDayQuery) (map[int64]int, error) {
+	return nil, nil
+}
+
 func (scheduleCellStoreStub) MarkWorkday(context.Context, appmodel.WorkdayRequest) error { return nil }
 
 func (scheduleCellStoreStub) WorkdayOf(context.Context, int64, int64, string) (appmodel.WorkdayMark, bool, error) {
@@ -128,6 +132,10 @@ func (scheduleStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.Sched
 }
 
 func (scheduleStoreStub) PlannedMinutesForProject(context.Context, int64, int64) (map[int64]int, error) {
+	return nil, nil
+}
+
+func (scheduleStoreStub) TrackedSecondsByProject(context.Context, appmodel.PersonDayQuery) (map[int64]int, error) {
 	return nil, nil
 }
 

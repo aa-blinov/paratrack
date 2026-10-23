@@ -26,6 +26,8 @@ type statsData struct {
 	PersonFilter     int64
 	// TeamWeek is the workspace's week for managers (PLAN-04); nil for members.
 	TeamWeek *teamWeekView
+	// Overview is the manager's read of the week: plan against fact per project and load per person (PLAN-05).
+	Overview *overviewView
 	// MarkWeek is the viewer's own week for marking an overload or idle day (TIME-13).
 	MarkWeek     *markWeekView
 	Sessions     []sessionView
