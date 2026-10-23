@@ -89,6 +89,7 @@ type apiV1Task struct {
 	ID              int64           `json:"id"`
 	ProjectID       int64           `json:"project_id"`
 	Title           string          `json:"title"`
+	Description     string          `json:"description"`
 	Status          string          `json:"status"`
 	AssigneeID      int64           `json:"assignee_id"`
 	AssigneeName    string          `json:"assignee_name"`
@@ -118,7 +119,7 @@ func (s *Server) handleAPIv1Tasks(w http.ResponseWriter, r *http.Request) {
 	out := make([]apiV1Task, 0, len(items))
 	for _, item := range items {
 		task := apiV1Task{
-			ID: item.ID, ProjectID: item.ProjectID, Title: item.Title, Status: item.Status,
+			ID: item.ID, ProjectID: item.ProjectID, Title: item.Title, Description: item.Description, Status: item.Status,
 			AssigneeID: item.AssigneeID, AssigneeName: item.AssigneeName, DueDate: item.Due,
 			EstimateMinutes: item.EstimateMin, TrackedMinutes: item.TrackedMin, Archived: item.Archived,
 			ExternalURL: item.ExternalURL, Activities: []apiV1Activity{},
