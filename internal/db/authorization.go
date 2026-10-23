@@ -21,6 +21,20 @@ func lockTeamManager(ctx context.Context, tx *Tx, teamID, callerID int64) (int64
 	return ownerID, role, nil
 }
 
+// lockTeamOwner is lockTeamManager for the settings only the owner changes: the currency,
+// the invoice rules, Stripe and webhooks (ADM-15). An admin is refused here even though the
+// admin may manage the rest of the workspace.
+func lockTeamOwner(ctx context.Context, tx *Tx, teamID, callerID int64) error {
+	_, role, err := lockTeamRole(ctx, tx, teamID, callerID)
+	if err != nil {
+		return err
+	}
+	if !role.IsOwner() {
+		return model.ErrForbidden
+	}
+	return nil
+}
+
 // lockTeamRole serializes an actor-scoped write with workspace membership and
 // role changes, returning the current role while both rows remain locked.
 func lockTeamRole(ctx context.Context, tx *Tx, teamID, callerID int64) (int64, model.TeamRole, error) {

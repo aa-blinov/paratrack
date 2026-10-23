@@ -38,7 +38,7 @@ func billingRules(ctx context.Context, queryer invoiceQueryer, teamID int64) (Bi
 }
 
 func (d *DB) SetTeamBilling(ctx context.Context, request appmodel.TeamBillingRequest) error {
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET round_minutes = ?, round_mode = ?, invoice_prefix = ? WHERE id = ?`,
+	return d.execOwnerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET round_minutes = ?, round_mode = ?, invoice_prefix = ? WHERE id = ?`,
 		request.Rules.RoundMinutes, request.Rules.RoundMode, request.Rules.InvoicePrefix, request.TeamID)
 }
 
@@ -109,7 +109,7 @@ func (d *DB) TeamCurrency(ctx context.Context, teamID int64) (string, error) {
 // SetTeamCurrency changes the default for new projects and documents;
 // existing invoices and pay runs keep the currency they were made in.
 func (d *DB) SetTeamCurrency(ctx context.Context, request appmodel.TeamCurrencyRequest) error {
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET currency = ? WHERE id = ?`, request.Currency, request.TeamID)
+	return d.execOwnerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET currency = ? WHERE id = ?`, request.Currency, request.TeamID)
 }
 
 // SetProjectRate updates the hourly rate and billable flag under the
@@ -219,7 +219,7 @@ func (d *DB) TeamStripe(ctx context.Context, teamID int64) (key, webhookSecret s
 // SetTeamStripe stores Stripe credentials for the workspace.
 func (d *DB) SetTeamStripe(ctx context.Context, request appmodel.TeamStripeCredentialsRequest) error {
 	if request.Clear {
-		return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID,
+		return d.execOwnerTeamUpdate(ctx, request.TeamID, request.CallerID,
 			`UPDATE teams SET stripe_key = '', stripe_webhook_secret = '' WHERE id = ?`, request.TeamID)
 	}
 	sealedKey, err := d.sealSecret(request.Key)
@@ -232,7 +232,7 @@ func (d *DB) SetTeamStripe(ctx context.Context, request appmodel.TeamStripeCrede
 	}
 	// A blank field keeps what is stored: saving only the key used to wipe the
 	// webhook secret, and an empty form wiped both while saying «Сохранено».
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID,
+	return d.execOwnerTeamUpdate(ctx, request.TeamID, request.CallerID,
 		`UPDATE teams SET
 		   stripe_key = CASE WHEN ? = '' THEN stripe_key ELSE ? END,
 		   stripe_webhook_secret = CASE WHEN ? = '' THEN stripe_webhook_secret ELSE ? END
