@@ -20,6 +20,7 @@ import { requestConfirmation } from "@/components/confirmation-dialog"
 import { filterInvoices } from "./invoice-filter"
 import { AccountantExport } from "./accountant-export"
 import { ClientLink } from "./client-link"
+import { ReconcileCard } from "./reconcile-card"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // The badge variant stays neutral on purpose: `variant` paints a utility
@@ -117,6 +118,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     {flash}
 
     <AccountantExport lang={lang} clients={Array.from(new Set(data.Items.map(item => item.Client).filter(Boolean)))} />
+    <ReconcileCard lang={lang} reconcile={data.Reconcile} />
 
     {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
 

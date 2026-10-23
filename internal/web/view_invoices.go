@@ -94,6 +94,11 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
+	reconcile, err := s.reconcileOf(r, userNow(r))
+	if err != nil {
+		return invoicesPage{}, fmt.Errorf("reconcile invoices: %w", err)
+	}
+	data.Reconcile = reconcile
 	return data, nil
 }
 

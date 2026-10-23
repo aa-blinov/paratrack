@@ -300,6 +300,7 @@ type InvoiceQueries interface {
 	UnapprovedWeeks(context.Context, int64, int64, time.Time, time.Time) ([]time.Time, error)
 	Get(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error)
 	Sessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
+	Reconcile(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	ExportLines(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.InvoiceExportLine, error)
 	StripeReady(context.Context, int64) (bool, error)
 	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)

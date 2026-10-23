@@ -570,6 +570,12 @@ export interface InvoiceProjectOption {
 }
 
 export interface InvoicesData {
+  Reconcile?: {
+    From: string
+    To: string
+    Note: string
+    Rows: Array<{ Client: string; Worked: string; Billed: string; NotBilled: string; Difference: string; Mismatched: boolean }>
+  } | null
   ReactApp: boolean
   InvoicesReact: boolean
   Lang: string
