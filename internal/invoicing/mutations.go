@@ -55,12 +55,14 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	}
 	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.create", invoice.Number, invoice.ClientName)
 	labels := make([]string, 0, len(lines))
+	var sessionIDs []int64
 	for _, line := range lines {
 		labels = append(labels, line.Label)
+		sessionIDs = append(sessionIDs, line.SessionIDs...)
 	}
 	overlaps, advisoryErr := s.overlappingDocuments(ctx, appmodel.InvoiceOverlapQuery{
 		TeamID: request.TeamID, ExcludeInvoiceID: invoice.ID,
-		Start: request.Start, End: request.End, Labels: labels,
+		Start: request.Start, End: request.End, Labels: labels, SessionIDs: sessionIDs,
 	})
 	return DraftCreation{
 		Invoice: invoice, Lines: lines, Overlaps: overlaps, AdvisoryError: advisoryErr,

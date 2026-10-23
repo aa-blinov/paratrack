@@ -23,6 +23,9 @@ type InvoiceOverlapQuery struct {
 	Start            time.Time
 	End              time.Time
 	Labels           []string
+	// SessionIDs are the sessions the draft bills. An invoice that already holds an activity
+	// those sessions belong to overlaps too, even when its lines were named differently (FIN-23).
+	SessionIDs []int64
 }
 
 // InvoiceIndexRequest scopes the combined invoice list and draft-form reads.

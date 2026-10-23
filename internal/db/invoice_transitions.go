@@ -266,7 +266,35 @@ func (d *DB) OverlappingInvoices(ctx context.Context, query appmodel.InvoiceOver
 			out = append(out, num)
 		}
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(query.SessionIDs) == 0 {
+		return out, nil
+	}
+	// The same activity, whatever its lines were called: an invoice in the period that bills
+	// sessions of one of the draft's activities is named too (FIN-23).
+	byActivity, err := d.sql.QueryContext(ctx,
+		`SELECT DISTINCT i.number FROM invoices i JOIN sessions s ON s.invoice_id = i.id
+		 WHERE i.team_id = ? AND i.id <> ? AND i.period_start < ? AND i.period_end > ?
+		   AND s.activity_id IN (SELECT DISTINCT activity_id FROM sessions WHERE team_id = ? AND id = ANY(?))
+		 ORDER BY i.number`,
+		query.TeamID, query.ExcludeInvoiceID, FormatTime(query.End), FormatTime(query.Start), query.TeamID, query.SessionIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer byActivity.Close()
+	for byActivity.Next() {
+		var num string
+		if err := byActivity.Scan(&num); err != nil {
+			return nil, err
+		}
+		if !seen[num] {
+			seen[num] = true
+			out = append(out, num)
+		}
+	}
+	return out, byActivity.Err()
 }
 
 // ErrMixedCurrency: one document holds one currency; amounts in different
