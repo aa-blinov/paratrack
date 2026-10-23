@@ -1068,5 +1068,10 @@ export interface TaskDetailData {
   // Subtasks of this task and their rollup line (TASK-09).
   Subtasks: Array<{ ID: number; Title: string; Status: string; Done: boolean; TrackedLabel: string }>
   SubtaskRollup: string
+  // Dependencies: what this task waits for, what it blocks, the tasks it could wait for, and whether it is blocked (TASK-11).
+  WaitsFor: Array<{ ID: number; Title: string; Done: boolean }>
+  Blocks: Array<{ ID: number; Title: string; Done: boolean }>
+  DependencyOptions: Array<{ ID: number; Title: string; Done: boolean }>
+  Blocked: boolean
   ViewerID: number
 }

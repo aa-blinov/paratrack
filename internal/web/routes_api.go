@@ -31,6 +31,8 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/tasks/{id}/status", s.module("tasks", s.handleTaskStatus))
 	api("POST", "/api/tasks/{id}/comments", s.module("tasks", s.handleTaskComment))
 	api("POST", "/api/tasks/{id}/checklist", s.module("tasks", s.handleTaskChecklistAdd))
+	api("POST", "/api/tasks/{id}/dependencies", s.module("tasks", s.handleTaskDependencyAdd))
+	api("POST", "/api/tasks/{id}/dependencies/{dep}/delete", s.module("tasks", s.handleTaskDependencyDelete))
 	api("POST", "/api/tasks/{id}/checklist/{item}/done", s.module("tasks", s.handleTaskChecklistSet))
 	api("POST", "/api/tasks/{id}/checklist/{item}/delete", s.module("tasks", s.handleTaskChecklistDelete))
 	api("GET", "/api/tasks/{id}/plan-move", s.module("tasks", s.handleTaskPlanMove))

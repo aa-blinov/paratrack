@@ -230,3 +230,19 @@ type TaskChecklistDeleteRequest struct {
 	CallerID int64
 	ItemID   int64
 }
+
+// TaskDependencyRequest links a task to one it waits for (TASK-11). Add and remove use the same
+// shape: the waiting task and the task it waits for.
+type TaskDependencyRequest struct {
+	TeamID      int64
+	CallerID    int64
+	TaskID      int64
+	DependsOnID int64
+}
+
+// TaskLink names a task on the other end of a dependency, and whether that task is done.
+type TaskLink struct {
+	ID    int64
+	Title string
+	Done  bool
+}
