@@ -19,6 +19,10 @@ type Store interface {
 	StartTaskWork(ctx context.Context, request appmodel.TaskStartRequest) error
 	AddTaskComment(ctx context.Context, request appmodel.TaskCommentRequest) (appmodel.TaskComment, error)
 	ListTaskComments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error)
+	AddChecklistItem(ctx context.Context, request appmodel.TaskChecklistAddRequest) (appmodel.TaskChecklistItem, error)
+	SetChecklistItem(ctx context.Context, request appmodel.TaskChecklistSetRequest) error
+	DeleteChecklistItem(ctx context.Context, request appmodel.TaskChecklistDeleteRequest) error
+	ListChecklist(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskChecklistItem, error)
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
@@ -177,6 +181,35 @@ func (s *Service) AddComment(ctx context.Context, request appmodel.TaskCommentRe
 }
 
 // Comments returns a task's feed in the order it was written.
+// AddChecklistItem, SetChecklistItem, DeleteChecklistItem and Checklist keep a task's steps (TASK-10).
+func (s *Service) AddChecklistItem(ctx context.Context, request appmodel.TaskChecklistAddRequest) (appmodel.TaskChecklistItem, error) {
+	if request.TeamID <= 0 {
+		return appmodel.TaskChecklistItem{}, appmodel.ErrInvalidTask
+	}
+	return s.store.AddChecklistItem(ctx, request)
+}
+
+func (s *Service) SetChecklistItem(ctx context.Context, request appmodel.TaskChecklistSetRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.SetChecklistItem(ctx, request)
+}
+
+func (s *Service) DeleteChecklistItem(ctx context.Context, request appmodel.TaskChecklistDeleteRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.DeleteChecklistItem(ctx, request)
+}
+
+func (s *Service) Checklist(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskChecklistItem, error) {
+	if teamID <= 0 {
+		return nil, appmodel.ErrInvalidTask
+	}
+	return s.store.ListChecklist(ctx, teamID, taskID)
+}
+
 func (s *Service) Comments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error) {
 	if teamID <= 0 {
 		return nil, appmodel.ErrInvalidTask

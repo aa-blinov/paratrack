@@ -599,5 +599,9 @@ type TaskWorkflow interface {
 	TaskOfActivity(ctx context.Context, teamID, activityID int64) (int64, error)
 	StartWork(ctx context.Context, request appmodel.TaskStartRequest) error
 	Comments(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskComment, error)
+	AddChecklistItem(ctx context.Context, request appmodel.TaskChecklistAddRequest) (appmodel.TaskChecklistItem, error)
+	SetChecklistItem(ctx context.Context, request appmodel.TaskChecklistSetRequest) error
+	DeleteChecklistItem(ctx context.Context, request appmodel.TaskChecklistDeleteRequest) error
+	Checklist(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskChecklistItem, error)
 	LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]appmodel.ActivityTask, error)
 }
