@@ -38,6 +38,16 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 			s.writeInternalJSONError(w, err)
 			return
 		}
+		linked, err := s.services.Tasks.LinkedActivityTasks(r.Context(), teamID(r))
+		if err != nil {
+			s.writeInternalJSONError(w, err)
+			return
+		}
+		emails, err := s.sessionEmails(r)
+		if err != nil {
+			s.writeInternalJSONError(w, err)
+			return
+		}
 		out := []apiV1SessionResponse{}
 		now := userNow(r)
 		for _, as := range page.Items {
@@ -51,6 +61,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 			}
 			out = append(out, apiV1SessionResponse{
 				ID: as.Session.ID, Activity: as.Activity.Name,
+				UserEmail: emails[as.Session.UserID], ProjectID: as.Activity.ProjectID, TaskID: linked[as.Activity.ID].TaskID,
 				Start: as.Session.StartAt.UTC().Format(time.RFC3339), End: end,
 				Seconds: as.Session.DurationSeconds(now), Note: note,
 			})
@@ -203,4 +214,81 @@ func decodeSessionCursor(s string) (*appmodel.SessionCursor, bool) {
 		return nil, false
 	}
 	return &appmodel.SessionCursor{Start: start, ID: id}, true
+}
+
+// sessionEmails maps the members to the email the API names on their sessions. A manager
+// sees everyone's, former members included; anyone else sees only their own, because a
+// member's token reads only their own sessions (ADM-12).
+func (s *Server) sessionEmails(r *http.Request) (map[int64]string, error) {
+	emails := map[int64]string{}
+	if user, ok := UserFrom(r.Context()); ok {
+		emails[user.ID] = user.Email
+	}
+	if !canManage(r) {
+		return emails, nil
+	}
+	snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r))
+	if err != nil {
+		return nil, err
+	}
+	for _, member := range snapshot.Members {
+		emails[member.UserID] = member.Email
+	}
+	for _, former := range snapshot.Former {
+		emails[former.UserID] = former.Email
+	}
+	return emails, nil
+}
+
+type apiV1MeResponse struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	TeamID   int64  `json:"team_id"`
+	TeamName string `json:"team_name"`
+	Role     string `json:"role"`
+}
+
+func (apiV1MeResponse) isJSONResponse() {}
+
+// handleAPIv1Me names the caller, the workspace the token reads, and the caller's role there (ADM-12).
+func (s *Server) handleAPIv1Me(w http.ResponseWriter, r *http.Request) {
+	user, _ := UserFrom(r.Context())
+	team, _ := TeamFrom(r.Context())
+	s.writeJSON(w, apiV1MeResponse{
+		ID: user.ID, Name: user.Name, Email: user.Email,
+		TeamID: team.ID, TeamName: team.Name, Role: string(RoleFrom(r.Context())),
+	})
+}
+
+type apiV1Member struct {
+	ID    int64  `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Role  string `json:"role"`
+}
+
+type apiV1MembersResponse struct {
+	Members []apiV1Member `json:"members"`
+}
+
+func (apiV1MembersResponse) isJSONResponse() {}
+
+// handleAPIv1Members lists the workspace members with their roles. Only a manager gets the
+// list: the emails are the team's, not every member's to read (ADM-12).
+func (s *Server) handleAPIv1Members(w http.ResponseWriter, r *http.Request) {
+	if !canManage(r) {
+		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.managersOnly")})
+		return
+	}
+	snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r))
+	if err != nil {
+		s.writeInternalJSONError(w, err)
+		return
+	}
+	out := make([]apiV1Member, 0, len(snapshot.Members))
+	for _, member := range snapshot.Members {
+		out = append(out, apiV1Member{ID: member.UserID, Name: member.Name, Email: member.Email, Role: string(member.Role)})
+	}
+	s.writeJSON(w, apiV1MembersResponse{Members: out})
 }

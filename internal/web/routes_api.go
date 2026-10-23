@@ -105,6 +105,8 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("GET", "/api/v1/projects", s.handleAPIv1Projects)
 	api("GET", "/api/v1/reports/summary", s.handleAPIv1Report)
 	api("GET", "/api/v1/clients", s.handleAPIv1Clients)
+	api("GET", "/api/v1/me", s.handleAPIv1Me)
+	api("GET", "/api/v1/members", s.handleAPIv1Members)
 	api("GET", "/api/v1/tags", s.handleAPIv1Tags)
 	api("GET", "/api/v1/tasks", s.module("tasks", s.handleAPIv1Tasks))
 

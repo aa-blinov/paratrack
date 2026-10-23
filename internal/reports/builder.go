@@ -50,7 +50,7 @@ type UserReader interface {
 
 // TaskLinkReader tells which activities a task holds (TIME-05).
 type TaskLinkReader interface {
-	LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]string, error)
+	LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]appmodel.ActivityTask, error)
 }
 
 type BuilderDependencies struct {
@@ -385,8 +385,12 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 			userNames[userID] = user.Name + " (" + query.Labels.FormerMember + ")"
 		}
 	}
+	titles := make(map[int64]string, len(linked))
+	for activityID, task := range linked {
+		titles[activityID] = task.Title
+	}
 	result, err := Aggregate(AggregateInput{
-		Sessions: sessions, Projects: projectByID, ProjectCurrencies: projectCurrencies, ActivityTasks: linked,
+		Sessions: sessions, Projects: projectByID, ProjectCurrencies: projectCurrencies, ActivityTasks: titles,
 		UserNames: userNames, TeamCurrency: teamCurrency,
 		Uncategorized: query.Labels.Uncategorized, UnassignedUser: query.Labels.Unassigned,
 		GroupBy: query.GroupBy, Billable: query.Billable, RoundSeconds: roundSeconds,
