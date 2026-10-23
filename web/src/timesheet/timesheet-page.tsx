@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { translate as t } from "@/i18n"
 import type { TimesheetData, TimesheetRow } from "@/dashboard/types"
+import { TimeEditRequests } from "./time-edit-requests"
 import { activityColor } from "@/lib/activity-color"
 import { SegmentedControl } from "@/components/segmented"
 import { responseMessage } from "@/lib/response-message"
@@ -379,5 +380,6 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       <span className="w-full text-xs text-muted-foreground">{t(lang, "ts.addRowHint")}</span>
     </div>}
     <p className="text-sm text-muted-foreground">{t(lang, "ts.hint")}</p>
+    <TimeEditRequests lang={lang} csrf={data.CSRFToken} days={data.Days} rows={data.Rows} requests={data.EditRequests} canDecide={data.CanDecide} />
   </main>
 }

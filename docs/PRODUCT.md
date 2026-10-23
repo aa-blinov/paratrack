@@ -117,6 +117,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - A payroll line opens to the hours its person logged on each day of the run. Days with no time are left out, and a run longer than 370 days shows its totals only (FIN-18)
 - Sessions attribute via `sessions.user_id` (stamped on timer start)
 - Legacy rows without a user fall on the team's first paid member
+- A member asks for a change to one of their timesheet cells: the activity, the day, the minutes and a reason (TIME-19). Only a manager decides. An approval writes the cell as the member, so an approved week refuses it until the week is reopened; a refusal writes nothing, and a decided request is not decided twice
 - A run counts **only time inside approved weeks**. A closed session in the period that starts
   outside every approved window refuses the run with `PayrollNotApprovedError`, which carries the
   count and the first and last start; the message names them. The current week can be paid only
