@@ -101,3 +101,37 @@ func TestBuildInvoiceLinesRejectsMalformedSessionTime(t *testing.T) {
 		t.Fatalf("BuildInvoiceLines error = %v, want malformed-session error", err)
 	}
 }
+
+// An invoice that already bills an activity's sessions is named when a new draft bills another
+// session of the same activity, even though the lines were named differently (FIN-23).
+func TestOverlappingInvoicesNamesTheSameActivityAfterARename(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Same activity", "same-activity")
+	ownerID := teamOwner(t, d, teamID)
+	activity := newTestActivity(t, d, ctx, teamID, ownerID, "дизайн")
+	day := time.Date(2026, 10, 2, 9, 0, 0, 0, time.UTC)
+	billed := seedClosedSession(t, d, teamID, ownerID, activity, day)
+	draftSession := seedClosedSession(t, d, teamID, ownerID, activity, day.Add(24*time.Hour))
+	var invoiceID int64
+	if err := d.TestSQL().QueryRowContext(ctx, `
+		INSERT INTO invoices (team_id, number, client_name, period_start, period_end, status, created_at)
+		VALUES (?, 'INV-BILLED', '', ?, ?, 'sent', ?) RETURNING id`,
+		teamID, FormatTime(day.AddDate(0, 0, -1)), FormatTime(day.AddDate(0, 0, 5)), FormatTime(day)).Scan(&invoiceID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE sessions SET invoice_id = ? WHERE id = ?`, invoiceID, billed); err != nil {
+		t.Fatal(err)
+	}
+	currentID := invoiceID + 1000
+	got, err := d.OverlappingInvoices(ctx, appmodel.InvoiceOverlapQuery{
+		TeamID: teamID, ExcludeInvoiceID: currentID, Start: day.AddDate(0, 0, -1), End: day.AddDate(0, 0, 5),
+		Labels: []string{"Renamed project · дизайн"}, SessionIDs: []int64{draftSession},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 || got[0] != "INV-BILLED" {
+		t.Fatalf("overlapping invoices = %v, want [INV-BILLED] for the same activity under another label", got)
+	}
+}
