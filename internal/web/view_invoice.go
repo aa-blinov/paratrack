@@ -112,6 +112,9 @@ type invoicesPage struct {
 	Outstanding    string
 	Paid           string
 	HasOutstanding bool
+	// RequisitesEmpty is set while the issuer's details are blank: every invoice then
+	// carries only the name, so the screen says so before one is issued (ADM-17).
+	RequisitesEmpty bool
 	// Money is priced from rounded time, so the screen has to say so: a person
 	// comparing "1 ч 28 мин" with the amount has to know why they differ.
 	RoundMinutes int

@@ -13,8 +13,10 @@ import (
 // AggregateInput contains the data needed to build a reusable report. The
 // adapter loads it and remains responsible for localized labels and output.
 type AggregateInput struct {
-	Sessions          []appmodel.ActiveSession
-	Projects          map[int64]model.Project
+	Sessions []appmodel.ActiveSession
+	Projects map[int64]model.Project
+	// ActivityTasks names the task each activity holds, by activity id (TIME-16).
+	ActivityTasks     map[int64]string
 	ProjectCurrencies map[int64]string
 	UserNames         map[int64]string
 	TeamCurrency      string
@@ -35,10 +37,11 @@ type AggregateRow = appmodel.ReportAggregateRow
 type AggregateResult = appmodel.ReportAggregateResult
 
 type bucketKey struct {
-	label    string
-	day      string
-	currency string
-	userID   int64
+	label      string
+	day        string
+	currency   string
+	userID     int64
+	activityID int64
 }
 
 // secondsPerHundredth is one hundredth of an hour: the precision of an hours
@@ -67,6 +70,8 @@ type bucket struct {
 	currency   string
 	lines      map[lineKey]*billedLine
 	day        time.Time
+	project    string
+	task       string
 }
 
 // Aggregate applies report grouping, tracked-time allocation, and billing
@@ -92,6 +97,10 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			continue
 		}
 		label := session.Activity.Name
+		activityID := int64(0)
+		if input.GroupBy == appmodel.ReportGroupActivity {
+			activityID = session.Activity.ID
+		}
 		var day time.Time
 		identityDay := ""
 		userID := int64(0)
@@ -131,10 +140,14 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		if input.Billable && currency != teamCurrency {
 			currencyKey = currency
 		}
-		key := bucketKey{label: label, day: identityDay, currency: currencyKey, userID: userID}
+		key := bucketKey{label: label, day: identityDay, currency: currencyKey, userID: userID, activityID: activityID}
 		current := buckets[key]
 		if current == nil {
 			current = &bucket{currency: currency, day: day}
+			if input.GroupBy == appmodel.ReportGroupActivity {
+				current.project = input.Projects[session.Activity.ProjectID].Name
+				current.task = input.ActivityTasks[session.Activity.ID]
+			}
 			buckets[key] = current
 		}
 		var err error
@@ -225,11 +238,15 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			Key: key.label, UserID: key.userID, Day: current.day, Seconds: current.seconds,
 			RateCents: rate, RateVaries: current.rateVaries, AmountCents: current.amount,
 			Currency: current.currency, Share: share,
+			ActivityID: key.activityID, Project: current.project, Task: current.task,
 		})
 	}
 	sort.Slice(result.Rows, func(i, j int) bool {
 		if result.Rows[i].Seconds == result.Rows[j].Seconds {
 			if result.Rows[i].Key == result.Rows[j].Key {
+				if result.Rows[i].Currency == result.Rows[j].Currency {
+					return result.Rows[i].ActivityID < result.Rows[j].ActivityID
+				}
 				return result.Rows[i].Currency < result.Rows[j].Currency
 			}
 			return result.Rows[i].Key < result.Rows[j].Key

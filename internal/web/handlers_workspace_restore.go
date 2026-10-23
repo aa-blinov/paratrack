@@ -25,9 +25,13 @@ type restoredWebhookResponse struct {
 }
 
 type workspaceRestoredResponse struct {
-	TeamID   int64                     `json:"team_id"`
-	Slug     string                    `json:"slug"`
-	Webhooks []restoredWebhookResponse `json:"webhooks"`
+	TeamID              int64                     `json:"team_id"`
+	Slug                string                    `json:"slug"`
+	Webhooks            []restoredWebhookResponse `json:"webhooks"`
+	Members             int                       `json:"members"`
+	Projects            int                       `json:"projects"`
+	Invoices            int                       `json:"invoices"`
+	SkippedIntegrations int                       `json:"skipped_integrations"`
 }
 
 func (workspaceRestoredResponse) isJSONResponse() {}
@@ -54,7 +58,10 @@ func (s *Server) handleWorkspaceRestore(w http.ResponseWriter, r *http.Request) 
 	for _, hook := range result.Webhooks {
 		hooks = append(hooks, restoredWebhookResponse{URL: hook.URL, Secret: hook.Secret})
 	}
-	s.writeJSON(w, workspaceRestoredResponse{TeamID: result.TeamID, Slug: result.Slug, Webhooks: hooks})
+	s.writeJSON(w, workspaceRestoredResponse{
+		TeamID: result.TeamID, Slug: result.Slug, Webhooks: hooks,
+		Members: result.Members, Projects: result.Projects, Invoices: result.Invoices, SkippedIntegrations: result.SkippedIntegrations,
+	})
 }
 
 func (s *Server) writeRestoreError(w http.ResponseWriter, r *http.Request, err error) {

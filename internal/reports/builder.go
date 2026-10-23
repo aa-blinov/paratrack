@@ -50,7 +50,7 @@ type UserReader interface {
 
 // TaskLinkReader tells which activities a task holds (TIME-05).
 type TaskLinkReader interface {
-	LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error)
+	LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]string, error)
 }
 
 type BuilderDependencies struct {
@@ -315,13 +315,13 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report sessions: %w", err)
 	}
-	linked, err := b.tasks.LinkedActivityIDs(ctx, query.TeamID)
+	linked, err := b.tasks.LinkedActivityTasks(ctx, query.TeamID)
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report task links: %w", err)
 	}
 	unlinkedSeconds := 0
 	for _, session := range sessions {
-		if !linked[session.Activity.ID] {
+		if _, ok := linked[session.Activity.ID]; !ok {
 			unlinkedSeconds += session.Session.TrackedSecondsInWindow(query.From, query.To, query.Now)
 		}
 	}
@@ -386,7 +386,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 		}
 	}
 	result, err := Aggregate(AggregateInput{
-		Sessions: sessions, Projects: projectByID, ProjectCurrencies: projectCurrencies,
+		Sessions: sessions, Projects: projectByID, ProjectCurrencies: projectCurrencies, ActivityTasks: linked,
 		UserNames: userNames, TeamCurrency: teamCurrency,
 		Uncategorized: query.Labels.Uncategorized, UnassignedUser: query.Labels.Unassigned,
 		GroupBy: query.GroupBy, Billable: query.Billable, RoundSeconds: roundSeconds,

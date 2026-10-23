@@ -318,6 +318,9 @@ type WorkspaceRestoreResult struct {
 	TeamID   int64
 	Slug     string
 	Webhooks []RestoredWebhook
+	// The counts the restored screen summarises. SkippedIntegrations are the connections
+	// the file holds and the restore does not carry over (ADM-11).
+	Members, Projects, Invoices, SkippedIntegrations int
 }
 
 // RestoredWebhook is an endpoint a restore recreated. Its signing secret is new:

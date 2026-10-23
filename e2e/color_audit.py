@@ -183,8 +183,8 @@ def open_disclosures(page, selector, scope="body"):
     for label in (
         "Новый счёт",
         "New invoice",
-        "Цвет, адрес и ставка",
-        "Color, URL and hourly rate",
+        "Цвет и адрес",
+        "Color and URL",
         "Изменить",
         "Edit",
         "Настройки",
