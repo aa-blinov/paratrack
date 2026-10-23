@@ -99,6 +99,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The invoices page reconciles time against invoices for a window of days (FIN-04): per client, the time worked on the client's projects (open timers up to now), the time the client's issued invoices bill (lines whose period overlaps the window; drafts left out), the worked time no invoice holds, and the difference worked minus billed minus not billed. A difference that is not zero means the invoice lines and the sessions disagree
 - The accountant's export (`GET /invoices/export.csv?export_from&export_to&export_client`, managers) lists one row per line of the issued invoices (drafts left out), by invoice date in the viewer's zone, with the client, the seller's name as executor, the line's label, hours, rate, amount, currency and status. `export_from` and `export_to` are days, both included; `export_client` is an exact name (FIN-05). The dates follow the workspace zone when it is set, and the viewer's zone otherwise
 - An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
+- While the issuer's requisites are blank, the invoices screen says so: an invoice issued then prints only the name (ADM-17)
 
 **Projects**
 
@@ -119,6 +120,15 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
   time from the last eight, each linking to its timesheet, with a button that approves that week
   from here (the same approval the timesheet makes; the form sends the Monday and the Sunday).
 - A run over hours that another run already pays (the overlap warning) is created only with a written reason. An empty reason sends the manager back to the form with a message, and the reason goes to the audit log as `payroll.overlap` (FIN-22)
+
+**Reports**
+
+- The activity grouping keys each row by activity id (D-7). Activities that share a name stay apart: the repeated name carries the id after it, such as `созвон (#12)`, and each row names its project and the task the activity holds (TIME-15, TIME-16). The API's `by_activity` map uses the same labels
+
+**Invitations and restore**
+
+- An invitation answer names the address it was meant for and says whether a letter went out. When none goes out (no server mail, a failed send, an address that does not parse), the screen says so and the link is the way in (ADM-18)
+- A workspace restore answers its counts (members, projects, invoices) and the number of connections the file held. Connections are never carried over: the owner connects them again on `/integrations` (ADM-11)
 
 **Schedule**
 
@@ -176,7 +186,7 @@ The settings page shows, under each preset, the sections it leaves off. The `sol
 | Passwords | bcrypt |
 | API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once |
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
-| Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13) |
+| Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
 | Sessions | HttpOnly + `Secure` cookies when the request is TLS |
 | Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
 

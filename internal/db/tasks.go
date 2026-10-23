@@ -611,21 +611,24 @@ func insertTaskActivityRow(ctx context.Context, tx *Tx, teamID, projectID, taskI
 
 // ListLinkableActivities lists the project's activities that no task holds yet:
 // the ones a task can take on.
-// LinkedActivityIDs returns the activities that a task holds, as a set.
-func (d *DB) LinkedActivityIDs(ctx context.Context, teamID int64) (map[int64]bool, error) {
+// LinkedActivityTasks returns the activities that a task holds, each with the title of
+// that task. The reports name the task beside the activity (TIME-16).
+func (d *DB) LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]string, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id FROM activities WHERE team_id = ? AND task_id IS NOT NULL AND task_id > 0`, teamID)
+		`SELECT a.id, t.title FROM activities a JOIN tasks t ON t.id = a.task_id AND t.team_id = a.team_id
+		 WHERE a.team_id = ? AND a.task_id IS NOT NULL AND a.task_id > 0`, teamID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	linked := make(map[int64]bool)
+	linked := make(map[int64]string)
 	for rows.Next() {
 		var id int64
-		if err := rows.Scan(&id); err != nil {
+		var title string
+		if err := rows.Scan(&id, &title); err != nil {
 			return nil, err
 		}
-		linked[id] = true
+		linked[id] = title
 	}
 	return linked, rows.Err()
 }

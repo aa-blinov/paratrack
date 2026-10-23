@@ -1,8 +1,10 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -16,7 +18,9 @@ import (
 // ---------------------------------------------------------------------------
 
 type reportRow struct {
-	Key         string // group label
+	Key string // group label
+	// Detail names the project and the task of an activity row, under its label (TIME-16).
+	Detail      string
 	Currency    string // the row's currency, for the CSV
 	Secs        int
 	Hours       string
@@ -95,11 +99,16 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	}
 	rows := make([]reportRow, 0, len(result.Rows))
 	totalPlanned := 0
-	for _, row := range result.Rows {
+	labels := appmodel.ActivityLabels(result.Rows)
+	for i, row := range result.Rows {
 		key := row.Key
+		detail := ""
 		if tpl.GroupBy == appmodel.ReportGroupDay {
 			day := row.Day.In(userLoc(r))
 			key = fmtWeekday(resolveLang(r), day) + " " + fmtDay(resolveLang(r), day)
+		} else if tpl.GroupBy == appmodel.ReportGroupActivity {
+			key = labels[i]
+			detail = activityDetail(resolveLang(r), row)
 		}
 		if tpl.Billable && row.Currency != result.TeamCurrency {
 			key += " (" + row.Currency + ")"
@@ -109,7 +118,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 			rate = i18n.T(resolveLang(r), "report.rateVaries")
 		}
 		item := reportRow{
-			Key: key, Secs: row.Seconds, Hours: reportHours(r, tpl.Billable, row.Seconds), Share: row.Share,
+			Key: key, Detail: detail, Secs: row.Seconds, Hours: reportHours(r, tpl.Billable, row.Seconds), Share: row.Share,
 			Rate: rate, Amount: moneyL(resolveLang(r), row.AmountCents, row.Currency),
 			AmountCents: row.AmountCents, RateCents: row.RateCents, RateVaries: row.RateVaries,
 			Currency: row.Currency,
@@ -324,4 +333,16 @@ func reportHours(r *http.Request, billable bool, sec int) string {
 		return fmtHoursL(resolveLang(r), money.HoursHundredths(sec))
 	}
 	return fmtDur(r, sec)
+}
+
+// activityDetail names the project and the task an activity row holds, in one line.
+func activityDetail(lang i18n.Lang, row appmodel.ReportAggregateRow) string {
+	var parts []string
+	if row.Project != "" {
+		parts = append(parts, fmt.Sprintf(i18n.T(lang, "report.activityProject"), row.Project))
+	}
+	if row.Task != "" {
+		parts = append(parts, fmt.Sprintf(i18n.T(lang, "report.activityTask"), row.Task))
+	}
+	return strings.Join(parts, ", ")
 }

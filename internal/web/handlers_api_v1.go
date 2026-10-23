@@ -157,8 +157,9 @@ func (s *Server) handleAPIv1Report(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	byActivity := make(map[string]int, len(result.Rows))
-	for _, row := range result.Rows {
-		byActivity[row.Key] = row.Seconds
+	labels := appmodel.ActivityLabels(result.Rows)
+	for i, row := range result.Rows {
+		byActivity[labels[i]] = row.Seconds
 	}
 	s.writeJSON(w, apiV1ReportResponse{
 		From: from.Format("2006-01-02"), To: to.Format("2006-01-02"),

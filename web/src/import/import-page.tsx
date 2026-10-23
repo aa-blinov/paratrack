@@ -13,15 +13,20 @@ const providers = ["toggl", "harvest", "clockify"] as const
 
 type RestoredWebhook = { url: string; secret: string }
 
+// RestoreAnswer is what the restore reports: the webhooks it recreated, the counts it
+// restored, and the connections it did not carry over (ADM-11).
+type RestoreAnswer = { webhooks: RestoredWebhook[]; members: number; projects: number; invoices: number; skipped_integrations: number }
+
 // WorkspaceRestore uploads a whole-workspace export. The file goes up as the raw
 // request body, streamed from disk, with the CSRF header; a refused file says why,
 // here, and nothing is written. The restored webhooks come back with new secrets,
-// shown once on this screen before the restored workspace opens.
+// shown once on this screen before the restored workspace opens, next to a summary of
+// what was restored and the integrations to connect again.
 function WorkspaceRestore({ lang, csrf }: { lang: string; csrf: string }) {
   const [file, setFile] = React.useState<File | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
-  const [webhooks, setWebhooks] = React.useState<RestoredWebhook[] | null>(null)
+  const [restored, setRestored] = React.useState<RestoreAnswer | null>(null)
   async function restore(event: React.FormEvent) {
     event.preventDefault()
     if (!file) {
@@ -37,23 +42,21 @@ function WorkspaceRestore({ lang, csrf }: { lang: string; csrf: string }) {
         headers: { Accept: "application/json", "Content-Type": "application/json", "X-CSRF-Token": csrf },
         body: file,
       })
-      const answer = (await response.json().catch(() => ({}))) as { error?: string; webhooks?: RestoredWebhook[] }
+      const answer = (await response.json().catch(() => ({}))) as { error?: string } & Partial<RestoreAnswer>
       if (!response.ok) throw new Error(answer.error || response.statusText)
-      if (answer.webhooks && answer.webhooks.length > 0) {
-        setWebhooks(answer.webhooks)
-        setBusy(false)
-        return
-      }
-      window.location.assign("/")
+      setRestored({ webhooks: answer.webhooks ?? [], members: answer.members ?? 0, projects: answer.projects ?? 0, invoices: answer.invoices ?? 0, skipped_integrations: answer.skipped_integrations ?? 0 })
+      setBusy(false)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
       setBusy(false)
     }
   }
-  if (webhooks) {
-    return <Card><CardHeader><CardTitle>{t(lang, "imp.workspaceWebhooksTitle")}</CardTitle></CardHeader><CardContent className="grid gap-3">
-      <p className="text-sm text-muted-foreground">{t(lang, "imp.workspaceWebhooksBlurb")}</p>
-      <ul className="grid gap-2">{webhooks.map(hook => <li key={hook.url} className="grid min-w-0 gap-1 rounded-md border p-3"><span className="truncate text-sm font-medium">{hook.url}</span><code className="break-all font-mono text-xs">{hook.secret}</code></li>)}</ul>
+  if (restored) {
+    return <Card><CardHeader><CardTitle>{t(lang, "imp.restoreDoneTitle")}</CardTitle></CardHeader><CardContent className="grid gap-3">
+      <ul className="grid gap-1 text-sm"><li>{t(lang, "imp.restoreMembers", restored.members)}</li><li>{t(lang, "imp.restoreProjects", restored.projects)}</li><li>{t(lang, "imp.restoreInvoices", restored.invoices)}</li></ul>
+      {restored.skipped_integrations > 0 && <p role="note" className="rounded-md border border-border bg-muted/40 p-3 text-sm">{t(lang, "imp.restoreIntegrations", restored.skipped_integrations)} <a href="/integrations" className="underline underline-offset-4">{t(lang, "imp.restoreIntegrationsLink")}</a></p>}
+      {restored.webhooks.length > 0 && <div className="grid gap-2"><p className="text-sm font-medium">{t(lang, "imp.workspaceWebhooksTitle")}</p><p className="text-sm text-muted-foreground">{t(lang, "imp.workspaceWebhooksBlurb")}</p>
+      <ul className="grid gap-2">{restored.webhooks.map(hook => <li key={hook.url} className="grid min-w-0 gap-1 rounded-md border p-3"><span className="truncate text-sm font-medium">{hook.url}</span><code className="break-all font-mono text-xs">{hook.secret}</code></li>)}</ul></div>}
       <Button type="button" className="w-fit" onClick={() => window.location.assign("/")}>{t(lang, "imp.workspaceOpen")}</Button>
     </CardContent></Card>
   }

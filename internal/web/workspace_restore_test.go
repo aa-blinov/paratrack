@@ -67,13 +67,17 @@ func TestWorkspaceRestoreMakesTheDownloadAWorkspaceAndSwitchesToIt(t *testing.T)
 		t.Fatalf("a file naming an unknown person: status %d, %q; want 422 naming the person", missing.StatusCode, missingOut.Error)
 	}
 
-	restored := postRaw(t, e, "/api/workspace/restore", "application/json", file)
+	restored := postRaw(t, e, "/api/workspace/restore", "application/json", withOneIntegration(t, file))
 	var out workspaceRestoredResponse
 	if err := json.Unmarshal([]byte(readBody(t, restored)), &out); err != nil {
 		t.Fatalf("decode the restore answer: %v", err)
 	}
 	if restored.StatusCode != http.StatusOK || out.TeamID == 0 || strconv.FormatInt(out.TeamID, 10) == oldTeam {
 		t.Fatalf("restore: status %d, answer %+v (old team %s)", restored.StatusCode, out, oldTeam)
+	}
+	// The connection is counted and not carried over, and the answer summarises what came back (ADM-11).
+	if out.SkippedIntegrations != 1 || out.Members < 1 || out.Projects < 1 {
+		t.Fatalf("restore summary %+v, want one skipped integration and the members and projects counted", out)
 	}
 	page := reactData[tasksPage](t, readBody(t, e.do("GET", "/tasks", nil, nil)))
 	found := false
@@ -85,4 +89,20 @@ func TestWorkspaceRestoreMakesTheDownloadAWorkspaceAndSwitchesToIt(t *testing.T)
 	if !found {
 		t.Fatalf("after the restore the current workspace lists %+v, want the restored project", page.Projects)
 	}
+}
+
+// withOneIntegration adds one connection to an export, the way a file from a workspace
+// that has connected something would hold it. The section goes in as text: the reader
+// wants the header keys first, which a re-encoded map would not keep.
+func withOneIntegration(t *testing.T, file string) string {
+	t.Helper()
+	const record = `"integrations":[{"provider":"github","name":"доска","config":""}]`
+	if strings.Contains(file, `"integrations":[]`) {
+		return strings.Replace(file, `"integrations":[]`, record, 1)
+	}
+	end := strings.LastIndex(file, "}")
+	if end < 0 || strings.Contains(file, `"integrations"`) {
+		t.Fatal("the export has no place for a connection")
+	}
+	return file[:end] + "," + record + file[end:]
 }

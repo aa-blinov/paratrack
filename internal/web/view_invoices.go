@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -31,6 +32,11 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		Unbilled:      make([]unbilledView, 0, len(snapshot.Unbilled)),
 	}
 	today := userNow(r).Format("2006-01-02")
+	settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r))
+	if err != nil {
+		return invoicesPage{}, fmt.Errorf("load invoice requisites: %w", err)
+	}
+	data.RequisitesEmpty = strings.TrimSpace(settings.Requisites) == ""
 	for _, item := range snapshot.Invoices {
 		inv := item.Invoice
 		switch inv.Status {

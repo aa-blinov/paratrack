@@ -116,6 +116,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
     {flash}
+    {data.RequisitesEmpty && <p role="note" className="rounded-md border border-border bg-muted/40 p-3 text-sm">{t(lang, "inv.requisitesEmpty")} <a href="/settings/money#requisites" className="underline underline-offset-4">{t(lang, "inv.requisitesFill")}</a></p>}
 
     <AccountantExport lang={lang} clients={Array.from(new Set(data.Items.map(item => item.Client).filter(Boolean)))} />
     <ReconcileCard lang={lang} reconcile={data.Reconcile} />

@@ -594,6 +594,8 @@ export interface InvoicesData {
   Outstanding: string
   Paid: string
   HasOutstanding: boolean
+  // The issuer's details are blank: invoices will print only the name (ADM-17).
+  RequisitesEmpty: boolean
   RoundMinutes: number
   RoundMode: string
   Flash: string
@@ -713,7 +715,7 @@ export interface ReportRunData {
     PeriodLabel: string
     From: string
     To: string
-    Rows: Array<{ Key: string; Secs: number; Hours: string; PlannedSecs: number; Planned: string; Rate: string; Amount: string; Share: number }>
+    Rows: Array<{ Key: string; Detail: string; Secs: number; Hours: string; PlannedSecs: number; Planned: string; Rate: string; Amount: string; Share: number }>
     Total: string
     TotalAmount: string
     ShowPlan: boolean
