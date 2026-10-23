@@ -228,3 +228,16 @@ func paidCentsOf(payments []model.InvoicePayment) int {
 	}
 	return paid
 }
+
+// Reconcile compares the time worked for each client in a window with what the invoices
+// bill for it (FIN-04).
+func (s *Service) Reconcile(ctx context.Context, query appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error) {
+	if query.TeamID <= 0 || !query.Until.After(query.From) {
+		return nil, ErrInvalidInvoice
+	}
+	rows, err := s.reader.ReconcileClients(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("reconcile clients: %w", err)
+	}
+	return rows, nil
+}
