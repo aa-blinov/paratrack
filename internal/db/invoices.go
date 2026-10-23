@@ -100,7 +100,7 @@ func nextInvoiceNumberWithRules(ctx context.Context, queryer invoiceQueryer, tea
 // ListInvoices returns the team's invoices, newest first.
 func (d *DB) ListInvoices(ctx context.Context, teamID int64) ([]Invoice, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, due_date, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
+		`SELECT id, team_id, number, client_name, period_start, period_end, status, notes, due_date, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, vat_rate, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
 		 FROM invoices WHERE team_id = ? ORDER BY created_at DESC`, teamID)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func (d *DB) GetInvoice(ctx context.Context, query appmodel.InvoiceLookupQuery) 
 }
 
 func getInvoice(ctx context.Context, queryer invoiceQueryer, teamID, id int64, lock bool) (Invoice, error) {
-	query := `SELECT id, team_id, number, client_name, period_start, period_end, status, notes, due_date, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
+	query := `SELECT id, team_id, number, client_name, period_start, period_end, status, notes, due_date, payment_url, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = invoices.team_id), 'RUB'), seller_details, client_details, vat_note, vat_rate, COALESCE(project_id, 0), client_email, receipt, by_person, created_at, revision
 		 FROM invoices WHERE id = ? AND team_id = ?`
 	if lock {
 		query += ` FOR UPDATE`
@@ -198,7 +198,8 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 		return Invoice{}, nil, fmt.Errorf("allocate invoice number: %w", err)
 	}
 	var sellerDetails, vatNote string
-	if err := tx.QueryRowContext(ctx, `SELECT requisites, vat_note FROM teams WHERE id = ?`, teamID).Scan(&sellerDetails, &vatNote); err != nil {
+	var vatRate int64
+	if err := tx.QueryRowContext(ctx, `SELECT requisites, vat_note, vat_rate FROM teams WHERE id = ?`, teamID).Scan(&sellerDetails, &vatNote, &vatRate); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Invoice{}, nil, ErrNotFound
 		}
@@ -208,10 +209,10 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 	var invoiceID int64
 	err = tx.QueryRowContext(ctx, `
 		INSERT INTO invoices (team_id, number, client_name, period_start, period_end, status, notes,
-			currency, seller_details, client_details, vat_note, project_id, client_email, by_person, created_at, revision)
-		VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+			currency, seller_details, client_details, vat_note, vat_rate, project_id, client_email, by_person, created_at, revision)
+		VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
 		teamID, number, strings.TrimSpace(clientName), FormatTime(start), FormatTime(end), strings.TrimSpace(notes),
-		currency, sellerDetails, strings.TrimSpace(options.ClientDetails), vatNote,
+		currency, sellerDetails, strings.TrimSpace(options.ClientDetails), vatNote, vatRate,
 		nullableInt64(projectID), strings.TrimSpace(options.ClientEmail), boolInt(byPerson), createdAt,
 	).Scan(&invoiceID)
 	if err != nil {
@@ -258,7 +259,7 @@ func (d *DB) ListInvoiceDetails(ctx context.Context, teamID int64) ([]appmodel.I
 	rows, err := d.sql.QueryContext(ctx, `
 		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes, i.due_date,
 			i.payment_url, COALESCE(NULLIF(i.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = i.team_id), 'RUB'),
-			i.seller_details, i.client_details, i.vat_note, COALESCE(i.project_id, 0), i.client_email,
+			i.seller_details, i.client_details, i.vat_note, i.vat_rate, COALESCE(i.project_id, 0), i.client_email,
 			i.receipt, i.by_person, i.created_at, i.revision,
 			l.id, l.invoice_id, l.label, l.detail, l.seconds, l.rate_cents, l.amount_cents
 		FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id = i.id
@@ -287,7 +288,7 @@ func scanInvoiceDetails(rows *sql.Rows) ([]appmodel.InvoiceDetails, error) {
 		var label, detail sql.NullString
 		if err := rows.Scan(&inv.ID, &inv.TeamID, &inv.Number, &inv.ClientName,
 			&start, &end, &inv.Status, &inv.Notes, &inv.DueDate, &paymentURL, &inv.Currency,
-			&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.ProjectID,
+			&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.VATRate, &inv.ProjectID,
 			&inv.ClientEmail, &inv.Receipt, &byPerson, &created, &inv.Revision,
 			&lineID, &lineInvoiceID, &label, &detail, &seconds, &rate, &amount); err != nil {
 			return nil, err
@@ -330,7 +331,7 @@ func (d *DB) GetInvoiceDetails(ctx context.Context, query appmodel.InvoiceLookup
 	rows, err := d.sql.QueryContext(ctx, `
 		SELECT i.id, i.team_id, i.number, i.client_name, i.period_start, i.period_end, i.status, i.notes, i.due_date,
 			i.payment_url, COALESCE(NULLIF(i.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = i.team_id), 'RUB'),
-			i.seller_details, i.client_details, i.vat_note, COALESCE(i.project_id, 0), i.client_email,
+			i.seller_details, i.client_details, i.vat_note, i.vat_rate, COALESCE(i.project_id, 0), i.client_email,
 			i.receipt, i.by_person, i.created_at, i.revision,
 			l.id, l.invoice_id, l.label, l.detail, l.seconds, l.rate_cents, l.amount_cents
 		FROM invoices i LEFT JOIN invoice_lines l ON l.invoice_id = i.id
@@ -368,7 +369,7 @@ func scanInvoice(row interface{ Scan(...any) error }) (Invoice, error) {
 	var byPerson int
 	err := row.Scan(&inv.ID, &inv.TeamID, &inv.Number, &inv.ClientName,
 		&start, &end, &inv.Status, &inv.Notes, &inv.DueDate, &paymentURL, &inv.Currency,
-		&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.ProjectID,
+		&inv.SellerDetails, &inv.ClientDetails, &inv.VATNote, &inv.VATRate, &inv.ProjectID,
 		&inv.ClientEmail, &inv.Receipt, &byPerson, &created, &inv.Revision)
 	if err != nil {
 		return Invoice{}, err

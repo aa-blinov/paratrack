@@ -66,7 +66,16 @@ func (s *Server) handleAPITeamRequisites(w http.ResponseWriter, r *http.Request)
 	req := strings.TrimSpace(r.FormValue("requisites"))
 	vat := strings.TrimSpace(r.FormValue("vat_note"))
 	hide := r.FormValue("hide_executor") != ""
-	if err := s.services.Teams.Settings.UpdateRequisites(r.Context(), appmodel.TeamRequisitesRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Requisites: req, VATNote: vat, HideExecutorNames: hide}); errors.Is(err, appmodel.ErrInvalidTeamSettings) {
+	rate := 0
+	if raw := strings.TrimSpace(r.FormValue("vat_rate")); raw != "" {
+		value, err := strconv.Atoi(raw)
+		if err != nil {
+			http.Redirect(w, r, "/settings/money?flash=bad_request"+"#requisites", http.StatusSeeOther)
+			return
+		}
+		rate = value
+	}
+	if err := s.services.Teams.Settings.UpdateRequisites(r.Context(), appmodel.TeamRequisitesRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Requisites: req, VATNote: vat, HideExecutorNames: hide, VATRate: rate}); errors.Is(err, appmodel.ErrInvalidTeamSettings) {
 		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#requisites", http.StatusSeeOther)
 		return
 	} else if err != nil {

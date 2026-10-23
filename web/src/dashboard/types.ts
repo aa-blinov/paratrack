@@ -619,6 +619,7 @@ export interface InvoiceDetailData {
     Notes: string
     Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
     Total: string
+    VATIncluded: string
     Hours: string
     DriftMessage: string
     PaymentURL: string
@@ -827,6 +828,8 @@ export interface NotificationsData {
 export interface TeamSettingsData {
   // The requisites card's switch: the members' names stay off by-person invoice lines (FIN-15).
   HideExecutorNames: boolean
+  // VAT rate in percent for new invoices, 0 for none (FIN-16).
+  VATRate: number
   Active: string
   Lang: string
   CSRFToken: string

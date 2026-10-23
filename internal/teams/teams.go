@@ -66,6 +66,7 @@ type SettingsStore interface {
 	TeamBilling(context.Context, int64) (model.BillingRules, error)
 	TeamCurrency(context.Context, int64) (string, error)
 	TeamRequisites(context.Context, int64) (string, string, bool, error)
+	TeamVATRate(context.Context, int64) (int, error)
 	SetTeamBilling(context.Context, appmodel.TeamBillingRequest) error
 	SetTeamCurrency(context.Context, appmodel.TeamCurrencyRequest) error
 	SetTeamRequisites(context.Context, appmodel.TeamRequisitesRequest) error

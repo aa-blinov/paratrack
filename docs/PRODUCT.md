@@ -101,6 +101,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
 - The overlap warning names the invoices in the period that hold the same line label, and also those that bill sessions of the same activity, whatever their lines were called (FIN-23). A session is billed once: a session already stamped on an invoice cannot be billed again, so the warning is advisory
 - While the issuer's requisites are blank, the invoices screen says so: an invoice issued then prints only the name (ADM-17)
+- VAT: the workspace rate (requisites, percent, 0 for none) is fixed on each new invoice. Invoice prices already include VAT, so the invoice shows the VAT inside its total, `total × rate ÷ (100 + rate)` rounded half up to the cent, on a line "including VAT". Totals and payments do not change; an issued invoice keeps the rate it was drafted with (FIN-16)
 - A by-person invoice names the member on each line by default. The requisites card's switch (`hide_executor_names`) takes the names off every line the invoice draws: the screen, the PDF, the act and the shared link. Lines are drawn when opened, so the switch applies to invoices already issued too. The name is the line's last segment and is dropped only when it names a member (FIN-15)
 
 **Projects**

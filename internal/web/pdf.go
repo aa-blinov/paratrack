@@ -123,6 +123,10 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 	pdf.CellFormat(cols[1], 9, inv.Hours, "", 0, "R", false, 0, "")
 	pdf.CellFormat(cols[2], 9, "", "", 0, "R", false, 0, "")
 	pdf.CellFormat(cols[3], 9, inv.Total, "", 1, "R", false, 0, "")
+	if inv.VATIncluded != "" {
+		pdf.SetFont("Inter", "", 9)
+		pdf.CellFormat(0, 6, inv.VATIncluded, "", 1, "R", false, 0, "")
+	}
 	if inv.VATNote != "" {
 		pdf.SetFont("Inter", "", 9)
 		pdf.CellFormat(0, 6, inv.VATNote, "", 1, "L", false, 0, "")

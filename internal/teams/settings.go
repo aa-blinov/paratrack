@@ -71,6 +71,9 @@ func (s *Service) Settings(ctx context.Context, teamID int64) (model.TeamSetting
 	if settings.Currency, err = s.settings.TeamCurrency(ctx, teamID); err != nil {
 		return model.TeamSettings{}, fmt.Errorf("load team currency: %w", err)
 	}
+	if settings.VATRate, err = s.settings.TeamVATRate(ctx, teamID); err != nil {
+		return model.TeamSettings{}, fmt.Errorf("load VAT rate: %w", err)
+	}
 	if settings.Requisites, settings.VATNote, settings.HideExecutorNames, err = s.settings.TeamRequisites(ctx, teamID); err != nil {
 		return model.TeamSettings{}, fmt.Errorf("load team requisites: %w", err)
 	}
@@ -134,6 +137,9 @@ func (s *Service) UpdateRequisites(ctx context.Context, request appmodel.TeamReq
 	requisites, vatNote := request.Requisites, request.VATNote
 	if request.TeamID <= 0 || request.CallerID <= 0 || len(requisites) > 2000 || len(vatNote) > 200 {
 		return fmt.Errorf("%w: requisites are too long", ErrInvalidSettings)
+	}
+	if request.VATRate < 0 || request.VATRate > 100 {
+		return fmt.Errorf("%w: VAT rate is a percentage from 0 to 100", ErrInvalidSettings)
 	}
 	if err := s.settings.SetTeamRequisites(ctx, request); err != nil {
 		return fmt.Errorf("update team requisites: %w", err)

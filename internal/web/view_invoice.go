@@ -35,6 +35,8 @@ type invoiceVM struct {
 	Lines       []invoiceLineVM
 	Total       string
 	TotalCents  int
+	// VATIncluded names the VAT inside the total, when the invoice carries a rate (FIN-16).
+	VATIncluded string
 	Hours       string
 	// DriftMessage tells a draft that its tracked time moved away from its lines.
 	DriftMessage                          string
@@ -207,6 +209,9 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 		})
 	}
 	vm.Logo = logoURL(snapshot.BillingRules.Logo)
+	if inv.VATRate > 0 {
+		vm.VATIncluded = fmt.Sprintf(i18n.T(lang, "inv.vatIncluded"), inv.VATRate, moneyL(lang, vatIncludedCents(details.TotalCents, inv.VATRate), inv.Currency))
+	}
 	return inv, vm, snapshot.StripeReady, nil
 }
 
@@ -335,4 +340,14 @@ func withoutExecutor(label string, names map[string]bool) string {
 		return label
 	}
 	return label[:i]
+}
+
+// vatIncludedCents is the VAT inside a price that already includes it: total × rate ÷ (100 +
+// rate), rounded half up to the cent (FIN-16).
+func vatIncludedCents(totalCents, ratePercent int) int {
+	if ratePercent <= 0 {
+		return 0
+	}
+	denominator := 100 + ratePercent
+	return (totalCents*ratePercent*2 + denominator) / (2 * denominator)
 }
