@@ -212,11 +212,21 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	run, lines := details.Run, details.Lines
 	lang := string(resolveLang(r))
+	days := runDays(run.PeriodStart, run.PeriodEnd)
+	var tracked map[int64][]int
+	if len(days) > 0 {
+		tracked, err = s.services.Scheduling.TrackedSecondsByPersonDay(r.Context(), appmodel.PersonDayQuery{TeamID: teamID(r), Days: days, Now: userNow(r)})
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+	}
 	vms := make([]payrollLineVM, 0, len(lines))
 	for _, l := range lines {
 		vms = append(vms, payrollLineVM{
 			Label: l.Label, Hours: fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds)),
 			Rate: moneyL(resolveLang(r), l.RateCents, run.Currency), Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
+			Days: payrollDays(resolveLang(r), days, tracked[l.UserID]),
 		})
 	}
 	data := payrollDetailPage{
@@ -240,6 +250,42 @@ type payrollLineVM struct {
 	Hours  string
 	Rate   string
 	Amount string
+	// Days is what the person logged on each day of the run, days with no time left out (FIN-18).
+	Days []payrollDayVM
+}
+
+// payrollDayVM is one day of a payroll line's breakdown.
+type payrollDayVM struct {
+	Day   string
+	Hours string
+}
+
+// maxPayrollBreakdownDays keeps the per-day query bounded: a run longer than this shows
+// its totals only.
+const maxPayrollBreakdownDays = 370
+
+// runDays lists the days a run covers. PeriodEnd is exclusive.
+func runDays(start, end time.Time) []time.Time {
+	var days []time.Time
+	for day := start; day.Before(end); day = day.AddDate(0, 0, 1) {
+		if len(days) >= maxPayrollBreakdownDays {
+			return nil
+		}
+		days = append(days, day)
+	}
+	return days
+}
+
+// payrollDays pairs a person's tracked seconds with the run's days, dropping the empty ones.
+func payrollDays(lang i18n.Lang, days []time.Time, seconds []int) []payrollDayVM {
+	var out []payrollDayVM
+	for i, day := range days {
+		if i >= len(seconds) || seconds[i] <= 0 {
+			continue
+		}
+		out = append(out, payrollDayVM{Day: fmtDay(lang, day), Hours: fmtHoursL(lang, money.HoursHundredths(seconds[i]))})
+	}
+	return out
 }
 
 type payrollVM struct {

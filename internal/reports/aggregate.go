@@ -119,6 +119,11 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			day = session.Session.StartAt.In(location)
 			identityDay = day.Format("2006-01-02")
 			label = identityDay
+		case appmodel.ReportGroupDayPerson:
+			day = session.Session.StartAt.In(location)
+			identityDay = day.Format("2006-01-02")
+			label = identityDay
+			userID = session.Session.UserID
 		case appmodel.ReportGroupUser:
 			userID = session.Session.UserID
 			if userID == 0 {
@@ -239,7 +244,18 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			RateCents: rate, RateVaries: current.rateVaries, AmountCents: current.amount,
 			Currency: current.currency, Share: share,
 			ActivityID: key.activityID, Project: current.project, Task: current.task,
+			Person: personOf(input, key.userID),
 		})
+	}
+	if input.GroupBy == appmodel.ReportGroupDayPerson {
+		// A day-by-person report reads in calendar order, then by person.
+		sort.Slice(result.Rows, func(i, j int) bool {
+			if result.Rows[i].Key == result.Rows[j].Key {
+				return result.Rows[i].Person < result.Rows[j].Person
+			}
+			return result.Rows[i].Key < result.Rows[j].Key
+		})
+		return result, nil
 	}
 	sort.Slice(result.Rows, func(i, j int) bool {
 		if result.Rows[i].Seconds == result.Rows[j].Seconds {
@@ -254,4 +270,16 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		return result.Rows[i].Seconds > result.Rows[j].Seconds
 	})
 	return result, nil
+}
+
+// personOf names the member a row belongs to: the workspace's name, the former member's, or
+// the unassigned label for time with no member.
+func personOf(input AggregateInput, userID int64) string {
+	if userID == 0 {
+		return input.UnassignedUser
+	}
+	if name, ok := input.UserNames[userID]; ok {
+		return name
+	}
+	return input.UnassignedUser
 }

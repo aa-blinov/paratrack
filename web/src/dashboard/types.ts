@@ -481,7 +481,7 @@ export interface PayrollDetailData {
     Status: string
     Notes: string
     PeriodLabel: string
-    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string }>
+    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
     Total: string
     TotalCents: number
     Hours: string
@@ -617,7 +617,7 @@ export interface InvoiceDetailData {
     PeriodISO: string
     Status: string
     Notes: string
-    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string }>
+    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
     Total: string
     Hours: string
     DriftMessage: string

@@ -1129,7 +1129,7 @@ def main() -> int:
         page.goto(BASE + "/reports")
         expect(page.locator("#main h1")).to_be_visible()
         check("report action says it opens a read-only result",
-              page.locator('form[action="/reports/run"] button[type="submit"]').count() == 5)
+              page.locator('form[action="/reports/run"] button[type="submit"]').count() == 6)
         page.locator('form[action="/reports/run"] button[type="submit"]').first.click()
         expect(page.locator("#main table")).to_be_visible()
         check("report preview opens without creating a document",
