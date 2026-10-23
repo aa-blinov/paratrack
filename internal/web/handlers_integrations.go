@@ -140,6 +140,8 @@ func (s *Server) integrationErrorMessage(r *http.Request, err error) string {
 	switch {
 	case errors.Is(err, appmodel.ErrInvalidIntegration):
 		return i18n.T(resolveLang(r), "err.invalidInput")
+	case errors.Is(err, appmodel.ErrIntegrationTokenRejected):
+		return i18n.T(resolveLang(r), "int.tokenRejected")
 	case errors.Is(err, model.ErrForbidden):
 		return "manager role required"
 	case errors.Is(err, model.ErrNotFound):

@@ -138,6 +138,10 @@ func (s *Service) ConnectAndSync(ctx context.Context, request appmodel.Integrati
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return ConnectResult{}, ErrInvalidIntegration
 	}
+	// A token the provider refuses would be saved and fail at the first sync: refuse it here (ADM-10).
+	if err := s.providers.CheckToken(ctx, integrationport.ProviderInput{Provider: request.Provider, Secret: request.Secret}); errors.Is(err, integrationport.ErrTokenRejected) {
+		return ConnectResult{}, appmodel.ErrIntegrationTokenRejected
+	}
 	integration, err := s.Create(ctx, request)
 	if err != nil {
 		return ConnectResult{}, err
