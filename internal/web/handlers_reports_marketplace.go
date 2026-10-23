@@ -103,9 +103,12 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	for i, row := range result.Rows {
 		key := row.Key
 		detail := ""
-		if tpl.GroupBy == appmodel.ReportGroupDay {
+		if tpl.GroupBy == appmodel.ReportGroupDay || tpl.GroupBy == appmodel.ReportGroupDayPerson {
 			day := row.Day.In(userLoc(r))
 			key = fmtWeekday(resolveLang(r), day) + " " + fmtDay(resolveLang(r), day)
+			if tpl.GroupBy == appmodel.ReportGroupDayPerson {
+				key += " (" + row.Person + ")"
+			}
 		} else if tpl.GroupBy == appmodel.ReportGroupActivity {
 			key = labels[i]
 			detail = activityDetail(resolveLang(r), row)
