@@ -78,16 +78,18 @@ func (d *DB) TeamSectionsChosen(ctx context.Context, teamID int64) (bool, error)
 }
 
 // TeamRequisites are the issuer's details and VAT line for documents.
-func (d *DB) TeamRequisites(ctx context.Context, teamID int64) (requisites, vatNote string, err error) {
-	err = d.sql.QueryRowContext(ctx, `SELECT requisites, vat_note FROM teams WHERE id = ?`, teamID).Scan(&requisites, &vatNote)
+func (d *DB) TeamRequisites(ctx context.Context, teamID int64) (requisites, vatNote string, hideExecutor bool, err error) {
+	var hide int64
+	err = d.sql.QueryRowContext(ctx, `SELECT requisites, vat_note, hide_executor_names FROM teams WHERE id = ?`, teamID).Scan(&requisites, &vatNote, &hide)
+	hideExecutor = hide != 0
 	if errors.Is(err, sql.ErrNoRows) {
-		return "", "", model.ErrNotFound
+		return "", "", false, model.ErrNotFound
 	}
 	return
 }
 
 func (d *DB) SetTeamRequisites(ctx context.Context, request appmodel.TeamRequisitesRequest) error {
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET requisites = ?, vat_note = ? WHERE id = ?`, request.Requisites, request.VATNote, request.TeamID)
+	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET requisites = ?, vat_note = ?, hide_executor_names = ? WHERE id = ?`, request.Requisites, request.VATNote, boolInt(request.HideExecutorNames), request.TeamID)
 }
 
 // TeamCurrency is the workspace default (RUB when unset or no team).

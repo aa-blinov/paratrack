@@ -100,6 +100,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The accountant's export (`GET /invoices/export.csv?export_from&export_to&export_client`, managers) lists one row per line of the issued invoices (drafts left out), by invoice date in the viewer's zone, with the client, the seller's name as executor, the line's label, hours, rate, amount, currency and status. `export_from` and `export_to` are days, both included; `export_client` is an exact name (FIN-05). The dates follow the workspace zone when it is set, and the viewer's zone otherwise
 - An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
 - While the issuer's requisites are blank, the invoices screen says so: an invoice issued then prints only the name (ADM-17)
+- A by-person invoice names the member on each line by default. The requisites card's switch (`hide_executor_names`) takes the names off every line the invoice draws: the screen, the PDF, the act and the shared link. Lines are drawn when opened, so the switch applies to invoices already issued too. The name is the line's last segment and is dropped only when it names a member (FIN-15)
 
 **Projects**
 

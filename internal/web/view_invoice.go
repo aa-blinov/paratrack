@@ -165,11 +165,15 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 	}
 	details := snapshot.Details
 	inv, lines := details.Invoice, details.Lines
+	names, err := s.executorNamesToHide(r, inv)
+	if err != nil {
+		return model.Invoice{}, invoiceVM{}, false, err
+	}
 	vms := make([]invoiceLineVM, 0, len(lines))
 	lang := resolveLang(r)
 	for _, line := range lines {
 		vms = append(vms, invoiceLineVM{
-			Label: line.Label, Hours: fmtHoursL(lang, money.HoursHundredths(line.Seconds)),
+			Label: withoutExecutor(line.Label, names), Hours: fmtHoursL(lang, money.HoursHundredths(line.Seconds)),
 			Rate: moneyL(lang, line.RateCents, inv.Currency), Amount: moneyL(lang, line.AmountCents, inv.Currency),
 			RateCents: line.RateCents, AmountCents: line.AmountCents, Seconds: line.Seconds,
 		})
@@ -293,4 +297,42 @@ func journalTotals(status string, total, journal int) (paid, owed int) {
 		return total, 0
 	}
 	return journal, total - journal
+}
+
+// executorNamesToHide lists the names a by-person invoice must leave off its lines while the
+// workspace hides them: the members' and former members' names and emails, the way the
+// line label spells a person (FIN-15). Nil when nothing is hidden.
+func (s *Server) executorNamesToHide(r *http.Request, inv model.Invoice) (map[string]bool, error) {
+	if !inv.ByPerson {
+		return nil, nil
+	}
+	settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r))
+	if err != nil {
+		return nil, fmt.Errorf("load invoice settings: %w", err)
+	}
+	if !settings.HideExecutorNames {
+		return nil, nil
+	}
+	snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r))
+	if err != nil {
+		return nil, fmt.Errorf("load members for the invoice: %w", err)
+	}
+	names := map[string]bool{}
+	for _, member := range snapshot.Members {
+		names[member.Name], names[member.Email] = true, true
+	}
+	for _, former := range snapshot.Former {
+		names[former.Name], names[former.Email] = true, true
+	}
+	return names, nil
+}
+
+// withoutExecutor drops the member's name from a by-person line label. The name is the last
+// segment of the label, so only a last segment that names a member is taken off (FIN-15).
+func withoutExecutor(label string, names map[string]bool) string {
+	i := strings.LastIndex(label, " · ")
+	if i < 0 || !names[label[i+len(" · "):]] {
+		return label
+	}
+	return label[:i]
 }
