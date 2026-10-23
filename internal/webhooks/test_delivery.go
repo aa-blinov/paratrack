@@ -126,6 +126,10 @@ func sampleEvent(event webhookport.EventName, sentAt time.Time) any {
 		return webhookport.PaymentLinkCreatedEvent{Number: "test"}
 	case webhookport.EventImportCompleted:
 		return webhookport.ImportCompletedEvent{Provider: "test"}
+	case webhookport.EventTaskCreated:
+		return webhookport.TaskCreatedEvent{Title: "test"}
+	case webhookport.EventTaskDone:
+		return webhookport.TaskDoneEvent{Title: "test"}
 	default:
 		return defaultTestEvent
 	}

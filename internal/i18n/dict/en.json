@@ -979,6 +979,8 @@
   "wh.delete": "Delete webhook",
   "wh.ev.session.started": "Timer started",
   "wh.ev.session.stopped": "Timer stopped",
+  "wh.ev.task.created": "Task created",
+  "wh.ev.task.done": "Task done",
   "wh.ev.invoice.created": "Invoice created",
   "wh.ev.invoice.paid": "Invoice paid",
   "wh.ev.invoice.payment_link_created": "Payment link created",
