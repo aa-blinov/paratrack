@@ -1,6 +1,7 @@
 import * as React from "react"
 import { ArrowLeft, Archive, Plus, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -41,6 +42,8 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [description, setDescription] = React.useState(task.Description)
   const [comments, setComments] = React.useState(data.Comments)
   const [comment, setComment] = React.useState("")
+  const [checklist, setChecklist] = React.useState(data.Checklist)
+  const [step, setStep] = React.useState("")
   const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
@@ -78,6 +81,49 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   }
 
   // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).
+  // postStep sends one change to a task's checklist and returns the answer (TASK-10).
+  async function postStep(path: string, fields: Record<string, string>) {
+    const response = await fetch(`/api/tasks/${task.ID}${path}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
+      body: new URLSearchParams({ csrf_token: data.CSRFToken, ...fields }),
+    })
+    const json = (await response.json()) as { id?: number; body?: string; done?: boolean; ok?: boolean; error?: string }
+    if (!response.ok) throw new Error(json.error || response.statusText)
+    return json
+  }
+  async function addStep(event: React.FormEvent) {
+    event.preventDefault()
+    const body = step.trim()
+    if (!body) return
+    setError("")
+    try {
+      const json = await postStep("/checklist", { body })
+      setChecklist(list => [...list, { ID: json.id ?? 0, Body: json.body ?? body, Done: Boolean(json.done) }])
+      setStep("")
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
+  async function toggleStep(id: number, done: boolean) {
+    setError("")
+    try {
+      await postStep(`/checklist/${id}/done`, { done: done ? "1" : "0" })
+      setChecklist(list => list.map(item => (item.ID === id ? { ...item, Done: done } : item)))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
+  async function removeStep(id: number) {
+    setError("")
+    try {
+      await postStep(`/checklist/${id}/delete`, {})
+      setChecklist(list => list.filter(item => item.ID !== id))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
   async function addComment(event: React.FormEvent) {
     event.preventDefault()
     const body = comment.trim()
@@ -219,6 +265,19 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
           </div>
         </form>}
       </CardContent></Card>}
+      <section aria-label={t(lang, "tasks.checklist")} className="grid gap-3">
+        <h2 className="text-sm font-medium">{t(lang, "tasks.checklist")}</h2>
+        {checklist.length ? <ul className="grid gap-2">{checklist.map(item => <li key={item.ID} className="flex items-start gap-3 text-sm">
+          <Checkbox id={`step-${item.ID}`} checked={item.Done} disabled={task.Archived} onCheckedChange={value => void toggleStep(item.ID, value === true)} className="mt-0.5" />
+          <label htmlFor={`step-${item.ID}`} className={`min-w-0 flex-1 [overflow-wrap:anywhere] ${item.Done ? "text-muted-foreground line-through" : ""}`}>{item.Body}</label>
+          {!task.Archived && <Button type="button" variant="ghost" size="sm" onClick={() => void removeStep(item.ID)}>{t(lang, "tasks.checklistRemove")}</Button>}
+        </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "tasks.checklistEmpty")}</p>}
+        {!task.Archived && <form onSubmit={addStep} className="flex gap-2">
+          <Label htmlFor="task-step" className="sr-only">{t(lang, "tasks.checklistAdd")}</Label>
+          <Input id="task-step" value={step} onChange={event => setStep(event.target.value)} maxLength={300} placeholder={t(lang, "tasks.checklistAdd")} className="min-w-0 flex-1" />
+          <Button type="submit" size="sm" disabled={!step.trim()}>{t(lang, "tasks.checklistAdd")}</Button>
+        </form>}
+      </section>
       <section aria-label={t(lang, "tasks.feed")} className="grid gap-3">
         <h2 className="text-sm font-medium">{t(lang, "tasks.feed")}</h2>
         {comments.length ? <ul className="grid gap-3">{comments.map(item => <li key={item.ID} className="grid gap-1 border-b pb-3 last:border-0">
