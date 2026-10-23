@@ -125,6 +125,11 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 
 - The activity grouping keys each row by activity id (D-7). Activities that share a name stay apart: the repeated name carries the id after it, such as `созвон (#12)`, and each row names its project and the task the activity holds (TIME-15, TIME-16). The API's `by_activity` map uses the same labels
 
+**API v1**
+
+- `/api/v1/me` names the caller, the workspace the token reads and the caller's role. `/api/v1/members` lists the members with their roles, for a manager only (ADM-12)
+- A session names its author's email (a manager sees everyone's; anyone else, only their own), its project id and its task id. A project carries its `client_id` (0 when not linked), and a task its description
+
 **Roles**
 
 - The owner changes the currency, the invoice rules (rounding and number prefix), the Stripe keys and the webhooks: listing, creating, testing, rotating the secret and deleting. An admin is refused these at the route and again inside the transaction, so a route that is missed still cannot write (`lockTeamOwner`, ADM-15). An admin keeps the journal, the sections, invitations, members, invoices and payroll
@@ -259,6 +264,8 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 ```
 GET|POST   /api/v1/sessions
 PATCH|DELETE /api/v1/sessions/{id}
+GET        /api/v1/me
+GET        /api/v1/members
 GET        /api/v1/projects
 GET        /api/v1/clients
 GET        /api/v1/tags

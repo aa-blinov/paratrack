@@ -99,6 +99,12 @@ type TaskReportQuery struct {
 }
 
 // TaskRow is one task as the board and the table show it.
+// ActivityTask is the task an activity holds: its id and its title (ADM-12, TIME-16).
+type ActivityTask struct {
+	TaskID int64
+	Title  string
+}
+
 type TaskRow struct {
 	Task         model.Task
 	ProjectName  string

@@ -65,6 +65,7 @@ type projectResponse struct {
 	EstimateMinutes   *int      `json:"estimate_minutes,omitempty"`
 	BillableRateCents *int      `json:"billable_rate_cents,omitempty"`
 	Billable          bool      `json:"billable"`
+	ClientID          int64     `json:"client_id"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
 }
@@ -84,7 +85,7 @@ func projectFor(r *http.Request, project model.Project) projectResponse {
 		ID: project.ID, TeamID: project.TeamID, Slug: project.Slug,
 		Name: project.Name, Color: project.Color, Archived: project.Archived,
 		EstimateMinutes: project.EstimateMinutes, Billable: project.Billable,
-		CreatedAt: project.CreatedAt, UpdatedAt: project.UpdatedAt,
+		ClientID: project.ClientID, CreatedAt: project.CreatedAt, UpdatedAt: project.UpdatedAt,
 	}
 	if canManage(r) {
 		response.BillableRateCents = project.BillableRateCents
@@ -154,12 +155,15 @@ type tagResponse struct {
 func (tagResponse) isJSONResponse() {}
 
 type apiV1SessionResponse struct {
-	ID       int64  `json:"id"`
-	Activity string `json:"activity"`
-	Start    string `json:"start"`
-	End      string `json:"end"`
-	Seconds  int    `json:"seconds"`
-	Note     string `json:"note"`
+	ID        int64  `json:"id"`
+	Activity  string `json:"activity"`
+	UserEmail string `json:"user_email"`
+	ProjectID int64  `json:"project_id"`
+	TaskID    int64  `json:"task_id"`
+	Start     string `json:"start"`
+	End       string `json:"end"`
+	Seconds   int    `json:"seconds"`
+	Note      string `json:"note"`
 }
 
 type apiV1SessionsResponse struct {

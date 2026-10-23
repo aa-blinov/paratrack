@@ -611,24 +611,25 @@ func insertTaskActivityRow(ctx context.Context, tx *Tx, teamID, projectID, taskI
 
 // ListLinkableActivities lists the project's activities that no task holds yet:
 // the ones a task can take on.
-// LinkedActivityTasks returns the activities that a task holds, each with the title of
-// that task. The reports name the task beside the activity (TIME-16).
-func (d *DB) LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]string, error) {
+// LinkedActivityTasks returns the activities that a task holds, each with the task's id
+// and title. The reports name the task beside the activity (TIME-16); the API names it on
+// each session (ADM-12).
+func (d *DB) LinkedActivityTasks(ctx context.Context, teamID int64) (map[int64]appmodel.ActivityTask, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT a.id, t.title FROM activities a JOIN tasks t ON t.id = a.task_id AND t.team_id = a.team_id
+		`SELECT a.id, t.id, t.title FROM activities a JOIN tasks t ON t.id = a.task_id AND t.team_id = a.team_id
 		 WHERE a.team_id = ? AND a.task_id IS NOT NULL AND a.task_id > 0`, teamID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	linked := make(map[int64]string)
+	linked := make(map[int64]appmodel.ActivityTask)
 	for rows.Next() {
-		var id int64
-		var title string
-		if err := rows.Scan(&id, &title); err != nil {
+		var activityID int64
+		var task appmodel.ActivityTask
+		if err := rows.Scan(&activityID, &task.TaskID, &task.Title); err != nil {
 			return nil, err
 		}
-		linked[id] = title
+		linked[activityID] = task
 	}
 	return linked, rows.Err()
 }
