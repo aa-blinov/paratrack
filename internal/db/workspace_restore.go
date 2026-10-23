@@ -74,8 +74,11 @@ func (d *DB) RestoreWorkspace(ctx context.Context, request appmodel.WorkspaceRes
 	}
 	// The restored workspace opens its own trail with this row, so a restore never
 	// starts from a blank log.
-	var members, invoices int64
+	var members, projects, invoices int64
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM memberships WHERE team_id = ?`, r.teamID).Scan(&members); err != nil {
+		return appmodel.WorkspaceRestoreResult{}, err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM projects WHERE team_id = ?`, r.teamID).Scan(&projects); err != nil {
 		return appmodel.WorkspaceRestoreResult{}, err
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM invoices WHERE team_id = ?`, r.teamID).Scan(&invoices); err != nil {
@@ -88,28 +91,32 @@ func (d *DB) RestoreWorkspace(ctx context.Context, request appmodel.WorkspaceRes
 	if err := tx.Commit(); err != nil {
 		return appmodel.WorkspaceRestoreResult{}, err
 	}
-	return appmodel.WorkspaceRestoreResult{TeamID: r.teamID, Slug: r.slug, Webhooks: r.webhooks}, nil
+	return appmodel.WorkspaceRestoreResult{
+		TeamID: r.teamID, Slug: r.slug, Webhooks: r.webhooks,
+		Members: int(members), Projects: int(projects), Invoices: int(invoices), SkippedIntegrations: r.integrations,
+	}, nil
 }
 
 // restorer writes one export as its records arrive. Each record refers only to
 // records that came before it, so every id resolves at once.
 type restorer struct {
-	ctx        context.Context
-	tx         *Tx
-	seal       func(string) (string, error)
-	teamID     int64
-	slug       string
-	callerID   int64
-	ownerSet   bool
-	now        string
-	users      map[string]int64
-	clients    map[int64]int64
-	projects   map[int64]int64
-	tags       map[int64]int64
-	activities map[int64]int64
-	tasks      map[int64]int64
-	invoices   map[int64]int64
-	webhooks   []appmodel.RestoredWebhook
+	integrations int
+	ctx          context.Context
+	tx           *Tx
+	seal         func(string) (string, error)
+	teamID       int64
+	slug         string
+	callerID     int64
+	ownerSet     bool
+	now          string
+	users        map[string]int64
+	clients      map[int64]int64
+	projects     map[int64]int64
+	tags         map[int64]int64
+	activities   map[int64]int64
+	tasks        map[int64]int64
+	invoices     map[int64]int64
+	webhooks     []appmodel.RestoredWebhook
 }
 
 // mapped turns an id from the file into the restored id. Zero means none.
@@ -507,8 +514,12 @@ func (r *restorer) Webhook(w appmodel.ExportWebhook) error {
 }
 
 // Integration is not restored: a connection names an outside account, and the
-// owner connects it again from the integrations page.
-func (r *restorer) Integration(appmodel.ExportIntegration) error { return nil }
+// owner connects it again from the integrations page. It is counted, so the answer
+// can say how many to connect again.
+func (r *restorer) Integration(appmodel.ExportIntegration) error {
+	r.integrations++
+	return nil
+}
 
 // newWebhookSecret makes the signing secret a restored endpoint gets.
 func newWebhookSecret() (string, error) {

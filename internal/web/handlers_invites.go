@@ -35,15 +35,31 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	link := s.publicBaseURL(r) + "/invites/" + inv.Token
-	// With an address, the invitation goes out as a letter too.
-	if to != "" && mailport.Available(s.runtime.Mailer) {
-		subj, ev := inviteEmail(lang, user.Name, team.Name, link)
-		if msg, err := s.buildEmail(r, to, subj, ev); err == nil && s.deliverPostcommit(r.Context(), msg) == nil {
-			redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteMailed")+" "+to+".", link)
+	// With an address, the invitation goes out as a letter too. The flash names the
+	// address whatever happened to the letter, so the owner knows whether to send the
+	// link by hand (ADM-18).
+	if to == "" {
+		if strings.TrimSpace(r.FormValue("email")) != "" {
+			redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteBadAddress"), link)
 			return
 		}
+		redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteCreated"), link)
+		return
 	}
-	redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteCreated"), link)
+	if !mailport.Available(s.runtime.Mailer) {
+		redirectWithFreshInvite(w, r, fmt.Sprintf(i18n.T(lang, "flash.inviteMailOff"), to), link)
+		return
+	}
+	subj, ev := inviteEmail(lang, user.Name, team.Name, link)
+	msg, err := s.buildEmail(r, to, subj, ev)
+	if err == nil {
+		err = s.deliverPostcommit(r.Context(), msg)
+	}
+	if err != nil {
+		redirectWithFreshInvite(w, r, fmt.Sprintf(i18n.T(lang, "flash.inviteMailFailed"), to), link)
+		return
+	}
+	redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteMailed")+" "+to+".", link)
 }
 
 // redirectWithFreshInvite sends the owner back to the invitations page with

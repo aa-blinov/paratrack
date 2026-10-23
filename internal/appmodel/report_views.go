@@ -1,6 +1,7 @@
 package appmodel
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -83,6 +84,12 @@ type ReportGraphResult struct {
 
 type ReportAggregateRow struct {
 	Key string
+	// ActivityID, Project and Task tell apart activities that share a name, for the activity
+	// grouping: a name is a label, not an identity (D-7, TIME-15). Task is the title of the
+	// task the activity holds, if any (TIME-16).
+	ActivityID int64
+	Project    string
+	Task       string
 	// UserID is set on member rows only (zero for other groupings and for
 	// time with no member).
 	UserID      int64
@@ -125,4 +132,25 @@ type ReportStatsSummary struct {
 	TotalSeconds int
 	Activities   []ReportStatsBreakdown
 	Projects     []ReportProjectStats
+}
+
+// ActivityLabels names each row of an activity grouping. Activities are told apart by
+// id (D-7), so a name that more than one activity holds gets the id after it; a row
+// whose name is unique keeps the name alone. Rows of one activity share a label.
+func ActivityLabels(rows []ReportAggregateRow) []string {
+	ids := make(map[string]map[int64]bool, len(rows))
+	for _, row := range rows {
+		if ids[row.Key] == nil {
+			ids[row.Key] = make(map[int64]bool)
+		}
+		ids[row.Key][row.ActivityID] = true
+	}
+	labels := make([]string, len(rows))
+	for i, row := range rows {
+		labels[i] = row.Key
+		if len(ids[row.Key]) > 1 {
+			labels[i] = row.Key + " (#" + strconv.FormatInt(row.ActivityID, 10) + ")"
+		}
+	}
+	return labels
 }
