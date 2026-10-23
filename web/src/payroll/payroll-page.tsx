@@ -11,6 +11,7 @@ import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { PayrollData, PayrollDetailData } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
+import { OverlapConfirm } from "@/payroll/overlap-confirm"
 
 function Status({ lang, status }: { lang: string; status: string }) {
   // Same reason as the invoice status: the colour belongs to the role in
@@ -37,13 +38,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </form>
       </li>)}</ul>
     </div> : null}
-    {!!data.Overlap && <div role="alert" className="flex flex-wrap items-start gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
-      <span className="min-w-0 flex-1">{t(lang, "pay.overlap", data.Overlap)}</span>
-      <form method="POST" action="/payroll" className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="start" value={data.DefStart} /><input type="hidden" name="end" value={data.DefEnd} /><input type="hidden" name="notes" value={data.DefNotes} /><input type="hidden" name="confirm" value="1" />
-        <Button type="submit" size="sm">{t(lang, "pay.overlapCreate")}</Button><Button asChild type="button" size="sm" variant="ghost"><a href="/payroll">{t(lang, "pay.overlapCancel")}</a></Button>
-      </form>
-    </div>}
+    {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
 
 
 

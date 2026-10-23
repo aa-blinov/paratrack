@@ -29,6 +29,16 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
       <form method="POST" action="/projects/new" className="grid gap-5 sm:grid-cols-2">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-name">{t(lang, "projects.name")}</Label><Input id="new-project-name" name="name" required minLength={1} placeholder={t(lang, "ph.project")} autoFocus /></div>
+        <div className="space-y-2">
+          <Label htmlFor="new-project-rate">{t(lang, "bill.rate")} {t(lang, "bill.cents")} <span className="font-normal text-muted-foreground">({t(lang, "projects.optional")})</span></Label>
+          <Input id="new-project-rate" name="rate" inputMode="decimal" autoComplete="off" placeholder={t(lang, "bill.ratePh")} />
+          <p className="text-xs text-muted-foreground">{t(lang, "bill.rateHint")}</p>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="new-project-budget">{t(lang, "budget.amount")} {t(lang, "bill.cents")} <span className="font-normal text-muted-foreground">({t(lang, "projects.optional")})</span></Label>
+          <Input id="new-project-budget" name="budget" inputMode="decimal" autoComplete="off" placeholder={t(lang, "budget.amountPlaceholder")} />
+          <p className="text-xs text-muted-foreground">{t(lang, "budget.hint")}</p>
+        </div>
         <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
           <DisclosureTrigger className="group inline-flex min-h-11 cursor-pointer items-center gap-1 text-sm text-muted-foreground sm:min-h-0">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4 transition-transform group-data-[state=open]:rotate-180" /></DisclosureTrigger>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
@@ -40,11 +50,6 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
             <Input name="color" aria-label={t(lang, "projects.colorHex")} value={color} onChange={event => setColor(event.target.value)} pattern="^#[0-9a-fA-F]{6}$" className="font-mono" required />
           </div>
         </fieldset>
-        <div className="space-y-2">
-          <Label htmlFor="new-project-rate">{t(lang, "bill.rate")} {t(lang, "bill.cents")} <span className="font-normal text-muted-foreground">({t(lang, "projects.optional")})</span></Label>
-          <Input id="new-project-rate" name="rate" inputMode="decimal" autoComplete="off" placeholder={t(lang, "bill.ratePh")} />
-          <p className="text-xs text-muted-foreground">{t(lang, "bill.rateHint")}</p>
-        </div>
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="new-project-currency">{t(lang, "proj.currency")}</Label>
           <input type="hidden" name="currency" value={currency === "__workspace_currency__" ? "" : currency} />

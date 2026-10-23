@@ -140,6 +140,7 @@ type PushWorkflow interface {
 type WebhookWorkflow interface {
 	Create(context.Context, appmodel.WebhookCreateRequest) (webhookport.WebhookSummary, error)
 	Delete(context.Context, appmodel.WebhookDeleteRequest) error
+	RotateSecret(context.Context, appmodel.WebhookRotateRequest) (string, error)
 	Management(context.Context, appmodel.WebhookManagementQuery) (appmodel.WebhookManagementSnapshot, error)
 	SendTest(context.Context, appmodel.WebhookTestRequest) (appmodel.WebhookTestResult, error)
 }

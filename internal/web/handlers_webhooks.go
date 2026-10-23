@@ -95,6 +95,39 @@ func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/settings/webhooks?flash=webhook.created", http.StatusSeeOther)
 }
 
+// webhookSecretResponse carries a webhook's new signing secret, once (ADM-13).
+type webhookSecretResponse struct {
+	Secret string `json:"secret"`
+}
+
+func (webhookSecretResponse) isJSONResponse() {}
+
+// handleWebhookRotate replaces a webhook's signing secret and answers the new one once. The
+// old secret stops signing at once, so the receiver has to be given the new one (ADM-13).
+func (s *Server) handleWebhookRotate(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
+	}
+	secret, err := s.services.Webhooks.RotateSecret(r.Context(), appmodel.WebhookRotateRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), WebhookID: id,
+	})
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrNotFound):
+			s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		case errors.Is(err, model.ErrForbidden):
+			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
+		default:
+			s.writeInternalJSONError(w, err)
+		}
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	s.writeJSON(w, webhookSecretResponse{Secret: secret})
+}
+
 func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {

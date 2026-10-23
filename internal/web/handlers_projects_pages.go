@@ -264,6 +264,15 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
 		return
 	}
+	budget, hasBudget, berr := formCents(r, "budget")
+	if berr != nil {
+		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+		return
+	}
+	var budgetPtr *int
+	if hasBudget {
+		budgetPtr = &budget
+	}
 	currency := r.Form.Get("currency")
 	if currency != "" && !validCurrency(currency) {
 		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.bad currency")), http.StatusSeeOther)
@@ -290,7 +299,7 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 	p, err := s.services.Projects.Commands.Create(r.Context(), appmodel.ProjectCreateRequest{
 		TeamID: tid, CallerID: authenticatedUserID(r), Name: r.Form.Get("name"),
 		Slug: r.Form.Get("slug"), Color: r.Form.Get("color"), RateCents: ratePtr, Currency: currency,
-		Deadline: deadline, LeadUserID: lead, ClientID: client,
+		BudgetCents: budgetPtr, Deadline: deadline, LeadUserID: lead, ClientID: client,
 	})
 	if err != nil {
 		flash := encodeFlash(false, s.projectFlashError(err, "create"))
