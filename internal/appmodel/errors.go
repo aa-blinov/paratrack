@@ -43,6 +43,7 @@ var (
 	ErrInvalidProjectSlug        = errors.New("project slug contains unsupported characters")
 	ErrInvalidProjectColor       = errors.New("project color must be a six-digit hex color")
 	ErrInvalidIntegration        = errors.New("invalid integration")
+	ErrIntegrationTokenRejected  = errors.New("the provider rejected the token")
 	ErrInvalidWebhook            = errors.New("invalid webhook")
 	ErrInvalidExternalTask       = errors.New("invalid external task")
 	ErrIncompleteTaskSnapshot    = errors.New("external task snapshot reached the synchronization limit")

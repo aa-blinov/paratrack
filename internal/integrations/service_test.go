@@ -92,11 +92,15 @@ func (s *integrationStoreStub) SyncExternalTasks(_ context.Context, request appm
 
 type providerStub struct{ err error }
 
+func (s providerStub) CheckToken(context.Context, ProviderInput) error { return nil }
+
 func (s providerStub) FetchTasks(context.Context, ProviderInput) ([]integrationport.ProviderTask, error) {
 	return nil, s.err
 }
 
 type nilProviderStub struct{}
+
+func (*nilProviderStub) CheckToken(context.Context, ProviderInput) error { return nil }
 
 func (*nilProviderStub) FetchTasks(context.Context, ProviderInput) ([]integrationport.ProviderTask, error) {
 	return nil, nil
