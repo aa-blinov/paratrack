@@ -18,6 +18,7 @@ import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
 import { TeamWeekCard } from "@/stats/team-week-card"
 import { DayMarkCard } from "@/stats/day-mark-card"
+import { TeamOverviewCard } from "@/stats/team-overview-card"
 
 const periods = ["today", "yesterday", "week", "last_week", "month", "last_month"]
 
@@ -189,6 +190,7 @@ export function StatsPage({ data }: { data: StatsData }) {
       {data.PersonFilter > 0 && <input type="hidden" name="person" value={String(data.PersonFilter)} />}
       <Button type="submit">{t(lang, "graph.applyPeriod")}</Button>
     </form>}
+    {data.Overview && <TeamOverviewCard overview={data.Overview} lang={lang} />}
     {data.TeamWeek && <TeamWeekCard week={data.TeamWeek} lang={lang} />}
     {data.MarkWeek && <DayMarkCard week={data.MarkWeek} lang={lang} csrfToken={data.CSRFToken} />}
     {!!data.People?.length && <div className="flex flex-wrap items-center gap-2"><Label htmlFor="stats-person">{t(lang, "stats.person")}</Label><Select value={String(data.PersonFilter || "all")} onValueChange={value => { window.location.href = queryFor(data, data.Period.Label, data.ProjectFilter, data.TagFilter, value === "all" ? 0 : Number(value)) }}><SelectTrigger id="stats-person" className="w-full max-w-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">{t(lang, "stats.everyone")}</SelectItem>{data.People.map(person => <SelectItem key={person.ID} value={String(person.ID)}>{person.Name}</SelectItem>)}</SelectContent></Select></div>}
