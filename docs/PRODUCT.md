@@ -125,6 +125,10 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 
 - The activity grouping keys each row by activity id (D-7). Activities that share a name stay apart: the repeated name carries the id after it, such as `созвон (#12)`, and each row names its project and the task the activity holds (TIME-15, TIME-16). The API's `by_activity` map uses the same labels
 
+**Roles**
+
+- The owner changes the currency, the invoice rules (rounding and number prefix), the Stripe keys and the webhooks: listing, creating, testing, rotating the secret and deleting. An admin is refused these at the route and again inside the transaction, so a route that is missed still cannot write (`lockTeamOwner`, ADM-15). An admin keeps the journal, the sections, invitations, members, invoices and payroll
+
 **Invitations and restore**
 
 - An invitation answer names the address it was meant for and says whether a letter went out. When none goes out (no server mail, a failed send, an address that does not parse), the screen says so and the link is the way in (ADM-18)

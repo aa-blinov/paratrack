@@ -346,6 +346,28 @@ func (s *Server) manage(h http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// owner guards the settings only the workspace owner changes: the currency, the invoice
+// rules, Stripe and webhooks (ADM-15). An admin gets the same refusal a member does.
+func (s *Server) owner(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if RoleFrom(r.Context()).IsOwner() {
+			h(w, r)
+			return
+		}
+		msg := i18n.T(resolveLang(r), "err.ownerOnly")
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: msg})
+			return
+		}
+		if r.Method == http.MethodGet {
+			s.renderAccessDenied(w, r)
+			return
+		}
+		s.toast(w, msg, "error")
+		http.Error(w, msg, http.StatusForbidden)
+	}
+}
+
 // mine scopes a handler to the user's own sessions even for an owner or
 // admin: timers and the timesheet are personal (a manager must not stop
 // a colleague's timer from their own dashboard).
