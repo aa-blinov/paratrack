@@ -46,6 +46,10 @@ func (s *draftReaderStub) FindInvoiceShareLink(context.Context, appmodel.Invoice
 	return appmodel.InvoiceShareLookup{}, nil
 }
 
+func (s *draftReaderStub) ReconcileClients(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error) {
+	return nil, nil
+}
+
 func (s *draftReaderStub) ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error) {
 	return nil, nil
 }

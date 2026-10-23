@@ -97,14 +97,16 @@ type invoiceSummary struct {
 type invoicesPage struct {
 	pageData
 	InvoicesReact bool
-	Items         []invoiceSummary
-	Projects      []invoiceProjectOpt
-	Prefill       invoiceProjectOpt
-	Unbilled      []unbilledView
-	Unassigned    []unassignedActivityView
-	Billable      bool
-	DefStart      string
-	DefEnd        string
+	// Reconcile is the time worked against the invoices, for a window the manager chose (FIN-04).
+	Reconcile  *reconcileView
+	Items      []invoiceSummary
+	Projects   []invoiceProjectOpt
+	Prefill    invoiceProjectOpt
+	Unbilled   []unbilledView
+	Unassigned []unassignedActivityView
+	Billable   bool
+	DefStart   string
+	DefEnd     string
 	// Money still owed and money already collected, each grouped by currency.
 	// A client pays a number; this is the number to compare it against.
 	Outstanding    string

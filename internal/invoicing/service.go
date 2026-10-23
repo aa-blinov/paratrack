@@ -19,6 +19,7 @@ type Reader interface {
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
 	FindInvoiceShareLink(context.Context, appmodel.InvoiceShareLookupQuery) (appmodel.InvoiceShareLookup, error)
 	ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
+	ReconcileClients(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
 	ListUnapprovedTimeDays(context.Context, int64, int64, time.Time, time.Time) ([]string, error)
