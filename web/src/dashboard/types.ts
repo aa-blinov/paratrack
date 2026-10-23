@@ -1065,5 +1065,8 @@ export interface TaskDetailData {
   Linkable: TaskActivity[]
   Comments: Array<{ ID: number; Author: string; Body: string; When: string }>
   Checklist: Array<{ ID: number; Body: string; Done: boolean }>
+  // Subtasks of this task and their rollup line (TASK-09).
+  Subtasks: Array<{ ID: number; Title: string; Status: string; Done: boolean; TrackedLabel: string }>
+  SubtaskRollup: string
   ViewerID: number
 }

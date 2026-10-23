@@ -44,6 +44,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [comment, setComment] = React.useState("")
   const [checklist, setChecklist] = React.useState(data.Checklist)
   const [step, setStep] = React.useState("")
+  const [subtask, setSubtask] = React.useState("")
   const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
@@ -81,6 +82,26 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   }
 
   // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).
+  // addSubtask creates a subtask under this task in the same project, then shows the new rollup (TASK-09).
+  async function addSubtask(event: React.FormEvent) {
+    event.preventDefault()
+    const title = subtask.trim()
+    if (!title) return
+    setError("")
+    try {
+      const response = await fetch("/api/tasks", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
+        body: new URLSearchParams({ csrf_token: data.CSRFToken, project_id: String(task.ProjectID), parent_id: String(task.ID), title }),
+      })
+      const json = (await response.json()) as { id?: number; error?: string }
+      if (!response.ok || !json.id) throw new Error(json.error || response.statusText)
+      window.location.reload()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
   // postStep sends one change to a task's checklist and returns the answer (TASK-10).
   async function postStep(path: string, fields: Record<string, string>) {
     const response = await fetch(`/api/tasks/${task.ID}${path}`, {
@@ -265,6 +286,21 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
           </div>
         </form>}
       </CardContent></Card>}
+      <section aria-label={t(lang, "tasks.subtasks")} className="grid gap-3">
+        <h2 className="text-sm font-medium">{t(lang, "tasks.subtasks")}</h2>
+        {data.Subtasks.length ? <>
+          <p className="text-sm text-muted-foreground">{data.SubtaskRollup}</p>
+          <ul className="grid gap-1">{data.Subtasks.map(sub => <li key={sub.ID} className="flex items-center justify-between gap-3 text-sm">
+            <span className={`min-w-0 [overflow-wrap:anywhere] ${sub.Done ? "text-muted-foreground line-through" : ""}`}>{sub.Title}</span>
+            <span className="shrink-0 font-mono text-xs text-muted-foreground">{sub.TrackedLabel}</span>
+          </li>)}</ul>
+        </> : <p className="text-sm text-muted-foreground">{t(lang, "tasks.subtasksEmpty")}</p>}
+        {!task.Archived && <form onSubmit={addSubtask} className="flex gap-2">
+          <Label htmlFor="task-subtask" className="sr-only">{t(lang, "tasks.subtaskAdd")}</Label>
+          <Input id="task-subtask" value={subtask} onChange={event => setSubtask(event.target.value)} maxLength={200} placeholder={t(lang, "tasks.subtaskAdd")} className="min-w-0 flex-1" />
+          <Button type="submit" size="sm" disabled={!subtask.trim()}>{t(lang, "tasks.subtaskAdd")}</Button>
+        </form>}
+      </section>
       <section aria-label={t(lang, "tasks.checklist")} className="grid gap-3">
         <h2 className="text-sm font-medium">{t(lang, "tasks.checklist")}</h2>
         {checklist.length ? <ul className="grid gap-2">{checklist.map(item => <li key={item.ID} className="flex items-start gap-3 text-sm">

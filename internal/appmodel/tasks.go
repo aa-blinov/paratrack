@@ -21,9 +21,11 @@ var (
 // TaskCreateRequest creates a task in a project, with its first activity. An
 // imported task also carries the reference of the item it came from.
 type TaskCreateRequest struct {
-	TeamID          int64
-	CallerID        int64
-	ProjectID       int64
+	TeamID    int64
+	CallerID  int64
+	ProjectID int64
+	// ParentID makes the task a subtask of this one, in the same project (TASK-09).
+	ParentID        int64
 	Title           string
 	Status          string
 	AssigneeID      int64

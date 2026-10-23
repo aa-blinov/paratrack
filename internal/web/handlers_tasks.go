@@ -105,6 +105,8 @@ type taskDetailPage struct {
 	ViewerID        int64
 	Comments        []taskCommentView
 	Checklist       []taskChecklistView
+	Subtasks        []taskSubtaskView
+	SubtaskRollup   string
 }
 
 // taskCommentView is one line of a task's feed as the page shows it.
@@ -393,6 +395,11 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		linkable = taskActivities(list)
 	}
+	subtasks, rollup, err := s.subtaskViews(r, task)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	steps, err := s.services.Tasks.Checklist(r.Context(), teamID(r), id)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -414,6 +421,8 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 	data := taskDetailPage{
 		Comments:        feed,
 		Checklist:       checklist,
+		Subtasks:        subtasks,
+		SubtaskRollup:   rollup,
 		pageData:        pageData{Title: task.Title, Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true},
 		TaskDetailReact: true,
 		Task:            task,
@@ -478,8 +487,9 @@ func (s *Server) handleTaskCreate(w http.ResponseWriter, r *http.Request) {
 		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid estimate"})
 		return
 	}
+	parentID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("parent_id")), 10, 64)
 	task, err := s.services.Tasks.Create(r.Context(), appmodel.TaskCreateRequest{
-		TeamID: teamID(r), CallerID: authenticatedUserID(r), ProjectID: projectID,
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), ProjectID: projectID, ParentID: parentID,
 		Title: r.PostForm.Get("title"), Status: strings.TrimSpace(r.PostForm.Get("status")),
 		AssigneeID: assignee, Due: strings.TrimSpace(r.PostForm.Get("due")), EstimateMinutes: estimate,
 		Description: strings.TrimSpace(r.PostForm.Get("description")),
@@ -799,4 +809,51 @@ func (s *Server) handleTaskComment(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, taskCommentResponse{ID: comment.ID, Author: comment.Author, Body: comment.Body,
 		When: fmtWhen(resolveLang(r), comment.CreatedAt.In(userLoc(r)), userNow(r))})
+}
+
+// taskSubtaskView is one subtask in its parent's list (TASK-09).
+type taskSubtaskView struct {
+	ID           int64  `json:"id"`
+	Title        string `json:"title"`
+	Status       string `json:"status"`
+	Done         bool   `json:"done"`
+	TrackedLabel string `json:"tracked_label"`
+}
+
+// subtaskViews lists a task's subtasks with the time each logged, and the rollup line: how many
+// are done, and the time on the task with its subtasks (TASK-09).
+func (s *Server) subtaskViews(r *http.Request, task taskItem) ([]taskSubtaskView, string, error) {
+	subs, err := s.services.Tasks.Subtasks(r.Context(), teamID(r), task.ID)
+	if err != nil {
+		return nil, "", err
+	}
+	if len(subs) == 0 {
+		return []taskSubtaskView{}, "", nil
+	}
+	items, err := s.taskItems(r, appmodel.TaskQuery{ProjectID: task.ProjectID})
+	if err != nil {
+		return nil, "", err
+	}
+	tracked := make(map[int64]int, len(items))
+	for _, item := range items {
+		tracked[item.ID] = item.TrackedMin
+	}
+	out := make([]taskSubtaskView, 0, len(subs))
+	done, total := 0, 0
+	withSubtasks := tracked[task.ID]
+	for _, sub := range subs {
+		total++
+		isDone := sub.Status == "done"
+		if isDone {
+			done++
+		}
+		withSubtasks += tracked[sub.ID]
+		out = append(out, taskSubtaskView{
+			ID: sub.ID, Title: sub.Title, Status: sub.Status, Done: isDone,
+			TrackedLabel: fmtDur(r, tracked[sub.ID]*60),
+		})
+	}
+	lang := resolveLang(r)
+	rollup := fmt.Sprintf(i18n.T(lang, "tasks.subtaskRollup"), done, total, fmtDur(r, withSubtasks*60))
+	return out, rollup, nil
 }
