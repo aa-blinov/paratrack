@@ -1161,6 +1161,8 @@
   "team.reqPh": "Anna Ivanova, sole trader\nTax ID …\nBank account …",
   "team.vatLabel": "VAT line",
   "team.vatPh": "VAT not applicable",
+  "team.hideExecutorLabel": "Hide the members' names on invoice lines",
+  "team.hideExecutorHint": "For invoices split by person: the client sees the line without the member's name. Invoices are drawn again when opened, so switch this on before issuing.",
   "inv.clientDetails": "Client details",
   "inv.clientDetailsPh": "Acme Ltd, tax ID …, address …",
   "act.title": "Act",

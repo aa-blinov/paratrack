@@ -104,7 +104,9 @@ type TeamSettings struct {
 	Currency   string
 	Requisites string
 	VATNote    string
-	Billing    BillingRules
+	// HideExecutorNames keeps the members' names off by-person invoice lines (FIN-15).
+	HideExecutorNames bool
+	Billing           BillingRules
 	// Whether Stripe credentials are stored; the secrets themselves never
 	// leave the server.
 	StripeKeySet    bool

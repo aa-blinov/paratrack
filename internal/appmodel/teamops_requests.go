@@ -70,7 +70,9 @@ type TeamRequisitesRequest struct {
 	TeamID     int64
 	CallerID   int64
 	Requisites string
-	VATNote    string
+	// HideExecutorNames keeps the members' names off by-person invoice lines (FIN-15).
+	HideExecutorNames bool
+	VATNote           string
 }
 
 type TeamCreateRequest struct {
