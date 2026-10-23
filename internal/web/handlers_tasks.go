@@ -107,6 +107,7 @@ type taskDetailPage struct {
 	Checklist         []taskChecklistView
 	Subtasks          []taskSubtaskView
 	SubtaskRollup     string
+	Attachments       []taskAttachmentView
 	WaitsFor          []taskLinkView
 	Blocks            []taskLinkView
 	DependencyOptions []taskLinkView
@@ -404,6 +405,11 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	attachments, err := s.taskAttachmentViews(r, id)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	subtasks, rollup, err := s.subtaskViews(r, task)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -432,6 +438,7 @@ func (s *Server) handleTaskDetail(w http.ResponseWriter, r *http.Request) {
 		Checklist:         checklist,
 		Subtasks:          subtasks,
 		SubtaskRollup:     rollup,
+		Attachments:       attachments,
 		WaitsFor:          waits,
 		Blocks:            blocks,
 		DependencyOptions: options,

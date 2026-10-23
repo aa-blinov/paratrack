@@ -126,6 +126,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 
 	// Webhook management and audit history.
 	pages.HandleFunc("GET /settings/webhooks", s.owner(s.handleWebhooksPage))
+	pages.HandleFunc("GET /tasks/{id}/attachments/{att}", s.module("tasks", s.handleTaskAttachmentGet))
 	pages.HandleFunc("POST /api/webhooks", s.owner(s.handleWebhookCreate))
 	pages.HandleFunc("POST /api/webhooks/{id}/test", s.owner(s.handleWebhookTest))
 	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.owner(s.handleWebhookDelete))
