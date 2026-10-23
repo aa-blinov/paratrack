@@ -71,6 +71,8 @@ def main() -> int:
         created = send(page, "POST", "/invoices", {
             "project_id": str(project_id), "client": "Клиент журнала",
             "start": yesterday.isoformat(), "end": yesterday.isoformat(), "notes": "",
+            # The week is not approved yet: the manager confirms the invoice anyway (FIN-12).
+            "confirm_unapproved": "1",
         })
         invoice = re.search(r"/invoices/(\d+)", created["url"])
         check("a draft invoice is created", invoice is not None, created["url"])
