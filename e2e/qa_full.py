@@ -515,6 +515,9 @@ def main() -> int:
         pg.goto(BASE + f"/timesheet?date={past_monday.isoformat()}")
         pg.wait_for_load_state("networkidle")
         pg.get_by_role("button", name=re.compile("Утвердить неделю|Approve week")).click()
+        # Approving closes the week for members, so the page asks first (TIME-20).
+        pg.get_by_role("alertdialog").wait_for(timeout=10000)
+        pg.get_by_role("alertdialog").locator("button").last.click()
         pg.wait_for_load_state("networkidle")
         check("finished week approved", "Неделя утверждена" in pg.inner_text("body") or "Week approved" in pg.inner_text("body"))
         pg.goto(BASE + "/payroll")
