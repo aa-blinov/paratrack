@@ -416,8 +416,24 @@ export interface TimesheetApproval {
   EndISO: string
 }
 
+// TimeEditRequest is one request to change a timesheet cell (TIME-19).
+export interface TimeEditRequest {
+  ID: number
+  Person: string
+  Activity: string
+  Day: string
+  Minutes: number
+  Hours: string
+  Reason: string
+  Status: string
+  Note: string
+  Mine: boolean
+}
+
 export interface TimesheetData {
   Approval: TimesheetApproval
+  EditRequests: TimeEditRequest[]
+  CanDecide: boolean
   Flash: string
   FlashOK: boolean
   Title: string

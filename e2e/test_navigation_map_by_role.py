@@ -77,9 +77,9 @@ def welcome_document():
         'Welcome': True, 'Flash': '', 'FlashOK': False,
         'Modules': [{'Key': 'graph', 'Icon': 'bar-chart-3', 'Label': 'По часам', 'Hint': '', 'On': True, 'Manage': False}],
         'Presets': [{'Key': 'solo', 'Title': 'Для себя', 'Blurb': 'Считаю своё время.',
-                     'Icon': 'user', 'Active': False, 'Names': ['graph', 'goals']},
+                     'Icon': 'user', 'Active': False, 'Names': ['graph', 'goals'], 'Off': ['Счета', 'Отчёты'], 'Hint': 'Работаете с командой? Выберите «Студия или команда».'},
                     {'Key': 'studio', 'Title': 'Студия или команда', 'Blurb': 'Несколько человек.',
-                     'Icon': 'users', 'Active': True, 'Names': ['graph', 'goals', 'invoices']}],
+                     'Icon': 'users', 'Active': True, 'Names': ['graph', 'goals', 'invoices'], 'Off': [], 'Hint': ''}],
     }, True)
 
 
@@ -99,7 +99,7 @@ def timesheet_document(slugs):
                 'RowTotal': sum(secs), 'RowTotalLabel': f'{minutes} мин'}
     days = [dict(d, Secs=2700, Min=45, Total='45 мин') for d in WEEK]
     return boot('/timesheet', {
-        'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'CSRFToken': 'test', 'Approval': {'Approved': False, 'Finished': True, 'ApprovedOn': '', 'CanManage': True, 'StartISO': '2026-10-05', 'EndISO': '2026-10-11'}, 'Days': days,
+        'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'EditRequests': [], 'CanDecide': False, 'CSRFToken': 'test', 'Approval': {'Approved': False, 'Finished': True, 'ApprovedOn': '', 'CanManage': True, 'StartISO': '2026-10-05', 'EndISO': '2026-10-11'}, 'Days': days,
         'Rows': [row(4, 'Вёрстка главной', 0, 45), row(1, 'Правка макета', 3, 30)],
         'ProjectNames': {'3': 'Внутренние задачи'}, 'ProjectSlugs': slugs,
         'DayTotalLabels': ['0 мин', '1 ч 15 мин'] + ['0 мин'] * 5,

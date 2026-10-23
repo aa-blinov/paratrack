@@ -660,7 +660,7 @@ async def check_the_minutes_column_lines_up(browser):
     seven rows: `inputTop` was 0 for one-line names and 4 for two-line ones."""
     for width in (320, 390):
         html = boot('/timesheet', {
-            'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'CSRFToken': 'test',
+            'Lang': 'ru', 'Active': 'timesheet', 'TimesheetReact': True, 'EditRequests': [], 'CanDecide': False, 'CSRFToken': 'test',
             'Days': [{'Index': index, 'Label': 'Пн', 'Date': 5 + index, 'ISO': f'2026-10-{5 + index:02d}',
                       'Secs': 2700, 'Min': 45, 'Total': '45 мин', 'IsToday': index == 0}
                      for index in range(7)],

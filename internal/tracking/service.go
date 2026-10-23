@@ -70,6 +70,9 @@ type TimesheetStore interface {
 	ApproveTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	ReopenTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	ListTimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)
+	CreateTimeEditRequest(context.Context, appmodel.TimeEditCreateRequest) (appmodel.TimeEditRequest, error)
+	ListTimeEditRequests(context.Context, int64, int64, bool) ([]appmodel.TimeEditRequest, error)
+	DecideTimeEditRequest(context.Context, appmodel.TimeEditDecisionRequest) error
 }
 
 // Dependencies keeps query, command, activity and timesheet concerns on
@@ -177,6 +180,30 @@ func (s *Service) AddClosed(ctx context.Context, request appmodel.TimerAddReques
 		return model.Session{}, fmt.Errorf("add closed session: %w", err)
 	}
 	return session, nil
+}
+
+// RequestTimeEdit asks for a change to one of the caller's timesheet cells (TIME-19).
+func (s *Service) RequestTimeEdit(ctx context.Context, request appmodel.TimeEditCreateRequest) (appmodel.TimeEditRequest, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.ActivityID <= 0 || request.Day.IsZero() {
+		return appmodel.TimeEditRequest{}, ErrInvalidEdit
+	}
+	return s.timesheets.CreateTimeEditRequest(ctx, request)
+}
+
+// TimeEditRequests lists the requests a viewer may see: a manager sees all of them (TIME-19).
+func (s *Service) TimeEditRequests(ctx context.Context, teamID, viewerID int64, all bool) ([]appmodel.TimeEditRequest, error) {
+	if teamID <= 0 || viewerID <= 0 {
+		return nil, ErrInvalidEdit
+	}
+	return s.timesheets.ListTimeEditRequests(ctx, teamID, viewerID, all)
+}
+
+// DecideTimeEdit approves or refuses a pending request (TIME-19).
+func (s *Service) DecideTimeEdit(ctx context.Context, decision appmodel.TimeEditDecisionRequest) error {
+	if decision.TeamID <= 0 {
+		return ErrInvalidEdit
+	}
+	return s.timesheets.DecideTimeEditRequest(ctx, decision)
 }
 
 // SetDayTotal replaces the current actor's timesheet cell. The persistence
