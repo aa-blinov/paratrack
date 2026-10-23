@@ -979,6 +979,8 @@
   "wh.delete": "Удалить вебхук",
   "wh.ev.session.started": "Таймер запущен",
   "wh.ev.session.stopped": "Таймер остановлен",
+  "wh.ev.task.created": "Задача создана",
+  "wh.ev.task.done": "Задача готова",
   "wh.ev.invoice.created": "Счёт создан",
   "wh.ev.invoice.paid": "Счёт оплачен",
   "wh.ev.invoice.payment_link_created": "Создана ссылка на оплату",

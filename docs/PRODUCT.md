@@ -128,6 +128,10 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The day-by-person report (`by-day-person`) splits each day's time by member, in calendar order, with the member's name after the day (PLAN-07)
 - The activity grouping keys each row by activity id (D-7). Activities that share a name stay apart: the repeated name carries the id after it, such as `созвон (#12)`, and each row names its project and the task the activity holds (TIME-15, TIME-16). The API's `by_activity` map uses the same labels
 
+**Task webhook events**
+
+- Creating a task (`task.created`) and moving it to done (`task.done`) are webhook events, recorded in the same transaction as the change (ADM-14). The endpoint form lists every event the product publishes; the defaults stay `session.stopped` and `invoice.created`. There is no deal entity in the product, so no deal event exists
+
 **Task checklist**
 
 - A task keeps a checklist of steps, in the order they were added (TASK-10). Any member adds, marks done or not again, and removes a step. The task page hides the edits for an archived task; the server accepts them, as it does for the feed

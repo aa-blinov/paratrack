@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/money"
+	"github.com/aa-blinov/paratrack/internal/webhookport"
 )
 
 const taskSelect = `SELECT t.id, t.team_id, t.project_id, t.title, t.status, t.position,
@@ -60,8 +61,12 @@ func (d *DB) CreateTask(ctx context.Context, request appmodel.TaskCreateRequest)
 			return model.Task{}, err
 		}
 	}
-	id, err := insertTaskTx(ctx, tx, request, FormatTime(d.currentTime().UTC()))
+	now := d.currentTime().UTC()
+	id, err := insertTaskTx(ctx, tx, request, FormatTime(now))
 	if err != nil {
+		return model.Task{}, err
+	}
+	if err := d.recordWebhookEventTx(ctx, tx, request.TeamID, webhookport.TaskCreatedEvent{TaskID: id, ProjectID: request.ProjectID, Title: request.Title}, now); err != nil {
 		return model.Task{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -154,7 +159,8 @@ func (d *DB) SetTaskStatus(ctx context.Context, request appmodel.TaskStatusReque
 	if _, _, err := lockTeamRole(ctx, tx, request.TeamID, request.CallerID); err != nil {
 		return err
 	}
-	if _, err := taskProject(ctx, tx, request.TeamID, request.TaskID); err != nil {
+	projectID, err := taskProject(ctx, tx, request.TeamID, request.TaskID)
+	if err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx,
@@ -162,6 +168,15 @@ func (d *DB) SetTaskStatus(ctx context.Context, request appmodel.TaskStatusReque
 		 WHERE id = ? AND team_id = ?`,
 		request.Status, request.TeamID, request.Status, FormatTime(d.currentTime().UTC()), request.TaskID, request.TeamID); err != nil {
 		return err
+	}
+	if request.Status == "done" {
+		var title string
+		if err := tx.QueryRowContext(ctx, `SELECT title FROM tasks WHERE id = ? AND team_id = ?`, request.TaskID, request.TeamID).Scan(&title); err != nil {
+			return err
+		}
+		if err := d.recordWebhookEventTx(ctx, tx, request.TeamID, webhookport.TaskDoneEvent{TaskID: request.TaskID, ProjectID: projectID, Title: title}, d.currentTime().UTC()); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
