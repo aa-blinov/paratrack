@@ -36,9 +36,13 @@ type Config struct {
 	// GitHubGraphQL is the GitHub GraphQL endpoint; empty means github.com. Tests
 	// point it at a local server.
 	GitHubGraphQL string
+	// GitHubAPI is the GitHub REST base used to check a token; empty means api.github.com.
+	GitHubAPI string
 }
 
 const defaultGitHubGraphQL = "https://api.github.com/graphql"
+
+const defaultGitHubAPI = "https://api.github.com"
 
 // Client fetches paginated task snapshots from supported providers.
 type Client struct {
@@ -70,6 +74,9 @@ func NewWithConfigAndRetryWaits(client *http.Client, waits []time.Duration, conf
 	config.GitLabSite = strings.TrimRight(strings.TrimSpace(config.GitLabSite), "/")
 	if config.GitHubGraphQL == "" {
 		config.GitHubGraphQL = defaultGitHubGraphQL
+	}
+	if config.GitHubAPI == "" {
+		config.GitHubAPI = defaultGitHubAPI
 	}
 	return &Client{httpClient: client, retryWaits: append([]time.Duration(nil), waits...), config: config}, nil
 }
@@ -160,3 +167,28 @@ func linkNext(h http.Header) string {
 // come back from this API too and are skipped. per_page max 100, pages
 // via Link rel="next".
 // https://docs.github.com/en/rest/issues/issues · …/using-pagination-in-the-rest-api
+
+// CheckToken asks GitHub whether it accepts the token, before a connection is saved (ADM-10).
+// Only a refusal (401) is reported as integrationport.ErrTokenRejected. Other providers are not
+// checked here, and a network failure is not a refusal: the first sync reports those.
+func (c *Client) CheckToken(ctx context.Context, input integrationport.ProviderInput) error {
+	if input.Provider != "github" || strings.TrimSpace(input.Secret) == "" {
+		return nil
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.config.GitHubAPI+"/user", nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+input.Secret)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<16))
+	if resp.StatusCode == http.StatusUnauthorized {
+		return integrationport.ErrTokenRejected
+	}
+	return nil
+}

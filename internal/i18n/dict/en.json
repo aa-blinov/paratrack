@@ -49,6 +49,7 @@
   "err.badEmail": "That doesn't look like an email address.",
   "err.validation": "Password must be 8-72 characters. Name is required.",
   "err.invalidInput": "Some submitted values are invalid. Check them and try again.",
+  "int.tokenRejected": "GitHub rejected the token. Check that it has not been revoked and can read the board.",
   "err.sessionBadStart": "Enter a valid session start time.",
   "err.sessionBadEnd": "Enter a valid session end time.",
   "err.sessionBadDuration": "Enter the duration as hours and minutes, for example 1:30.",

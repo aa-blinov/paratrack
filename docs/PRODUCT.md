@@ -128,6 +128,10 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The day-by-person report (`by-day-person`) splits each day's time by member, in calendar order, with the member's name after the day (PLAN-07)
 - The activity grouping keys each row by activity id (D-7). Activities that share a name stay apart: the repeated name carries the id after it, such as `созвон (#12)`, and each row names its project and the task the activity holds (TIME-15, TIME-16). The API's `by_activity` map uses the same labels
 
+**Integrations**
+
+- A GitHub token is checked when the connection is saved: GitHub refusing it (401) stops the save with a message, not at the first sync (ADM-10). A network failure does not block the save, and only GitHub is checked here
+
 **Task dependencies**
 
 - A task can wait for another task of its project (TASK-11). A wait that would loop back, or a task waiting for itself, is refused. The page shows what the task waits for, what it blocks, and marks the task blocked while anything it waits for is not done. The block is information only: a status change is not refused
