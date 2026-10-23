@@ -161,9 +161,10 @@ func Validate(email, password, name string) error {
 // log in and have an empty workspace. Returns the new id and the
 // personal team id (so the caller can set it as the current team).
 func (s *Service) createUser(ctx context.Context, email, password, name string) (userID, teamID int64, err error) {
+	// A new personal workspace is named for what it is, not for its owner (ADM-22).
 	return s.createUserWithTeamName(ctx, appmodel.RegistrationRequest{
 		Email: email, Password: password, Name: name,
-		TeamName: strings.TrimSpace(name) + "'s workspace",
+		TeamName: "Личное пространство",
 	})
 }
 
