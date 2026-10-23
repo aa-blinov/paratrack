@@ -24,6 +24,9 @@ type Store interface {
 	DeleteChecklistItem(ctx context.Context, request appmodel.TaskChecklistDeleteRequest) error
 	ListChecklist(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskChecklistItem, error)
 	SubtasksOf(ctx context.Context, teamID, parentID int64) ([]model.Task, error)
+	AddTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error
+	DeleteTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error
+	TaskDependencies(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskLink, []appmodel.TaskLink, error)
 	CreateTask(ctx context.Context, request appmodel.TaskCreateRequest) (model.Task, error)
 	UpdateTask(ctx context.Context, request appmodel.TaskUpdateRequest) (model.Task, error)
 	SetTaskStatus(ctx context.Context, request appmodel.TaskStatusRequest) error
@@ -202,6 +205,28 @@ func (s *Service) DeleteChecklistItem(ctx context.Context, request appmodel.Task
 		return appmodel.ErrInvalidTask
 	}
 	return s.store.DeleteChecklistItem(ctx, request)
+}
+
+// AddTaskDependency, DeleteTaskDependency and TaskDependencies keep the waits between tasks (TASK-11).
+func (s *Service) AddTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.AddTaskDependency(ctx, request)
+}
+
+func (s *Service) DeleteTaskDependency(ctx context.Context, request appmodel.TaskDependencyRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidTask
+	}
+	return s.store.DeleteTaskDependency(ctx, request)
+}
+
+func (s *Service) TaskDependencies(ctx context.Context, teamID, taskID int64) ([]appmodel.TaskLink, []appmodel.TaskLink, error) {
+	if teamID <= 0 {
+		return nil, nil, appmodel.ErrInvalidTask
+	}
+	return s.store.TaskDependencies(ctx, teamID, taskID)
 }
 
 // Subtasks lists a task's live subtasks, for the parent's page and rollup (TASK-09).

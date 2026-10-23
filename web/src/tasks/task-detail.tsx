@@ -45,6 +45,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   const [checklist, setChecklist] = React.useState(data.Checklist)
   const [step, setStep] = React.useState("")
   const [subtask, setSubtask] = React.useState("")
+  const [waitFor, setWaitFor] = React.useState("")
   const [estimate, setEstimate] = React.useState(task.EstimateMin ? `${Math.floor(task.EstimateMin / 60)}:${String(task.EstimateMin % 60).padStart(2, "0")}` : "")
   const [activities, setActivities] = React.useState<TaskActivity[]>(task.Activities)
   const [linkable, setLinkable] = React.useState<TaskActivity[]>(data.Linkable)
@@ -82,6 +83,42 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
   }
 
   // The feed takes a line at a time and shows it at once, with its author and time (TASK-02).
+  // addDependency makes this task wait for another one in its project, then shows the new state (TASK-11).
+  async function addDependency(event: React.FormEvent) {
+    event.preventDefault()
+    if (!waitFor) return
+    setError("")
+    try {
+      const response = await fetch(`/api/tasks/${task.ID}/dependencies`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
+        body: new URLSearchParams({ csrf_token: data.CSRFToken, depends_on: waitFor }),
+      })
+      const json = (await response.json()) as { ok?: boolean; error?: string }
+      if (!response.ok || !json.ok) throw new Error(json.error || response.statusText)
+      window.location.reload()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
+  // removeDependency drops a wait on another task.
+  async function removeDependency(id: number) {
+    setError("")
+    try {
+      const response = await fetch(`/api/tasks/${task.ID}/dependencies/${id}/delete`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "X-CSRF-Token": data.CSRFToken },
+        body: new URLSearchParams({ csrf_token: data.CSRFToken }),
+      })
+      const json = (await response.json()) as { ok?: boolean; error?: string }
+      if (!response.ok || !json.ok) throw new Error(json.error || response.statusText)
+      window.location.reload()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    }
+  }
   // addSubtask creates a subtask under this task in the same project, then shows the new rollup (TASK-09).
   async function addSubtask(event: React.FormEvent) {
     event.preventDefault()
@@ -286,6 +323,30 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
           </div>
         </form>}
       </CardContent></Card>}
+      <section aria-label={t(lang, "tasks.dependencies")} className="grid gap-3">
+        <h2 className="text-sm font-medium">{t(lang, "tasks.dependencies")}</h2>
+        {data.Blocked && <p role="status" className="text-sm">{t(lang, "tasks.blockedNote")}</p>}
+        {data.WaitsFor.length > 0 && <div className="grid gap-1">
+          <p className="text-xs text-muted-foreground">{t(lang, "tasks.waitsFor")}</p>
+          <ul className="grid gap-1">{data.WaitsFor.map(link => <li key={link.ID} className="flex items-center justify-between gap-3 text-sm">
+            <span className={`min-w-0 [overflow-wrap:anywhere] ${link.Done ? "text-muted-foreground line-through" : ""}`}>{link.Title}</span>
+            {!task.Archived && <Button type="button" variant="ghost" size="sm" onClick={() => void removeDependency(link.ID)}>{t(lang, "tasks.checklistRemove")}</Button>}
+          </li>)}</ul>
+        </div>}
+        {data.Blocks.length > 0 && <div className="grid gap-1">
+          <p className="text-xs text-muted-foreground">{t(lang, "tasks.blocks")}</p>
+          <ul className="grid gap-1">{data.Blocks.map(link => <li key={link.ID} className="min-w-0 text-sm [overflow-wrap:anywhere]">{link.Title}</li>)}</ul>
+        </div>}
+        {!data.WaitsFor.length && !data.Blocks.length && <p className="text-sm text-muted-foreground">{t(lang, "tasks.dependenciesEmpty")}</p>}
+        {!task.Archived && data.DependencyOptions.length > 0 && <form onSubmit={addDependency} className="flex gap-2">
+          <Label htmlFor="task-waits-for" className="sr-only">{t(lang, "tasks.waitsForAdd")}</Label>
+          <Select value={waitFor} onValueChange={setWaitFor}>
+            <SelectTrigger id="task-waits-for" className="min-w-0 flex-1"><SelectValue placeholder={t(lang, "tasks.waitsForAdd")} /></SelectTrigger>
+            <SelectContent>{data.DependencyOptions.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Title}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button type="submit" size="sm" disabled={!waitFor}>{t(lang, "tasks.waitsForAdd")}</Button>
+        </form>}
+      </section>
       <section aria-label={t(lang, "tasks.subtasks")} className="grid gap-3">
         <h2 className="text-sm font-medium">{t(lang, "tasks.subtasks")}</h2>
         {data.Subtasks.length ? <>
