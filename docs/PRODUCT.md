@@ -100,6 +100,10 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The accountant's export (`GET /invoices/export.csv?export_from&export_to&export_client`, managers) lists one row per line of the issued invoices (drafts left out), by invoice date in the viewer's zone, with the client, the seller's name as executor, the line's label, hours, rate, amount, currency and status. `export_from` and `export_to` are days, both included; `export_client` is an exact name (FIN-05). The dates follow the workspace zone when it is set, and the viewer's zone otherwise
 - An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
 
+**Projects**
+
+- A project takes its hourly rate and its budget on the create form (PLAN-09), both optional. The budget is a money ceiling counted from tracked time, never from the estimate
+
 **Payroll**
 
 - Member carries `hourly_pay_cents` (0 = not on payroll) and `capacity_minutes` (default 480)
@@ -114,6 +118,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
   after it has ended and been approved. `/payroll` lists the finished, unapproved weeks with tracked
   time from the last eight, each linking to its timesheet, with a button that approves that week
   from here (the same approval the timesheet makes; the form sends the Monday and the Sunday).
+- A run over hours that another run already pays (the overlap warning) is created only with a written reason. An empty reason sends the manager back to the form with a message, and the reason goes to the audit log as `payroll.overlap` (FIN-22)
 
 **Schedule**
 
@@ -148,6 +153,8 @@ The `tasks` section is first in the catalogue and in every preset. A workspace w
 gets `tasks` appended once at start-up (`schema_compat.go`); one that never chose (empty) or chose
 `none` is left alone.
 
+The settings page shows, under each preset, the sections it leaves off. The `solo` preset adds a hint that a team should pick `studio` (ADM-16).
+
 ### Numbers
 
 | Format | Shape |
@@ -169,7 +176,7 @@ gets `tasks` appended once at start-up (`schema_compat.go`); one that never chos
 | Passwords | bcrypt |
 | API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once |
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
-| Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))` |
+| Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13) |
 | Sessions | HttpOnly + `Secure` cookies when the request is TLS |
 | Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
 
@@ -224,7 +231,7 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 /api/goals /api/tags
 /api/reports.csv  /api/reports/save  /api/reports/{id}/delete
 /api/tokens  /api/tokens/{id}/delete
-/api/webhooks  /api/webhooks/{id}/delete
+/api/webhooks  /api/webhooks/{id}/delete  /api/webhooks/{id}/secret
 /api/integrations  /api/integrations/{id}/sync|delete  /api/integrations/start
 /api/me  /api/external-tasks
 /api/push/key  /api/push/subscribe  /api/push/unsubscribe

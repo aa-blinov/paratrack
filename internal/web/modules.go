@@ -166,6 +166,9 @@ type presetView struct {
 	Key, Title, Blurb, Icon string
 	Active                  bool // the current set is exactly this preset
 	Names                   []string
+	// Off names the sections this preset leaves closed, and where to open them (ADM-16).
+	Off  []string
+	Hint string
 }
 
 type sectionsPage struct {
@@ -192,7 +195,8 @@ func (s *Server) sectionsData(r *http.Request, welcome bool) *sectionsPage {
 		data.Modules = append(data.Modules, moduleView{Key: m.Key, Icon: m.Icon, Label: m.Label, Hint: m.Hint, On: on[m.Key], Manage: m.Manage})
 	}
 	for _, p := range presets {
-		pv := presetView{Key: p.Key, Title: p.Title, Blurb: p.Blurb, Icon: p.Icon}
+		// Off is an empty list, not null, for a preset that closes nothing: the page reads its length.
+		pv := presetView{Key: p.Key, Title: p.Title, Blurb: p.Blurb, Icon: p.Icon, Off: []string{}}
 		set := map[string]bool{}
 		for _, k := range p.Modules {
 			set[k] = true
@@ -201,6 +205,14 @@ func (s *Server) sectionsData(r *http.Request, welcome bool) *sectionsPage {
 					pv.Names = append(pv.Names, i18n.T(lang, m.Label))
 				}
 			}
+		}
+		for _, m := range modules {
+			if !set[m.Key] && !m.Manage {
+				pv.Off = append(pv.Off, i18n.T(lang, m.Label))
+			}
+		}
+		if p.Key == "solo" {
+			pv.Hint = i18n.T(lang, "sections.soloTeamHint")
 		}
 		pv.Active = !welcome && appmodel.EncodeSections(set) == appmodel.EncodeSections(on)
 		data.Presets = append(data.Presets, pv)

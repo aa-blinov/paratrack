@@ -129,6 +129,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /api/webhooks", s.manage(s.handleWebhookCreate))
 	pages.HandleFunc("POST /api/webhooks/{id}/test", s.manage(s.handleWebhookTest))
 	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.manage(s.handleWebhookDelete))
+	pages.HandleFunc("POST /api/webhooks/{id}/secret", s.manage(s.handleWebhookRotate))
 	pages.HandleFunc("GET /settings/audit", s.manage(s.handleAuditPage))
 
 	// Page routes are mounted behind pageAuth by routes().

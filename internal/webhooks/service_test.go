@@ -119,6 +119,10 @@ func (lifecycleStore) CreateWebhook(_ context.Context, request appmodel.WebhookR
 	return webhookport.WebhookSummary{ID: 3, TeamID: request.TeamID, URL: request.URL, Events: request.Events, Active: true}, nil
 }
 func (lifecycleStore) DeleteWebhook(context.Context, appmodel.WebhookDeleteRequest) error { return nil }
+
+func (lifecycleStore) RotateWebhookSecret(context.Context, appmodel.WebhookRotateRequest) error {
+	return nil
+}
 func (lifecycleStore) ListWebhookSummaries(context.Context, appmodel.WebhookListQuery) ([]webhookport.WebhookSummary, error) {
 	return []webhookport.WebhookSummary{{ID: 1, URL: "https://example.test/hook", Events: "*", Active: true}}, nil
 }

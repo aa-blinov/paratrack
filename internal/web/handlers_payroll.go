@@ -160,6 +160,14 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	end = end.AddDate(0, 0, 1)
+	// Paying the same hours twice is allowed only with a reason, and the reason is kept (FIN-22).
+	reason := strings.TrimSpace(r.PostForm.Get("overlap_reason"))
+	confirm := r.PostForm.Get("confirm") != ""
+	if confirm && reason == "" {
+		q := url.Values{"start": {startStr}, "end": {endStr}, "notes": {notes}}
+		http.Redirect(w, r, "/payroll?"+q.Encode()+"&flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.overlapNeedsReason")), http.StatusSeeOther)
+		return
+	}
 	// The overlap warning and draft creation share the store transaction, so
 	// concurrent requests cannot both pass a stale preflight check.
 	run, overlaps, err := s.services.Payroll.CreateRun(operationContext(r), appmodel.PayrollDraftRequest{
@@ -179,6 +187,9 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 		msg := s.payrollErrorMessage(r, err)
 		http.Redirect(w, r, "/payroll?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
+	}
+	if confirm {
+		s.audit(r, "payroll.overlap", run.Number, "reason: "+reason)
 	}
 	http.Redirect(w, r, "/payroll/"+strconv.FormatInt(run.ID, 10), http.StatusSeeOther)
 }

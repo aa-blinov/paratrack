@@ -879,7 +879,7 @@ export interface SectionsData {
   SectionsReact: boolean
   Welcome: boolean
   Modules: Array<{ Key: string; Icon: string; Label: string; Hint: string; On: boolean; Manage: boolean }>
-  Presets: Array<{ Key: string; Title: string; Blurb: string; Icon: string; Active: boolean; Names: string[] }>
+  Presets: Array<{ Key: string; Title: string; Blurb: string; Icon: string; Active: boolean; Names: string[]; Off: string[]; Hint: string }>
   Flash: string
   FlashOK: boolean
 }

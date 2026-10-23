@@ -98,7 +98,8 @@ Confirmed by the code:
 - A workspace picks its sections. The core ledger, the dashboard, statistics,
   the timesheet and the projects are always there; ten more can be switched on
   at registration or later. Three presets ship: "For myself", "Freelancer" and
-  "Studio".
+  "Studio". Each preset names the sections it leaves off; "For myself" adds a hint to pick
+  "Studio or team" when the workspace has a team (ADM-16).
 - The Russian terminology of the interface: Обзор, Статистика, Табель, Проекты,
   По часам, Цели, Теги, Счета, Выплаты, Расписание, Отчёты, and «Идут сейчас»
   for running timers, «Только эта» for focus. In English: Dashboard, Stats,
