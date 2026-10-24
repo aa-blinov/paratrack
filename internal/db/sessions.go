@@ -78,6 +78,9 @@ func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartReques
 	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
+		return model.Session{}, err
+	}
 
 	activeQuery := `SELECT s.id FROM sessions s WHERE s.activity_id = ? AND s.end_at IS NULL`
 	activeArgs := []any{activityID}
@@ -183,12 +186,18 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 	if err := lockApprovedSessionStart(ctx, tx, teamID, lockedSession.startAt); err != nil {
 		return err
 	}
+	if err := lockAutoClosedSessionStart(ctx, tx, teamID, lockedSession.startAt, d.currentTime()); err != nil {
+		return err
+	}
 	update, err = resolveLockedSessionUpdate(lockedSession, request)
 	if err != nil {
 		return err
 	}
 	if update.StartAt != nil {
 		if err := lockApprovedWeek(ctx, tx, teamID, *update.StartAt); err != nil {
+			return err
+		}
+		if err := lockAutoClosed(ctx, tx, teamID, *update.StartAt, d.currentTime()); err != nil {
 			return err
 		}
 	}
@@ -358,6 +367,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	if err := lockApprovedWeek(ctx, tx, teamID, startAt); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
+		return model.Session{}, err
+	}
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
 		return model.Session{}, err
 	}
@@ -450,6 +462,9 @@ func (d *DB) DeleteSession(ctx context.Context, request appmodel.SessionDeleteRe
 		return err
 	}
 	if err := lockApprovedSessionByID(ctx, tx, teamID, id); err != nil {
+		return err
+	}
+	if err := lockAutoClosedSessionByID(ctx, tx, teamID, id, d.currentTime()); err != nil {
 		return err
 	}
 	q := `DELETE FROM sessions WHERE id = ?`

@@ -243,7 +243,8 @@ func (s *Service) MembershipForUser(ctx context.Context, query appmodel.TeamMemb
 
 // SetCalendar sets the workspace's time zone and first day of the week (ADM-07). A
 // blank value leaves that choice to each member; anything else must be a zone the
-// server knows or a week that starts on mon or sun.
+// server knows or a week that starts on mon or sun. The closing age must be one of
+// the terms the workspace may choose (timesheet-autolock).
 func (s *Service) SetCalendar(ctx context.Context, request appmodel.TeamCalendarRequest) error {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return ErrNotFound
@@ -255,6 +256,9 @@ func (s *Service) SetCalendar(ctx context.Context, request appmodel.TeamCalendar
 	}
 	if request.WeekStart != "" && request.WeekStart != "mon" && request.WeekStart != "sun" {
 		return fmt.Errorf("%w: week must start on mon or sun", ErrValidation)
+	}
+	if !appmodel.ValidAutoLockDays(request.AutoLockDays) {
+		return fmt.Errorf("%w: closing age must be one of the offered terms", ErrValidation)
 	}
 	return mapStoreError(s.teams.SetTeamCalendar(ctx, request))
 }

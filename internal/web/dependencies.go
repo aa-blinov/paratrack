@@ -374,6 +374,7 @@ type TrackingQueries interface {
 	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error)
 	Timesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 	TimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)
+	TimesheetAutoLockCutoff(context.Context, int64) (time.Time, bool, error)
 	TimeEditRequests(context.Context, int64, int64, bool) ([]appmodel.TimeEditRequest, error)
 }
 

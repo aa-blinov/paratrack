@@ -265,6 +265,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     </header>
 
     <p className="text-sm text-muted-foreground">{t(lang, "ts.saveHint")}</p>
+    {data.AutoLockNotice && <p className="text-sm text-muted-foreground">{data.AutoLockNotice}</p>}
     <div role="status" className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
       <span className="font-medium">{approved ? t(lang, "ts.approvedOn", data.Approval.ApprovedOn) : t(lang, "ts.notApproved")}</span>
       {approved && <span className="text-muted-foreground">{t(lang, data.Approval.CanManage ? "ts.lockedManager" : "ts.lockedMember")}</span>}

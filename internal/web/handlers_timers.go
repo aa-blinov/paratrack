@@ -278,8 +278,15 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 // transport response. Sent and paid invoice snapshots cannot be edited.
 func (s *Server) writeSessionLockConflict(w http.ResponseWriter, r *http.Request, err error) bool {
 	var approvalErr *model.SessionApprovalLockError
-	if errors.As(err, &approvalErr) {
-		msg := weekLockedMessage(resolveLang(r), userLoc(r), approvalErr)
+	var autoLockErr *model.SessionAutoLockError
+	var msg string
+	switch {
+	case errors.As(err, &approvalErr):
+		msg = weekLockedMessage(resolveLang(r), userLoc(r), approvalErr)
+	case errors.As(err, &autoLockErr):
+		msg = autoLockMessage(resolveLang(r), autoLockErr)
+	}
+	if msg != "" {
 		s.toast(w, msg, "error")
 		if strings.HasPrefix(r.URL.Path, "/api/v1/") {
 			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: msg})
@@ -302,7 +309,7 @@ func (s *Server) writeSessionLockConflict(w http.ResponseWriter, r *http.Request
 	if !errors.As(err, &lockErr) {
 		return false
 	}
-	msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber)
+	msg = fmt.Sprintf(i18n.T(resolveLang(r), "inv.locked"), lockErr.InvoiceNumber)
 	s.toast(w, msg, "error")
 	if strings.HasPrefix(r.URL.Path, "/api/v1/") {
 		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: msg})

@@ -30,6 +30,9 @@ type Team struct {
 	// each member keeps their own choice.
 	TimeZone  string
 	WeekStart string
+	// AutoLockDays closes time that starts more than this many days ago for
+	// edits. Zero leaves the past open, as it was before the setting existed.
+	AutoLockDays int
 }
 
 // TeamMember contains a user's workspace membership and display fields.
