@@ -183,6 +183,9 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	data.DefFrom = now.AddDate(0, 0, -30).Format("2006-01-02")
 	data.DefTo = now.Format("2006-01-02")
+	if flash := r.URL.Query().Get("flash"); flash != "" {
+		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
+	}
 	reports, err := s.loadSavedReports(r)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -243,6 +246,11 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 		if t, err := time.Parse("2006-01-02", v); err == nil {
 			to = t.AddDate(0, 0, 1)
 		}
+	}
+	// A period that starts after it ends is a mistake on the form, not a server fault.
+	if !to.After(from) {
+		http.Redirect(w, r, "/reports?flash="+encodeFlash(false, "bad period"), http.StatusSeeOther)
+		return
 	}
 	vm, err := s.buildReport(r, tpl, from, to)
 	if err != nil {
