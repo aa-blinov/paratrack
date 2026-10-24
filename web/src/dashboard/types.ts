@@ -718,6 +718,8 @@ export interface ReportsData {
   Templates: Array<{ ID: string; Name: string; Blurb: string; Icon: string }>
   DefFrom: string
   DefTo: string
+  Flash?: string
+  FlashOK?: boolean
   CSRFToken: string
   SavedReports: Array<{ ID: number; Name: string; Period: string; ProjectSlug: string; Tag: string; CreatedBy: number }>
   CanManage: boolean
