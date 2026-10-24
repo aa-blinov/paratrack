@@ -119,7 +119,9 @@ def main() -> int:
         open_disclosures(page.locator("h1").locator("xpath=ancestor::main"), "#project-name")
         page.fill("#project-name", f"{proj_name} — переименован")
         page.fill("#project-estimate", "480")
-        page.locator('#paratrack-react-root form[method="POST"][action^="/projects/"] button[type="submit"]').first.click()
+        # Match the project's own form by its action. The weekly-norm form also posts under /projects/<slug>/norm
+        # and sits above this one, so a prefix match clicks the wrong button.
+        page.locator(f'#paratrack-react-root form[method="POST"][action="/projects/{proj_slug}"] button[type="submit"]').click()
         page.wait_for_load_state("networkidle")
         check("rename saved", f"{proj_name} — переименован" in page.content())
         check("estimate saved", page.locator("#project-estimate").input_value() == "480",

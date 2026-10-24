@@ -103,6 +103,8 @@ def main() -> int:
         # ------------------------------------------------------------------ 1
         print("\n== 1. Seed two throwaway tags and tag one session")
         sign_in(page)
+        # A new account lands on the welcome screen, which carries no statistics data until a set is picked.
+        api(page, "post", "/api/team/modules", form={"preset": "solo", "from": "welcome"})
         stats = page_data(page, f"/stats?period={PERIOD}")
         if stats.get("Sessions"):
             session_id = stats["Sessions"][0]["ID"]

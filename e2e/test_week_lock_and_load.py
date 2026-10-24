@@ -86,11 +86,14 @@ def main() -> int:
             })
             check(f"the plan of {day.isoformat()} is saved", cell["status"] in (200, 204), str(cell["status"]))
 
-        tracked = send(page, "POST", "/api/sessions/backfill", {
-            "activity": activity, "start": f"{monday.isoformat()}T08:00", "end": f"{monday.isoformat()}T20:00",
-            "note": "", "project_id": str(project_id),
-        })
-        check("12 hours are tracked on Monday", "Что-то пошло" not in tracked["text"], tracked["text"][:200])
+        # A block over ten hours is refused until confirmed (TIME-18), and the regulation says to split it.
+        # Two six-hour sessions make the twelve hours the check is about.
+        for start, end in (("08:00", "14:00"), ("15:00", "21:00")):
+            tracked = send(page, "POST", "/api/sessions/backfill", {
+                "activity": activity, "start": f"{monday.isoformat()}T{start}", "end": f"{monday.isoformat()}T{end}",
+                "note": "", "project_id": str(project_id),
+            })
+        check("12 hours are tracked on Monday", 200 <= tracked["status"] < 300 and "Сохранить как есть" not in tracked["text"], f"status={tracked['status']} {tracked['text'][:120]}")
 
         page.goto(f"{BASE}/reports/run?id=utilization", wait_until="networkidle")
         load_header = page.get_by_role("columnheader", name="Загрузка")

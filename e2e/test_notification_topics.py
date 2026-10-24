@@ -39,7 +39,8 @@ PAYROLL_PAID = "Расчёт помечен выплаченным"
 DEADLINE = "Срок проекта близко (за три дня)"
 OVERLOAD = "Участник запланирован больше, чем у него есть на неделе"
 TASK_DUE = "Срок задачи близко или задача просрочена"
-SELECTABLE = [SESSION_STOPPED, GOAL_MET, PAYROLL_PAID, DEADLINE, OVERLOAD, TASK_DUE]
+TASK_WATCH = "Изменения в задаче, за которой следите"
+SELECTABLE = [SESSION_STOPPED, GOAL_MET, PAYROLL_PAID, DEADLINE, OVERLOAD, TASK_DUE, TASK_WATCH]
 INVOICE_PAID = "Счёт помечен оплаченным"
 
 results: list[tuple[str, bool, str]] = []
@@ -109,14 +110,14 @@ def main() -> int:
         sign_in(page)
 
         # ------------------------------------------------------------------ 1
-        print("\n== 1. The six events the app really sends are listed and on")
+        print("\n== 1. The seven events the app really sends are listed and on")
         before = stored_topics(page)
         page.goto(BASE + "/settings/notifications")
         page.locator("#main h1").wait_for()
         for label in SELECTABLE:
             expect(checkbox_for(page, label)).to_be_visible()
             check(f"«{label}» is offered and on", checkbox_for(page, label).is_checked())
-        check("the screen offers exactly the six events", page.get_by_role("checkbox").count() == len(SELECTABLE),
+        check("the screen offers exactly the seven events", page.get_by_role("checkbox").count() == len(SELECTABLE),
               f"{page.get_by_role('checkbox').count()} checkboxes")
         # The app only ever sends these six, so the screen must not offer one
         # nobody delivers — not even with a "coming soon" note.

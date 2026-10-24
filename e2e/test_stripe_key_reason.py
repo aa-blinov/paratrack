@@ -59,7 +59,7 @@ def main() -> int:
         page.goto(f"{BASE}/projects", wait_until="networkidle")
         project_id = next(row["ID"] for row in page_data(page)["Projects"] if row["Name"] == project)
         send(page, "/api/sessions/backfill", {"activity": f"Ключ {stamp}", "start": f"{yesterday.isoformat()}T09:00", "end": f"{yesterday.isoformat()}T10:00", "note": "", "project_id": str(project_id)})
-        created = send(page, "/invoices", {"project_id": str(project_id), "client": "Клиент Stripe", "start": yesterday.isoformat(), "end": yesterday.isoformat(), "notes": ""})
+        created = send(page, "/invoices", {"project_id": str(project_id), "client": "Клиент Stripe", "start": yesterday.isoformat(), "end": yesterday.isoformat(), "notes": "", "confirm_unapproved": "1"})
         invoice = re.search(r"/invoices/(\d+)", created["url"])
         check("the invoice is created", invoice is not None, created["url"])
         invoice_id = invoice.group(1) if invoice else "0"
