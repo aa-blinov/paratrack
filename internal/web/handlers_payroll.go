@@ -75,6 +75,14 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		data.Overlap = q.Get("overlap")
 		data.DefStart, data.DefEnd, data.DefNotes = q.Get("start"), q.Get("end"), q.Get("notes")
 	}
+	if q := r.URL.Query(); q.Get("overlap") == "" {
+		if _, err := time.Parse("2006-01-02", q.Get("start")); err == nil {
+			data.DefStart = q.Get("start")
+		}
+		if _, err := time.Parse("2006-01-02", q.Get("end")); err == nil {
+			data.DefEnd = q.Get("end")
+		}
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -156,7 +164,9 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 	start, err1 := time.ParseInLocation("2006-01-02", startStr, userLoc(r))
 	end, err2 := time.ParseInLocation("2006-01-02", endStr, userLoc(r))
 	if err1 != nil || err2 != nil || end.Before(start) {
-		http.Redirect(w, r, "/payroll?flash="+encodeFlash(false, "bad period"), http.StatusSeeOther)
+		// The dates typed come back in the form, so one of them is fixed instead of both retyped.
+		back := url.Values{"start": {startStr}, "end": {endStr}, "flash": {flashCode(false, "bad period")}}
+		http.Redirect(w, r, "/payroll?"+back.Encode(), http.StatusSeeOther)
 		return
 	}
 	end = end.AddDate(0, 0, 1)
