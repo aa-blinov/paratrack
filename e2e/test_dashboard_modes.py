@@ -48,7 +48,8 @@ async def main():
                 if manager:
                     await page.goto('http://paratrack.test/projects/new')
                     await page.locator('#new-project-name').wait_for()
-                    assert await page.locator('#new-project-rate').is_visible()==(mode!='solo')
+                    # The rate is on the create form in every mode (PLAN-09, docs/PRODUCT.md).
+                    assert await page.locator('#new-project-rate').is_visible()
                     if mode=='solo':
                         await page.locator('#main form [data-disclosure] > button').click()
                         assert await page.locator('#new-project-rate').is_visible()

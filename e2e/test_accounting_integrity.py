@@ -85,6 +85,7 @@ def main() -> int:
         created = post_form(page, "/invoices", {
             "project_id": str(project_id), "client": "Клиент счёта",
             "start": (day - timedelta(days=1)).isoformat(), "end": (day + timedelta(days=1)).isoformat(), "notes": "",
+            "confirm_unapproved": "1",
         })
         invoice = re.search(r"/invoices/(\d+)", created["url"])
         check("the invoice is created as a draft", invoice is not None, created["url"])
