@@ -77,14 +77,16 @@ export function GraphPage({ data }: { data: GraphData }) {
 
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "graph.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "graph.pageBlurb")}</p></header>
+    <div className="flex items-center justify-between gap-3">
     <a href={`/stats${queryFor(data)}`} className="inline-flex items-center gap-1 py-1 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "nav.stats")}</a>
+      <Button type="button" variant="ghost" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>
+    </div>
 
     <SegmentedControl
       label={t(lang, "goals.period")}
       value={data.Period.Label}
       options={[...periods.map(period => ({ key: period, label: t(lang, period === "today" ? "dash.today" : `stats.${period === "last_week" ? "lastWeek" : period === "last_month" ? "lastMonth" : period}`), href: queryFor(data, period) })),
         { key: "custom", label: t(lang, "graph.customPeriod"), href: queryFor(data, "custom") }]}
-      trailing={<Button type="button" variant="ghost" className="ms-auto" onClick={() => window.print()}><Printer aria-hidden="true" />{t(lang, "graph.print")}</Button>}
     />
 
     {/* The custom range is one of the periods: its fields belong to it, not

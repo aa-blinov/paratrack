@@ -146,7 +146,7 @@ export function TasksPage({ data }: { data: TasksData }) {
 
     {!archivedView && !reportView && <>
     <Button type="button" variant="outline" className="sm:hidden" aria-expanded={adding} aria-controls="new-task-form" onClick={() => setAdding(open => !open)}><Plus aria-hidden="true" />{t(lang, "tasks.new")}</Button>
-    <form id="new-task-form" onSubmit={event => void create(event)} className={`${adding ? "grid" : "hidden"} gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-[minmax(0,1.8fr)_minmax(0,1.5fr)_minmax(0,1.2fr)_minmax(0,1.3fr)_minmax(0,0.8fr)_auto] lg:items-end`} aria-label={t(lang, "tasks.new")}>
+    <form id="new-task-form" onSubmit={event => void create(event)} className={`${adding ? "grid" : "hidden"} gap-3 sm:grid sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(9rem,1fr)_minmax(8rem,0.9fr)_minmax(9.5rem,0.8fr)_auto] lg:items-end`} aria-label={t(lang, "tasks.new")}>
       <div className="flex min-w-0 flex-col gap-1.5">
         <Label htmlFor="new-task-title" className="text-xs">{t(lang, "tasks.new")}</Label>
         <Input id="new-task-title" value={title} onChange={event => setTitle(event.target.value)} placeholder={t(lang, "tasks.titlePh")} required maxLength={200} />
