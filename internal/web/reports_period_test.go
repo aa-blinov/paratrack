@@ -18,8 +18,12 @@ func TestReportRunRefusesAPeriodThatEndsBeforeItStarts(t *testing.T) {
 		t.Fatalf("reversed period answered %d, want a redirect back to the reports screen", resp.StatusCode)
 	}
 	loc := resp.Header.Get("Location")
-	if !strings.HasPrefix(loc, "/reports?flash=") {
+	if !strings.HasPrefix(loc, "/reports?") || !strings.Contains(loc, "flash=") {
 		t.Fatalf("redirect goes to %q, want /reports with a flash", loc)
+	}
+	// The typed dates come back, so the person fixes one date instead of typing both again.
+	if !strings.Contains(loc, "from=2026-10-25") || !strings.Contains(loc, "to=2026-10-24") {
+		t.Fatalf("redirect %q drops the typed period", loc)
 	}
 	page := readBody(t, e.do("GET", loc, nil, nil))
 	if !strings.Contains(page, "Выберите корректный период: начало раньше конца.") {
