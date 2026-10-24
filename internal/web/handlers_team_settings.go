@@ -33,6 +33,16 @@ func (s *Server) handleAPITeamCalendar(w http.ResponseWriter, r *http.Request) {
 	request := appmodel.TeamCalendarRequest{
 		TeamID: team.ID, CallerID: authenticatedUserID(r),
 		TimeZone: strings.TrimSpace(r.FormValue("timezone")), WeekStart: r.FormValue("week_start"),
+		AutoLockDays: team.AutoLockDays,
+	}
+	// A form that does not send the closing age keeps the current one, so an
+	// older page cannot switch it off by saving the zone.
+	if raw, ok := r.PostForm["autolock_days"]; ok && len(raw) > 0 {
+		days, err := strconv.Atoi(raw[0])
+		if err != nil {
+			days = -1
+		}
+		request.AutoLockDays = days
 	}
 	if err := s.services.Teams.Administration.SetCalendar(r.Context(), request); err != nil {
 		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, s.teamErrorMessage(r, err))+"#calendar", http.StatusSeeOther)

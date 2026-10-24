@@ -48,6 +48,9 @@ var columnMigrations = []struct {
 	// member's own choice in force (ADM-07).
 	{"teams", "timezone", "TEXT NOT NULL DEFAULT ''"},
 	{"teams", "week_start", "TEXT NOT NULL DEFAULT ''"},
+	// Days after which time that starts in the past closes for edits (timesheet-autolock).
+	// Zero keeps the past open; existing workspaces stay at zero.
+	{"teams", "autolock_days", "INTEGER NOT NULL DEFAULT 0"},
 	{"projects", "currency", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "currency", "TEXT NOT NULL DEFAULT ''"},
 	{"payroll_runs", "currency", "TEXT NOT NULL DEFAULT ''"},

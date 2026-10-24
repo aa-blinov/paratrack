@@ -432,6 +432,8 @@ export interface TimeEditRequest {
 
 export interface TimesheetData {
   Approval: TimesheetApproval
+  // Empty when the workspace closes no past days; the server writes the sentence.
+  AutoLockNotice?: string
   EditRequests: TimeEditRequest[]
   CanDecide: boolean
   Flash: string
@@ -854,6 +856,7 @@ export interface TeamSettingsData {
   Team: { ID: number; Name: string; CreatedAt: string }
   TimeZone: string
   WeekStart: string
+  AutoLockDays: number
   Zones: string[]
   Currency: string
   Currencies: Array<{ Code: string; Label: string }>

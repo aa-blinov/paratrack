@@ -1,6 +1,7 @@
 package appmodel
 
 import (
+	"slices"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -40,12 +41,23 @@ type TeamRenameRequest struct {
 }
 
 // TeamCalendarRequest sets the workspace's time zone and first day of the week
-// (ADM-07). Blank values give the members their own choice back.
+// (ADM-07). Blank values give the members their own choice back. AutoLockDays is
+// the age after which time closes for edits (timesheet-autolock).
 type TeamCalendarRequest struct {
-	TeamID    int64
-	CallerID  int64
-	TimeZone  string
-	WeekStart string
+	TeamID       int64
+	CallerID     int64
+	TimeZone     string
+	WeekStart    string
+	AutoLockDays int
+}
+
+// AutoLockTerms are the closing ages a workspace may choose, in days. Zero means
+// the past stays open.
+var AutoLockTerms = []int{0, 3, 7, 14, 30}
+
+// ValidAutoLockDays reports whether days is one of AutoLockTerms.
+func ValidAutoLockDays(days int) bool {
+	return slices.Contains(AutoLockTerms, days)
 }
 
 type TeamInviteRevokeRequest struct {

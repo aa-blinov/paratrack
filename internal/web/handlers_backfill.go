@@ -105,6 +105,11 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 			s.backfillError(w, r, "form", weekLockedMessage(resolveLang(r), userLoc(r), approvalErr))
 			return
 		}
+		var autoLockErr *model.SessionAutoLockError
+		if errors.As(err, &autoLockErr) {
+			s.backfillError(w, r, "form", autoLockMessage(resolveLang(r), autoLockErr))
+			return
+		}
 		if errors.Is(err, model.ErrAlreadyBilled) {
 			s.backfillError(w, r, "form", i18n.T(resolveLang(r), "inv.activityProjectLocked"))
 			return

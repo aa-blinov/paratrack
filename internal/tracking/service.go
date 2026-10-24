@@ -70,6 +70,7 @@ type TimesheetStore interface {
 	ApproveTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	ReopenTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	ListTimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)
+	TimesheetAutoLockCutoff(context.Context, int64) (time.Time, bool, error)
 	CreateTimeEditRequest(context.Context, appmodel.TimeEditCreateRequest) (appmodel.TimeEditRequest, error)
 	ListTimeEditRequests(context.Context, int64, int64, bool) ([]appmodel.TimeEditRequest, error)
 	DecideTimeEditRequest(context.Context, appmodel.TimeEditDecisionRequest) error
@@ -550,4 +551,13 @@ func (s *Service) TimesheetApprovals(ctx context.Context, teamID int64, from, to
 		return nil, ErrInvalidEdit
 	}
 	return s.timesheets.ListTimesheetApprovals(ctx, teamID, from, to)
+}
+
+// TimesheetAutoLockCutoff returns the first day still open for edits, and whether
+// the workspace closes past days at all (timesheet-autolock).
+func (s *Service) TimesheetAutoLockCutoff(ctx context.Context, teamID int64) (time.Time, bool, error) {
+	if teamID <= 0 {
+		return time.Time{}, false, ErrInvalidEdit
+	}
+	return s.timesheets.TimesheetAutoLockCutoff(ctx, teamID)
 }

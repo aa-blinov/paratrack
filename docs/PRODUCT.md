@@ -71,6 +71,16 @@ session, a timesheet cell and a row clear. The check runs in the same transactio
 write. The start decides because the grid files a session under the day it starts on.
 Managers reopen a week to change it; the owner is not exempt. The refusal names the week by its first and last day and says that the owner or an admin can reopen it. The same sentence reaches the editor, the backfill, the timesheet cell and the `/api/v1` `409`.
 
+### Closing past time by age
+
+The owner or an admin sets `teams.autolock_days` in the calendar card: 0 (off, the default), 3, 7, 14 or 30. The cutoff is the start of the local day that many days ago in the workspace zone (`teams.timezone`, UTC when blank). It is computed on each write and never stored, so there is no job and no row per day.
+
+While the term is on, a write that starts before the cutoff returns `SessionAutoLockError`, which names the first open day. The check covers a manual add, an edit or delete of a closed session, a backfill, a timer started with an earlier start, a timesheet cell and a row clear (by the week's first day), and a reopen. It runs in the same transaction as the write, next to the approved-week check.
+
+A running timer that started before the cutoff can be stopped, because a stop only writes the end. It cannot be edited or deleted until it is stopped.
+
+Closing by age approves nothing. Pay still counts only approved weeks, and approval is still a manager's action. Nobody bypasses the cutoff, the manager included: an old day is corrected by changing the term, and the owner or an admin can set it back to 0.
+
 
 ### Money
 

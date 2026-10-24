@@ -69,6 +69,9 @@ type timesheetData struct {
 	Added           []int64        // rows added by hand this visit
 	DateISO         string
 	Approval        timesheetApproval
+	// AutoLockNotice names the first open day when the workspace closes past
+	// days for edits; empty when it does not.
+	AutoLockNotice string
 	// Flash is the answer of the last approve or reopen, shown above the week.
 	Flash   string
 	FlashOK bool
@@ -164,6 +167,11 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	autoLockNotice, err := s.timesheetAutoLockNotice(r)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
 	edits, err := s.timeEditViews(r)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -175,6 +183,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		},
 		TimesheetReact:  true,
 		EditRequests:    edits,
+		AutoLockNotice:  autoLockNotice,
 		CanDecide:       canManage(r),
 		WeekStart:       weekStart,
 		WeekEnd:         weekEnd,
@@ -276,6 +285,11 @@ func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Reque
 	var approvalErr *model.SessionApprovalLockError
 	if errors.As(err, &approvalErr) {
 		s.respondTimesheetRow(w, r, actID, day, weekLockedMessage(resolveLang(r), userLoc(r), approvalErr))
+		return
+	}
+	var autoLockErr *model.SessionAutoLockError
+	if errors.As(err, &autoLockErr) {
+		s.respondTimesheetRow(w, r, actID, day, autoLockMessage(resolveLang(r), autoLockErr))
 		return
 	}
 	var lockErr *model.SessionInvoiceLockError
@@ -402,6 +416,17 @@ type timesheetApproval struct {
 	EndISO     string
 }
 
+// timesheetAutoLockNotice returns the sentence that tells the viewer which past
+// days are closed, or an empty string when the workspace closes none.
+func (s *Server) timesheetAutoLockNotice(r *http.Request) (string, error) {
+	cutoff, on, err := s.services.Tracking.Queries.TimesheetAutoLockCutoff(r.Context(), teamID(r))
+	if err != nil || !on {
+		return "", err
+	}
+	lang := resolveLang(r)
+	return fmt.Sprintf(i18n.T(lang, "ts.autoLockNotice"), fmtDay(lang, cutoff)), nil
+}
+
 // timesheetApprovalFor reads whether the week that starts at weekStart is approved.
 func (s *Server) timesheetApprovalFor(r *http.Request, weekStart, now time.Time) (timesheetApproval, error) {
 	end := weekStart.AddDate(0, 0, 7)
@@ -472,6 +497,12 @@ func weekLockedMessage(lang i18n.Lang, loc *time.Location, lock *model.SessionAp
 	first := lock.From.In(loc)
 	last := lock.To.In(loc).AddDate(0, 0, -1)
 	return fmt.Sprintf(i18n.T(lang, "ts.weekLocked"), fmtDay(lang, first), fmtDay(lang, last))
+}
+
+// autoLockMessage names the first open day. The cutoff keeps the workspace's
+// zone (it is computed there), so the day is not shifted into the person's zone.
+func autoLockMessage(lang i18n.Lang, lock *model.SessionAutoLockError) string {
+	return fmt.Sprintf(i18n.T(lang, "ts.autoLocked"), fmtDay(lang, lock.Before))
 }
 
 // approvalMessage turns an approval refusal into the sentence the manager reads.

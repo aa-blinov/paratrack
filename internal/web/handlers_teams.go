@@ -29,13 +29,15 @@ type settingsPageData struct {
 	Flash   string                  // success / error banner shown above the form
 	FlashOK bool
 	// Team settings: workspace currency and the menu of choices.
-	Currency   string
-	TimeZone   string   // the workspace's own zone; blank: each member's own (ADM-07)
-	WeekStart  string   // mon or sun; blank: each member's own
-	Zones      []string // the zone menu the calendar card offers
-	Currencies []currencyOption
-	Requisites string
-	VATNote    string
+	Currency  string
+	TimeZone  string // the workspace's own zone; blank: each member's own (ADM-07)
+	WeekStart string // mon or sun; blank: each member's own
+	// AutoLockDays closes past days for edits after this many days; 0 leaves them open (timesheet-autolock).
+	AutoLockDays int
+	Zones        []string // the zone menu the calendar card offers
+	Currencies   []currencyOption
+	Requisites   string
+	VATNote      string
 	// HideExecutorNames: the requisites card's switch for the members' names on invoices (FIN-15).
 	HideExecutorNames bool
 	VATRate           int
@@ -163,6 +165,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 	data.Currency = settings.Currency
 	data.Currencies = currencyOptions()
 	data.TimeZone, data.WeekStart, data.Zones = team.TimeZone, team.WeekStart, zones
+	data.AutoLockDays = team.AutoLockDays
 	data.Requisites, data.VATNote = settings.Requisites, settings.VATNote
 	data.HideExecutorNames = settings.HideExecutorNames
 	data.VATRate = settings.VATRate
