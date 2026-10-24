@@ -213,6 +213,9 @@ func (d *DB) ReopenSession(ctx context.Context, request appmodel.TimerReopenRequ
 	if err := lockApprovedSessionByID(ctx, tx, teamID, id); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockAutoClosedSessionByID(ctx, tx, teamID, id, d.currentTime()); err != nil {
+		return model.Session{}, err
+	}
 	// Resolve and lock the session owner before locking the session row. This
 	// uses the same owner-first order as StartSession and member removal.
 	ownerQuery := `SELECT user_id FROM sessions WHERE id = ?`

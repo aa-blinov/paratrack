@@ -58,6 +58,9 @@ export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
             <select id="team-timezone" name="timezone" defaultValue={data.TimeZone} disabled={!data.CanManage} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="">{t(lang, "team.calendarOwn")}</option>{data.Zones.map(zone => <option key={zone} value={zone}>{zone}</option>)}</select></div>
           <div className="grid gap-1.5"><Label htmlFor="team-week">{t(lang, "team.calendarWeek")}</Label>
             <select id="team-week" name="week_start" defaultValue={data.WeekStart} disabled={!data.CanManage} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="">{t(lang, "team.calendarOwn")}</option><option value="mon">{t(lang, "team.calendarWeekMon")}</option><option value="sun">{t(lang, "team.calendarWeekSun")}</option></select></div>
+          <div className="grid gap-1.5"><Label htmlFor="team-autolock">{t(lang, "team.autoLockLabel")}</Label>
+            <select id="team-autolock" name="autolock_days" defaultValue={String(data.AutoLockDays ?? 0)} disabled={!data.CanManage} className="h-9 rounded-md border border-input bg-background px-3 text-sm"><option value="0">{t(lang, "team.autoLockOff")}</option><option value="3">{t(lang, "team.autoLock3")}</option><option value="7">{t(lang, "team.autoLock7")}</option><option value="14">{t(lang, "team.autoLock14")}</option><option value="30">{t(lang, "team.autoLock30")}</option></select>
+            <p className="text-sm text-muted-foreground">{t(lang, "team.autoLockHint")}</p></div>
           <Button type="submit" className="w-fit" disabled={!data.CanManage}>{t(lang, "projects.save")}</Button>
         </form>
       </CardContent></Card>

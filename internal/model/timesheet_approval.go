@@ -13,6 +13,7 @@ var (
 	ErrWeekHasRunningTimer = errors.New("a timer is still running in this week")
 	ErrWeekPaid            = errors.New("a pay run already covers this week")
 	ErrWeekNotApproved     = errors.New("time is not in an approved week")
+	ErrDateClosed          = errors.New("time before the closing date is locked")
 )
 
 // SessionApprovalLockError says which approved week refused a write. Like the
@@ -25,6 +26,16 @@ type SessionApprovalLockError struct {
 func (e *SessionApprovalLockError) Error() string { return ErrWeekApproved.Error() }
 
 func (e *SessionApprovalLockError) Unwrap() error { return ErrWeekApproved }
+
+// SessionAutoLockError says that a write starts before the workspace's closing
+// date (timesheet-autolock). Before is the first day that is still open.
+type SessionAutoLockError struct {
+	Before time.Time
+}
+
+func (e *SessionAutoLockError) Error() string { return ErrDateClosed.Error() }
+
+func (e *SessionAutoLockError) Unwrap() error { return ErrDateClosed }
 
 // PayrollNotApprovedError reports the closed time a pay run would count before
 // its week was approved: how many sessions, and the first and last start.
