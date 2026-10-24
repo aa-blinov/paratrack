@@ -7,9 +7,10 @@ Both must open the studio, not the personal space — that is where the
 tracked time has to land. Ends by putting the account back on the
 workspace it started on.
 
-Run from the repo root with the .venv active:
+Run from the repo root with the .venv active, after the accounts exist:
 
-    PARATRACK_BASE=http://127.0.0.1:8899 .venv/bin/python e2e/test_login_returns_workspace.py
+    PARATRACK_BASE=http://127.0.0.1:8890 .venv/bin/python e2e/seed_member2.py
+    PARATRACK_BASE=http://127.0.0.1:8890 .venv/bin/python e2e/test_login_returns_workspace.py
 """
 
 from __future__ import annotations
@@ -80,16 +81,17 @@ def sidebar_workspace(page, name: str) -> str:
     Both shells label that button with the workspace name in its tooltip
     and in the name itself, so the tooltip suffix finds it in either.
     """
-    return page.locator(f'button[title$="{name}"]').first.inner_text().strip()
+    return page.locator(f'button[title$="{name}"]:visible').first.inner_text().strip()
 
 
 def switch_workspace(page, current: str, team_id: int) -> None:
     """The switcher in the sidebar, used the way a person uses it."""
     page.goto(BASE + "/")
     expect(page.locator("#main h1").first).to_be_visible()
-    page.locator(f'button[title$="{current}"]').first.click()
+    # Both shells render the switcher, so only the visible one can be used.
+    page.locator(f'button[title$="{current}"]:visible').first.click()
     page.locator(
-        f'form[action="/api/team/switch"]:has(input[name="team_id"][value="{team_id}"]) button[type=submit]'
+        f'form[action="/api/team/switch"]:has(input[name="team_id"][value="{team_id}"]) button[type=submit]:visible'
     ).click()
     page.wait_for_load_state("load")
     page.goto(BASE + "/")
@@ -98,10 +100,10 @@ def switch_workspace(page, current: str, team_id: int) -> None:
 
 def sign_out(page) -> None:
     page.goto(BASE + "/")
-    page.get_by_role("button", name=me(page)["user"]["name"], exact=True).first.click()
+    page.locator('button:visible:text-is("{}")'.format(me(page)["user"]["name"])).first.click()
     # The account menu and the phone sheet each carry a sign-out form;
     # the menu item is the one open on screen at this width.
-    page.locator('form[action="/api/logout"] [role="menuitem"]').click()
+    page.locator('form[action="/api/logout"] [role="menuitem"]:visible').click()
     page.wait_for_load_state("load")
     expect(page.locator("#email")).to_be_visible()
 

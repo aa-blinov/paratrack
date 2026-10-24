@@ -12,7 +12,7 @@ export function TeamWeekCard({ week, lang }: { week: TeamWeek; lang: string }) {
     <CardContent className="overflow-x-auto p-0">
       <table className="w-full min-w-[44rem] border-collapse text-sm">
         <thead><tr className="border-b text-muted-foreground">
-          <th scope="col" className="px-3 py-2 text-left font-medium">{t(lang, "stats.person")}</th>
+          <th scope="col" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium">{t(lang, "stats.person")}</th>
           {week.Days.map(day => <th key={day.Date} scope="col" className={`px-2 py-2 text-right font-medium ${day.Today ? "text-foreground" : ""}`} aria-current={day.Today ? "date" : undefined}>
             <span className="block">{day.Label}</span><span className="block text-xs font-normal">{day.Date}</span>
           </th>)}
@@ -20,7 +20,7 @@ export function TeamWeekCard({ week, lang }: { week: TeamWeek; lang: string }) {
         </tr></thead>
         <tbody>
           {week.Rows.map(row => <tr key={row.Name} className="border-b last:border-0">
-            <th scope="row" className="px-3 py-2 text-left font-medium [overflow-wrap:anywhere]">{row.Name}</th>
+            <th scope="row" className="sticky left-0 z-10 bg-card px-3 py-2 text-left font-medium [overflow-wrap:anywhere]">{row.Name}</th>
             {row.Cells.map((cell, index) => <td key={index} data-below={cell.Below || undefined} title={cell.Below ? t(lang, "stats.teamBelowNorm", week.Norm) : undefined}
               className={`px-2 py-2 text-right tabular-nums ${cell.Below ? "text-destructive" : ""}`}>
               {cell.Label}
@@ -31,6 +31,8 @@ export function TeamWeekCard({ week, lang }: { week: TeamWeek; lang: string }) {
           </tr>)}
         </tbody>
       </table>
+      {/* On a phone the week does not fit: the hint says the days to the right are there. */}
+      <p className="px-4 py-2 text-xs text-muted-foreground sm:hidden">{t(lang, "stats.teamScrollHint")}</p>
     </CardContent>
   </Card>
 }
