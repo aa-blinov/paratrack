@@ -1326,6 +1326,7 @@
   "stats.teamBelowShort": "ниже %s",
   "stats.teamBelowNorm": "ниже нормы дня, %s",
   "stats.teamTotal": "Итого",
+  "stats.teamScrollHint": "Таблица шире экрана: листайте её вправо, чтобы увидеть остальные дни.",
   "stats.markTitle": "Перегрузка или простой",
   "stats.markBlurb": "Отметьте день, если он был перегружен или простоял. Руководитель видит отметку на обзоре команды.",
   "stats.markDay": "День",

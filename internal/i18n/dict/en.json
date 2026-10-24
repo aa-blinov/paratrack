@@ -1326,6 +1326,7 @@
   "stats.teamBelowShort": "under %s",
   "stats.teamBelowNorm": "under the daily norm of %s",
   "stats.teamTotal": "Total",
+  "stats.teamScrollHint": "The table is wider than the screen: scroll it sideways to see the other days.",
   "stats.markTitle": "Overload or idle",
   "stats.markBlurb": "Mark a day that was overloaded or stood idle. The manager sees the mark on the team week.",
   "stats.markDay": "Day",
