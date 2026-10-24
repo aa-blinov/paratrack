@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -183,6 +184,18 @@ func (s *Server) handleReports(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	data.DefFrom = now.AddDate(0, 0, -30).Format("2006-01-02")
 	data.DefTo = now.Format("2006-01-02")
+	// A refused period comes back with the dates the person typed, so they can fix one date
+	// instead of typing both again.
+	if v := r.URL.Query().Get("from"); v != "" {
+		if _, err := time.Parse("2006-01-02", v); err == nil {
+			data.DefFrom = v
+		}
+	}
+	if v := r.URL.Query().Get("to"); v != "" {
+		if _, err := time.Parse("2006-01-02", v); err == nil {
+			data.DefTo = v
+		}
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -249,7 +262,8 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 	}
 	// A period that starts after it ends is a mistake on the form, not a server fault.
 	if !to.After(from) {
-		http.Redirect(w, r, "/reports?flash="+encodeFlash(false, "bad period"), http.StatusSeeOther)
+		back := url.Values{"from": {r.URL.Query().Get("from")}, "to": {r.URL.Query().Get("to")}, "flash": {flashCode(false, "bad period")}}
+		http.Redirect(w, r, "/reports?"+back.Encode(), http.StatusSeeOther)
 		return
 	}
 	vm, err := s.buildReport(r, tpl, from, to)
