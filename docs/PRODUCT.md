@@ -250,6 +250,11 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
 - A deal is **overdue** when it is open and its next-step date is before today in the workspace time zone.
 - Any member sees every deal in the workspace and creates deals of their own. The owner or a manager changes a deal
   and moves its stage; only a manager assigns another owner. The rule holds in the transaction, not in the route.
+- **Deal amounts are shown and set by managers only.** A member sees every deal's title, client, contact, stage,
+  owner, probability and dates, but not its amount or currency: the deal answers leave both out and set
+  `amount_visible` to false, and the deal form and the deal list show no amount. A member's create or update that
+  names a non-zero amount or a currency is refused on the field `amount`. A member's zero is no amount given, so it
+  leaves the stored amount alone. The funnel's amounts follow the same rule.
 - An **activity** is a call, a meeting or a note on a client, on a deal or on a lead, with a date, an author and a
   result. An activity never creates a time session, so a call no longer shows up as unpaid time on an invoice.
 - Nothing deletes a client or a deal through the agent endpoint.

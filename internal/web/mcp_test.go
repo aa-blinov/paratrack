@@ -193,6 +193,31 @@ func TestMCPAgentRunsADealThroughItsTools(t *testing.T) {
 	}
 }
 
+// The agent gets the same rule as the person: a manager's deal_create carries the amount, a
+// member's deals_list carries none, and a member's deal_create that names an amount is refused
+// on the field.
+func TestMCPDealAmountsAreTheManagersAlone(t *testing.T) {
+	owner, member := studioOwnerAndMember(t, "mcp-amounts")
+	ownerAuth := mcpBearer(apiTokenOf(t, owner, "agent"))
+	memberAuth := mcpBearer(apiTokenOf(t, member, "member"))
+
+	text, failed := callTool(t, owner, ownerAuth, "deal_create", map[string]any{"title": "Сайт", "amount_cents": 250000, "currency": "RUB"})
+	if failed || !strings.Contains(text, `"amount_cents":250000`) || !strings.Contains(text, `"amount_visible":true`) {
+		t.Fatalf("manager's deal_create = %v %q", failed, text)
+	}
+
+	text, failed = callTool(t, member, memberAuth, "deals_list", map[string]any{})
+	if failed || !strings.Contains(text, `"title":"Сайт"`) || !strings.Contains(text, `"amount_visible":false`) ||
+		strings.Contains(text, "amount_cents") || strings.Contains(text, "currency") {
+		t.Fatalf("member's deals_list = %v %q, want the deal with no amount", failed, text)
+	}
+
+	text, failed = callTool(t, member, memberAuth, "deal_create", map[string]any{"title": "Дорого", "amount_cents": 250000})
+	if !failed || !strings.Contains(text, "amount") {
+		t.Fatalf("member's deal_create with an amount = %v %q, want the amount field named", failed, text)
+	}
+}
+
 // An agent makes the project of a won deal, and the project is in projects_list for the
 // deal's client. A second call is refused on the project field.
 func TestMCPDealCreatesItsProject(t *testing.T) {

@@ -12,32 +12,41 @@ import (
 // are YYYY-MM-DD in the workspace day, empty when unset.
 
 type crmDealView struct {
-	ID          int64     `json:"id"`
-	Title       string    `json:"title"`
-	Stage       string    `json:"stage"`
-	ClientID    int64     `json:"client_id"`
-	ContactID   int64     `json:"contact_id"`
-	OwnerID     int64     `json:"owner_id"`
-	AmountCents int64     `json:"amount_cents"`
-	Currency    string    `json:"currency"`
-	Probability int       `json:"probability"`
-	CloseDate   string    `json:"close_date"`
-	NextStepAt  string    `json:"next_step_at"`
-	LostReason  string    `json:"lost_reason"`
-	ProjectID   int64     `json:"project_id"`
-	Overdue     bool      `json:"overdue"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID        int64  `json:"id"`
+	Title     string `json:"title"`
+	Stage     string `json:"stage"`
+	ClientID  int64  `json:"client_id"`
+	ContactID int64  `json:"contact_id"`
+	OwnerID   int64  `json:"owner_id"`
+	// AmountVisible says whether this answer carries the amount and the currency. Only a
+	// manager sees them; a member's answer leaves both out and says so here.
+	AmountVisible bool      `json:"amount_visible"`
+	AmountCents   int64     `json:"amount_cents,omitempty"`
+	Currency      string    `json:"currency,omitempty"`
+	Probability   int       `json:"probability"`
+	CloseDate     string    `json:"close_date"`
+	NextStepAt    string    `json:"next_step_at"`
+	LostReason    string    `json:"lost_reason"`
+	ProjectID     int64     `json:"project_id"`
+	Overdue       bool      `json:"overdue"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 func (crmDealView) isJSONResponse() {}
 
-func crmDealViewOf(d model.CRMDeal, today string) crmDealView {
-	return crmDealView{
+// crmDealViewOf shapes a deal for the caller. manager is the caller's role as the request
+// read it, never a value the client sent.
+func crmDealViewOf(d model.CRMDeal, today string, manager bool) crmDealView {
+	v := crmDealView{
 		ID: d.ID, Title: d.Title, Stage: d.Stage, ClientID: d.ClientID, ContactID: d.ContactID,
-		OwnerID: d.OwnerID, AmountCents: d.AmountCents, Currency: d.Currency, Probability: d.Probability,
+		OwnerID: d.OwnerID, AmountVisible: manager, Probability: d.Probability,
 		CloseDate: d.CloseDate, NextStepAt: d.NextStepAt, LostReason: d.LostReason, ProjectID: d.ProjectID,
 		Overdue: d.Overdue(today), UpdatedAt: d.UpdatedAt,
 	}
+	if manager {
+		v.AmountCents, v.Currency = d.AmountCents, d.Currency
+	}
+	return v
 }
 
 // stageName is the name a reader sees. A stage nobody named shows its built-in name
