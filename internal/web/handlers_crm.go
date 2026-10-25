@@ -196,6 +196,7 @@ type crmContactBody struct {
 type crmActivityBody struct {
 	ClientID   int64     `json:"client_id"`
 	DealID     int64     `json:"deal_id"`
+	LeadID     int64     `json:"lead_id"`
 	Kind       string    `json:"kind"`
 	Body       string    `json:"body"`
 	Result     string    `json:"result"`
@@ -459,7 +460,7 @@ func (s *Server) handleCRMContactCreate(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleCRMActivitiesList(w http.ResponseWriter, r *http.Request) {
 	activities, err := s.services.CRM.Activities(r.Context(), appmodel.CRMActivityListQuery{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r),
-		ClientID: crmQueryID(r, "client_id"), DealID: crmQueryID(r, "deal_id"),
+		ClientID: crmQueryID(r, "client_id"), DealID: crmQueryID(r, "deal_id"), LeadID: crmQueryID(r, "lead_id"),
 	})
 	if err != nil {
 		s.writeCRMError(w, r, err)
@@ -479,7 +480,7 @@ func (s *Server) handleCRMActivityCreate(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	activity, err := s.services.CRM.LogActivity(r.Context(), appmodel.CRMActivityCreateRequest{
-		TeamID: teamID(r), CallerID: authenticatedUserID(r), ClientID: body.ClientID, DealID: body.DealID,
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), ClientID: body.ClientID, DealID: body.DealID, LeadID: body.LeadID,
 		Kind: body.Kind, Body: body.Body, Result: body.Result, OccurredAt: body.OccurredAt,
 	})
 	if err != nil {

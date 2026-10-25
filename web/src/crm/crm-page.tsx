@@ -14,6 +14,7 @@ import { DealForm } from "@/crm/deal-form"
 import { DealDetail } from "@/crm/deal-detail"
 import { ContactsPanel } from "@/crm/contacts-panel"
 import { StageEditor } from "@/crm/stage-editor"
+import { LeadsPanel } from "@/crm/leads-panel"
 
 type DealsResponse = { today: string; deals: Deal[]; pipeline: Pipeline }
 
@@ -33,6 +34,7 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
   const [members, setMembers] = React.useState<Member[]>([])
   const [loaded, setLoaded] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [tab, setTab] = React.useState<"deals" | "leads">("deals")
 
   const clientNames = React.useMemo(() => new Map(clients.map(client => [client.id, client.name])), [clients])
   const total = pipeline.stages.reduce((sum, item) => sum + item.count, 0)
@@ -70,6 +72,11 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.crm")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "crm.blurb")}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
+    <div role="group" aria-label={t(lang, "crm.tabsLabel")} className="flex flex-wrap gap-2">
+      <Button type="button" variant={tab === "deals" ? "secondary" : "outline"} aria-pressed={tab === "deals"} onClick={() => setTab("deals")}>{t(lang, "crm.tabDeals")}</Button>
+      <Button type="button" variant={tab === "leads" ? "secondary" : "outline"} aria-pressed={tab === "leads"} onClick={() => setTab("leads")}>{t(lang, "crm.tabLeads")}</Button>
+    </div>
+    {tab === "leads" ? <LeadsPanel lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} members={members} /> : <>
     <DisclosureSection title={t(lang, "crm.newDeal")}>
       <DealForm lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} clients={clients} members={members} onSaved={() => void load()} />
     </DisclosureSection>
@@ -114,5 +121,6 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
     </Card>
     {data.CanManage && <StageEditor lang={lang} csrf={data.CSRFToken} stages={pipeline.stages} onChanged={() => void load()} />}
     <ContactsPanel lang={lang} csrf={data.CSRFToken} clients={clients} />
+    </>}
   </main>
 }
