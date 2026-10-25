@@ -93,6 +93,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/invoices/{id}/share", s.module("invoices", s.manage(s.handleInvoiceShare)))
 	api("POST", "/api/day-marks", s.handleDayMark)
 	api("GET", "/api/search", s.handleSearch)
+	api("POST", "/api/clients/{id}/tags", s.handleClientTagsSet)
 	api("POST", "/api/workday", s.handleWorkday)
 	api("POST", "/api/team/requisites", s.manage(s.handleAPITeamRequisites))
 	api("POST", "/api/team/modules", s.manage(s.handleAPITeamModules))

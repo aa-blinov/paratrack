@@ -1,6 +1,11 @@
 package model
 
-import "time"
+import (
+	"errors"
+	"strings"
+	"time"
+	"unicode/utf8"
+)
 
 // Client is a party an invoice is addressed to. Before this entity existed the
 // recipient was a set of columns on the project (client_name, client_details,
@@ -39,4 +44,39 @@ type ClientContact struct {
 	Name  string
 	Email string
 	Role  string
+}
+
+// ClientTagLimit and ClientTagMaxLength bound a client's tag set. A set this small
+// stays readable on the card and in an agent's answer; a tag longer than a line
+// is a sentence someone pasted, not a label.
+const (
+	ClientTagLimit     = 10
+	ClientTagMaxLength = 40
+)
+
+// ErrInvalidClientTag is a tag that is empty, too long, contains a comma, or a set
+// with more than ClientTagLimit distinct tags.
+var ErrInvalidClientTag = errors.New("invalid client tag")
+
+// NormalizeClientTags turns the tags a person typed into the stored form: trimmed,
+// lower-cased, duplicates dropped, in the order they were given. The database
+// calls it too, so no caller can store a tag the rules refuse.
+func NormalizeClientTags(raw []string) ([]string, error) {
+	out := make([]string, 0, len(raw))
+	seen := make(map[string]bool, len(raw))
+	for _, value := range raw {
+		tag := strings.ToLower(strings.TrimSpace(value))
+		if tag == "" || utf8.RuneCountInString(tag) > ClientTagMaxLength || strings.Contains(tag, ",") {
+			return nil, ErrInvalidClientTag
+		}
+		if seen[tag] {
+			continue
+		}
+		seen[tag] = true
+		out = append(out, tag)
+	}
+	if len(out) > ClientTagLimit {
+		return nil, ErrInvalidClientTag
+	}
+	return out, nil
 }

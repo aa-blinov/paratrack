@@ -29,8 +29,12 @@ type Service struct {
 
 var ErrInvalidSearch = errors.New("invalid search")
 
-// maxHits caps each group, so a short text cannot pull the whole workspace.
-const maxHits = 8
+// defaultHits caps each group of the global search, so a short text cannot pull the
+// whole workspace. The CRM search box asks for more, up to maxHits.
+const (
+	defaultHits = 8
+	maxHits     = 50
+)
 
 // New builds the search service.
 func New(deps Dependencies) (*Service, error) {
@@ -50,6 +54,11 @@ func (s *Service) Find(ctx context.Context, query appmodel.SearchQuery) (appmode
 	if utf8.RuneCountInString(query.Text) < 2 {
 		return appmodel.SearchResults{}, nil
 	}
-	query.Limit = maxHits
+	switch {
+	case query.Limit <= 0:
+		query.Limit = defaultHits
+	case query.Limit > maxHits:
+		query.Limit = maxHits
+	}
 	return s.store.SearchWorkspace(ctx, query)
 }

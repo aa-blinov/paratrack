@@ -47,7 +47,7 @@ func TestGlobalSearchRespectsWhatTheViewerMaySee(t *testing.T) {
 		t.Fatal("a member found people in search")
 	}
 
-	owner, err := d.SearchWorkspace(ctx, appmodel.SearchQuery{TeamID: teamID, UserID: ownerID, Manager: true, Text: "romashka", Limit: 8})
+	owner, err := d.SearchWorkspace(ctx, appmodel.SearchQuery{TeamID: teamID, UserID: ownerID, Text: "romashka", Limit: 8})
 	if err != nil {
 		t.Fatal(err)
 	}
