@@ -11,6 +11,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mail"
+	"github.com/aa-blinov/paratrack/internal/mailport"
 	"github.com/aa-blinov/paratrack/internal/push"
 	"github.com/aa-blinov/paratrack/internal/reminders"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
@@ -70,6 +71,56 @@ func (e reminderEmail) Email(ctx context.Context, notification reminders.Notific
 		}
 	}
 	return errors.Join(sendErrs...)
+}
+
+// crmAudience is what the next-step reminders need from the rest of the app: the
+// topic switch, the language a person last used, and the mailbox a letter goes to.
+type crmAudience struct {
+	push       *push.Service
+	identities interface {
+		FindIdentitiesByID(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
+	}
+	preferences interface {
+		Load(context.Context, int64) (appmodel.UserPreferences, error)
+	}
+	queue interface {
+		EnqueueReminder(context.Context, mailport.ReminderQueueRequest) error
+	}
+	sender mail.Sender
+}
+
+// Wanting applies the mute filter the email channel uses (TIME-14). Push delivery
+// applies the same filter again, so a muted person gets nothing on either channel.
+func (a crmAudience) Wanting(ctx context.Context, teamID int64, userIDs []int64, topic string) ([]int64, error) {
+	return a.push.MailRecipients(ctx, teamID, userIDs, topic)
+}
+
+func (a crmAudience) Language(ctx context.Context, userID int64) string {
+	prefs, err := a.preferences.Load(ctx, userID)
+	if err != nil {
+		return ""
+	}
+	return prefs.Language
+}
+
+// QueueLetter queues one letter through the mail queue. With no mail configured,
+// or no address on the account, there is nothing to send and nothing to queue.
+func (a crmAudience) QueueLetter(ctx context.Context, teamID, userID int64, subject, text string) error {
+	if a.sender == nil || !mail.Available(a.sender) {
+		return nil
+	}
+	identities, err := a.identities.FindIdentitiesByID(ctx, []int64{userID})
+	if err != nil {
+		return err
+	}
+	user, ok := identities[userID]
+	if !ok || user.Email == "" {
+		return nil
+	}
+	return a.queue.EnqueueReminder(ctx, mailport.ReminderQueueRequest{
+		TeamID: teamID, Recipient: user.Email,
+		Message: mailport.Message{To: user.Email, Subject: subject, Text: text},
+	})
 }
 
 // reminderPushNotifications sends the project and overload reminders through

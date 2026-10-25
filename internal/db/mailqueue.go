@@ -74,6 +74,19 @@ func (d *DB) EnqueueInvoiceEmail(ctx context.Context, request appmodel.InvoiceEm
 	return tx.Commit()
 }
 
+// EnqueueReminderEmail queues a reminder letter in the same outbox. It has no
+// invoice, so invoice_id stays NULL and completing or failing it touches no invoice.
+func (d *DB) EnqueueReminderEmail(ctx context.Context, request appmodel.ReminderEmailEnqueueRequest) error {
+	if request.TeamID <= 0 || strings.TrimSpace(request.Recipient) == "" || len(request.Payload) == 0 {
+		return fmt.Errorf("invalid reminder email request")
+	}
+	now := FormatTime(d.currentTime().UTC())
+	_, err := d.sql.ExecContext(ctx,
+		`INSERT INTO invoice_email_outbox (team_id, invoice_id, recipient, payload, status, attempts, available_at, created_at)
+		 VALUES (?, NULL, ?, ?, 'pending', 0, ?, ?)`, request.TeamID, request.Recipient, string(request.Payload), now, now)
+	return err
+}
+
 // ClaimInvoiceEmail leases one ready task. A worker crash leaves a finite
 // lease; another worker can safely claim it after five minutes.
 func (d *DB) ClaimInvoiceEmail(ctx context.Context) (mailport.InvoiceEmailJob, bool, error) {
@@ -93,7 +106,7 @@ func (d *DB) ClaimInvoiceEmail(ctx context.Context) (mailport.InvoiceEmailJob, b
 		UPDATE invoice_email_outbox q
 		SET status = 'processing', locked_at = ?, attempts = attempts + 1
 		FROM candidate c WHERE q.id = c.id
-		RETURNING q.id, q.team_id, q.invoice_id, q.recipient, q.payload, q.attempts, q.locked_at`,
+		RETURNING q.id, q.team_id, COALESCE(q.invoice_id, 0), q.recipient, q.payload, q.attempts, q.locked_at`,
 		nowText, stale, nowText).Scan(&job.ID, &job.TeamID, &job.InvoiceID, &job.Recipient, &payload, &job.Attempts, &job.Lease)
 	if errors.Is(err, sql.ErrNoRows) {
 		return mailport.InvoiceEmailJob{}, false, nil
@@ -125,10 +138,12 @@ func (d *DB) CompleteInvoiceEmail(ctx context.Context, job mailport.InvoiceEmail
 	} else if n == 0 {
 		return ErrInvoiceEmailLeaseLost
 	}
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE invoices SET status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END
-		 WHERE id = ? AND team_id = ?`, job.InvoiceID, job.TeamID); err != nil {
-		return err
+	if job.InvoiceID > 0 {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE invoices SET status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END
+			 WHERE id = ? AND team_id = ?`, job.InvoiceID, job.TeamID); err != nil {
+			return err
+		}
 	}
 	return tx.Commit()
 }
@@ -156,9 +171,11 @@ func (d *DB) RetryInvoiceEmail(ctx context.Context, request mailport.InvoiceEmai
 		} else if n == 0 {
 			return ErrInvoiceEmailLeaseLost
 		}
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE invoices SET status = 'draft' WHERE id = ? AND team_id = ? AND status = 'sending'`, job.InvoiceID, job.TeamID); err != nil {
-			return err
+		if job.InvoiceID > 0 {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE invoices SET status = 'draft' WHERE id = ? AND team_id = ? AND status = 'sending'`, job.InvoiceID, job.TeamID); err != nil {
+				return err
+			}
 		}
 	} else {
 		res, err := tx.ExecContext(ctx,

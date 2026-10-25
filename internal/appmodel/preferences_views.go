@@ -12,4 +12,7 @@ type UserPreferences struct {
 	// convenience for the next login, never a grant: membership is
 	// re-checked on every request.
 	LastTeamID int64
+	// Language is the UI language the person last used in a browser session, so
+	// a letter the app sends them is written in it. "" means not known yet.
+	Language string
 }
