@@ -1,1 +1,0 @@
-import{i as e}from"./form-issue-ToYbi6dH.js";async function t(){return(await e(`/api/v1/clients`,`GET`,``)).clients}async function n(){return(await e(`/api/v1/members`,`GET`,``)).members}function r(e){return e.name||e.email}export{n,r,t};

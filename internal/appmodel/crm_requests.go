@@ -250,6 +250,7 @@ type CalendarEventCreateRequest struct {
 	ProjectID      int64
 	ClientID       int64
 	Shared         bool
+	SyncPush       bool
 	ParticipantIDs []int64
 }
 
@@ -267,6 +268,7 @@ type CalendarEventUpdateRequest struct {
 	ProjectID      *int64
 	ClientID       *int64
 	Shared         *bool
+	SyncPush       *bool
 	ParticipantIDs []int64
 }
 

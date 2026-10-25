@@ -24,7 +24,7 @@ import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import { StopResult } from "@/dashboard/stop-result"
 import { WorkdayPanel } from "@/dashboard/workday-panel"
-import type { AuditData, AuthPageData, CalendarData, CRMData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, AgentActionsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, AuthPageData, CalendarData, CalendarSyncData, CRMData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, AgentActionsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
@@ -70,6 +70,7 @@ const TokensPage = lazy(() => import("@/settings/tokens-page").then(module => ({
 const ProfilePage = lazy(() => import("@/settings/profile-page").then(module => ({ default: module.ProfilePage })))
 const PreferencesPage = lazy(() => import("@/settings/preferences-page").then(module => ({ default: module.PreferencesPage })))
 const NotificationsPage = lazy(() => import("@/settings/notifications-page").then(module => ({ default: module.NotificationsPage })))
+const CalendarSyncPage = lazy(() => import("@/settings/calendar-sync-page").then(module => ({ default: module.CalendarSyncPage })))
 const TeamSettingsPage = lazy(() => import("@/settings/team-settings-page").then(module => ({ default: module.TeamSettingsPage })))
 const TeamMembersPage = lazy(() => import("@/settings/team-members-page").then(module => ({ default: module.TeamMembersPage })))
 const TeamInvitesPage = lazy(() => import("@/settings/team-invites-page").then(module => ({ default: module.TeamInvitesPage })))
@@ -467,6 +468,8 @@ function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap:
             ? <PreferencesPage data={data as PreferencesData} />
             : "NotificationsReact" in data && data.NotificationsReact
             ? <NotificationsPage data={data as NotificationsData} />
+            : "CalendarSyncReact" in data && data.CalendarSyncReact
+            ? <CalendarSyncPage data={data as CalendarSyncData} />
             : "TeamSettingsReact" in data && data.TeamSettingsReact
             ? <TeamSettingsPage data={data as TeamSettingsData} />
             : "MembersReact" in data && data.MembersReact
@@ -543,6 +546,7 @@ function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   if ("ProfileReact" in data && data.ProfileReact) return ProfilePage.preload()
   if ("PrefsReact" in data && data.PrefsReact) return PreferencesPage.preload()
   if ("NotificationsReact" in data && data.NotificationsReact) return NotificationsPage.preload()
+  if ("CalendarSyncReact" in data && data.CalendarSyncReact) return CalendarSyncPage.preload()
   if ("TeamSettingsReact" in data && data.TeamSettingsReact) return TeamSettingsPage.preload()
   if ("MembersReact" in data && data.MembersReact) return TeamMembersPage.preload()
   if ("InvitesReact" in data && data.InvitesReact) return TeamInvitesPage.preload()

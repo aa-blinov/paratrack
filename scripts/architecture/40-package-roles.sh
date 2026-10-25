@@ -3,19 +3,19 @@
 # later. Only the process composition root may assemble concrete infrastructure;
 # only the transport adapters may depend on the application service graph.
 leaf_packages="appmodel catalog depcheck httpjson httpretry httpurl i18n mailport mcpwire model money netclients oidcport netpolicy postcommit providerstatus pushport reportstats requestctx teamslug timeparse translit webhookport"
-port_packages="cliport importport integrationport pushport webhookport"
+port_packages="calendarport cliport importport integrationport pushport webhookport"
 adapter_packages="mail oidcclient stripe workspacefile"
 # Port-implementing subpackages need explicit exceptions to the generic
 # workflow-import prohibition. Their owning workflows are enforced below;
 # composition and transport packages remain forbidden.
-port_adapter_packages="importproviders:importport integrations/providers:integrationport push/providers:pushport webhooks/httpdelivery:webhookport"
-port_adapter_names="importproviders integrations/providers push/providers webhooks/httpdelivery"
+port_adapter_packages="calendarsync:calendarport importproviders:importport integrations/providers:integrationport push/providers:pushport webhooks/httpdelivery:webhookport"
+port_adapter_names="calendarsync importproviders integrations/providers push/providers webhooks/httpdelivery"
 special_packages="app cli db testutil web"
 classified_packages="$core_packages $leaf_packages $port_packages $adapter_packages $port_adapter_names $special_packages"
 
 # Provider and delivery contracts own their boundary data types. They must not
 # grow a dependency on the shared product model and pull unrelated concepts in.
-for name in importport integrationport mailport pushport webhookport; do
+for name in calendarport importport integrationport mailport pushport webhookport; do
 	check_no_direct_import "$module/internal/$name" internal/model
 done
 

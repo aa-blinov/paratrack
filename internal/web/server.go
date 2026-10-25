@@ -139,6 +139,7 @@ func (s *Server) ListenAndServeContext(ctx context.Context) error {
 	stopWorker := s.startMailWorker(ctx)
 	stopWebhookWorker := s.startWebhookWorker(ctx)
 	stopReminderWorker := s.startReminderWorker(ctx)
+	stopCalendarSyncWorker := s.startCalendarSyncWorker(ctx)
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- s.httpd.Serve(ln) }()
 	var serveErr error
@@ -163,6 +164,7 @@ func (s *Server) ListenAndServeContext(ctx context.Context) error {
 	s.requests.Wait() // never close dependencies while a handler may use them
 	stopWorker()
 	stopReminderWorker()
+	stopCalendarSyncWorker()
 	stopWebhookWorker()
 	s.sentry.close()
 	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
@@ -180,6 +182,25 @@ func (s *Server) startReminderWorker(parent context.Context) func() {
 	go func() {
 		defer close(done)
 		s.runtime.ReminderWorker.Run(workerCtx, time.Hour)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+// startCalendarSyncWorker checks each minute which member connections are due. The
+// cadence per connection is the sync's own (every 15 minutes), so the minute is only
+// how soon a due one is noticed.
+func (s *Server) startCalendarSyncWorker(parent context.Context) func() {
+	if depcheck.IsNil(s.runtime.CalendarSyncWorker) {
+		return func() {}
+	}
+	workerCtx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runtime.CalendarSyncWorker.Run(workerCtx, time.Minute)
 	}()
 	return func() {
 		cancel()

@@ -379,17 +379,21 @@ type crmIntakeKeyResponse struct {
 func (crmIntakeKeyResponse) isJSONResponse() {}
 
 type calendarEventView struct {
-	ID             int64     `json:"id"`
-	Title          string    `json:"title"`
-	StartsAt       time.Time `json:"starts_at"`
-	EndsAt         time.Time `json:"ends_at"`
-	Location       string    `json:"location"`
-	Notes          string    `json:"notes"`
-	ProjectID      int64     `json:"project_id"`
-	ClientID       int64     `json:"client_id"`
-	Shared         bool      `json:"shared"`
-	ParticipantIDs []int64   `json:"participant_ids"`
-	CreatedBy      int64     `json:"created_by"`
+	ID        int64     `json:"id"`
+	Title     string    `json:"title"`
+	StartsAt  time.Time `json:"starts_at"`
+	EndsAt    time.Time `json:"ends_at"`
+	Location  string    `json:"location"`
+	Notes     string    `json:"notes"`
+	ProjectID int64     `json:"project_id"`
+	ClientID  int64     `json:"client_id"`
+	Shared    bool      `json:"shared"`
+	// SyncPush is the author's choice to keep a copy in their own provider calendar; Imported
+	// marks an event pulled from a provider, which is never pushed back (CRM-19).
+	SyncPush       bool    `json:"sync_push"`
+	Imported       bool    `json:"imported"`
+	ParticipantIDs []int64 `json:"participant_ids"`
+	CreatedBy      int64   `json:"created_by"`
 }
 
 func (calendarEventView) isJSONResponse() {}
@@ -404,7 +408,7 @@ func calendarEventViewIn(e model.CalendarEvent, loc *time.Location) calendarEven
 	return calendarEventView{
 		ID: e.ID, Title: e.Title, StartsAt: e.StartsAt.In(loc), EndsAt: e.EndsAt.In(loc), Location: e.Location,
 		Notes: e.Notes, ProjectID: e.ProjectID, ClientID: e.ClientID, Shared: e.Shared,
-		ParticipantIDs: participants, CreatedBy: e.CreatedBy,
+		SyncPush: e.SyncPush, Imported: e.Imported, ParticipantIDs: participants, CreatedBy: e.CreatedBy,
 	}
 }
 

@@ -96,6 +96,13 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Web Push settings.
 	pages.HandleFunc("GET /settings/notifications", s.handleNotificationsPage)
 
+	// Calendar sync with the member's own Google or Outlook calendar (CRM-19). The callback is
+	// the one route a provider calls; it works only in the browser session that started the consent.
+	pages.HandleFunc("GET /settings/calendar-sync", s.mine(s.handleCalendarSyncPage))
+	pages.HandleFunc("POST /settings/calendar-sync/{provider}/connect", s.mine(s.handleCalendarSyncConnect))
+	pages.HandleFunc("GET /settings/calendar-sync/{provider}/callback", s.mine(s.handleCalendarSyncCallback))
+	pages.HandleFunc("POST /settings/calendar-sync/{provider}/disconnect", s.mine(s.handleCalendarSyncDisconnect))
+
 	// Projects.
 	pages.HandleFunc("GET /projects", s.handleProjectsList)
 	pages.HandleFunc("GET /projects/new", s.manage(s.handleProjectNew))
