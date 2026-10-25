@@ -16,6 +16,15 @@ type ClientCatalogQuery struct {
 	IncludeArchived bool
 }
 
+// ClientTagsRequest replaces the tag set of one client. Only a manager may change it,
+// and the database decides that inside the transaction that writes the tags.
+type ClientTagsRequest struct {
+	TeamID   int64
+	ClientID int64
+	CallerID int64
+	Tags     []string
+}
+
 // ClientScopeQuery identifies one client inside one workspace. HTTP paths use
 // the numeric ID because clients have no slug of their own — their names are
 // free text, and minting a slug per client only to address it would make

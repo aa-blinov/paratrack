@@ -142,6 +142,72 @@ var mcpEntityTools = []mcpTool{
 		},
 	},
 	{
+		Name: "clients_search",
+		Description: "Find clients and contacts by a text of at least two characters, otherwise both lists are empty. A client matches by name " +
+			"and tags, and for owners and admins also by billing email and details. A contact matches by name, role, email or phone; a phone " +
+			"also matches when spaces, dashes and brackets are left out of the text or the number. tag keeps only the clients with that tag, " +
+			"and their contacts. Each list holds up to limit rows (default 8, at most 50). Billing email comes only to owners and admins.",
+		Schema: objectSchema(map[string]any{
+			"q":     stringProp("Text to find, at least two characters"),
+			"tag":   stringProp("Only clients with this tag, in any letter case"),
+			"limit": integerProp("Rows per list, from 1 to 50; default 8"),
+		}, "q"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				Q     string `json:"q"`
+				Tag   string `json:"tag"`
+				Limit int    `json:"limit"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			results, err := s.services.Search.Find(c.ctx, appmodel.SearchQuery{
+				TeamID: c.teamID, UserID: c.userID, Text: in.Q, Tag: in.Tag, Limit: in.Limit,
+				CRM: s.teamModules(c.req)["crm"],
+			})
+			if err != nil {
+				return nil, err
+			}
+			return mcpSearchViewOf(results, c.manage), nil
+		},
+	},
+	{
+		Name: "client_tags_set",
+		Description: "Replace the tags of one client with this list; an empty list clears them. A tag is trimmed and lower-cased, at most 40 " +
+			"characters, with no comma, and a repeated tag counts once. A client has at most 10 tags. Only owners and admins can change tags, " +
+			"and tags is required, so a call that leaves it out is refused instead of clearing the set.",
+		Write: true,
+		Schema: objectSchema(map[string]any{
+			"client_id": integerProp("Client id"),
+			"tags": map[string]any{
+				"type": "array", "items": map[string]any{"type": "string"},
+				"description": "The whole set of tags the client should carry after the call",
+			},
+		}, "client_id", "tags"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				ClientID int64     `json:"client_id"`
+				Tags     *[]string `json:"tags"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			if in.Tags == nil {
+				return nil, appmodel.FieldError{Field: "tags"}
+			}
+			tags, err := s.services.Clients.SetTags(c.ctx, appmodel.ClientTagsRequest{
+				TeamID: c.teamID, ClientID: in.ClientID, CallerID: c.userID, Tags: *in.Tags,
+			})
+			if err != nil {
+				return nil, mcpClientWriteError(err)
+			}
+			return struct {
+				ClientID int64    `json:"client_id"`
+				Tags     []string `json:"tags"`
+			}{in.ClientID, tags}, nil
+		},
+	},
+	{
 		Name:        "projects_list",
 		Description: "List the workspace's projects with their colour, client and billability. The billable rate is filled in for owners and admins only.",
 		Schema:      objectSchema(map[string]any{"archived": booleanProp("Include archived projects")}),
@@ -554,6 +620,47 @@ func mcpClientViewOf(client model.Client, manage bool) mcpClientView {
 		view.Email, view.Details, view.Notes = client.Email, client.Details, client.Notes
 	}
 	return view
+}
+
+// mcpSearchView is the answer of clients_search. Email is filled in for owners and
+// admins only, the same rule as the client list.
+type mcpSearchView struct {
+	Clients  []mcpSearchClient  `json:"clients"`
+	Contacts []mcpSearchContact `json:"contacts"`
+}
+
+type mcpSearchClient struct {
+	ID    int64    `json:"id"`
+	Name  string   `json:"name"`
+	Email string   `json:"email"`
+	Tags  []string `json:"tags"`
+}
+
+type mcpSearchContact struct {
+	ID         int64  `json:"id"`
+	ClientID   int64  `json:"client_id"`
+	ClientName string `json:"client_name"`
+	Name       string `json:"name"`
+	Role       string `json:"role"`
+	Email      string `json:"email"`
+	Phone      string `json:"phone"`
+}
+
+func mcpSearchViewOf(results appmodel.SearchResults, manage bool) mcpSearchView {
+	out := mcpSearchView{Clients: make([]mcpSearchClient, 0, len(results.Clients)), Contacts: make([]mcpSearchContact, 0, len(results.Contacts))}
+	for _, hit := range results.Clients {
+		client := mcpSearchClient{ID: hit.ID, Name: hit.Title, Tags: append([]string{}, hit.Tags...)}
+		if manage {
+			client.Email = hit.Detail
+		}
+		out.Clients = append(out.Clients, client)
+	}
+	for _, c := range results.Contacts {
+		out.Contacts = append(out.Contacts, mcpSearchContact{
+			ID: c.ID, ClientID: c.ClientID, ClientName: c.ClientName, Name: c.Name, Role: c.Role, Email: c.Email, Phone: c.Phone,
+		})
+	}
+	return out
 }
 
 type mcpProjectView struct {

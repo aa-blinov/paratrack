@@ -16,6 +16,7 @@ import { ContactsPanel } from "@/crm/contacts-panel"
 import { StageEditor } from "@/crm/stage-editor"
 import { LeadsPanel } from "@/crm/leads-panel"
 import { FunnelPanel } from "@/crm/funnel-panel"
+import { ClientSearch } from "@/crm/client-search"
 
 type DealsResponse = { today: string; deals: Deal[]; pipeline: Pipeline }
 
@@ -73,6 +74,7 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.crm")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "crm.blurb")}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
+    <ClientSearch lang={lang} />
     <div role="group" aria-label={t(lang, "crm.tabsLabel")} className="flex flex-wrap gap-2">
       <Button type="button" variant={tab === "deals" ? "secondary" : "outline"} aria-pressed={tab === "deals"} onClick={() => setTab("deals")}>{t(lang, "crm.tabDeals")}</Button>
       <Button type="button" variant={tab === "leads" ? "secondary" : "outline"} aria-pressed={tab === "leads"} onClick={() => setTab("leads")}>{t(lang, "crm.tabLeads")}</Button>

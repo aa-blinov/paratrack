@@ -481,6 +481,8 @@ type clientDetailRow struct {
 	BilledLabel   string
 	UnbilledLabel string
 	BilledTotal   string
+	// Tags are shown to every member; only a manager changes them (CRM-18).
+	Tags []string
 }
 
 type clientProjectRow struct {
@@ -538,6 +540,11 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		invoices = nil
 	}
 	budgets, err := s.services.Clients.Budgets(r.Context(), appmodel.ProjectBudgetQuery{TeamID: scope.TeamID})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	tags, err := s.services.Clients.Tags(r.Context(), scope)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -610,7 +617,7 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		CanManage:         canManage(r),
 		Client: clientDetailRow{
 			ID: card.ID, Name: card.Name, Currency: card.Currency, Archived: card.Archived,
-			TrackedLabel: fmtDur(r, int(seconds)),
+			TrackedLabel: fmtDur(r, int(seconds)), Tags: tags,
 		},
 	}
 	if manage {

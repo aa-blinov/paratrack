@@ -187,6 +187,8 @@ export interface ClientDetailClient {
   BilledLabel: string
   UnbilledLabel: string
   BilledTotal: string
+  /** Tags by name. Read by every member; changed by a manager only (CRM-18). */
+  Tags: string[]
 }
 
 export interface ClientDetailProject {

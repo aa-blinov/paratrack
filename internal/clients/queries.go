@@ -104,3 +104,11 @@ func (s *Service) Invoices(ctx context.Context, query appmodel.ClientScopeQuery,
 	}
 	return s.directory.ClientInvoices(ctx, query, clientName)
 }
+
+// Tags lists the tags of a client card. Every member reads them.
+func (s *Service) Tags(ctx context.Context, query appmodel.ClientScopeQuery) ([]string, error) {
+	if query.TeamID <= 0 || query.ClientID <= 0 {
+		return nil, appmodel.ErrInvalidClientTeam
+	}
+	return s.directory.ClientTags(ctx, query)
+}

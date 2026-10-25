@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { translate as t } from "@/i18n"
 import type { ClientDetailData, ClientDetailInvoice, ClientDetailProject } from "@/dashboard/types"
 import { ColorMark } from "@/components/color-mark"
+import { ClientTags } from "@/clients/client-tags"
 
 function InvoiceStatus({ lang, status }: { lang: string; status: string }) {
   // Как в invoices-page: цвет статуса живёт в роли .doc-status, а variant
@@ -91,6 +92,11 @@ export function ClientDetailPage({ data }: { data: ClientDetailData }) {
         <Fact label={t(lang, "clients.invoicedTotal")} value={client.BilledTotal} />
       </>}
     </dl>
+
+    {/* Теги видят все, менять их может только руководитель (CRM-18). */}
+    {(data.CanManage || client.Tags.length > 0) && <Card><CardContent className="p-5">
+      <ClientTags lang={lang} csrf={data.CSRFToken} clientID={client.ID} tags={client.Tags} canManage={data.CanManage} />
+    </CardContent></Card>}
 
     {/* Пустое поле не рисуем: заголовок без текста обесценивает сам факт его отсутствия. */}
     {(client.Details || client.Notes) && <Card><CardContent className="grid gap-4 p-5">
