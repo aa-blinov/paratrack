@@ -93,6 +93,28 @@ export type Lead = {
   converted_client_id: number
   created_at: string
   updated_at: string
+  /** Minutes from creation to the first activity; 0 while there is none. */
+  response_minutes: number
+  /** Minutes since creation while the lead has no activity; 0 once it has one. */
+  waiting_minutes: number
+  /** The first activity came within the two-hour target. */
+  within_target: boolean
+}
+
+/**
+ * How a lead's first response stands (CRM-16): answered within the target, answered later, or
+ * still waiting. A late answer always takes more than zero minutes, so a lead that is not within
+ * the target with no response above zero is waiting.
+ */
+export type ResponseState =
+  | { kind: "inTime"; minutes: number }
+  | { kind: "late"; minutes: number }
+  | { kind: "waiting"; minutes: number }
+
+export function responseState(lead: Lead): ResponseState {
+  if (lead.within_target) return { kind: "inTime", minutes: lead.response_minutes }
+  if (lead.response_minutes > 0) return { kind: "late", minutes: lead.response_minutes }
+  return { kind: "waiting", minutes: lead.waiting_minutes }
 }
 
 /** Lead fields as the server names them in a refusal. A name that is not an input stays at form level. */

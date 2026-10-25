@@ -12,7 +12,7 @@ import { translate as t } from "@/i18n"
 import { apiJSON, ApiError, issueOf, type Issue } from "@/lib/json-api"
 import { formatDate, formatDateTime } from "@/lib/date-format"
 import { memberLabel, type Member } from "@/lib/team-directory"
-import { activityKinds, leadFieldKeys, leadIsOpen, leadStatuses, type Activity, type Lead, type LeadStatus } from "@/crm/model"
+import { activityKinds, leadFieldKeys, leadIsOpen, leadStatuses, responseState, type Activity, type Lead, type LeadStatus } from "@/crm/model"
 import { IntakeKeyCard } from "@/crm/intake-key-card"
 
 const noOwner = "0"
@@ -61,7 +61,7 @@ export function LeadsPanel({ lang, csrf, viewerID, canManage, members }: { lang:
         {leads !== null && leads.length > 0 && <ul className="grid divide-y rounded-lg border">
           {leads.map(lead => <li key={lead.id} className="px-3">
             <button type="button" aria-expanded={selectedID === lead.id} onClick={() => setSelectedID(current => current === lead.id ? null : lead.id)} className="grid w-full gap-1 py-3 text-left">
-              <span className="flex flex-wrap items-center gap-2"><span className="min-w-0 font-medium [overflow-wrap:anywhere]">{leadName(lead, lang)}</span><Badge variant="secondary">{t(lang, `crm.leadStatus.${lead.status}`)}</Badge></span>
+              <span className="flex flex-wrap items-center gap-2"><span className="min-w-0 font-medium [overflow-wrap:anywhere]">{leadName(lead, lang)}</span><Badge variant="secondary">{t(lang, `crm.leadStatus.${lead.status}`)}</Badge><ResponseBadge lead={lead} lang={lang} /></span>
               <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                 {lead.source && <span>{lead.source}</span>}
                 {lead.owner_id === 0 ? <span>{t(lang, "crm.lead.noOwner")}</span> : ownerLabel(members, lead.owner_id) && <span>{ownerLabel(members, lead.owner_id)}</span>}
@@ -77,6 +77,13 @@ export function LeadsPanel({ lang, csrf, viewerID, canManage, members }: { lang:
     </Card>
     {canManage && <IntakeKeyCard lang={lang} csrf={csrf} />}
   </div>
+}
+
+// The first response against the two-hour target (CRM-16). A lead still waiting shows its age.
+function ResponseBadge({ lead, lang }: { lead: Lead; lang: string }) {
+  const state = responseState(lead)
+  const variant = state.kind === "inTime" ? "secondary" : state.kind === "late" ? "destructive" : "outline"
+  return <Badge variant={variant}>{t(lang, `crm.response.${state.kind}`, state.minutes)}</Badge>
 }
 
 function leadName(lead: Lead, lang: string): string {

@@ -27,7 +27,7 @@ var mcpToolSections = map[string]string{
 	"deal_update": "crm", "deal_move_stage": "crm", "deal_create_project": "crm", "activities_list": "crm", "activity_create": "crm",
 	"deal_stages_list": "crm", "deal_stage_create": "crm", "deal_stage_update": "crm", "deal_stage_delete": "crm",
 	"lead_list": "crm", "lead_create": "crm", "lead_update": "crm", "lead_status_set": "crm",
-	"lead_convert": "crm", "lead_activity_add": "crm",
+	"lead_convert": "crm", "lead_activity_add": "crm", "lead_response_stats": "crm",
 	"calendar_events_list": "calendar", "calendar_event_create": "calendar",
 	"calendar_event_update": "calendar", "calendar_event_delete": "calendar",
 	"tasks_list": "tasks", "task_get": "tasks", "task_create": "tasks", "task_set_status": "tasks",

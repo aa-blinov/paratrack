@@ -15,6 +15,10 @@ var columnMigrations = []struct {
 	// A won deal's project (CRM-13). It is set once, and the project's own deletion
 	// clears it, so a deal never points at a project that is gone.
 	{"crm_deals", "project_id", "BIGINT REFERENCES projects(id) ON DELETE SET NULL"},
+	// When a lead was first answered (CRM-16): the time of its first activity, set once and
+	// left NULL until then. The backfill in migrateLeadFirstResponses fills the leads that
+	// already had one.
+	{"crm_leads", "first_response_at", "TEXT"},
 	// The colour an activity wears. It used to be hashed from the name into
 	// a ten-slot palette, so with more than ten activities two of them
 	// looked identical and the mark identified nothing. Stored now; the

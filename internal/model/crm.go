@@ -198,6 +198,32 @@ type CRMLead struct {
 	CreatedBy         int64
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
+	// FirstResponseAt is the time of the lead's first activity; zero until it has one.
+	FirstResponseAt time.Time
+}
+
+// LeadResponseTargetMinutes is the first-response target for a lead: an answer within two
+// hours. The owner set it on 2026-10-25 (CRM-16, docs/backlog/crm.md). It is a value, not a
+// workspace setting, until the owner asks for one.
+const LeadResponseTargetMinutes = 120
+
+// ResponseTime is the time from a lead's creation to its first activity, and zero while it
+// has none. An activity logged as happening before the lead existed answers at once, so the
+// time is never negative.
+func (l CRMLead) ResponseTime() time.Duration {
+	if l.FirstResponseAt.IsZero() {
+		return 0
+	}
+	return max(0, l.FirstResponseAt.Sub(l.CreatedAt))
+}
+
+// CRMLeadResponseStats is how fast a period's leads were answered. MedianMinutes is zero
+// when none of them has an activity yet, so Answered tells that case apart.
+type CRMLeadResponseStats struct {
+	Created       int64
+	Answered      int64
+	WithinTarget  int64
+	MedianMinutes int64
 }
 
 // CRMIntakeKey is the workspace's key for the website's enquiry route. Only its hash is
