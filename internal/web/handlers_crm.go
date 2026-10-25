@@ -171,6 +171,18 @@ type crmStageBody struct {
 	LostReason string `json:"lost_reason"`
 }
 
+type crmStageCreateBody struct {
+	Name string `json:"name"`
+	Kind string `json:"kind"`
+}
+
+// crmStageUpdateBody changes only the fields it names.
+type crmStageUpdateBody struct {
+	Name     *string `json:"name"`
+	Kind     *string `json:"kind"`
+	Position *int    `json:"position"`
+}
+
 type crmContactBody struct {
 	ClientID int64  `json:"client_id"`
 	Name     string `json:"name"`
@@ -265,15 +277,76 @@ func (s *Server) handleCRMDealsList(w http.ResponseWriter, r *http.Request) {
 	for _, d := range deals {
 		views = append(views, crmDealViewOf(d, today))
 	}
-	s.writeJSON(w, crmDealsResponse{Today: today, Deals: views, Pipeline: crmPipelineViewOf(pipeline)})
+	s.writeJSON(w, crmDealsResponse{Today: today, Deals: views, Pipeline: crmPipelineViewOf(pipeline, resolveLang(r))})
 }
 
-func crmPipelineViewOf(p appmodel.CRMPipeline) crmPipelineView {
+func crmPipelineViewOf(p appmodel.CRMPipeline, lang i18n.Lang) crmPipelineView {
 	out := crmPipelineView{Stages: make([]crmStageView, 0, len(p.Stages)), Overdue: p.Overdue}
 	for _, stage := range p.Stages {
-		out.Stages = append(out.Stages, crmStageView{Stage: stage.Stage, Count: stage.Count})
+		out.Stages = append(out.Stages, crmStageView{Stage: stage.Stage, Name: stageName(lang, stage.Stage, stage.Name), Kind: stage.Kind, Count: stage.Count})
 	}
 	return out
+}
+
+func (s *Server) handleCRMStagesList(w http.ResponseWriter, r *http.Request) {
+	stages, err := s.services.CRM.Stages(r.Context(), appmodel.CRMStageListQuery{TeamID: teamID(r), CallerID: authenticatedUserID(r)})
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmStagesResponse{Stages: crmStageConfigViews(stages, resolveLang(r))})
+}
+
+func (s *Server) handleCRMStageCreate(w http.ResponseWriter, r *http.Request) {
+	var body crmStageCreateBody
+	if !s.decodeJSONBody(w, r, &body) {
+		return
+	}
+	stage, err := s.services.CRM.CreateStage(r.Context(), appmodel.CRMStageCreateRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), Manager: canManage(r), Name: body.Name, Kind: body.Kind,
+	})
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmStageConfigViewOf(stage, resolveLang(r)))
+}
+
+// handleCRMStageUpdate renames or re-kinds a stage, or moves it when the body only
+// gives a position. The key addresses the stage, because a default stage has no row
+// until the first change and so no id.
+func (s *Server) handleCRMStageUpdate(w http.ResponseWriter, r *http.Request) {
+	var body crmStageUpdateBody
+	if !s.decodeJSONBody(w, r, &body) {
+		return
+	}
+	var stage model.CRMStage
+	var err error
+	if body.Position != nil && body.Name == nil && body.Kind == nil {
+		stage, err = s.services.CRM.MoveStage(r.Context(), appmodel.CRMStageMoveRequest{
+			TeamID: teamID(r), CallerID: authenticatedUserID(r), Manager: canManage(r), Key: r.PathValue("key"), Position: *body.Position,
+		})
+	} else {
+		stage, err = s.services.CRM.UpdateStage(r.Context(), appmodel.CRMStageUpdateRequest{
+			TeamID: teamID(r), CallerID: authenticatedUserID(r), Manager: canManage(r), Key: r.PathValue("key"),
+			Name: body.Name, Kind: body.Kind, Position: body.Position,
+		})
+	}
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmStageConfigViewOf(stage, resolveLang(r)))
+}
+
+func (s *Server) handleCRMStageDelete(w http.ResponseWriter, r *http.Request) {
+	if err := s.services.CRM.DeleteStage(r.Context(), appmodel.CRMStageDeleteRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), Manager: canManage(r), Key: r.PathValue("key"),
+	}); err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleCRMDealCreate(w http.ResponseWriter, r *http.Request) {

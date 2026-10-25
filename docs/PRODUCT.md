@@ -235,8 +235,11 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
 - A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one.
 - A **deal** has a title, a client and a contact (both optional), an owner, an amount in cents of the deal's
   currency (empty means the workspace currency), a probability from 0 to 100, a close date and a next-step date.
-- The stages are fixed: `new`, `working`, `proposal`, `won`, `lost`. A lost deal needs a reason. Moving out of
-  `lost` clears the reason.
+- Stages belong to the workspace. A new workspace starts with five: `new`, `working`, `proposal`, `won`, `lost`.
+  A manager adds, renames, moves and removes them. A stage has a key that deals store, a name that people read, a
+  position and a kind. The kind sets the rules: a deal is overdue only in an open stage, a deal in a lost stage
+  needs a reason, and leaving a lost stage clears it. A stage with deals cannot be removed, and the workspace keeps
+  one open, one won and one lost stage. Until a workspace changes its stages, it reads the five defaults.
 - A deal is **overdue** when it is open and its next-step date is before today in the workspace time zone.
 - Any member sees every deal in the workspace and creates deals of their own. The owner or a manager changes a deal
   and moves its stage; only a manager assigns another owner. The rule holds in the transaction, not in the route.
@@ -383,7 +386,8 @@ Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoic
 `audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`, `timesheet_approvals`,
 `schedule_entries`, `push_subscriptions`, `settings` (VAPID keys).
 
-CRM and calendar tables: `crm_contacts`, `crm_deals` (stage checked by a constraint, probability 0 to 100),
+CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100),
+`crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked), `calendar_events` (`shared` as 0 or 1), `calendar_event_participants`.
 Times are text in the usual format and money is integer cents.
 
@@ -477,7 +481,6 @@ python e2e/qa_offline_push.py                   # offline + push
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.
-- CRM stages are fixed (five). There are no custom stages, leads, reminders or report by funnel yet (see
-  [backlog/crm.md](backlog/crm.md), CRM-12 onward).
+- There are no leads, reminders or funnel report yet (see [backlog/crm.md](backlog/crm.md), CRM-14, CRM-15 and CRM-17).
 - The team calendar is internal: no Google or Outlook sync and no recurring events.
 - The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.

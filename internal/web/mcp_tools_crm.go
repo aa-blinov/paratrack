@@ -64,9 +64,9 @@ var mcpCRMTools = []mcpTool{
 	{
 		Name: "deals_list",
 		Description: "List the deals of the workspace with the pipeline counts per stage and the number of overdue open deals. " +
-			"A deal is overdue when its next step date is before today. Filter by stage, owner or overdue.",
+			"A deal is overdue when its next step date is before today and its stage is open. Filter by stage key, owner or overdue.",
 		Schema: objectSchema(map[string]any{
-			"stage":    enumProp("Only deals in this stage", "new", "working", "proposal", "won", "lost"),
+			"stage":    stringProp("Only deals in this stage: a stage key from deal_stages_list"),
 			"owner_id": integerProp("Only deals of this owner"),
 			"overdue":  booleanProp("Only open deals whose next step has passed"),
 		}),
@@ -90,17 +90,18 @@ var mcpCRMTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmDealsResponse{Today: c.today, Deals: crmDealViews(deals, c.today), Pipeline: crmPipelineViewOf(pipeline)}, nil
+			return crmDealsResponse{Today: c.today, Deals: crmDealViews(deals, c.today), Pipeline: crmPipelineViewOf(pipeline, c.lang)}, nil
 		},
 	},
 	{
 		Name: "deal_create",
-		Description: "Create a deal. The stage defaults to new and the owner to the token's user. " +
+		Description: "Create a deal. The stage defaults to the workspace's first open stage and the owner to the token's user. " +
+			"A deal cannot start in a lost stage. " +
 			"Amounts are in cents of the deal currency, and probability is a percentage from 0 to 100.",
 		Write: true,
 		Schema: objectSchema(map[string]any{
 			"title":        stringProp("Deal title"),
-			"stage":        enumProp("Stage", "new", "working", "proposal", "won", "lost"),
+			"stage":        stringProp("Stage key from deal_stages_list; empty means the first open stage"),
 			"client_id":    integerProp("Client id"),
 			"contact_id":   integerProp("Contact id of the client"),
 			"owner_id":     integerProp("Owner user id; another owner needs a manager"),
@@ -162,13 +163,13 @@ var mcpCRMTools = []mcpTool{
 	},
 	{
 		Name: "deal_move_stage",
-		Description: "Move a deal to another stage. A lost deal needs a lost_reason. Leaving the lost stage clears the reason. " +
+		Description: "Move a deal to another stage. A stage of kind lost needs a lost_reason. Leaving a lost stage clears the reason. " +
 			"Only the deal owner or a manager can move a deal.",
 		Write: true,
 		Schema: objectSchema(map[string]any{
 			"deal_id":     integerProp("Deal id"),
-			"stage":       enumProp("New stage", "new", "working", "proposal", "won", "lost"),
-			"lost_reason": stringProp("Why the deal is lost; required for the lost stage"),
+			"stage":       stringProp("New stage: a stage key from deal_stages_list"),
+			"lost_reason": stringProp("Why the deal is lost; required when the stage is of kind lost"),
 		}, "deal_id", "stage"),
 		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
 			in, err := mcpArgs[struct {
@@ -186,6 +187,102 @@ var mcpCRMTools = []mcpTool{
 				return nil, err
 			}
 			return crmDealViewOf(deal, c.today), nil
+		},
+	},
+	{
+		Name:        "deal_stages_list",
+		Description: "List the deal pipeline of the workspace in order: each stage's key, name, position and kind. A deal's stage is the key. The kind is open, won or lost.",
+		Schema:      objectSchema(map[string]any{}),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			if _, err := mcpArgs[struct{}](args); err != nil {
+				return nil, err
+			}
+			stages, err := s.services.CRM.Stages(c.ctx, appmodel.CRMStageListQuery{TeamID: c.teamID, CallerID: c.userID})
+			if err != nil {
+				return nil, err
+			}
+			return crmStagesResponse{Stages: crmStageConfigViews(stages, c.lang)}, nil
+		},
+	},
+	{
+		Name: "deal_stage_create",
+		Description: "Add a stage to the end of the pipeline. The key is derived from the name. The kind decides the rules: " +
+			"an open stage can be overdue, a won or lost stage closes the deal, and a lost stage needs a reason. Managers only.",
+		Write: true,
+		Schema: objectSchema(map[string]any{
+			"name": stringProp("Stage name as people read it"),
+			"kind": enumProp("Kind of stage; defaults to open", "open", "won", "lost"),
+		}, "name"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				Name string `json:"name"`
+				Kind string `json:"kind"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			stage, err := s.services.CRM.CreateStage(c.ctx, appmodel.CRMStageCreateRequest{
+				TeamID: c.teamID, CallerID: c.userID, Manager: c.manage, Name: in.Name, Kind: in.Kind,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return crmStageConfigViewOf(stage, c.lang), nil
+		},
+	},
+	{
+		Name: "deal_stage_update",
+		Description: "Rename a stage, change its kind or move it to a 1-based position; the stages in between shift. " +
+			"The key does not change, and the pipeline keeps an open, a won and a lost stage. Managers only.",
+		Write: true,
+		Schema: objectSchema(map[string]any{
+			"key":      stringProp("Stage key from deal_stages_list"),
+			"name":     stringProp("New name"),
+			"kind":     enumProp("New kind of stage", "open", "won", "lost"),
+			"position": integerProp("New 1-based position"),
+		}, "key"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				Key      string  `json:"key"`
+				Name     *string `json:"name"`
+				Kind     *string `json:"kind"`
+				Position *int    `json:"position"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			stage, err := s.services.CRM.UpdateStage(c.ctx, appmodel.CRMStageUpdateRequest{
+				TeamID: c.teamID, CallerID: c.userID, Manager: c.manage, Key: in.Key,
+				Name: in.Name, Kind: in.Kind, Position: in.Position,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return crmStageConfigViewOf(stage, c.lang), nil
+		},
+	},
+	{
+		Name: "deal_stage_delete",
+		Description: "Delete a stage that has no deals. A stage with deals is refused, so move its deals first with deal_move_stage. " +
+			"Managers only, and the deletion cannot be undone.",
+		Write:       true,
+		Destructive: true,
+		Schema:      objectSchema(map[string]any{"key": stringProp("Stage key from deal_stages_list")}, "key"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				Key string `json:"key"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.services.CRM.DeleteStage(c.ctx, appmodel.CRMStageDeleteRequest{
+				TeamID: c.teamID, CallerID: c.userID, Manager: c.manage, Key: in.Key,
+			}); err != nil {
+				return nil, err
+			}
+			return struct {
+				Deleted string `json:"deleted"`
+			}{Deleted: in.Key}, nil
 		},
 	},
 	{
