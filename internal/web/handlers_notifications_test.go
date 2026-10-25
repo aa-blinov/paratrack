@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -54,8 +55,8 @@ func TestNotificationTopicSaveKeepsTheWholeSelection(t *testing.T) {
 
 	page := readBody(t, e.do("GET", "/settings/notifications", nil, nil))
 	data := reactData[notifyPage](t, page)
-	if len(data.Topics) != 7 {
-		t.Fatalf("topics = %+v, want the seven events the app sends", data.Topics)
+	if len(data.Topics) != 8 {
+		t.Fatalf("topics = %+v, want the eight events the app sends", data.Topics)
 	}
 	muted := map[string]bool{}
 	for _, topic := range data.Topics {
@@ -98,5 +99,27 @@ func TestNotificationTestNamesTheChannelOutcomeInsteadOfFailingQuietly(t *testin
 	recorder = e.signedInNotificationRequest("/api/push/topics", url.Values{"topic": {"invoice.paid"}})
 	if recorder.Code != 400 {
 		t.Fatalf("mute of an unsent event = %d %s", recorder.Code, recorder.Body.String())
+	}
+}
+
+// A browser session that uses English keeps English on the person's preferences,
+// so the letters the app sends them are written in it (CRM-15).
+func TestNotifLanguageOfTheBrowserSessionIsKept(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("notify-language@x.test")
+
+	if resp := e.do("GET", "/settings/notifications", nil, map[string]string{"Accept-Language": "en-US,en;q=0.9"}); resp.StatusCode != http.StatusOK {
+		t.Fatalf("settings page = %d, want 200", resp.StatusCode)
+	}
+	var userID int64
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM users WHERE email = ?`, "notify-language@x.test").Scan(&userID); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := e.db.UserPrefs(t.Context(), userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(raw, `"lang":"en"`) {
+		t.Fatalf("stored preferences = %s, want the English session kept", raw)
 	}
 }

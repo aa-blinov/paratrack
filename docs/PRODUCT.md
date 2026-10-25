@@ -194,7 +194,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Reassigning a task with `move_plan=1` moves the previous assignee's plan on the task's project, from today on, to the new assignee, day by day, in one transaction (TASK-03). The plan is per person, project and day, so a task has no plan of its own. Managers and the project lead may move it; for anyone else the reassignment stands and the move is refused with a reason
 - The task report (`/tasks?view=report`, managers only) lists one line per task with time inside a period of days, both ends included, in the viewer's zone. A session counts for the part inside the period, an open timer up to now, and an archived task keeps its line. A task with no time in the period has no line; `GET /api/tasks/report.csv` carries the same rows (TASK-04)
 - Weekly norm (PLAN-02): a project may carry a norm in hours a week (`project_weekly_norms`). The project page lists six weeks around today with the plan and, where the viewer may see it, the tracked time. A week more than a tenth off the norm is marked. A past week is judged by its tracked time where the viewer may see it, and by the plan otherwise
-- Reminders (`internal/reminders`, once an hour): a deadline within three days goes to the managers and the lead, once per deadline (`projects.deadline_reminded`); a person planned past their available time this week goes to the managers, once per person and week (`schedule_overload_reminders`). Topics `project.deadline`, `schedule.overload` and `task.due` can be muted. When SMTP is configured, the overload reminder also goes by email to the same managers, with the same mute rule (TIME-14). A task's assignee gets a nudge when its due date is today or tomorrow, and another when it is overdue: once per due date, by push and, with SMTP, by email (TASK-05).
+- Reminders (`internal/reminders`, once an hour): a deadline within three days goes to the managers and the lead, once per deadline (`projects.deadline_reminded`); a person planned past their available time this week goes to the managers, once per person and week (`schedule_overload_reminders`). Topics `project.deadline`, `schedule.overload`, `task.due` and `crm_next_step` can be muted. The CRM next-step reminders are described in the CRM section. When SMTP is configured, the overload reminder also goes by email to the same managers, with the same mute rule (TIME-14). A task's assignee gets a nudge when its due date is today or tomorrow, and another when it is overdue: once per due date, by push and, with SMTP, by email (TASK-05).
 - Managers see tracked time; a member sees only the plan.
 - The project page shows the plan once, in the total row under "By person" (labelled "Total, all time"). That total is the sum of the person rows, and its tracked cell is the sum of the tracked column, so it appears only where that column does. A project nobody has planned shows no table and no total row. The remaining-estimate figure counts the plan from today onward and says so.
 - The team utilization report (`/reports`, `utilization`) puts each member's planned minutes over the period beside their tracked time. A member with a plan and no tracked time gets a row with zero time. Without an explicit period it covers the current week, so the days still to come count toward the plan. Its load column is tracked time over planned time for the same days, empty when there is no plan. That is not the Schedule's Load%, which is planned over available.
@@ -281,6 +281,14 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
   names `contact`. The route is limited to 60 requests a minute per address and 30 a minute per key, then `429`. It
   answers any origin for a `POST` with the `Content-Type` and `X-Intake-Key` headers and sends no credentials. An
   enquiry has no owner and starts as `new`. The intake key is not an agent tool.
+- **Next-step reminders** (`internal/reminders`, the hourly pass). An open deal, or a lead in `new`, `contacted` or
+  `qualified`, is due when its next-step date is today or earlier in the workspace time zone. Its owner gets one push
+  per item on the topic `crm_next_step`, which the person can switch off, and, with SMTP, one email a day listing every
+  item due for them. The email is in the language the person last used in a browser session (Russian until then), has
+  no secret in it, and links to `/crm`. It is queued in the mail queue like an invoice letter. A won or lost deal, a
+  converted or lost lead, an item with no owner and a date after today are not reminded. A person who has left the
+  workspace is not reminded either. Each item goes out once a day per channel: a second pass the same day sends
+  nothing. A person who muted the topic gets neither the push nor the email, and the day's reminder is not spent on them.
 
 ### Team calendar
 
@@ -427,7 +435,8 @@ CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its work
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`
 and `converted_client_id` set once), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
-`calendar_events` (`shared` as 0 or 1), `calendar_event_participants`.
+`calendar_events` (`shared` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
+workspace day; its primary key is the once-a-day claim of a next-step reminder).
 Times are text in the usual format and money is integer cents.
 
 Rules worth knowing:
@@ -520,6 +529,6 @@ python e2e/qa_offline_push.py                   # offline + push
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.
-- There are no reminders or funnel report yet (see [backlog/crm.md](backlog/crm.md), CRM-15 and CRM-17).
+- There is no funnel report yet (see [backlog/crm.md](backlog/crm.md), CRM-17).
 - The team calendar is internal: no Google or Outlook sync and no recurring events.
 - The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.

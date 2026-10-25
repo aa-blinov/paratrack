@@ -183,6 +183,14 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, err
 	}
+	preferenceService, err := preferences.New(database, projectService)
+	if err != nil {
+		return nil, fmt.Errorf("construct preferences service: %w", err)
+	}
+	mailQueueService, err := mailqueue.New(database, now, logger, auditService)
+	if err != nil {
+		return nil, fmt.Errorf("construct mail queue service: %w", err)
+	}
 	reminderMailer := mail.Sender(nil)
 	if config.SMTP.Host != "" {
 		reminderMailer, err = mail.NewSender(config.SMTP, config.Logger)
@@ -192,14 +200,12 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	}
 	reminderService, err := reminders.New(reminders.Dependencies{
 		Store: database, Planner: schedulingService, Sender: reminderPushNotifications{push: pushService}, Now: now,
-		Mailer: reminderEmail{push: pushService, identities: authService, sender: reminderMailer, publicURL: config.PublicURL},
+		Mailer:    reminderEmail{push: pushService, identities: authService, sender: reminderMailer, publicURL: config.PublicURL},
+		Audience:  crmAudience{push: pushService, identities: authService, preferences: preferenceService, queue: mailQueueService, sender: reminderMailer},
+		PublicURL: config.PublicURL,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)
-	}
-	mailQueueService, err := mailqueue.New(database, now, logger, auditService)
-	if err != nil {
-		return nil, fmt.Errorf("construct mail queue service: %w", err)
 	}
 	agentActionService, err := agentactions.New(database)
 	if err != nil {
@@ -251,10 +257,6 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct report builder: %w", err)
-	}
-	preferenceService, err := preferences.New(database, projectService)
-	if err != nil {
-		return nil, fmt.Errorf("construct preferences service: %w", err)
 	}
 	trackingOpsService, err := trackingops.New(trackingops.Dependencies{
 		Sessions: trackingService, Activities: trackingService, Resolver: trackingService,

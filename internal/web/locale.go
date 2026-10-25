@@ -1,9 +1,12 @@
 package web
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
@@ -36,6 +39,24 @@ func resolveLang(r *http.Request) i18n.Lang {
 		}
 	}
 	return i18n.Default
+}
+
+// rememberLanguage stores the language a browser session is using, so a letter
+// the app sends this person is written in it (CRM-15). It writes only when the
+// language changed, and returns the preferences the request should carry on.
+// A failed save is logged and the request goes on with the old value.
+func (s *Server) rememberLanguage(ctx context.Context, r *http.Request, userID, teamID int64, prefs Prefs) Prefs {
+	lang := string(resolveLang(r))
+	if prefs.Language == lang {
+		return prefs
+	}
+	prefs.Language = lang
+	if err := s.services.Preferences.Save(ctx, appmodel.PreferencesSaveRequest{
+		UserID: userID, CallerID: userID, TeamID: teamID, Preferences: prefs,
+	}); err != nil {
+		s.logInternalError(fmt.Errorf("save language: %w", err))
+	}
+	return prefs
 }
 
 func setLangCookie(w http.ResponseWriter, r *http.Request, lang i18n.Lang) {

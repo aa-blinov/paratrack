@@ -31,6 +31,7 @@ type invoiceEmailPayload struct {
 
 type Store interface {
 	EnqueueInvoiceEmail(context.Context, appmodel.InvoiceEmailEnqueueRequest) error
+	EnqueueReminderEmail(context.Context, appmodel.ReminderEmailEnqueueRequest) error
 	ClaimInvoiceEmail(context.Context) (mailport.InvoiceEmailJob, bool, error)
 	CompleteInvoiceEmail(context.Context, mailport.InvoiceEmailJob) error
 	RetryInvoiceEmail(context.Context, mailport.InvoiceEmailRetryRequest) error
@@ -80,6 +81,24 @@ func (s *Service) EnqueueInvoice(ctx context.Context, request mailport.InvoiceQu
 		Target: request.InvoiceNumber, Meta: request.Recipient, IP: requestctx.ClientIP(ctx),
 	}); err != nil {
 		s.logger.Printf("invoice mail queue: record send_queued audit for invoice %s: %v", request.InvoiceNumber, err)
+	}
+	return nil
+}
+
+// EnqueueReminder queues a reminder letter for one recipient. The same outbox
+// and worker deliver it as an invoice letter; it carries no invoice.
+func (s *Service) EnqueueReminder(ctx context.Context, request mailport.ReminderQueueRequest) error {
+	if request.TeamID <= 0 || request.Recipient == "" || request.Message.To != request.Recipient || request.Message.Subject == "" || request.Message.Text == "" {
+		return fmt.Errorf("invalid reminder email request")
+	}
+	payload, err := json.Marshal(invoiceEmailPayload{Version: invoiceEmailPayloadVersion, Message: request.Message})
+	if err != nil {
+		return fmt.Errorf("encode reminder email payload: %w", err)
+	}
+	if err := s.store.EnqueueReminderEmail(ctx, appmodel.ReminderEmailEnqueueRequest{
+		TeamID: request.TeamID, Recipient: request.Recipient, Payload: payload,
+	}); err != nil {
+		return fmt.Errorf("enqueue reminder email: %w", err)
 	}
 	return nil
 }

@@ -44,6 +44,11 @@ func (s *retryStore) EnqueueInvoiceEmail(_ context.Context, request appmodel.Inv
 	return nil
 }
 
+func (s *retryStore) EnqueueReminderEmail(_ context.Context, request appmodel.ReminderEmailEnqueueRequest) error {
+	s.payload = append([]byte(nil), request.Payload...)
+	return nil
+}
+
 func (s *retryStore) ClaimInvoiceEmail(context.Context) (mailport.InvoiceEmailJob, bool, error) {
 	if s.claimed {
 		return mailport.InvoiceEmailJob{}, false, nil
@@ -114,5 +119,31 @@ func TestDecodeInvoiceEmailPayloadSupportsLegacyRows(t *testing.T) {
 	}
 	if message.To != "client@example.test" || message.Subject != "Invoice" || message.Text != "Frozen body" {
 		t.Fatalf("decoded legacy message = %+v", message)
+	}
+}
+
+// A reminder letter is queued into the outbox the worker drains, and it decodes back
+// to the message it was queued with. A letter whose recipient does not match is refused (CRM-15).
+func TestMailReminderLetterIsQueuedAsTheMessageItWas(t *testing.T) {
+	now := time.Date(2026, time.October, 25, 9, 0, 0, 0, time.UTC)
+	store := &retryStore{}
+	service, err := New(store, func() time.Time { return now }, log.New(io.Discard, "", 0), noopAudit{})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	message := mailport.Message{To: "owner@example.test", Subject: "Следующие шаги", Text: "Сделка «Сайт»"}
+
+	if err := service.EnqueueReminder(t.Context(), mailport.ReminderQueueRequest{TeamID: 3, Recipient: "other@example.test", Message: message}); err == nil {
+		t.Fatal("a letter whose recipient differs from its message was queued")
+	}
+	if err := service.EnqueueReminder(t.Context(), mailport.ReminderQueueRequest{TeamID: 3, Recipient: message.To, Message: message}); err != nil {
+		t.Fatalf("EnqueueReminder: %v", err)
+	}
+	got, err := decodeInvoiceEmailPayload(store.payload)
+	if err != nil {
+		t.Fatalf("decode queued letter: %v", err)
+	}
+	if got.To != message.To || got.Subject != message.Subject || got.Text != message.Text {
+		t.Fatalf("delivered message = %+v, want %+v", got, message)
 	}
 }

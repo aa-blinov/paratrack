@@ -210,6 +210,9 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			// only ever sees their own time.
 			ctx = requestctx.WithActor(ctx, user.ID)
 			if prefs, err := s.services.Preferences.Load(ctx, user.ID); err == nil {
+				if principal.sessionToken != "" {
+					prefs = s.rememberLanguage(ctx, r, user.ID, team.ID, prefs)
+				}
 				ctx = withPrefs(ctx, prefs)
 			} else if s.logger != nil {
 				s.logger.Printf("web: load preferences for user %d: %v", user.ID, err)

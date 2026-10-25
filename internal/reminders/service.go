@@ -1,6 +1,7 @@
-// Package reminders sends the two nudges a project lead and a manager need
-// without opening the app: a project deadline is close, or a person is planned
-// past the time they have this week. Each nudge goes out once.
+// Package reminders sends the nudges that need no app to be open: a project
+// deadline is close, a person is planned past the time they have this week, a
+// task is due, or a deal or lead has its next step due today. Each nudge goes
+// out once; a next step goes out once a day.
 package reminders
 
 import (
@@ -17,6 +18,8 @@ const (
 	TopicDeadline = "project.deadline"
 	TopicOverload = "schedule.overload"
 	TopicTaskDue  = "task.due"
+	// TopicCRMNextStep is the topic a person switches off for next-step reminders.
+	TopicCRMNextStep = appmodel.NotificationTopicCRMNextStep
 )
 
 // Store is the persistence the reminders need. Each claim is idempotent, so a
@@ -29,6 +32,8 @@ type Store interface {
 	ClaimOverloadNotice(ctx context.Context, request appmodel.OverloadNoticeRequest) (bool, error)
 	TasksDueOn(ctx context.Context, through string) ([]appmodel.DueTask, error)
 	MarkTaskDueReminded(ctx context.Context, request appmodel.TaskDueReminderRequest) error
+	CRMStepsDue(ctx context.Context, through string) ([]appmodel.CRMStep, error)
+	ClaimCRMReminder(ctx context.Context, claim appmodel.CRMReminderClaimRequest) (bool, error)
 }
 
 // Planner reads a team's week, the same way the schedule page does.
@@ -59,20 +64,26 @@ type Mailer interface {
 
 // Service runs one pass of reminders on an interval.
 type Service struct {
-	store   Store
-	planner Planner
-	sender  Sender
-	mailer  Mailer
-	now     func() time.Time
+	store     Store
+	planner   Planner
+	sender    Sender
+	mailer    Mailer
+	audience  CRMAudience
+	publicURL string
+	now       func() time.Time
 }
 
-// Dependencies are the ports a reminder pass needs. Mailer is optional.
+// Dependencies are the ports a reminder pass needs. Mailer and Audience are
+// optional; without Audience the next-step reminders do not run. PublicURL is
+// the address the letters link to.
 type Dependencies struct {
-	Store   Store
-	Planner Planner
-	Sender  Sender
-	Mailer  Mailer
-	Now     func() time.Time
+	Store     Store
+	Planner   Planner
+	Sender    Sender
+	Mailer    Mailer
+	Audience  CRMAudience
+	PublicURL string
+	Now       func() time.Time
 }
 
 // New builds the reminder worker. Now defaults to the wall clock.
@@ -84,7 +95,10 @@ func New(deps Dependencies) (*Service, error) {
 	if now == nil {
 		now = time.Now
 	}
-	return &Service{store: deps.Store, planner: deps.Planner, sender: deps.Sender, mailer: deps.Mailer, now: now}, nil
+	return &Service{
+		store: deps.Store, planner: deps.Planner, sender: deps.Sender, mailer: deps.Mailer,
+		audience: deps.Audience, publicURL: deps.PublicURL, now: now,
+	}, nil
 }
 
 // taskDues nudges the assignee of an open task that is due today or tomorrow,
@@ -153,6 +167,9 @@ func (s *Service) Pass(ctx context.Context) error {
 	}
 	if err := s.overloads(ctx, now); err != nil {
 		return fmt.Errorf("overload reminders: %w", err)
+	}
+	if err := s.crmSteps(ctx, now); err != nil {
+		return fmt.Errorf("crm next step reminders: %w", err)
 	}
 	return nil
 }
