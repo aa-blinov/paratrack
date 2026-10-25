@@ -281,6 +281,16 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
   names `contact`. The route is limited to 60 requests a minute per address and 30 a minute per key, then `429`. It
   answers any origin for a `POST` with the `Content-Type` and `X-Intake-Key` headers and sends no credentials. An
   enquiry has no owner and starts as `new`. The intake key is not an agent tool.
+- **First response** (CRM-16). A lead's first response is the time of its first activity, by anyone, counted from the
+  lead's creation. It is stored once in `crm_leads.first_response_at`, in the transaction that records the first
+  activity; a later activity does not move it. An activity dated before the lead existed answers at once. The target
+  is two hours (`model.LeadResponseTargetMinutes`, set by the owner on 2026-10-25): an answer within 120 minutes is in
+  time, a later one is late, and a lead with no activity is waiting for the age it has reached. The leads list shows
+  the state on each lead. The measure for a period is `GET /api/crm/leads/response-stats?from=YYYY-MM-DD&to=YYYY-MM-DD`,
+  also the `lead_response_stats` tool: the leads created on each day of the period in the workspace time zone (or the
+  reader's own, when the workspace has none), how many were created, how many have an activity, how many were answered
+  within the target, and the median minutes to the first activity, null while none has one. Any member reads it. A lead
+  that already had an activity when this rule shipped took its first logged activity as its response, once.
 - **Next-step reminders** (`internal/reminders`, the hourly pass). An open deal, or a lead in `new`, `contacted` or
   `qualified`, is due when its next-step date is today or earlier in the workspace time zone. Its owner gets one push
   per item on the topic `crm_next_step`, which the person can switch off, and, with SMTP, one email a day listing every
@@ -434,7 +444,7 @@ CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its work
 `project_id` is the project a won deal made),
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`
-and `converted_client_id` set once), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
+and `converted_client_id` set once, `first_response_at` set by the first activity), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
 `calendar_events` (`shared` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
 workspace day; its primary key is the once-a-day claim of a next-step reminder).
 Times are text in the usual format and money is integer cents.

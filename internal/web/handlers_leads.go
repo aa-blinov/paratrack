@@ -67,7 +67,41 @@ func (s *Server) handleCRMLeadsList(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmLeadsResponse{Leads: crmLeadViews(leads)})
+	s.writeJSON(w, crmLeadsResponse{Leads: crmLeadViews(leads, userNow(r))})
+}
+
+// leadPeriod reads the first and last day of a lead period in the reader's zone, and returns
+// the instants the workspace query takes: the start of the first day and the start of the day
+// after the last one. The same reading serves the HTTP route and the MCP tool.
+func leadPeriod(from, to string, loc *time.Location) (time.Time, time.Time, error) {
+	start, err := mcpLocalDate("from", from, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	last, err := mcpLocalDate("to", to, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	return start, last.AddDate(0, 0, 1), nil
+}
+
+// handleCRMLeadResponseStats measures the first response of the leads created from one day to
+// another (CRM-16). Any member reads it, as the leads list does.
+func (s *Server) handleCRMLeadResponseStats(w http.ResponseWriter, r *http.Request) {
+	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
+	start, end, err := leadPeriod(from, to, userLoc(r))
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	stats, err := s.services.CRM.LeadResponseStats(r.Context(), appmodel.CRMLeadResponseStatsQuery{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), From: start, To: end,
+	})
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmLeadResponseStatsViewOf(stats, from, to))
 }
 
 func (s *Server) handleCRMLeadCreate(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +118,7 @@ func (s *Server) handleCRMLeadCreate(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmLeadViewOf(lead))
+	s.writeJSON(w, crmLeadViewOf(lead, userNow(r)))
 }
 
 func (s *Server) handleCRMLeadUpdate(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +139,7 @@ func (s *Server) handleCRMLeadUpdate(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmLeadViewOf(lead))
+	s.writeJSON(w, crmLeadViewOf(lead, userNow(r)))
 }
 
 func (s *Server) handleCRMLeadStatus(w http.ResponseWriter, r *http.Request) {
@@ -124,7 +158,7 @@ func (s *Server) handleCRMLeadStatus(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmLeadViewOf(lead))
+	s.writeJSON(w, crmLeadViewOf(lead, userNow(r)))
 }
 
 func (s *Server) handleCRMLeadConvert(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +173,7 @@ func (s *Server) handleCRMLeadConvert(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmLeadViewOf(lead))
+	s.writeJSON(w, crmLeadViewOf(lead, userNow(r)))
 }
 
 func (s *Server) handleCRMIntakeKeyStatus(w http.ResponseWriter, r *http.Request) {

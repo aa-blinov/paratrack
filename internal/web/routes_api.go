@@ -66,6 +66,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("GET", "/api/crm/activities", s.module("crm", s.handleCRMActivitiesList))
 	api("POST", "/api/crm/activities", s.module("crm", s.handleCRMActivityCreate))
 	api("GET", "/api/crm/leads", s.module("crm", s.handleCRMLeadsList))
+	api("GET", "/api/crm/leads/response-stats", s.module("crm", s.handleCRMLeadResponseStats))
 	api("POST", "/api/crm/leads", s.module("crm", s.handleCRMLeadCreate))
 	api("POST", "/api/crm/leads/{id}", s.module("crm", s.handleCRMLeadUpdate))
 	api("POST", "/api/crm/leads/{id}/status", s.module("crm", s.handleCRMLeadStatus))

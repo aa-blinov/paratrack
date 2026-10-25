@@ -525,6 +525,19 @@ func (d *DB) CreateCRMActivity(ctx context.Context, request appmodel.CRMActivity
 	if err != nil {
 		return model.CRMActivity{}, err
 	}
+	// The first activity on a lead is its first response (CRM-16). A later one leaves it.
+	// A response cannot lie in the future, so a future date counts as answered now.
+	if request.LeadID > 0 {
+		responded := occurred.UTC()
+		if responded.After(now.UTC()) {
+			responded = now.UTC()
+		}
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE crm_leads SET first_response_at = ? WHERE id = ? AND team_id = ? AND first_response_at IS NULL`,
+			FormatTime(responded), request.LeadID, request.TeamID); err != nil {
+			return model.CRMActivity{}, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return model.CRMActivity{}, err
 	}

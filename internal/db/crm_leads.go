@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"math"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -19,13 +20,15 @@ import (
 // no owner and no member behind it.
 
 const leadColumns = `id, company, contact_name, phone, email, source, message, owner_id, status, lost_reason,
-	next_step_at, COALESCE(converted_deal_id, 0), COALESCE(converted_client_id, 0), created_by, created_at, updated_at`
+	next_step_at, COALESCE(converted_deal_id, 0), COALESCE(converted_client_id, 0), created_by, created_at, updated_at,
+	COALESCE(first_response_at, '')`
 
 func scanCRMLead(teamID int64, row dealScanner) (model.CRMLead, error) {
 	l := model.CRMLead{TeamID: teamID}
-	var created, updated string
+	var created, updated, firstResponse string
 	if err := row.Scan(&l.ID, &l.Company, &l.ContactName, &l.Phone, &l.Email, &l.Source, &l.Message, &l.OwnerID,
-		&l.Status, &l.LostReason, &l.NextStepAt, &l.ConvertedDealID, &l.ConvertedClientID, &l.CreatedBy, &created, &updated); err != nil {
+		&l.Status, &l.LostReason, &l.NextStepAt, &l.ConvertedDealID, &l.ConvertedClientID, &l.CreatedBy, &created, &updated,
+		&firstResponse); err != nil {
 		return model.CRMLead{}, err
 	}
 	var err error
@@ -35,7 +38,65 @@ func scanCRMLead(teamID int64, row dealScanner) (model.CRMLead, error) {
 	if l.UpdatedAt, err = ParseTime(updated); err != nil {
 		return model.CRMLead{}, err
 	}
+	if firstResponse != "" {
+		if l.FirstResponseAt, err = ParseTime(firstResponse); err != nil {
+			return model.CRMLead{}, err
+		}
+	}
 	return l, nil
+}
+
+// migrateLeadFirstResponses gives the leads that already had an activity their first response
+// (CRM-16). It takes the first activity logged on a lead, the lowest id, which is the rule
+// CreateCRMActivity applies from now on; the earliest occurred_at could differ when an
+// activity is logged with a past date. Runs once.
+func (d *DB) migrateLeadFirstResponses(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261025_lead_first_response", func(tx *Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE crm_leads SET first_response_at = (
+			   SELECT a.occurred_at FROM crm_activities a WHERE a.lead_id = crm_leads.id ORDER BY a.id LIMIT 1)
+			 WHERE first_response_at IS NULL
+			   AND EXISTS (SELECT 1 FROM crm_activities a WHERE a.lead_id = crm_leads.id)`)
+		return err
+	})
+	return err
+}
+
+// CRMLeadResponseStats measures the first response of the leads created in [From, To) (CRM-16).
+// Any member reads it, as the leads list does. Timestamps are text, so the period and the
+// difference cast them to timestamptz. A response dated before its lead's creation counts as
+// zero minutes, the rule ResponseTime applies to one lead, so the stats and the lead badges agree.
+func (d *DB) CRMLeadResponseStats(ctx context.Context, query appmodel.CRMLeadResponseStatsQuery) (model.CRMLeadResponseStats, error) {
+	if query.TeamID <= 0 || query.CallerID <= 0 {
+		return model.CRMLeadResponseStats{}, ErrNotFound
+	}
+	if _, err := readTeamRole(ctx, d.sql, query.TeamID, query.CallerID); err != nil {
+		return model.CRMLeadResponseStats{}, err
+	}
+	var stats model.CRMLeadResponseStats
+	var median sql.NullFloat64
+	err := d.sql.QueryRowContext(ctx,
+		`WITH created AS (
+		   SELECT first_response_at, created_at FROM crm_leads
+		    WHERE team_id = ?
+		      AND created_at::timestamptz >= CAST(? AS timestamptz)
+		      AND created_at::timestamptz < CAST(? AS timestamptz)
+		 ), answered AS (
+		   SELECT GREATEST(0, EXTRACT(EPOCH FROM (first_response_at::timestamptz - created_at::timestamptz)) / 60)::float8 AS minutes
+		     FROM created WHERE first_response_at IS NOT NULL
+		 )
+		 SELECT (SELECT COUNT(*) FROM created), (SELECT COUNT(*) FROM answered),
+		        (SELECT COUNT(*) FROM answered WHERE minutes <= ?),
+		        (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY minutes) FROM answered)`,
+		query.TeamID, FormatTime(query.From), FormatTime(query.To), model.LeadResponseTargetMinutes,
+	).Scan(&stats.Created, &stats.Answered, &stats.WithinTarget, &median)
+	if err != nil {
+		return model.CRMLeadResponseStats{}, err
+	}
+	if median.Valid {
+		stats.MedianMinutes = int64(math.Round(median.Float64))
+	}
+	return stats, nil
 }
 
 // loadLead reads one lead of the workspace. A lead of another workspace is not found.
