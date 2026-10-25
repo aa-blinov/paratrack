@@ -19,7 +19,8 @@ import (
 
 // postMCP sends one raw JSON-RPC message to the agent endpoint. The cookie jar of
 // the test env goes along only when cookies is true, so a test can show that a
-// browser session alone does not get in.
+// browser session alone does not get in. A JSON answer is decoded whatever its status,
+// so a refused message can be checked by its error code.
 func postMCP(t *testing.T, e *apiEnv, headers map[string]string, body string, cookies bool) (int, map[string]any) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodPost, e.ts.URL+"/mcp", strings.NewReader(body))
@@ -42,7 +43,7 @@ func postMCP(t *testing.T, e *apiEnv, headers map[string]string, body string, co
 	defer resp.Body.Close()
 	raw, _ := io.ReadAll(resp.Body)
 	var out map[string]any
-	if len(raw) > 0 && resp.StatusCode == http.StatusOK {
+	if len(raw) > 0 && strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json") {
 		if err := json.Unmarshal(raw, &out); err != nil {
 			t.Fatalf("decode MCP answer %q: %v", raw, err)
 		}
