@@ -15,9 +15,15 @@ import (
 type fakeStore struct {
 	Store
 	created      []appmodel.CRMDealCreateRequest
+	updated      []appmodel.CRMDealUpdateRequest
 	deals        []model.CRMDeal
 	stages       []model.CRMStage
 	stageCreated []appmodel.CRMStageCreateRequest
+}
+
+func (f *fakeStore) UpdateCRMDeal(_ context.Context, request appmodel.CRMDealUpdateRequest) (model.CRMDeal, error) {
+	f.updated = append(f.updated, request)
+	return model.CRMDeal{ID: request.DealID}, nil
 }
 
 func (f *fakeStore) ListCRMStages(context.Context, appmodel.CRMStageListQuery) ([]model.CRMStage, error) {
@@ -124,7 +130,7 @@ func TestCreateDealTrimsDefaultsAndRefusesBadInput(t *testing.T) {
 	} else {
 		wantField(t, err, "close date")
 	}
-	if _, err := svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "Сайт", Currency: "rubles"}); err == nil {
+	if _, err := svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "Сайт", Currency: "rubles", Manager: true}); err == nil {
 		t.Fatal("long currency was accepted")
 	} else {
 		wantField(t, err, "currency")
@@ -133,7 +139,7 @@ func TestCreateDealTrimsDefaultsAndRefusesBadInput(t *testing.T) {
 		t.Fatalf("a refused deal reached the store: %+v", store.created)
 	}
 
-	deal, err := svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "  Сайт  ", Currency: "rub", NextStepAt: "2026-10-30"})
+	deal, err := svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "  Сайт  ", Currency: "rub", NextStepAt: "2026-10-30", Manager: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,6 +148,42 @@ func TestCreateDealTrimsDefaultsAndRefusesBadInput(t *testing.T) {
 	}
 	if got := store.created[0]; got.Stage != "" || got.Currency != "RUB" {
 		t.Fatalf("stage and currency = %q, %q; want no stage (the workspace picks its first open one) and RUB", got.Stage, got.Currency)
+	}
+}
+
+// A member cannot set a deal's amount or currency. A create or an update that names one is
+// refused on "amount". A member's zero is no amount given, so the update leaves the stored
+// amount, which a manager may have set, as it is.
+func TestMemberCannotSetADealAmount(t *testing.T) {
+	store := &fakeStore{}
+	svc := newTestService(t, store)
+	ctx := context.Background()
+
+	_, err := svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "Сайт", AmountCents: 250000})
+	wantField(t, err, "amount")
+	_, err = svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "Сайт", Currency: "RUB"})
+	wantField(t, err, "amount")
+	if _, err := svc.CreateDeal(ctx, appmodel.CRMDealCreateRequest{TeamID: 1, Title: "Сайт"}); err != nil {
+		t.Fatalf("a member's deal without an amount: %v", err)
+	}
+	if len(store.created) != 1 {
+		t.Fatalf("created = %+v, want only the deal without an amount", store.created)
+	}
+
+	amount, zero, title := int64(250000), int64(0), "Лендинг"
+	_, err = svc.UpdateDeal(ctx, appmodel.CRMDealUpdateRequest{TeamID: 1, DealID: 5, AmountCents: &amount})
+	wantField(t, err, "amount")
+	if _, err := svc.UpdateDeal(ctx, appmodel.CRMDealUpdateRequest{TeamID: 1, DealID: 5, Title: &title, AmountCents: &zero}); err != nil {
+		t.Fatalf("a member's title change with a zero amount: %v", err)
+	}
+	if len(store.updated) != 1 || store.updated[0].AmountCents != nil || store.updated[0].Title == nil {
+		t.Fatalf("updated = %+v, want the title alone", store.updated)
+	}
+	if _, err := svc.UpdateDeal(ctx, appmodel.CRMDealUpdateRequest{TeamID: 1, DealID: 5, Manager: true, AmountCents: &amount}); err != nil {
+		t.Fatalf("a manager's amount: %v", err)
+	}
+	if got := store.updated[1]; got.AmountCents == nil || *got.AmountCents != amount {
+		t.Fatalf("a manager's amount did not reach the store: %+v", got)
 	}
 }
 

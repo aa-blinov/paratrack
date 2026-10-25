@@ -95,7 +95,8 @@ var mcpCRMTools = []mcpTool{
 	{
 		Name: "deals_list",
 		Description: "List the deals of the workspace with the pipeline counts per stage and the number of overdue open deals. " +
-			"A deal is overdue when its next step date is before today and its stage is open. Filter by stage key, owner or overdue.",
+			"A deal is overdue when its next step date is before today and its stage is open. Filter by stage key, owner or overdue. " +
+			"Amounts and currency come only to a manager.",
 		Schema: objectSchema(map[string]any{
 			"stage":    stringProp("Only deals in this stage: a stage key from deal_stages_list"),
 			"owner_id": integerProp("Only deals of this owner"),
@@ -121,14 +122,14 @@ var mcpCRMTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmDealsResponse{Today: c.today, Deals: crmDealViews(deals, c.today), Pipeline: crmPipelineViewOf(pipeline, c.lang)}, nil
+			return crmDealsResponse{Today: c.today, Deals: crmDealViews(deals, c.today, c.manage), Pipeline: crmPipelineViewOf(pipeline, c.lang)}, nil
 		},
 	},
 	{
 		Name: "deal_create",
 		Description: "Create a deal. The stage defaults to the workspace's first open stage and the owner to the token's user. " +
 			"A deal cannot start in a lost stage. " +
-			"Amounts are in cents of the deal currency, and probability is a percentage from 0 to 100.",
+			"Amounts are in cents of the deal currency, and probability is a percentage from 0 to 100. Only a manager sets an amount or a currency.",
 		Write: true,
 		Schema: objectSchema(map[string]any{
 			"title":        stringProp("Deal title"),
@@ -136,8 +137,8 @@ var mcpCRMTools = []mcpTool{
 			"client_id":    integerProp("Client id"),
 			"contact_id":   integerProp("Contact id of the client"),
 			"owner_id":     integerProp("Owner user id; another owner needs a manager"),
-			"amount_cents": integerProp("Amount in cents"),
-			"currency":     stringProp("Three-letter currency code; empty means the workspace currency"),
+			"amount_cents": integerProp("Amount in cents; only a manager sets it"),
+			"currency":     stringProp("Three-letter currency code; empty means the workspace currency; only a manager sets it"),
 			"probability":  integerProp("Chance to win, 0 to 100"),
 			"close_date":   dateProp("Expected close date"),
 			"next_step_at": dateProp("Date of the next step"),
@@ -148,14 +149,14 @@ var mcpCRMTools = []mcpTool{
 				return nil, err
 			}
 			deal, err := s.services.CRM.CreateDeal(c.ctx, appmodel.CRMDealCreateRequest{
-				TeamID: c.teamID, CallerID: c.userID, Title: in.Title, Stage: in.Stage, ClientID: in.ClientID,
+				TeamID: c.teamID, CallerID: c.userID, Manager: c.manage, Title: in.Title, Stage: in.Stage, ClientID: in.ClientID,
 				ContactID: in.ContactID, OwnerID: in.OwnerID, AmountCents: in.AmountCents, Currency: in.Currency,
 				Probability: in.Probability, CloseDate: in.CloseDate, NextStepAt: in.NextStepAt,
 			})
 			if err != nil {
 				return nil, err
 			}
-			return crmDealViewOf(deal, c.today), nil
+			return crmDealViewOf(deal, c.today, c.manage), nil
 		},
 	},
 	{
@@ -168,7 +169,7 @@ var mcpCRMTools = []mcpTool{
 			"owner_id":     integerProp("Owner user id; changing it needs a manager"),
 			"client_id":    integerProp("Client id; 0 clears it"),
 			"contact_id":   integerProp("Contact id; 0 clears it"),
-			"amount_cents": integerProp("Amount in cents"),
+			"amount_cents": integerProp("Amount in cents; only a manager sets it"),
 			"probability":  integerProp("Chance to win, 0 to 100"),
 			"close_date":   dateProp("Expected close date; empty clears it"),
 			"next_step_at": dateProp("Date of the next step; empty clears it"),
@@ -182,14 +183,14 @@ var mcpCRMTools = []mcpTool{
 				return nil, err
 			}
 			deal, err := s.services.CRM.UpdateDeal(c.ctx, appmodel.CRMDealUpdateRequest{
-				TeamID: c.teamID, CallerID: c.userID, DealID: in.DealID, Title: in.Title, OwnerID: in.OwnerID,
+				TeamID: c.teamID, CallerID: c.userID, Manager: c.manage, DealID: in.DealID, Title: in.Title, OwnerID: in.OwnerID,
 				ClientID: in.ClientID, ContactID: in.ContactID, AmountCents: in.AmountCents,
 				Probability: in.Probability, CloseDate: in.CloseDate, NextStepAt: in.NextStepAt,
 			})
 			if err != nil {
 				return nil, err
 			}
-			return crmDealViewOf(deal, c.today), nil
+			return crmDealViewOf(deal, c.today, c.manage), nil
 		},
 	},
 	{
@@ -217,7 +218,7 @@ var mcpCRMTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmDealViewOf(deal, c.today), nil
+			return crmDealViewOf(deal, c.today, c.manage), nil
 		},
 	},
 	{
@@ -255,7 +256,7 @@ var mcpCRMTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmDealViewOf(deal, c.today), nil
+			return crmDealViewOf(deal, c.today, c.manage), nil
 		},
 	},
 	{
@@ -540,10 +541,10 @@ func crmContactViews(contacts []model.CRMContact) []crmContactView {
 	return out
 }
 
-func crmDealViews(deals []model.CRMDeal, today string) []crmDealView {
+func crmDealViews(deals []model.CRMDeal, today string, manager bool) []crmDealView {
 	out := make([]crmDealView, 0, len(deals))
 	for _, d := range deals {
-		out = append(out, crmDealViewOf(d, today))
+		out = append(out, crmDealViewOf(d, today, manager))
 	}
 	return out
 }

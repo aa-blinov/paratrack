@@ -28,6 +28,8 @@ type Props = {
 
 export function DealForm({ lang, csrf, viewerID, canManage, clients, members, deal, onSaved }: Props) {
   const prefix = deal ? `deal-${deal.id}` : "deal-new"
+  // A new deal has no answer to read the flag from, so the page's manager flag decides, as it does for the owner.
+  const showAmount = deal ? deal.amount_visible : canManage
   const [title, setTitle] = React.useState(deal?.title ?? "")
   const [clientID, setClientID] = React.useState(String(deal?.client_id || noClient))
   const [owner, setOwner] = React.useState(String(deal?.owner_id || viewerID))
@@ -52,7 +54,7 @@ export function DealForm({ lang, csrf, viewerID, canManage, clients, members, de
     event.preventDefault()
     setSaved(false)
     const cents = parseMoneyCents(amount)
-    if (cents === null) {
+    if (showAmount && cents === null) {
       setIssue({ key: "amount", message: t(lang, "err.invalidInput") })
       return
     }
@@ -67,16 +69,17 @@ export function DealForm({ lang, csrf, viewerID, canManage, clients, members, de
       return
     }
 
+    // A member's form never names the amount, so the server keeps the one a manager set.
     const values: Record<string, unknown> = {
       title: title.trim(),
       client_id: Number(clientID),
-      amount_cents: cents,
       probability: probabilityValue,
       close_date: closeDate,
       next_step_at: nextStep,
     }
+    if (showAmount) values.amount_cents = cents
     const current: Record<string, unknown> = deal
-      ? { title: deal.title, client_id: deal.client_id, amount_cents: deal.amount_cents, probability: deal.probability, close_date: deal.close_date, next_step_at: deal.next_step_at }
+      ? { title: deal.title, client_id: deal.client_id, amount_cents: deal.amount_cents ?? 0, probability: deal.probability, close_date: deal.close_date, next_step_at: deal.next_step_at }
       : {}
     const body: Record<string, unknown> = {}
     for (const [key, value] of Object.entries(values)) {
@@ -141,11 +144,11 @@ export function DealForm({ lang, csrf, viewerID, canManage, clients, members, de
         </Select>
         <FieldIssue issue={issue} name="owner" id={`${prefix}-owner-issue`} />
       </div>}
-      <div className="grid gap-2">
+      {showAmount && <div className="grid gap-2">
         <Label htmlFor={`${prefix}-amount`}>{t(lang, "crm.amount")}</Label>
         <Input id={`${prefix}-amount`} inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} placeholder="0" aria-invalid={invalid("amount")} aria-describedby={described("amount")} style={{ fontSize: 16 }} />
         <FieldIssue issue={issue} name="amount" id={`${prefix}-amount-issue`} />
-      </div>
+      </div>}
       <div className="grid gap-2">
         <Label htmlFor={`${prefix}-probability`}>{t(lang, "crm.probability")}</Label>
         <Input id={`${prefix}-probability`} type="number" inputMode="numeric" min={0} max={100} step={1} value={probability} onChange={event => setProbability(event.target.value)} aria-invalid={invalid("probability")} aria-describedby={described("probability")} style={{ fontSize: 16 }} />

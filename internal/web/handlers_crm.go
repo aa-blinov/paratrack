@@ -276,9 +276,10 @@ func (s *Server) handleCRMDealsList(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
+	manager := canManage(r)
 	views := make([]crmDealView, 0, len(deals))
 	for _, d := range deals {
-		views = append(views, crmDealViewOf(d, today))
+		views = append(views, crmDealViewOf(d, today, manager))
 	}
 	s.writeJSON(w, crmDealsResponse{Today: today, Deals: views, Pipeline: crmPipelineViewOf(pipeline, resolveLang(r))})
 }
@@ -358,7 +359,7 @@ func (s *Server) handleCRMDealCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deal, err := s.services.CRM.CreateDeal(r.Context(), appmodel.CRMDealCreateRequest{
-		TeamID: teamID(r), CallerID: authenticatedUserID(r), Title: body.Title, Stage: body.Stage,
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), Manager: canManage(r), Title: body.Title, Stage: body.Stage,
 		ClientID: body.ClientID, ContactID: body.ContactID, OwnerID: body.OwnerID, AmountCents: body.AmountCents,
 		Currency: body.Currency, Probability: body.Probability, CloseDate: body.CloseDate, NextStepAt: body.NextStepAt,
 	})
@@ -366,7 +367,7 @@ func (s *Server) handleCRMDealCreate(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r)))
+	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r), canManage(r)))
 }
 
 func (s *Server) handleCRMDealUpdate(w http.ResponseWriter, r *http.Request) {
@@ -379,7 +380,7 @@ func (s *Server) handleCRMDealUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	deal, err := s.services.CRM.UpdateDeal(r.Context(), appmodel.CRMDealUpdateRequest{
-		TeamID: teamID(r), CallerID: authenticatedUserID(r), DealID: id, Title: body.Title, OwnerID: body.OwnerID,
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), Manager: canManage(r), DealID: id, Title: body.Title, OwnerID: body.OwnerID,
 		ClientID: body.ClientID, ContactID: body.ContactID, AmountCents: body.AmountCents,
 		Probability: body.Probability, CloseDate: body.CloseDate, NextStepAt: body.NextStepAt,
 	})
@@ -387,7 +388,7 @@ func (s *Server) handleCRMDealUpdate(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r)))
+	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r), canManage(r)))
 }
 
 func (s *Server) handleCRMDealStage(w http.ResponseWriter, r *http.Request) {
@@ -406,7 +407,7 @@ func (s *Server) handleCRMDealStage(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r)))
+	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r), canManage(r)))
 }
 
 // handleCRMDealProject makes the project of a won deal. The deal rules and the project
@@ -423,7 +424,7 @@ func (s *Server) handleCRMDealProject(w http.ResponseWriter, r *http.Request) {
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r)))
+	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r), canManage(r)))
 }
 
 func (s *Server) handleCRMContactsList(w http.ResponseWriter, r *http.Request) {
