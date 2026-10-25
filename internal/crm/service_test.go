@@ -3,6 +3,7 @@ package crm
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -13,8 +14,19 @@ import (
 // serves the deal list it is given.
 type fakeStore struct {
 	Store
-	created []appmodel.CRMDealCreateRequest
-	deals   []model.CRMDeal
+	created      []appmodel.CRMDealCreateRequest
+	deals        []model.CRMDeal
+	stages       []model.CRMStage
+	stageCreated []appmodel.CRMStageCreateRequest
+}
+
+func (f *fakeStore) ListCRMStages(context.Context, appmodel.CRMStageListQuery) ([]model.CRMStage, error) {
+	return f.stages, nil
+}
+
+func (f *fakeStore) CreateCRMStage(_ context.Context, request appmodel.CRMStageCreateRequest) (model.CRMStage, error) {
+	f.stageCreated = append(f.stageCreated, request)
+	return model.CRMStage{Name: request.Name, Kind: request.Kind}, nil
 }
 
 func (f *fakeStore) CreateCRMDeal(_ context.Context, request appmodel.CRMDealCreateRequest) (model.CRMDeal, error) {
@@ -79,16 +91,8 @@ func TestCreateDealTrimsDefaultsAndRefusesBadInput(t *testing.T) {
 	if deal.Title != "Сайт" || len(store.created) != 1 {
 		t.Fatalf("created = %+v, deal = %+v", store.created, deal)
 	}
-	if got := store.created[0]; got.Stage != model.DealStageNew || got.Currency != "RUB" {
-		t.Fatalf("stage and currency = %q, %q; want new and RUB", got.Stage, got.Currency)
-	}
-}
-
-func TestMoveDealStageRefusesAnUnknownStage(t *testing.T) {
-	svc := newTestService(t, &fakeStore{})
-	_, err := svc.MoveDealStage(context.Background(), appmodel.CRMDealStageRequest{TeamID: 1, Stage: "closed"})
-	if !errors.Is(err, model.ErrInvalidDealStage) {
-		t.Fatalf("unknown stage = %v, want ErrInvalidDealStage", err)
+	if got := store.created[0]; got.Stage != "" || got.Currency != "RUB" {
+		t.Fatalf("stage and currency = %q, %q; want no stage (the workspace picks its first open one) and RUB", got.Stage, got.Currency)
 	}
 }
 
@@ -98,30 +102,96 @@ func TestDealsOverdueNeedsTheWorkspaceDay(t *testing.T) {
 	wantField(t, err, "today")
 }
 
-func TestPipelineCountsEveryStageAndTheOverdueOpenDeals(t *testing.T) {
-	store := &fakeStore{deals: []model.CRMDeal{
-		{Stage: model.DealStageNew, NextStepAt: "2026-10-01"},
-		{Stage: model.DealStageNew, NextStepAt: "2026-10-30"},
-		{Stage: model.DealStageWon, NextStepAt: "2026-10-01"},
-		{Stage: model.DealStageLost},
+func TestPipelineCountsEveryStageInItsOrderAndTheOverdueOpenDeals(t *testing.T) {
+	stages := []model.CRMStage{
+		{Key: "new", Name: "Новая", Kind: model.StageKindOpen},
+		{Key: "chat", Name: "Чат", Kind: model.StageKindOpen},
+		{Key: "won", Name: "Выиграна", Kind: model.StageKindWon},
+		{Key: "lost", Name: "Проиграна", Kind: model.StageKindLost},
+	}
+	store := &fakeStore{stages: stages, deals: []model.CRMDeal{
+		{Stage: "new", StageKind: model.StageKindOpen, NextStepAt: "2026-10-01"},
+		{Stage: "new", StageKind: model.StageKindOpen, NextStepAt: "2026-10-30"},
+		{Stage: "won", StageKind: model.StageKindWon, NextStepAt: "2026-10-01"},
+		{Stage: "lost", StageKind: model.StageKindLost},
 	}}
 	svc := newTestService(t, store)
 	pipeline, err := svc.Pipeline(context.Background(), appmodel.CRMDealListQuery{TeamID: 1, Today: "2026-10-24"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(pipeline.Stages) != len(model.DealStages) {
-		t.Fatalf("stages = %+v", pipeline.Stages)
+	if len(pipeline.Stages) != len(stages) {
+		t.Fatalf("stages = %+v, want the workspace's own", pipeline.Stages)
+	}
+	if pipeline.Stages[1].Stage != "chat" || pipeline.Stages[1].Name != "Чат" || pipeline.Stages[1].Kind != model.StageKindOpen {
+		t.Fatalf("stage order and names = %+v", pipeline.Stages)
 	}
 	counts := map[string]int{}
 	for _, stage := range pipeline.Stages {
 		counts[stage.Stage] = stage.Count
 	}
-	if counts[model.DealStageNew] != 2 || counts[model.DealStageWon] != 1 || counts[model.DealStageLost] != 1 || counts[model.DealStageProposal] != 0 {
+	if counts["new"] != 2 || counts["chat"] != 0 || counts["won"] != 1 || counts["lost"] != 1 {
 		t.Fatalf("counts = %+v", counts)
 	}
 	if pipeline.Overdue != 1 {
 		t.Fatalf("overdue = %d, want only the open deal with a past next step", pipeline.Overdue)
+	}
+}
+
+// Only a manager changes the pipeline, and a stage needs a name and a kind of the three.
+func TestStageChangesRefuseMembersAndBadInput(t *testing.T) {
+	store := &fakeStore{}
+	svc := newTestService(t, store)
+	ctx := context.Background()
+
+	if _, err := svc.CreateStage(ctx, appmodel.CRMStageCreateRequest{TeamID: 1, Name: "Этап"}); !errors.Is(err, model.ErrForbidden) {
+		t.Fatalf("a member created a stage = %v, want ErrForbidden", err)
+	}
+	if len(store.stageCreated) != 0 {
+		t.Fatal("a refused stage reached the store")
+	}
+	if _, err := svc.CreateStage(ctx, appmodel.CRMStageCreateRequest{TeamID: 1, Manager: true, Name: "  "}); err == nil {
+		t.Fatal("blank stage name was accepted")
+	} else {
+		wantField(t, err, "stage name")
+	}
+	if _, err := svc.CreateStage(ctx, appmodel.CRMStageCreateRequest{TeamID: 1, Manager: true, Name: strings.Repeat("a", 201)}); err == nil {
+		t.Fatal("stage name above 200 bytes was accepted")
+	} else {
+		wantField(t, err, "stage name")
+	}
+	if _, err := svc.CreateStage(ctx, appmodel.CRMStageCreateRequest{TeamID: 1, Manager: true, Name: "Этап", Kind: "closed"}); err == nil {
+		t.Fatal("unknown stage kind was accepted")
+	} else {
+		wantField(t, err, "kind")
+	}
+
+	created, err := svc.CreateStage(ctx, appmodel.CRMStageCreateRequest{TeamID: 1, Manager: true, Name: "  Демо  "})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := store.stageCreated[0]; got.Name != "Демо" || got.Kind != model.StageKindOpen || created.Kind != model.StageKindOpen {
+		t.Fatalf("created = %+v, request = %+v; want the trimmed name and an open kind by default", created, got)
+	}
+
+	empty, kind, zero := "", "closed", 0
+	if _, err := svc.UpdateStage(ctx, appmodel.CRMStageUpdateRequest{TeamID: 1, Manager: true, Key: "new", Name: &empty}); err == nil {
+		t.Fatal("renaming a stage to nothing was accepted")
+	} else {
+		wantField(t, err, "stage name")
+	}
+	if _, err := svc.UpdateStage(ctx, appmodel.CRMStageUpdateRequest{TeamID: 1, Manager: true, Key: "new", Kind: &kind}); err == nil {
+		t.Fatal("unknown kind on update was accepted")
+	} else {
+		wantField(t, err, "kind")
+	}
+	if _, err := svc.MoveStage(ctx, appmodel.CRMStageMoveRequest{TeamID: 1, Manager: true, Key: "new", Position: zero}); err == nil {
+		t.Fatal("position 0 was accepted")
+	} else {
+		wantField(t, err, "position")
+	}
+	if err := svc.DeleteStage(ctx, appmodel.CRMStageDeleteRequest{TeamID: 1, Key: "new"}); !errors.Is(err, model.ErrForbidden) {
+		t.Fatalf("a member deleted a stage = %v, want ErrForbidden", err)
 	}
 }
 

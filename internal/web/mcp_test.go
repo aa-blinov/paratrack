@@ -426,3 +426,39 @@ func TestMCPManagerListsInvoicesAndPayrollRuns(t *testing.T) {
 		t.Fatalf("payroll_runs_list = %v %q, want the pay run", failed, text)
 	}
 }
+
+// deal_stages_list shows the five defaults of a new workspace; a member's token reads
+// them but cannot add a stage.
+func TestMCPStagesListsTheDefaultsAndRefusesAMemberStageCreate(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("mcp-stages-owner@x.test")
+	auth := mcpBearer(apiTokenOf(t, owner, "agent"))
+	text, failed := callTool(t, owner, auth, "deal_stages_list", map[string]any{})
+	if failed {
+		t.Fatalf("deal_stages_list failed: %s", text)
+	}
+	var out struct {
+		Stages []struct {
+			Key      string `json:"key"`
+			Position int    `json:"position"`
+			Kind     string `json:"kind"`
+		} `json:"stages"`
+	}
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		t.Fatalf("deal_stages_list text is not the stages: %v", err)
+	}
+	if len(out.Stages) != 5 || out.Stages[0].Key != "new" || out.Stages[3].Kind != "won" || out.Stages[4].Position != 5 {
+		t.Fatalf("stages = %+v, want the five defaults", out.Stages)
+	}
+
+	member := newAPIEnvSharedDB(t, owner)
+	member.register("mcp-stages-member@x.test")
+	joinStudio(t, owner, map[string]*apiEnv{"mcp-stages-member@x.test": member}, "mcp-stages-member@x.test")
+	memberAuth := mcpBearer(apiTokenOf(t, member, "member"))
+	if text, failed = callTool(t, member, memberAuth, "deal_stages_list", map[string]any{}); failed {
+		t.Fatalf("a member cannot read the stages: %s", text)
+	}
+	if text, failed = callTool(t, member, memberAuth, "deal_stage_create", map[string]any{"name": "Чужой"}); !failed || !strings.Contains(text, "прав") {
+		t.Fatalf("a member added a stage: failed=%v text=%q", failed, text)
+	}
+}
