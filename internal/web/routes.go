@@ -48,6 +48,11 @@ func (s *Server) routes() http.Handler {
 	// A client's link to an invoice's PDF: the token is the key, and the rate limit keeps
 	// guessing slow (FIN-13).
 	mux.Handle("GET /share/invoices/{token}", s.rateLimit("share-invoice", 120, time.Minute)(http.HandlerFunc(s.handleSharedInvoicePDF)))
+	// The company website's enquiry route. Its only credential is the intake key header,
+	// so it is outside the session and API token middleware, and it answers the browser's
+	// cross-origin preflight itself.
+	mux.Handle("POST /api/leads/intake", s.leadIntakeHandler())
+	mux.Handle("OPTIONS /api/leads/intake", leadIntakeCORS(http.HandlerFunc(leadIntakePreflight)))
 
 	pageRoutes := http.NewServeMux()
 	s.registerPageRoutes(pageRoutes)

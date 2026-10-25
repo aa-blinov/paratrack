@@ -250,9 +250,37 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
 - A deal is **overdue** when it is open and its next-step date is before today in the workspace time zone.
 - Any member sees every deal in the workspace and creates deals of their own. The owner or a manager changes a deal
   and moves its stage; only a manager assigns another owner. The rule holds in the transaction, not in the route.
-- An **activity** is a call, a meeting or a note on a client or on a deal, with a date, an author and a result. An
-  activity never creates a time session, so a call no longer shows up as unpaid time on an invoice.
+- An **activity** is a call, a meeting or a note on a client, on a deal or on a lead, with a date, an author and a
+  result. An activity never creates a time session, so a call no longer shows up as unpaid time on an invoice.
 - Nothing deletes a client or a deal through the agent endpoint.
+- A **lead** is an enquiry before it is a client: a company, a contact name, a phone, an email, a source, a message,
+  an owner, a status and a next-step date. It needs at least one of company, contact name, phone or email. The
+  status is `new`, `contacted`, `qualified`, `lost` or `converted`; a lost lead needs a reason, and leaving lost
+  clears it. Any member records and edits leads and logs activities on them. The owner or a manager moves the status
+  and converts; only a manager assigns another owner.
+- **Converting** a lead makes, in one transaction, a client (named by the company, else the contact name, else the
+  email or the phone; the lead's email is the client's billing email), a contact when the lead names one, and a deal in the
+  first open stage. The deal takes the lead's next-step date, and the lead's message becomes its first note. The
+  lead keeps the ids of the client and the deal and is closed: it does not convert again and its status does not
+  change. A client name the workspace already has refuses the conversion and writes nothing. A member who owns a
+  lead can convert it, which creates a client card; the client directory is otherwise a manager's action.
+- **Website intake.** A manager makes the workspace's intake key on the CRM page, in the section "Приём заявок с
+  сайта". The key is `lk_` and 64 hex characters. It is shown once, with the request that sends an enquiry, and only
+  its SHA-256 is stored, so the key cannot be read back later. A new key replaces the old one at once, and revoking
+  stops the key. The site sends:
+
+  ```
+  curl -X POST https://crm.example.com/api/leads/intake \
+    -H "Content-Type: application/json" \
+    -H "X-Intake-Key: lk_..." \
+    -d '{"company":"Ромашка","contact_name":"Анна","email":"anna@example.test","source":"website","message":"Нужен сайт"}'
+  ```
+
+  The answer is `201` with `{"id": 12}` and nothing else. A missing or wrong key is `401`; a session cookie or a Bearer
+  token is not accepted there. Bad input is `400` with the `field` that is wrong, and the rule that needs a contact
+  names `contact`. The route is limited to 60 requests a minute per address and 30 a minute per key, then `429`. It
+  answers any origin for a `POST` with the `Content-Type` and `X-Intake-Key` headers and sends no credentials. An
+  enquiry has no owner and starts as `new`. The intake key is not an agent tool.
 
 ### Team calendar
 
@@ -313,6 +341,7 @@ GET  /sw.js  /static/  /static/manifest.webmanifest
 POST /api/login /api/register /api/logout
 POST /api/password/forgot /api/password/reset
 POST /api/stripe/webhook               (public, HMAC-verified)
+POST /api/leads/intake                 (public, X-Intake-Key header; OPTIONS answers the CORS preflight)
 ```
 
 ### Authenticated pages
@@ -396,7 +425,9 @@ Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoic
 CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100,
 `project_id` is the project a won deal made),
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
-`crm_activities` (kind checked), `calendar_events` (`shared` as 0 or 1), `calendar_event_participants`.
+`crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`
+and `converted_client_id` set once), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
+`calendar_events` (`shared` as 0 or 1), `calendar_event_participants`.
 Times are text in the usual format and money is integer cents.
 
 Rules worth knowing:
@@ -489,6 +520,6 @@ python e2e/qa_offline_push.py                   # offline + push
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.
-- There are no leads, reminders or funnel report yet (see [backlog/crm.md](backlog/crm.md), CRM-14, CRM-15 and CRM-17).
+- There are no reminders or funnel report yet (see [backlog/crm.md](backlog/crm.md), CRM-15 and CRM-17).
 - The team calendar is internal: no Google or Outlook sync and no recurring events.
 - The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.

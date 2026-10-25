@@ -473,7 +473,7 @@ func (d *DB) CreateCRMActivity(ctx context.Context, request appmodel.CRMActivity
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return model.CRMActivity{}, ErrNotFound
 	}
-	if request.ClientID <= 0 && request.DealID <= 0 {
+	if request.ClientID <= 0 && request.DealID <= 0 && request.LeadID <= 0 {
 		return model.CRMActivity{}, ErrNotFound
 	}
 	kindOK := false
@@ -492,6 +492,9 @@ func (d *DB) CreateCRMActivity(ctx context.Context, request appmodel.CRMActivity
 		return model.CRMActivity{}, err
 	}
 	if err := clientInTeam(ctx, tx, request.TeamID, request.ClientID); err != nil {
+		return model.CRMActivity{}, err
+	}
+	if err := leadInTeam(ctx, tx, request.TeamID, request.LeadID); err != nil {
 		return model.CRMActivity{}, err
 	}
 	clientID := request.ClientID
@@ -515,9 +518,9 @@ func (d *DB) CreateCRMActivity(ctx context.Context, request appmodel.CRMActivity
 	}
 	var id int64
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO crm_activities (team_id, client_id, deal_id, kind, body, result, occurred_at, author_id, created_at)
-		 VALUES (?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?, ?) RETURNING id`,
-		request.TeamID, clientID, request.DealID, request.Kind, strings.TrimSpace(request.Body),
+		`INSERT INTO crm_activities (team_id, client_id, deal_id, lead_id, kind, body, result, occurred_at, author_id, created_at)
+		 VALUES (?, NULLIF(?, 0), NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?, ?) RETURNING id`,
+		request.TeamID, clientID, request.DealID, request.LeadID, request.Kind, strings.TrimSpace(request.Body),
 		strings.TrimSpace(request.Result), FormatTime(occurred.UTC()), request.CallerID, FormatTime(now)).Scan(&id)
 	if err != nil {
 		return model.CRMActivity{}, err
@@ -525,7 +528,7 @@ func (d *DB) CreateCRMActivity(ctx context.Context, request appmodel.CRMActivity
 	if err := tx.Commit(); err != nil {
 		return model.CRMActivity{}, err
 	}
-	return model.CRMActivity{ID: id, TeamID: request.TeamID, ClientID: clientID, DealID: request.DealID,
+	return model.CRMActivity{ID: id, TeamID: request.TeamID, ClientID: clientID, DealID: request.DealID, LeadID: request.LeadID,
 		Kind: request.Kind, Body: strings.TrimSpace(request.Body), Result: strings.TrimSpace(request.Result),
 		OccurredAt: occurred.UTC(), AuthorID: request.CallerID, CreatedAt: now}, nil
 }
@@ -537,7 +540,7 @@ func (d *DB) ListCRMActivities(ctx context.Context, query appmodel.CRMActivityLi
 	if _, err := readTeamRole(ctx, d.sql, query.TeamID, query.CallerID); err != nil {
 		return nil, err
 	}
-	q := `SELECT id, COALESCE(client_id, 0), COALESCE(deal_id, 0), kind, body, result, occurred_at, author_id, created_at
+	q := `SELECT id, COALESCE(client_id, 0), COALESCE(deal_id, 0), COALESCE(lead_id, 0), kind, body, result, occurred_at, author_id, created_at
 	        FROM crm_activities WHERE team_id = ?`
 	args := []any{query.TeamID}
 	if query.DealID > 0 {
@@ -546,6 +549,9 @@ func (d *DB) ListCRMActivities(ctx context.Context, query appmodel.CRMActivityLi
 	} else if query.ClientID > 0 {
 		q += ` AND client_id = ?`
 		args = append(args, query.ClientID)
+	} else if query.LeadID > 0 {
+		q += ` AND lead_id = ?`
+		args = append(args, query.LeadID)
 	}
 	q += ` ORDER BY occurred_at DESC, id DESC`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
@@ -557,7 +563,7 @@ func (d *DB) ListCRMActivities(ctx context.Context, query appmodel.CRMActivityLi
 	for rows.Next() {
 		a := model.CRMActivity{TeamID: query.TeamID}
 		var occurred, created string
-		if err := rows.Scan(&a.ID, &a.ClientID, &a.DealID, &a.Kind, &a.Body, &a.Result, &occurred, &a.AuthorID, &created); err != nil {
+		if err := rows.Scan(&a.ID, &a.ClientID, &a.DealID, &a.LeadID, &a.Kind, &a.Body, &a.Result, &occurred, &a.AuthorID, &created); err != nil {
 			return nil, err
 		}
 		if a.OccurredAt, err = ParseTime(occurred); err != nil {

@@ -310,21 +310,23 @@ var mcpCRMTools = []mcpTool{
 	},
 	{
 		Name:        "activities_list",
-		Description: "List the activities of a client or of one deal, newest first: calls, meetings and notes.",
+		Description: "List the activities of a client, of one deal or of one lead, newest first: calls, meetings and notes.",
 		Schema: objectSchema(map[string]any{
 			"client_id": integerProp("Client id"),
 			"deal_id":   integerProp("Deal id"),
+			"lead_id":   integerProp("Lead id"),
 		}),
 		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
 			in, err := mcpArgs[struct {
 				ClientID int64 `json:"client_id"`
 				DealID   int64 `json:"deal_id"`
+				LeadID   int64 `json:"lead_id"`
 			}](args)
 			if err != nil {
 				return nil, err
 			}
 			activities, err := s.services.CRM.Activities(c.ctx, appmodel.CRMActivityListQuery{
-				TeamID: c.teamID, CallerID: c.userID, ClientID: in.ClientID, DealID: in.DealID,
+				TeamID: c.teamID, CallerID: c.userID, ClientID: in.ClientID, DealID: in.DealID, LeadID: in.LeadID,
 			})
 			if err != nil {
 				return nil, err
@@ -338,12 +340,13 @@ var mcpCRMTools = []mcpTool{
 	},
 	{
 		Name: "activity_create",
-		Description: "Log a call, a meeting or a note on a client or on a deal. Give a client_id or a deal_id, and a body or a result. " +
+		Description: "Log a call, a meeting or a note on a client, on a deal or on a lead. Give one of client_id, deal_id or lead_id, and a body or a result. " +
 			"The kind defaults to note, and occurred_at defaults to now.",
 		Write: true,
 		Schema: objectSchema(map[string]any{
 			"client_id":   integerProp("Client id; a deal's client is used when left out"),
 			"deal_id":     integerProp("Deal id"),
+			"lead_id":     integerProp("Lead id; use it alone, without client_id or deal_id"),
 			"kind":        enumProp("Kind of activity", "call", "meeting", "note"),
 			"body":        stringProp("What happened"),
 			"result":      stringProp("Outcome or the next agreed step"),
@@ -355,7 +358,7 @@ var mcpCRMTools = []mcpTool{
 				return nil, err
 			}
 			activity, err := s.services.CRM.LogActivity(c.ctx, appmodel.CRMActivityCreateRequest{
-				TeamID: c.teamID, CallerID: c.userID, ClientID: in.ClientID, DealID: in.DealID, Kind: in.Kind,
+				TeamID: c.teamID, CallerID: c.userID, ClientID: in.ClientID, DealID: in.DealID, LeadID: in.LeadID, Kind: in.Kind,
 				Body: in.Body, Result: in.Result, OccurredAt: in.OccurredAt,
 			})
 			if err != nil {
