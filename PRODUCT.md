@@ -110,6 +110,7 @@ Confirmed by the code:
   Reports, "Running now", "Only this".
 - The clients of a workspace have contacts, deals in the workspace's own stages (five by default, a manager
   can change them) and activities (calls, meetings, notes), and the workspace shares one calendar of events. Both are sections (`crm`, `calendar`).
+  A won deal makes its project in one step, with its client and budget; a manager sets the rate in the project.
 - An agent works with the same entities through `POST /mcp` with a bearer `pt_` token. A read-only token
   reads only, and every write is recorded in the audit log.
 - Every page and every `/api/*` call passes through `requireAuth`, with a

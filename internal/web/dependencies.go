@@ -190,6 +190,7 @@ type CRMWorkflow interface {
 	Pipeline(context.Context, appmodel.CRMDealListQuery) (appmodel.CRMPipeline, error)
 	UpdateDeal(context.Context, appmodel.CRMDealUpdateRequest) (model.CRMDeal, error)
 	MoveDealStage(context.Context, appmodel.CRMDealStageRequest) (model.CRMDeal, error)
+	CreateDealProject(context.Context, appmodel.CRMDealProjectRequest) (model.CRMDeal, error)
 	Stages(context.Context, appmodel.CRMStageListQuery) ([]model.CRMStage, error)
 	CreateStage(context.Context, appmodel.CRMStageCreateRequest) (model.CRMStage, error)
 	UpdateStage(context.Context, appmodel.CRMStageUpdateRequest) (model.CRMStage, error)

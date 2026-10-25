@@ -92,6 +92,7 @@ var (
 	ErrInvalidActivityKind     = errors.New("unknown activity kind")
 	ErrEventEndBeforeStart     = errors.New("event ends before it starts")
 	ErrCalendarTargetOutOfTeam = errors.New("linked project, client or participant is not in this workspace")
+	ErrProjectManagerRequired  = errors.New("a project from a deal is created by a workspace manager")
 )
 
 // CRMContact is a person at a client, with a role.
@@ -123,6 +124,7 @@ type CRMDeal struct {
 	CloseDate   string
 	NextStepAt  string
 	LostReason  string
+	ProjectID   int64
 	CreatedBy   int64
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
