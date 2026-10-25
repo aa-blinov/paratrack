@@ -2,11 +2,13 @@ package model
 
 import (
 	"errors"
+	"strings"
 	"time"
+	"unicode"
 )
 
-// Deal stages are fixed (platform-crm-calendar-mcp, D2). A deal that is lost needs
-// a reason; a won deal keeps its close date and creates nothing else.
+// Deal stage keys of the default pipeline. A workspace starts with these five and may
+// change its stages later; deals store the key, so a key never changes once it is set.
 const (
 	DealStageNew      = "new"
 	DealStageWorking  = "working"
@@ -15,17 +17,70 @@ const (
 	DealStageLost     = "lost"
 )
 
-// DealStages lists the stages in the order a board shows them.
-var DealStages = []string{DealStageNew, DealStageWorking, DealStageProposal, DealStageWon, DealStageLost}
+// Stage kinds say what a stage means to the rules, whatever its name is. An open
+// stage is worked and can be overdue, a won stage is a sale, and a lost stage needs
+// a reason.
+const (
+	StageKindOpen = "open"
+	StageKindWon  = "won"
+	StageKindLost = "lost"
+)
 
-// IsDealStage reports whether stage is one of the five fixed stages.
-func IsDealStage(stage string) bool {
-	for _, s := range DealStages {
-		if s == stage {
-			return true
+// CRMStage is one step of a workspace's pipeline. The key is what deals store and what
+// the API and the agents address; the name is what people read and may change.
+type CRMStage struct {
+	TeamID   int64
+	Key      string
+	Name     string
+	Position int
+	Kind     string
+}
+
+// DefaultDealStages is the pipeline of a workspace that has not changed it. Its keys
+// are the ones existing deals already store. The names are empty: a screen shows the
+// built-in name of the key in the reader's language until someone names the stage.
+var DefaultDealStages = []CRMStage{
+	{Key: DealStageNew, Kind: StageKindOpen},
+	{Key: DealStageWorking, Kind: StageKindOpen},
+	{Key: DealStageProposal, Kind: StageKindOpen},
+	{Key: DealStageWon, Kind: StageKindWon},
+	{Key: DealStageLost, Kind: StageKindLost},
+}
+
+// FindDealStage returns the stage with key from a workspace's pipeline.
+func FindDealStage(stages []CRMStage, key string) (CRMStage, bool) {
+	for _, stage := range stages {
+		if stage.Key == key {
+			return stage, true
 		}
 	}
-	return false
+	return CRMStage{}, false
+}
+
+// ValidStageKind reports whether kind is one of the three stage kinds.
+func ValidStageKind(kind string) bool {
+	return kind == StageKindOpen || kind == StageKindWon || kind == StageKindLost
+}
+
+// DealStageKey derives a stage key from its name: letters and digits in lower case,
+// and every other run of characters becomes one dash. Keeping the letters of any
+// script keeps the key readable for a Russian workspace. Uniqueness within a
+// workspace is the persistence layer's job.
+func DealStageKey(name string) string {
+	var b strings.Builder
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+		case b.Len() > 0 && !strings.HasSuffix(b.String(), "-"):
+			b.WriteByte('-')
+		}
+	}
+	key := strings.TrimSuffix(b.String(), "-")
+	if key == "" {
+		return "stage"
+	}
+	return key
 }
 
 // ActivityKinds lists what an activity can record.
@@ -58,6 +113,7 @@ type CRMDeal struct {
 	TeamID      int64
 	Title       string
 	Stage       string
+	StageKind   string
 	ClientID    int64
 	ContactID   int64
 	OwnerID     int64
@@ -72,10 +128,11 @@ type CRMDeal struct {
 	UpdatedAt   time.Time
 }
 
-// Overdue reports an open deal whose next step date has passed. Dates are
-// compared as YYYY-MM-DD strings in the workspace day.
+// Overdue reports a deal in an open stage whose next step date has passed. The stage
+// kind is read from the workspace's stage row into StageKind. Dates are compared as
+// YYYY-MM-DD strings in the workspace day.
 func (d CRMDeal) Overdue(today string) bool {
-	if d.Stage == DealStageWon || d.Stage == DealStageLost || d.NextStepAt == "" {
+	if d.StageKind != StageKindOpen || d.NextStepAt == "" {
 		return false
 	}
 	return d.NextStepAt < today

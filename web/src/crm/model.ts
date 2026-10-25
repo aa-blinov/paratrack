@@ -1,8 +1,11 @@
-// The CRM JSON shapes (internal/web/crm_views.go). Stages are fixed by the server
-// and listed here in the order the board shows them.
+// The CRM JSON shapes (internal/web/crm_views.go). A deal's stage is the key of one
+// of its workspace's stages; the server returns the pipeline in the order the board
+// shows it, with each stage's name and kind.
 
-export const dealStages = ["new", "working", "proposal", "won", "lost"] as const
 export const activityKinds = ["call", "meeting", "note"] as const
+
+/** What a stage means to the rules: open stages can go overdue, won and lost close the deal. */
+export type StageKind = "open" | "won" | "lost"
 
 export type Deal = {
   id: number
@@ -21,8 +24,15 @@ export type Deal = {
   updated_at: string
 }
 
+export type PipelineStage = {
+  stage: string
+  name: string
+  kind: StageKind
+  count: number
+}
+
 export type Pipeline = {
-  stages: { stage: string; count: number }[]
+  stages: PipelineStage[]
   overdue: number
 }
 

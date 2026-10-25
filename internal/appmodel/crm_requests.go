@@ -161,8 +161,52 @@ type CalendarEventListQuery struct {
 	To       time.Time
 }
 
-// CRMPipeline is the stage count of a workspace's deals and how many open deals
-// have a next step that has already passed.
+// CRMStageListQuery reads the pipeline of a workspace.
+type CRMStageListQuery struct {
+	TeamID   int64
+	CallerID int64
+}
+
+// CRMStageCreateRequest appends a stage to the pipeline. Manager is the caller's role
+// as the transport read it; the persistence transaction checks the role again.
+type CRMStageCreateRequest struct {
+	TeamID   int64
+	CallerID int64
+	Manager  bool
+	Name     string
+	Kind     string
+}
+
+// CRMStageUpdateRequest changes the fields that are not nil. Key names the stage, and
+// Position is 1-based; the other stages move to make room.
+type CRMStageUpdateRequest struct {
+	TeamID   int64
+	CallerID int64
+	Manager  bool
+	Key      string
+	Name     *string
+	Kind     *string
+	Position *int
+}
+
+// CRMStageMoveRequest moves a stage to a 1-based position; the stages in between shift.
+type CRMStageMoveRequest struct {
+	TeamID   int64
+	CallerID int64
+	Manager  bool
+	Key      string
+	Position int
+}
+
+type CRMStageDeleteRequest struct {
+	TeamID   int64
+	CallerID int64
+	Manager  bool
+	Key      string
+}
+
+// CRMPipeline is the stage count of a workspace's deals, in the workspace's stage
+// order, and how many open deals have a next step that has already passed.
 type CRMPipeline struct {
 	Stages  []CRMPipelineStage
 	Overdue int
@@ -170,5 +214,7 @@ type CRMPipeline struct {
 
 type CRMPipelineStage struct {
 	Stage string
+	Name  string
+	Kind  string
 	Count int
 }

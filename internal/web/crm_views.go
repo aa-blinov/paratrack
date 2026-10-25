@@ -3,6 +3,7 @@ package web
 import (
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -38,9 +39,49 @@ func crmDealViewOf(d model.CRMDeal, today string) crmDealView {
 	}
 }
 
+// stageName is the name a reader sees. A stage nobody named shows its built-in name
+// in the reader's language.
+func stageName(lang i18n.Lang, key, name string) string {
+	if name != "" {
+		return name
+	}
+	return i18n.T(lang, "crm.stage."+key)
+}
+
+// crmStageView is one stage of the pipeline with the number of deals in it.
 type crmStageView struct {
 	Stage string `json:"stage"`
+	Name  string `json:"name"`
+	Kind  string `json:"kind"`
 	Count int    `json:"count"`
+}
+
+// crmStageConfigView is a stage as the pipeline editor and the agents read it.
+type crmStageConfigView struct {
+	Key      string `json:"key"`
+	Name     string `json:"name"`
+	Position int    `json:"position"`
+	Kind     string `json:"kind"`
+}
+
+func (crmStageConfigView) isJSONResponse() {}
+
+func crmStageConfigViewOf(s model.CRMStage, lang i18n.Lang) crmStageConfigView {
+	return crmStageConfigView{Key: s.Key, Name: stageName(lang, s.Key, s.Name), Position: s.Position, Kind: s.Kind}
+}
+
+type crmStagesResponse struct {
+	Stages []crmStageConfigView `json:"stages"`
+}
+
+func (crmStagesResponse) isJSONResponse() {}
+
+func crmStageConfigViews(stages []model.CRMStage, lang i18n.Lang) []crmStageConfigView {
+	out := make([]crmStageConfigView, 0, len(stages))
+	for _, stage := range stages {
+		out = append(out, crmStageConfigViewOf(stage, lang))
+	}
+	return out
 }
 
 type crmPipelineView struct {

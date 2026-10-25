@@ -9,10 +9,11 @@ import { apiJSON, ApiError } from "@/lib/json-api"
 import { formatDate } from "@/lib/date-format"
 import { formatMoney } from "@/lib/money"
 import { loadClients, loadMembers, type Client, type Member } from "@/lib/team-directory"
-import { dealStages, type Deal, type Pipeline } from "@/crm/model"
+import type { Deal, Pipeline } from "@/crm/model"
 import { DealForm } from "@/crm/deal-form"
 import { DealDetail } from "@/crm/deal-detail"
 import { ContactsPanel } from "@/crm/contacts-panel"
+import { StageEditor } from "@/crm/stage-editor"
 
 type DealsResponse = { today: string; deals: Deal[]; pipeline: Pipeline }
 
@@ -59,9 +60,9 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
     if (data.CanManage) loadMembers().then(setMembers).catch(() => setError(t(lang, "err.generic")))
   }, [data.CanManage, lang])
 
-  const groups = dealStages
-    .filter(item => !stage || item === stage)
-    .map(item => ({ stage: item, deals: deals.filter(deal => deal.stage === item) }))
+  const groups = pipeline.stages
+    .filter(item => !stage || item.stage === stage)
+    .map(item => ({ stage: item, deals: deals.filter(deal => deal.stage === item.stage) }))
     .filter(group => group.deals.length > 0)
 
   const emptyText = loaded && deals.length === 0 ? (stage || overdueOnly ? t(lang, "crm.emptyFiltered") : t(lang, "crm.empty")) : ""
@@ -75,15 +76,14 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
     <Card>
       <CardHeader><CardTitle>{t(lang, "crm.deals")}</CardTitle></CardHeader>
       <CardContent className="grid gap-5">
-        <div role="group" aria-label={t(lang, "crm.deals")} className="grid grid-cols-2 gap-2 sm:grid-cols-7">
+        <div role="group" aria-label={t(lang, "crm.deals")} className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
           <Button type="button" variant={!stage && !overdueOnly ? "secondary" : "outline"} aria-pressed={!stage && !overdueOnly} className="h-auto flex-col items-start gap-1 py-2" onClick={() => { setStage(""); setOverdueOnly(false) }}>
             <span className="text-xs font-normal text-muted-foreground">{t(lang, "crm.allStages")}</span><span className="font-mono text-base tabular-nums">{total}</span>
           </Button>
-          {dealStages.map(item => {
-            const count = pipeline.stages.find(entry => entry.stage === item)?.count ?? 0
-            const active = stage === item
-            return <Button key={item} type="button" variant={active ? "secondary" : "outline"} aria-pressed={active} className="h-auto flex-col items-start gap-1 py-2" onClick={() => setStage(active ? "" : item)}>
-              <span className="text-xs font-normal text-muted-foreground">{t(lang, `crm.stage.${item}`)}</span><span className="font-mono text-base tabular-nums">{count}</span>
+          {pipeline.stages.map(item => {
+            const active = stage === item.stage
+            return <Button key={item.stage} type="button" variant={active ? "secondary" : "outline"} aria-pressed={active} className="h-auto flex-col items-start gap-1 py-2" onClick={() => setStage(active ? "" : item.stage)}>
+              <span className="text-xs font-normal text-muted-foreground">{item.name}</span><span className="font-mono text-base tabular-nums">{item.count}</span>
             </Button>
           })}
           <Button type="button" variant={overdueOnly ? "secondary" : "outline"} aria-pressed={overdueOnly} className="h-auto flex-col items-start gap-1 py-2" onClick={() => setOverdueOnly(value => !value)}>
@@ -91,8 +91,8 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
           </Button>
         </div>
         {emptyText && <p className="py-6 text-center text-sm text-muted-foreground">{emptyText}</p>}
-        {groups.map(group => <section key={group.stage} aria-labelledby={`stage-${group.stage}`} className="grid gap-2">
-          <h2 id={`stage-${group.stage}`} className="flex items-center gap-2 text-sm font-semibold">{t(lang, `crm.stage.${group.stage}`)}<Badge variant="secondary">{group.deals.length}</Badge></h2>
+        {groups.map(group => <section key={group.stage.stage} aria-labelledby={`stage-${group.stage.stage}`} className="grid gap-2">
+          <h2 id={`stage-${group.stage.stage}`} className="flex items-center gap-2 text-sm font-semibold">{group.stage.name}<Badge variant="secondary">{group.deals.length}</Badge></h2>
           <ul className="grid divide-y rounded-lg border">
             {group.deals.map(deal => <li key={deal.id} className="px-3">
               <button type="button" aria-expanded={selectedID === deal.id} onClick={() => setSelectedID(current => current === deal.id ? null : deal.id)} className="grid w-full gap-1 py-3 text-left">
@@ -105,13 +105,14 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
                 </span>
               </button>
               {selectedID === deal.id && <div className="pb-4">
-                <DealDetail deal={deal} lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} clients={clients} members={members} onChanged={() => void load()} />
+                <DealDetail deal={deal} stages={pipeline.stages} lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} clients={clients} members={members} onChanged={() => void load()} />
               </div>}
             </li>)}
           </ul>
         </section>)}
       </CardContent>
     </Card>
+    {data.CanManage && <StageEditor lang={lang} csrf={data.CSRFToken} stages={pipeline.stages} onChanged={() => void load()} />}
     <ContactsPanel lang={lang} csrf={data.CSRFToken} clients={clients} />
   </main>
 }

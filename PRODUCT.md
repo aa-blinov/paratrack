@@ -108,8 +108,8 @@ Confirmed by the code:
   for running timers, «Только эта» for focus. In English: Dashboard, Stats,
   Timesheet, Projects, By hour, Goals, Tags, Invoices, Payroll, Schedule,
   Reports, "Running now", "Only this".
-- The clients of a workspace have contacts, deals in five fixed stages and activities (calls, meetings,
-  notes), and the workspace shares one calendar of events. Both are sections (`crm`, `calendar`).
+- The clients of a workspace have contacts, deals in the workspace's own stages (five by default, a manager
+  can change them) and activities (calls, meetings, notes), and the workspace shares one calendar of events. Both are sections (`crm`, `calendar`).
 - An agent works with the same entities through `POST /mcp` with a bearer `pt_` token. A read-only token
   reads only, and every write is recorded in the audit log.
 - Every page and every `/api/*` call passes through `requireAuth`, with a

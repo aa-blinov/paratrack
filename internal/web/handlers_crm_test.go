@@ -157,3 +157,58 @@ func TestCalendarPageCarriesTheWorkspaceWeekStart(t *testing.T) {
 		t.Fatal("the calendar page does not say the week starts on Sunday")
 	}
 }
+
+// The pipeline belongs to the workspace. A member reads it and is refused to change
+// it; a manager adds a stage, renames it, moves it, and the deals in it count there.
+// A stage with a deal is refused on delete with the field named.
+func TestCRMStagesAreManagedByManagersAndCountInThePipeline(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("crm-stage-owner@x.test")
+	member := newAPIEnvSharedDB(t, owner)
+	member.register("crm-stage-member@x.test")
+	joinStudio(t, owner, map[string]*apiEnv{"crm-stage-member@x.test": member}, "crm-stage-member@x.test")
+
+	var listed crmStagesResponse
+	decodeBody(t, member.do("GET", "/api/crm/stages", nil, nil), &listed)
+	if len(listed.Stages) != 5 || listed.Stages[0].Key != "new" || listed.Stages[4].Kind != "lost" {
+		t.Fatalf("a member reads the stages = %+v, want the five defaults", listed.Stages)
+	}
+	if resp := member.postJSON("/api/crm/stages", map[string]any{"name": "Чужой этап"}); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("a member adds a stage: status %d, want 403", resp.StatusCode)
+	}
+
+	var created crmStageConfigView
+	decodeBody(t, owner.postJSON("/api/crm/stages", map[string]any{"name": "Созвон"}), &created)
+	if created.Key != "созвон" || created.Position != 6 || created.Kind != "open" {
+		t.Fatalf("created stage = %+v, want key созвон at position 6, open", created)
+	}
+	stagePath := "/api/crm/stages/" + url.PathEscape(created.Key)
+	var renamed crmStageConfigView
+	decodeBody(t, owner.postJSON(stagePath, map[string]any{"name": "Звонок и встреча"}), &renamed)
+	if renamed.Key != "созвон" || renamed.Name != "Звонок и встреча" {
+		t.Fatalf("renamed stage = %+v, the key must stay", renamed)
+	}
+
+	var deal crmDealView
+	decodeBody(t, owner.postJSON("/api/crm/deals", map[string]any{"title": "Встреча", "stage": created.Key}), &deal)
+	if deal.Stage != created.Key {
+		t.Fatalf("deal in the new stage = %+v", deal)
+	}
+	var moved crmStageConfigView
+	decodeBody(t, owner.postJSON(stagePath, map[string]any{"position": 1}), &moved)
+	if moved.Position != 1 {
+		t.Fatalf("moved stage = %+v, want position 1", moved)
+	}
+
+	var board crmDealsResponse
+	decodeBody(t, owner.do("GET", "/api/crm/deals", nil, nil), &board)
+	if len(board.Pipeline.Stages) != 6 || board.Pipeline.Stages[0].Stage != created.Key ||
+		board.Pipeline.Stages[0].Name != "Звонок и встреча" || board.Pipeline.Stages[0].Count != 1 {
+		t.Fatalf("pipeline after the change = %+v", board.Pipeline.Stages)
+	}
+
+	assertFieldError(t, owner.postJSON(stagePath+"/delete", map[string]any{}), http.StatusBadRequest, "stage")
+	if resp := member.postJSON(stagePath+"/delete", map[string]any{}); resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("a member deletes a stage: status %d, want 403", resp.StatusCode)
+	}
+}

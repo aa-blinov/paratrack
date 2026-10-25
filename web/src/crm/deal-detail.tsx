@@ -9,11 +9,12 @@ import { translate as t } from "@/i18n"
 import { apiJSON, issueOf, type Issue } from "@/lib/json-api"
 import { formatDateTime } from "@/lib/date-format"
 import type { Client, Member } from "@/lib/team-directory"
-import { activityKinds, dealStages, type Activity, type Deal } from "@/crm/model"
+import { activityKinds, type Activity, type Deal, type PipelineStage } from "@/crm/model"
 import { DealForm } from "@/crm/deal-form"
 
 type Props = {
   deal: Deal
+  stages: PipelineStage[]
   lang: string
   csrf: string
   viewerID: number
@@ -28,25 +29,25 @@ type Props = {
  * The edit and the stage move belong to the owner and to managers; anyone on
  * the team may read the timeline and log an entry on it.
  */
-export function DealDetail({ deal, lang, csrf, viewerID, canManage, clients, members, onChanged }: Props) {
+export function DealDetail({ deal, stages, lang, csrf, viewerID, canManage, clients, members, onChanged }: Props) {
   const canChange = canManage || deal.owner_id === viewerID
   return <div className="grid gap-6 border-t pt-4 pb-2">
-    {deal.stage === "lost" && deal.lost_reason && <p className="text-sm"><span className="text-muted-foreground">{t(lang, "crm.lostReason")}: </span>{deal.lost_reason}</p>}
+    {deal.lost_reason && <p className="text-sm"><span className="text-muted-foreground">{t(lang, "crm.lostReason")}: </span>{deal.lost_reason}</p>}
     {canChange && <section className="grid gap-3" aria-labelledby={`deal-${deal.id}-edit`}>
       <h3 id={`deal-${deal.id}-edit`} className="text-sm font-semibold">{t(lang, "crm.details")}</h3>
       <DealForm key={deal.id} lang={lang} csrf={csrf} viewerID={viewerID} canManage={canManage} clients={clients} members={members} deal={deal} onSaved={onChanged} />
     </section>}
-    {canChange && <StageMove key={`${deal.id}-${deal.stage}`} deal={deal} lang={lang} csrf={csrf} onMoved={onChanged} />}
+    {canChange && <StageMove key={`${deal.id}-${deal.stage}`} deal={deal} stages={stages} lang={lang} csrf={csrf} onMoved={onChanged} />}
     <Timeline deal={deal} lang={lang} csrf={csrf} />
   </div>
 }
 
-function StageMove({ deal, lang, csrf, onMoved }: { deal: Deal; lang: string; csrf: string; onMoved: () => void }) {
+function StageMove({ deal, stages, lang, csrf, onMoved }: { deal: Deal; stages: PipelineStage[]; lang: string; csrf: string; onMoved: () => void }) {
   const [target, setTarget] = React.useState(deal.stage)
   const [reason, setReason] = React.useState("")
   const [issue, setIssue] = React.useState<Issue | null>(null)
   const [busy, setBusy] = React.useState(false)
-  const lost = target === "lost"
+  const lost = stages.find(item => item.stage === target)?.kind === "lost"
   // A lost deal needs its reason before the request is made; the server would
   // refuse it anyway, but the person should not have to read that refusal first.
   const blocked = busy || target === deal.stage || (lost && reason.trim() === "")
@@ -74,7 +75,7 @@ function StageMove({ deal, lang, csrf, onMoved }: { deal: Deal; lang: string; cs
         <Label htmlFor={`deal-${deal.id}-target`}>{t(lang, "crm.stageLabel")}</Label>
         <Select value={target} onValueChange={setTarget}>
           <SelectTrigger id={`deal-${deal.id}-target`} className="w-full" aria-invalid={issue?.key === "stage" || undefined} style={{ fontSize: 16 }}><SelectValue /></SelectTrigger>
-          <SelectContent>{dealStages.map(stage => <SelectItem key={stage} value={stage}>{t(lang, `crm.stage.${stage}`)}</SelectItem>)}</SelectContent>
+          <SelectContent>{stages.map(item => <SelectItem key={item.stage} value={item.stage}>{item.name}</SelectItem>)}</SelectContent>
         </Select>
         <FieldIssue issue={issue} name="stage" id={`deal-${deal.id}-stage-issue`} />
       </div>

@@ -18,6 +18,10 @@ import (
 type Store interface {
 	CreateCRMContact(context.Context, appmodel.CRMContactCreateRequest) (model.CRMContact, error)
 	ListCRMContacts(context.Context, appmodel.CRMContactListQuery) ([]model.CRMContact, error)
+	ListCRMStages(context.Context, appmodel.CRMStageListQuery) ([]model.CRMStage, error)
+	CreateCRMStage(context.Context, appmodel.CRMStageCreateRequest) (model.CRMStage, error)
+	UpdateCRMStage(context.Context, appmodel.CRMStageUpdateRequest) (model.CRMStage, error)
+	DeleteCRMStage(context.Context, appmodel.CRMStageDeleteRequest) error
 	CreateCRMDeal(context.Context, appmodel.CRMDealCreateRequest) (model.CRMDeal, error)
 	GetCRMDeal(context.Context, appmodel.CRMDealLookupQuery) (model.CRMDeal, error)
 	ListCRMDeals(context.Context, appmodel.CRMDealListQuery) ([]model.CRMDeal, error)
@@ -91,9 +95,6 @@ func (s *Service) CreateDeal(ctx context.Context, request appmodel.CRMDealCreate
 	if !validName(request.Title) {
 		return model.CRMDeal{}, fieldError("deal title")
 	}
-	if request.Stage == "" {
-		request.Stage = model.DealStageNew
-	}
 	if err := checkMoney(request.AmountCents, request.Probability); err != nil {
 		return model.CRMDeal{}, err
 	}
@@ -134,9 +135,6 @@ func (s *Service) Deals(ctx context.Context, query appmodel.CRMDealListQuery) ([
 	if query.TeamID <= 0 {
 		return nil, appmodel.ErrInvalidWorkspace
 	}
-	if query.Stage != "" && !model.IsDealStage(query.Stage) {
-		return nil, model.ErrInvalidDealStage
-	}
 	if query.Today != "" && !validDate(query.Today) {
 		return nil, fieldError("today")
 	}
@@ -146,7 +144,8 @@ func (s *Service) Deals(ctx context.Context, query appmodel.CRMDealListQuery) ([
 	return s.store.ListCRMDeals(ctx, query)
 }
 
-// Pipeline counts the deals of each stage and the open deals that are overdue.
+// Pipeline counts the deals of each stage, in the workspace's stage order, and the
+// open deals that are overdue.
 func (s *Service) Pipeline(ctx context.Context, query appmodel.CRMDealListQuery) (appmodel.CRMPipeline, error) {
 	if query.TeamID <= 0 {
 		return appmodel.CRMPipeline{}, appmodel.ErrInvalidWorkspace
@@ -154,25 +153,109 @@ func (s *Service) Pipeline(ctx context.Context, query appmodel.CRMDealListQuery)
 	if query.Today == "" || !validDate(query.Today) {
 		return appmodel.CRMPipeline{}, fieldError("today")
 	}
+	stages, err := s.store.ListCRMStages(ctx, appmodel.CRMStageListQuery{TeamID: query.TeamID, CallerID: query.CallerID})
+	if err != nil {
+		return appmodel.CRMPipeline{}, err
+	}
 	deals, err := s.store.ListCRMDeals(ctx, appmodel.CRMDealListQuery{TeamID: query.TeamID, CallerID: query.CallerID, OwnerID: query.OwnerID})
 	if err != nil {
 		return appmodel.CRMPipeline{}, err
 	}
-	pipeline := appmodel.CRMPipeline{Stages: make([]appmodel.CRMPipelineStage, len(model.DealStages))}
-	for i, stage := range model.DealStages {
-		pipeline.Stages[i].Stage = stage
+	pipeline := appmodel.CRMPipeline{Stages: make([]appmodel.CRMPipelineStage, len(stages))}
+	position := make(map[string]int, len(stages))
+	for i, stage := range stages {
+		pipeline.Stages[i] = appmodel.CRMPipelineStage{Stage: stage.Key, Name: stage.Name, Kind: stage.Kind}
+		position[stage.Key] = i
 	}
 	for _, deal := range deals {
-		for i := range pipeline.Stages {
-			if pipeline.Stages[i].Stage == deal.Stage {
-				pipeline.Stages[i].Count++
-			}
+		if i, ok := position[deal.Stage]; ok {
+			pipeline.Stages[i].Count++
 		}
 		if deal.Overdue(query.Today) {
 			pipeline.Overdue++
 		}
 	}
 	return pipeline, nil
+}
+
+// Stages lists the workspace's pipeline in order. Every member reads it.
+func (s *Service) Stages(ctx context.Context, query appmodel.CRMStageListQuery) ([]model.CRMStage, error) {
+	if query.TeamID <= 0 {
+		return nil, appmodel.ErrInvalidWorkspace
+	}
+	return s.store.ListCRMStages(ctx, query)
+}
+
+// CreateStage appends a stage. The kind defaults to open. Only a manager may change
+// the pipeline; the persistence transaction checks the role again.
+func (s *Service) CreateStage(ctx context.Context, request appmodel.CRMStageCreateRequest) (model.CRMStage, error) {
+	if request.TeamID <= 0 {
+		return model.CRMStage{}, appmodel.ErrInvalidWorkspace
+	}
+	if !request.Manager {
+		return model.CRMStage{}, model.ErrForbidden
+	}
+	request.Name = strings.TrimSpace(request.Name)
+	if !validName(request.Name) {
+		return model.CRMStage{}, fieldError("stage name")
+	}
+	if request.Kind == "" {
+		request.Kind = model.StageKindOpen
+	}
+	if !model.ValidStageKind(request.Kind) {
+		return model.CRMStage{}, fieldError("kind")
+	}
+	return s.store.CreateCRMStage(ctx, request)
+}
+
+// UpdateStage renames a stage, sets its kind or moves it; a nil field stays as it is.
+func (s *Service) UpdateStage(ctx context.Context, request appmodel.CRMStageUpdateRequest) (model.CRMStage, error) {
+	if request.TeamID <= 0 {
+		return model.CRMStage{}, appmodel.ErrInvalidWorkspace
+	}
+	if !request.Manager {
+		return model.CRMStage{}, model.ErrForbidden
+	}
+	if request.Name != nil {
+		name := strings.TrimSpace(*request.Name)
+		if !validName(name) {
+			return model.CRMStage{}, fieldError("stage name")
+		}
+		request.Name = &name
+	}
+	if request.Kind != nil && !model.ValidStageKind(*request.Kind) {
+		return model.CRMStage{}, fieldError("kind")
+	}
+	if request.Position != nil && *request.Position < 1 {
+		return model.CRMStage{}, fieldError("position")
+	}
+	return s.store.UpdateCRMStage(ctx, request)
+}
+
+// MoveStage puts a stage at a 1-based position.
+func (s *Service) MoveStage(ctx context.Context, request appmodel.CRMStageMoveRequest) (model.CRMStage, error) {
+	if request.TeamID <= 0 {
+		return model.CRMStage{}, appmodel.ErrInvalidWorkspace
+	}
+	if request.Position < 1 {
+		return model.CRMStage{}, fieldError("position")
+	}
+	position := request.Position
+	return s.UpdateStage(ctx, appmodel.CRMStageUpdateRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, Manager: request.Manager, Key: request.Key, Position: &position,
+	})
+}
+
+// DeleteStage removes a stage that has no deals. A stage with deals is refused with a
+// field error on "stage"; its deals are not moved for it.
+func (s *Service) DeleteStage(ctx context.Context, request appmodel.CRMStageDeleteRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidWorkspace
+	}
+	if !request.Manager {
+		return model.ErrForbidden
+	}
+	return s.store.DeleteCRMStage(ctx, request)
 }
 
 // UpdateDeal changes the fields that are set; a nil field stays as it is.
@@ -211,9 +294,6 @@ func (s *Service) UpdateDeal(ctx context.Context, request appmodel.CRMDealUpdate
 func (s *Service) MoveDealStage(ctx context.Context, request appmodel.CRMDealStageRequest) (model.CRMDeal, error) {
 	if request.TeamID <= 0 {
 		return model.CRMDeal{}, appmodel.ErrInvalidWorkspace
-	}
-	if !model.IsDealStage(request.Stage) {
-		return model.CRMDeal{}, model.ErrInvalidDealStage
 	}
 	request.LostReason = strings.TrimSpace(request.LostReason)
 	if len(request.LostReason) > maxNameLength {
