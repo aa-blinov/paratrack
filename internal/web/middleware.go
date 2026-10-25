@@ -27,6 +27,16 @@ var errNoTeamMembership = errors.New("user has no team membership")
 var errInvalidCredential = errors.New("invalid authentication credential")
 var errReadOnlyCredential = errors.New("read-only API token cannot mutate state")
 
+// readOnlyRequestAllowed lists the requests a read-only token may make. The MCP
+// endpoint is a POST whatever the tool does, so callMCPTool refuses its write
+// tools for such a token.
+func readOnlyRequestAllowed(r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	return r.URL.Path == "/mcp"
+}
+
 // UserFrom returns the authenticated user attached to r's context, if
 // any. The second return is false for anonymous requests.
 func UserFrom(ctx context.Context) (appmodel.UserIdentity, bool) {
@@ -60,6 +70,7 @@ type authenticatedPrincipal struct {
 	sessionToken string
 	user         appmodel.UserIdentity
 	teamID       int64
+	readOnly     bool
 	clearSession bool
 }
 
@@ -88,10 +99,11 @@ func (s *Server) authenticateRequest(ctx context.Context, r *http.Request) (auth
 			}
 			return principal, err
 		}
-		if token.ReadOnly && r.Method != http.MethodGet && r.Method != http.MethodHead {
+		if token.ReadOnly && !readOnlyRequestAllowed(r) {
 			return principal, errReadOnlyCredential
 		}
 		principal.teamID = token.TeamID
+		principal.readOnly = token.ReadOnly
 		principal.user, err = s.services.Auth.Identity.IdentityByID(ctx, token.UserID)
 		if err != nil {
 			if errors.Is(err, appmodel.ErrAuthNotFound) {
@@ -187,6 +199,9 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 			}
 			ctx = WithUser(ctx, user)
 			ctx = WithTeam(ctx, team)
+			if principal.readOnly {
+				ctx = context.WithValue(ctx, ctxReadOnlyCredentialKey{}, true)
+			}
 			ctx = context.WithValue(ctx, ctxTeamModulesKey, &teamModulesCache{})
 			ctx = context.WithValue(ctx, ctxRoleKey, role)
 			ctx = requestctx.WithLocale(ctx, string(resolveLang(r)))

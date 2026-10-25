@@ -50,8 +50,11 @@ type Dependencies struct {
 	Tagging              TagDependencies
 	Search               SearchWorkflow
 	Goals                GoalWorkflow
+	CRM                  CRMWorkflow
+	Calendar             CalendarWorkflow
 	Webhooks             WebhookWorkflow
 	MailQueue            InvoiceMailQueue
+	AgentActions         AgentActionWorkflow
 }
 
 // AuthenticationDependencies groups the HTTP consumer contracts for account
@@ -174,6 +177,39 @@ type GoalWorkflow interface {
 	List(context.Context, appmodel.GoalListQuery) ([]model.Goal, error)
 	Progress(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error)
 	UpsertForManager(context.Context, appmodel.GoalUpsertRequest) (model.Goal, error)
+}
+
+// CRMWorkflow is the client, deal and activity surface for HTTP routes and the
+// MCP tools. Both transports call the same workflow, so a rule has one home.
+type CRMWorkflow interface {
+	CreateContact(context.Context, appmodel.CRMContactCreateRequest) (model.CRMContact, error)
+	Contacts(context.Context, appmodel.CRMContactListQuery) ([]model.CRMContact, error)
+	CreateDeal(context.Context, appmodel.CRMDealCreateRequest) (model.CRMDeal, error)
+	Deal(context.Context, appmodel.CRMDealLookupQuery) (model.CRMDeal, error)
+	Deals(context.Context, appmodel.CRMDealListQuery) ([]model.CRMDeal, error)
+	Pipeline(context.Context, appmodel.CRMDealListQuery) (appmodel.CRMPipeline, error)
+	UpdateDeal(context.Context, appmodel.CRMDealUpdateRequest) (model.CRMDeal, error)
+	MoveDealStage(context.Context, appmodel.CRMDealStageRequest) (model.CRMDeal, error)
+	LogActivity(context.Context, appmodel.CRMActivityCreateRequest) (model.CRMActivity, error)
+	Activities(context.Context, appmodel.CRMActivityListQuery) ([]model.CRMActivity, error)
+}
+
+// AgentActionWorkflow is the confirmation queue the agent's requests wait in. The
+// transport reads and decides requests here and runs the action itself, through the
+// same service the page uses for that action.
+type AgentActionWorkflow interface {
+	Request(context.Context, appmodel.AgentActionCreateRequest) (appmodel.AgentActionView, error)
+	Pending(context.Context, appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error)
+	Decide(context.Context, appmodel.AgentActionDecisionRequest) (appmodel.AgentActionView, error)
+	Finish(context.Context, appmodel.AgentActionFinishRequest) error
+}
+
+// CalendarWorkflow is the team event surface for HTTP routes and the MCP tools.
+type CalendarWorkflow interface {
+	Create(context.Context, appmodel.CalendarEventCreateRequest) (model.CalendarEvent, error)
+	Update(context.Context, appmodel.CalendarEventUpdateRequest) (model.CalendarEvent, error)
+	Delete(context.Context, appmodel.CalendarEventDeleteRequest) error
+	Agenda(context.Context, appmodel.CalendarEventListQuery) ([]model.CalendarEvent, error)
 }
 
 // PreferenceWorkflow exposes a user's persisted interface preferences.
@@ -561,8 +597,11 @@ func (s Dependencies) Validate() error {
 		dependency{"tag commands", depcheck.IsNil(s.Tagging.Commands)},
 		dependency{"session decorations", depcheck.IsNil(s.SessionDecorations)},
 		dependency{"goals", depcheck.IsNil(s.Goals)},
+		dependency{"CRM", depcheck.IsNil(s.CRM)},
+		dependency{"calendar", depcheck.IsNil(s.Calendar)},
 		dependency{"webhooks", depcheck.IsNil(s.Webhooks)},
 		dependency{"mail queue", depcheck.IsNil(s.MailQueue)},
+		dependency{"agent actions", depcheck.IsNil(s.AgentActions)},
 	)
 }
 

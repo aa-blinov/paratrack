@@ -138,6 +138,10 @@ func csrfExempt(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/api/stripe/webhook", "/sentry-tunnel":
 		return true
+	case "/mcp":
+		// The agent endpoint takes no cookie at all, so a forged request from
+		// another site fails the bearer check (401) and never reaches a handler.
+		return true
 	}
 	return false
 }

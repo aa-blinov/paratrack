@@ -47,8 +47,14 @@ func (s *Server) parsePeriodOr(r *http.Request, now time.Time, fallback string) 
 }
 
 func startOfWeek(r *http.Request, t time.Time) time.Time {
+	return weekStartOn(weekStartsSunday(r), t)
+}
+
+// weekStartOn is the first day of the week that holds t: Sunday when sunday is
+// set, Monday otherwise. The MCP schedule read has no request, so it asks the team.
+func weekStartOn(sunday bool, t time.Time) time.Time {
 	wd := (int(t.Weekday()) + 6) % 7 // Mon=0 … Sun=6
-	if weekStartsSunday(r) {
+	if sunday {
 		wd = int(t.Weekday())
 	}
 	d := time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, t.Location())

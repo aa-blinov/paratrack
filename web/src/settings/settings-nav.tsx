@@ -17,6 +17,7 @@ const workspace = [
   ["settings-members", "/settings/members", "team.members"],
   ["settings-invites", "/settings/invites", "set.tabInvites"],
   ["settings-sections", "/settings/sections", "nav.sections"],
+  ["settings-agent-actions", "/settings/agent-actions", "set.tabAgentActions"],
   ["settings-webhooks", "/settings/webhooks", "set.tabWebhooks"],
   ["settings-audit", "/settings/audit", "set.tabAudit"],
 ] as const

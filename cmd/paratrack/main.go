@@ -141,9 +141,12 @@ func main() {
 			Tagging: web.TagDependencies{
 				Queries: services.Tagging, Commands: services.Tagging,
 			},
-			Goals:     services.Goals,
-			Webhooks:  services.Webhooks,
-			MailQueue: services.MailQueue,
+			Goals:        services.Goals,
+			CRM:          services.CRM,
+			Calendar:     services.Calendar,
+			Webhooks:     services.Webhooks,
+			MailQueue:    services.MailQueue,
+			AgentActions: services.AgentActions,
 		}, addr, config.web, runtimeDeps)
 		if err != nil {
 			return fmt.Errorf("init web server: %w", err)

@@ -15,11 +15,15 @@ func (s *Server) handleAPITeamDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/settings/team?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
-	// If the user still belongs to another workspace, switch to it and
-	// stay signed in. Only a user with no teams left is logged out.
+	s.leaveDeletedWorkspace(w, r, user.ID, remaining)
+}
+
+// leaveDeletedWorkspace moves a person whose workspace was just deleted to another one
+// they belong to, and stays signed in. Only a user with no teams left is logged out.
+func (s *Server) leaveDeletedWorkspace(w http.ResponseWriter, r *http.Request, userID int64, remaining []int64) {
 	if len(remaining) > 0 {
 		setTeamCookie(w, r, remaining[0])
-		s.rememberWorkspace(r, user.ID, remaining[0])
+		s.rememberWorkspace(r, userID, remaining[0])
 		http.Redirect(w, r, "/?flash=team_deleted", http.StatusSeeOther)
 		return
 	}

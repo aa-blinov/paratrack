@@ -2,7 +2,7 @@ package appmodel
 
 import "strings"
 
-var sectionOrder = []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}
+var sectionOrder = []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "crm", "calendar", "integrations", "import"}
 
 func IsKnownSection(key string) bool {
 	for _, known := range sectionOrder {
