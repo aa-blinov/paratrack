@@ -67,7 +67,9 @@ type mcpToolCallParams struct {
 
 // handleMCP serves the Model Context Protocol over HTTP. Each POST carries one
 // JSON-RPC message and gets one JSON answer; a notification gets 202 and no body.
-// The route is registered behind mcpBearerOnly, so the token is the only way in.
+// A message that declares revision 2026-07-28 is checked against its headers before
+// anything runs. The route is registered behind mcpBearerOnly, so the token is the
+// only way in.
 func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxMCPBody))
 	if err != nil {
@@ -79,11 +81,16 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, mcpMessage{mcpwire.Response{JSONRPC: "2.0", ID: json.RawMessage("null"), Error: perr}})
 		return
 	}
+	version, modern := mcpwire.ModernRequestVersion(req.Params)
+	if rej := checkMCPHeaders(r, req, version, modern); rej != nil {
+		s.writeJSONStatus(w, rej.status, mcpMessage{mcpwire.NewErrorData(req.ID, rej.code, rej.message, rej.data)})
+		return
+	}
 	if req.IsNotification() {
 		w.WriteHeader(http.StatusAccepted)
 		return
 	}
-	s.writeJSON(w, mcpMessage{s.dispatchMCP(r, req)})
+	s.writeMCPResponse(w, s.dispatchMCP(r, req, modern), modern)
 }
 
 // mcpMessage is one JSON-RPC answer, written by the shared response encoder.
@@ -93,7 +100,45 @@ type mcpMessage struct {
 
 func (mcpMessage) isJSONResponse() {}
 
-func (s *Server) dispatchMCP(r *http.Request, req mcpwire.Request) mcpwire.Response {
+// writeMCPResponse answers a request of revision 2026-07-28 with its result marked
+// complete, and with 404 for a method the server does not have, as the transport asks.
+// A legacy answer keeps the shape it always had.
+func (s *Server) writeMCPResponse(w http.ResponseWriter, resp mcpwire.Response, modern bool) {
+	status := http.StatusOK
+	if modern {
+		switch {
+		case resp.Error != nil && resp.Error.Code == mcpwire.CodeMethodNotFound:
+			status = http.StatusNotFound
+		case resp.Error == nil:
+			fields, err := mcpwire.CompleteResult(resp.Result)
+			if err != nil {
+				s.logInternalError(err)
+				resp = mcpwire.NewError(resp.ID, mcpwire.CodeInternalError, "internal server error")
+			} else {
+				resp.Result = fields
+			}
+		}
+	}
+	s.writeJSONStatus(w, status, mcpMessage{resp})
+}
+
+// mcpIdentity is what the server says of itself in initialize and server/discover.
+func (s *Server) mcpIdentity() mcpServerInfo {
+	return mcpServerInfo{Name: "paratrack", Version: s.appVersion}
+}
+
+// mcpDiscoverResult answers server/discover. The identity travels in _meta, as the
+// revision asks, and the versions are the ones a modern request may declare.
+type mcpDiscoverResult struct {
+	SupportedVersions []string       `json:"supportedVersions"`
+	Capabilities      map[string]any `json:"capabilities"`
+	Meta              map[string]any `json:"_meta"`
+	Instructions      string         `json:"instructions"`
+	TTLMs             int            `json:"ttlMs"`
+	CacheScope        string         `json:"cacheScope"`
+}
+
+func (s *Server) dispatchMCP(r *http.Request, req mcpwire.Request, modern bool) mcpwire.Response {
 	switch req.Method {
 	case "initialize":
 		var params struct {
@@ -107,13 +152,30 @@ func (s *Server) dispatchMCP(r *http.Request, req mcpwire.Request) mcpwire.Respo
 		return mcpwire.NewResult(req.ID, mcpInitializeResult{
 			ProtocolVersion: mcpwire.Negotiate(params.ProtocolVersion),
 			Capabilities:    map[string]any{"tools": map[string]any{}},
-			ServerInfo:      mcpServerInfo{Name: "paratrack", Version: s.appVersion},
+			ServerInfo:      s.mcpIdentity(),
 			Instructions:    mcpInstructions,
+		})
+	case "server/discover":
+		return mcpwire.NewResult(req.ID, mcpDiscoverResult{
+			SupportedVersions: mcpSupportedVersions,
+			Capabilities:      map[string]any{"tools": map[string]any{}},
+			Meta:              map[string]any{"io.modelcontextprotocol/serverInfo": s.mcpIdentity()},
+			Instructions:      mcpInstructions,
+			// The versions and the identity change with a release, so clients may keep them an hour.
+			TTLMs:      3600000,
+			CacheScope: "public",
 		})
 	case "ping":
 		return mcpwire.NewResult(req.ID, struct{}{})
 	case "tools/list":
-		return mcpwire.NewResult(req.ID, map[string]any{"tools": mcpToolDescriptors(s.teamModules(r))})
+		result := map[string]any{"tools": mcpToolDescriptors(s.teamModules(r))}
+		if modern {
+			// The list follows the workspace's sections and the token's rights, so no
+			// cache may hold it. A zero lifetime asks the client to read it again.
+			result["ttlMs"] = 0
+			result["cacheScope"] = "private"
+		}
+		return mcpwire.NewResult(req.ID, result)
 	case "tools/call":
 		return s.callMCPTool(r, req)
 	default:

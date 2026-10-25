@@ -5,20 +5,26 @@ package mcpwire
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
+	"strings"
 )
 
-// ProtocolVersion is the MCP revision the server answers with. Batching was removed
-// in this revision, so one request is one JSON object.
-const ProtocolVersion = "2025-06-18"
+// LegacyVersion is the revision initialize answers with. Its requests carry no version
+// of their own, and batching was removed in it, so one request is one JSON object.
+const LegacyVersion = "2025-06-18"
 
-// Negotiate returns the revision to answer with: the client's own when the server
-// speaks it, otherwise the newest revision the server speaks.
+// ModernVersion is the revision that puts the version, the client and its capabilities
+// in every request's _meta, with no initialize handshake and no session.
+const ModernVersion = "2026-07-28"
+
+// Negotiate returns the revision to answer initialize with: the client's own when the
+// server speaks it, otherwise the newest legacy revision the server speaks.
 func Negotiate(requested string) string {
-	if requested == ProtocolVersion {
+	if requested == LegacyVersion {
 		return requested
 	}
-	return ProtocolVersion
+	return LegacyVersion
 }
 
 const (
@@ -27,6 +33,12 @@ const (
 	CodeMethodNotFound = -32601
 	CodeInvalidParams  = -32602
 	CodeInternalError  = -32603
+)
+
+// The specification keeps -32020 to -32099 for its own errors.
+const (
+	CodeHeaderMismatch     = -32020
+	CodeUnsupportedVersion = -32022
 )
 
 type Request struct {
@@ -51,6 +63,7 @@ type Response struct {
 type Error struct {
 	Code    int    `json:"code"`
 	Message string `json:"message"`
+	Data    any    `json:"data,omitempty"`
 }
 
 // Parse decodes one request. A malformed message or a batch is a protocol error,
@@ -61,7 +74,7 @@ func Parse(body []byte) (Request, *Error) {
 		return Request{}, &Error{Code: CodeInvalidRequest, Message: "empty request body"}
 	}
 	if trimmed[0] == '[' {
-		return Request{}, &Error{Code: CodeInvalidRequest, Message: "batches are not supported in protocol 2025-06-18"}
+		return Request{}, &Error{Code: CodeInvalidRequest, Message: "batches are not supported, send one message per request"}
 	}
 	var req Request
 	if err := json.Unmarshal(trimmed, &req); err != nil {
@@ -79,6 +92,63 @@ func NewResult(id json.RawMessage, result any) Response {
 
 func NewError(id json.RawMessage, code int, message string) Response {
 	return Response{JSONRPC: "2.0", ID: nullIfEmpty(id), Error: &Error{Code: code, Message: message}}
+}
+
+// NewErrorData adds the data member, which the version error uses to list the
+// versions the server does support.
+func NewErrorData(id json.RawMessage, code int, message string, data any) Response {
+	return Response{JSONRPC: "2.0", ID: nullIfEmpty(id), Error: &Error{Code: code, Message: message, Data: data}}
+}
+
+// ModernRequestVersion returns the version a request declares in its own _meta, which
+// revision 2026-07-28 requires on every request. The second result is false for a
+// request without one, the shape a 2025-06-18 client sends.
+func ModernRequestVersion(params json.RawMessage) (string, bool) {
+	var envelope struct {
+		Meta struct {
+			Version string `json:"io.modelcontextprotocol/protocolVersion"`
+		} `json:"_meta"`
+	}
+	if len(params) == 0 || json.Unmarshal(params, &envelope) != nil || envelope.Meta.Version == "" {
+		return "", false
+	}
+	return envelope.Meta.Version, true
+}
+
+const (
+	base64HeaderPrefix = "=?base64?"
+	base64HeaderSuffix = "?="
+)
+
+// HeaderValue reads a header that may carry its value in the Base64 sentinel form,
+// which clients use for a name outside plain ASCII. The second result is false when
+// the sentinel wraps something that is not Base64.
+func HeaderValue(header string) (string, bool) {
+	if len(header) < len(base64HeaderPrefix)+len(base64HeaderSuffix) ||
+		!strings.HasPrefix(header, base64HeaderPrefix) || !strings.HasSuffix(header, base64HeaderSuffix) {
+		return header, true
+	}
+	raw, err := base64.StdEncoding.DecodeString(header[len(base64HeaderPrefix) : len(header)-len(base64HeaderSuffix)])
+	if err != nil {
+		return "", false
+	}
+	return string(raw), true
+}
+
+// CompleteResult returns a result object with resultType set to complete, which
+// revision 2026-07-28 puts on every result. The fields are read back as raw JSON, so
+// the numbers and the order of the others stay as they were.
+func CompleteResult(result any) (map[string]json.RawMessage, error) {
+	raw, err := json.Marshal(result)
+	if err != nil {
+		return nil, err
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return nil, err
+	}
+	fields["resultType"] = json.RawMessage(`"complete"`)
+	return fields, nil
 }
 
 // nullIfEmpty keeps the id as JSON null when the request had none, as the spec asks

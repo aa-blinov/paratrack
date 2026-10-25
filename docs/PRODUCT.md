@@ -381,7 +381,8 @@ refresh against the live service are not verified.
 
 ### Agent endpoint (MCP)
 
-`POST /mcp` speaks JSON-RPC 2.0 over HTTP in MCP protocol revision `2025-06-18`, with no sessions. Details and the tool
+`POST /mcp` speaks JSON-RPC 2.0 over HTTP in MCP protocol revisions `2025-06-18` (through `initialize`) and `2026-07-28`
+(the version in each request, and the method and tool name repeated in headers), with no sessions. Details and the tool
 list are in [MCP.md](MCP.md).
 
 - The only way in is a bearer `pt_` token. A browser cookie is refused, so a page on another site cannot drive the
