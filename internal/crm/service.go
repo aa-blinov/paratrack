@@ -6,6 +6,7 @@ package crm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -27,25 +28,36 @@ type Store interface {
 	ListCRMDeals(context.Context, appmodel.CRMDealListQuery) ([]model.CRMDeal, error)
 	UpdateCRMDeal(context.Context, appmodel.CRMDealUpdateRequest) (model.CRMDeal, error)
 	MoveCRMDealStage(context.Context, appmodel.CRMDealStageRequest) (model.CRMDeal, error)
+	CRMDealForProject(context.Context, appmodel.CRMDealProjectRequest) (model.CRMDeal, error)
+	LinkCRMDealProject(context.Context, appmodel.CRMDealProjectLinkRequest) (model.CRMDeal, error)
 	CreateCRMActivity(context.Context, appmodel.CRMActivityCreateRequest) (model.CRMActivity, error)
 	ListCRMActivities(context.Context, appmodel.CRMActivityListQuery) ([]model.CRMActivity, error)
 }
 
+// ProjectWorkflow is the projects workflow a won deal makes its project through. The
+// project rules, including who may create a project, stay with that workflow.
+type ProjectWorkflow interface {
+	Create(context.Context, appmodel.ProjectCreateRequest) (model.Project, error)
+	Delete(context.Context, appmodel.ProjectMutationRequest) error
+}
+
 type Dependencies struct {
-	Store Store
+	Store    Store
+	Projects ProjectWorkflow
 }
 
 type Service struct {
-	store Store
+	store    Store
+	projects ProjectWorkflow
 }
 
 var ErrIncompleteDependencies = errors.New("crm service dependencies are incomplete")
 
 func New(deps Dependencies) (*Service, error) {
-	if depcheck.IsNil(deps.Store) {
+	if depcheck.IsNil(deps.Store) || depcheck.IsNil(deps.Projects) {
 		return nil, ErrIncompleteDependencies
 	}
-	return &Service{store: deps.Store}, nil
+	return &Service{store: deps.Store, projects: deps.Projects}, nil
 }
 
 const (
@@ -109,6 +121,65 @@ func (s *Service) CreateDeal(ctx context.Context, request appmodel.CRMDealCreate
 		return model.CRMDeal{}, fieldError("next step date")
 	}
 	return s.store.CreateCRMDeal(ctx, request)
+}
+
+// CreateDealProject makes the project of a won deal, named as the deal, for its client,
+// with its amount as the budget and no billable rate; the rate is set in the project. The
+// deal owner or a manager may ask. The projects workflow then decides whether the caller
+// may create a project at all, so a member is refused with ErrProjectManagerRequired.
+func (s *Service) CreateDealProject(ctx context.Context, request appmodel.CRMDealProjectRequest) (model.CRMDeal, error) {
+	if request.TeamID <= 0 {
+		return model.CRMDeal{}, appmodel.ErrInvalidWorkspace
+	}
+	deal, err := s.store.CRMDealForProject(ctx, request)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	switch {
+	case deal.StageKind != model.StageKindWon:
+		return model.CRMDeal{}, fieldError("stage")
+	case deal.ProjectID != 0:
+		return model.CRMDeal{}, fieldError("project")
+	case deal.ClientID == 0:
+		return model.CRMDeal{}, fieldError("client")
+	}
+	var budget *int
+	if deal.AmountCents > 0 {
+		cents := int(deal.AmountCents)
+		budget = &cents
+	}
+	project, err := s.projects.Create(ctx, appmodel.ProjectCreateRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, Name: deal.Title, ClientID: deal.ClientID,
+		BudgetCents: budget, Currency: deal.Currency,
+	})
+	if err != nil {
+		return model.CRMDeal{}, projectStepError(err)
+	}
+	linked, err := s.store.LinkCRMDealProject(ctx, appmodel.CRMDealProjectLinkRequest{
+		TeamID: request.TeamID, CallerID: request.CallerID, DealID: request.DealID, ProjectID: project.ID,
+	})
+	if err != nil {
+		// The project exists for this deal only. The link is refused when the deal changed
+		// while the project was made, so the project is removed again. The two writes are in
+		// two transactions; a crash between them leaves the project for a manager to delete.
+		if rmErr := s.projects.Delete(ctx, appmodel.ProjectMutationRequest{TeamID: request.TeamID, ProjectID: project.ID, CallerID: request.CallerID}); rmErr != nil {
+			return model.CRMDeal{}, errors.Join(err, fmt.Errorf("remove project %d: %w", project.ID, rmErr))
+		}
+		return model.CRMDeal{}, err
+	}
+	return linked, nil
+}
+
+// projectStepError names why the projects workflow refused the project. A member's refusal
+// is the manager rule; a name another project already has is a field the person can change.
+func projectStepError(err error) error {
+	switch {
+	case errors.Is(err, model.ErrForbidden):
+		return model.ErrProjectManagerRequired
+	case errors.Is(err, model.ErrAlreadyExists):
+		return fieldError("project name")
+	}
+	return err
 }
 
 // checkMoney keeps amounts non-negative and probabilities in percent.

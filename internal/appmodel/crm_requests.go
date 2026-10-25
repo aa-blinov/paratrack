@@ -76,6 +76,21 @@ type CRMDealStageRequest struct {
 	LostReason string
 }
 
+// CRMDealProjectRequest turns a won deal into a project. The owner or a manager asks.
+type CRMDealProjectRequest struct {
+	TeamID   int64
+	CallerID int64
+	DealID   int64
+}
+
+// CRMDealProjectLinkRequest records the project a won deal made.
+type CRMDealProjectLinkRequest struct {
+	TeamID    int64
+	CallerID  int64
+	DealID    int64
+	ProjectID int64
+}
+
 type CRMDealListQuery struct {
 	TeamID   int64
 	CallerID int64

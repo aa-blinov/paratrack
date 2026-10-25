@@ -205,6 +205,29 @@ var mcpCRMTools = []mcpTool{
 		},
 	},
 	{
+		Name: "deal_create_project",
+		Description: "Make the project of a won deal: named as the deal, for its client, with the deal's amount as the budget. " +
+			"The deal must be in a won stage, have a client and have no project yet. The owner or a manager asks, and only a manager " +
+			"creates the project. Set the billable rate afterwards with project_update.",
+		Write:  true,
+		Schema: objectSchema(map[string]any{"deal_id": integerProp("Deal id")}, "deal_id"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				DealID int64 `json:"deal_id"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			deal, err := s.services.CRM.CreateDealProject(c.ctx, appmodel.CRMDealProjectRequest{
+				TeamID: c.teamID, CallerID: c.userID, DealID: in.DealID,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return crmDealViewOf(deal, c.today), nil
+		},
+	},
+	{
 		Name: "deal_stage_create",
 		Description: "Add a stage to the end of the pipeline. The key is derived from the name. The kind decides the rules: " +
 			"an open stage can be overdue, a won or lost stage closes the deal, and a lost stage needs a reason. Managers only.",

@@ -452,3 +452,53 @@ func TestCRMDealsReadableWithoutTheFixedStageCheck(t *testing.T) {
 		t.Fatalf("deal = %+v, want its stored key and no overdue flag without a stage kind", got)
 	}
 }
+
+// The project link runs the deal rules again under the lock: a deal that left the won
+// stage is refused, and a deal that already has a project is refused a second link.
+func TestCRMProjectLinkChecksTheDealAgain(t *testing.T) {
+	d := openTestDB(t)
+	ws := seedRichWorkspace(t, d, "crm-link")
+	ctx := t.Context()
+
+	deal, err := d.CreateCRMDeal(ctx, appmodel.CRMDealCreateRequest{
+		TeamID: ws.teamID, CallerID: ws.ownerID, Title: "Лендинг", Stage: model.DealStageWon, ClientID: ws.clientID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	project, err := d.CreateProjectWithBilling(ctx, appmodel.ProjectCreateRequest{TeamID: ws.teamID, CallerID: ws.ownerID, Name: "Лендинг"})
+	if err != nil {
+		t.Fatalf("project: %v", err)
+	}
+	link := appmodel.CRMDealProjectLinkRequest{TeamID: ws.teamID, CallerID: ws.ownerID, DealID: deal.ID, ProjectID: project.ID}
+
+	if _, err := d.MoveCRMDealStage(ctx, appmodel.CRMDealStageRequest{TeamID: ws.teamID, CallerID: ws.ownerID, DealID: deal.ID, Stage: model.DealStageWorking}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.LinkCRMDealProject(ctx, link); err == nil {
+		t.Fatal("a deal that left the won stage was linked")
+	} else {
+		wantFieldErr(t, err, "stage")
+	}
+
+	if _, err := d.MoveCRMDealStage(ctx, appmodel.CRMDealStageRequest{TeamID: ws.teamID, CallerID: ws.ownerID, DealID: deal.ID, Stage: model.DealStageWon}); err != nil {
+		t.Fatal(err)
+	}
+	linked, err := d.LinkCRMDealProject(ctx, link)
+	if err != nil || linked.ProjectID != project.ID {
+		t.Fatalf("link = %+v, %v; want project %d", linked, err, project.ID)
+	}
+	if _, err := d.LinkCRMDealProject(ctx, link); err == nil {
+		t.Fatal("a second link was accepted")
+	} else {
+		wantFieldErr(t, err, "project")
+	}
+}
+
+func wantFieldErr(t *testing.T, err error, field string) {
+	t.Helper()
+	var fe appmodel.FieldError
+	if !errors.As(err, &fe) || fe.Field != field {
+		t.Fatalf("error = %v, want a field error on %q", err, field)
+	}
+}

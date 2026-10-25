@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -10,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // postJSON sends a JSON body the way the React screens do: the session cookie and
@@ -210,5 +213,68 @@ func TestCRMStagesAreManagedByManagersAndCountInThePipeline(t *testing.T) {
 	assertFieldError(t, owner.postJSON(stagePath+"/delete", map[string]any{}), http.StatusBadRequest, "stage")
 	if resp := member.postJSON(stagePath+"/delete", map[string]any{}); resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("a member deletes a stage: status %d, want 403", resp.StatusCode)
+	}
+}
+
+// A won deal makes its project once. The project carries the deal's name and client, its
+// amount as the budget and no billable rate, and the deal keeps the project. An open deal, a
+// second call and a deal without a client are refused, each on the field that must change.
+func TestCRMWonDealMakesItsProjectOnce(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("crm-project@x.test")
+	clientID := insertTestClient(t, e, "Ромашка")
+
+	var deal crmDealView
+	decodeBody(t, e.postJSON("/api/crm/deals", map[string]any{"title": "Сайт Ромашки", "client_id": clientID, "amount_cents": 250000, "currency": "RUB"}), &deal)
+	projectPath := fmt.Sprintf("/api/crm/deals/%d/project", deal.ID)
+	assertFieldError(t, e.postJSON(projectPath, map[string]any{}), http.StatusBadRequest, "stage")
+
+	var won crmDealView
+	decodeBody(t, e.postJSON(fmt.Sprintf("/api/crm/deals/%d/stage", deal.ID), map[string]any{"stage": "won"}), &won)
+	if won.Stage != "won" || won.ProjectID != 0 {
+		t.Fatalf("won deal = %+v, want no project yet", won)
+	}
+
+	var made crmDealView
+	decodeBody(t, e.postJSON(projectPath, map[string]any{}), &made)
+	if made.ProjectID == 0 || made.ID != deal.ID {
+		t.Fatalf("project of the won deal: %+v", made)
+	}
+	var name, currency string
+	var client int64
+	var budget, rate sql.NullInt64
+	if err := e.db.TestSQL().QueryRowContext(t.Context(),
+		`SELECT name, client_id, budget_cents, billable_rate_cents, currency FROM projects WHERE id = ?`, made.ProjectID).
+		Scan(&name, &client, &budget, &rate, &currency); err != nil {
+		t.Fatalf("load the project: %v", err)
+	}
+	if name != "Сайт Ромашки" || client != clientID || !budget.Valid || budget.Int64 != 250000 || rate.Valid || currency != "RUB" {
+		t.Fatalf("project = name %q, client %d, budget %v, rate %v, currency %q", name, client, budget, rate, currency)
+	}
+
+	assertFieldError(t, e.postJSON(projectPath, map[string]any{}), http.StatusBadRequest, "project")
+
+	var bare crmDealView
+	decodeBody(t, e.postJSON("/api/crm/deals", map[string]any{"title": "Без клиента", "stage": "won"}), &bare)
+	assertFieldError(t, e.postJSON(fmt.Sprintf("/api/crm/deals/%d/project", bare.ID), map[string]any{}), http.StatusBadRequest, "client")
+}
+
+// A member who owns a won deal is refused by the projects rule, and the answer says why.
+// Nothing is written for the refusal.
+func TestCRMMemberIsRefusedTheProjectWithTheReason(t *testing.T) {
+	owner, member := studioOwnerAndMember(t, "crm-project")
+	clientID := insertClientInTeam(t, owner, mcpStudioID(t, owner), "Лютик")
+
+	var deal crmDealView
+	decodeBody(t, member.postJSON("/api/crm/deals", map[string]any{"title": "Лендинг Лютика", "client_id": clientID, "stage": "won"}), &deal)
+	resp := member.postJSON(fmt.Sprintf("/api/crm/deals/%d/project", deal.ID), map[string]any{})
+	status := resp.StatusCode
+	var refused apiErrorResponse
+	decodeBody(t, resp, &refused)
+	if status != http.StatusForbidden || refused.Error != i18n.T(i18n.Ru, "crm.projectManagerOnly") {
+		t.Fatalf("member makes the project: status %d, answer %+v", status, refused)
+	}
+	if n := countRows(t, owner, `SELECT COUNT(*) FROM projects WHERE name = ?`, "Лендинг Лютика"); n != 0 {
+		t.Fatalf("a refused member left %d projects behind", n)
 	}
 }

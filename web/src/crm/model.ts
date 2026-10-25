@@ -20,6 +20,8 @@ export type Deal = {
   close_date: string
   next_step_at: string
   lost_reason: string
+  /** The project the deal made when it was won; 0 until then. */
+  project_id: number
   overdue: boolean
   updated_at: string
 }

@@ -178,6 +178,8 @@ func (s *Server) mcpErrorText(call mcpCall, err error) string {
 	switch {
 	case errors.Is(err, model.ErrForbidden):
 		return i18n.T(call.lang, "err.forbiddenAction")
+	case errors.Is(err, model.ErrProjectManagerRequired):
+		return i18n.T(call.lang, "crm.projectManagerOnly")
 	case errors.Is(err, model.ErrNotFound):
 		return i18n.T(call.lang, "err.notFoundEntity")
 	}

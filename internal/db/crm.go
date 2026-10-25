@@ -115,7 +115,7 @@ func (d *DB) ListCRMContacts(ctx context.Context, query appmodel.CRMContactListQ
 
 // dealColumns is the one projection every deal read uses.
 const dealColumns = `id, title, stage, COALESCE(client_id, 0), COALESCE(contact_id, 0), owner_id,
-	amount_cents, currency, probability, close_date, next_step_at, lost_reason, created_by, created_at, updated_at`
+	amount_cents, currency, probability, close_date, next_step_at, lost_reason, COALESCE(project_id, 0), created_by, created_at, updated_at`
 
 type dealScanner interface {
 	Scan(...any) error
@@ -125,7 +125,7 @@ func scanCRMDeal(teamID int64, row dealScanner) (model.CRMDeal, error) {
 	d := model.CRMDeal{TeamID: teamID}
 	var created, updated string
 	if err := row.Scan(&d.ID, &d.Title, &d.Stage, &d.ClientID, &d.ContactID, &d.OwnerID, &d.AmountCents,
-		&d.Currency, &d.Probability, &d.CloseDate, &d.NextStepAt, &d.LostReason, &d.CreatedBy, &created, &updated); err != nil {
+		&d.Currency, &d.Probability, &d.CloseDate, &d.NextStepAt, &d.LostReason, &d.ProjectID, &d.CreatedBy, &created, &updated); err != nil {
 		return model.CRMDeal{}, err
 	}
 	var err error
@@ -393,6 +393,67 @@ func (d *DB) MoveCRMDealStage(ctx context.Context, request appmodel.CRMDealStage
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE crm_deals SET stage = ?, lost_reason = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
 		request.Stage, reasonFor(target.Kind, reason), now, request.DealID, request.TeamID); err != nil {
+		return model.CRMDeal{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.CRMDeal{}, err
+	}
+	return d.GetCRMDeal(ctx, appmodel.CRMDealLookupQuery{TeamID: request.TeamID, CallerID: request.CallerID, DealID: request.DealID})
+}
+
+// CRMDealForProject reads a deal for the step that makes its project, with the stage kind
+// the step checks. Its transaction takes the workspace lock as a change does, and the
+// owner or a manager may read it, the same people who may move the deal.
+func (d *DB) CRMDealForProject(ctx context.Context, request appmodel.CRMDealProjectRequest) (model.CRMDeal, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.DealID <= 0 {
+		return model.CRMDeal{}, ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	deal, err := dealForEdit(ctx, tx, request.TeamID, request.CallerID, request.DealID)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	stages, err := crmStagesOf(ctx, tx, request.TeamID)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	deal.StageKind = stageKindOf(stages, deal.Stage)
+	return deal, nil
+}
+
+// LinkCRMDealProject records the project a won deal made. The deal rules run again under
+// the workspace lock, so a deal that left the won stage, or got a project meanwhile, is
+// refused and nothing is written. The caller then removes the project it just made.
+func (d *DB) LinkCRMDealProject(ctx context.Context, request appmodel.CRMDealProjectLinkRequest) (model.CRMDeal, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.DealID <= 0 || request.ProjectID <= 0 {
+		return model.CRMDeal{}, ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	deal, err := dealForEdit(ctx, tx, request.TeamID, request.CallerID, request.DealID)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	stages, err := crmStagesOf(ctx, tx, request.TeamID)
+	if err != nil {
+		return model.CRMDeal{}, err
+	}
+	if stageKindOf(stages, deal.Stage) != model.StageKindWon {
+		return model.CRMDeal{}, appmodel.FieldError{Field: "stage"}
+	}
+	if deal.ProjectID != 0 {
+		return model.CRMDeal{}, appmodel.FieldError{Field: "project"}
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE crm_deals SET project_id = ?, updated_at = ? WHERE id = ? AND team_id = ? AND project_id IS NULL`,
+		request.ProjectID, FormatTime(d.currentTime().UTC()), request.DealID, request.TeamID); err != nil {
 		return model.CRMDeal{}, err
 	}
 	if err := tx.Commit(); err != nil {

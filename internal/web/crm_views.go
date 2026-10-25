@@ -24,6 +24,7 @@ type crmDealView struct {
 	CloseDate   string    `json:"close_date"`
 	NextStepAt  string    `json:"next_step_at"`
 	LostReason  string    `json:"lost_reason"`
+	ProjectID   int64     `json:"project_id"`
 	Overdue     bool      `json:"overdue"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -34,7 +35,7 @@ func crmDealViewOf(d model.CRMDeal, today string) crmDealView {
 	return crmDealView{
 		ID: d.ID, Title: d.Title, Stage: d.Stage, ClientID: d.ClientID, ContactID: d.ContactID,
 		OwnerID: d.OwnerID, AmountCents: d.AmountCents, Currency: d.Currency, Probability: d.Probability,
-		CloseDate: d.CloseDate, NextStepAt: d.NextStepAt, LostReason: d.LostReason,
+		CloseDate: d.CloseDate, NextStepAt: d.NextStepAt, LostReason: d.LostReason, ProjectID: d.ProjectID,
 		Overdue: d.Overdue(today), UpdatedAt: d.UpdatedAt,
 	}
 }
