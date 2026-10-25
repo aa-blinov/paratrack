@@ -229,6 +229,130 @@ func crmLeadResponseStatsViewOf(stats model.CRMLeadResponseStats, from, to strin
 	return v
 }
 
+// crmFunnelView is the funnel report of a period (CRM-17). AmountsVisible says whether the
+// caller is a manager; a member's totals carry no amounts, and the amount lists are left out.
+// A conversion is null while nothing was closed or created, not zero.
+type crmFunnelView struct {
+	From           string                   `json:"from"`
+	To             string                   `json:"to"`
+	Today          string                   `json:"today"`
+	AmountsVisible bool                     `json:"amounts_visible"`
+	Pipeline       []crmFunnelStageView     `json:"pipeline"`
+	Won            crmFunnelTotalView       `json:"won"`
+	Lost           crmFunnelTotalView       `json:"lost"`
+	Conversion     *float64                 `json:"conversion"`
+	Overdue        crmFunnelTotalView       `json:"overdue"`
+	Leads          crmFunnelLeadsView       `json:"leads"`
+	Response       crmLeadResponseStatsView `json:"response"`
+}
+
+func (crmFunnelView) isJSONResponse() {}
+
+type crmFunnelStageView struct {
+	Stage   string          `json:"stage"`
+	Name    string          `json:"name"`
+	Kind    string          `json:"kind"`
+	Count   int64           `json:"count"`
+	Amounts []crmAmountView `json:"amounts,omitempty"`
+}
+
+type crmFunnelTotalView struct {
+	Count   int64           `json:"count"`
+	Amounts []crmAmountView `json:"amounts,omitempty"`
+}
+
+type crmAmountView struct {
+	Currency    string `json:"currency"`
+	AmountCents int64  `json:"amount_cents"`
+}
+
+type crmFunnelLeadsView struct {
+	Statuses   []crmLeadStatusCountView `json:"statuses"`
+	Created    int64                    `json:"created"`
+	Converted  int64                    `json:"converted"`
+	Conversion *float64                 `json:"conversion"`
+	Sources    []crmLeadSourceView      `json:"sources"`
+}
+
+type crmLeadStatusCountView struct {
+	Status string `json:"status"`
+	Count  int64  `json:"count"`
+}
+
+// crmLeadSourceView is one source of the period's leads. Label is the source as typed, or the
+// words for a lead whose source is empty, in the reader's language.
+type crmLeadSourceView struct {
+	Source string `json:"source"`
+	Label  string `json:"label"`
+	Count  int64  `json:"count"`
+}
+
+// crmFunnelViewOf shapes the report. from and to are the days the caller asked for, today the
+// workspace day the overdue steps were counted against.
+func crmFunnelViewOf(report model.CRMFunnel, lang i18n.Lang, from, to, today string) crmFunnelView {
+	v := crmFunnelView{
+		From: from, To: to, Today: today, AmountsVisible: report.ShowAmounts,
+		Pipeline: make([]crmFunnelStageView, 0, len(report.Pipeline)),
+		Won:      crmFunnelTotalViewOf(report.Won), Lost: crmFunnelTotalViewOf(report.Lost),
+		Overdue:  crmFunnelTotalViewOf(report.Overdue),
+		Response: crmLeadResponseStatsViewOf(report.Response, from, to),
+	}
+	for _, stage := range report.Pipeline {
+		v.Pipeline = append(v.Pipeline, crmFunnelStageView{
+			Stage: stage.Key, Name: stageName(lang, stage.Key, stage.Name), Kind: stage.Kind,
+			Count: stage.Total.Count, Amounts: crmAmountViews(stage.Total.Amounts),
+		})
+	}
+	v.Conversion = ratioOf(v.Won.Count, v.Won.Count+v.Lost.Count)
+	v.Leads = crmFunnelLeadsViewOf(report, lang)
+	return v
+}
+
+func crmFunnelTotalViewOf(total model.CRMDealTotal) crmFunnelTotalView {
+	return crmFunnelTotalView{Count: total.Count, Amounts: crmAmountViews(total.Amounts)}
+}
+
+func crmAmountViews(amounts []model.CRMAmount) []crmAmountView {
+	if len(amounts) == 0 {
+		return nil
+	}
+	out := make([]crmAmountView, 0, len(amounts))
+	for _, a := range amounts {
+		out = append(out, crmAmountView{Currency: a.Currency, AmountCents: a.AmountCents})
+	}
+	return out
+}
+
+func crmFunnelLeadsViewOf(report model.CRMFunnel, lang i18n.Lang) crmFunnelLeadsView {
+	v := crmFunnelLeadsView{
+		Statuses:   make([]crmLeadStatusCountView, 0, len(model.LeadStatuses)),
+		Created:    report.LeadsCreated,
+		Converted:  report.LeadsConverted,
+		Conversion: ratioOf(report.LeadsConverted, report.LeadsCreated),
+		Sources:    make([]crmLeadSourceView, 0, len(report.LeadSources)),
+	}
+	for _, status := range model.LeadStatuses {
+		v.Statuses = append(v.Statuses, crmLeadStatusCountView{Status: status, Count: report.LeadStatuses[status]})
+	}
+	for _, source := range report.LeadSources {
+		label := source.Source
+		if label == "" {
+			label = i18n.T(lang, "crm.funnel.noSource")
+		}
+		v.Sources = append(v.Sources, crmLeadSourceView{Source: source.Source, Label: label, Count: source.Created})
+	}
+	return v
+}
+
+// ratioOf is part over whole, or nil when there is no whole.
+func ratioOf(part, whole int64) *float64 {
+	if whole == 0 {
+		return nil
+	}
+	ratio := float64(part) / float64(whole)
+	return &ratio
+}
+
 type crmLeadsResponse struct {
 	Leads []crmLeadView `json:"leads"`
 }

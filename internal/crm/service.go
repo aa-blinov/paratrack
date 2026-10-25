@@ -38,6 +38,7 @@ type Store interface {
 	MoveCRMLeadStatus(context.Context, appmodel.CRMLeadStatusRequest) (model.CRMLead, error)
 	ConvertCRMLead(context.Context, appmodel.CRMLeadConvertRequest) (model.CRMLead, error)
 	CRMLeadResponseStats(context.Context, appmodel.CRMLeadResponseStatsQuery) (model.CRMLeadResponseStats, error)
+	CRMFunnelReport(context.Context, appmodel.CRMFunnelQuery) (model.CRMFunnel, error)
 	CreateCRMIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) (string, model.CRMIntakeKey, error)
 	RevokeCRMIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) error
 	CRMIntakeKeyStatus(context.Context, appmodel.CRMIntakeKeyQuery) (model.CRMIntakeKey, error)

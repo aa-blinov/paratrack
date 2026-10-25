@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { intakeExample, leadIsOpen, responseState, type Lead } from "@/crm/model"
+import { defaultFunnelPeriod, intakeExample, leadIsOpen, percentLabel, responseState, type Lead } from "@/crm/model"
 
 const lead = (status: Lead["status"]) => ({ status }) as Lead
 
@@ -23,5 +23,18 @@ describe("lead model", () => {
     const text = intakeExample("https://crm.example.test", "lk_abc")
     expect(text.startsWith("curl -X POST https://crm.example.test/api/leads/intake")).toBe(true)
     expect(text).toContain('-H "X-Intake-Key: lk_abc"')
+  })
+})
+
+describe("funnel model", () => {
+  it("opens the period on the first day of the month up to today", () => {
+    expect(defaultFunnelPeriod(new Date(2026, 9, 25, 14, 30))).toEqual({ from: "2026-10-01", to: "2026-10-25" })
+    expect(defaultFunnelPeriod(new Date(2026, 0, 1))).toEqual({ from: "2026-01-01", to: "2026-01-01" })
+  })
+
+  it("prints a rate as a whole percentage", () => {
+    expect(percentLabel(0.25)).toBe("25%")
+    expect(percentLabel(1 / 3)).toBe("33%")
+    expect(percentLabel(1)).toBe("100%")
   })
 })

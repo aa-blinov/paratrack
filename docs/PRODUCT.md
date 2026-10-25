@@ -291,6 +291,25 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
   reader's own, when the workspace has none), how many were created, how many have an activity, how many were answered
   within the target, and the median minutes to the first activity, null while none has one. Any member reads it. A lead
   that already had an activity when this rule shipped took its first logged activity as its response, once.
+- **Funnel report** (CRM-17). `GET /api/crm/report/funnel?from=YYYY-MM-DD&to=YYYY-MM-DD`, also the `funnel_report` tool.
+  Both days are included and are read in the workspace time zone, as the response stats are (the reader's own zone when
+  the workspace has none). The report has four parts:
+  - the **pipeline now**: each stage of the workspace in its order, with the number of deals in it;
+  - the deals **won and lost in the period**, by the time each entered its current stage (`crm_deals.stage_changed_at`),
+    and the win rate `won / (won + lost)`, which is null when nothing was closed in the period;
+  - the **overdue** open deals now: an open deal whose next step is before today. Won and lost deals are never overdue;
+  - the **leads**: how many are in each status now, the leads created in the period by source (an empty source is shown
+    as «не указано»), how many of those became deals (converted over created, null when none), and the first-response
+    figures of the same period, which are the response stats, not a second count.
+
+  Who sees what: every member sees every count. Amounts are returned only to a manager, one line per currency, and never
+  added across currencies. A member's answer has no `amounts` and `amounts_visible` is false. The role is read in the same
+  transaction as the figures, so the workflow decides it, not the route.
+
+  The stage times are stored. `crm_deals.stage_changed_at` is set when a deal is created and when it moves to another
+  stage; a move to the stage it is already in keeps the time. `crm_leads.status_changed_at` is set when a lead is created,
+  moves status and converts. A row that predates these columns takes its `updated_at` once (migration
+  `20261025_crm_stage_times`), so an old deal edited later may show a later time than the one it entered its stage.
 - **Next-step reminders** (`internal/reminders`, the hourly pass). An open deal, or a lead in `new`, `contacted` or
   `qualified`, is due when its next-step date is today or earlier in the workspace time zone. Its owner gets one push
   per item on the topic `crm_next_step`, which the person can switch off, and, with SMTP, one email a day listing every
@@ -441,10 +460,10 @@ Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoic
 `schedule_entries`, `push_subscriptions`, `settings` (VAPID keys).
 
 CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100,
-`project_id` is the project a won deal made),
+`project_id` is the project a won deal made, `stage_changed_at` is when it entered its current stage),
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`
-and `converted_client_id` set once, `first_response_at` set by the first activity), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
+and `converted_client_id` set once, `first_response_at` set by the first activity, `status_changed_at` set by every status change), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
 `calendar_events` (`shared` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
 workspace day; its primary key is the once-a-day claim of a next-step reminder).
 Times are text in the usual format and money is integer cents.
@@ -539,6 +558,5 @@ python e2e/qa_offline_push.py                   # offline + push
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.
-- There is no funnel report yet (see [backlog/crm.md](backlog/crm.md), CRM-17).
 - The team calendar is internal: no Google or Outlook sync and no recurring events.
 - The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.

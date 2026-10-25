@@ -200,6 +200,17 @@ type CRMLeadResponseStatsQuery struct {
 	To       time.Time
 }
 
+// CRMFunnelQuery asks for the funnel report of a period (CRM-17). From and To bound the period
+// as CRMLeadResponseStatsQuery does. Today is the workspace day an open deal's next step is
+// compared with, in YYYY-MM-DD.
+type CRMFunnelQuery struct {
+	TeamID   int64
+	CallerID int64
+	From     time.Time
+	To       time.Time
+	Today    string
+}
+
 type CRMLeadIntakeRequest struct {
 	TeamID      int64
 	Company     string

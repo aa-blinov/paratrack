@@ -19,6 +19,11 @@ var columnMigrations = []struct {
 	// left NULL until then. The backfill in migrateLeadFirstResponses fills the leads that
 	// already had one.
 	{"crm_leads", "first_response_at", "TEXT"},
+	// When a deal entered its current stage and when a lead took its status (CRM-17). The funnel
+	// counts won and lost deals by this time. Every write sets it; migrateCRMStageTimes gives the
+	// rows that predate the column their updated_at.
+	{"crm_deals", "stage_changed_at", "TEXT"},
+	{"crm_leads", "status_changed_at", "TEXT"},
 	// The colour an activity wears. It used to be hashed from the name into
 	// a ten-slot palette, so with more than ten activities two of them
 	// looked identical and the mark identified nothing. Stored now; the

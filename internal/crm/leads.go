@@ -169,6 +169,22 @@ func (s *Service) LeadResponseStats(ctx context.Context, query appmodel.CRMLeadR
 	return s.store.CRMLeadResponseStats(ctx, query)
 }
 
+// FunnelReport builds the funnel of a period (CRM-17). The period is an interval of instants the
+// caller built in the workspace zone, refused with "to" when empty, and Today is the workspace
+// day. Any member reads it; the persistence layer keeps the amounts for a manager.
+func (s *Service) FunnelReport(ctx context.Context, query appmodel.CRMFunnelQuery) (model.CRMFunnel, error) {
+	if query.TeamID <= 0 {
+		return model.CRMFunnel{}, appmodel.ErrInvalidWorkspace
+	}
+	if !query.To.After(query.From) {
+		return model.CRMFunnel{}, fieldError("to")
+	}
+	if !validDate(query.Today) {
+		return model.CRMFunnel{}, fieldError("today")
+	}
+	return s.store.CRMFunnelReport(ctx, query)
+}
+
 // CreateIntakeKey makes the workspace's intake key and returns the raw key, which is shown
 // once. Only a manager may make one.
 func (s *Service) CreateIntakeKey(ctx context.Context, request appmodel.CRMIntakeKeyRequest) (string, model.CRMIntakeKey, error) {
