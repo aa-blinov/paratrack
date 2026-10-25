@@ -62,6 +62,21 @@ func (d *DB) migrateLeadFirstResponses(ctx context.Context) error {
 	return err
 }
 
+// migrateCRMStageTimes gives the deals and leads that predate stage_changed_at and
+// status_changed_at the time they were last written (CRM-17). It is the closest time the rows
+// keep; a later edit of a row's text moves updated_at, so an old won deal may read later than
+// it was won. Runs once.
+func (d *DB) migrateCRMStageTimes(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261025_crm_stage_times", func(tx *Tx) error {
+		if _, err := tx.ExecContext(ctx, `UPDATE crm_deals SET stage_changed_at = updated_at WHERE stage_changed_at IS NULL`); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, `UPDATE crm_leads SET status_changed_at = updated_at WHERE status_changed_at IS NULL`)
+		return err
+	})
+	return err
+}
+
 // CRMLeadResponseStats measures the first response of the leads created in [From, To) (CRM-16).
 // Any member reads it, as the leads list does. Timestamps are text, so the period and the
 // difference cast them to timestamptz. A response dated before its lead's creation counts as
@@ -188,10 +203,10 @@ func (d *DB) CreateCRMLead(ctx context.Context, request appmodel.CRMLeadCreateRe
 	var id int64
 	err = tx.QueryRowContext(ctx,
 		`INSERT INTO crm_leads (team_id, company, contact_name, phone, email, source, message, owner_id, status,
-		   next_step_at, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?) RETURNING id`,
+		   next_step_at, created_by, created_at, updated_at, status_changed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?) RETURNING id`,
 		request.TeamID, request.Company, request.ContactName, request.Phone, request.Email, request.Source,
-		request.Message, owner, request.NextStepAt, request.CallerID, now, now).Scan(&id)
+		request.Message, owner, request.NextStepAt, request.CallerID, now, now, now).Scan(&id)
 	if err != nil {
 		return model.CRMLead{}, err
 	}
@@ -332,9 +347,12 @@ func (d *DB) MoveCRMLeadStatus(ctx context.Context, request appmodel.CRMLeadStat
 		}
 		lostReason = reason
 	}
+	now := FormatTime(d.currentTime().UTC())
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE crm_leads SET status = ?, lost_reason = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
-		request.Status, lostReason, FormatTime(d.currentTime().UTC()), request.LeadID, request.TeamID); err != nil {
+		`UPDATE crm_leads SET status = ?, lost_reason = ?, updated_at = ?,
+		   status_changed_at = CASE WHEN status = ? THEN status_changed_at ELSE ? END
+		 WHERE id = ? AND team_id = ?`,
+		request.Status, lostReason, now, request.Status, now, request.LeadID, request.TeamID); err != nil {
 		return model.CRMLead{}, err
 	}
 	updated, err := loadLead(ctx, tx, request.TeamID, request.LeadID)
@@ -417,10 +435,10 @@ func (d *DB) ConvertCRMLead(ctx context.Context, request appmodel.CRMLeadConvert
 	var dealID int64
 	err = tx.QueryRowContext(ctx,
 		`INSERT INTO crm_deals (team_id, title, stage, client_id, contact_id, owner_id, amount_cents, currency,
-		   probability, close_date, next_step_at, lost_reason, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, NULLIF(?, 0), ?, 0, (SELECT currency FROM teams WHERE id = ?), 0, '', ?, '', ?, ?, ?) RETURNING id`,
+		   probability, close_date, next_step_at, lost_reason, created_by, created_at, updated_at, stage_changed_at)
+		 VALUES (?, ?, ?, ?, NULLIF(?, 0), ?, 0, (SELECT currency FROM teams WHERE id = ?), 0, '', ?, '', ?, ?, ?, ?) RETURNING id`,
 		request.TeamID, name, stage, clientID, contactID, owner, request.TeamID, lead.NextStepAt,
-		request.CallerID, now, now).Scan(&dealID)
+		request.CallerID, now, now, now).Scan(&dealID)
 	if err != nil {
 		return model.CRMLead{}, err
 	}
@@ -434,8 +452,8 @@ func (d *DB) ConvertCRMLead(ctx context.Context, request appmodel.CRMLeadConvert
 	}
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE crm_leads SET status = 'converted', lost_reason = '', converted_client_id = ?, converted_deal_id = ?,
-		   updated_at = ? WHERE id = ? AND team_id = ?`,
-		clientID, dealID, now, request.LeadID, request.TeamID); err != nil {
+		   updated_at = ?, status_changed_at = ? WHERE id = ? AND team_id = ?`,
+		clientID, dealID, now, now, request.LeadID, request.TeamID); err != nil {
 		return model.CRMLead{}, err
 	}
 	converted, err := loadLead(ctx, tx, request.TeamID, request.LeadID)
@@ -557,10 +575,10 @@ func (d *DB) CreateIntakeLead(ctx context.Context, request appmodel.CRMLeadIntak
 	var id int64
 	err := d.sql.QueryRowContext(ctx,
 		`INSERT INTO crm_leads (team_id, company, contact_name, phone, email, source, message, owner_id, status,
-		   created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'new', 0, ?, ?) RETURNING id`,
+		   created_by, created_at, updated_at, status_changed_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'new', 0, ?, ?, ?) RETURNING id`,
 		request.TeamID, request.Company, request.ContactName, request.Phone, request.Email, request.Source,
-		request.Message, now, now).Scan(&id)
+		request.Message, now, now, now).Scan(&id)
 	if err != nil {
 		return model.CRMLead{}, err
 	}

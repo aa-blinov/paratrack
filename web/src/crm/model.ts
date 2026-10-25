@@ -147,3 +147,52 @@ export function intakeExample(origin: string, key: string): string {
     `  -d '{"company":"Ромашка","contact_name":"Анна","email":"anna@example.test","source":"website","message":"Нужен сайт"}'`,
   ].join("\n")
 }
+
+/** One currency's sum of deal amounts. A total never adds two currencies together. */
+export type FunnelAmount = { currency: string; amount_cents: number }
+
+/** Counted deals, with their amounts per currency only when the viewer is a manager. */
+export type FunnelTotal = { count: number; amounts?: FunnelAmount[] }
+
+export type FunnelStage = FunnelTotal & { stage: string; name: string; kind: StageKind }
+
+/** The funnel of a period (CRM-17). Amounts come only when amounts_visible is set. */
+export type FunnelReport = {
+  from: string
+  to: string
+  today: string
+  amounts_visible: boolean
+  pipeline: FunnelStage[]
+  won: FunnelTotal
+  lost: FunnelTotal
+  /** Won over won plus lost in the period; null when nothing was closed. */
+  conversion: number | null
+  overdue: FunnelTotal
+  leads: {
+    statuses: { status: LeadStatus; count: number }[]
+    created: number
+    converted: number
+    /** Converted over created, of the leads the period created; null when there were none. */
+    conversion: number | null
+    sources: { source: string; label: string; count: number }[]
+  }
+  response: {
+    target_minutes: number
+    created: number
+    answered: number
+    within_target: number
+    median_minutes: number | null
+  }
+}
+
+/** The period a funnel opens on: the first day of this month up to today, in the browser's zone. */
+export function defaultFunnelPeriod(now: Date): { from: string; to: string } {
+  const pad = (n: number) => String(n).padStart(2, "0")
+  const day = (value: Date) => `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`
+  return { from: day(new Date(now.getFullYear(), now.getMonth(), 1)), to: day(now) }
+}
+
+/** A rate as a whole percentage. */
+export function percentLabel(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`
+}

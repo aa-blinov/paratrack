@@ -207,10 +207,10 @@ func (d *DB) CreateCRMDeal(ctx context.Context, request appmodel.CRMDealCreateRe
 	var id int64
 	err = tx.QueryRowContext(ctx,
 		`INSERT INTO crm_deals (team_id, title, stage, client_id, contact_id, owner_id, amount_cents, currency,
-		   probability, close_date, next_step_at, lost_reason, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, COALESCE(NULLIF(?, ''), (SELECT currency FROM teams WHERE id = ?)), ?, ?, ?, '', ?, ?, ?) RETURNING id`,
+		   probability, close_date, next_step_at, lost_reason, created_by, created_at, updated_at, stage_changed_at)
+		 VALUES (?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, COALESCE(NULLIF(?, ''), (SELECT currency FROM teams WHERE id = ?)), ?, ?, ?, '', ?, ?, ?, ?) RETURNING id`,
 		request.TeamID, title, stage, request.ClientID, request.ContactID, owner, request.AmountCents,
-		request.Currency, request.TeamID, request.Probability, request.CloseDate, request.NextStepAt, request.CallerID, now, now).Scan(&id)
+		request.Currency, request.TeamID, request.Probability, request.CloseDate, request.NextStepAt, request.CallerID, now, now, now).Scan(&id)
 	if err != nil {
 		return model.CRMDeal{}, err
 	}
@@ -390,9 +390,12 @@ func (d *DB) MoveCRMDealStage(ctx context.Context, request appmodel.CRMDealStage
 	if target.Kind == model.StageKindLost && reason == "" {
 		return model.CRMDeal{}, model.ErrLostReasonRequired
 	}
+	// A move to the stage the deal is already in does not restart its time there (CRM-17).
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE crm_deals SET stage = ?, lost_reason = ?, updated_at = ? WHERE id = ? AND team_id = ?`,
-		request.Stage, reasonFor(target.Kind, reason), now, request.DealID, request.TeamID); err != nil {
+		`UPDATE crm_deals SET stage = ?, lost_reason = ?, updated_at = ?,
+		   stage_changed_at = CASE WHEN stage = ? THEN stage_changed_at ELSE ? END
+		 WHERE id = ? AND team_id = ?`,
+		request.Stage, reasonFor(target.Kind, reason), now, request.Stage, now, request.DealID, request.TeamID); err != nil {
 		return model.CRMDeal{}, err
 	}
 	if err := tx.Commit(); err != nil {

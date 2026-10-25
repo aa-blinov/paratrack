@@ -104,6 +104,27 @@ func (s *Server) handleCRMLeadResponseStats(w http.ResponseWriter, r *http.Reque
 	s.writeJSON(w, crmLeadResponseStatsViewOf(stats, from, to))
 }
 
+// handleCRMFunnelReport is the funnel of a period (CRM-17). The period is read in the reader's
+// workspace zone, as the response stats are, and overdue steps are counted against today there.
+// Any member reads it; the workflow decides which totals carry amounts.
+func (s *Server) handleCRMFunnelReport(w http.ResponseWriter, r *http.Request) {
+	from, to := r.URL.Query().Get("from"), r.URL.Query().Get("to")
+	start, end, err := leadPeriod(from, to, userLoc(r))
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	today := workspaceToday(r)
+	report, err := s.services.CRM.FunnelReport(r.Context(), appmodel.CRMFunnelQuery{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), From: start, To: end, Today: today,
+	})
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmFunnelViewOf(report, resolveLang(r), from, to, today))
+}
+
 func (s *Server) handleCRMLeadCreate(w http.ResponseWriter, r *http.Request) {
 	var body crmLeadBody
 	if !s.decodeJSONBody(w, r, &body) {
