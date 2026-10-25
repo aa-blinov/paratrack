@@ -108,7 +108,7 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
                 <span className="flex flex-wrap items-center gap-2"><span className="min-w-0 font-medium [overflow-wrap:anywhere]">{deal.title}</span>{deal.overdue && <Badge variant="destructive">{t(lang, "crm.overdueBadge")}</Badge>}</span>
                 <span className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
                   <span>{clientNames.get(deal.client_id) || t(lang, "crm.noClient")}</span>
-                  {deal.amount_cents > 0 && <span className="font-mono tabular-nums text-foreground">{formatMoney(deal.amount_cents, deal.currency, lang)}</span>}
+                  {deal.amount_visible && (deal.amount_cents ?? 0) > 0 && <span className="font-mono tabular-nums text-foreground">{formatMoney(deal.amount_cents ?? 0, deal.currency ?? "", lang)}</span>}
                   <span>{deal.probability}%</span>
                   {deal.next_step_at && <span>{t(lang, "crm.nextStep")}: {formatDate(deal.next_step_at, lang)}</span>}
                 </span>

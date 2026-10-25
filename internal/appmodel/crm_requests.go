@@ -38,9 +38,12 @@ type CRMContactCreateRequest struct {
 	Phone    string
 }
 
+// CRMDealCreateRequest makes a deal. Manager is the caller's role as the transport read it;
+// only a manager sets an amount or a currency.
 type CRMDealCreateRequest struct {
 	TeamID      int64
 	CallerID    int64
+	Manager     bool
 	Title       string
 	Stage       string
 	ClientID    int64
@@ -53,10 +56,12 @@ type CRMDealCreateRequest struct {
 	NextStepAt  string
 }
 
-// CRMDealUpdateRequest changes only the fields that are not nil.
+// CRMDealUpdateRequest changes only the fields that are not nil. Manager is the caller's role
+// as the transport read it; only a manager sets an amount.
 type CRMDealUpdateRequest struct {
 	TeamID      int64
 	CallerID    int64
+	Manager     bool
 	DealID      int64
 	Title       *string
 	OwnerID     *int64

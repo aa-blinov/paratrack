@@ -119,6 +119,10 @@ func (s *Service) CreateDeal(ctx context.Context, request appmodel.CRMDealCreate
 	if !validName(request.Title) {
 		return model.CRMDeal{}, fieldError("deal title")
 	}
+	// Only a manager sets what a deal is worth. Zero and an empty currency mean none was given.
+	if !request.Manager && (request.AmountCents != 0 || request.Currency != "") {
+		return model.CRMDeal{}, fieldError("amount")
+	}
 	if err := checkMoney(request.AmountCents, request.Probability); err != nil {
 		return model.CRMDeal{}, err
 	}
@@ -352,6 +356,14 @@ func (s *Service) UpdateDeal(ctx context.Context, request appmodel.CRMDealUpdate
 			return model.CRMDeal{}, fieldError("deal title")
 		}
 		request.Title = &title
+	}
+	// A member's zero is read as no amount given, so the form of a member, which sends its
+	// empty amount, leaves the amount a manager set as it is.
+	if !request.Manager && request.AmountCents != nil {
+		if *request.AmountCents != 0 {
+			return model.CRMDeal{}, fieldError("amount")
+		}
+		request.AmountCents = nil
 	}
 	if request.AmountCents != nil || request.Probability != nil {
 		amount, probability := int64(0), 0

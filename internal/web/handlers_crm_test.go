@@ -259,6 +259,108 @@ func TestCRMWonDealMakesItsProjectOnce(t *testing.T) {
 	assertFieldError(t, e.postJSON(fmt.Sprintf("/api/crm/deals/%d/project", bare.ID), map[string]any{}), http.StatusBadRequest, "client")
 }
 
+// memberDealAnswer reads a deal answer a member got. It has no amount and no currency, and
+// says so with amount_visible false.
+func memberDealAnswer(t *testing.T, resp *http.Response) crmDealView {
+	t.Helper()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("member's deal answer: status %d", resp.StatusCode)
+	}
+	body := readBody(t, resp)
+	assertMemberDealKeys(t, body)
+	var deal crmDealView
+	if err := json.Unmarshal([]byte(body), &deal); err != nil {
+		t.Fatal(err)
+	}
+	return deal
+}
+
+// assertMemberDealKeys checks the keys of one deal object a member read: no amount_cents and no
+// currency, and amount_visible set to false. The answers are indented, so the keys are read, not
+// matched as text.
+func assertMemberDealKeys(t *testing.T, object string) {
+	t.Helper()
+	var keys map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(object), &keys); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"amount_cents", "currency"} {
+		if _, ok := keys[key]; ok {
+			t.Fatalf("a member's deal carries %s: %s", key, object)
+		}
+	}
+	if string(keys["amount_visible"]) != "false" {
+		t.Fatalf("a member's deal does not say amount_visible is false: %s", object)
+	}
+}
+
+// Amounts are a manager's. A member reads every deal of the workspace with its title, client,
+// stage and owner, and never its amount or currency, in the list or in a stage move.
+func TestCRMDealAmountsShowToManagersOnly(t *testing.T) {
+	owner, member := studioOwnerAndMember(t, "crm-read")
+	clientID := insertClientInTeam(t, owner, mcpStudioID(t, owner), "Лютик")
+
+	var managed crmDealView
+	decodeBody(t, owner.postJSON("/api/crm/deals", map[string]any{"title": "Сайт Лютика", "client_id": clientID, "amount_cents": 250000, "currency": "RUB"}), &managed)
+	if !managed.AmountVisible || managed.AmountCents != 250000 || managed.Currency != "RUB" {
+		t.Fatalf("manager's create answer = %+v", managed)
+	}
+	var listed crmDealsResponse
+	decodeBody(t, owner.do("GET", "/api/crm/deals", nil, nil), &listed)
+	if len(listed.Deals) != 1 || !listed.Deals[0].AmountVisible || listed.Deals[0].AmountCents != 250000 || listed.Deals[0].Currency != "RUB" {
+		t.Fatalf("manager's list = %+v", listed.Deals)
+	}
+
+	raw := readBody(t, member.do("GET", "/api/crm/deals", nil, nil))
+	var seen crmDealsResponse
+	if err := json.Unmarshal([]byte(raw), &seen); err != nil {
+		t.Fatal(err)
+	}
+	var rows struct {
+		Deals []json.RawMessage `json:"deals"`
+	}
+	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(seen.Deals) != 1 || len(rows.Deals) != 1 || seen.Deals[0].Title != "Сайт Лютика" || seen.Deals[0].ClientID != clientID {
+		t.Fatalf("member's list = %s, want the manager's deal", raw)
+	}
+	assertMemberDealKeys(t, string(rows.Deals[0]))
+
+	own := memberDealAnswer(t, member.postJSON("/api/crm/deals", map[string]any{"title": "Лендинг Лютика"}))
+	owner.postJSON(fmt.Sprintf("/api/crm/deals/%d", own.ID), map[string]any{"amount_cents": 99000})
+	moved := memberDealAnswer(t, member.postJSON(fmt.Sprintf("/api/crm/deals/%d/stage", own.ID), map[string]any{"stage": "working"}))
+	if moved.Stage != "working" {
+		t.Fatalf("member's stage move = %+v", moved)
+	}
+}
+
+// A member cannot set an amount or a currency. A create or an update that names one is refused on
+// "amount"; a member's zero is no amount given, so it leaves the amount a manager set as it is.
+func TestCRMMemberCannotSetAnAmount(t *testing.T) {
+	owner, member := studioOwnerAndMember(t, "crm-write")
+
+	assertFieldError(t, member.postJSON("/api/crm/deals", map[string]any{"title": "Дорого", "amount_cents": 250000}), http.StatusBadRequest, "amount")
+	assertFieldError(t, member.postJSON("/api/crm/deals", map[string]any{"title": "Дорого", "currency": "RUB"}), http.StatusBadRequest, "amount")
+
+	own := memberDealAnswer(t, member.postJSON("/api/crm/deals", map[string]any{"title": "Лендинг"}))
+	path := fmt.Sprintf("/api/crm/deals/%d", own.ID)
+	owner.postJSON(path, map[string]any{"amount_cents": 99000})
+
+	assertFieldError(t, member.postJSON(path, map[string]any{"amount_cents": 250000}), http.StatusBadRequest, "amount")
+	renamed := memberDealAnswer(t, member.postJSON(path, map[string]any{"title": "Лендинг 2", "amount_cents": 0}))
+	if renamed.Title != "Лендинг 2" {
+		t.Fatalf("member's title change = %+v", renamed)
+	}
+	var stored int64
+	if err := owner.db.TestSQL().QueryRowContext(t.Context(), `SELECT amount_cents FROM crm_deals WHERE id = ?`, own.ID).Scan(&stored); err != nil {
+		t.Fatal(err)
+	}
+	if stored != 99000 {
+		t.Fatalf("a member's zero changed the manager's amount: %d", stored)
+	}
+}
+
 // A member who owns a won deal is refused by the projects rule, and the answer says why.
 // Nothing is written for the refusal.
 func TestCRMMemberIsRefusedTheProjectWithTheReason(t *testing.T) {

@@ -14,8 +14,11 @@ export type Deal = {
   client_id: number
   contact_id: number
   owner_id: number
-  amount_cents: number
-  currency: string
+  /** Only a manager gets the amount and the currency; amount_visible says which viewer this is. */
+  amount_visible: boolean
+  /** Left out of the answer when the viewer is a member or the amount is zero. */
+  amount_cents?: number
+  currency?: string
   probability: number
   close_date: string
   next_step_at: string
