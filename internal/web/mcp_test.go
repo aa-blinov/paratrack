@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -192,6 +193,34 @@ func TestMCPAgentRunsADealThroughItsTools(t *testing.T) {
 	}
 }
 
+// An agent makes the project of a won deal, and the project is in projects_list for the
+// deal's client. A second call is refused on the project field.
+func TestMCPDealCreatesItsProject(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("mcp-deal-project@x.test")
+	auth := mcpBearer(apiTokenOf(t, e, "agent"))
+	clientID := insertTestClient(t, e, "Ромашка")
+
+	dealID := mcpID(t, mcpMustCall(t, e, auth, "deal_create", map[string]any{
+		"title": "Сайт для Ромашки", "client_id": clientID, "amount_cents": 250000, "stage": "won",
+	}))
+	text := mcpMustCall(t, e, auth, "deal_create_project", map[string]any{"deal_id": dealID})
+	var made crmDealView
+	if err := json.Unmarshal([]byte(text), &made); err != nil || made.ProjectID == 0 {
+		t.Fatalf("deal_create_project = %v %q, want the deal with its project", err, text)
+	}
+
+	listed := mcpMustCall(t, e, auth, "projects_list", map[string]any{})
+	if !strings.Contains(listed, fmt.Sprintf(`"id":%d`, made.ProjectID)) || !strings.Contains(listed, `"name":"Сайт для Ромашки"`) {
+		t.Fatalf("projects_list does not hold the project %d: %s", made.ProjectID, listed)
+	}
+
+	text, failed := callTool(t, e, auth, "deal_create_project", map[string]any{"deal_id": dealID})
+	if !failed || !strings.HasSuffix(text, "project") {
+		t.Fatalf("second deal_create_project = %v %q, want a refusal naming the project field", failed, text)
+	}
+}
+
 func TestMCPReadOnlyTokenReadsButWritesNothing(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("mcp-readonly@x.test")
@@ -247,6 +276,12 @@ func insertTestClient(t *testing.T, e *apiEnv, name string) int64 {
 	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT id FROM teams ORDER BY id LIMIT 1`).Scan(&teamID); err != nil {
 		t.Fatalf("load workspace: %v", err)
 	}
+	return insertClientInTeam(t, e, teamID, name)
+}
+
+// insertClientInTeam adds a client to the given workspace.
+func insertClientInTeam(t *testing.T, e *apiEnv, teamID int64, name string) int64 {
+	t.Helper()
 	now := time.Now().UTC().Format("2006-01-02T15:04:05.000")
 	var id int64
 	if err := e.db.TestSQL().QueryRowContext(t.Context(),

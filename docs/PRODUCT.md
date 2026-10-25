@@ -235,6 +235,13 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
 - A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one.
 - A **deal** has a title, a client and a contact (both optional), an owner, an amount in cents of the deal's
   currency (empty means the workspace currency), a probability from 0 to 100, a close date and a next-step date.
+- A **won** deal makes its project once. The project takes the deal's title as its name, the deal's client, the
+  deal's amount as its budget and the deal's currency, and it has no billable rate: a manager sets the rate in the
+  project. The deal keeps the project's id in `project_id`. The owner or a manager asks, and the projects rule
+  decides: only a manager creates a project, so a member who owns the deal is refused with the reason. The deal
+  needs a client and must not have a project yet, and a name another project already has is refused. The link is
+  checked again in its transaction, and a project whose link is refused is removed. Deleting the project clears
+  the link on the deal.
 - Stages belong to the workspace. A new workspace starts with five: `new`, `working`, `proposal`, `won`, `lost`.
   A manager adds, renames, moves and removes them. A stage has a key that deals store, a name that people read, a
   position and a kind. The kind sets the rules: a deal is overdue only in an open stage, a deal in a lost stage
@@ -386,7 +393,8 @@ Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoic
 `audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`, `timesheet_approvals`,
 `schedule_entries`, `push_subscriptions`, `settings` (VAPID keys).
 
-CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100),
+CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100,
+`project_id` is the project a won deal made),
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked), `calendar_events` (`shared` as 0 or 1), `calendar_event_participants`.
 Times are text in the usual format and money is integer cents.

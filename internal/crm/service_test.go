@@ -40,11 +40,60 @@ func (f *fakeStore) ListCRMDeals(context.Context, appmodel.CRMDealListQuery) ([]
 
 func newTestService(t *testing.T, store Store) *Service {
 	t.Helper()
-	svc, err := New(Dependencies{Store: store})
+	return newServiceWithProjects(t, store, &fakeProjects{})
+}
+
+func newServiceWithProjects(t *testing.T, store Store, projects ProjectWorkflow) *Service {
+	t.Helper()
+	svc, err := New(Dependencies{Store: store, Projects: projects})
 	if err != nil {
 		t.Fatal(err)
 	}
 	return svc
+}
+
+// fakeProjects records the project requests and serves the project it makes.
+type fakeProjects struct {
+	createErr error
+	created   []appmodel.ProjectCreateRequest
+	deleted   []appmodel.ProjectMutationRequest
+}
+
+func (f *fakeProjects) Create(_ context.Context, request appmodel.ProjectCreateRequest) (model.Project, error) {
+	f.created = append(f.created, request)
+	if f.createErr != nil {
+		return model.Project{}, f.createErr
+	}
+	return model.Project{ID: 77, Name: request.Name}, nil
+}
+
+func (f *fakeProjects) Delete(_ context.Context, request appmodel.ProjectMutationRequest) error {
+	f.deleted = append(f.deleted, request)
+	return nil
+}
+
+// dealStore serves one deal to the project step and records the link it is asked to write.
+type dealStore struct {
+	fakeStore
+	deal    model.CRMDeal
+	linkErr error
+	linked  []appmodel.CRMDealProjectLinkRequest
+}
+
+func (f *dealStore) CRMDealForProject(context.Context, appmodel.CRMDealProjectRequest) (model.CRMDeal, error) {
+	return f.deal, nil
+}
+
+func (f *dealStore) LinkCRMDealProject(_ context.Context, request appmodel.CRMDealProjectLinkRequest) (model.CRMDeal, error) {
+	f.linked = append(f.linked, request)
+	if f.linkErr != nil {
+		return model.CRMDeal{}, f.linkErr
+	}
+	return f.deal, nil
+}
+
+func wonDeal() model.CRMDeal {
+	return model.CRMDeal{ID: 5, TeamID: 1, Title: "Лендинг", Stage: model.DealStageWon, StageKind: model.StageKindWon, ClientID: 9, AmountCents: 250000, Currency: "RUB"}
 }
 
 func wantField(t *testing.T, err error, field string) {
@@ -213,5 +262,75 @@ func TestLogActivityDefaultsToANoteAndNeedsAnAnchor(t *testing.T) {
 func TestNewNeedsAStore(t *testing.T) {
 	if _, err := New(Dependencies{}); !errors.Is(err, ErrIncompleteDependencies) {
 		t.Fatalf("New without a store = %v", err)
+	}
+	if _, err := New(Dependencies{Store: &fakeStore{}}); !errors.Is(err, ErrIncompleteDependencies) {
+		t.Fatalf("New without a projects workflow = %v", err)
+	}
+}
+
+// A won deal makes a project for its client with its amount as the budget and no rate, and
+// the deal keeps the project. A deal that is not won, already has one or has no client is
+// refused before the projects workflow is asked.
+func TestCreateDealProjectMakesTheProjectForTheDeal(t *testing.T) {
+	ctx := t.Context()
+	store := &dealStore{deal: wonDeal()}
+	projects := &fakeProjects{}
+	svc := newServiceWithProjects(t, store, projects)
+
+	if _, err := svc.CreateDealProject(ctx, appmodel.CRMDealProjectRequest{TeamID: 1, CallerID: 2, DealID: 5}); err != nil {
+		t.Fatalf("create project of a won deal: %v", err)
+	}
+	got := projects.created[0]
+	if got.Name != "Лендинг" || got.ClientID != 9 || got.BudgetCents == nil || *got.BudgetCents != 250000 || got.RateCents != nil || got.Currency != "RUB" {
+		t.Fatalf("project request = %+v", got)
+	}
+	if len(store.linked) != 1 || store.linked[0].ProjectID != 77 || store.linked[0].DealID != 5 {
+		t.Fatalf("link = %+v, want deal 5 linked to project 77", store.linked)
+	}
+
+	refusals := map[string]func(*model.CRMDeal){
+		"stage":   func(d *model.CRMDeal) { d.StageKind = model.StageKindOpen },
+		"project": func(d *model.CRMDeal) { d.ProjectID = 3 },
+		"client":  func(d *model.CRMDeal) { d.ClientID = 0 },
+	}
+	for field, change := range refusals {
+		deal := wonDeal()
+		change(&deal)
+		store := &dealStore{deal: deal}
+		projects := &fakeProjects{}
+		_, err := newServiceWithProjects(t, store, projects).CreateDealProject(ctx, appmodel.CRMDealProjectRequest{TeamID: 1, CallerID: 2, DealID: 5})
+		wantField(t, err, field)
+		if len(projects.created) != 0 || len(store.linked) != 0 {
+			t.Fatalf("%s refusal still reached the projects workflow: created %d, linked %d", field, len(projects.created), len(store.linked))
+		}
+	}
+}
+
+// The projects workflow owns the manager rule: its refusal of a member comes back as the
+// reason, and a name another project has is a field the person can change.
+func TestCreateDealProjectNamesWhyTheProjectWasRefused(t *testing.T) {
+	store := &dealStore{deal: wonDeal()}
+	svc := newServiceWithProjects(t, store, &fakeProjects{createErr: model.ErrForbidden})
+	if _, err := svc.CreateDealProject(t.Context(), appmodel.CRMDealProjectRequest{TeamID: 1, CallerID: 2, DealID: 5}); !errors.Is(err, model.ErrProjectManagerRequired) {
+		t.Fatalf("member refused by the projects rule = %v, want ErrProjectManagerRequired", err)
+	}
+
+	svc = newServiceWithProjects(t, store, &fakeProjects{createErr: model.ErrAlreadyExists})
+	_, err := svc.CreateDealProject(t.Context(), appmodel.CRMDealProjectRequest{TeamID: 1, CallerID: 2, DealID: 5})
+	wantField(t, err, "project name")
+	if len(store.linked) != 0 {
+		t.Fatal("a refused project was linked to the deal")
+	}
+}
+
+// When the link is refused because the deal changed while its project was made, the project
+// goes too, so no project is left behind for a deal that does not hold it.
+func TestCreateDealProjectRemovesTheProjectWhenTheLinkIsRefused(t *testing.T) {
+	store := &dealStore{deal: wonDeal(), linkErr: appmodel.FieldError{Field: "stage"}}
+	projects := &fakeProjects{}
+	_, err := newServiceWithProjects(t, store, projects).CreateDealProject(t.Context(), appmodel.CRMDealProjectRequest{TeamID: 1, CallerID: 2, DealID: 5})
+	wantField(t, err, "stage")
+	if len(projects.deleted) != 1 || projects.deleted[0].ProjectID != 77 || projects.deleted[0].CallerID != 2 {
+		t.Fatalf("removed projects = %+v, want project 77", projects.deleted)
 	}
 }

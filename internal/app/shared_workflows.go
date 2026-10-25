@@ -73,7 +73,7 @@ func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
 		return sharedWorkflows{}, fmt.Errorf("construct goals service: %w", err)
 	}
 
-	crmService, err := crm.New(crm.Dependencies{Store: database})
+	crmService, err := crm.New(crm.Dependencies{Store: database, Projects: projectService})
 	if err != nil {
 		return sharedWorkflows{}, fmt.Errorf("construct crm service: %w", err)
 	}

@@ -24,7 +24,7 @@ type mcpTool struct {
 // as the screens of that section are.
 var mcpToolSections = map[string]string{
 	"contacts_list": "crm", "contact_create": "crm", "deals_list": "crm", "deal_create": "crm",
-	"deal_update": "crm", "deal_move_stage": "crm", "activities_list": "crm", "activity_create": "crm",
+	"deal_update": "crm", "deal_move_stage": "crm", "deal_create_project": "crm", "activities_list": "crm", "activity_create": "crm",
 	"deal_stages_list": "crm", "deal_stage_create": "crm", "deal_stage_update": "crm", "deal_stage_delete": "crm",
 	"calendar_events_list": "calendar", "calendar_event_create": "calendar",
 	"calendar_event_update": "calendar", "calendar_event_delete": "calendar",

@@ -76,6 +76,8 @@ func (s *Server) writeCRMError(w http.ResponseWriter, r *http.Request, err error
 	switch {
 	case errors.Is(err, model.ErrForbidden):
 		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(lang, "err.forbiddenAction")})
+	case errors.Is(err, model.ErrProjectManagerRequired):
+		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(lang, "crm.projectManagerOnly")})
 	case errors.Is(err, model.ErrNotFound):
 		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: i18n.T(lang, "err.notFoundEntity")})
 	default:
@@ -398,6 +400,23 @@ func (s *Server) handleCRMDealStage(w http.ResponseWriter, r *http.Request) {
 	}
 	deal, err := s.services.CRM.MoveDealStage(r.Context(), appmodel.CRMDealStageRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), DealID: id, Stage: body.Stage, LostReason: body.LostReason,
+	})
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmDealViewOf(deal, workspaceToday(r)))
+}
+
+// handleCRMDealProject makes the project of a won deal. The deal rules and the project
+// rule both decide in the workflow, and a refusal names its field or its reason.
+func (s *Server) handleCRMDealProject(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.crmPathID(w, r, "id")
+	if !ok {
+		return
+	}
+	deal, err := s.services.CRM.CreateDealProject(r.Context(), appmodel.CRMDealProjectRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), DealID: id,
 	})
 	if err != nil {
 		s.writeCRMError(w, r, err)

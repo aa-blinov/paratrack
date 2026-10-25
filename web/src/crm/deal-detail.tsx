@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { FieldIssue, FormIssue } from "@/components/form-issue"
 import { translate as t } from "@/i18n"
-import { apiJSON, issueOf, type Issue } from "@/lib/json-api"
+import { apiJSON, ApiError, issueOf, type Issue } from "@/lib/json-api"
 import { formatDateTime } from "@/lib/date-format"
 import type { Client, Member } from "@/lib/team-directory"
 import { activityKinds, type Activity, type Deal, type PipelineStage } from "@/crm/model"
@@ -31,8 +31,10 @@ type Props = {
  */
 export function DealDetail({ deal, stages, lang, csrf, viewerID, canManage, clients, members, onChanged }: Props) {
   const canChange = canManage || deal.owner_id === viewerID
+  const won = stages.find(item => item.stage === deal.stage)?.kind === "won"
   return <div className="grid gap-6 border-t pt-4 pb-2">
     {deal.lost_reason && <p className="text-sm"><span className="text-muted-foreground">{t(lang, "crm.lostReason")}: </span>{deal.lost_reason}</p>}
+    {(deal.project_id !== 0 || (won && canChange)) && <DealProject deal={deal} lang={lang} csrf={csrf} onChanged={onChanged} />}
     {canChange && <section className="grid gap-3" aria-labelledby={`deal-${deal.id}-edit`}>
       <h3 id={`deal-${deal.id}-edit`} className="text-sm font-semibold">{t(lang, "crm.details")}</h3>
       <DealForm key={deal.id} lang={lang} csrf={csrf} viewerID={viewerID} canManage={canManage} clients={clients} members={members} deal={deal} onSaved={onChanged} />
@@ -40,6 +42,61 @@ export function DealDetail({ deal, stages, lang, csrf, viewerID, canManage, clie
     {canChange && <StageMove key={`${deal.id}-${deal.stage}`} deal={deal} stages={stages} lang={lang} csrf={csrf} onMoved={onChanged} />}
     <Timeline deal={deal} lang={lang} csrf={csrf} />
   </div>
+}
+
+// Why the server refuses the project step, by the field it names. Any other refusal
+// keeps the server's own words.
+const projectRefusals: Record<string, string> = {
+  stage: "crm.projectNotWon",
+  project: "crm.projectExists",
+  client: "crm.projectNeedsClient",
+  "project name": "crm.projectNameTaken",
+}
+
+/**
+ * The project of a won deal. Until the deal has one, its owner or a manager makes it
+ * here; after that the deal links to the project. The server decides who may make it
+ * and says why a member may not.
+ */
+function DealProject({ deal, lang, csrf, onChanged }: { deal: Deal; lang: string; csrf: string; onChanged: () => void }) {
+  const [slug, setSlug] = React.useState<string | null>(null)
+  const [issue, setIssue] = React.useState<Issue | null>(null)
+  const [busy, setBusy] = React.useState(false)
+
+  // The deal keeps the project's id; the page link needs its slug from the project list.
+  React.useEffect(() => {
+    let live = true
+    if (deal.project_id !== 0) {
+      apiJSON<{ projects: { id: number; slug: string }[] }>("/api/projects", "GET", "")
+        .then(body => { if (live) setSlug(body.projects.find(project => project.id === deal.project_id)?.slug ?? "") })
+        .catch(() => { if (live) setSlug("") })
+    }
+    return () => { live = false }
+  }, [deal.project_id])
+
+  async function make() {
+    setBusy(true)
+    setIssue(null)
+    try {
+      await apiJSON(`/api/crm/deals/${deal.id}/project`, "POST", csrf, {})
+      onChanged()
+    } catch (cause) {
+      const field = cause instanceof ApiError ? cause.field : ""
+      setIssue({ key: "", message: projectRefusals[field] ? t(lang, projectRefusals[field]) : issueOf(cause, {}, t(lang, "err.generic")).message })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return <section className="grid gap-3" aria-labelledby={`deal-${deal.id}-project`}>
+    <h3 id={`deal-${deal.id}-project`} className="text-sm font-semibold">{t(lang, "crm.project")}</h3>
+    {deal.project_id !== 0
+      ? <div><Button asChild variant="outline" size="sm"><a href={slug ? `/projects/${slug}` : "/projects"}>{t(lang, "crm.projectOpen")}</a></Button></div>
+      : <div className="grid gap-3 sm:max-w-md">
+        <FormIssue issue={issue} />
+        <div><Button type="button" disabled={busy} onClick={() => void make()}>{t(lang, "crm.projectButton")}</Button></div>
+      </div>}
+  </section>
 }
 
 function StageMove({ deal, stages, lang, csrf, onMoved }: { deal: Deal; stages: PipelineStage[]; lang: string; csrf: string; onMoved: () => void }) {
