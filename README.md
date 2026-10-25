@@ -125,6 +125,8 @@ The compose app reads a `.env` file. [.env.example](.env.example) holds the whol
 | `PARATRACK_WEBHOOK_ALLOW_PRIVATE` | unset | `1` lets outbound webhooks reach private addresses. |
 | `PARATRACK_INTEGRATION_ALLOW_PRIVATE` | unset | `1` lets the Jira and GitLab integrations reach private addresses. |
 | `PARATRACK_JIRA_SITE` / `PARATRACK_GITLAB_SITE` | none | The default site for those two providers. |
+| `PARATRACK_GOOGLE_CALENDAR_CLIENT_ID` / `PARATRACK_GOOGLE_CALENDAR_CLIENT_SECRET` | none | The OAuth client for syncing a member's Google Calendar. Both or neither; with neither the sync is off. Callback: `<public URL>/settings/calendar-sync/google/callback`. |
+| `PARATRACK_MICROSOFT_CALENDAR_CLIENT_ID` / `PARATRACK_MICROSOFT_CALENDAR_CLIENT_SECRET` | none | The OAuth client for syncing a member's Outlook calendar. Both or neither. Callback: `<public URL>/settings/calendar-sync/microsoft/callback`. |
 
 ## Development
 

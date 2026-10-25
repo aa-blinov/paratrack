@@ -16,6 +16,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/agentactions"
 	"github.com/aa-blinov/paratrack/internal/auth"
 	"github.com/aa-blinov/paratrack/internal/billing"
+	"github.com/aa-blinov/paratrack/internal/calendar"
 	"github.com/aa-blinov/paratrack/internal/dashboard"
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/importing"
@@ -243,6 +244,19 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, err
 	}
+	calendarAdapters, calendarClient, err := calendarSyncAdapters(config)
+	if err != nil {
+		return nil, fmt.Errorf("construct calendar sync adapters: %w", err)
+	}
+	if calendarClient != nil {
+		resources.clients = append(resources.clients, calendarClient)
+	}
+	calendarSyncService, err := calendar.NewSync(calendar.SyncDependencies{
+		Store: database, Adapters: calendarAdapters, Now: now, Logger: logger,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("construct calendar sync: %w", err)
+	}
 	integrationService, err := integrations.New(integrations.Dependencies{
 		Manager: database, Catalog: database, Tasks: database, SyncStarter: database,
 		Audit: auditService, Logger: logger,
@@ -322,6 +336,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Goals:                   goalService,
 		CRM:                     shared.CRM,
 		Calendar:                shared.Calendar,
+		CalendarSync:            calendarSyncService,
 		Webhooks:                webhookService,
 		MailQueue:               mailQueueService,
 		AgentActions:            agentActionService,

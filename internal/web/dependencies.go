@@ -52,6 +52,7 @@ type Dependencies struct {
 	Goals                GoalWorkflow
 	CRM                  CRMWorkflow
 	Calendar             CalendarWorkflow
+	CalendarSync         CalendarSyncWorkflow
 	Webhooks             WebhookWorkflow
 	MailQueue            InvoiceMailQueue
 	AgentActions         AgentActionWorkflow
@@ -222,6 +223,16 @@ type AgentActionWorkflow interface {
 	Pending(context.Context, appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error)
 	Decide(context.Context, appmodel.AgentActionDecisionRequest) (appmodel.AgentActionView, error)
 	Finish(context.Context, appmodel.AgentActionFinishRequest) error
+}
+
+// CalendarSyncWorkflow is a member's own calendar connections in a workspace (CRM-19).
+type CalendarSyncWorkflow interface {
+	Providers() []string
+	Connections(context.Context, int64, int64) ([]appmodel.CalendarConnection, error)
+	BeginConnect(context.Context, appmodel.CalendarConnectRequest) (string, error)
+	CompleteConnect(context.Context, appmodel.CalendarConnectCallbackRequest) error
+	Disconnect(context.Context, int64, int64, string) error
+	SyncMine(context.Context, int64, int64) ([]appmodel.CalendarConnection, error)
 }
 
 // CalendarWorkflow is the team event surface for HTTP routes and the MCP tools.
@@ -619,6 +630,7 @@ func (s Dependencies) Validate() error {
 		dependency{"goals", depcheck.IsNil(s.Goals)},
 		dependency{"CRM", depcheck.IsNil(s.CRM)},
 		dependency{"calendar", depcheck.IsNil(s.Calendar)},
+		dependency{"calendar sync", depcheck.IsNil(s.CalendarSync)},
 		dependency{"webhooks", depcheck.IsNil(s.Webhooks)},
 		dependency{"mail queue", depcheck.IsNil(s.MailQueue)},
 		dependency{"agent actions", depcheck.IsNil(s.AgentActions)},

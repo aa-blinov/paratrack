@@ -19,6 +19,12 @@ type RuntimeDependencies struct {
 	MailQueueWorker       InvoiceMailWorker
 	WebhookDeliveryWorker WebhookDeliveryWorker
 	ReminderWorker        ReminderWorker
+	CalendarSyncWorker    CalendarSyncWorker
+}
+
+// CalendarSyncWorker runs the calendar sync schedule until its context ends.
+type CalendarSyncWorker interface {
+	Run(context.Context, time.Duration)
 }
 
 // ReminderWorker runs the project and overload reminders on an interval.

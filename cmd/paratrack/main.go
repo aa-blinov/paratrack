@@ -95,6 +95,7 @@ func main() {
 		runtimeDeps.MailQueueWorker = services.MailQueue
 		runtimeDeps.WebhookDeliveryWorker = services.Webhooks
 		runtimeDeps.ReminderWorker = services.Reminders
+		runtimeDeps.CalendarSyncWorker = services.CalendarSync
 		server, err := web.New(web.Dependencies{
 			Billing: services.Billing,
 			Auth: web.AuthenticationDependencies{
@@ -144,6 +145,7 @@ func main() {
 			Goals:        services.Goals,
 			CRM:          services.CRM,
 			Calendar:     services.Calendar,
+			CalendarSync: services.CalendarSync,
 			Webhooks:     services.Webhooks,
 			MailQueue:    services.MailQueue,
 			AgentActions: services.AgentActions,

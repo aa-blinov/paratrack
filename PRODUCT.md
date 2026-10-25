@@ -109,7 +109,7 @@ Confirmed by the code:
   Timesheet, Projects, By hour, Goals, Tags, Invoices, Payroll, Schedule,
   Reports, "Running now", "Only this".
 - The clients of a workspace have contacts, deals in the workspace's own stages (five by default, a manager
-  can change them) and activities (calls, meetings, notes), and the workspace shares one calendar of events. Both are sections (`crm`, `calendar`). Clients carry tags that a manager sets, and a search finds clients and contacts by name, tag, phone and, for managers, billing email (CRM-18).
+  can change them) and activities (calls, meetings, notes), and the workspace shares one calendar of events; a member can also sync their own Google or Outlook calendar into it (CRM-19). Both are sections (`crm`, `calendar`). Clients carry tags that a manager sets, and a search finds clients and contacts by name, tag, phone and, for managers, billing email (CRM-18).
   A won deal makes its project in one step, with its client and budget; a manager sets the rate in the project.
   Deal amounts are shown and set by managers only; a member sees the deal without its amount.
 - An agent works with the same entities through `POST /mcp` with a bearer `pt_` token. A read-only token

@@ -97,7 +97,7 @@ export function CalendarPage({ data, viewerID }: { data: CalendarData; viewerID:
     <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.calendar")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "cal.blurb")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "cal.zoneLabel")}: {data.Zone}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     <DisclosureSection title={t(lang, "cal.newEvent")}>
-      <EventForm lang={lang} csrf={data.CSRFToken} canManage={data.CanManage} members={members} startAt={defaultStart} onSaved={() => void load(weekStart)} />
+      <EventForm lang={lang} csrf={data.CSRFToken} canManage={data.CanManage} members={members} startAt={defaultStart} syncProviders={data.SyncProviders} userID={data.UserID} onSaved={() => void load(weekStart)} />
     </DisclosureSection>
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="text-lg font-semibold">{monthTitle}</h2>
@@ -125,7 +125,7 @@ export function CalendarPage({ data, viewerID }: { data: CalendarData; viewerID:
                 </button>
                 {open && <div className="pb-4">
                   {editingID === event.id
-                    ? <EventForm key={`edit-${event.id}`} lang={lang} csrf={data.CSRFToken} canManage={data.CanManage} members={members} event={event} onSaved={() => { setEditingID(null); void load(weekStart) }} onCancel={() => setEditingID(null)} />
+                    ? <EventForm key={`edit-${event.id}`} lang={lang} csrf={data.CSRFToken} canManage={data.CanManage} members={members} event={event} syncProviders={data.SyncProviders} userID={data.UserID} onSaved={() => { setEditingID(null); void load(weekStart) }} onCancel={() => setEditingID(null)} />
                     : <div className="grid gap-3">
                       {event.notes && <p className="whitespace-pre-line text-sm [overflow-wrap:anywhere]">{event.notes}</p>}
                       {data.CanManage && event.participant_ids.length > 0 && <p className="text-sm"><span className="text-muted-foreground">{t(lang, "cal.participants")}: </span>{event.participant_ids.map(id => members.find(member => member.id === id)).filter(Boolean).map(member => memberLabel(member!)).join(", ")}</p>}

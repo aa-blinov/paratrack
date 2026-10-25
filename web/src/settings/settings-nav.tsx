@@ -8,6 +8,7 @@ const mine = [
   ["settings-profile", "/settings/profile", "profile.title"],
   ["settings-prefs", "/settings/preferences", "prefs.title"],
   ["settings-notify", "/settings/notifications", "sheet.notifications"],
+  ["settings-calendar-sync", "/settings/calendar-sync", "calsync.tab"],
   ["settings-tokens", "/settings/tokens", "set.tabTokens"],
   ["settings-help", "/help", "nav.help"],
 ] as const

@@ -79,6 +79,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/calendar/events", s.module("calendar", s.handleCalendarEventCreate))
 	api("POST", "/api/calendar/events/{id}", s.module("calendar", s.handleCalendarEventUpdate))
 	api("POST", "/api/calendar/events/{id}/delete", s.module("calendar", s.handleCalendarEventDelete))
+	api("POST", "/api/calendar/sync", s.module("calendar", s.mine(s.handleCalendarSyncNow)))
 	api("GET", "/api/tags", s.handleTagsList)
 	api("POST", "/api/tags", s.handleTagsCreate)
 	api("DELETE", "/api/tags", s.manage(s.handleTagsDelete))

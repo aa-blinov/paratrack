@@ -280,18 +280,32 @@ type CRMIntakeKey struct {
 
 // CalendarEvent is a team event. Participants are listed by user ID.
 type CalendarEvent struct {
-	ID           int64
-	TeamID       int64
-	Title        string
-	StartsAt     time.Time
-	EndsAt       time.Time
-	Location     string
-	Notes        string
-	ProjectID    int64
-	ClientID     int64
-	Shared       bool
+	ID        int64
+	TeamID    int64
+	Title     string
+	StartsAt  time.Time
+	EndsAt    time.Time
+	Location  string
+	Notes     string
+	ProjectID int64
+	ClientID  int64
+	Shared    bool
+	// SyncPush asks the author's sync to keep a copy of the event in the author's
+	// connected provider calendar (CRM-19).
+	SyncPush bool
+	// Imported marks an event pulled from a provider; the sync owns it and never pushes it back.
+	Imported     bool
 	CreatedBy    int64
 	Participants []int64
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
+
+// Calendar sync failures (CRM-19). A missing connection is a refusal the member can
+// fix by connecting; a disabled provider is a process configuration fact.
+var (
+	ErrCalendarNotConnected    = errors.New("calendar sync is not connected for this workspace")
+	ErrCalendarSyncDisabled    = errors.New("calendar sync is not configured on this server")
+	ErrCalendarStateInvalid    = errors.New("the calendar connection request is no longer valid")
+	ErrCalendarProviderFailure = errors.New("the calendar provider refused the connection")
+)
