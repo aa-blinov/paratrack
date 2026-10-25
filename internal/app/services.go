@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/agentactions"
 	"github.com/aa-blinov/paratrack/internal/auth"
 	"github.com/aa-blinov/paratrack/internal/billing"
 	"github.com/aa-blinov/paratrack/internal/dashboard"
@@ -200,6 +201,10 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct mail queue service: %w", err)
 	}
+	agentActionService, err := agentactions.New(database)
+	if err != nil {
+		return nil, fmt.Errorf("construct agent action queue: %w", err)
+	}
 	providerHTTPClient := netclients.Providers(config.IntegrationAllowPrivate)
 	resources.clients = append(resources.clients, providerHTTPClient)
 	payrollPaidService, err := payrollops.New(payrollops.Dependencies{
@@ -313,8 +318,11 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Tagging:                 taggingService,
 		Search:                  searchService,
 		Goals:                   goalService,
+		CRM:                     shared.CRM,
+		Calendar:                shared.Calendar,
 		Webhooks:                webhookService,
 		MailQueue:               mailQueueService,
+		AgentActions:            agentActionService,
 		Resources:               resources,
 	}, nil
 }

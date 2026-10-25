@@ -1,5 +1,5 @@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
-import { Activity, BarChart3, Bell, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, FileText, Flag, Folder, Languages, Link2, ListChecks, LogOut, Receipt, Settings, Tag, TrendingUp, Upload, Users, Zap } from "lucide-react"
+import { Activity, BarChart3, Bell, Briefcase, CalendarDays, ChevronDown, CircleHelp, Clock3, Contact, Download, FileText, Flag, Folder, Languages, Link2, ListChecks, LogOut, Receipt, Settings, Tag, TrendingUp, Upload, Users, Zap } from "lucide-react"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button, sidebarRow } from "@/components/ui/button"
 import {
@@ -42,6 +42,7 @@ export const nav: ShellNavItem[] = [
   // the Go-side navItems only feed the mobile tabs and the settings screen,
   // so a route registered there alone is unreachable from the desktop menu.
   { group: "core", key: "clients", href: "/clients", icon: "contact", label: "nav.clients" },
+  { group: "core", key: "crm", href: "/crm", icon: "briefcase", label: "nav.crm", module: "crm" },
   { group: "core", key: "timesheet", href: "/timesheet", icon: "calendar", label: "nav.timesheet" },
   { group: "core", key: "tasks", href: "/tasks", icon: "list-checks", label: "nav.tasks", module: "tasks" },
   { group: "core", key: "stats", href: "/stats", icon: "trending-up", label: "nav.stats" },
@@ -50,6 +51,7 @@ export const nav: ShellNavItem[] = [
   { group: "analysis", key: "reports", href: "/reports", icon: "file-text", label: "nav.reports", module: "reports", manage: true },
   { group: "money", key: "invoices", href: "/invoices", icon: "receipt", label: "nav.invoices", module: "invoices", manage: true },
   { group: "money", key: "payroll", href: "/payroll", icon: "users", label: "nav.payroll", module: "payroll", manage: true },
+  { group: "team", key: "calendar", href: "/calendar", icon: "calendar-days", label: "nav.calendar", module: "calendar" },
   { group: "team", key: "schedule", href: "/schedule", icon: "calendar", label: "nav.schedule", module: "schedule" },
   // Members and invites live under Settings → Пространство only: listed here
   // too they had two homes, and both lit up on the same page.
@@ -96,6 +98,8 @@ export function Icon({ name }: { name: string }) {
     case "activity": return <Activity {...props} />
     case "chart": return <BarChart3 {...props} />
     case "calendar": return <CalendarDays {...props} />
+    case "calendar-days": return <CalendarDays {...props} />
+    case "briefcase": return <Briefcase {...props} />
     case "folder": return <Folder {...props} />
     case "clock": return <Clock3 {...props} />
     case "flag": return <Flag {...props} />

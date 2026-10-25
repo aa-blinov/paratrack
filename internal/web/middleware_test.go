@@ -110,9 +110,12 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 		Tagging: TagDependencies{
 			Queries: services.Tagging, Commands: services.Tagging,
 		},
-		Goals:     services.Goals,
-		Webhooks:  services.Webhooks,
-		MailQueue: services.MailQueue,
+		Goals:        services.Goals,
+		CRM:          services.CRM,
+		Calendar:     services.Calendar,
+		Webhooks:     services.Webhooks,
+		MailQueue:    services.MailQueue,
+		AgentActions: services.AgentActions,
 	}, addr, Config{Logger: log.Default(), Now: time.Now}, RuntimeDependencies{
 		OIDC:                  nil,
 		Mailer:                mail.LogSender{},

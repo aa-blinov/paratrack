@@ -227,6 +227,52 @@ The settings page shows, under each preset, the sections it leaves off. The `sol
 | API token | `pt_` + 32 random bytes (hex), stored as SHA-256 |
 | Money | integer cents, rendered `123.45` |
 
+### CRM
+
+A client stays the directory that invoices use, and it gets contacts, deals and activities. The section is `crm`
+(`/crm`), and it can be switched off like the others.
+
+- A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one.
+- A **deal** has a title, a client and a contact (both optional), an owner, an amount in cents of the deal's
+  currency (empty means the workspace currency), a probability from 0 to 100, a close date and a next-step date.
+- The stages are fixed: `new`, `working`, `proposal`, `won`, `lost`. A lost deal needs a reason. Moving out of
+  `lost` clears the reason.
+- A deal is **overdue** when it is open and its next-step date is before today in the workspace time zone.
+- Any member sees every deal in the workspace and creates deals of their own. The owner or a manager changes a deal
+  and moves its stage; only a manager assigns another owner. The rule holds in the transaction, not in the route.
+- An **activity** is a call, a meeting or a note on a client or on a deal, with a date, an author and a result. An
+  activity never creates a time session, so a call no longer shows up as unpaid time on an invoice.
+- Nothing deletes a client or a deal through the agent endpoint.
+
+### Team calendar
+
+The section is `calendar` (`/calendar`). An event has a title, a start, an end after the start, a place, notes, an
+optional project and client, a list of participants and a flag for shared.
+
+- A **shared** event is visible to the whole workspace. A personal event is visible to its author, its participants and
+  the managers.
+- The author or a manager edits and deletes an event. Participants are members of the workspace; there are no outside
+  guests.
+- The agenda is read for a window in the workspace time zone, at most one year long per request.
+
+### Agent endpoint (MCP)
+
+`POST /mcp` speaks JSON-RPC 2.0 over HTTP in MCP protocol revision `2025-06-18`, with no sessions. Details and the tool
+list are in [MCP.md](MCP.md).
+
+- The only way in is a bearer `pt_` token. A browser cookie is refused, so a page on another site cannot drive the
+  endpoint with the person's session.
+- The agent gets the rights of the token's owner in the token's workspace, and each tool calls the same workflow as the
+  form or the JSON route for that entity.
+- A read-only token reads, and every write tool answers with an error that says nothing was written.
+- Every write through the endpoint is recorded in the audit log with the action `mcp.write` and the note «агентом через MCP».
+- Four actions are requested and never run by the agent: deleting a draft invoice, deleting a draft pay run, reopening an
+  approved week, and deleting the workspace. Each request waits in the confirmation queue (Settings, Confirmations) until a
+  person confirms or rejects it. Only the owner confirms a workspace deletion, and a request by an admin for it is refused.
+- A confirmation runs the same service the page runs for that action, as the person who confirmed it, and records the
+  outcome. A refused action stays in the log as failed with its reason. A rejection runs nothing. A bearer token cannot
+  confirm or reject a request, so the agent cannot approve its own request.
+
 ---
 
 ## 3. Security
@@ -262,7 +308,7 @@ POST /api/stripe/webhook               (public, HMAC-verified)
 ### Authenticated pages
 
 ```
-/ /stats /graph /goals /tags /timesheet /schedule
+/ /stats /graph /goals /crm /calendar /tags /timesheet /schedule
 /payroll /payroll/{id}
 /reports /reports/run
 /invoices /invoices/{id} /invoices/{id}/pdf
@@ -321,6 +367,12 @@ GET        /api/v1/reports/summary
 
 ---
 
+### Agent endpoint
+
+```
+POST /mcp      JSON-RPC 2.0, Authorization: Bearer pt_…, no session cookie
+```
+
 ## 5. Data model (Postgres)
 
 Core tables: `users`, `teams`, `memberships`, `activities`, `sessions`, `projects`,
@@ -330,6 +382,10 @@ holds at most one task per activity).
 Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoice_lines`,
 `audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`, `timesheet_approvals`,
 `schedule_entries`, `push_subscriptions`, `settings` (VAPID keys).
+
+CRM and calendar tables: `crm_contacts`, `crm_deals` (stage checked by a constraint, probability 0 to 100),
+`crm_activities` (kind checked), `calendar_events` (`shared` as 0 or 1), `calendar_event_participants`.
+Times are text in the usual format and money is integer cents.
 
 Rules worth knowing:
 
@@ -421,3 +477,7 @@ python e2e/qa_offline_push.py                   # offline + push
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.
+- CRM stages are fixed (five). There are no custom stages, leads, reminders or report by funnel yet (see
+  [backlog/crm.md](backlog/crm.md), CRM-12 onward).
+- The team calendar is internal: no Google or Outlook sync and no recurring events.
+- The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.

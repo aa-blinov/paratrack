@@ -7,10 +7,13 @@ import (
 	"github.com/aa-blinov/paratrack/internal/workspacefile"
 	"io"
 
+	"github.com/aa-blinov/paratrack/internal/agentactions"
 	"github.com/aa-blinov/paratrack/internal/audit"
 	"github.com/aa-blinov/paratrack/internal/auth"
 	"github.com/aa-blinov/paratrack/internal/billing"
+	"github.com/aa-blinov/paratrack/internal/calendar"
 	"github.com/aa-blinov/paratrack/internal/clients"
+	"github.com/aa-blinov/paratrack/internal/crm"
 	"github.com/aa-blinov/paratrack/internal/dashboard"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/goals"
@@ -72,11 +75,14 @@ type Services struct {
 	Push                    *push.Service
 	Tagging                 *tagging.Service
 	Goals                   *goals.Service
+	CRM                     *crm.Service
+	Calendar                *calendar.Service
 	Webhooks                *webhooks.Service
 	Reminders               *reminders.Service
 	Tasks                   *tasks.Service
 	WorkspaceFile           *workspacefile.Service
 	MailQueue               *mailqueue.Service
+	AgentActions            *agentactions.Service
 	Resources               io.Closer
 }
 

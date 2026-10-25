@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/aa-blinov/paratrack/internal/audit"
+	"github.com/aa-blinov/paratrack/internal/calendar"
 	"github.com/aa-blinov/paratrack/internal/clients"
+	"github.com/aa-blinov/paratrack/internal/crm"
 	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/goals"
 	"github.com/aa-blinov/paratrack/internal/projects"
@@ -22,6 +24,8 @@ type sharedWorkflows struct {
 	Tracking *tracking.Service
 	Tagging  *tagging.Service
 	Goals    *goals.Service
+	CRM      *crm.Service
+	Calendar *calendar.Service
 	Audit    *audit.Service
 	Search   *search.Service
 }
@@ -69,6 +73,16 @@ func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
 		return sharedWorkflows{}, fmt.Errorf("construct goals service: %w", err)
 	}
 
+	crmService, err := crm.New(crm.Dependencies{Store: database})
+	if err != nil {
+		return sharedWorkflows{}, fmt.Errorf("construct crm service: %w", err)
+	}
+
+	calendarService, err := calendar.New(calendar.Dependencies{Store: database})
+	if err != nil {
+		return sharedWorkflows{}, fmt.Errorf("construct calendar service: %w", err)
+	}
+
 	searchService, err := search.New(search.Dependencies{Store: database})
 	if err != nil {
 		return sharedWorkflows{}, fmt.Errorf("construct search service: %w", err)
@@ -81,6 +95,8 @@ func newSharedWorkflows(database *db.DB) (sharedWorkflows, error) {
 		Tracking: trackingService,
 		Tagging:  taggingService,
 		Goals:    goalService,
+		CRM:      crmService,
+		Calendar: calendarService,
 		Audit:    auditService,
 	}, nil
 }
