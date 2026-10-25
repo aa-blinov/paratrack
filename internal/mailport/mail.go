@@ -45,6 +45,15 @@ type InvoiceQueueRequest struct {
 	Message       Message
 }
 
+// ReminderQueueRequest freezes a reminder letter for durable delivery. Unlike an
+// invoice letter it touches no invoice when it is sent; the worker delivers both
+// kinds the same way.
+type ReminderQueueRequest struct {
+	TeamID    int64
+	Recipient string
+	Message   Message
+}
+
 // RichSender delivers a message with HTML and attachments, honoring context
 // cancellation so application shutdown can bound in-flight delivery.
 type RichSender interface {

@@ -30,7 +30,11 @@ func (f *fakeStore) TasksDueOn(context.Context, string) ([]appmodel.DueTask, err
 func (f *fakeStore) MarkTaskDueReminded(context.Context, appmodel.TaskDueReminderRequest) error {
 	return nil
 }
-func (f *fakeStore) TeamIDs(context.Context) ([]int64, error) { return f.teams, nil }
+func (f *fakeStore) TeamIDs(context.Context) ([]int64, error)                        { return f.teams, nil }
+func (f *fakeStore) CRMStepsDue(context.Context, string) ([]appmodel.CRMStep, error) { return nil, nil }
+func (f *fakeStore) ClaimCRMReminder(context.Context, appmodel.CRMReminderClaimRequest) (bool, error) {
+	return false, nil
+}
 func (f *fakeStore) ClaimOverloadNotice(_ context.Context, request appmodel.OverloadNoticeRequest) (bool, error) {
 	key := request.Week
 	if f.claimed[key] {
