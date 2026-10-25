@@ -226,6 +226,50 @@ type CRMLeadResponseStats struct {
 	MedianMinutes int64
 }
 
+// CRMAmount is a sum of deal amounts in one currency. Sums in different currencies are never
+// added together, so a total keeps one entry per currency.
+type CRMAmount struct {
+	Currency    string
+	AmountCents int64
+}
+
+// CRMDealTotal counts deals and, for a manager, sums their amounts per currency. A member's total
+// has no Amounts.
+type CRMDealTotal struct {
+	Count   int64
+	Amounts []CRMAmount
+}
+
+// CRMFunnelStage is one stage of the pipeline now, in the workspace's order.
+type CRMFunnelStage struct {
+	Key   string
+	Name  string
+	Kind  string
+	Total CRMDealTotal
+}
+
+// CRMLeadSource counts the leads a period created from one source. An empty source is its own row.
+type CRMLeadSource struct {
+	Source  string
+	Created int64
+}
+
+// CRMFunnel is the funnel report of one period (CRM-17). The pipeline is the state now; the won,
+// lost and overdue figures and the leads created in the period are for the period as the report
+// reads them. ShowAmounts is set for a manager; without it no total carries an amount.
+type CRMFunnel struct {
+	ShowAmounts    bool
+	Pipeline       []CRMFunnelStage
+	Won            CRMDealTotal
+	Lost           CRMDealTotal
+	Overdue        CRMDealTotal
+	LeadStatuses   map[string]int64
+	LeadsCreated   int64
+	LeadsConverted int64
+	LeadSources    []CRMLeadSource
+	Response       CRMLeadResponseStats
+}
+
 // CRMIntakeKey is the workspace's key for the website's enquiry route. Only its hash is
 // stored; the zero CreatedAt means the workspace has no key.
 type CRMIntakeKey struct {

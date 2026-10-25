@@ -15,6 +15,7 @@ import { DealDetail } from "@/crm/deal-detail"
 import { ContactsPanel } from "@/crm/contacts-panel"
 import { StageEditor } from "@/crm/stage-editor"
 import { LeadsPanel } from "@/crm/leads-panel"
+import { FunnelPanel } from "@/crm/funnel-panel"
 
 type DealsResponse = { today: string; deals: Deal[]; pipeline: Pipeline }
 
@@ -34,7 +35,7 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
   const [members, setMembers] = React.useState<Member[]>([])
   const [loaded, setLoaded] = React.useState(false)
   const [error, setError] = React.useState("")
-  const [tab, setTab] = React.useState<"deals" | "leads">("deals")
+  const [tab, setTab] = React.useState<"deals" | "leads" | "funnel">("deals")
 
   const clientNames = React.useMemo(() => new Map(clients.map(client => [client.id, client.name])), [clients])
   const total = pipeline.stages.reduce((sum, item) => sum + item.count, 0)
@@ -75,8 +76,9 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
     <div role="group" aria-label={t(lang, "crm.tabsLabel")} className="flex flex-wrap gap-2">
       <Button type="button" variant={tab === "deals" ? "secondary" : "outline"} aria-pressed={tab === "deals"} onClick={() => setTab("deals")}>{t(lang, "crm.tabDeals")}</Button>
       <Button type="button" variant={tab === "leads" ? "secondary" : "outline"} aria-pressed={tab === "leads"} onClick={() => setTab("leads")}>{t(lang, "crm.tabLeads")}</Button>
+      <Button type="button" variant={tab === "funnel" ? "secondary" : "outline"} aria-pressed={tab === "funnel"} onClick={() => setTab("funnel")}>{t(lang, "crm.tabFunnel")}</Button>
     </div>
-    {tab === "leads" ? <LeadsPanel lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} members={members} /> : <>
+    {tab === "leads" ? <LeadsPanel lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} members={members} /> : tab === "funnel" ? <FunnelPanel lang={lang} /> : <>
     <DisclosureSection title={t(lang, "crm.newDeal")}>
       <DealForm lang={lang} csrf={data.CSRFToken} viewerID={viewerID} canManage={data.CanManage} clients={clients} members={members} onSaved={() => void load()} />
     </DisclosureSection>

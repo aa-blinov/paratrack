@@ -204,6 +204,7 @@ type CRMWorkflow interface {
 	MoveLeadStatus(context.Context, appmodel.CRMLeadStatusRequest) (model.CRMLead, error)
 	ConvertLead(context.Context, appmodel.CRMLeadConvertRequest) (model.CRMLead, error)
 	LeadResponseStats(context.Context, appmodel.CRMLeadResponseStatsQuery) (model.CRMLeadResponseStats, error)
+	FunnelReport(context.Context, appmodel.CRMFunnelQuery) (model.CRMFunnel, error)
 	CreateIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) (string, model.CRMIntakeKey, error)
 	RevokeIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) error
 	IntakeKeyStatus(context.Context, appmodel.CRMIntakeKeyQuery) (model.CRMIntakeKey, error)

@@ -12,6 +12,37 @@ import (
 // as the HTTP route for it, so the rules are the same for a person and an agent.
 var mcpCRMTools = []mcpTool{
 	{
+		Name: "funnel_report",
+		Description: "The sales funnel for a period: deals per pipeline stage now, deals won and lost in the period, the win rate " +
+			"won/(won+lost) (null without closed deals), open deals whose next step has passed, leads by status now, and leads " +
+			"created in the period by source with how many became deals, with the first-response figures of those leads. " +
+			"Days are YYYY-MM-DD, both included, in the workspace zone. Amounts per currency come only to a manager; a member gets counts.",
+		Schema: objectSchema(map[string]any{
+			"from": dateProp("First day of the period"),
+			"to":   dateProp("Last day of the period"),
+		}, "from", "to"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				From string `json:"from"`
+				To   string `json:"to"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			start, end, err := leadPeriod(in.From, in.To, c.now.Location())
+			if err != nil {
+				return nil, err
+			}
+			report, err := s.services.CRM.FunnelReport(c.ctx, appmodel.CRMFunnelQuery{
+				TeamID: c.teamID, CallerID: c.userID, From: start, To: end, Today: c.today,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return crmFunnelViewOf(report, c.lang, in.From, in.To, c.today), nil
+		},
+	},
+	{
 		Name:        "contacts_list",
 		Description: "List the contacts of one client: name, role, email and phone.",
 		Schema:      objectSchema(map[string]any{"client_id": integerProp("Client id")}, "client_id"),
