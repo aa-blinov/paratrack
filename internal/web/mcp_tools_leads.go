@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -34,7 +35,7 @@ var mcpLeadTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmLeadsResponse{Leads: crmLeadViews(leads)}, nil
+			return crmLeadsResponse{Leads: crmLeadViews(leads, c.now)}, nil
 		},
 	},
 	{
@@ -65,7 +66,7 @@ var mcpLeadTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmLeadViewOf(lead), nil
+			return crmLeadViewOf(lead, c.now), nil
 		},
 	},
 	{
@@ -100,7 +101,7 @@ var mcpLeadTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmLeadViewOf(lead), nil
+			return crmLeadViewOf(lead, c.now), nil
 		},
 	},
 	{
@@ -127,7 +128,7 @@ var mcpLeadTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmLeadViewOf(lead), nil
+			return crmLeadViewOf(lead, c.now), nil
 		},
 	},
 	{
@@ -151,7 +152,7 @@ var mcpLeadTools = []mcpTool{
 			if err != nil {
 				return nil, err
 			}
-			return crmLeadViewOf(lead), nil
+			return crmLeadViewOf(lead, c.now), nil
 		},
 	},
 	{
@@ -185,6 +186,37 @@ var mcpLeadTools = []mcpTool{
 				return nil, err
 			}
 			return crmActivityViewIn(activity, c.now.Location()), nil
+		},
+	},
+	{
+		Name: "lead_response_stats",
+		Description: fmt.Sprintf("Measure how fast leads were answered. For the leads created from one day to another (YYYY-MM-DD, both days "+
+			"included, in the workspace zone) it returns how many were created, how many got an activity at all, how many got it within %d "+
+			"minutes of creation, and the median minutes from creation to the first activity (null while none has one). Every member reads it.",
+			model.LeadResponseTargetMinutes),
+		Schema: objectSchema(map[string]any{
+			"from": dateProp("First day of the period"),
+			"to":   dateProp("Last day of the period"),
+		}, "from", "to"),
+		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
+			in, err := mcpArgs[struct {
+				From string `json:"from"`
+				To   string `json:"to"`
+			}](args)
+			if err != nil {
+				return nil, err
+			}
+			start, end, err := leadPeriod(in.From, in.To, c.now.Location())
+			if err != nil {
+				return nil, err
+			}
+			stats, err := s.services.CRM.LeadResponseStats(c.ctx, appmodel.CRMLeadResponseStatsQuery{
+				TeamID: c.teamID, CallerID: c.userID, From: start, To: end,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return crmLeadResponseStatsViewOf(stats, in.From, in.To), nil
 		},
 	},
 }

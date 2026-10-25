@@ -165,25 +165,68 @@ type crmLeadView struct {
 	ConvertedClientID int64     `json:"converted_client_id"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`
+	// The first response (CRM-16). ResponseMinutes is the time to the first activity, zero
+	// until there is one; WaitingMinutes is the age of a lead that still has none; WithinTarget
+	// is set when the first activity came within the target. A response of zero minutes with
+	// WithinTarget false therefore means waiting, since a late answer is always above zero.
+	ResponseMinutes int64 `json:"response_minutes"`
+	WaitingMinutes  int64 `json:"waiting_minutes"`
+	WithinTarget    bool  `json:"within_target"`
 }
 
 func (crmLeadView) isJSONResponse() {}
 
-func crmLeadViewOf(l model.CRMLead) crmLeadView {
-	return crmLeadView{
+// crmLeadViewOf shapes a lead. now is the moment a waiting lead's age is counted to.
+func crmLeadViewOf(l model.CRMLead, now time.Time) crmLeadView {
+	v := crmLeadView{
 		ID: l.ID, Company: l.Company, ContactName: l.ContactName, Phone: l.Phone, Email: l.Email,
 		Source: l.Source, Message: l.Message, OwnerID: l.OwnerID, Status: l.Status, LostReason: l.LostReason,
 		NextStepAt: l.NextStepAt, ConvertedDealID: l.ConvertedDealID, ConvertedClientID: l.ConvertedClientID,
 		CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
 	}
+	if l.FirstResponseAt.IsZero() {
+		v.WaitingMinutes = max(0, int64(now.Sub(l.CreatedAt)/time.Minute))
+		return v
+	}
+	response := l.ResponseTime()
+	v.ResponseMinutes = int64(response / time.Minute)
+	v.WithinTarget = response <= model.LeadResponseTargetMinutes*time.Minute
+	return v
 }
 
-func crmLeadViews(leads []model.CRMLead) []crmLeadView {
+func crmLeadViews(leads []model.CRMLead, now time.Time) []crmLeadView {
 	out := make([]crmLeadView, 0, len(leads))
 	for _, l := range leads {
-		out = append(out, crmLeadViewOf(l))
+		out = append(out, crmLeadViewOf(l, now))
 	}
 	return out
+}
+
+// crmLeadResponseStatsView is the first-response measure of a period (CRM-16). From and To
+// are the days the caller asked for. MedianMinutes is null while no lead of the period has an
+// activity.
+type crmLeadResponseStatsView struct {
+	From          string `json:"from"`
+	To            string `json:"to"`
+	TargetMinutes int64  `json:"target_minutes"`
+	Created       int64  `json:"created"`
+	Answered      int64  `json:"answered"`
+	WithinTarget  int64  `json:"within_target"`
+	MedianMinutes *int64 `json:"median_minutes"`
+}
+
+func (crmLeadResponseStatsView) isJSONResponse() {}
+
+func crmLeadResponseStatsViewOf(stats model.CRMLeadResponseStats, from, to string) crmLeadResponseStatsView {
+	v := crmLeadResponseStatsView{
+		From: from, To: to, TargetMinutes: model.LeadResponseTargetMinutes,
+		Created: stats.Created, Answered: stats.Answered, WithinTarget: stats.WithinTarget,
+	}
+	if stats.Answered > 0 {
+		median := stats.MedianMinutes
+		v.MedianMinutes = &median
+	}
+	return v
 }
 
 type crmLeadsResponse struct {

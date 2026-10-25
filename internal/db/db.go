@@ -93,6 +93,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"projects to clients", func() error { return d.migrateProjectsToClients(ctx) }},
 		{"invoice recipients to clients", func() error { return d.migrateInvoiceRecipientsToClients(ctx) }},
 		{"personal workspace names", func() error { return d.migratePersonalTeamNames(ctx) }},
+		{"lead first responses", func() error { return d.migrateLeadFirstResponses(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {
 		if closeErr := sdb.Close(); closeErr != nil {

@@ -156,6 +156,19 @@ func (s *Service) ConvertLead(ctx context.Context, request appmodel.CRMLeadConve
 	return s.store.ConvertCRMLead(ctx, request)
 }
 
+// LeadResponseStats measures the first response of the leads created in a period (CRM-16).
+// The period is an interval of instants the caller built in the workspace zone; an empty one
+// is refused with the field "to".
+func (s *Service) LeadResponseStats(ctx context.Context, query appmodel.CRMLeadResponseStatsQuery) (model.CRMLeadResponseStats, error) {
+	if query.TeamID <= 0 {
+		return model.CRMLeadResponseStats{}, appmodel.ErrInvalidWorkspace
+	}
+	if !query.To.After(query.From) {
+		return model.CRMLeadResponseStats{}, fieldError("to")
+	}
+	return s.store.CRMLeadResponseStats(ctx, query)
+}
+
 // CreateIntakeKey makes the workspace's intake key and returns the raw key, which is shown
 // once. Only a manager may make one.
 func (s *Service) CreateIntakeKey(ctx context.Context, request appmodel.CRMIntakeKeyRequest) (string, model.CRMIntakeKey, error) {

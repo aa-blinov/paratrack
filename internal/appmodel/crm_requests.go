@@ -189,6 +189,17 @@ type CRMLeadListQuery struct {
 // CRMLeadIntakeRequest is an enquiry from the company website. TeamID is the workspace the
 // intake key belongs to, found before the request is read; nothing else in the request
 // chooses it.
+// CRMLeadResponseStatsQuery counts the leads created in a period and how fast they were
+// answered (CRM-16). From is the first instant of the first day and To the first instant
+// after the last day, both in the workspace zone, so a lead belongs to the day it was
+// created on.
+type CRMLeadResponseStatsQuery struct {
+	TeamID   int64
+	CallerID int64
+	From     time.Time
+	To       time.Time
+}
+
 type CRMLeadIntakeRequest struct {
 	TeamID      int64
 	Company     string
