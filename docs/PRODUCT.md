@@ -101,7 +101,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The invoice list filters by status (overdue included), by the day it was issued, and by "not paid" (FIN-09). Without SMTP the invoice letter can still go out as an `.eml` file with the PDF inside (FIN-10)
 - The invoice page downloads its sessions appendix (`GET /invoices/{id}/sessions.csv`, managers): one row per session billed on the invoice (`sessions.invoice_id`), oldest first, with the day, the start and end in the viewer's zone, the person, project, activity, hours and seconds. The invoice lines stay summed; the appendix is where the hours can be checked against the time they came from (FIN-06)
 - A member marks the start and the end of their working day on the dashboard (`POST /api/workday`, `workday_marks`, TIME-06). The start is kept once; the end can be given again, and the last one counts. The day's start and end show beside today's total, which is set against the six-hour norm
-- The global search (`GET /api/search?q=`, Ctrl+K or / outside a field) answers a text of two characters or more with groups of links: projects, clients, tasks and tags of the workspace, people (managers only, by name or email) and the viewer's own sessions by activity name. Archived projects, clients and tasks are left out, client emails are shown to managers only, each group holds eight rows at most (UI-01, TASK-14)
+- The global search (`GET /api/search?q=`, Ctrl+K or / outside a field) answers a text of two characters or more with groups of links: projects, clients, contacts, tasks and tags of the workspace, people (managers only, by name or email) and the viewer's own sessions by activity name. A client matches by name and tags, and a manager also by its billing email and details; a contact matches by name, role, email and phone, and the contacts group is there only while the CRM section is on. Archived projects, clients and tasks are left out, and so are the contacts of an archived client. Client emails are shown to managers only, each group holds eight rows at most, and `tag` narrows the clients to those carrying it. The CRM search box asks for `limit=50`, up to 50 rows a group (UI-01, TASK-14, CRM-18)
 - Above the team week the manager sees the team on one screen (PLAN-05): each project's plan from the schedule against the time tracked on it, and each person's planned load against the time available. More planned than available is an overload; less than half of it planned, or nothing, is idle
 - The statistics page shows a manager the team week (PLAN-04): a row per member, a column per day of the workspace's week, with the time each tracked that day, open timers included. A day that has passed or is today, under the six-hour norm, is marked; a weekend with no time is a day off and is not. Each member marks their own day as an overload or an idle day, with an optional note (TIME-13, `day_marks`); the manager sees the mark in the team's cell. A member cannot mark another person's day
 - A client without an account opens an invoice's PDF by a share link (`/share/invoices/{token}.pdf`). A manager makes the link on the invoice page (`POST /api/invoices/{id}/share`), and the address is shown once. The token is 256 random bits, only its SHA-256 hash is stored, and the link works for 30 days. An unknown or expired token answers 404; the PDF is served `no-store` and the route is rate limited (FIN-13)
@@ -233,6 +233,8 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
 (`/crm`), and it can be switched off like the others.
 
 - A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one.
+- **Client tags** (CRM-18). A client carries up to 10 tags. A tag is trimmed and lower-cased, 1 to 40 characters, with no comma, and a repeated tag counts once. A manager replaces the whole set with `POST /api/clients/{id}/tags` (`{"tags": [...]}`, the list is required) or with the `client_tags_set` tool. The rule is checked in the transaction that stores the tags, so a member is refused with the forbidden text. Tags live in `client_tags`, apart from the session tags, and every member reads them on the client card.
+- **Search** (CRM-18). The search box on the CRM page lists clients and contacts for a text of two characters or more, with the rules of the global search above. A phone matches as typed, and also with spaces, dashes and brackets left out of the text and of the number. Members see the clients, their tags and the contacts with their email and phone. A client's billing email and details are matched and shown to managers only, the same as in the client list.
 - A **deal** has a title, a client and a contact (both optional), an owner, an amount in cents of the deal's
   currency (empty means the workspace currency), a probability from 0 to 100, a close date and a next-step date.
 - A **won** deal makes its project once. The project takes the deal's title as its name, the deal's client, the
@@ -368,6 +370,7 @@ list are in [MCP.md](MCP.md).
 | Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
 | Sessions | HttpOnly + `Secure` cookies when the request is TLS |
 | Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
+| Client tags | Every member reads a client's tags. Only a manager sets them, on the client card or with `client_tags_set` (CRM-18) |
 
 ---
 
@@ -464,7 +467,7 @@ Wave tables: `api_tokens`, `integrations`, `external_tasks`, `invoices`, `invoic
 `audit_log`, `webhooks`, `webhook_deliveries`, `payroll_runs`, `payroll_lines`, `timesheet_approvals`,
 `schedule_entries`, `push_subscriptions`, `settings` (VAPID keys).
 
-CRM and calendar tables: `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100,
+CRM and calendar tables: `client_tags` (one row per client and tag, the name checked to 1 to 40 characters with no comma), `crm_contacts`, `crm_deals` (stage is a key of its workspace's stages, probability 0 to 100,
 `project_id` is the project a won deal made, `stage_changed_at` is when it entered its current stage),
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`

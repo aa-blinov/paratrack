@@ -102,6 +102,8 @@ func crmInputField(err error) (string, bool) {
 		return "ends_at", true
 	case errors.Is(err, model.ErrCalendarTargetOutOfTeam):
 		return "links", true
+	case errors.Is(err, model.ErrInvalidClientTag):
+		return "tags", true
 	}
 	return "", false
 }

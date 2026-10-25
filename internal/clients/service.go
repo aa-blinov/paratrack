@@ -18,6 +18,7 @@ type ClientDirectoryStore interface {
 	GetClientForProject(context.Context, appmodel.ProjectScopeQuery) (model.Client, error)
 	ClientProjects(context.Context, appmodel.ClientScopeQuery) ([]appmodel.ClientProject, error)
 	ClientInvoices(context.Context, appmodel.ClientScopeQuery, string) ([]appmodel.ClientInvoice, error)
+	ClientTags(context.Context, appmodel.ClientScopeQuery) ([]string, error)
 }
 
 // ClientWriteStore provides atomic client mutations. Authorization is
@@ -25,6 +26,7 @@ type ClientDirectoryStore interface {
 type ClientWriteStore interface {
 	CreateClient(context.Context, appmodel.ClientCreateRequest) (model.Client, error)
 	UpdateClient(context.Context, appmodel.ClientUpdateRequest) (model.Client, error)
+	SetClientTags(context.Context, appmodel.ClientTagsRequest) ([]string, error)
 }
 
 // ClientBudgetStore prices what projects have consumed. It lives behind the
@@ -61,4 +63,13 @@ func NewService(deps Dependencies) (*Service, error) {
 		}
 	}
 	return &Service{directory: deps.Directory, writes: deps.Writes, budgets: deps.Budgets}, nil
+}
+
+// SetTags replaces the tag set of a client. Only a manager may do it, and the
+// database checks that inside the transaction that writes the tags.
+func (s *Service) SetTags(ctx context.Context, request appmodel.ClientTagsRequest) ([]string, error) {
+	if request.TeamID <= 0 || request.ClientID <= 0 {
+		return nil, appmodel.ErrInvalidClientTeam
+	}
+	return s.writes.SetClientTags(ctx, request)
 }

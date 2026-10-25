@@ -782,4 +782,18 @@ var compatibilityStatements = []string{
 	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_agent_actions_status ON agent_actions(team_id, status)`,
+	// Tags on clients (CRM-18). A client's set is replaced as a whole by a manager, and
+	// the rules of model.NormalizeClientTags are repeated here so a row the rules refuse
+	// cannot be stored. Session tags are another fact with their own table.
+	`CREATE TABLE IF NOT EXISTS client_tags (
+	    team_id BIGINT NOT NULL,
+	    client_id BIGINT NOT NULL,
+	    name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 40 AND position(',' in name) = 0),
+	    created_by BIGINT NOT NULL DEFAULT 0,
+	    created_at TEXT NOT NULL,
+	    PRIMARY KEY (team_id, client_id, name),
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+	)`,
+	`CREATE INDEX IF NOT EXISTS idx_client_tags_name ON client_tags(team_id, name)`,
 }
