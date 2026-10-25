@@ -123,6 +123,7 @@ type crmActivityView struct {
 	ID         int64     `json:"id"`
 	ClientID   int64     `json:"client_id"`
 	DealID     int64     `json:"deal_id"`
+	LeadID     int64     `json:"lead_id"`
 	Kind       string    `json:"kind"`
 	Body       string    `json:"body"`
 	Result     string    `json:"result"`
@@ -135,7 +136,7 @@ func (crmActivityView) isJSONResponse() {}
 // crmActivityViewIn shows the moment in the workspace zone, like the calendar does.
 func crmActivityViewIn(a model.CRMActivity, loc *time.Location) crmActivityView {
 	return crmActivityView{
-		ID: a.ID, ClientID: a.ClientID, DealID: a.DealID, Kind: a.Kind, Body: a.Body,
+		ID: a.ID, ClientID: a.ClientID, DealID: a.DealID, LeadID: a.LeadID, Kind: a.Kind, Body: a.Body,
 		Result: a.Result, OccurredAt: a.OccurredAt.In(loc), AuthorID: a.AuthorID,
 	}
 }
@@ -145,6 +146,61 @@ type crmActivitiesResponse struct {
 }
 
 func (crmActivitiesResponse) isJSONResponse() {}
+
+// crmLeadView is a lead as the screens and the agents read it. A converted lead names the
+// client and the deal it made; zero means none yet.
+type crmLeadView struct {
+	ID                int64     `json:"id"`
+	Company           string    `json:"company"`
+	ContactName       string    `json:"contact_name"`
+	Phone             string    `json:"phone"`
+	Email             string    `json:"email"`
+	Source            string    `json:"source"`
+	Message           string    `json:"message"`
+	OwnerID           int64     `json:"owner_id"`
+	Status            string    `json:"status"`
+	LostReason        string    `json:"lost_reason"`
+	NextStepAt        string    `json:"next_step_at"`
+	ConvertedDealID   int64     `json:"converted_deal_id"`
+	ConvertedClientID int64     `json:"converted_client_id"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+}
+
+func (crmLeadView) isJSONResponse() {}
+
+func crmLeadViewOf(l model.CRMLead) crmLeadView {
+	return crmLeadView{
+		ID: l.ID, Company: l.Company, ContactName: l.ContactName, Phone: l.Phone, Email: l.Email,
+		Source: l.Source, Message: l.Message, OwnerID: l.OwnerID, Status: l.Status, LostReason: l.LostReason,
+		NextStepAt: l.NextStepAt, ConvertedDealID: l.ConvertedDealID, ConvertedClientID: l.ConvertedClientID,
+		CreatedAt: l.CreatedAt, UpdatedAt: l.UpdatedAt,
+	}
+}
+
+func crmLeadViews(leads []model.CRMLead) []crmLeadView {
+	out := make([]crmLeadView, 0, len(leads))
+	for _, l := range leads {
+		out = append(out, crmLeadViewOf(l))
+	}
+	return out
+}
+
+type crmLeadsResponse struct {
+	Leads []crmLeadView `json:"leads"`
+}
+
+func (crmLeadsResponse) isJSONResponse() {}
+
+// crmIntakeKeyResponse says whether the workspace has an intake key. Key carries the raw
+// secret only in the answer to the request that made it, and that answer is not cached.
+type crmIntakeKeyResponse struct {
+	Active    bool       `json:"active"`
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+	Key       string     `json:"key,omitempty"`
+}
+
+func (crmIntakeKeyResponse) isJSONResponse() {}
 
 type calendarEventView struct {
 	ID             int64     `json:"id"`

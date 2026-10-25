@@ -198,6 +198,16 @@ type CRMWorkflow interface {
 	DeleteStage(context.Context, appmodel.CRMStageDeleteRequest) error
 	LogActivity(context.Context, appmodel.CRMActivityCreateRequest) (model.CRMActivity, error)
 	Activities(context.Context, appmodel.CRMActivityListQuery) ([]model.CRMActivity, error)
+	CreateLead(context.Context, appmodel.CRMLeadCreateRequest) (model.CRMLead, error)
+	Leads(context.Context, appmodel.CRMLeadListQuery) ([]model.CRMLead, error)
+	UpdateLead(context.Context, appmodel.CRMLeadUpdateRequest) (model.CRMLead, error)
+	MoveLeadStatus(context.Context, appmodel.CRMLeadStatusRequest) (model.CRMLead, error)
+	ConvertLead(context.Context, appmodel.CRMLeadConvertRequest) (model.CRMLead, error)
+	CreateIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) (string, model.CRMIntakeKey, error)
+	RevokeIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) error
+	IntakeKeyStatus(context.Context, appmodel.CRMIntakeKeyQuery) (model.CRMIntakeKey, error)
+	IntakeKeyTeam(context.Context, string) (int64, error)
+	CaptureIntakeLead(context.Context, appmodel.CRMLeadIntakeRequest) (model.CRMLead, error)
 }
 
 // AgentActionWorkflow is the confirmation queue the agent's requests wait in. The

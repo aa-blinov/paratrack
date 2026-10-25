@@ -119,6 +119,7 @@ type CRMActivityCreateRequest struct {
 	CallerID   int64
 	ClientID   int64
 	DealID     int64
+	LeadID     int64
 	Kind       string
 	Body       string
 	Result     string
@@ -130,6 +131,85 @@ type CRMActivityListQuery struct {
 	CallerID int64
 	ClientID int64
 	DealID   int64
+	LeadID   int64
+}
+
+// CRMLeadCreateRequest records a lead. OwnerID 0 means the caller takes it.
+type CRMLeadCreateRequest struct {
+	TeamID      int64
+	CallerID    int64
+	OwnerID     int64
+	Company     string
+	ContactName string
+	Phone       string
+	Email       string
+	Source      string
+	Message     string
+	NextStepAt  string
+}
+
+// CRMLeadUpdateRequest changes the fields that are not nil. Only a manager sets the owner.
+type CRMLeadUpdateRequest struct {
+	TeamID      int64
+	CallerID    int64
+	LeadID      int64
+	OwnerID     *int64
+	Company     *string
+	ContactName *string
+	Phone       *string
+	Email       *string
+	Source      *string
+	Message     *string
+	NextStepAt  *string
+}
+
+// CRMLeadStatusRequest moves a lead to another status. A lost lead needs a reason.
+type CRMLeadStatusRequest struct {
+	TeamID     int64
+	CallerID   int64
+	LeadID     int64
+	Status     string
+	LostReason string
+}
+
+// CRMLeadConvertRequest turns a lead into a client and a deal. The owner or a manager asks.
+type CRMLeadConvertRequest struct {
+	TeamID   int64
+	CallerID int64
+	LeadID   int64
+}
+
+type CRMLeadListQuery struct {
+	TeamID   int64
+	CallerID int64
+	Status   string
+	OwnerID  int64
+}
+
+// CRMLeadIntakeRequest is an enquiry from the company website. TeamID is the workspace the
+// intake key belongs to, found before the request is read; nothing else in the request
+// chooses it.
+type CRMLeadIntakeRequest struct {
+	TeamID      int64
+	Company     string
+	ContactName string
+	Phone       string
+	Email       string
+	Source      string
+	Message     string
+}
+
+// CRMIntakeKeyRequest makes or revokes the workspace's intake key. Manager is the caller's
+// role as the transport read it; the persistence transaction checks the role again.
+type CRMIntakeKeyRequest struct {
+	TeamID   int64
+	CallerID int64
+	Manager  bool
+}
+
+type CRMIntakeKeyQuery struct {
+	TeamID   int64
+	CallerID int64
 }
 
 type CalendarEventCreateRequest struct {

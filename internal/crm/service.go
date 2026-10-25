@@ -32,6 +32,16 @@ type Store interface {
 	LinkCRMDealProject(context.Context, appmodel.CRMDealProjectLinkRequest) (model.CRMDeal, error)
 	CreateCRMActivity(context.Context, appmodel.CRMActivityCreateRequest) (model.CRMActivity, error)
 	ListCRMActivities(context.Context, appmodel.CRMActivityListQuery) ([]model.CRMActivity, error)
+	CreateCRMLead(context.Context, appmodel.CRMLeadCreateRequest) (model.CRMLead, error)
+	ListCRMLeads(context.Context, appmodel.CRMLeadListQuery) ([]model.CRMLead, error)
+	UpdateCRMLead(context.Context, appmodel.CRMLeadUpdateRequest) (model.CRMLead, error)
+	MoveCRMLeadStatus(context.Context, appmodel.CRMLeadStatusRequest) (model.CRMLead, error)
+	ConvertCRMLead(context.Context, appmodel.CRMLeadConvertRequest) (model.CRMLead, error)
+	CreateCRMIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) (string, model.CRMIntakeKey, error)
+	RevokeCRMIntakeKey(context.Context, appmodel.CRMIntakeKeyRequest) error
+	CRMIntakeKeyStatus(context.Context, appmodel.CRMIntakeKeyQuery) (model.CRMIntakeKey, error)
+	IntakeKeyTeam(context.Context, string) (int64, error)
+	CreateIntakeLead(context.Context, appmodel.CRMLeadIntakeRequest) (model.CRMLead, error)
 }
 
 // ProjectWorkflow is the projects workflow a won deal makes its project through. The
@@ -373,13 +383,17 @@ func (s *Service) MoveDealStage(ctx context.Context, request appmodel.CRMDealSta
 	return s.store.MoveCRMDealStage(ctx, request)
 }
 
-// LogActivity records a call, a meeting or a note on a client or a deal. The
-// kind defaults to a note, and an entry needs some text.
+// LogActivity records a call, a meeting or a note on a client, a deal or a lead. An
+// activity names exactly one of them. The kind defaults to a note, and an entry needs
+// some text.
 func (s *Service) LogActivity(ctx context.Context, request appmodel.CRMActivityCreateRequest) (model.CRMActivity, error) {
 	if request.TeamID <= 0 {
 		return model.CRMActivity{}, appmodel.ErrInvalidWorkspace
 	}
-	if request.ClientID <= 0 && request.DealID <= 0 {
+	if request.ClientID <= 0 && request.DealID <= 0 && request.LeadID <= 0 {
+		return model.CRMActivity{}, fieldError("client or deal")
+	}
+	if request.LeadID > 0 && (request.ClientID > 0 || request.DealID > 0) {
 		return model.CRMActivity{}, fieldError("client or deal")
 	}
 	request.Body = strings.TrimSpace(request.Body)
@@ -400,7 +414,7 @@ func (s *Service) Activities(ctx context.Context, query appmodel.CRMActivityList
 	if query.TeamID <= 0 {
 		return nil, appmodel.ErrInvalidWorkspace
 	}
-	if query.ClientID <= 0 && query.DealID <= 0 {
+	if query.ClientID <= 0 && query.DealID <= 0 && query.LeadID <= 0 {
 		return nil, fieldError("client or deal")
 	}
 	return s.store.ListCRMActivities(ctx, query)

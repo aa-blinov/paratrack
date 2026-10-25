@@ -26,6 +26,8 @@ var mcpToolSections = map[string]string{
 	"contacts_list": "crm", "contact_create": "crm", "deals_list": "crm", "deal_create": "crm",
 	"deal_update": "crm", "deal_move_stage": "crm", "deal_create_project": "crm", "activities_list": "crm", "activity_create": "crm",
 	"deal_stages_list": "crm", "deal_stage_create": "crm", "deal_stage_update": "crm", "deal_stage_delete": "crm",
+	"lead_list": "crm", "lead_create": "crm", "lead_update": "crm", "lead_status_set": "crm",
+	"lead_convert": "crm", "lead_activity_add": "crm",
 	"calendar_events_list": "calendar", "calendar_event_create": "calendar",
 	"calendar_event_update": "calendar", "calendar_event_delete": "calendar",
 	"tasks_list": "tasks", "task_get": "tasks", "task_create": "tasks", "task_set_status": "tasks",
@@ -42,10 +44,10 @@ var mcpToolSections = map[string]string{
 	"integrations_list": "integrations",
 }
 
-// mcpTools is the whole tool set: CRM and calendar, then the entities that existed
+// mcpTools is the whole tool set: CRM, leads and calendar, then the entities that existed
 // before them, then goals, tags, the plan, invoices, payroll, the money writes, the
 // project, task and time writes, and the reads of the workspace's administration.
-var mcpTools = slices.Concat(mcpCRMTools, mcpEntityTools, mcpMoreTools, mcpMoneyTools, mcpQueueTools, mcpWorkTools, mcpAdminTools)
+var mcpTools = slices.Concat(mcpCRMTools, mcpLeadTools, mcpEntityTools, mcpMoreTools, mcpMoneyTools, mcpQueueTools, mcpWorkTools, mcpAdminTools)
 
 func mcpToolNamed(name string) (mcpTool, bool) {
 	for _, tool := range mcpTools {

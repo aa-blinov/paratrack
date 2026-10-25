@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -93,7 +94,27 @@ var (
 	ErrEventEndBeforeStart     = errors.New("event ends before it starts")
 	ErrCalendarTargetOutOfTeam = errors.New("linked project, client or participant is not in this workspace")
 	ErrProjectManagerRequired  = errors.New("a project from a deal is created by a workspace manager")
+	ErrIntakeKeyInvalid        = errors.New("intake key is missing, wrong or revoked")
 )
+
+// Lead statuses. A lead is worked from new through contacted and qualified, and ends
+// lost or converted. A converted lead already has its client and deal, so its status
+// does not change again.
+const (
+	LeadStatusNew       = "new"
+	LeadStatusContacted = "contacted"
+	LeadStatusQualified = "qualified"
+	LeadStatusLost      = "lost"
+	LeadStatusConverted = "converted"
+)
+
+// LeadStatuses lists the statuses in the order the screen shows them.
+var LeadStatuses = []string{LeadStatusNew, LeadStatusContacted, LeadStatusQualified, LeadStatusLost, LeadStatusConverted}
+
+// ValidLeadStatus reports whether status is one of the lead statuses.
+func ValidLeadStatus(status string) bool {
+	return slices.Contains(LeadStatuses, status)
+}
 
 // CRMContact is a person at a client, with a role.
 type CRMContact struct {
@@ -152,6 +173,39 @@ type CRMActivity struct {
 	OccurredAt time.Time
 	AuthorID   int64
 	CreatedAt  time.Time
+	// LeadID is set for an activity on a lead; the client and the deal are then 0.
+	LeadID int64
+}
+
+// CRMLead is an enquiry that is not a client or a deal yet. Owner 0 means nobody has taken
+// it, which is how an enquiry from the website starts. Once converted, the lead keeps the
+// ids of the client and the deal it made.
+type CRMLead struct {
+	ID                int64
+	TeamID            int64
+	Company           string
+	ContactName       string
+	Phone             string
+	Email             string
+	Source            string
+	Message           string
+	OwnerID           int64
+	Status            string
+	LostReason        string
+	NextStepAt        string
+	ConvertedDealID   int64
+	ConvertedClientID int64
+	CreatedBy         int64
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+}
+
+// CRMIntakeKey is the workspace's key for the website's enquiry route. Only its hash is
+// stored; the zero CreatedAt means the workspace has no key.
+type CRMIntakeKey struct {
+	TeamID    int64
+	CreatedBy int64
+	CreatedAt time.Time
 }
 
 // CalendarEvent is a team event. Participants are listed by user ID.

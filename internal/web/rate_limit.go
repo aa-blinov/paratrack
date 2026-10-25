@@ -92,13 +92,22 @@ func (l *rateLimiter) collectExpired(now, cut time.Time) {
 // a whole office behind one address can still sign in at nine while
 // guessing one account's password stays slow.
 func (s *Server) rateLimit(bucket string, limit int, window time.Duration, field ...string) func(http.Handler) http.Handler {
+	return s.rateLimitKeyed(bucket, limit, window, func(r *http.Request) string {
+		key := clientIP(r)
+		for _, f := range field {
+			key += "|" + strings.ToLower(strings.TrimSpace(r.FormValue(f)))
+		}
+		return key
+	})
+}
+
+// rateLimitKeyed is rateLimit with the key chosen by the caller. A route that is
+// authenticated by a header, such as the intake key, budgets by that header.
+func (s *Server) rateLimitKeyed(bucket string, limit int, window time.Duration, keyOf func(*http.Request) string) func(http.Handler) http.Handler {
 	lim := newRateLimiter(limit, window)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			key := bucket + "|" + clientIP(r)
-			for _, f := range field {
-				key += "|" + strings.ToLower(strings.TrimSpace(r.FormValue(f)))
-			}
+			key := bucket + "|" + keyOf(r)
 			if !lim.allow(hashRateLimitKey(key)) {
 				w.Header().Set("Retry-After", "60")
 				if strings.HasPrefix(r.URL.Path, "/api/") {

@@ -22,7 +22,8 @@ while IFS= read -r route; do
 		"POST /api/stripe/webhook"|"POST /sentry-tunnel"|\
 		"GET /forgot-password"|"GET /reset-password"|\
 		"POST /api/password/forgot"|"POST /api/password/reset"|\
-		"GET /sso/login"|"GET /sso/callback"|"GET /share/invoices/{token}"|"/")
+		"GET /sso/login"|"GET /sso/callback"|"GET /share/invoices/{token}"|\
+		"POST /api/leads/intake"|"OPTIONS /api/leads/intake"|"/")
 			;;
 		*)
 			echo "architecture check: outer HTTP mux route must be explicitly reviewed as public or the protected pages mount ($route)" >&2

@@ -142,6 +142,10 @@ func csrfExempt(r *http.Request) bool {
 		// The agent endpoint takes no cookie at all, so a forged request from
 		// another site fails the bearer check (401) and never reaches a handler.
 		return true
+	case "/api/leads/intake":
+		// The company website posts with the intake key and no cookie. The handler
+		// reads no other credential, and a page on another site cannot set the key header.
+		return true
 	}
 	return false
 }

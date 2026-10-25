@@ -69,3 +69,59 @@ export const dealFieldKeys: Record<string, string> = {
   "close date": "close_date",
   "next step date": "next_step_at",
 }
+
+// Leads (CRM-14). A lead is an enquiry before it is a client and a deal. Converted is set
+// only by converting, so a person picks among the other four.
+export const leadStatuses = ["new", "contacted", "qualified", "lost", "converted"] as const
+
+export type LeadStatus = (typeof leadStatuses)[number]
+
+export type Lead = {
+  id: number
+  company: string
+  contact_name: string
+  phone: string
+  email: string
+  source: string
+  message: string
+  /** 0 means nobody has taken the lead, which is how an enquiry from the website starts. */
+  owner_id: number
+  status: LeadStatus
+  lost_reason: string
+  next_step_at: string
+  converted_deal_id: number
+  converted_client_id: number
+  created_at: string
+  updated_at: string
+}
+
+/** Lead fields as the server names them in a refusal. A name that is not an input stays at form level. */
+export const leadFieldKeys: Record<string, string> = {
+  company: "company",
+  contact_name: "contact_name",
+  phone: "phone",
+  email: "email",
+  source: "source",
+  message: "message",
+  owner_id: "owner",
+  status: "status",
+  lost_reason: "lost_reason",
+}
+
+/** Whether a lead can still be converted: converted and lost leads are closed. */
+export function leadIsOpen(lead: Lead): boolean {
+  return lead.status !== "converted" && lead.status !== "lost"
+}
+
+/**
+ * The request the company site sends for an enquiry, with the key a manager just made. The
+ * origin is the page's own, so the example points at the server the person is looking at.
+ */
+export function intakeExample(origin: string, key: string): string {
+  return [
+    `curl -X POST ${origin}/api/leads/intake \\`,
+    `  -H "Content-Type: application/json" \\`,
+    `  -H "X-Intake-Key: ${key}" \\`,
+    `  -d '{"company":"Ромашка","contact_name":"Анна","email":"anna@example.test","source":"website","message":"Нужен сайт"}'`,
+  ].join("\n")
+}
