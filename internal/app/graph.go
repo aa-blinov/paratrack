@@ -77,6 +77,7 @@ type Services struct {
 	Goals                   *goals.Service
 	CRM                     *crm.Service
 	Calendar                *calendar.Service
+	CalendarSync            *calendar.SyncService
 	Webhooks                *webhooks.Service
 	Reminders               *reminders.Service
 	Tasks                   *tasks.Service

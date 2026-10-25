@@ -99,6 +99,7 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 	columns := []secretColumn{
 		{"integrations", "secret"}, {"webhooks", "secret"},
 		{"teams", "stripe_key"}, {"teams", "stripe_webhook_secret"},
+		{"calendar_connections", "access_token"}, {"calendar_connections", "refresh_token"},
 	}
 	sealPlaintext := d.secrets.aead != nil
 

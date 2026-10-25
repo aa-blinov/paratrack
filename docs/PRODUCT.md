@@ -337,6 +337,48 @@ optional project and client, a list of participants and a flag for shared.
   guests.
 - The agenda is read for a window in the workspace time zone, at most one year long per request.
 
+### Calendar sync with Google and Outlook
+
+A member can connect their own Google Calendar or Outlook (Microsoft Graph) calendar at `/settings/calendar-sync`.
+The connection belongs to one member in one workspace. Consent is OAuth 2.0 with PKCE. The state and the verifier are
+bound to that member and to the browser session that started the consent, and a state works once. Tokens are sealed with
+`PARATRACK_SECRET_KEY`, the same way as the integration secrets, and the raw token is never stored. Without an OAuth
+client for a provider (`PARATRACK_GOOGLE_CALENDAR_*` or `PARATRACK_MICROSOFT_CALENDAR_*`, both values or neither) the
+sync is off for it, and the page says so.
+
+What goes where:
+
+- **Pull.** The provider's timed events from 30 days back to 90 days ahead become the member's personal events in the
+  team calendar. They are not shared, the member is their author, and each is linked to the provider's event ID
+  (`calendar_external_links`, origin `provider`). Cancelled events and all-day events are not imported. A recurring
+  event arrives as its own instances.
+- **Push.** An event the member created carries the switch «Send to my calendar» (`calendar_events.sync_push`). The
+  switch is the author's alone, it needs a connection in this workspace, and an imported event never carries it. A
+  pushed event is created at the provider and linked (origin `team`).
+
+Conflict rule. The provider wins for a pulled event: when its values change there, the local copy takes them at the
+next sync, so a local edit to an imported event lasts only until then. The team wins for a pushed event: when the
+provider's copy changes or goes missing, the team's values are written again at the next sync.
+
+Deletions follow the owner of the event:
+
+- A pulled event is removed in the team only when the provider no longer lists it inside the window. A listing that
+  fails part way deletes nothing.
+- A pushed event that is deleted in the team, or switched off for push, is deleted at the provider.
+- A pulled event that the member deletes locally is not imported again while the provider keeps it.
+
+Disconnect rule. Disconnecting deletes that member's tokens, links and pending deletions for that provider. The
+imported events stay in the team calendar as ordinary personal events with no link. Events that were pushed stay at the
+provider and are no longer synced.
+
+Schedule and failures. Each connection syncs every 15 minutes (the scheduler checks each minute), and a member can
+sync now through `POST /api/calendar/sync`, which answers 409 when the member has no connection. A failed attempt keeps
+the stored events and records `last_error`: the provider and its HTTP status, or the plain codes `token_rejected`,
+`unreachable` and `internal`. A sync of one connection never changes another member's events.
+
+The adapters are checked against local stub servers only. Calls to the real providers, the consent screens and token
+refresh against the live service are not verified.
+
 ### Agent endpoint (MCP)
 
 `POST /mcp` speaks JSON-RPC 2.0 over HTTP in MCP protocol revision `2025-06-18`, with no sessions. Details and the tool
@@ -472,8 +514,12 @@ CRM and calendar tables: `client_tags` (one row per client and tag, the name che
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`
 and `converted_client_id` set once, `first_response_at` set by the first activity, `status_changed_at` set by every status change), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
-`calendar_events` (`shared` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
-workspace day; its primary key is the once-a-day claim of a next-step reminder).
+`calendar_events` (`shared` and `sync_push` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
+workspace day; its primary key is the once-a-day claim of a next-step reminder). Calendar sync: `calendar_connections` (one row per member,
+provider and workspace; the two tokens sealed, `last_synced_at` and `last_error`), `calendar_oauth_states` (the SHA-256 of the state and of
+the session, the verifier sealed, removed when used), `calendar_external_links` (one row per event that exists on both sides, origin
+`provider` or `team`, unique per member, provider and external ID) and `calendar_external_tombstones` (`delete` for a pushed copy to remove,
+`ignore` for a pulled event that must not come back).
 Times are text in the usual format and money is integer cents.
 
 Rules worth knowing:
@@ -528,6 +574,8 @@ make ui
 Env knobs: `PARATRACK_SMTP_*`, `PARATRACK_JIRA_SITE`, `PARATRACK_GITLAB_SITE`,
 `PARATRACK_STRIPE_KEY`, `PARATRACK_STRIPE_WEBHOOK_SECRET`,
 `PARATRACK_OIDC_ISSUER`, `PARATRACK_OIDC_CLIENT_ID`, `PARATRACK_OIDC_CLIENT_SECRET`,
+`PARATRACK_GOOGLE_CALENDAR_CLIENT_ID`, `PARATRACK_GOOGLE_CALENDAR_CLIENT_SECRET`, `PARATRACK_MICROSOFT_CALENDAR_CLIENT_ID`,
+`PARATRACK_MICROSOFT_CALENDAR_CLIENT_SECRET` (calendar sync; the redirect URI is `<PARATRACK_PUBLIC_URL>/settings/calendar-sync/<provider>/callback`),
 `PARATRACK_PUBLIC_URL` (required HTTPS origin in production),
 `PARATRACK_TRUSTED_PROXIES` (comma-separated CIDR ranges for reverse proxies;
 forwarded host/proto/IP headers are ignored from all other peers). The public
@@ -566,5 +614,5 @@ python e2e/qa_offline_push.py                   # offline + push
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.
-- The team calendar is internal: no Google or Outlook sync and no recurring events.
+- The team calendar has no recurring events. Google and Outlook sync is verified against stub servers only; the real providers, their consent screens and token refresh against the live service have not been tested. Sync reads the whole window on each run instead of an incremental sync token, and all-day events are not imported.
 - The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.

@@ -36,11 +36,15 @@ type Props = {
   event?: CalendarEvent
   /** Where a new event starts, as the workspace wall clock; it runs for an hour. */
   startAt?: string
+  /** The providers the member has connected here; the push switch needs one (CRM-19). */
+  syncProviders?: string[]
+  /** The signed-in member: only the author of an event may switch its push. */
+  userID?: number
   onSaved: () => void
   onCancel?: () => void
 }
 
-export function EventForm({ lang, csrf, canManage, members, event, startAt, onSaved, onCancel }: Props) {
+export function EventForm({ lang, csrf, canManage, members, event, startAt, syncProviders = [], userID = 0, onSaved, onCancel }: Props) {
   const prefix = event ? `event-${event.id}` : "event-new"
   const [title, setTitle] = React.useState(event?.title ?? "")
   const [start, setStart] = React.useState(event ? wallClockOf(event.starts_at) : startAt ?? "")
@@ -48,6 +52,9 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, onSa
   const [location, setLocation] = React.useState(event?.location ?? "")
   const [notes, setNotes] = React.useState(event?.notes ?? "")
   const [shared, setShared] = React.useState(event?.shared ?? false)
+  const [syncPush, setSyncPush] = React.useState(event?.sync_push ?? false)
+  // An imported event belongs to the provider, so pushing it back would copy the provider's own event.
+  const canPush = syncProviders.length > 0 && !event?.imported && (!event || event.created_by === userID)
   const [participants, setParticipants] = React.useState<number[]>(event?.participant_ids ?? [])
   const [broken, setBroken] = React.useState<Record<string, boolean>>({})
   const [issue, setIssue] = React.useState<Issue | null>(null)
@@ -88,6 +95,7 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, onSa
     if (!event) {
       Object.assign(body, values)
       if (canManage) body.participant_ids = participants
+      if (canPush && syncPush) body.sync_push = true
     } else {
       if (values.title !== event.title) body.title = values.title
       if (start !== wallClockOf(event.starts_at)) body.starts_at = values.starts_at
@@ -97,6 +105,7 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, onSa
       if (values.shared !== event.shared) body.shared = values.shared
       if (canManage && !sameIDs(participants, event.participant_ids)) body.participant_ids = participants
     }
+    if (event && canPush && syncPush !== event.sync_push) body.sync_push = syncPush
 
     setBusy(true)
     setIssue(null)
@@ -110,6 +119,7 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, onSa
         setLocation("")
         setNotes("")
         setShared(false)
+        setSyncPush(false)
         setParticipants([])
         setBroken({})
         setEpoch(value => value + 1)
@@ -160,6 +170,14 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, onSa
         <span className="text-muted-foreground">{t(lang, "cal.sharedHint")}</span>
       </span>
     </label>
+    {canPush && <label className="flex cursor-pointer items-start gap-3 text-sm">
+      <Checkbox checked={syncPush} onCheckedChange={value => setSyncPush(value === true)} className="mt-0.5" />
+      <span className="grid gap-1">
+        <span className="font-medium">{t(lang, "cal.syncPush")}</span>
+        <span className="text-muted-foreground">{t(lang, "cal.syncPushHint")}</span>
+      </span>
+    </label>}
+    {event?.imported && <p className="text-sm text-muted-foreground">{t(lang, "cal.imported")}</p>}
     {canManage && members.length > 0 && <fieldset className="grid gap-2">
       <legend className="text-sm font-medium">{t(lang, "cal.participants")}</legend>
       <div className="grid gap-2 sm:grid-cols-2">

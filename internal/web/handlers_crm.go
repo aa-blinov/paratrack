@@ -34,6 +34,10 @@ type calendarPageData struct {
 	// WeekStartsSunday is the workspace's first day of the week, or the person's own
 	// when the workspace leaves it open; the timesheet and the schedule read it too.
 	WeekStartsSunday bool
+	// SyncProviders are the providers this member has connected in the workspace, and UserID
+	// is the member, so the event form offers the push switch only where it applies.
+	SyncProviders []string
+	UserID        int64
 }
 
 func (s *Server) handleCRMPage(w http.ResponseWriter, r *http.Request) {
@@ -52,6 +56,15 @@ func (s *Server) handleCalendarPage(w http.ResponseWriter, r *http.Request) {
 	}
 	data.ReactApp = true
 	data.CalendarReact = true
+	connections, err := s.services.CalendarSync.Connections(r.Context(), teamID(r), authenticatedUserID(r))
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	for _, connection := range connections {
+		data.SyncProviders = append(data.SyncProviders, connection.Provider)
+	}
+	data.UserID = authenticatedUserID(r)
 	s.renderPageForRequest(w, r, data.Title, data.Active, &data)
 }
 
@@ -80,6 +93,8 @@ func (s *Server) writeCRMError(w http.ResponseWriter, r *http.Request, err error
 		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(lang, "crm.projectManagerOnly")})
 	case errors.Is(err, model.ErrNotFound):
 		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: i18n.T(lang, "err.notFoundEntity")})
+	case errors.Is(err, model.ErrCalendarNotConnected):
+		s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(lang, "calsync.err.notConnected")})
 	default:
 		s.writeInternalJSONError(w, err)
 	}
@@ -217,6 +232,7 @@ type calendarEventBody struct {
 	ProjectID      int64   `json:"project_id"`
 	ClientID       int64   `json:"client_id"`
 	Shared         bool    `json:"shared"`
+	SyncPush       bool    `json:"sync_push"`
 	ParticipantIDs []int64 `json:"participant_ids"`
 }
 
@@ -229,6 +245,7 @@ type calendarEventUpdateBody struct {
 	ProjectID      *int64  `json:"project_id"`
 	ClientID       *int64  `json:"client_id"`
 	Shared         *bool   `json:"shared"`
+	SyncPush       *bool   `json:"sync_push"`
 	ParticipantIDs []int64 `json:"participant_ids"`
 }
 
@@ -532,7 +549,7 @@ func (s *Server) handleCalendarEventCreate(w http.ResponseWriter, r *http.Reques
 	event, err := s.services.Calendar.Create(r.Context(), appmodel.CalendarEventCreateRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), Title: body.Title, StartsAt: startsAt,
 		EndsAt: endsAt, Location: body.Location, Notes: body.Notes, ProjectID: body.ProjectID,
-		ClientID: body.ClientID, Shared: body.Shared, ParticipantIDs: body.ParticipantIDs,
+		ClientID: body.ClientID, Shared: body.Shared, SyncPush: body.SyncPush, ParticipantIDs: body.ParticipantIDs,
 	})
 	if err != nil {
 		s.writeCRMError(w, r, err)
@@ -564,7 +581,7 @@ func (s *Server) handleCalendarEventUpdate(w http.ResponseWriter, r *http.Reques
 	event, err := s.services.Calendar.Update(r.Context(), appmodel.CalendarEventUpdateRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), EventID: id, Title: body.Title,
 		StartsAt: startsAt, EndsAt: endsAt, Location: body.Location, Notes: body.Notes,
-		ProjectID: body.ProjectID, ClientID: body.ClientID, Shared: body.Shared, ParticipantIDs: body.ParticipantIDs,
+		ProjectID: body.ProjectID, ClientID: body.ClientID, Shared: body.Shared, SyncPush: body.SyncPush, ParticipantIDs: body.ParticipantIDs,
 	})
 	if err != nil {
 		s.writeCRMError(w, r, err)

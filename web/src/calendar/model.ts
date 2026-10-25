@@ -10,6 +10,10 @@ export type CalendarEvent = {
   project_id: number
   client_id: number
   shared: boolean
+  /** The author's switch: keep a copy in their connected provider calendar. */
+  sync_push: boolean
+  /** Pulled from a provider; the sync owns it and it is never pushed back. */
+  imported: boolean
   participant_ids: number[]
   created_by: number
 }

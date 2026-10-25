@@ -160,6 +160,14 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 	if oidcConfigured != 0 && oidcConfigured != 3 {
 		return processConfig{}, fmt.Errorf("PARATRACK_OIDC_ISSUER, PARATRACK_OIDC_CLIENT_ID, and PARATRACK_OIDC_CLIENT_SECRET must be configured together")
 	}
+	googleCalendar, err := calendarCredentialsFrom(getenv, "PARATRACK_GOOGLE_CALENDAR")
+	if err != nil {
+		return processConfig{}, err
+	}
+	microsoftCalendar, err := calendarCredentialsFrom(getenv, "PARATRACK_MICROSOFT_CALENDAR")
+	if err != nil {
+		return processConfig{}, err
+	}
 	now := time.Now
 	logger := log.Default()
 	smtp := mail.SMTPConfig{
@@ -180,6 +188,8 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 			DefaultTimezone:         defaultTimezone,
 			SMTP:                    smtp,
 			PublicURL:               publicURL,
+			CalendarGoogle:          googleCalendar,
+			CalendarMicrosoft:       microsoftCalendar,
 		},
 		mailer: smtp,
 		web: web.Config{
@@ -198,4 +208,17 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 		},
 		oidc: oidcConfig,
 	}, nil
+}
+
+// calendarCredentialsFrom reads one provider's OAuth client for calendar sync. The
+// client ID and secret are both or neither: half a client cannot complete a consent.
+func calendarCredentialsFrom(getenv func(string) string, prefix string) (app.CalendarOAuthClient, error) {
+	client := app.CalendarOAuthClient{
+		ClientID:     strings.TrimSpace(getenv(prefix + "_CLIENT_ID")),
+		ClientSecret: strings.TrimSpace(getenv(prefix + "_CLIENT_SECRET")),
+	}
+	if (client.ClientID == "") != (client.ClientSecret == "") {
+		return app.CalendarOAuthClient{}, fmt.Errorf("%s_CLIENT_ID and %s_CLIENT_SECRET must be configured together", prefix, prefix)
+	}
+	return client, nil
 }

@@ -61,6 +61,7 @@ time.example.com {
 | `PARATRACK_STRIPE_KEY`, `PARATRACK_STRIPE_WEBHOOK_SECRET` | ключи Stripe на весь сервер, если в пространстве свои не заданы |
 | `PARATRACK_WEBHOOK_ALLOW_PRIVATE` | `1`: разрешить вебхуки на адреса локальной сети |
 | `PARATRACK_JIRA_SITE`, `PARATRACK_GITLAB_SITE` | адрес Jira или своего GitLab по умолчанию |
+| `PARATRACK_GOOGLE_CALENDAR_CLIENT_ID`, `PARATRACK_GOOGLE_CALENDAR_CLIENT_SECRET`, `PARATRACK_MICROSOFT_CALENDAR_CLIENT_ID`, `PARATRACK_MICROSOFT_CALENDAR_CLIENT_SECRET` | синхронизация личного календаря участника с Google Calendar и Outlook; пара ID и секрет или ничего. Адреса возврата у провайдера: `https://ваш-домен/settings/calendar-sync/google/callback` и `.../microsoft/callback`. Без них синхронизация выключена |
 | `PARATRACK_SENTRY_DSN`, `PARATRACK_SENTRY_TRACES` | отправка ошибок в Sentry или совместимый сервис |
 
 После правки `.env` перезапустите приложение: `docker compose up -d`.

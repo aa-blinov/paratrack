@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -99,6 +100,11 @@ func (d *DB) CreateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 	if err := checkParticipants(ctx, tx, request.TeamID, request.ParticipantIDs); err != nil {
 		return model.CalendarEvent{}, err
 	}
+	if request.SyncPush {
+		if err := requireCalendarConnection(ctx, tx, request.TeamID, request.CallerID); err != nil {
+			return model.CalendarEvent{}, err
+		}
+	}
 	now := d.currentTime().UTC()
 	shared := int64(0)
 	if request.Shared {
@@ -106,11 +112,11 @@ func (d *DB) CreateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 	}
 	var id int64
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO calendar_events (team_id, title, starts_at, ends_at, location, notes, project_id, client_id, shared, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?) RETURNING id`,
+		`INSERT INTO calendar_events (team_id, title, starts_at, ends_at, location, notes, project_id, client_id, shared, sync_push, created_by, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?) RETURNING id`,
 		request.TeamID, title, FormatTime(request.StartsAt.UTC()), FormatTime(request.EndsAt.UTC()),
 		strings.TrimSpace(request.Location), strings.TrimSpace(request.Notes), request.ProjectID, request.ClientID,
-		shared, request.CallerID, FormatTime(now), FormatTime(now)).Scan(&id)
+		shared, boolInt(request.SyncPush), request.CallerID, FormatTime(now), FormatTime(now)).Scan(&id)
 	if err != nil {
 		return model.CalendarEvent{}, err
 	}
@@ -138,16 +144,20 @@ func uniqueIDs(ids []int64) []int64 {
 }
 
 // calendarEventRow reads the event columns; the same projection serves every read.
-const calendarEventColumns = `id, title, starts_at, ends_at, location, notes, COALESCE(project_id, 0), COALESCE(client_id, 0), shared, created_by, created_at, updated_at`
+const calendarEventColumns = `id, title, starts_at, ends_at, location, notes, COALESCE(project_id, 0), COALESCE(client_id, 0), shared, sync_push,
+	CASE WHEN EXISTS (SELECT 1 FROM calendar_external_links x WHERE x.event_id = calendar_events.id AND x.origin = 'provider') THEN 1 ELSE 0 END,
+	created_by, created_at, updated_at`
 
 func scanCalendarEvent(teamID int64, row dealScanner) (model.CalendarEvent, error) {
 	e := model.CalendarEvent{TeamID: teamID}
 	var starts, ends, created, updated string
-	var shared int64
-	if err := row.Scan(&e.ID, &e.Title, &starts, &ends, &e.Location, &e.Notes, &e.ProjectID, &e.ClientID, &shared, &e.CreatedBy, &created, &updated); err != nil {
+	var shared, syncPush, imported int64
+	if err := row.Scan(&e.ID, &e.Title, &starts, &ends, &e.Location, &e.Notes, &e.ProjectID, &e.ClientID, &shared, &syncPush, &imported, &e.CreatedBy, &created, &updated); err != nil {
 		return model.CalendarEvent{}, err
 	}
 	e.Shared = shared == 1
+	e.SyncPush = syncPush == 1
+	e.Imported = imported == 1
 	var err error
 	if e.StartsAt, err = ParseTime(starts); err != nil {
 		return model.CalendarEvent{}, err
@@ -279,6 +289,20 @@ func (d *DB) UpdateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 		}
 		sets, args = append(sets, "shared = ?"), append(args, shared)
 	}
+	if request.SyncPush != nil && *request.SyncPush != current.SyncPush {
+		// Only the author decides what goes to their own provider calendar (CRM-19).
+		if current.CreatedBy != request.CallerID {
+			return model.CalendarEvent{}, model.ErrForbidden
+		}
+		if *request.SyncPush {
+			if err := requireCalendarConnection(ctx, tx, request.TeamID, request.CallerID); err != nil {
+				return model.CalendarEvent{}, err
+			}
+		} else if err := retirePushedCopies(ctx, tx, request.TeamID, request.EventID, d.currentTime().UTC()); err != nil {
+			return model.CalendarEvent{}, err
+		}
+		sets, args = append(sets, "sync_push = ?"), append(args, boolInt(*request.SyncPush))
+	}
 	args = append(args, request.EventID, request.TeamID)
 	if _, err := tx.ExecContext(ctx, `UPDATE calendar_events SET `+strings.Join(sets, ", ")+` WHERE id = ? AND team_id = ?`, args...); err != nil {
 		return model.CalendarEvent{}, err
@@ -312,6 +336,9 @@ func (d *DB) DeleteCalendarEvent(ctx context.Context, request appmodel.CalendarE
 	}
 	defer func() { _ = tx.Rollback() }()
 	if _, err := calendarEventForEdit(ctx, tx, request.TeamID, request.CallerID, request.EventID); err != nil {
+		return err
+	}
+	if err := tombstoneEventLinks(ctx, tx, request.EventID, d.currentTime().UTC()); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM calendar_events WHERE id = ? AND team_id = ?`, request.EventID, request.TeamID); err != nil {
@@ -360,4 +387,42 @@ func (d *DB) ListCalendarEvents(ctx context.Context, query appmodel.CalendarEven
 		}
 	}
 	return out, nil
+}
+
+// requireCalendarConnection refuses a push switch for a member who has not connected
+// a provider calendar in this workspace, and for a member who is no longer in it.
+func requireCalendarConnection(ctx context.Context, tx *Tx, teamID, userID int64) error {
+	var one int64
+	err := tx.QueryRowContext(ctx, `SELECT c.id FROM calendar_connections c
+	    JOIN memberships m ON m.team_id = c.team_id AND m.user_id = c.user_id
+	    WHERE c.team_id = ? AND c.user_id = ? LIMIT 1`, teamID, userID).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.ErrCalendarNotConnected
+	}
+	return err
+}
+
+// retirePushedCopies queues the provider copies of a pushed event for deletion and
+// unlinks them, when the author switches the push off.
+func retirePushedCopies(ctx context.Context, tx *Tx, teamID, eventID int64, now time.Time) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO calendar_external_tombstones (team_id, user_id, provider, external_id, kind, created_at)
+	    SELECT team_id, user_id, provider, external_id, 'delete', ? FROM calendar_external_links
+	    WHERE event_id = ? AND team_id = ? AND origin = 'team'
+	    ON CONFLICT (team_id, user_id, provider, external_id) DO UPDATE SET kind = 'delete', created_at = excluded.created_at`,
+		FormatTime(now), eventID, teamID); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `DELETE FROM calendar_external_links WHERE event_id = ? AND team_id = ? AND origin = 'team'`, eventID, teamID)
+	return err
+}
+
+// tombstoneEventLinks is run before an event is deleted, because the link rows go with
+// it. A pushed copy is deleted at the provider; a pulled copy is only kept from returning.
+func tombstoneEventLinks(ctx context.Context, tx *Tx, eventID int64, now time.Time) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO calendar_external_tombstones (team_id, user_id, provider, external_id, kind, created_at)
+	    SELECT team_id, user_id, provider, external_id, CASE WHEN origin = 'team' THEN 'delete' ELSE 'ignore' END, ?
+	    FROM calendar_external_links WHERE event_id = ?
+	    ON CONFLICT (team_id, user_id, provider, external_id) DO UPDATE SET kind = excluded.kind, created_at = excluded.created_at`,
+		FormatTime(now), eventID)
+	return err
 }

@@ -358,6 +358,32 @@ export interface CalendarData {
   Today: string
   NowLocal: string
   WeekStartsSunday: boolean
+  /** The providers this member has connected in the workspace (CRM-19). */
+  SyncProviders: string[]
+  UserID: number
+}
+
+export interface CalendarSyncProvider {
+  /** google or microsoft: the key the routes use. */
+  Key: string
+  Enabled: boolean
+  Connected: boolean
+  LastSyncedAt: string
+  /** A code the page translates (token_rejected, unreachable, internal), or the provider and its status. */
+  LastError: string
+}
+
+export interface CalendarSyncData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  CalendarSyncReact: boolean
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  Providers: CalendarSyncProvider[]
+  Flash: string
+  FlashOK: boolean
 }
 
 export interface TagView {
@@ -1031,7 +1057,7 @@ export interface AuthPageData {
   InviteTeam?: string
 }
 
-export type ReactPageData = TasksData | TaskDetailData | import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | CRMData | CalendarData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AgentActionsData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
+export type ReactPageData = TasksData | TaskDetailData | import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | CRMData | CalendarData | CalendarSyncData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AgentActionsData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

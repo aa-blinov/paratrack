@@ -113,6 +113,7 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 		Goals:        services.Goals,
 		CRM:          services.CRM,
 		Calendar:     services.Calendar,
+		CalendarSync: services.CalendarSync,
 		Webhooks:     services.Webhooks,
 		MailQueue:    services.MailQueue,
 		AgentActions: services.AgentActions,
