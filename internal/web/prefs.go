@@ -81,6 +81,8 @@ var navItems = []navItem{
 	{"reports", "/reports", "bar-chart-3", "nav.reports", "reports", true},
 	{"payroll", "/payroll", "users", "nav.payroll", "payroll", true},
 	{"schedule", "/schedule", "calendar", "nav.schedule", "schedule", false},
+	{"crm", "/crm", "briefcase", "nav.crm", "crm", false},
+	{"calendar", "/calendar", "calendar-days", "nav.calendar", "calendar", false},
 	{"integrations", "/integrations", "link", "nav.integrations", "integrations", false},
 }
 

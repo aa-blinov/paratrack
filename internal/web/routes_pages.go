@@ -9,6 +9,8 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /export/workspace.json", s.manage(s.handleWorkspaceExport))
 	pages.HandleFunc("GET /graph", s.module("graph", s.handleGraph))
 	pages.HandleFunc("GET /goals", s.module("goals", s.handleGoals))
+	pages.HandleFunc("GET /crm", s.module("crm", s.handleCRMPage))
+	pages.HandleFunc("GET /calendar", s.module("calendar", s.handleCalendarPage))
 	pages.HandleFunc("GET /tasks", s.module("tasks", s.handleTasks))
 	pages.HandleFunc("GET /tasks/{id}", s.module("tasks", s.handleTaskDetail))
 	pages.HandleFunc("GET /tags", s.module("tags", s.handleTagsPage))
@@ -132,6 +134,12 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /api/webhooks/{id}/delete", s.owner(s.handleWebhookDelete))
 	pages.HandleFunc("POST /api/webhooks/{id}/secret", s.owner(s.handleWebhookRotate))
 	pages.HandleFunc("GET /settings/audit", s.manage(s.handleAuditPage))
+
+	// The confirmation queue. A confirmation is the person's act: personOnly refuses an
+	// API token, which the agent holds, before the manager check runs.
+	pages.HandleFunc("GET /settings/agent-actions", s.manage(s.handleAgentActionsPage))
+	pages.HandleFunc("POST /api/agent-actions/{id}/confirm", personOnly(s.manage(s.handleAgentActionConfirm)))
+	pages.HandleFunc("POST /api/agent-actions/{id}/reject", personOnly(s.manage(s.handleAgentActionReject)))
 
 	// Page routes are mounted behind pageAuth by routes().
 }

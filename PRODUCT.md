@@ -95,8 +95,11 @@ Confirmed by the code:
 - A CLI (`paratrack start|stop|stats...`) works against the same Postgres
   through `PARATRACK_DATABASE_URL`. It is a real feature rather than a
   development tool.
+- An agent reaches the workspace through `POST /mcp` with an API token and the token owner's rights. Deleting an
+  invoice or a pay run, reopening an approved week and deleting the workspace are only requested. A person confirms
+  each request in the app, under Settings, Confirmations.
 - A workspace picks its sections. The core ledger, the dashboard, statistics,
-  the timesheet and the projects are always there; ten more can be switched on
+  the timesheet and the projects are always there; twelve more can be switched on
   at registration or later. Three presets ship: "For myself", "Freelancer" and
   "Studio". Each preset names the sections it leaves off; "For myself" adds a hint to pick
   "Studio or team" when the workspace has a team (ADM-16).
@@ -105,6 +108,10 @@ Confirmed by the code:
   for running timers, «Только эта» for focus. In English: Dashboard, Stats,
   Timesheet, Projects, By hour, Goals, Tags, Invoices, Payroll, Schedule,
   Reports, "Running now", "Only this".
+- The clients of a workspace have contacts, deals in five fixed stages and activities (calls, meetings,
+  notes), and the workspace shares one calendar of events. Both are sections (`crm`, `calendar`).
+- An agent works with the same entities through `POST /mcp` with a bearer `pt_` token. A read-only token
+  reads only, and every write is recorded in the audit log.
 - Every page and every `/api/*` call passes through `requireAuth`, with a
   session cookie or a bearer `pt_` token. Reads are scoped to the workspace,
   and for a member to their own sessions.

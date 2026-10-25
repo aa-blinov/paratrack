@@ -23,6 +23,8 @@ var modules = []moduleDef{
 	{Key: "tasks", Icon: "list-checks", Label: "nav.tasks", Hint: "mod.tasks"},
 	{Key: "graph", Icon: "clock", Label: "nav.graph", Hint: "mod.graph"},
 	{Key: "goals", Icon: "flag", Label: "nav.goals", Hint: "mod.goals"},
+	{Key: "crm", Icon: "briefcase", Label: "nav.crm", Hint: "mod.crm"},
+	{Key: "calendar", Icon: "calendar-days", Label: "nav.calendar", Hint: "mod.calendar"},
 	{Key: "tags", Icon: "tag", Label: "nav.tags", Hint: "mod.tags"},
 	{Key: "invoices", Icon: "zap", Label: "nav.invoices", Hint: "mod.invoices", Manage: true},
 	{Key: "reports", Icon: "bar-chart-3", Label: "nav.reports", Hint: "mod.reports", Manage: true},
@@ -64,8 +66,8 @@ var presets = []struct {
 	Modules                 []string
 }{
 	{"solo", "preset.solo", "preset.soloBlurb", "user", []string{"tasks", "graph", "goals", "tags", "integrations", "import"}},
-	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "schedule", "integrations", "import"}},
-	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "integrations", "import"}},
+	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "schedule", "crm", "calendar", "integrations", "import"}},
+	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "crm", "calendar", "integrations", "import"}},
 }
 
 // The active mode is the exact workspace section preset. Personal menu

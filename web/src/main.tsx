@@ -24,7 +24,7 @@ import { ApplicationShell } from "@/shell/app-shell"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import { StopResult } from "@/dashboard/stop-result"
 import { WorkdayPanel } from "@/dashboard/workday-panel"
-import type { AuditData, AuthPageData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
+import type { AuditData, AuthPageData, CalendarData, CRMData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, AgentActionsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
@@ -46,6 +46,8 @@ const ProjectCreate = lazy(() => import("@/projects/project-create").then(module
 const ClientsPage = lazy(() => import("@/clients/clients-page").then(module => ({ default: module.ClientsPage })))
 const ClientDetailPage = lazy(() => import("@/clients/client-detail").then(module => ({ default: module.ClientDetailPage })))
 const GoalsPage = lazy(() => import("@/goals/goals-page").then(module => ({ default: module.GoalsPage })))
+const CRMPage = lazy(() => import("@/crm/crm-page").then(module => ({ default: module.CRMPage })))
+const CalendarPage = lazy(() => import("@/calendar/calendar-page").then(module => ({ default: module.CalendarPage })))
 const TagsPage = lazy(() => import("@/tags/tags-page").then(module => ({ default: module.TagsPage })))
 const GraphPage = lazy(() => import("@/graph/graph-page").then(module => ({ default: module.GraphPage })))
 const TimesheetPage = lazy(() => import("@/timesheet/timesheet-page").then(module => ({ default: module.TimesheetPage })))
@@ -74,6 +76,7 @@ const TeamInvitesPage = lazy(() => import("@/settings/team-invites-page").then(m
 const SectionsPage = lazy(() => import("@/settings/sections-page").then(module => ({ default: module.SectionsPage })))
 const WebhooksPage = lazy(() => import("@/settings/webhooks-page").then(module => ({ default: module.WebhooksPage })))
 const AuditPage = lazy(() => import("@/settings/audit-page").then(module => ({ default: module.AuditPage })))
+const AgentActionsPage = lazy(() => import("@/settings/agent-actions-page").then(module => ({ default: module.AgentActionsPage })))
 const HelpPage = lazy(() => import("@/help/help-page").then(module => ({ default: module.HelpPage })))
 const AccessDeniedPage = lazy(() => import("@/access-denied/access-denied-page").then(module => ({ default: module.AccessDeniedPage })))
 const ImportPage = lazy(() => import("@/import/import-page").then(module => ({ default: module.ImportPage })))
@@ -416,6 +419,10 @@ function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap:
             ? <ClientsPage data={data as ClientsPageData} />
             : "GoalsReact" in data && data.GoalsReact
             ? <GoalsPage data={data as GoalsData} />
+            : "CRMReact" in data && data.CRMReact
+            ? <CRMPage data={data as CRMData} viewerID={bootstrap.shell.user?.id ?? 0} />
+            : "CalendarReact" in data && data.CalendarReact
+            ? <CalendarPage data={data as CalendarData} viewerID={bootstrap.shell.user?.id ?? 0} />
             : "ReactTags" in data && data.ReactTags
             ? <TagsPage data={data as TagsData} />
             : "GraphReact" in data && data.GraphReact
@@ -470,6 +477,8 @@ function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap:
             ? <SectionsPage data={data as SectionsData} />
             : "WebhooksReact" in data && data.WebhooksReact
             ? <WebhooksPage data={data as WebhooksData} />
+            : "AgentActionsReact" in data && data.AgentActionsReact
+            ? <AgentActionsPage data={data as AgentActionsData} />
             : "AuditReact" in data && data.AuditReact
             ? <AuditPage data={data as AuditData} />
             : "AccessDeniedReact" in data && data.AccessDeniedReact
@@ -511,6 +520,8 @@ function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   if ("ClientDetailReact" in data && data.ClientDetailReact) return ClientDetailPage.preload()
   if ("ClientsReact" in data && data.ClientsReact) return ClientsPage.preload()
   if ("GoalsReact" in data && data.GoalsReact) return GoalsPage.preload()
+  if ("CRMReact" in data && data.CRMReact) return CRMPage.preload()
+  if ("CalendarReact" in data && data.CalendarReact) return CalendarPage.preload()
   if ("ReactTags" in data && data.ReactTags) return TagsPage.preload()
   if ("GraphReact" in data && data.GraphReact) return GraphPage.preload()
   if ("TimesheetReact" in data && data.TimesheetReact) return TimesheetPage.preload()
@@ -537,6 +548,7 @@ function preloadInitialPage(data: ReactPageData): Promise<unknown> {
   if ("InvitesReact" in data && data.InvitesReact) return TeamInvitesPage.preload()
   if ("SectionsReact" in data && data.SectionsReact) return SectionsPage.preload()
   if ("WebhooksReact" in data && data.WebhooksReact) return WebhooksPage.preload()
+  if ("AgentActionsReact" in data && data.AgentActionsReact) return AgentActionsPage.preload()
   if ("AuditReact" in data && data.AuditReact) return AuditPage.preload()
   if ("AccessDeniedReact" in data && data.AccessDeniedReact) return AccessDeniedPage.preload()
   if ("HelpReact" in data && data.HelpReact) return HelpPage.preload()

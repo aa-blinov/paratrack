@@ -52,6 +52,18 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("GET", "/api/goals/progress", s.module("goals", s.handleGoalsProgress))
 	api("POST", "/api/goals", s.module("goals", s.manage(s.handleGoalsUpsert)))
 	api("DELETE", "/api/goals", s.module("goals", s.manage(s.handleGoalsDelete)))
+	api("GET", "/api/crm/deals", s.module("crm", s.handleCRMDealsList))
+	api("POST", "/api/crm/deals", s.module("crm", s.handleCRMDealCreate))
+	api("POST", "/api/crm/deals/{id}", s.module("crm", s.handleCRMDealUpdate))
+	api("POST", "/api/crm/deals/{id}/stage", s.module("crm", s.handleCRMDealStage))
+	api("GET", "/api/crm/contacts", s.module("crm", s.handleCRMContactsList))
+	api("POST", "/api/crm/contacts", s.module("crm", s.handleCRMContactCreate))
+	api("GET", "/api/crm/activities", s.module("crm", s.handleCRMActivitiesList))
+	api("POST", "/api/crm/activities", s.module("crm", s.handleCRMActivityCreate))
+	api("GET", "/api/calendar/events", s.module("calendar", s.handleCalendarEventsList))
+	api("POST", "/api/calendar/events", s.module("calendar", s.handleCalendarEventCreate))
+	api("POST", "/api/calendar/events/{id}", s.module("calendar", s.handleCalendarEventUpdate))
+	api("POST", "/api/calendar/events/{id}/delete", s.module("calendar", s.handleCalendarEventDelete))
 	api("GET", "/api/tags", s.handleTagsList)
 	api("POST", "/api/tags", s.handleTagsCreate)
 	api("DELETE", "/api/tags", s.manage(s.handleTagsDelete))
@@ -119,6 +131,9 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("GET", "/api/v1/members", s.handleAPIv1Members)
 	api("GET", "/api/v1/tags", s.handleAPIv1Tags)
 	api("GET", "/api/v1/tasks", s.module("tasks", s.handleAPIv1Tasks))
+
+	// Agent endpoint: an API token only, and the rights are checked per tool.
+	api("POST", "/mcp", mcpBearerOnly(s.handleMCP))
 
 	// Every api registration above passes through apiAuth.
 }

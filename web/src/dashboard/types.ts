@@ -334,6 +334,30 @@ export interface GoalsData {
   Goals: GoalView[]
 }
 
+export interface CRMData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  CRMReact: boolean
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+}
+
+export interface CalendarData {
+  Title: string
+  Active: string
+  ReactApp: boolean
+  CalendarReact: boolean
+  Lang: string
+  CSRFToken: string
+  CanManage: boolean
+  Zone: string
+  Today: string
+  NowLocal: string
+  WeekStartsSunday: boolean
+}
+
 export interface TagView {
   ID: number
   Name: string
@@ -922,6 +946,16 @@ export interface WebhooksData {
   FlashOK: boolean
 }
 
+export interface AgentActionsData {
+  Active: string
+  Lang: string
+  CSRFToken: string
+  AgentActionsReact: boolean
+  Items: Array<{ ID: number; Kind: string; Target: string; Reason: string; RequestedBy: string; When: string; CanDecide: boolean; Claimed: boolean }>
+  Flash: string
+  FlashOK: boolean
+}
+
 export interface AuditData {
   Active: string
   Lang: string
@@ -995,7 +1029,7 @@ export interface AuthPageData {
   InviteTeam?: string
 }
 
-export type ReactPageData = TasksData | TaskDetailData | import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
+export type ReactPageData = TasksData | TaskDetailData | import("@/access-denied/access-denied-page").AccessDeniedData | DashboardData | ProjectListData | ClientsPageData | ClientDetailData | ProjectDetailData | ProjectCreateData | GoalsData | CRMData | CalendarData | TagsData | GraphData | TimesheetData | PayrollData | PayrollDetailData | ScheduleData | InvoicesData | InvoiceDetailData | StatsData | ReportsData | ReportRunData | ExportData | IntegrationsData | IntegrationDetailData | MarketplaceData | TokensData | ProfileData | PreferencesData | NotificationsData | TeamSettingsData | TeamMembersData | TeamInvitesData | SectionsData | WebhooksData | AgentActionsData | AuditData | ImportData | HelpData | InviteAcceptData | AuthPageData
 
 export interface ReactPageBootstrap {
 	data: ReactPageData

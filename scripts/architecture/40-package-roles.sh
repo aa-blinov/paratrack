@@ -2,7 +2,7 @@
 # Apply dependency rules to every internal package, including packages added
 # later. Only the process composition root may assemble concrete infrastructure;
 # only the transport adapters may depend on the application service graph.
-leaf_packages="appmodel catalog depcheck httpjson httpretry httpurl i18n mailport model money netclients oidcport netpolicy postcommit providerstatus pushport reportstats requestctx teamslug timeparse translit webhookport"
+leaf_packages="appmodel catalog depcheck httpjson httpretry httpurl i18n mailport mcpwire model money netclients oidcport netpolicy postcommit providerstatus pushport reportstats requestctx teamslug timeparse translit webhookport"
 port_packages="cliport importport integrationport pushport webhookport"
 adapter_packages="mail oidcclient stripe workspacefile"
 # Port-implementing subpackages need explicit exceptions to the generic
