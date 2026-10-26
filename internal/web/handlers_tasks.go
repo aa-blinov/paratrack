@@ -256,7 +256,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data := tasksPage{
-		pageData:   pageData{Title: "Tasks", Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true, CanManage: canManage(r)},
+		pageData:   pageData{Title: i18n.T(resolveLang(r), "nav.tasks"), Active: "tasks", Lang: string(resolveLang(r)), ReactApp: true, CanManage: canManage(r)},
 		TasksReact: true,
 		View:       view,
 		ProjectID:  projectID,
@@ -276,7 +276,7 @@ func (s *Server) handleTasks(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	s.renderPageForRequest(w, r, "Tasks", "tasks", &data)
+	s.renderPageForRequest(w, r, data.Title, "tasks", &data)
 }
 
 // fillTaskReport sets the task report for the period in the query (TASK-04). Both

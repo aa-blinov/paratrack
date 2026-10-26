@@ -222,6 +222,51 @@ func (d *DB) ListPendingAgentActions(ctx context.Context, query appmodel.AgentAc
 	return out, rows.Err()
 }
 
+// agentActionJournalLimit is how many settled requests the journal shows.
+const agentActionJournalLimit = 30
+
+// ListAgentActionJournal lists the requests a decision has settled, newest decision first:
+// confirmed, failed with the reason the action gave, or rejected.
+func (d *DB) ListAgentActionJournal(ctx context.Context, query appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error) {
+	if query.TeamID <= 0 || query.CallerID <= 0 {
+		return nil, ErrNotFound
+	}
+	role, err := readTeamRole(ctx, d.sql, query.TeamID, query.CallerID)
+	if err != nil {
+		return nil, err
+	}
+	if !role.CanManage() {
+		return nil, model.ErrForbidden
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT a.id, a.kind, a.target_id, a.target_label, a.reason, a.status, COALESCE(a.error, ''), a.requested_by,
+		        COALESCE(NULLIF(u.name, ''), u.email, ''), a.created_at, COALESCE(a.decided_at, ''), a.decided_by
+		   FROM agent_actions a LEFT JOIN users u ON u.id = a.requested_by
+		  WHERE a.team_id = ? AND a.status <> 'pending' AND a.decided_at IS NOT NULL
+		  ORDER BY a.decided_at DESC, a.id DESC LIMIT ?`, query.TeamID, agentActionJournalLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]appmodel.AgentActionView, 0)
+	for rows.Next() {
+		view := appmodel.AgentActionView{TeamID: query.TeamID}
+		var created, decided string
+		if err := rows.Scan(&view.ID, &view.Kind, &view.TargetID, &view.TargetLabel, &view.Reason, &view.Status, &view.Error,
+			&view.RequestedBy, &view.RequestedByName, &created, &decided, &view.DecidedBy); err != nil {
+			return nil, err
+		}
+		if view.CreatedAt, err = ParseTime(created); err != nil {
+			return nil, err
+		}
+		if view.DecidedAt, err = ParseTime(decided); err != nil {
+			return nil, err
+		}
+		out = append(out, view)
+	}
+	return out, rows.Err()
+}
+
 // DecideAgentAction confirms a pending request, claiming it for the caller, or rejects it.
 // A rejection is final. A confirmation only claims the request: the caller carries out the
 // action and then reports the outcome with FinishAgentAction. A claim that is still inside

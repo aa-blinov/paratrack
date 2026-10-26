@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/mcpwire"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -242,7 +243,8 @@ func (s *Server) mcpErrorText(call mcpCall, err error) string {
 		return i18n.T(call.lang, "err.forbiddenAction")
 	case errors.Is(err, model.ErrProjectManagerRequired):
 		return i18n.T(call.lang, "crm.projectManagerOnly")
-	case errors.Is(err, model.ErrNotFound):
+	case errors.Is(err, model.ErrNotFound), errors.Is(err, appmodel.ErrInvalidClientTeam):
+		// A client id of zero or less is a client that does not exist, not a fault of the server.
 		return i18n.T(call.lang, "err.notFoundEntity")
 	}
 	if text, ok := s.mcpMoneyErrorText(call, err); ok {

@@ -114,7 +114,7 @@ func (d *DB) CreateClient(ctx context.Context, request appmodel.ClientCreateRequ
 	}
 	name := strings.TrimSpace(request.Name)
 	if name == "" {
-		return model.Client{}, fmt.Errorf("client name cannot be empty")
+		return model.Client{}, appmodel.FieldError{Field: "name"}
 	}
 	if err := validClientCurrency(request.Currency); err != nil {
 		return model.Client{}, err
@@ -157,7 +157,7 @@ func (d *DB) UpdateClient(ctx context.Context, request appmodel.ClientUpdateRequ
 	}
 	name := strings.TrimSpace(request.Update.Name)
 	if name == "" {
-		return model.Client{}, fmt.Errorf("client name cannot be empty")
+		return model.Client{}, appmodel.FieldError{Field: "name"}
 	}
 	currency := ""
 	if request.Update.Currency != nil {

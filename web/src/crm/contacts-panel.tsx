@@ -41,6 +41,20 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
 
   React.useEffect(() => { void load(clientID) }, [clientID, load])
 
+  async function remove(contact: Contact) {
+    setBusy(true)
+    setIssue(null)
+    setSaved(false)
+    try {
+      await apiJSON(`/api/crm/contacts/${contact.id}/delete`, "POST", csrf)
+      await load(clientID)
+    } catch (cause) {
+      setIssue(issueOf(cause, {}, t(lang, "err.generic")))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function add(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
@@ -74,9 +88,12 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
           <FieldIssue issue={issue} name="client" id="contacts-client-issue" />
         </div>
         {contacts === null ? null : contacts.length === 0 ? <p className="text-sm text-muted-foreground">{t(lang, "crm.noContacts")}</p> : <ul className="grid divide-y rounded-lg border">
-          {contacts.map(contact => <li key={contact.id} className="grid gap-0.5 p-3 text-sm">
-            <span className="font-medium [overflow-wrap:anywhere]">{contact.name}{contact.role && <span className="font-normal text-muted-foreground">, {contact.role}</span>}</span>
-            {(contact.email || contact.phone) && <span className="text-muted-foreground [overflow-wrap:anywhere]">{[contact.email, contact.phone].filter(Boolean).join(", ")}</span>}
+          {contacts.map(contact => <li key={contact.id} className="flex items-start justify-between gap-3 p-3 text-sm">
+            <span className="grid min-w-0 gap-0.5">
+              <span className="font-medium [overflow-wrap:anywhere]">{contact.name}{contact.role && <span className="font-normal text-muted-foreground">, {contact.role}</span>}</span>
+              {(contact.email || contact.phone) && <span className="text-muted-foreground [overflow-wrap:anywhere]">{[contact.email, contact.phone].filter(Boolean).join(", ")}</span>}
+            </span>
+            {contact.can_delete && <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void remove(contact)}>{t(lang, "crm.contactDelete")}</Button>}
           </li>)}
         </ul>}
         <form onSubmit={add} className="grid gap-4 sm:grid-cols-2" aria-busy={busy}>

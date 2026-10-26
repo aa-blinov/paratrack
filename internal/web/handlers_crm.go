@@ -50,9 +50,11 @@ func (s *Server) handleCRMPage(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleCalendarPage(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	data := calendarPageData{
-		pageData: pageData{Title: "Calendar", Active: "calendar", Lang: string(resolveLang(r))},
+		pageData: pageData{Title: i18n.T(resolveLang(r), "nav.calendar"), Active: "calendar", Lang: string(resolveLang(r))},
 		Zone:     userLoc(r).String(), Today: now.Format(time.DateOnly), NowLocal: now.Format(calendarWallClock),
 		WeekStartsSunday: weekStartsSunday(r),
+		// An empty list is sent as [], not null: the event form reads its length.
+		SyncProviders: []string{},
 	}
 	data.ReactApp = true
 	data.CalendarReact = true
@@ -456,9 +458,23 @@ func (s *Server) handleCRMContactsList(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]crmContactView, 0, len(contacts))
 	for _, c := range contacts {
-		out = append(out, crmContactViewOf(c))
+		out = append(out, crmContactViewFor(r, c))
 	}
 	s.writeJSON(w, crmContactsResponse{Contacts: out})
+}
+
+func (s *Server) handleCRMContactDelete(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.crmPathID(w, r, "id")
+	if !ok {
+		return
+	}
+	if err := s.services.CRM.DeleteContact(r.Context(), appmodel.CRMContactDeleteRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), ContactID: id,
+	}); err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) handleCRMContactCreate(w http.ResponseWriter, r *http.Request) {
@@ -474,7 +490,7 @@ func (s *Server) handleCRMContactCreate(w http.ResponseWriter, r *http.Request) 
 		s.writeCRMError(w, r, err)
 		return
 	}
-	s.writeJSON(w, crmContactViewOf(contact))
+	s.writeJSON(w, crmContactViewFor(r, contact))
 }
 
 func (s *Server) handleCRMActivitiesList(w http.ResponseWriter, r *http.Request) {

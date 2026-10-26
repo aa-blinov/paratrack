@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -114,12 +115,22 @@ type crmContactView struct {
 	Role     string `json:"role"`
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
+	// CanDelete is set on the workspace screen only, where the caller's rights are known.
+	CanDelete bool `json:"can_delete,omitempty"`
 }
 
 func (crmContactView) isJSONResponse() {}
 
 func crmContactViewOf(c model.CRMContact) crmContactView {
 	return crmContactView{ID: c.ID, ClientID: c.ClientID, Name: c.Name, Role: c.Role, Email: c.Email, Phone: c.Phone}
+}
+
+// crmContactViewFor is the contact as the caller may see it: a manager, or the member who
+// created the contact, may delete it.
+func crmContactViewFor(r *http.Request, c model.CRMContact) crmContactView {
+	view := crmContactViewOf(c)
+	view.CanDelete = canManage(r) || c.CreatedBy == authenticatedUserID(r)
+	return view
 }
 
 type crmContactsResponse struct {

@@ -18,6 +18,7 @@ import (
 // Store is the persistence contract, satisfied by the database adapter.
 type Store interface {
 	CreateCRMContact(context.Context, appmodel.CRMContactCreateRequest) (model.CRMContact, error)
+	DeleteCRMContact(context.Context, appmodel.CRMContactDeleteRequest) error
 	ListCRMContacts(context.Context, appmodel.CRMContactListQuery) ([]model.CRMContact, error)
 	ListCRMStages(context.Context, appmodel.CRMStageListQuery) ([]model.CRMStage, error)
 	CreateCRMStage(context.Context, appmodel.CRMStageCreateRequest) (model.CRMStage, error)
@@ -331,6 +332,15 @@ func (s *Service) MoveStage(ctx context.Context, request appmodel.CRMStageMoveRe
 	return s.UpdateStage(ctx, appmodel.CRMStageUpdateRequest{
 		TeamID: request.TeamID, CallerID: request.CallerID, Manager: request.Manager, Key: request.Key, Position: &position,
 	})
+}
+
+// DeleteContact removes a contact. The rule (a manager, or the member who created it) holds
+// in the transaction of the store, where the role is read.
+func (s *Service) DeleteContact(ctx context.Context, request appmodel.CRMContactDeleteRequest) error {
+	if request.TeamID <= 0 {
+		return appmodel.ErrInvalidWorkspace
+	}
+	return s.store.DeleteCRMContact(ctx, request)
 }
 
 // DeleteStage removes a stage that has no deals. A stage with deals is refused with a

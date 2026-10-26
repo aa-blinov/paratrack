@@ -28,7 +28,8 @@ function BudgetCard({ data }: { data: ProjectDetailData }) {
   const lang = data.Lang
   const budget = data.Budget
   // Бэкенд дописывается параллельно: без блока бюджета показывать нечего.
-  if (!budget) return null
+  // Деньги проекта видит только руководитель (D-2): участнику карточка не нужна, даже пустая.
+  if (!budget || !data.CanManage) return null
 
   return <Card>
     <CardHeader>

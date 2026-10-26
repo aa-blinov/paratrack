@@ -980,6 +980,7 @@ export interface AgentActionsData {
   CSRFToken: string
   AgentActionsReact: boolean
   Items: Array<{ ID: number; Kind: string; Target: string; Reason: string; RequestedBy: string; When: string; CanDecide: boolean; Claimed: boolean }>
+  Journal: Array<{ Kind: string; Target: string; Status: string; Error: string; RequestedBy: string; When: string }>
   Flash: string
   FlashOK: boolean
 }

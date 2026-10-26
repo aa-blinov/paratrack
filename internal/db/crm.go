@@ -47,6 +47,27 @@ func clientInTeam(ctx context.Context, q queryRower, teamID, clientID int64) err
 	return err
 }
 
+// contactOfClient confirms a deal's contact is a contact of the workspace and of the deal's
+// client, so a deal never names a person of another customer. A deal without a contact has
+// nothing to check.
+func contactOfClient(ctx context.Context, q queryRower, teamID, contactID, clientID int64) error {
+	if contactID == 0 {
+		return nil
+	}
+	var owner int64
+	err := q.QueryRowContext(ctx, `SELECT client_id FROM crm_contacts WHERE id = ? AND team_id = ?`, contactID, teamID).Scan(&owner)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if owner != clientID {
+		return appmodel.FieldError{Field: "contact_id"}
+	}
+	return nil
+}
+
 func (d *DB) CreateCRMContact(ctx context.Context, request appmodel.CRMContactCreateRequest) (model.CRMContact, error) {
 	if request.TeamID <= 0 || request.CallerID <= 0 || request.ClientID <= 0 {
 		return model.CRMContact{}, ErrNotFound
@@ -82,6 +103,41 @@ func (d *DB) CreateCRMContact(ctx context.Context, request appmodel.CRMContactCr
 	return model.CRMContact{ID: id, TeamID: request.TeamID, ClientID: request.ClientID, Name: name,
 		Role: strings.TrimSpace(request.Role), Email: strings.TrimSpace(request.Email),
 		Phone: strings.TrimSpace(request.Phone), CreatedBy: request.CallerID, CreatedAt: now}, nil
+}
+
+// DeleteCRMContact removes a contact. A manager may remove any contact of the workspace, and
+// a member only the one they created (the contact rule in the spec). A deal that named the
+// contact keeps the deal; the foreign key clears its link.
+func (d *DB) DeleteCRMContact(ctx context.Context, request appmodel.CRMContactDeleteRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.ContactID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	_, role, err := lockTeamRole(ctx, tx, request.TeamID, request.CallerID)
+	if err != nil {
+		return err
+	}
+	var createdBy int64
+	err = tx.QueryRowContext(ctx,
+		`SELECT created_by FROM crm_contacts WHERE id = ? AND team_id = ?`, request.ContactID, request.TeamID).Scan(&createdBy)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if !role.CanManage() && createdBy != request.CallerID {
+		return model.ErrForbidden
+	}
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM crm_contacts WHERE id = ? AND team_id = ?`, request.ContactID, request.TeamID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (d *DB) ListCRMContacts(ctx context.Context, query appmodel.CRMContactListQuery) ([]model.CRMContact, error) {
@@ -186,18 +242,14 @@ func (d *DB) CreateCRMDeal(ctx context.Context, request appmodel.CRMDealCreateRe
 	if owner != request.CallerID && !role.CanManage() {
 		return model.CRMDeal{}, model.ErrForbidden
 	}
+	if err := memberInTeam(ctx, tx, request.TeamID, owner); err != nil {
+		return model.CRMDeal{}, err
+	}
 	if err := clientInTeam(ctx, tx, request.TeamID, request.ClientID); err != nil {
 		return model.CRMDeal{}, err
 	}
-	if request.ContactID > 0 {
-		var ok int64
-		err := tx.QueryRowContext(ctx, `SELECT id FROM crm_contacts WHERE id = ? AND team_id = ?`, request.ContactID, request.TeamID).Scan(&ok)
-		if errors.Is(err, sql.ErrNoRows) {
-			return model.CRMDeal{}, ErrNotFound
-		}
-		if err != nil {
-			return model.CRMDeal{}, err
-		}
+	if err := contactOfClient(ctx, tx, request.TeamID, request.ContactID, request.ClientID); err != nil {
+		return model.CRMDeal{}, err
 	}
 	now := FormatTime(d.currentTime().UTC())
 	stage, err := resolveDealStage(ctx, tx, request.TeamID, request.Stage, now)
@@ -321,6 +373,9 @@ func (d *DB) UpdateCRMDeal(ctx context.Context, request appmodel.CRMDealUpdateRe
 		if !role.CanManage() {
 			return model.CRMDeal{}, model.ErrForbidden
 		}
+		if err := memberInTeam(ctx, tx, request.TeamID, *request.OwnerID); err != nil {
+			return model.CRMDeal{}, err
+		}
 		sets, args = append(sets, "owner_id = ?"), append(args, *request.OwnerID)
 	}
 	if request.ClientID != nil {
@@ -328,6 +383,18 @@ func (d *DB) UpdateCRMDeal(ctx context.Context, request appmodel.CRMDealUpdateRe
 			return model.CRMDeal{}, err
 		}
 		sets, args = append(sets, "client_id = NULLIF(?, 0)"), append(args, *request.ClientID)
+	}
+	if request.ContactID != nil || request.ClientID != nil {
+		contactID, clientID := current.ContactID, current.ClientID
+		if request.ContactID != nil {
+			contactID = *request.ContactID
+		}
+		if request.ClientID != nil {
+			clientID = *request.ClientID
+		}
+		if err := contactOfClient(ctx, tx, request.TeamID, contactID, clientID); err != nil {
+			return model.CRMDeal{}, err
+		}
 	}
 	if request.ContactID != nil {
 		sets, args = append(sets, "contact_id = NULLIF(?, 0)"), append(args, *request.ContactID)
@@ -855,6 +922,18 @@ func (d *DB) UpdateCRMStage(ctx context.Context, request appmodel.CRMStageUpdate
 			return model.CRMStage{}, appmodel.FieldError{Field: "kind"}
 		}
 		edited.Kind = *request.Kind
+		// A deal in a lost stage needs its reason, and a stage that becomes lost has none
+		// for the deals it already holds, so the kind waits until the stage is empty.
+		if edited.Kind == model.StageKindLost && current.Kind != model.StageKindLost {
+			var deals int64
+			if err := tx.QueryRowContext(ctx,
+				`SELECT COUNT(*) FROM crm_deals WHERE team_id = ? AND stage = ?`, request.TeamID, current.Key).Scan(&deals); err != nil {
+				return model.CRMStage{}, err
+			}
+			if deals > 0 {
+				return model.CRMStage{}, appmodel.FieldError{Field: "kind"}
+			}
+		}
 	}
 	target := current.Position
 	if request.Position != nil {
