@@ -205,6 +205,8 @@ func (s *Server) teamErrorMessage(r *http.Request, err error) string {
 		return i18n.T(resolveLang(r), "flash.msg.invite already used")
 	case strings.Contains(err.Error(), "invite expired"):
 		return i18n.T(resolveLang(r), "flash.msg.invite expired")
+	case strings.Contains(err.Error(), "remove all members first"):
+		return i18n.T(resolveLang(r), "team.err.removeMembers")
 	case errors.Is(err, appmodel.ErrTeamNotFound), errors.Is(err, model.ErrNotFound):
 		return "workspace not found"
 	case errors.Is(err, appmodel.ErrTeamDuplicate), errors.Is(err, model.ErrAlreadyExists):
@@ -224,7 +226,7 @@ func (s *Server) teamErrorMessage(r *http.Request, err error) string {
 	case errors.Is(err, model.ErrOwnerMustTransfer):
 		return "transfer ownership before removing the current owner"
 	case errors.Is(err, model.ErrTeamHasMembers):
-		return "remove other workspace members first"
+		return i18n.T(resolveLang(r), "team.err.removeMembers")
 	default:
 		s.logInternalError(err)
 		return i18n.T(resolveLang(r), "err.internal")

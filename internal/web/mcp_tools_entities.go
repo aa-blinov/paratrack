@@ -475,6 +475,9 @@ var mcpEntityTools = []mcpTool{
 				}
 				to = last.AddDate(0, 0, 1)
 			}
+			if !to.After(from) {
+				return nil, appmodel.FieldError{Field: "to"}
+			}
 			var after *appmodel.SessionCursor
 			if in.Cursor != "" {
 				cursor, ok := decodeSessionCursor(in.Cursor)

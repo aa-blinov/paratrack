@@ -266,7 +266,7 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 	}
 	budget, hasBudget, berr := formCents(r, "budget")
 	if berr != nil {
-		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+		http.Redirect(w, r, "/projects?flash="+encodeFlash(false, i18n.T(resolveLang(r), "budget.badAmount")), http.StatusSeeOther)
 		return
 	}
 	var budgetPtr *int

@@ -33,8 +33,20 @@ type agentActionsPage struct {
 	pageData
 	AgentActionsReact bool
 	Items             []agentActionRow
+	Journal           []agentActionJournalRow
 	Flash             string
 	FlashOK           bool
+}
+
+// agentActionJournalRow is one settled request. Status is done, failed or rejected, and
+// Error is the reason a failed confirmation gave.
+type agentActionJournalRow struct {
+	Kind        string
+	Target      string
+	Status      string
+	Error       string
+	RequestedBy string
+	When        string
 }
 
 func (p *agentActionsPage) setCSRF(t string) { p.pageData.setCSRF(t) }
@@ -63,7 +75,7 @@ func (s *Server) handleAgentActionsPage(w http.ResponseWriter, r *http.Request) 
 	now := userNow(r)
 	owner := RoleFrom(r.Context()).IsOwner()
 	data := agentActionsPage{
-		pageData:          pageData{Title: "Confirmations", Active: "settings-agent-actions", Lang: string(lang), ReactApp: true},
+		pageData:          pageData{Title: i18n.T(lang, "agent.title"), Active: "settings-agent-actions", Lang: string(lang), ReactApp: true},
 		AgentActionsReact: true,
 		Items:             make([]agentActionRow, 0, len(pending)),
 	}
@@ -75,10 +87,22 @@ func (s *Server) handleAgentActionsPage(w http.ResponseWriter, r *http.Request) 
 			Claimed:   !p.DecidedAt.IsZero() && now.Sub(p.DecidedAt) < appmodel.AgentActionClaimWindow,
 		})
 	}
+	settled, err := s.services.AgentActions.Journal(r.Context(), appmodel.AgentActionListQuery{TeamID: teamID(r), CallerID: authenticatedUserID(r)})
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	data.Journal = make([]agentActionJournalRow, 0, len(settled))
+	for _, p := range settled {
+		data.Journal = append(data.Journal, agentActionJournalRow{
+			Kind: p.Kind, Target: p.TargetLabel, Status: p.Status, Error: p.Error, RequestedBy: p.RequestedByName,
+			When: fmtWhen(lang, p.DecidedAt.In(loc), now),
+		})
+	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, lang)
 	}
-	s.renderPageForRequest(w, r, "Confirmations", "settings-agent-actions", &data)
+	s.renderPageForRequest(w, r, data.Title, "settings-agent-actions", &data)
 }
 
 func (s *Server) handleAgentActionConfirm(w http.ResponseWriter, r *http.Request) {
@@ -124,11 +148,12 @@ func (s *Server) decideAgentAction(w http.ResponseWriter, r *http.Request, rejec
 	if err := s.services.AgentActions.Finish(ctx, outcome); err != nil {
 		s.logInternalError(err)
 	}
-	s.audit(r, "agent.confirm", action.TargetLabel, outcome.Status)
 	if runErr != nil {
+		s.audit(r, "agent.fail", action.TargetLabel, outcome.Error)
 		s.agentActionBack(w, r, false, outcome.Error)
 		return
 	}
+	s.audit(r, "agent.confirm", action.TargetLabel, outcome.Status)
 	s.agentActionBack(w, r, true, "agent.confirmed")
 }
 
