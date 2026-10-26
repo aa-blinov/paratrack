@@ -13,4 +13,4 @@ until docker exec "$NAME" pg_isready -U t -h 127.0.0.1 >/dev/null 2>&1; do sleep
 if [ $# -eq 0 ]; then
 	set -- $(GO="$go_bin" scripts/go-packages.sh)
 fi
-PARATRACK_TEST_PG='postgres://t:t@127.0.0.1:15432/t?sslmode=disable' "$go_bin" test -p 1 "$@"
+PARATRACK_TEST_PG='postgres://t:t@127.0.0.1:15432/t?sslmode=disable' "$go_bin" test -p 1 -timeout 40m "$@"

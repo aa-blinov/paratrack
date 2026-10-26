@@ -131,10 +131,12 @@ jobs:
           # so packages do not collide and can run concurrently. Measured on
           # this tree: 693s serial vs 333s at -p 8, same 60 packages, no
           # failures and no data races either way.
-          go test -race -count=1 -p 8 $go_packages
+          # -timeout 30m: under -race the web package alone runs past the
+          # default 10 minutes, and go test then kills it as a hang.
+          go test -race -count=1 -timeout 30m -p 8 $go_packages
 
       - name: Coverage
-        run: go test -cover -p 8 ./internal/db ./internal/web ./internal/timeparse
+        run: go test -cover -timeout 30m -p 8 ./internal/db ./internal/web ./internal/timeparse
 
   e2e:
     name: Playwright E2E
