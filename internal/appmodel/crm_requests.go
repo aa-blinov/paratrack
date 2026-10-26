@@ -38,6 +38,14 @@ type CRMContactCreateRequest struct {
 	Phone    string
 }
 
+// CRMContactDeleteRequest removes a contact. A manager may remove any contact of the
+// workspace, and a member only the one they created.
+type CRMContactDeleteRequest struct {
+	TeamID    int64
+	CallerID  int64
+	ContactID int64
+}
+
 // CRMDealCreateRequest makes a deal. Manager is the caller's role as the transport read it;
 // only a manager sets an amount or a currency.
 type CRMDealCreateRequest struct {

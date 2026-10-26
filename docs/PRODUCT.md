@@ -117,6 +117,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 **Projects**
 
 - A project takes its hourly rate and its budget on the create form (PLAN-09), both optional. The budget is a money ceiling counted from tracked time, never from the estimate
+- The budget, what is spent on it, what is left and what is unbilled are money (D-2): the project page computes and sends them to a manager only. A member opens the project with its name, client, team and time, and the page carries no budget figure. The rule holds on the server, so a won deal's amount (CRM-13) does not reach a member through the project either
 
 **Payroll**
 
@@ -232,7 +233,7 @@ The settings page shows, under each preset, the sections it leaves off. The `sol
 A client stays the directory that invoices use, and it gets contacts, deals and activities. The section is `crm`
 (`/crm`), and it can be switched off like the others.
 
-- A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one.
+- A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one. A manager, or the member who created the contact, deletes it (`POST /api/crm/contacts/{id}/delete`); the deals that named it keep the deal and lose the link. The contact list says per contact whether the caller may delete it.
 - **Client tags** (CRM-18). A client carries up to 10 tags. A tag is trimmed and lower-cased, 1 to 40 characters, with no comma, and a repeated tag counts once. A manager replaces the whole set with `POST /api/clients/{id}/tags` (`{"tags": [...]}`, the list is required) or with the `client_tags_set` tool. The rule is checked in the transaction that stores the tags, so a member is refused with the forbidden text. Tags live in `client_tags`, apart from the session tags, and every member reads them on the client card.
 - **Search** (CRM-18). The search box on the CRM page lists clients and contacts for a text of two characters or more, with the rules of the global search above. A phone matches as typed, and also with spaces, dashes and brackets left out of the text and of the number. Members see the clients, their tags and the contacts with their email and phone. A client's billing email and details are matched and shown to managers only, the same as in the client list.
 - A **deal** has a title, a client and a contact (both optional), an owner, an amount in cents of the deal's
@@ -250,7 +251,7 @@ A client stays the directory that invoices use, and it gets contacts, deals and 
   needs a reason, and leaving a lost stage clears it. A stage with deals cannot be removed, and the workspace keeps
   one open, one won and one lost stage. Until a workspace changes its stages, it reads the five defaults.
 - A deal is **overdue** when it is open and its next-step date is before today in the workspace time zone.
-- Any member sees every deal in the workspace and creates deals of their own. The owner or a manager changes a deal
+- Any member sees every deal in the workspace and creates deals of their own. An owner is a member of the workspace, and a deal's contact belongs to the deal's client; both are checked in the transaction. The owner or a manager changes a deal
   and moves its stage; only a manager assigns another owner. The rule holds in the transaction, not in the route.
 - **Deal amounts are shown and set by managers only.** A member sees every deal's title, client, contact, stage,
   owner, probability and dates, but not its amount or currency: the deal answers leave both out and set
@@ -395,7 +396,7 @@ list are in [MCP.md](MCP.md).
   approved week, and deleting the workspace. Each request waits in the confirmation queue (Settings, Confirmations) until a
   person confirms or rejects it. Only the owner confirms a workspace deletion, and a request by an admin for it is refused.
 - A confirmation runs the same service the page runs for that action, as the person who confirmed it, and records the
-  outcome. A refused action stays in the log as failed with its reason. A rejection runs nothing. A bearer token cannot
+  outcome. A refused action stays in the log as failed with its reason, and the Confirmations page lists the settled requests under the waiting ones: done, not done with the reason, or rejected, newest first, 30 at most. A rejection runs nothing. A bearer token cannot
   confirm or reject a request, so the agent cannot approve its own request.
 
 ---

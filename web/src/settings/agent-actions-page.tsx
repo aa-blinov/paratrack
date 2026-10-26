@@ -37,5 +37,14 @@ export function AgentActionsPage({ data }: { data: AgentActionsData }) {
           : <p className="text-sm text-muted-foreground">{t(lang, "agent.ownerOnly")}</p>}
       </article>) : <p className="text-sm text-muted-foreground">{t(lang, "agent.empty")}</p>}
     </CardContent></Card>
+    <Card><CardHeader><CardTitle>{t(lang, "agent.journal")}</CardTitle></CardHeader><CardContent className="grid gap-3">
+      {data.Journal.length ? data.Journal.map((row, index) => <article key={index} className="grid gap-1 rounded-md border p-3 text-sm">
+        <p className="font-medium">{t(lang, `agent.kind.${row.Kind}`)}</p>
+        <p className="break-words text-muted-foreground">{row.Target}</p>
+        <p className="font-medium">{t(lang, `agent.status.${row.Status}`)}</p>
+        {row.Error && <p className="whitespace-pre-line break-words">{row.Error}</p>}
+        <p className="text-muted-foreground">{row.RequestedBy}, {row.When}</p>
+      </article>) : <p className="text-sm text-muted-foreground">{t(lang, "agent.journalEmpty")}</p>}
+    </CardContent></Card>
   </main>
 }

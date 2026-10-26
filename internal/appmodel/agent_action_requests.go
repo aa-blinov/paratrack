@@ -85,4 +85,6 @@ type AgentActionView struct {
 	CreatedAt       time.Time
 	DecidedBy       int64
 	DecidedAt       time.Time
+	// Error is the reason a confirmed action did not run, set on a failed request only.
+	Error string
 }

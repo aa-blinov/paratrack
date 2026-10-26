@@ -186,6 +186,7 @@ type GoalWorkflow interface {
 // MCP tools. Both transports call the same workflow, so a rule has one home.
 type CRMWorkflow interface {
 	CreateContact(context.Context, appmodel.CRMContactCreateRequest) (model.CRMContact, error)
+	DeleteContact(context.Context, appmodel.CRMContactDeleteRequest) error
 	Contacts(context.Context, appmodel.CRMContactListQuery) ([]model.CRMContact, error)
 	CreateDeal(context.Context, appmodel.CRMDealCreateRequest) (model.CRMDeal, error)
 	Deal(context.Context, appmodel.CRMDealLookupQuery) (model.CRMDeal, error)
@@ -221,6 +222,7 @@ type CRMWorkflow interface {
 type AgentActionWorkflow interface {
 	Request(context.Context, appmodel.AgentActionCreateRequest) (appmodel.AgentActionView, error)
 	Pending(context.Context, appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error)
+	Journal(context.Context, appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error)
 	Decide(context.Context, appmodel.AgentActionDecisionRequest) (appmodel.AgentActionView, error)
 	Finish(context.Context, appmodel.AgentActionFinishRequest) error
 }

@@ -404,6 +404,12 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 		}
 		extras.ClientOptions = options
 	}
+	// The budget, what is spent on it and what is left are money (D-2). A member
+	// opens the project without them, and a won deal's amount becomes the budget,
+	// so the figure must not leave the server for a member at all.
+	if !canManage(r) {
+		return extras, nil
+	}
 
 	budgets, err := s.services.Clients.Budgets(r.Context(), appmodel.ProjectBudgetQuery{TeamID: team})
 	if err != nil {

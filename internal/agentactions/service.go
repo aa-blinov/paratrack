@@ -16,6 +16,7 @@ import (
 type Store interface {
 	CreateAgentAction(context.Context, appmodel.AgentActionCreateRequest) (appmodel.AgentActionView, error)
 	ListPendingAgentActions(context.Context, appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error)
+	ListAgentActionJournal(context.Context, appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error)
 	DecideAgentAction(context.Context, appmodel.AgentActionDecisionRequest) (appmodel.AgentActionView, error)
 	FinishAgentAction(context.Context, appmodel.AgentActionFinishRequest) error
 }
@@ -41,6 +42,15 @@ func (s *Service) Request(ctx context.Context, request appmodel.AgentActionCreat
 		return appmodel.AgentActionView{}, appmodel.ErrInvalidWorkspace
 	}
 	return s.store.CreateAgentAction(ctx, request)
+}
+
+// Journal lists the requests a decision has settled, so a refused confirmation stays visible
+// with its reason.
+func (s *Service) Journal(ctx context.Context, query appmodel.AgentActionListQuery) ([]appmodel.AgentActionView, error) {
+	if query.TeamID <= 0 {
+		return nil, appmodel.ErrInvalidWorkspace
+	}
+	return s.store.ListAgentActionJournal(ctx, query)
 }
 
 // Pending lists the requests still waiting for a decision.
