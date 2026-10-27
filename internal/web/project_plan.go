@@ -169,7 +169,7 @@ func projectWeekRowOf(r *http.Request, week time.Time, total appmodel.ProjectWee
 	nextWeek := week.AddDate(0, 0, 7)
 	row := projectWeekRow{
 		Start:   week.Format("2006-01-02"),
-		Label:   fmtDay(lang, week) + " – " + fmtDay(lang, nextWeek.AddDate(0, 0, -1)),
+		Label:   periodSpan(lang, fmtDay(lang, week), fmtDay(lang, nextWeek.AddDate(0, 0, -1))),
 		Planned: fmtDur(r, total.PlannedMinutes*60),
 		Current: !now.Before(week) && now.Before(nextWeek),
 	}

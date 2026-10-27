@@ -97,7 +97,7 @@ func profilePay(r *http.Request, lines []appmodel.MemberPayrollLine) ([]profileP
 		isPaid := line.RunStatus == "paid"
 		rows = append(rows, profilePayRow{
 			Run:    line.RunNumber,
-			Period: fmtDay(lang, line.PeriodStart) + " – " + fmtDay(lang, line.PeriodEnd.AddDate(0, 0, -1)),
+			Period: periodSpan(lang, fmtDay(lang, line.PeriodStart), fmtDay(lang, line.PeriodEnd.AddDate(0, 0, -1))),
 			Hours:  fmtDur(r, line.Seconds),
 			Rate:   moneyL(lang, line.RateCents, line.Currency),
 			Amount: moneyL(lang, line.AmountCents, line.Currency),

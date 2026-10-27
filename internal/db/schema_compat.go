@@ -152,6 +152,9 @@ var columnMigrations = []struct {
 	// Push switch of a team event (CRM-19): set by its author, it keeps a copy in the author's
 	// connected provider calendar.
 	{"calendar_events", "sync_push", "BIGINT NOT NULL DEFAULT 0"},
+	// An all-day event stores midnight of its first day as starts_at and midnight after its
+	// last day as ends_at, so the day range is exact in the workspace zone (CAL all-day).
+	{"calendar_events", "all_day", "BIGINT NOT NULL DEFAULT 0"},
 }
 
 // compatibilityStatements create or update schema objects introduced after

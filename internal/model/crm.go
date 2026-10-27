@@ -294,7 +294,10 @@ type CalendarEvent struct {
 	// connected provider calendar (CRM-19).
 	SyncPush bool
 	// Imported marks an event pulled from a provider; the sync owns it and never pushes it back.
-	Imported     bool
+	Imported bool
+	// AllDay marks an event over whole days: StartsAt is midnight of the first day and EndsAt
+	// is midnight after the last one. An all-day event is not pushed to a provider.
+	AllDay       bool
 	CreatedBy    int64
 	Participants []int64
 	CreatedAt    time.Time

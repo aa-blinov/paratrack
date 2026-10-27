@@ -115,8 +115,10 @@ type crmContactView struct {
 	Role     string `json:"role"`
 	Email    string `json:"email"`
 	Phone    string `json:"phone"`
-	// CanDelete is set on the workspace screen only, where the caller's rights are known.
+	// CanDelete and CanEdit are set on the workspace screen only, where the caller's rights
+	// are known. Both follow the rule that removes a contact: a manager, or its creator.
 	CanDelete bool `json:"can_delete,omitempty"`
+	CanEdit   bool `json:"can_edit,omitempty"`
 }
 
 func (crmContactView) isJSONResponse() {}
@@ -130,6 +132,7 @@ func crmContactViewOf(c model.CRMContact) crmContactView {
 func crmContactViewFor(r *http.Request, c model.CRMContact) crmContactView {
 	view := crmContactViewOf(c)
 	view.CanDelete = canManage(r) || c.CreatedBy == authenticatedUserID(r)
+	view.CanEdit = view.CanDelete
 	return view
 }
 
@@ -402,6 +405,7 @@ type calendarEventView struct {
 	// SyncPush is the author's choice to keep a copy in their own provider calendar; Imported
 	// marks an event pulled from a provider, which is never pushed back (CRM-19).
 	SyncPush       bool    `json:"sync_push"`
+	AllDay         bool    `json:"all_day"`
 	Imported       bool    `json:"imported"`
 	ParticipantIDs []int64 `json:"participant_ids"`
 	CreatedBy      int64   `json:"created_by"`
@@ -419,7 +423,7 @@ func calendarEventViewIn(e model.CalendarEvent, loc *time.Location) calendarEven
 	return calendarEventView{
 		ID: e.ID, Title: e.Title, StartsAt: e.StartsAt.In(loc), EndsAt: e.EndsAt.In(loc), Location: e.Location,
 		Notes: e.Notes, ProjectID: e.ProjectID, ClientID: e.ClientID, Shared: e.Shared,
-		SyncPush: e.SyncPush, Imported: e.Imported, ParticipantIDs: participants, CreatedBy: e.CreatedBy,
+		SyncPush: e.SyncPush, AllDay: e.AllDay, Imported: e.Imported, ParticipantIDs: participants, CreatedBy: e.CreatedBy,
 	}
 }
 

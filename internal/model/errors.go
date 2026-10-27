@@ -34,6 +34,8 @@ var (
 	ErrSessionReopenExpired    = errors.New("session can no longer be reopened")
 	ErrSessionDurationOverflow = errors.New("session duration exceeds the representable range")
 	ErrSessionPeriodInvalid    = errors.New("session end must be after its start")
-	ErrSessionLengthInvalid    = errors.New("session duration cannot be negative")
-	ErrProjectRebindForbidden  = errors.New("members may assign only unassigned activities to projects")
+	// ErrSessionEndInFuture refuses a session recorded afterwards that has not ended yet.
+	ErrSessionEndInFuture     = errors.New("session end is later than now")
+	ErrSessionLengthInvalid   = errors.New("session duration cannot be negative")
+	ErrProjectRebindForbidden = errors.New("members may assign only unassigned activities to projects")
 )

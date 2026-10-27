@@ -193,7 +193,7 @@ func TestHarvestPagesAndTimes(t *testing.T) {
 		t.Errorf("to = %s, want the inclusive last day 2026-09-02", firstTo)
 	}
 	if got[0].Start.Hour() != 8 || got[0].End.Sub(got[0].Start) != 90*time.Minute {
-		t.Errorf("clock time not used: %v – %v", got[0].Start, got[0].End)
+		t.Errorf("clock time not used: %v to %v", got[0].Start, got[0].End)
 	}
 }
 

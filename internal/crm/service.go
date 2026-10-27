@@ -19,6 +19,7 @@ import (
 type Store interface {
 	CreateCRMContact(context.Context, appmodel.CRMContactCreateRequest) (model.CRMContact, error)
 	DeleteCRMContact(context.Context, appmodel.CRMContactDeleteRequest) error
+	UpdateCRMContact(context.Context, appmodel.CRMContactUpdateRequest) (model.CRMContact, error)
 	ListCRMContacts(context.Context, appmodel.CRMContactListQuery) ([]model.CRMContact, error)
 	ListCRMStages(context.Context, appmodel.CRMStageListQuery) ([]model.CRMStage, error)
 	CreateCRMStage(context.Context, appmodel.CRMStageCreateRequest) (model.CRMStage, error)
@@ -332,6 +333,22 @@ func (s *Service) MoveStage(ctx context.Context, request appmodel.CRMStageMoveRe
 	return s.UpdateStage(ctx, appmodel.CRMStageUpdateRequest{
 		TeamID: request.TeamID, CallerID: request.CallerID, Manager: request.Manager, Key: request.Key, Position: &position,
 	})
+}
+
+// UpdateContact changes a contact's name, role, email or phone. A name that is given must
+// stay a name.
+func (s *Service) UpdateContact(ctx context.Context, request appmodel.CRMContactUpdateRequest) (model.CRMContact, error) {
+	if request.TeamID <= 0 {
+		return model.CRMContact{}, appmodel.ErrInvalidWorkspace
+	}
+	if request.Name != nil {
+		name := strings.TrimSpace(*request.Name)
+		if !validName(name) {
+			return model.CRMContact{}, fieldError("contact name")
+		}
+		request.Name = &name
+	}
+	return s.store.UpdateCRMContact(ctx, request)
 }
 
 // DeleteContact removes a contact. The rule (a manager, or the member who created it) holds

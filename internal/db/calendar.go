@@ -100,6 +100,9 @@ func (d *DB) CreateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 	if err := checkParticipants(ctx, tx, request.TeamID, request.ParticipantIDs); err != nil {
 		return model.CalendarEvent{}, err
 	}
+	if request.AllDay && request.SyncPush {
+		return model.CalendarEvent{}, appmodel.FieldError{Field: "sync_push"}
+	}
 	if request.SyncPush {
 		if err := requireCalendarConnection(ctx, tx, request.TeamID, request.CallerID); err != nil {
 			return model.CalendarEvent{}, err
@@ -112,11 +115,11 @@ func (d *DB) CreateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 	}
 	var id int64
 	err = tx.QueryRowContext(ctx,
-		`INSERT INTO calendar_events (team_id, title, starts_at, ends_at, location, notes, project_id, client_id, shared, sync_push, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?) RETURNING id`,
+		`INSERT INTO calendar_events (team_id, title, starts_at, ends_at, location, notes, project_id, client_id, shared, sync_push, all_day, created_by, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, NULLIF(?, 0), NULLIF(?, 0), ?, ?, ?, ?, ?, ?) RETURNING id`,
 		request.TeamID, title, FormatTime(request.StartsAt.UTC()), FormatTime(request.EndsAt.UTC()),
 		strings.TrimSpace(request.Location), strings.TrimSpace(request.Notes), request.ProjectID, request.ClientID,
-		shared, boolInt(request.SyncPush), request.CallerID, FormatTime(now), FormatTime(now)).Scan(&id)
+		shared, boolInt(request.SyncPush), boolInt(request.AllDay), request.CallerID, FormatTime(now), FormatTime(now)).Scan(&id)
 	if err != nil {
 		return model.CalendarEvent{}, err
 	}
@@ -144,19 +147,20 @@ func uniqueIDs(ids []int64) []int64 {
 }
 
 // calendarEventRow reads the event columns; the same projection serves every read.
-const calendarEventColumns = `id, title, starts_at, ends_at, location, notes, COALESCE(project_id, 0), COALESCE(client_id, 0), shared, sync_push,
+const calendarEventColumns = `id, title, starts_at, ends_at, location, notes, COALESCE(project_id, 0), COALESCE(client_id, 0), shared, sync_push, all_day,
 	CASE WHEN EXISTS (SELECT 1 FROM calendar_external_links x WHERE x.event_id = calendar_events.id AND x.origin = 'provider') THEN 1 ELSE 0 END,
 	created_by, created_at, updated_at`
 
 func scanCalendarEvent(teamID int64, row dealScanner) (model.CalendarEvent, error) {
 	e := model.CalendarEvent{TeamID: teamID}
 	var starts, ends, created, updated string
-	var shared, syncPush, imported int64
-	if err := row.Scan(&e.ID, &e.Title, &starts, &ends, &e.Location, &e.Notes, &e.ProjectID, &e.ClientID, &shared, &syncPush, &imported, &e.CreatedBy, &created, &updated); err != nil {
+	var shared, syncPush, allDay, imported int64
+	if err := row.Scan(&e.ID, &e.Title, &starts, &ends, &e.Location, &e.Notes, &e.ProjectID, &e.ClientID, &shared, &syncPush, &allDay, &imported, &e.CreatedBy, &created, &updated); err != nil {
 		return model.CalendarEvent{}, err
 	}
 	e.Shared = shared == 1
 	e.SyncPush = syncPush == 1
+	e.AllDay = allDay == 1
 	e.Imported = imported == 1
 	var err error
 	if e.StartsAt, err = ParseTime(starts); err != nil {
@@ -252,6 +256,17 @@ func (d *DB) UpdateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 	if !ends.After(starts) {
 		return model.CalendarEvent{}, model.ErrEventEndBeforeStart
 	}
+	allDay := current.AllDay
+	if request.AllDay != nil {
+		allDay = *request.AllDay
+	}
+	pushed := current.SyncPush
+	if request.SyncPush != nil {
+		pushed = *request.SyncPush
+	}
+	if allDay && pushed {
+		return model.CalendarEvent{}, appmodel.FieldError{Field: "sync_push"}
+	}
 	sets := []string{"updated_at = ?", "starts_at = ?", "ends_at = ?"}
 	args := []any{FormatTime(d.currentTime().UTC()), FormatTime(starts.UTC()), FormatTime(ends.UTC())}
 	if request.Title != nil {
@@ -282,6 +297,9 @@ func (d *DB) UpdateCalendarEvent(ctx context.Context, request appmodel.CalendarE
 		return model.CalendarEvent{}, err
 	}
 	sets, args = append(sets, "project_id = NULLIF(?, 0)", "client_id = NULLIF(?, 0)"), append(args, projectID, clientID)
+	if request.AllDay != nil && *request.AllDay != current.AllDay {
+		sets, args = append(sets, "all_day = ?"), append(args, boolInt(*request.AllDay))
+	}
 	if request.Shared != nil {
 		shared := int64(0)
 		if *request.Shared {

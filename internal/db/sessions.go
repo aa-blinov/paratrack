@@ -370,6 +370,11 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
 		return model.Session{}, err
 	}
+	// A session recorded afterwards has already happened: an end in the future is a
+	// mistake to refuse, not a timer to wait for.
+	if endAt.After(d.currentTime()) {
+		return model.Session{}, model.ErrSessionEndInFuture
+	}
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
 		return model.Session{}, err
 	}
