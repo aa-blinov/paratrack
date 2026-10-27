@@ -105,6 +105,66 @@ func (d *DB) CreateCRMContact(ctx context.Context, request appmodel.CRMContactCr
 		Phone: strings.TrimSpace(request.Phone), CreatedBy: request.CallerID, CreatedAt: now}, nil
 }
 
+// UpdateCRMContact changes a contact's name, role, email or phone. A manager, or the member who
+// created the contact, may change it: the same rule that removes a contact.
+func (d *DB) UpdateCRMContact(ctx context.Context, request appmodel.CRMContactUpdateRequest) (model.CRMContact, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.ContactID <= 0 {
+		return model.CRMContact{}, ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return model.CRMContact{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	_, role, err := lockTeamRole(ctx, tx, request.TeamID, request.CallerID)
+	if err != nil {
+		return model.CRMContact{}, err
+	}
+	var contact model.CRMContact
+	var created string
+	err = tx.QueryRowContext(ctx,
+		`SELECT id, team_id, client_id, name, role, email, phone, created_by, created_at FROM crm_contacts WHERE id = ? AND team_id = ?`,
+		request.ContactID, request.TeamID).Scan(&contact.ID, &contact.TeamID, &contact.ClientID, &contact.Name,
+		&contact.Role, &contact.Email, &contact.Phone, &contact.CreatedBy, &created)
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.CRMContact{}, ErrNotFound
+	}
+	if err != nil {
+		return model.CRMContact{}, err
+	}
+	if contact.CreatedAt, err = ParseTime(created); err != nil {
+		return model.CRMContact{}, err
+	}
+	if !role.CanManage() && contact.CreatedBy != request.CallerID {
+		return model.CRMContact{}, model.ErrForbidden
+	}
+	if request.Name != nil {
+		name := strings.TrimSpace(*request.Name)
+		if name == "" {
+			return model.CRMContact{}, appmodel.FieldError{Field: "contact name"}
+		}
+		contact.Name = name
+	}
+	if request.Role != nil {
+		contact.Role = strings.TrimSpace(*request.Role)
+	}
+	if request.Email != nil {
+		contact.Email = strings.TrimSpace(*request.Email)
+	}
+	if request.Phone != nil {
+		contact.Phone = strings.TrimSpace(*request.Phone)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE crm_contacts SET name = ?, role = ?, email = ?, phone = ? WHERE id = ? AND team_id = ?`,
+		contact.Name, contact.Role, contact.Email, contact.Phone, request.ContactID, request.TeamID); err != nil {
+		return model.CRMContact{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return model.CRMContact{}, err
+	}
+	return contact, nil
+}
+
 // DeleteCRMContact removes a contact. A manager may remove any contact of the workspace, and
 // a member only the one they created (the contact rule in the spec). A deal that named the
 // contact keeps the deal; the foreign key clears its link.

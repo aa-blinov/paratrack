@@ -47,7 +47,7 @@ func TestInvoicePDFAndPayment(t *testing.T) {
 	// PDF bytes
 	vm := invoiceVM{
 		ID: inv.ID, Number: inv.Number, ClientName: inv.ClientName,
-		PeriodLabel: "Sep 21, 2026 – Sep 22, 2026",
+		PeriodLabel: "Sep 21, 2026 to Sep 22, 2026",
 		Notes:       "оплата в течение 14 дней",
 		Lines: []invoiceLineVM{{
 			Label: "Acme · consulting", Hours: "2h", Rate: "100.00", Amount: "200.00",

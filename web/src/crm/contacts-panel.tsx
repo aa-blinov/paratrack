@@ -23,8 +23,15 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
   const [email, setEmail] = React.useState("")
   const [phone, setPhone] = React.useState("")
   const [issue, setIssue] = React.useState<Issue | null>(null)
+  // A failed save of an edit shows under that edit, not under the form that adds a contact.
+  const [editIssue, setEditIssue] = React.useState<Issue | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [saved, setSaved] = React.useState(false)
+  const [editingID, setEditingID] = React.useState<number | null>(null)
+  const [editName, setEditName] = React.useState("")
+  const [editRole, setEditRole] = React.useState("")
+  const [editEmail, setEditEmail] = React.useState("")
+  const [editPhone, setEditPhone] = React.useState("")
 
   const load = React.useCallback(async (id: string) => {
     if (!id) {
@@ -40,6 +47,29 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
   }, [lang])
 
   React.useEffect(() => { void load(clientID) }, [clientID, load])
+
+  function startEdit(contact: Contact) {
+    setEditingID(contact.id)
+    setEditName(contact.name)
+    setEditRole(contact.role)
+    setEditEmail(contact.email)
+    setEditPhone(contact.phone)
+    setEditIssue(null)
+  }
+
+  async function saveEdit(contact: Contact) {
+    setBusy(true)
+    setEditIssue(null)
+    try {
+      await apiJSON(`/api/crm/contacts/${contact.id}`, "POST", csrf, { name: editName.trim(), role: editRole.trim(), email: editEmail.trim(), phone: editPhone.trim() })
+      setEditingID(null)
+      await load(clientID)
+    } catch (cause) {
+      setEditIssue(issueOf(cause, contactFields, t(lang, "err.generic")))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function remove(contact: Contact) {
     setBusy(true)
@@ -88,13 +118,41 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
           <FieldIssue issue={issue} name="client" id="contacts-client-issue" />
         </div>
         {contacts === null ? null : contacts.length === 0 ? <p className="text-sm text-muted-foreground">{t(lang, "crm.noContacts")}</p> : <ul className="grid divide-y rounded-lg border">
-          {contacts.map(contact => <li key={contact.id} className="flex items-start justify-between gap-3 p-3 text-sm">
-            <span className="grid min-w-0 gap-0.5">
-              <span className="font-medium [overflow-wrap:anywhere]">{contact.name}{contact.role && <span className="font-normal text-muted-foreground">, {contact.role}</span>}</span>
-              {(contact.email || contact.phone) && <span className="text-muted-foreground [overflow-wrap:anywhere]">{[contact.email, contact.phone].filter(Boolean).join(", ")}</span>}
-            </span>
-            {contact.can_delete && <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void remove(contact)}>{t(lang, "crm.contactDelete")}</Button>}
-          </li>)}
+          {contacts.map(contact => editingID === contact.id
+            ? <li key={contact.id} className="grid gap-3 p-3 text-sm sm:grid-cols-2" aria-busy={busy}>
+              <FormIssue issue={editIssue} />
+              <div className="grid gap-2">
+                <Label htmlFor={`contact-edit-name-${contact.id}`}>{t(lang, "crm.contactName")}</Label>
+                <Input id={`contact-edit-name-${contact.id}`} value={editName} onChange={event => setEditName(event.target.value)} required maxLength={200} aria-invalid={editIssue?.key === "name" || undefined} style={{ fontSize: 16 }} />
+                <FieldIssue issue={editIssue} name="name" id={`contact-edit-name-${contact.id}-issue`} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`contact-edit-role-${contact.id}`}>{t(lang, "crm.contactRole")}</Label>
+                <Input id={`contact-edit-role-${contact.id}`} value={editRole} onChange={event => setEditRole(event.target.value)} maxLength={200} style={{ fontSize: 16 }} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`contact-edit-email-${contact.id}`}>{t(lang, "crm.contactEmail")}</Label>
+                <Input id={`contact-edit-email-${contact.id}`} type="email" value={editEmail} onChange={event => setEditEmail(event.target.value)} maxLength={200} style={{ fontSize: 16 }} />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor={`contact-edit-phone-${contact.id}`}>{t(lang, "crm.contactPhone")}</Label>
+                <Input id={`contact-edit-phone-${contact.id}`} type="tel" value={editPhone} onChange={event => setEditPhone(event.target.value)} maxLength={200} style={{ fontSize: 16 }} />
+              </div>
+              <div className="flex flex-wrap gap-2 sm:col-span-2">
+                <Button type="button" size="sm" disabled={busy} onClick={() => void saveEdit(contact)}>{t(lang, "crm.contactSave")}</Button>
+                <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => { setEditingID(null); setEditIssue(null) }}>{t(lang, "projects.cancel")}</Button>
+              </div>
+            </li>
+            : <li key={contact.id} className="flex items-start justify-between gap-3 p-3 text-sm">
+              <span className="grid min-w-0 gap-0.5">
+                <span className="font-medium [overflow-wrap:anywhere]">{contact.name}{contact.role && <span className="font-normal text-muted-foreground">, {contact.role}</span>}</span>
+                {(contact.email || contact.phone) && <span className="text-muted-foreground [overflow-wrap:anywhere]">{[contact.email, contact.phone].filter(Boolean).join(", ")}</span>}
+              </span>
+              {(contact.can_edit || contact.can_delete) && <span className="flex shrink-0 gap-1">
+                {contact.can_edit && <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => startEdit(contact)}>{t(lang, "crm.contactEdit")}</Button>}
+                {contact.can_delete && <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void remove(contact)}>{t(lang, "crm.contactDelete")}</Button>}
+              </span>}
+            </li>)}
         </ul>}
         <form onSubmit={add} className="grid gap-4 sm:grid-cols-2" aria-busy={busy}>
           <FormIssue issue={issue} />

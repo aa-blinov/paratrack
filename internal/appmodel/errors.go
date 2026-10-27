@@ -52,6 +52,7 @@ var (
 	ErrInvalidSessionEdit        = errors.New("invalid session edit request")
 	ErrInvalidSessionDelete      = errors.New("invalid session delete request")
 	ErrInvalidSessionPeriod      = model.ErrSessionPeriodInvalid
+	ErrSessionEndInFuture        = model.ErrSessionEndInFuture
 	ErrInvalidSessionLength      = model.ErrSessionLengthInvalid
 	ErrInvalidTeamBilling        = errors.New("invalid team billing settings")
 	ErrInvalidTeamSettings       = errors.New("invalid team settings")

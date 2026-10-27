@@ -311,7 +311,7 @@ func invoicePeriod(r *http.Request, from, to string) (time.Time, time.Time, bool
 func unapprovedWeekLabels(lang i18n.Lang, weeks []time.Time) []string {
 	labels := make([]string, 0, len(weeks))
 	for _, monday := range weeks {
-		labels = append(labels, fmtDay(lang, monday)+" – "+fmtDay(lang, monday.AddDate(0, 0, 6)))
+		labels = append(labels, periodSpan(lang, fmtDay(lang, monday), fmtDay(lang, monday.AddDate(0, 0, 6))))
 	}
 	return labels
 }

@@ -4,14 +4,14 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { DateTimeField } from "@/components/date-field"
+import { DateField, DateTimeField } from "@/components/date-field"
 import { FieldIssue, FormIssue } from "@/components/form-issue"
 import { StatusLine } from "@/components/status-line"
 import { translate as t } from "@/i18n"
 import { apiJSON, issueOf, type Issue } from "@/lib/json-api"
-import { parseISODateTime } from "@/lib/date-format"
+import { parseISODate, parseISODateTime } from "@/lib/date-format"
 import { memberLabel, type Member } from "@/lib/team-directory"
-import { addMinutes, wallClockOf, type CalendarEvent } from "@/calendar/model"
+import { addDays, addMinutes, dayOf, lastDayOfWallClock, wallClockOf, type CalendarEvent } from "@/calendar/model"
 
 const eventFields: Record<string, string> = {
   title: "title",
@@ -47,14 +47,22 @@ type Props = {
 export function EventForm({ lang, csrf, canManage, members, event, startAt, syncProviders = [], userID = 0, onSaved, onCancel }: Props) {
   const prefix = event ? `event-${event.id}` : "event-new"
   const [title, setTitle] = React.useState(event?.title ?? "")
+  // A timed event keeps its wall clock and an all-day one its days. Both are kept apart, so the
+  // switch can go back and forth without losing either.
+  const [allDay, setAllDay] = React.useState(event?.all_day ?? false)
   const [start, setStart] = React.useState(event ? wallClockOf(event.starts_at) : startAt ?? "")
   const [end, setEnd] = React.useState(event ? wallClockOf(event.ends_at) : startAt ? addMinutes(startAt, 60) : "")
+  // The last day of an all-day event is the day before its end, which is midnight of the next day.
+  const [startDay, setStartDay] = React.useState(event ? dayOf(event.starts_at) : startAt ? dayOf(startAt) : "")
+  const [endDay, setEndDay] = React.useState(event ? (event.all_day ? addDays(dayOf(event.ends_at), -1) : dayOf(event.ends_at)) : startAt ? dayOf(startAt) : "")
   const [location, setLocation] = React.useState(event?.location ?? "")
   const [notes, setNotes] = React.useState(event?.notes ?? "")
   const [shared, setShared] = React.useState(event?.shared ?? false)
   const [syncPush, setSyncPush] = React.useState(event?.sync_push ?? false)
   // An imported event belongs to the provider, so pushing it back would copy the provider's own event.
-  const canPush = syncProviders.length > 0 && !event?.imported && (!event || event.created_by === userID)
+  // An all-day event has no time to send, so it is never pushed (the server refuses it too).
+  const canSetPush = syncProviders.length > 0 && !event?.imported && (!event || event.created_by === userID)
+  const canPush = canSetPush && !allDay
   const [participants, setParticipants] = React.useState<number[]>(event?.participant_ids ?? [])
   const [broken, setBroken] = React.useState<Record<string, boolean>>({})
   const [issue, setIssue] = React.useState<Issue | null>(null)
@@ -66,6 +74,22 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, sync
   const invalid = (key: string) => issue?.key === key || undefined
   const described = (key: string) => issue?.key === key ? `${prefix}-${key}-issue` : undefined
 
+  // The two representations are derived from each other on every switch, so the stored pair
+  // (midnight of the first day, midnight after the last) reads the same both ways. A midnight
+  // end in the timed form is the day after the last day, not the last day itself.
+  function changeAllDay(on: boolean) {
+    if (on) {
+      setStartDay(dayOf(start))
+      setEndDay(lastDayOfWallClock(start, end))
+      setSyncPush(false)
+    } else {
+      setStart(`${startDay}T00:00`)
+      setEnd(`${addDays(endDay, 1)}T00:00`)
+    }
+    setAllDay(on)
+    setBroken({})
+  }
+
   function toggle(id: number, on: boolean) {
     setParticipants(current => on ? [...current.filter(item => item !== id), id] : current.filter(item => item !== id))
   }
@@ -73,18 +97,20 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, sync
   async function submit(event_: React.FormEvent<HTMLFormElement>) {
     event_.preventDefault()
     setSaved(false)
-    const startValid = parseISODateTime(start) !== null
-    const endValid = parseISODateTime(end) !== null
+    const startValid = allDay ? parseISODate(startDay) !== null : parseISODateTime(start) !== null
+    const endValid = allDay ? parseISODate(endDay) !== null : parseISODateTime(end) !== null
     const brokenKey = Object.keys(broken).find(key => broken[key])
     if (brokenKey || !startValid || !endValid) {
       setIssue({ key: brokenKey || (!startValid ? "starts_at" : "ends_at"), message: t(lang, "err.invalidInput") })
       return
     }
 
+    const startsAt = allDay ? startDay : start
+    const endsAt = allDay ? endDay : end
     const values: Record<string, unknown> = {
       title: title.trim(),
-      starts_at: start,
-      ends_at: end,
+      starts_at: startsAt,
+      ends_at: endsAt,
       location: location.trim(),
       notes: notes.trim(),
       shared,
@@ -94,18 +120,27 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, sync
     const body: Record<string, unknown> = {}
     if (!event) {
       Object.assign(body, values)
+      body.all_day = allDay
       if (canManage) body.participant_ids = participants
       if (canPush && syncPush) body.sync_push = true
     } else {
+      const original = event.all_day
+        ? { starts: dayOf(event.starts_at), ends: addDays(dayOf(event.ends_at), -1) }
+        : { starts: wallClockOf(event.starts_at), ends: wallClockOf(event.ends_at) }
       if (values.title !== event.title) body.title = values.title
-      if (start !== wallClockOf(event.starts_at)) body.starts_at = values.starts_at
-      if (end !== wallClockOf(event.ends_at)) body.ends_at = values.ends_at
+      // The server reads the two ends as days or as moments by the flag, so they go together.
+      if (allDay !== event.all_day || startsAt !== original.starts || endsAt !== original.ends) {
+        body.all_day = allDay
+        body.starts_at = startsAt
+        body.ends_at = endsAt
+      }
       if (values.location !== event.location) body.location = values.location
       if (values.notes !== event.notes) body.notes = values.notes
       if (values.shared !== event.shared) body.shared = values.shared
       if (canManage && !sameIDs(participants, event.participant_ids)) body.participant_ids = participants
     }
-    if (event && canPush && syncPush !== event.sync_push) body.sync_push = syncPush
+    // An event that turns all-day gives up its push: the copy in the provider cannot be all-day here.
+    if (event && canSetPush && (allDay ? event.sync_push : syncPush !== event.sync_push)) body.sync_push = allDay ? false : syncPush
 
     setBusy(true)
     setIssue(null)
@@ -139,15 +174,26 @@ export function EventForm({ lang, csrf, canManage, members, event, startAt, sync
       <Input id={`${prefix}-title`} value={title} onChange={event_ => setTitle(event_.target.value)} required maxLength={200} aria-invalid={invalid("title")} aria-describedby={described("title")} style={{ fontSize: 16 }} />
       <FieldIssue issue={issue} name="title" id={`${prefix}-title-issue`} />
     </div>
+    <label className="flex cursor-pointer items-start gap-3 text-sm">
+      <Checkbox checked={allDay} onCheckedChange={value => changeAllDay(value === true)} className="mt-0.5" />
+      <span className="grid gap-1">
+        <span className="font-medium">{t(lang, "cal.allDay")}</span>
+        <span className="text-muted-foreground">{t(lang, "cal.allDayHint")}</span>
+      </span>
+    </label>
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="grid gap-2">
         <Label htmlFor={`${prefix}-start`}>{t(lang, "cal.startsAt")}</Label>
-        <DateTimeField key={`start-${epoch}`} id={`${prefix}-start`} ariaLabel={t(lang, "cal.startsAt")} required defaultValue={start} style={{ fontSize: 16 }} onValueChange={setStart} onBrokenChange={value => setBroken(previous => ({ ...previous, starts_at: value }))} />
+        {allDay
+          ? <DateField key={`start-day-${epoch}`} id={`${prefix}-start`} ariaLabel={t(lang, "cal.startsAt")} required defaultValue={startDay} style={{ fontSize: 16 }} onValueChange={setStartDay} onBrokenChange={value => setBroken(previous => ({ ...previous, starts_at: value }))} />
+          : <DateTimeField key={`start-${epoch}`} id={`${prefix}-start`} ariaLabel={t(lang, "cal.startsAt")} required defaultValue={start} style={{ fontSize: 16 }} onValueChange={setStart} onBrokenChange={value => setBroken(previous => ({ ...previous, starts_at: value }))} />}
         <FieldIssue issue={issue} name="starts_at" id={`${prefix}-starts_at-issue`} />
       </div>
       <div className="grid gap-2">
         <Label htmlFor={`${prefix}-end`}>{t(lang, "cal.endsAt")}</Label>
-        <DateTimeField key={`end-${epoch}`} id={`${prefix}-end`} ariaLabel={t(lang, "cal.endsAt")} required defaultValue={end} style={{ fontSize: 16 }} onValueChange={setEnd} onBrokenChange={value => setBroken(previous => ({ ...previous, ends_at: value }))} />
+        {allDay
+          ? <DateField key={`end-day-${epoch}`} id={`${prefix}-end`} ariaLabel={t(lang, "cal.endsAt")} required defaultValue={endDay} style={{ fontSize: 16 }} onValueChange={setEndDay} onBrokenChange={value => setBroken(previous => ({ ...previous, ends_at: value }))} />
+          : <DateTimeField key={`end-${epoch}`} id={`${prefix}-end`} ariaLabel={t(lang, "cal.endsAt")} required defaultValue={end} style={{ fontSize: 16 }} onValueChange={setEnd} onBrokenChange={value => setBroken(previous => ({ ...previous, ends_at: value }))} />}
         <FieldIssue issue={issue} name="ends_at" id={`${prefix}-ends_at-issue`} />
       </div>
     </div>

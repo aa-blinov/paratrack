@@ -14,6 +14,8 @@ export type CalendarEvent = {
   sync_push: boolean
   /** Pulled from a provider; the sync owns it and it is never pushed back. */
   imported: boolean
+  /** Whole days: starts_at is midnight of the first day and ends_at midnight after the last. */
+  all_day: boolean
   participant_ids: number[]
   created_by: number
 }
@@ -49,6 +51,40 @@ export function addDays(day: string, days: number): string {
 export function weekStartOf(day: string, startsSunday = false): string {
   const weekday = new Date(dayMillis(day)).getUTCDay()
   return addDays(day, -(startsSunday ? weekday : (weekday + 6) % 7))
+}
+
+/** The first day of the month a day falls in, YYYY-MM-DD. */
+export const monthStartOf = (day: string) => `${day.slice(0, 7)}-01`
+
+/** A month, given by its first day, moved by a number of months. */
+export function addMonths(monthStart: string, months: number): string {
+  const [year, month] = monthStart.split("-").map(Number)
+  const index = year * 12 + (month - 1) + months
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, "0")}-01`
+}
+
+/** A month grid is six whole weeks, so every month is drawn the same way. */
+export const MONTH_GRID_DAYS = 42
+
+/** The first day of a month's grid: the week its first day falls in. */
+export function monthGridStart(monthStart: string, startsSunday = false): string {
+  return weekStartOf(monthStart, startsSunday)
+}
+
+/** The last day an end wall clock names for a whole-day event: a midnight end is the day after it. */
+export function lastDayOfWallClock(start: string, end: string): string {
+  return end.slice(11, 16) === "00:00" && end > start ? addDays(dayOf(end), -1) : dayOf(end)
+}
+
+/** The days an all-day event covers, clipped to the window, both ends inclusive. */
+export function daysInWindow(event: CalendarEvent, first: string, last: string): string[] {
+  const startDay = dayOf(event.starts_at)
+  const from = startDay < first ? first : startDay
+  const lastDay = addDays(dayOf(event.ends_at), -1)
+  const to = lastDay > last ? last : lastDay
+  const days: string[] = []
+  for (let day = from; day <= to; day = addDays(day, 1)) days.push(day)
+  return days
 }
 
 /** A wall clock moved by minutes; it may cross midnight. */

@@ -75,6 +75,8 @@ Managers reopen a week to change it; the owner is not exempt. The refusal names 
 
 The owner or an admin sets `teams.autolock_days` in the calendar card: 0 (off, the default), 3, 7, 14 or 30. The cutoff is the start of the local day that many days ago in the workspace zone (`teams.timezone`, UTC when blank). It is computed on each write and never stored, so there is no job and no row per day.
 
+A session that is recorded afterwards, by backfill or by the agent's `time_session_add`, cannot end after the present moment: it is refused as an invalid period with the field `end`. A manager changes and deletes the sessions of any member; a member changes only their own.
+
 While the term is on, a write that starts before the cutoff returns `SessionAutoLockError`, which names the first open day. The check covers a manual add, an edit or delete of a closed session, a backfill, a timer started with an earlier start, a timesheet cell and a row clear (by the week's first day), and a reopen. It runs in the same transaction as the write, next to the approved-week check.
 
 A running timer that started before the cutoff can be stopped, because a stop only writes the end. It cannot be edited or deleted until it is stopped.
@@ -233,7 +235,7 @@ The settings page shows, under each preset, the sections it leaves off. The `sol
 A client stays the directory that invoices use, and it gets contacts, deals and activities. The section is `crm`
 (`/crm`), and it can be switched off like the others.
 
-- A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one. A manager, or the member who created the contact, deletes it (`POST /api/crm/contacts/{id}/delete`); the deals that named it keep the deal and lose the link. The contact list says per contact whether the caller may delete it.
+- A **contact** belongs to one client and has a name, a role, an email and a phone. Any member adds one. A manager, or the member who created the contact, changes it (`POST /api/crm/contacts/{id}`, with the fields that change) and deletes it (`POST /api/crm/contacts/{id}/delete`); the deals that named it keep the deal and lose the link. The contact list says per contact whether the caller may delete it.
 - **Client tags** (CRM-18). A client carries up to 10 tags. A tag is trimmed and lower-cased, 1 to 40 characters, with no comma, and a repeated tag counts once. A manager replaces the whole set with `POST /api/clients/{id}/tags` (`{"tags": [...]}`, the list is required) or with the `client_tags_set` tool. The rule is checked in the transaction that stores the tags, so a member is refused with the forbidden text. Tags live in `client_tags`, apart from the session tags, and every member reads them on the client card.
 - **Search** (CRM-18). The search box on the CRM page lists clients and contacts for a text of two characters or more, with the rules of the global search above. A phone matches as typed, and also with spaces, dashes and brackets left out of the text and of the number. Members see the clients, their tags and the contacts with their email and phone. A client's billing email and details are matched and shown to managers only, the same as in the client list.
 - A **deal** has a title, a client and a contact (both optional), an owner, an amount in cents of the deal's
@@ -337,6 +339,8 @@ optional project and client, a list of participants and a flag for shared.
 - The author or a manager edits and deletes an event. Participants are members of the workspace; there are no outside
   guests.
 - The agenda is read for a window in the workspace time zone, at most one year long per request.
+- An event may be **all-day** (`all_day`): it covers whole days from its first day through its last, both included. The API and the agent send the two days as `YYYY-MM-DD`; the event stores midnight of the first day and midnight after the last. An all-day event is never pushed to a provider calendar (`sync_push` is refused with the field `sync_push`), and a provider's all-day event is not imported.
+- The calendar screen shows a week as an agenda, or a month as a grid of six weeks. A day picked in the grid lists its events below it. An all-day event is listed on each day it covers; a timed one on the day it starts.
 
 ### Calendar sync with Google and Outlook
 
@@ -516,7 +520,7 @@ CRM and calendar tables: `client_tags` (one row per client and tag, the name che
 `crm_stages` (a workspace's pipeline, unique key per workspace; rows appear on the first write to the stages),
 `crm_activities` (kind checked; `lead_id` for an activity on a lead), `crm_leads` (status checked, `converted_deal_id`
 and `converted_client_id` set once, `first_response_at` set by the first activity, `status_changed_at` set by every status change), `crm_intake_keys` (one row per workspace, keyed by the SHA-256 of the key),
-`calendar_events` (`shared` and `sync_push` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
+`calendar_events` (`shared`, `sync_push` and `all_day` as 0 or 1), `calendar_event_participants`, `crm_reminders` (one row per item, channel and
 workspace day; its primary key is the once-a-day claim of a next-step reminder). Calendar sync: `calendar_connections` (one row per member,
 provider and workspace; the two tokens sealed, `last_synced_at` and `last_error`), `calendar_oauth_states` (the SHA-256 of the state and of
 the session, the verifier sealed, removed when used), `calendar_external_links` (one row per event that exists on both sides, origin

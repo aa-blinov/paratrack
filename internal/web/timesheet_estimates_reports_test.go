@@ -168,7 +168,7 @@ func TestTimesheetAndSavedReportHTTPFlows(t *testing.T) {
 //
 // The window's `to` is exclusive — the builder receives it as-is, and the
 // exported `To` steps back from it. The heading used to print the boundary
-// itself, so a run for 1–11 October read "1 October – 12 October" above
+// itself, so a run for 1-11 October read "1 October to 12 October" above
 // data that stopped on the 11th, in the document a freelancer sends to a
 // client. Comparing the heading against the exported `To` is what pins it:
 // they are the same day by construction now.
@@ -186,7 +186,7 @@ func TestReportHeadingNamesTheCoveredDays(t *testing.T) {
 	// `to` in the query is the last day the person asked for, and the handler
 	// turns it into an exclusive bound before building. The heading used to print
 	// that bound, so asking for 1–11 October produced a document headed
-	// "1 October – 12 October" over data that stopped on the 11th — in the
+	// "1 October to 12 October" over data that stopped on the 11th, in the
 	// document a freelancer sends to a client.
 	resp = e.do("GET", "/reports/run?id=by-activity&from=2026-10-01&to=2026-10-11", nil, nil)
 	if resp.StatusCode != 200 {

@@ -106,6 +106,11 @@ func fmtDay(lang i18n.Lang, t time.Time) string {
 	return t.Format("Jan 2")
 }
 
+// periodSpan joins the two ends of a period: "21 сен по 27 сен" / "Sep 21 to Sep 27".
+func periodSpan(lang i18n.Lang, first, last string) string {
+	return fmt.Sprintf(i18n.T(lang, "period.span"), first, last)
+}
+
 // fmtDate is a full date: "Sep 21, 2026" / "21 сен 2026".
 func fmtDate(lang i18n.Lang, t time.Time) string {
 	if lang == i18n.Ru {

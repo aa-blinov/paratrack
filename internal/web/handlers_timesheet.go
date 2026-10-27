@@ -56,7 +56,7 @@ type timesheetData struct {
 	WeekEnd         time.Time
 	PrevWeek        string // link query
 	NextWeek        string
-	WeekLabel       string // "Sep 22 – Sep 28"
+	WeekLabel       string // "Sep 22 to Sep 28"
 	Days            []timesheetDay
 	Rows            []timesheetRow
 	ProjectNames    map[int64]string
@@ -187,7 +187,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		CanDecide:       canManage(r),
 		WeekStart:       weekStart,
 		WeekEnd:         weekEnd,
-		WeekLabel:       fmtDay(resolveLang(r), weekStart) + " – " + fmtDay(resolveLang(r), weekEnd),
+		WeekLabel:       periodSpan(resolveLang(r), fmtDay(resolveLang(r), weekStart), fmtDay(resolveLang(r), weekEnd)),
 		PrevWeek:        weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
 		NextWeek:        weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
 		Days:            days,
