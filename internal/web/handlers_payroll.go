@@ -56,7 +56,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		data.Items = append(data.Items, payrollSummary{
 			ID: run.ID, Number: run.Number, Status: run.Status,
 			Total: moneyL(resolveLang(r), item.TotalCents, run.Currency), Hours: fmtHoursL(resolveLang(r), item.TotalHoursHundredths),
-			Period: fmtDay(resolveLang(r), run.PeriodStart) + " – " + fmtDay(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
+			Period: periodSpan(resolveLang(r), fmtDay(resolveLang(r), run.PeriodStart), fmtDay(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1))),
 		})
 	}
 	now := userNow(r)
@@ -112,7 +112,7 @@ func (s *Server) unapprovedPayrollWeeks(r *http.Request, now time.Time) []payrol
 		weeks = append(weeks, payrollWeekHint{
 			Date:  start.Format("2006-01-02"),
 			Last:  end.AddDate(0, 0, -1).Format("2006-01-02"),
-			Label: fmtDay(lang, start) + " – " + fmtDay(lang, end.AddDate(0, 0, -1)),
+			Label: periodSpan(lang, fmtDay(lang, start), fmtDay(lang, end.AddDate(0, 0, -1))),
 			Count: notApproved.Count,
 		})
 	}
@@ -244,7 +244,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		PayrollReact: true, PayrollDetail: true,
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
-			PeriodLabel: fmtDate(resolveLang(r), run.PeriodStart) + " – " + fmtDate(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1)),
+			PeriodLabel: periodSpan(resolveLang(r), fmtDate(resolveLang(r), run.PeriodStart), fmtDate(resolveLang(r), run.PeriodEnd.AddDate(0, 0, -1))),
 			Lines:       vms, Total: moneyL(resolveLang(r), details.TotalCents, run.Currency), TotalCents: details.TotalCents,
 			Hours: fmtHoursL(resolveLang(r), details.TotalHoursHundredths),
 		},

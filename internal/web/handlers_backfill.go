@@ -92,8 +92,12 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 			s.backfillError(w, r, "activity", i18n.T(resolveLang(r), "err.backfillRequired"))
 			return
 		}
-		if errors.Is(err, appmodel.ErrInvalidSessionPeriod) || errors.Is(err, appmodel.ErrInvalidSessionStart) {
-			s.backfillError(w, r, "form", err.Error())
+		if errors.Is(err, appmodel.ErrSessionEndInFuture) {
+			s.backfillError(w, r, "end", i18n.T(resolveLang(r), "err.sessionEndFuture"))
+			return
+		}
+		if errors.Is(err, appmodel.ErrInvalidSessionPeriod) {
+			s.backfillError(w, r, "end", i18n.T(resolveLang(r), "err.sessionEndBeforeStart"))
 			return
 		}
 		if errors.Is(err, model.ErrProjectRebindForbidden) {

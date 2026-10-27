@@ -437,6 +437,7 @@ var mcpCRMTools = []mcpTool{
 			"project_id":      integerProp("Linked project id"),
 			"client_id":       integerProp("Linked client id"),
 			"shared":          booleanProp("Visible to the whole team"),
+			"all_day":         booleanProp("All-day event: starts_at and ends_at are then dates YYYY-MM-DD, the first and the last day"),
 			"participant_ids": integerListProp("User ids of the participants"),
 		}, "title", "starts_at", "ends_at"),
 		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
@@ -445,18 +446,14 @@ var mcpCRMTools = []mcpTool{
 				return nil, err
 			}
 			loc := c.now.Location()
-			startsAt, err := calendarMoment("starts_at", in.StartsAt, loc)
-			if err != nil {
-				return nil, err
-			}
-			endsAt, err := calendarMoment("ends_at", in.EndsAt, loc)
+			startsAt, endsAt, err := calendarSpan(in.AllDay, in.StartsAt, in.EndsAt, loc)
 			if err != nil {
 				return nil, err
 			}
 			event, err := s.services.Calendar.Create(c.ctx, appmodel.CalendarEventCreateRequest{
 				TeamID: c.teamID, CallerID: c.userID, Title: in.Title, StartsAt: startsAt, EndsAt: endsAt,
 				Location: in.Location, Notes: in.Notes, ProjectID: in.ProjectID, ClientID: in.ClientID,
-				Shared: in.Shared, ParticipantIDs: in.ParticipantIDs,
+				Shared: in.Shared, AllDay: in.AllDay, ParticipantIDs: in.ParticipantIDs,
 			})
 			if err != nil {
 				return nil, err
@@ -478,6 +475,7 @@ var mcpCRMTools = []mcpTool{
 			"project_id":      integerProp("Linked project id"),
 			"client_id":       integerProp("Linked client id"),
 			"shared":          booleanProp("Visible to the whole team"),
+			"all_day":         booleanProp("All-day event: starts_at and ends_at are then dates YYYY-MM-DD, the first and the last day"),
 			"participant_ids": integerListProp("User ids of the participants"),
 		}, "event_id"),
 		Run: func(s *Server, c mcpCall, args json.RawMessage) (any, error) {
@@ -489,18 +487,14 @@ var mcpCRMTools = []mcpTool{
 				return nil, err
 			}
 			loc := c.now.Location()
-			startsAt, err := optionalCalendarMoment("starts_at", in.StartsAt, loc)
-			if err != nil {
-				return nil, err
-			}
-			endsAt, err := optionalCalendarMoment("ends_at", in.EndsAt, loc)
+			startsAt, endsAt, err := calendarUpdateSpan(in.calendarEventUpdateBody, loc)
 			if err != nil {
 				return nil, err
 			}
 			event, err := s.services.Calendar.Update(c.ctx, appmodel.CalendarEventUpdateRequest{
 				TeamID: c.teamID, CallerID: c.userID, EventID: in.EventID, Title: in.Title, StartsAt: startsAt,
 				EndsAt: endsAt, Location: in.Location, Notes: in.Notes, ProjectID: in.ProjectID,
-				ClientID: in.ClientID, Shared: in.Shared, ParticipantIDs: in.ParticipantIDs,
+				ClientID: in.ClientID, Shared: in.Shared, AllDay: in.AllDay, ParticipantIDs: in.ParticipantIDs,
 			})
 			if err != nil {
 				return nil, err

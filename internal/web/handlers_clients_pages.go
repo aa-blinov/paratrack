@@ -605,7 +605,7 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 		// the day pulled back: an invoice for 1 to 31 August reads 1 to 31 August.
 		switch {
 		case !inv.PeriodStart.IsZero() && !inv.PeriodEnd.IsZero():
-			row.Period = fmtDate(lang, inv.PeriodStart) + " – " + fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1))
+			row.Period = periodSpan(lang, fmtDate(lang, inv.PeriodStart), fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1)))
 		case !inv.PeriodStart.IsZero():
 			row.Period = fmtDate(lang, inv.PeriodStart)
 		}

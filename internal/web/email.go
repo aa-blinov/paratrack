@@ -168,7 +168,7 @@ func (s *Server) handleEmailPreview(w http.ResponseWriter, r *http.Request) {
 		_, ev = inviteEmail(lang, "Анна Фрилансер", "Студия Ромашка", s.publicBaseURL(r)+"/invites/sample")
 	default:
 		_, ev = invoiceEmail(lang, invoiceVM{
-			Number: "INV-2026-001", PeriodLabel: "1 сен 2026 – 27 сен 2026", Hours: fmtHoursL(lang, 350),
+			Number: "INV-2026-001", PeriodLabel: "1 сен 2026 по 27 сен 2026", Hours: fmtHoursL(lang, 350),
 			Total: moneyL(lang, 875175, "RUB"), ClientName: "ООО «Ромашка»", VATNote: "НДС не облагается (УСН)",
 			// The real link comes from the invoice's own payment field, which the
 			// person setting up the invoice fills in. The preview points at this

@@ -138,7 +138,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	// `to` is the exclusive end of the window: the builder receives it as-is
 	// and the exported `To` below already steps back from it. The heading is
 	// the one place that had not — it printed the boundary itself, so a run
-	// for 1–11 October read "1 October – 12 October" over data that stopped
+	// for 1-11 October read "1 October to 12 October" over data that stopped
 	// on the 11th. A report is the document a freelancer sends a client, so
 	// the heading has to name the days the rows actually cover.
 	//
@@ -148,7 +148,7 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 
 	return reportVM{
 		Template:        tpl,
-		PeriodLabel:     fmtDate(resolveLang(r), from) + " – " + fmtDate(resolveLang(r), lastDay),
+		PeriodLabel:     periodSpan(resolveLang(r), fmtDate(resolveLang(r), from), fmtDate(resolveLang(r), lastDay)),
 		From:            from.Format("2006-01-02"),
 		To:              lastDay.Format("2006-01-02"),
 		Rows:            rows,

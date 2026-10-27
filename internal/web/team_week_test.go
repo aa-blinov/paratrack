@@ -11,9 +11,20 @@ import (
 func TestManagerStatsCarriesTheTeamWeek(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("team-week@x.test")
-	today := time.Now().UTC().Format("02.01.2006")
+	// A session recorded afterwards has ended already, so the hour is the last one before now,
+	// kept inside today.
+	now := time.Now().UTC()
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	end := now.Add(-time.Minute)
+	start := now.Add(-2 * time.Hour)
+	if start.Before(midnight) {
+		start = midnight
+	}
+	if !end.After(start) {
+		t.Skip("the first minute of a day has no past hour to record")
+	}
 	saved := e.do("POST", "/api/sessions/backfill", url.Values{
-		"activity": {"Week work"}, "start": {today + " 09:00"}, "end": {today + " 10:00"},
+		"activity": {"Week work"}, "start": {start.Format("02.01.2006 15:04")}, "end": {end.Format("02.01.2006 15:04")},
 	}, nil)
 	readBody(t, saved)
 	if saved.Header.Get("X-Backfill-Saved") != "true" {

@@ -235,6 +235,7 @@ type calendarEventBody struct {
 	ClientID       int64   `json:"client_id"`
 	Shared         bool    `json:"shared"`
 	SyncPush       bool    `json:"sync_push"`
+	AllDay         bool    `json:"all_day"`
 	ParticipantIDs []int64 `json:"participant_ids"`
 }
 
@@ -248,7 +249,62 @@ type calendarEventUpdateBody struct {
 	ClientID       *int64  `json:"client_id"`
 	Shared         *bool   `json:"shared"`
 	SyncPush       *bool   `json:"sync_push"`
+	AllDay         *bool   `json:"all_day"`
 	ParticipantIDs []int64 `json:"participant_ids"`
+}
+
+// calendarDayBounds reads the first and the last day of an all-day event, both as YYYY-MM-DD
+// in the workspace zone, and gives the moments it stores: midnight of the first day and
+// midnight after the last one, so one day is a whole day. A last day before the first is
+// refused by the workflow as an end before the start.
+func calendarDayBounds(first, last string, loc *time.Location) (time.Time, time.Time, error) {
+	firstDay, err := time.ParseInLocation(time.DateOnly, first, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, appmodel.FieldError{Field: "starts_at"}
+	}
+	lastDay, err := time.ParseInLocation(time.DateOnly, last, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, appmodel.FieldError{Field: "ends_at"}
+	}
+	return firstDay, lastDay.AddDate(0, 0, 1), nil
+}
+
+// calendarUpdateSpan reads the period an update names. An all-day update names both days, and
+// a timed one reads each moment on its own, a missing one staying as it is.
+func calendarUpdateSpan(body calendarEventUpdateBody, loc *time.Location) (*time.Time, *time.Time, error) {
+	if body.AllDay != nil && *body.AllDay {
+		if body.StartsAt == nil || body.EndsAt == nil {
+			return nil, nil, appmodel.FieldError{Field: "starts_at"}
+		}
+		first, last, err := calendarDayBounds(*body.StartsAt, *body.EndsAt, loc)
+		if err != nil {
+			return nil, nil, err
+		}
+		return &first, &last, nil
+	}
+	startsAt, err := optionalCalendarMoment("starts_at", body.StartsAt, loc)
+	if err != nil {
+		return nil, nil, err
+	}
+	endsAt, err := optionalCalendarMoment("ends_at", body.EndsAt, loc)
+	if err != nil {
+		return nil, nil, err
+	}
+	return startsAt, endsAt, nil
+}
+
+// calendarSpan reads the period of a new event: its moments when it is timed, its first and
+// last day when it is all-day.
+func calendarSpan(allDay bool, startsAt, endsAt string, loc *time.Location) (time.Time, time.Time, error) {
+	if allDay {
+		return calendarDayBounds(startsAt, endsAt, loc)
+	}
+	start, err := calendarMoment("starts_at", startsAt, loc)
+	if err != nil {
+		return time.Time{}, time.Time{}, err
+	}
+	end, err := calendarMoment("ends_at", endsAt, loc)
+	return start, end, err
 }
 
 // calendarMoment reads a moment the way the calendar writes it: a wall clock in the
@@ -463,6 +519,33 @@ func (s *Server) handleCRMContactsList(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, crmContactsResponse{Contacts: out})
 }
 
+type crmContactUpdateBody struct {
+	Name  *string `json:"name"`
+	Role  *string `json:"role"`
+	Email *string `json:"email"`
+	Phone *string `json:"phone"`
+}
+
+func (s *Server) handleCRMContactUpdate(w http.ResponseWriter, r *http.Request) {
+	id, ok := s.crmPathID(w, r, "id")
+	if !ok {
+		return
+	}
+	var body crmContactUpdateBody
+	if !s.decodeJSONBody(w, r, &body) {
+		return
+	}
+	contact, err := s.services.CRM.UpdateContact(r.Context(), appmodel.CRMContactUpdateRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), ContactID: id,
+		Name: body.Name, Role: body.Role, Email: body.Email, Phone: body.Phone,
+	})
+	if err != nil {
+		s.writeCRMError(w, r, err)
+		return
+	}
+	s.writeJSON(w, crmContactViewFor(r, contact))
+}
+
 func (s *Server) handleCRMContactDelete(w http.ResponseWriter, r *http.Request) {
 	id, ok := s.crmPathID(w, r, "id")
 	if !ok {
@@ -552,12 +635,7 @@ func (s *Server) handleCalendarEventCreate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	loc := userLoc(r)
-	startsAt, err := calendarMoment("starts_at", body.StartsAt, loc)
-	if err != nil {
-		s.writeCRMError(w, r, err)
-		return
-	}
-	endsAt, err := calendarMoment("ends_at", body.EndsAt, loc)
+	startsAt, endsAt, err := calendarSpan(body.AllDay, body.StartsAt, body.EndsAt, loc)
 	if err != nil {
 		s.writeCRMError(w, r, err)
 		return
@@ -565,7 +643,8 @@ func (s *Server) handleCalendarEventCreate(w http.ResponseWriter, r *http.Reques
 	event, err := s.services.Calendar.Create(r.Context(), appmodel.CalendarEventCreateRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), Title: body.Title, StartsAt: startsAt,
 		EndsAt: endsAt, Location: body.Location, Notes: body.Notes, ProjectID: body.ProjectID,
-		ClientID: body.ClientID, Shared: body.Shared, SyncPush: body.SyncPush, ParticipantIDs: body.ParticipantIDs,
+		ClientID: body.ClientID, Shared: body.Shared, SyncPush: body.SyncPush, AllDay: body.AllDay,
+		ParticipantIDs: body.ParticipantIDs,
 	})
 	if err != nil {
 		s.writeCRMError(w, r, err)
@@ -584,12 +663,7 @@ func (s *Server) handleCalendarEventUpdate(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	loc := userLoc(r)
-	startsAt, err := optionalCalendarMoment("starts_at", body.StartsAt, loc)
-	if err != nil {
-		s.writeCRMError(w, r, err)
-		return
-	}
-	endsAt, err := optionalCalendarMoment("ends_at", body.EndsAt, loc)
+	startsAt, endsAt, err := calendarUpdateSpan(body, loc)
 	if err != nil {
 		s.writeCRMError(w, r, err)
 		return
@@ -597,7 +671,8 @@ func (s *Server) handleCalendarEventUpdate(w http.ResponseWriter, r *http.Reques
 	event, err := s.services.Calendar.Update(r.Context(), appmodel.CalendarEventUpdateRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), EventID: id, Title: body.Title,
 		StartsAt: startsAt, EndsAt: endsAt, Location: body.Location, Notes: body.Notes,
-		ProjectID: body.ProjectID, ClientID: body.ClientID, Shared: body.Shared, SyncPush: body.SyncPush, ParticipantIDs: body.ParticipantIDs,
+		ProjectID: body.ProjectID, ClientID: body.ClientID, Shared: body.Shared, SyncPush: body.SyncPush,
+		AllDay: body.AllDay, ParticipantIDs: body.ParticipantIDs,
 	})
 	if err != nil {
 		s.writeCRMError(w, r, err)

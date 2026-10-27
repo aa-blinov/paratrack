@@ -49,8 +49,8 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			ID: inv.ID, Number: inv.Number, Client: inv.ClientName, Status: inv.Status,
 			Total: moneyL(resolveLang(r), item.TotalCents, inv.Currency),
 			Hours: fmtHoursL(resolveLang(r), item.TotalHoursHundredths),
-			Period: fmtDay(resolveLang(r), inv.PeriodStart) + " – " +
-				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1)),
+			Period: periodSpan(resolveLang(r), fmtDay(resolveLang(r), inv.PeriodStart),
+				fmtDay(resolveLang(r), inv.PeriodEnd.AddDate(0, 0, -1))),
 			Due: invoiceDueLabel(resolveLang(r), inv.DueDate), Overdue: invoiceOverdue(inv.Status, inv.DueDate, today),
 			Issued:  inv.CreatedAt.In(userLoc(r)).Format("2006-01-02"),
 			Partial: partialLabel(resolveLang(r), item),

@@ -929,7 +929,7 @@ func mcpTaskError(err error, field string) error {
 // or before the start, or a session longer than the store keeps.
 func mcpSessionPeriodError(err error) error {
 	switch {
-	case errors.Is(err, appmodel.ErrInvalidSessionPeriod), errors.Is(err, appmodel.ErrInvalidSessionLength), errors.Is(err, model.ErrSessionDurationOverflow):
+	case errors.Is(err, appmodel.ErrInvalidSessionPeriod), errors.Is(err, appmodel.ErrSessionEndInFuture), errors.Is(err, appmodel.ErrInvalidSessionLength), errors.Is(err, model.ErrSessionDurationOverflow):
 		return appmodel.FieldError{Field: "end"}
 	}
 	return err

@@ -48,8 +48,9 @@ export type Contact = {
   role: string
   email: string
   phone: string
-  /** Set when the caller may delete the contact: a manager, or the member who created it. */
+  /** Set when the caller may delete or change the contact: a manager, or the member who created it. */
   can_delete?: boolean
+  can_edit?: boolean
 }
 
 export type Activity = {

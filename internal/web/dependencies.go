@@ -187,6 +187,7 @@ type GoalWorkflow interface {
 type CRMWorkflow interface {
 	CreateContact(context.Context, appmodel.CRMContactCreateRequest) (model.CRMContact, error)
 	DeleteContact(context.Context, appmodel.CRMContactDeleteRequest) error
+	UpdateContact(context.Context, appmodel.CRMContactUpdateRequest) (model.CRMContact, error)
 	Contacts(context.Context, appmodel.CRMContactListQuery) ([]model.CRMContact, error)
 	CreateDeal(context.Context, appmodel.CRMDealCreateRequest) (model.CRMDeal, error)
 	Deal(context.Context, appmodel.CRMDealLookupQuery) (model.CRMDeal, error)

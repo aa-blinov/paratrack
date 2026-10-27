@@ -133,7 +133,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 	data := schedulePage{
 		pageData:         pageData{Title: "Schedule", Active: "schedule", Lang: lang, ReactApp: true},
 		ScheduleReact:    true,
-		WeekLabel:        fmtDay(resolvedLang, weekStart) + " – " + fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6)),
+		WeekLabel:        periodSpan(resolvedLang, fmtDay(resolvedLang, weekStart), fmtDay(resolvedLang, weekStart.AddDate(0, 0, 6))),
 		PrevWeek:         weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
 		NextWeek:         weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
 		ThisWeek:         weekStart.Format("2006-01-02"),

@@ -38,6 +38,18 @@ type CRMContactCreateRequest struct {
 	Phone    string
 }
 
+// CRMContactUpdateRequest changes a contact. Only the fields that are given change. The rule
+// is the one that removes a contact: a manager, or the member who created it.
+type CRMContactUpdateRequest struct {
+	TeamID    int64
+	CallerID  int64
+	ContactID int64
+	Name      *string
+	Role      *string
+	Email     *string
+	Phone     *string
+}
+
 // CRMContactDeleteRequest removes a contact. A manager may remove any contact of the
 // workspace, and a member only the one they created.
 type CRMContactDeleteRequest struct {
@@ -259,6 +271,7 @@ type CalendarEventCreateRequest struct {
 	ClientID       int64
 	Shared         bool
 	SyncPush       bool
+	AllDay         bool
 	ParticipantIDs []int64
 }
 
@@ -277,6 +290,7 @@ type CalendarEventUpdateRequest struct {
 	ClientID       *int64
 	Shared         *bool
 	SyncPush       *bool
+	AllDay         *bool
 	ParticipantIDs []int64
 }
 

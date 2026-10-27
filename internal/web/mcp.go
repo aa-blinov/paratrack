@@ -29,7 +29,7 @@ const mcpInstructions = "paratrack: time tracking, clients and CRM (contacts, de
 	"for clients or deals. An invoice, a pay run, a reopened week and the workspace are only requested, through the " +
 	"*_request tools: a person confirms or rejects each request in the app, and the server never runs one itself. " +
 	"A calendar event can be deleted by its author or a manager, a goal by " +
-	"a manager, a time session by the person who tracked it, and a checklist step by a workspace member."
+	"a manager, a time session by the person who tracked it or by a manager, and a checklist step by a workspace member."
 
 // mcpCall is what a tool needs from one request: the caller, the workspace, the
 // workspace day and clock, and the read-only flag of the token.
