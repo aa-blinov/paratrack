@@ -124,7 +124,12 @@ func (d *DB) UpdateUserPasswordIfHashMatches(ctx context.Context, request appmod
 	if request.CallerID <= 0 || request.CallerID != actorID(ctx) || request.UserID != request.CallerID {
 		return false, model.ErrForbidden
 	}
-	result, err := d.sql.ExecContext(ctx,
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	result, err := tx.ExecContext(ctx,
 		`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ? AND password_hash = ?`,
 		request.PasswordHash, FormatTime(d.currentTime().UTC()), request.UserID, request.ExpectedHash,
 	)
@@ -135,7 +140,18 @@ func (d *DB) UpdateUserPasswordIfHashMatches(ctx context.Context, request appmod
 	if err != nil {
 		return false, err
 	}
-	return rows == 1, nil
+	if rows != 1 {
+		return false, nil
+	}
+	// API tokens outlive the browser login otherwise, so a changed password would
+	// leave a token that was minted under the old one working.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM api_tokens WHERE user_id = ?`, request.UserID); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func (d *DB) CreateAuthSession(ctx context.Context, request appmodel.AuthSessionCreateRequest) (model.AuthSession, error) {
@@ -302,6 +318,9 @@ func (d *DB) ConsumePasswordReset(ctx context.Context, request appmodel.Password
 		return model.User{}, err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = ?`, user.ID); err != nil {
+		return model.User{}, err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM api_tokens WHERE user_id = ?`, user.ID); err != nil {
 		return model.User{}, err
 	}
 	if err := tx.Commit(); err != nil {

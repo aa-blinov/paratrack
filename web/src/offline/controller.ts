@@ -61,7 +61,7 @@ function queueRequest(method: string, rawURL: string, body: unknown, contentType
   const payload = encodeRequestBody(body, contentType)
   if (!payload) return false
   const queue = readQueue(storage)
-  queue.push({ verb, url, ts: Date.now(), ...payload } as QueueItem)
+  queue.push({ verb, url, ts: Date.now(), key: newRequestKey(), ...payload } as QueueItem)
   if (!writeQueue(storage, queue)) return false
   update({ queueLength: queue.length })
   return true
@@ -120,6 +120,11 @@ export function installOffline() {
   }
 }
 
+function newRequestKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID()
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+}
+
 function csrfToken(): string {
   const match = document.cookie.match(/(?:^|;\s*)paratrack_csrf=([^;]+)/)
   if (!match) return ""
@@ -164,6 +169,7 @@ export async function flush() {
           headers: {
             "X-CSRF-Token": csrfToken(),
             "Content-Type": isJSON ? "application/json" : "application/x-www-form-urlencoded",
+            ...(item.key ? { "Idempotency-Key": item.key } : {}),
           },
           body,
         })

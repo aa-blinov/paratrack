@@ -19,6 +19,8 @@ var ErrIncompleteServices = errors.New("HTTP application dependencies are incomp
 
 // Dependencies are the workflow ports consumed by the HTTP adapter.
 type Dependencies struct {
+	// Idempotency answers replayed writes from the offline queue. Nil disables it.
+	Idempotency          IdempotencyStore
 	Billing              BillingWorkflow
 	Auth                 AuthenticationDependencies
 	TokenAdmin           APITokenManagementBuilding
