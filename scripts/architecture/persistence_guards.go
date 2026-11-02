@@ -5,12 +5,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"path/filepath"
 	"strings"
 )
 
 func checkDatabaseMutationCommandShape(fset *token.FileSet) error {
-	paths, err := filepath.Glob("internal/db/*.go")
+	paths, err := globSlash("internal/db/*.go")
 	if err != nil {
 		return fmt.Errorf("find database source files: %w", err)
 	}

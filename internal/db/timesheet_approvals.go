@@ -41,13 +41,31 @@ func lockApprovedWeek(ctx context.Context, tx *Tx, teamID int64, at time.Time) e
 	return &model.SessionApprovalLockError{From: from, To: to}
 }
 
-// lockApprovedSpan refuses a write to a span that touches an approved week at
-// either end. Weeks are whole days, so checking both ends covers the span.
+// lockApprovedSpan refuses a write to any span that overlaps an approved week.
+// Checking only the two ends is not enough: an approved window strictly inside
+// the span (a single approved day inside a row clear) would pass unseen.
 func lockApprovedSpan(ctx context.Context, tx *Tx, teamID int64, from, to time.Time) error {
-	if err := lockApprovedWeek(ctx, tx, teamID, from); err != nil {
+	var startsAt, endsAt string
+	err := tx.QueryRowContext(ctx,
+		`SELECT starts_at, ends_at FROM timesheet_approvals
+		  WHERE team_id = ? AND starts_at < ? AND ends_at > ?
+		  ORDER BY starts_at LIMIT 1`,
+		teamID, FormatTime(to), FormatTime(from)).Scan(&startsAt, &endsAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
 		return err
 	}
-	return lockApprovedWeek(ctx, tx, teamID, to.Add(-time.Nanosecond))
+	approvedFrom, err := ParseTime(startsAt)
+	if err != nil {
+		return err
+	}
+	approvedTo, err := ParseTime(endsAt)
+	if err != nil {
+		return err
+	}
+	return &model.SessionApprovalLockError{From: approvedFrom, To: approvedTo}
 }
 
 // ApproveTimesheetWeek closes one week. Only a manager may do it, and only for a
@@ -194,8 +212,10 @@ func unapprovedPayrollTime(ctx context.Context, q queryRower, teamID int64, from
 	var count int64
 	var first, last sql.NullString
 	err := q.QueryRowContext(ctx,
+		// Running timers count too: a pay run prices them at now, so they must sit
+		// inside an approved week like closed time does.
 		`SELECT COUNT(*), MIN(s.start_at), MAX(s.start_at) FROM sessions s
-		  WHERE s.team_id = ? AND s.end_at IS NOT NULL
+		  WHERE s.team_id = ?
 		    AND s.start_at >= ? AND s.start_at < ?
 		    AND NOT EXISTS (
 		      SELECT 1 FROM timesheet_approvals a

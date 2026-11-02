@@ -67,7 +67,9 @@ Refusals, each as its own error:
 
 While a window is approved, any write whose session **start** falls inside it returns
 `SessionApprovalLockError`: session edit, delete, stop, reopen, a backfilled or added closed
-session, a timesheet cell and a row clear. The check runs in the same transaction as the
+session, a timer start or focus, a timesheet cell and a row clear. A row clear or a cell
+write is refused when any approved window overlaps its span, so one approved day inside a
+week still blocks the week's clear. The check runs in the same transaction as the
 write. The start decides because the grid files a session under the day it starts on.
 Managers reopen a week to change it; the owner is not exempt. The refusal names the week by its first and last day and says that the owner or an admin can reopen it. The same sentence reaches the editor, the backfill, the timesheet cell and the `/api/v1` `409`.
 
@@ -237,7 +239,7 @@ The settings page shows, under each preset, the sections it leaves off. The `sol
 | Auth rate limit | login 10/min per IP and email, with a 200/min IP ceiling; register 30/min, forgot 5/min, reset 10/min per IP; 429 + `Retry-After` |
 | Headers | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, CSP, HSTS on TLS |
 | Passwords | bcrypt |
-| API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once |
+| API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once. A password change or reset deletes the account's API tokens |
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
 | Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
 | Sessions | HttpOnly + `Secure` cookies when the request is TLS |
@@ -348,6 +350,10 @@ Rules worth knowing:
 - Service worker at `/sw.js` (root scope `/`) caches the app shell; pages are network-first
 - Offline banner: `Offline — changes will sync when you reconnect`
 - Serializable same-origin mutations (HTMX and `fetch`) are queued in `localStorage` with their body encoding
+- Each queued item carries a random `key`, sent on every replay as `Idempotency-Key`. The server
+  stores the status of a finished write under `(user, key)`, so a replay whose first response was
+  lost returns that status and does not write again. A refused write releases its key. A claim
+  that never finished is taken over after 2 minutes.
 - On reconnect or page load the queue drains; only **2xx** dequeues. A failed item stays first in line and offers retry or explicit removal. Unsupported bodies and cross-origin URLs are not queued or replayed.
 
 **Push** (`Settings → Notifications`)
