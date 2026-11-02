@@ -1,0 +1,243 @@
+{
+  "version": 1,
+  "note": "Test accounts for the agent-run journeys. Each persona has its own account, its own company (workspace) and its own data, so no persona sees another's clients, time or money. Passwords are test-only and never used outside a local or QA stand.",
+  "password": "persona-pass-123",
+  "personas": [
+    {
+      "id": "galina",
+      "name": "Галина Смирнова",
+      "email": "galina@persona.test",
+      "audience": "Отдел продаж",
+      "role": "Руководитель продаж: ведёт клиентов, выставляет счета, смотрит, сколько времени ушло на каждого клиента.",
+      "company": "Торговый дом «Север»",
+      "preset": "studio",
+      "clients": [
+        "ООО «Альфа-Торг»",
+        "ИП Громов"
+      ],
+      "projects": [
+        {
+          "name": "Оптовые поставки",
+          "rate_rub": 3000,
+          "billable": true,
+          "client": "ООО «Альфа-Торг»"
+        }
+      ],
+      "sessions": [
+        {
+          "project": "Оптовые поставки",
+          "activity": "Переговоры",
+          "start": "2026-10-06T10:00",
+          "end": "2026-10-06T11:30",
+          "note": "созвон с закупкой"
+        },
+        {
+          "project": "Оптовые поставки",
+          "activity": "Коммерческое предложение",
+          "start": "2026-10-07T14:00",
+          "end": "2026-10-07T15:00",
+          "note": "КП на 200 позиций"
+        }
+      ],
+      "approved_weeks": [
+        [
+          "2026-10-05",
+          "2026-10-11"
+        ]
+      ],
+      "zone": {
+        "owns": [
+          "клиенты",
+          "счета",
+          "проекты с ставкой",
+          "отчёты по клиенту"
+        ],
+        "touches": [
+          "табель",
+          "статистика"
+        ],
+        "must_not_see": [
+          "выплаты участникам",
+          "настройки команды других пространств"
+        ]
+      },
+      "journeys": [
+        "sales-invoice-from-week",
+        "sales-client-time-report"
+      ]
+    },
+    {
+      "id": "sergey",
+      "name": "Сергей Волков",
+      "email": "sergey@persona.test",
+      "audience": "Разработка",
+      "role": "Разработчик: ведёт задачи, запускает таймер на задаче, размечает время тегами. Счетов не выставляет.",
+      "company": "Лаборатория кода",
+      "preset": "solo",
+      "clients": [],
+      "projects": [
+        {
+          "name": "Внутренний портал",
+          "rate_rub": 0,
+          "billable": false,
+          "client": null
+        }
+      ],
+      "sessions": [
+        {
+          "project": "Внутренний портал",
+          "activity": "Разработка",
+          "start": "2026-10-06T09:00",
+          "end": "2026-10-06T12:00",
+          "note": "фича: фильтр по команде"
+        },
+        {
+          "project": "Внутренний портал",
+          "activity": "Код-ревью",
+          "start": "2026-10-08T16:00",
+          "end": "2026-10-08T17:00",
+          "note": "ревью PR 412"
+        }
+      ],
+      "approved_weeks": [],
+      "zone": {
+        "owns": [
+          "задачи",
+          "таймер",
+          "теги",
+          "проекты без ставки"
+        ],
+        "touches": [
+          "статистика",
+          "цели"
+        ],
+        "must_not_see": [
+          "счета",
+          "выплаты",
+          "настройки команды"
+        ]
+      },
+      "journeys": [
+        "dev-timer-and-task",
+        "dev-tags-and-stats"
+      ]
+    },
+    {
+      "id": "alexander",
+      "name": "Александр Ветров",
+      "email": "alexander@persona.test",
+      "audience": "Руководитель и владелец",
+      "role": "Владелец агентства: утверждает недели, считает выплаты, настраивает команду и закрытие правок.",
+      "company": "Агентство «Ветер»",
+      "preset": "studio",
+      "clients": [
+        "ООО «Ромашка»"
+      ],
+      "projects": [
+        {
+          "name": "Сайт для Ромашки",
+          "rate_rub": 6000,
+          "billable": true,
+          "client": "ООО «Ромашка»"
+        }
+      ],
+      "sessions": [
+        {
+          "project": "Сайт для Ромашки",
+          "activity": "Вёрстка",
+          "start": "2026-10-13T10:00",
+          "end": "2026-10-13T13:00",
+          "note": "верстка главной"
+        },
+        {
+          "project": "Сайт для Ромашки",
+          "activity": "Вёрстка",
+          "start": "2026-10-14T10:00",
+          "end": "2026-10-14T12:00",
+          "note": "адаптив"
+        }
+      ],
+      "approved_weeks": [
+        [
+          "2026-10-05",
+          "2026-10-11"
+        ]
+      ],
+      "zone": {
+        "owns": [
+          "утверждение недель",
+          "выплаты",
+          "настройки команды",
+          "закрытие правок по сроку"
+        ],
+        "touches": [
+          "табель",
+          "счета",
+          "клиенты"
+        ],
+        "must_not_see": []
+      },
+      "journeys": [
+        "owner-approve-and-pay",
+        "owner-autolock-setting"
+      ]
+    },
+    {
+      "id": "maria",
+      "name": "Мария Соколова",
+      "email": "maria@persona.test",
+      "audience": "Фрилансер",
+      "role": "Фрилансер-дизайнер: личное пространство, табель, цели по часам, счёт клиенту из учтённого времени.",
+      "company": "Мария Соколова (самозанятая)",
+      "preset": "freelance",
+      "clients": [
+        "Кафе «Лето»"
+      ],
+      "projects": [
+        {
+          "name": "Меню кафе",
+          "rate_rub": 2500,
+          "billable": true,
+          "client": "Кафе «Лето»"
+        }
+      ],
+      "sessions": [
+        {
+          "project": "Меню кафе",
+          "activity": "Иллюстрации",
+          "start": "2026-10-06T11:00",
+          "end": "2026-10-06T14:00",
+          "note": "блюда, зима"
+        },
+        {
+          "project": "Меню кафе",
+          "activity": "Иллюстрации",
+          "start": "2026-10-09T10:00",
+          "end": "2026-10-09T11:00",
+          "note": "правки от клиента"
+        }
+      ],
+      "approved_weeks": [],
+      "zone": {
+        "owns": [
+          "личное время",
+          "табель",
+          "цели",
+          "счета"
+        ],
+        "touches": [
+          "статистика",
+          "клиенты"
+        ],
+        "must_not_see": [
+          "команда",
+          "выплаты участникам"
+        ]
+      },
+      "journeys": [
+        "freelancer-timesheet-and-goal",
+        "freelancer-invoice-from-time"
+      ]
+    }
+  ]
+}
