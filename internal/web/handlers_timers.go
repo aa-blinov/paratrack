@@ -162,6 +162,10 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "already stopped", http.StatusConflict)
 			return
 		}
+		// A session in an approved week is refused with the same message as an edit.
+		if s.writeSessionLockConflict(w, r, err) {
+			return
+		}
 		s.writeInternalError(w, err)
 		return
 	}

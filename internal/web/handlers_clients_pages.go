@@ -588,13 +588,14 @@ func (s *Server) handleClientDetail(w http.ResponseWriter, r *http.Request) {
 			Status: inv.Status, Currency: inv.Currency,
 			TotalLabel: moneyL(lang, inv.TotalCents, inv.Currency),
 		}
+		loc := userLoc(r)
 		// Printed like every other period in the app. The end is exclusive, hence
 		// the day pulled back: an invoice for 1 to 31 August reads 1 to 31 August.
 		switch {
 		case !inv.PeriodStart.IsZero() && !inv.PeriodEnd.IsZero():
-			row.Period = fmtDate(lang, inv.PeriodStart) + " – " + fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1))
+			row.Period = fmtDate(lang, inv.PeriodStart.In(loc)) + " – " + fmtDate(lang, inv.PeriodEnd.In(loc).AddDate(0, 0, -1))
 		case !inv.PeriodStart.IsZero():
-			row.Period = fmtDate(lang, inv.PeriodStart)
+			row.Period = fmtDate(lang, inv.PeriodStart.In(loc))
 		}
 		invoiceRows = append(invoiceRows, row)
 	}
