@@ -78,6 +78,9 @@ func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartReques
 	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockApprovedWeek(ctx, tx, teamID, startAt); err != nil {
+		return model.Session{}, err
+	}
 	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
 		return model.Session{}, err
 	}
