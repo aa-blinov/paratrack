@@ -24,7 +24,10 @@ docker compose build app
 
 docker compose up -d --wait db
 mkdir -p "$BACKUPS"
-docker compose exec -T db pg_dump -U paratrack -d paratrack | gzip >"$BACKUPS/$STAMP.sql.gz"
+# No pipe: under sh there is no pipefail, so a failed pg_dump behind gzip would
+# still leave a gzip exit 0 and a deploy with no usable backup.
+docker compose exec -T db pg_dump -U paratrack -d paratrack >"$BACKUPS/$STAMP.sql"
+gzip "$BACKUPS/$STAMP.sql"
 
 docker compose up -d --no-build app
 

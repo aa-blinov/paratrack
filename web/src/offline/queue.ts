@@ -5,9 +5,11 @@ export const QUEUE_KEY = "paratrack-offline-queue"
 
 export type FormEntries = [string, string][]
 
+// key identifies one queued write for every replay of it (Idempotency-Key). Items
+// queued by an earlier build have none and are sent without it, as before.
 export type QueueItem =
-  | { verb: string; url: string; ts?: number; encoding: "json"; body: Record<string, unknown> }
-  | { verb: string; url: string; ts?: number; encoding: "form"; body: FormEntries }
+  | { verb: string; url: string; ts?: number; key?: string; encoding: "json"; body: Record<string, unknown> }
+  | { verb: string; url: string; ts?: number; key?: string; encoding: "form"; body: FormEntries }
 
 export function readQueue(storage: Storage | null): QueueItem[] {
   if (!storage) return []
@@ -34,6 +36,7 @@ export function isValidQueueItem(item: unknown): item is QueueItem {
   const candidate = item as Record<string, unknown>
   if (typeof candidate.verb !== "string" || typeof candidate.url !== "string") return false
   if (candidate.ts !== undefined && typeof candidate.ts !== "number") return false
+  if (candidate.key !== undefined && typeof candidate.key !== "string") return false
   if (candidate.encoding === "json") {
     return candidate.body !== null && typeof candidate.body === "object" && !Array.isArray(candidate.body)
   }

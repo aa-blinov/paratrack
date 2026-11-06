@@ -5,12 +5,11 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
-	"path/filepath"
 	"strings"
 )
 
 func checkDatabaseContextCalls(fset *token.FileSet, parsed map[string]*ast.File) error {
-	sources, err := filepath.Glob("internal/db/*.go")
+	sources, err := globSlash("internal/db/*.go")
 	if err != nil {
 		return fmt.Errorf("list database sources: %w", err)
 	}
@@ -88,7 +87,7 @@ func checkTransactionalEvents(fset *token.FileSet, parsed map[string]*ast.File) 
 }
 
 func discoverTransactionalEvents(fset *token.FileSet, parsed map[string]*ast.File, declared map[string]bool) error {
-	sources, err := filepath.Glob("internal/db/*.go")
+	sources, err := globSlash("internal/db/*.go")
 	if err != nil {
 		return fmt.Errorf("list database sources: %w", err)
 	}
@@ -211,7 +210,7 @@ func expressionReferencesIdentifier(expression ast.Expr, name string) bool {
 }
 
 func checkDatabaseTransactions(fset *token.FileSet, parsed map[string]*ast.File) error {
-	sources, err := filepath.Glob("internal/db/*.go")
+	sources, err := globSlash("internal/db/*.go")
 	if err != nil {
 		return fmt.Errorf("list database sources: %w", err)
 	}
@@ -386,7 +385,7 @@ func validateTransactionalSnapshot(fset *token.FileSet, source string, file *ast
 }
 
 func checkDatabaseRowsClosed(fset *token.FileSet, parsed map[string]*ast.File) error {
-	sources, err := filepath.Glob("internal/db/*.go")
+	sources, err := globSlash("internal/db/*.go")
 	if err != nil {
 		return fmt.Errorf("list database sources: %w", err)
 	}

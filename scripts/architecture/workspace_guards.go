@@ -21,7 +21,7 @@ func checkWorkflowWorkspaceGuardCoverage(fset *token.FileSet, parsed map[string]
 		"internal/push/service.go:EnqueueNotification": true,
 	}
 	for _, packagePath := range packages {
-		sources, err := filepath.Glob(filepath.Join(packagePath, "*.go"))
+		sources, err := globSlash(filepath.Join(packagePath, "*.go"))
 		if err != nil {
 			return fmt.Errorf("list workflow sources in %s: %w", packagePath, err)
 		}
@@ -43,7 +43,8 @@ func checkWorkflowWorkspaceGuardCoverage(fset *token.FileSet, parsed map[string]
 				if !ok || function.Recv == nil || !ast.IsExported(function.Name.Name) || !hasWorkspaceParameter(function, workspaceTypes) {
 					continue
 				}
-				key := source + ":" + function.Name.Name
+				// Exceptions are written with forward slashes; a Windows path must match them too.
+				key := filepath.ToSlash(source) + ":" + function.Name.Name
 				if exceptions[key] {
 					continue
 				}
@@ -167,7 +168,7 @@ func workspaceStructFields(file *ast.File) map[string]map[string]bool {
 func contractWorkspaceStructFields(fset *token.FileSet) (map[string]map[string]bool, error) {
 	fields := make(map[string]map[string]bool)
 	for _, pattern := range []string{"internal/model/*.go", "internal/appmodel/*.go"} {
-		sources, err := filepath.Glob(pattern)
+		sources, err := globSlash(pattern)
 		if err != nil {
 			return nil, fmt.Errorf("list application contract sources: %w", err)
 		}
