@@ -16,6 +16,10 @@ func closedExactSession(t *testing.T, email string) (*apiEnv, string, time.Time,
 	t.Helper()
 	e := newAPIEnv(t)
 	e.register(email)
+	// The form times the tests send are UTC, so the workspace reads them in UTC.
+	// Without it they were read in the machine's zone, and an end written in UTC
+	// could land before the start when that zone is ahead of UTC.
+	readBody(t, e.do("POST", "/api/team/calendar", url.Values{"timezone": {"UTC"}, "week_start": {"mon"}}, nil))
 	readBody(t, e.do("POST", "/api/start", url.Values{"activity": {"exact"}}, map[string]string{"HX-Request": "true"}))
 	ids := activeSessionIDs(t, e)
 	if len(ids) == 0 {

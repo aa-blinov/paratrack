@@ -302,6 +302,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		return nil, fmt.Errorf("construct dashboard builder: %w", err)
 	}
 	return &Services{
+		Idempotency:             database,
 		Billing:                 billingService,
 		Auth:                    authService,
 		TokenAdmin:              tokenAdminBuilder,

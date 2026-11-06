@@ -8,6 +8,10 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	// Form and HTMX submissions under /api paths remain on the pages mux
 	// above, where unauthenticated requests redirect to the login page.
 	api := func(method, path string, h http.HandlerFunc) {
+		if method != http.MethodGet {
+			// Only a write that carries an Idempotency-Key header is affected.
+			h = s.idempotent(h)
+		}
 		mux.Handle(method+" "+path, apiAuth(h))
 	}
 

@@ -54,7 +54,9 @@ type FieldProps = {
    * calendar. The session editor saves on this, exactly as it saved when the
    * native control reported a blur.
    */
-  onCommit?: () => void
+  // Receives the value to save: a pick commits the day it just chose, which is
+  // not yet in the caller's state when the callback runs.
+  onCommit?: (iso: string) => void
 }
 
 function todayISO(): string {
@@ -246,7 +248,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
           onBrokenChange?.(broken)
           accept(parsed === null ? "" : parsed)
         }}
-        onBlur={() => onCommit?.()}
+        onBlur={() => onCommit?.(iso)}
         // A click or Enter opens the grid, a Tab passing through does not:
         // on a phone the grid opened with the keyboard and hid the next field.
         onClick={() => setOpen(true)}
@@ -283,7 +285,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
           setBroken(false)
           onBrokenChange?.(false)
           setOpen(false)
-          onCommit?.()
+          onCommit?.(next)
         }}
         />
       </div>,

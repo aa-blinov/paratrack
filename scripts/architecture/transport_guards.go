@@ -11,7 +11,7 @@ import (
 )
 
 func checkTransportGuards(fset *token.FileSet) error {
-	paths, err := filepath.Glob("internal/web/*.go")
+	paths, err := globSlash("internal/web/*.go")
 	if err != nil {
 		return fmt.Errorf("find HTTP adapter sources: %w", err)
 	}
@@ -38,6 +38,7 @@ func checkJSONSerialization(fset *token.FileSet) error {
 		if walkErr != nil {
 			return fmt.Errorf("walk internal source tree: %w", walkErr)
 		}
+		path = filepath.ToSlash(path)
 		if entry.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}

@@ -19,7 +19,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 
 	// Timesheet and saved reports.
 	pages.HandleFunc("GET /timesheet", s.mine(s.handleTimesheet))
-	pages.HandleFunc("POST /api/timesheet/cell", s.mine(s.handleTimesheetCell))
+	pages.HandleFunc("POST /api/timesheet/cell", s.mine(s.idempotent(s.handleTimesheetCell)))
 	pages.HandleFunc("POST /api/timesheet/row/clear", s.mine(s.handleTimesheetRowClear))
 	pages.HandleFunc("POST /api/timesheet/approve", s.manage(s.handleTimesheetApprove))
 	pages.HandleFunc("POST /api/timesheet/reopen", s.manage(s.handleTimesheetReopen))
@@ -77,7 +77,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /schedule", s.module("schedule", s.handleSchedule))
 	// Managers plan any project; a project's lead plans that one. The write
 	// rule lives in the database, so the route only needs a signed-in member.
-	pages.HandleFunc("POST /api/schedule/cell", s.module("schedule", s.handleScheduleCell))
+	pages.HandleFunc("POST /api/schedule/cell", s.module("schedule", s.idempotent(s.handleScheduleCell)))
 	pages.HandleFunc("POST /api/schedule/line", s.module("schedule", s.handleScheduleLine))
 	pages.HandleFunc("POST /api/schedule/line/remove", s.module("schedule", s.handleScheduleLineRemove))
 	pages.HandleFunc("POST /api/schedule/copy", s.module("schedule", s.manage(s.handleScheduleCopy)))

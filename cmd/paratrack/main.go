@@ -97,7 +97,8 @@ func main() {
 		runtimeDeps.ReminderWorker = services.Reminders
 		runtimeDeps.CalendarSyncWorker = services.CalendarSync
 		server, err := web.New(web.Dependencies{
-			Billing: services.Billing,
+			Idempotency: services.Idempotency,
+			Billing:     services.Billing,
 			Auth: web.AuthenticationDependencies{
 				Identity: services.Auth, SignIn: services.Auth, Recovery: services.Auth,
 				Profile: services.Auth, APITokens: services.Auth,

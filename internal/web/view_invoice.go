@@ -180,10 +180,11 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 			RateCents: line.RateCents, AmountCents: line.AmountCents, Seconds: line.Seconds,
 		})
 	}
+	loc := userLoc(r)
 	vm := invoiceVM{
 		ID: inv.ID, Number: inv.Number, ClientName: inv.ClientName,
-		PeriodLabel: periodSpan(lang, fmtDate(lang, inv.PeriodStart), fmtDate(lang, inv.PeriodEnd.AddDate(0, 0, -1))),
-		PeriodISO:   inv.PeriodStart.Format("2006-01-02") + " – " + inv.PeriodEnd.AddDate(0, 0, -1).Format("2006-01-02"),
+		PeriodLabel: periodSpan(lang, fmtDate(lang, inv.PeriodStart.In(loc)), fmtDate(lang, inv.PeriodEnd.In(loc).AddDate(0, 0, -1))),
+		PeriodISO:   inv.PeriodStart.In(loc).Format("2006-01-02") + " – " + inv.PeriodEnd.In(loc).AddDate(0, 0, -1).Format("2006-01-02"),
 		Status:      inv.Status, Notes: inv.Notes, Lines: vms,
 		Total: moneyL(lang, details.TotalCents, inv.Currency), TotalCents: details.TotalCents,
 		Hours:      fmtHoursL(lang, details.TotalHoursHundredths),
