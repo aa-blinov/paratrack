@@ -15,6 +15,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/clients"
 	"github.com/aa-blinov/paratrack/internal/crm"
 	"github.com/aa-blinov/paratrack/internal/dashboard"
+	"github.com/aa-blinov/paratrack/internal/db"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/goals"
 	"github.com/aa-blinov/paratrack/internal/importing"
@@ -46,6 +47,7 @@ import (
 // persistence and outbound adapters. Transport packages receive only their
 // own consumer-defined interfaces.
 type Services struct {
+	Idempotency             *db.DB
 	Search                  *search.Service
 	Billing                 *billing.Service
 	Auth                    *auth.Service
