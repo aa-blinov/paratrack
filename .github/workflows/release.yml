@@ -1,13 +1,23 @@
 name: release
 
-# Tag-triggered release. A tag of v* produces a release with the artefacts
-# the project ships, and the changelog section for that version becomes the
-# release body.
+# Release for a version tag. The changelog section for that version becomes the
+# release body, and the Linux binary built by the command the README documents
+# goes with it, with its checksum.
+#
+# Runs on a v* tag push. It can also run by hand for a tag that already exists:
+#   gh workflow run release.yml --ref master -f tag=v0.2.0
+# The workflow file is read from the branch the run starts on, so a fix to this
+# file reaches a tag that was cut before the fix.
 
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build and publish, for example v0.2.0'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -19,18 +29,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
-      - name: Extract the version and its changelog section
+      - name: Resolve the version and its changelog section
         id: version
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building $VERSION"
+          echo "Building $VERSION from $TAG"
           # The body is the section between this version's heading and the next one, so
           # a release never carries the whole changelog. An empty section means the tag
           # was cut before its changelog was written, and nothing must be published.
@@ -41,13 +55,36 @@ jobs:
           ' CHANGELOG.md > release-notes.md
           test -s release-notes.md || { echo "CHANGELOG.md has no section for $VERSION" >&2; exit 1; }
 
-      - name: Build
-        # Replace with the real build. The rule is that the artefact that
-        # ships is produced by the same command the README documents.
-        run: echo "Replace with the build command for this stack."
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.27.3'
+          cache: true
+
+      - name: Build the binary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # make build runs make ui first, so the binary embeds the bundle built from
+          # web/src, the same way the Docker image does. VERSION is stamped into the
+          # binary, which is what the footer shows.
+          make build VERSION="$VERSION"
+          ASSET="paratrack-$VERSION-linux-amd64"
+          mv paratrack "$ASSET"
+          sha256sum "$ASSET" > SHA256SUMS
+          cat SHA256SUMS
 
       - name: Publish
         uses: softprops/action-gh-release@v3
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           generate_release_notes: false
           body_path: release-notes.md
+          files: |
+            paratrack-${{ steps.version.outputs.version }}-linux-amd64
+            SHA256SUMS
