@@ -25,12 +25,21 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Extract the version
+      - name: Extract the version and its changelog section
         id: version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Building $VERSION"
+          # The body is the section between this version's heading and the next one, so
+          # a release never carries the whole changelog. An empty section means the tag
+          # was cut before its changelog was written, and nothing must be published.
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { on = 1; next }
+            on && /^## / { exit }
+            on { print }
+          ' CHANGELOG.md > release-notes.md
+          test -s release-notes.md || { echo "CHANGELOG.md has no section for $VERSION" >&2; exit 1; }
 
       - name: Build
         # Replace with the real build. The rule is that the artefact that
@@ -40,5 +49,5 @@ jobs:
       - name: Publish
         uses: softprops/action-gh-release@v3
         with:
-          generate_release_notes: true
-          body_path: CHANGELOG.md
+          generate_release_notes: false
+          body_path: release-notes.md
