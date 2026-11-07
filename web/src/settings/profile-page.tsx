@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import type { ProfileData } from "@/dashboard/types"
+import { TwoFactorCard } from "@/settings/two-factor-card"
 
 export function ProfilePage({ data }: { data: ProfileData }) {
   const lang = data.Lang || "en"
@@ -70,5 +71,6 @@ export function ProfilePage({ data }: { data: ProfileData }) {
         <Button type="submit" className="w-fit">{t(lang, "profile.updatePassword")}</Button>
       </form>
     </CardContent></Card>
+    <TwoFactorCard data={data} />
   </main>
 }

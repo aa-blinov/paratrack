@@ -14,6 +14,8 @@ type profilePageData struct {
 	Active    string
 	User      userView
 	CanManage bool
+	// TwoFactorEnabled is on when a one-time code is asked after the password (SEC-02).
+	TwoFactorEnabled bool
 	// A member sees the workspace they belong to and can leave it; an owner
 	// transfers ownership first, so the owner gets no button here.
 	Team         teamView
@@ -61,6 +63,11 @@ func (s *Server) handleSettingsProfile(w http.ResponseWriter, r *http.Request) {
 		Active:       "settings-profile",
 		User:         userViewOf(user),
 		ProfileReact: true,
+	}
+	if enabled, err := s.services.Auth.Profile.TwoFactorEnabled(r.Context(), user.ID); err == nil {
+		data.TwoFactorEnabled = enabled
+	} else {
+		s.logInternalError(err)
 	}
 	if team, ok := TeamFrom(r.Context()); ok {
 		role := RoleFrom(r.Context())

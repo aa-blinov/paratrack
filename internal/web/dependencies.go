@@ -496,6 +496,14 @@ type SignInWorkflow interface {
 	AuthenticatePassword(context.Context, appmodel.PasswordLoginRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error)
 	AuthenticateSSO(context.Context, appmodel.SSOAuthenticationRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, bool, error)
 	RegisterAndStartSession(context.Context, appmodel.RegistrationRequest) (appmodel.AuthSessionCredential, int64, error)
+	// RegisterAccount is the signup: with the email check on it leaves a confirmation token
+	// to mail instead of a session (SEC-01).
+	RegisterAccount(context.Context, appmodel.RegistrationRequest) (appmodel.RegistrationOutcome, error)
+	ResendEmailVerification(context.Context, int64) (appmodel.UserIdentity, string, error)
+	ConfirmEmail(context.Context, string) (appmodel.UserIdentity, error)
+	// StartTwoFactor opens the code step after a correct password (SEC-02).
+	StartTwoFactor(context.Context, int64) (string, error)
+	CompleteTwoFactor(context.Context, appmodel.TwoFactorLoginRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error)
 }
 
 // PasswordRecoveryWorkflow owns password reset request and completion.
@@ -509,6 +517,11 @@ type ProfileWorkflow interface {
 	UpdateName(context.Context, appmodel.ProfileNameRequest) error
 	ChangeEmail(context.Context, appmodel.ProfileEmailRequest) error
 	ChangePassword(context.Context, appmodel.PasswordChangeRequest) error
+	// The two-factor set-up on the profile page (SEC-02).
+	TwoFactorEnabled(context.Context, int64) (bool, error)
+	BeginTwoFactor(context.Context, int64) (appmodel.TwoFactorSetup, error)
+	ConfirmTwoFactor(context.Context, appmodel.TwoFactorConfirmRequest) ([]string, error)
+	DisableTwoFactor(context.Context, appmodel.TwoFactorDisableRequest) error
 }
 
 // APITokenWorkflow manages a user's personal API tokens.

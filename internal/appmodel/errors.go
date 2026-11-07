@@ -63,9 +63,27 @@ var (
 	ErrAuthBadPassword           = errors.New("bad password")
 	ErrAuthCredentialsInvalid    = errors.New("credentials invalid")
 	ErrAuthResetInvalid          = errors.New("reset token invalid")
-	ErrAuthSessionInvalid        = errors.New("session invalid")
-	ErrAuthForbidden             = model.ErrForbidden
-	ErrAuthTokenInvalid          = model.ErrTokenInvalid
+	// ErrAuthEmailNotVerified refuses a password sign-in on an account whose signup
+	// address is not confirmed yet. The answer carries the account, so the caller can
+	// send the confirmation again.
+	ErrAuthEmailNotVerified = errors.New("email not verified")
+	// ErrAuthVerificationInvalid is the one answer for a confirmation link that is unknown,
+	// used, or expired.
+	ErrAuthVerificationInvalid = errors.New("verification link invalid")
+	// ErrAuthTwoFactorRequired means the password was right and a one-time code is
+	// still owed; the answer carries the account, so the caller can open the code step.
+	ErrAuthTwoFactorRequired = errors.New("two-factor code required")
+	// ErrAuthTwoFactorInvalid refuses a wrong code, a used code or a used recovery code.
+	ErrAuthTwoFactorInvalid = errors.New("two-factor code invalid")
+	// ErrAuthChallengeInvalid is the one answer for a code step that is unknown, expired
+	// or out of attempts. The caller must not tell which of these it was.
+	ErrAuthChallengeInvalid = errors.New("two-factor challenge invalid")
+	// ErrAuthTwoFactorState refuses a set-up step that does not fit the account: a second
+	// set-up while one is on, or a confirmation with nothing started.
+	ErrAuthTwoFactorState = errors.New("two-factor state does not allow this")
+	ErrAuthSessionInvalid = errors.New("session invalid")
+	ErrAuthForbidden      = model.ErrForbidden
+	ErrAuthTokenInvalid   = model.ErrTokenInvalid
 	// ErrAuthEmailTaken marks a profile email change that collides with
 	// another account. It is separate from ErrAuthInvalidEmail so the
 	// form can say "already in use" instead of "malformed".
@@ -94,4 +112,8 @@ var (
 const (
 	SessionTTL = 30 * 24 * time.Hour
 	ResetTTL   = 30 * time.Minute
+	// VerificationTTL is how long a signup confirmation link works.
+	VerificationTTL = 48 * time.Hour
+	// ChallengeTTL is how long a password-accepted sign-in waits for its one-time code.
+	ChallengeTTL = 5 * time.Minute
 )

@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/aa-blinov/paratrack/internal/app"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -34,12 +35,18 @@ type apiEnv struct {
 
 func newAPIEnv(t *testing.T) *apiEnv {
 	t.Helper()
+	return newAPIEnvWith(t, nil)
+}
+
+// newAPIEnvWith is newAPIEnv with the application configuration adjusted by mutate.
+func newAPIEnvWith(t *testing.T, mutate func(*app.Config)) *apiEnv {
+	t.Helper()
 	d, err := testutil.OpenTest(t)
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
 	t.Cleanup(func() { _ = d.Close() })
-	srv, err := newServerForTest(d, "127.0.0.1:0")
+	srv, err := newServerForTestWith(d, "127.0.0.1:0", mutate)
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}

@@ -73,6 +73,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		data.ErrorMsg = humaniseAuthError(errMsg, resolveLang(r))
 	}
+	if notice := r.URL.Query().Get("notice"); notice != "" {
+		data.InfoMsg = humaniseAuthNotice(notice, resolveLang(r))
+	}
 	data.ErrorMsg = inviteLinkProblem(data.ErrorMsg, data.Next, data.InviteTeam, resolveLang(r))
 	data.CSRFToken = ensureCSRF(w, r)
 	data.Lang = string(resolveLang(r))
@@ -116,6 +119,32 @@ func (s *Server) handleAPILogin(w http.ResponseWriter, r *http.Request) {
 		// Same message for "no such user" and "wrong password" — don't
 		// leak which one it was.
 		http.Redirect(w, r, "/login?error=bad_credentials", http.StatusSeeOther)
+		return
+	}
+	if errors.Is(err, appmodel.ErrAuthEmailNotVerified) {
+		// The password was right, so the person may have lost the first link: send it again
+		// (at most once a minute) and say where to look.
+		if identity, token, rerr := s.services.Auth.SignIn.ResendEmailVerification(operationContext(r), user.ID); rerr != nil {
+			s.logInternalError(rerr)
+		} else if token != "" {
+			s.sendVerificationMail(r, identity, token)
+		}
+		http.Redirect(w, r, "/login?error=email_unverified", http.StatusSeeOther)
+		return
+	}
+	if errors.Is(err, appmodel.ErrAuthTwoFactorRequired) {
+		challenge, cerr := s.services.Auth.SignIn.StartTwoFactor(operationContext(r), user.ID)
+		if cerr != nil {
+			s.logInternalError(cerr)
+			http.Redirect(w, r, "/login?error=internal", http.StatusSeeOther)
+			return
+		}
+		setTwoFactorCookie(w, r, challenge)
+		target := "/login/2fa"
+		if localPath(next) {
+			target += "?next=" + url.QueryEscape(next)
+		}
+		http.Redirect(w, r, target, http.StatusSeeOther)
 		return
 	}
 	if err != nil {
@@ -232,7 +261,7 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	teamName := personalTeamName(name)
-	sess, _, err := s.services.Auth.SignIn.RegisterAndStartSession(operationContext(r), appmodel.RegistrationRequest{
+	outcome, err := s.services.Auth.SignIn.RegisterAccount(operationContext(r), appmodel.RegistrationRequest{
 		Email: email, Password: password, Name: name, TeamName: teamName,
 	})
 	if err != nil {
@@ -248,7 +277,13 @@ func (s *Server) handleAPIRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/register?error="+code+keep, http.StatusSeeOther)
 		return
 	}
-	setSessionCookie(w, r, sess.Token)
+	if outcome.VerifyToken != "" {
+		// The address must be confirmed before the first sign-in: mail the link, sign nothing in.
+		s.sendVerificationMail(r, outcome.Identity, outcome.VerifyToken)
+		http.Redirect(w, r, "/login?notice=verify_sent", http.StatusSeeOther)
+		return
+	}
+	setSessionCookie(w, r, outcome.Session.Token)
 	// A fresh account answers one question first: what the app is for.
 	redirect := "/welcome"
 	if localPath(next) {
@@ -298,9 +333,29 @@ func humaniseAuthError(code string, lang i18n.Lang) string {
 		return i18n.T(lang, "err.emailTaken")
 	case "reset_invalid":
 		return i18n.T(lang, "err.resetInvalid")
+	case "email_unverified":
+		return i18n.T(lang, "auth.err.emailNotVerified")
+	case "verify_invalid":
+		return i18n.T(lang, "auth.err.verifyInvalid")
+	case "bad_code":
+		return i18n.T(lang, "auth.err.badCode")
+	case "challenge_invalid":
+		return i18n.T(lang, "auth.err.challengeInvalid")
 	case "internal":
 		return i18n.T(lang, "err.internal")
 	default:
 		return i18n.T(lang, "err.generic")
+	}
+}
+
+// humaniseAuthNotice words the notices the sign-in page can carry after a step that succeeded.
+func humaniseAuthNotice(code string, lang i18n.Lang) string {
+	switch code {
+	case "verify_sent":
+		return i18n.T(lang, "auth.notice.verifySent")
+	case "verified":
+		return i18n.T(lang, "auth.notice.verified")
+	default:
+		return ""
 	}
 }

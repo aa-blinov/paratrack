@@ -12,6 +12,11 @@ type User struct {
 	Name         string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	// EmailUnverified is set on an account whose signup address is not confirmed yet.
+	// Accounts from before the check have it clear.
+	EmailUnverified bool
+	// TwoFactorEnabled is set when a one-time code is asked after the password.
+	TwoFactorEnabled bool
 }
 
 // AuthSession is a persisted browser login session.

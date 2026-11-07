@@ -417,6 +417,8 @@ list are in [MCP.md](MCP.md).
 | Passwords | bcrypt |
 | API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once. A password change or reset deletes the account's API tokens |
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
+| Signup confirmation (SEC-01) | A new account starts unverified. Its link (`/verify-email?token=`, 48 h, single use, only the SHA-256 kept) goes by mail, and a password sign-in before it is refused with a fresh link at most once a minute. A completed password reset confirms the address too. Accounts from before the check are unaffected. `PARATRACK_REQUIRE_EMAIL_VERIFICATION=0` turns the check off; the test suites and the QA stand do |
+| Two-factor sign-in (SEC-02) | Optional per account. TOTP as an authenticator app reads it (SHA-1, six digits, 30 s, one step accepted either side); the secret is sealed with `PARATRACK_SECRET_KEY`. Set-up is on the profile page and ends with ten one-time recovery codes, shown once and stored as hashes. A code counts once per step. The open step lives five minutes in an HttpOnly cookie and ends after five wrong codes. Turning it off asks the password and a current code. An API token cannot change it. Single sign-on does not ask it: the identity provider decides |
 | Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
 | Sessions | HttpOnly + `Secure` cookies when the request is TLS |
 | Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
@@ -429,11 +431,11 @@ list are in [MCP.md](MCP.md).
 ### Public
 
 ```
-GET  /login /register /forgot-password /reset-password
+GET  /login /login/2fa /register /forgot-password /reset-password /verify-email
 GET  /lang/{code}
 GET  /sso/login /sso/callback          (OIDC, env-gated)
 GET  /sw.js  /static/  /static/manifest.webmanifest
-POST /api/login /api/register /api/logout
+POST /api/login /api/login/2fa /api/register /api/logout
 POST /api/password/forgot /api/password/reset
 POST /api/stripe/webhook               (public, HMAC-verified)
 POST /api/leads/intake                 (public, X-Intake-Key header; OPTIONS answers the CORS preflight)
@@ -450,6 +452,7 @@ POST /api/leads/intake                 (public, X-Intake-Key header; OPTIONS ans
 /tasks /tasks/{id}
 /integrations /integrations/marketplace /integrations/{id}
 /settings/team|members|invites|profile|tokens|webhooks|audit|notifications
+POST /api/profile/2fa/setup /api/profile/2fa/enable /api/profile/2fa/disable   (a person only: a bearer token gets 403)
 /welcome /help
 /invites/{token}
 ```
@@ -589,6 +592,7 @@ Env knobs: `PARATRACK_SMTP_*`, `PARATRACK_JIRA_SITE`, `PARATRACK_GITLAB_SITE`,
 `PARATRACK_GOOGLE_CALENDAR_CLIENT_ID`, `PARATRACK_GOOGLE_CALENDAR_CLIENT_SECRET`, `PARATRACK_MICROSOFT_CALENDAR_CLIENT_ID`,
 `PARATRACK_MICROSOFT_CALENDAR_CLIENT_SECRET` (calendar sync; the redirect URI is `<PARATRACK_PUBLIC_URL>/settings/calendar-sync/<provider>/callback`),
 `PARATRACK_PUBLIC_URL` (required HTTPS origin in production),
+`PARATRACK_REQUIRE_EMAIL_VERIFICATION` (on unless `0`: a new account confirms its address before its first sign-in),
 `PARATRACK_TRUSTED_PROXIES` (comma-separated CIDR ranges for reverse proxies;
 forwarded host/proto/IP headers are ignored from all other peers). The public
 HTTPS origin marks cookies and HSTS secure behind a TLS terminator; trusted
@@ -622,7 +626,7 @@ python e2e/qa_offline_push.py                   # offline + push
 - Live provider import needs real PATs (no sandbox credentials in-repo)
 - `NextInvoiceNumber` returns an advisory display value; concurrent reads may return the same value, while invoice draft creation allocates under a workspace lock. Payroll numbers are allocated inside atomic payroll draft creation.
 - Rate limiting is per-process (single-binary target), with at most 10,000 tracked keys per limiter; when full, unseen keys fail closed until cleanup frees capacity
-- No email verification on signup
+- Two-factor sign-in is per account: nothing requires it for owners or admins, and the email change in the profile does not ask for a fresh confirmation of the new address
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
 - Pay runs are hourly only; there is no per-piece or salary scheme.

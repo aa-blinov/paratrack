@@ -40,7 +40,7 @@ func newTestServer(t *testing.T) (*Server, string) {
 		t.Fatalf("audit service: %v", err)
 	}
 	authSvc, err := auth.NewService(auth.Dependencies{
-		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d,
+		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
 		Now: time.Now, Audit: auditService, Logger: log.Default(),
 	})
 	if err != nil {
@@ -60,7 +60,17 @@ func newTestServer(t *testing.T) (*Server, string) {
 }
 
 func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
-	services, err := app.NewServices(database, app.Config{Logger: log.Default(), Now: time.Now})
+	return newServerForTestWith(database, addr, nil)
+}
+
+// newServerForTestWith builds the test server with the default configuration, adjusted by
+// mutate when given. The flags of a scenario are set here, not in shared state.
+func newServerForTestWith(database *dbpkg.DB, addr string, mutate func(*app.Config)) (*Server, error) {
+	cfg := app.Config{Logger: log.Default(), Now: time.Now}
+	if mutate != nil {
+		mutate(&cfg)
+	}
+	services, err := app.NewServices(database, cfg)
 	if err != nil {
 		return nil, err
 	}

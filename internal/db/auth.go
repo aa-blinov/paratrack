@@ -26,8 +26,8 @@ func (d *DB) CreateAccount(ctx context.Context, request appmodel.AccountCreateRe
 	request.TeamName = strings.TrimSpace(request.TeamName)
 	stamp := FormatTime(d.currentTime().UTC())
 	if err := tx.QueryRowContext(ctx,
-		`INSERT INTO users (email, password_hash, name, created_at, updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		request.Email, request.PasswordHash, request.Name, stamp, stamp,
+		`INSERT INTO users (email, password_hash, name, created_at, updated_at, email_unverified) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+		request.Email, request.PasswordHash, request.Name, stamp, stamp, boolInt(request.Unverified),
 	).Scan(&userID); err != nil {
 		return 0, 0, fmt.Errorf("insert user: %w", err)
 	}
@@ -53,14 +53,14 @@ func (d *DB) CreateAccount(ctx context.Context, request appmodel.AccountCreateRe
 
 func (d *DB) FindUserByEmail(ctx context.Context, email string) (model.User, error) {
 	return scanAuthUser(d.sql.QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE email = ?`,
+		`SELECT `+userColumns+` FROM users WHERE email = ?`,
 		strings.ToLower(strings.TrimSpace(email)),
 	))
 }
 
 func (d *DB) FindUserByID(ctx context.Context, id int64) (model.User, error) {
 	return scanAuthUser(d.sql.QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE id = ?`, id,
+		`SELECT `+userColumns+` FROM users WHERE id = ?`, id,
 	))
 }
 
@@ -279,8 +279,8 @@ func (d *DB) ConsumePasswordReset(ctx context.Context, request appmodel.Password
 	var user model.User
 	var created, updated string
 	err = tx.QueryRowContext(ctx,
-		`SELECT id, email, password_hash, name, created_at, updated_at FROM users WHERE id = ? FOR UPDATE`, userID,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &created, &updated)
+		`SELECT `+userColumns+` FROM users WHERE id = ? FOR UPDATE`, userID,
+	).Scan(userScanTargets(&user, &created, &updated)...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.User{}, ErrNotFound
 	}
@@ -320,6 +320,10 @@ func (d *DB) ConsumePasswordReset(ctx context.Context, request appmodel.Password
 	if _, err := tx.ExecContext(ctx, `DELETE FROM auth_sessions WHERE user_id = ?`, user.ID); err != nil {
 		return model.User{}, err
 	}
+	// The reset link was sent to this address, so it is proof that the address is ours.
+	if _, err := tx.ExecContext(ctx, `UPDATE users SET email_unverified = 0 WHERE id = ?`, user.ID); err != nil {
+		return model.User{}, err
+	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM api_tokens WHERE user_id = ?`, user.ID); err != nil {
 		return model.User{}, err
 	}
@@ -335,10 +339,18 @@ func (d *DB) ConsumePasswordReset(ctx context.Context, request appmodel.Password
 	return user, nil
 }
 
+// userColumns are the columns every user lookup reads, in the order userScanTargets fills.
+const userColumns = `id, email, password_hash, name, created_at, updated_at, email_unverified, totp_enabled`
+
+// userScanTargets points the columns of userColumns at a user record and its timestamps.
+func userScanTargets(user *model.User, created, updated *string) []any {
+	return []any{&user.ID, &user.Email, &user.PasswordHash, &user.Name, created, updated, &user.EmailUnverified, &user.TwoFactorEnabled}
+}
+
 func scanAuthUser(row interface{ Scan(...any) error }) (model.User, error) {
 	var user model.User
 	var created, updated string
-	if err := row.Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &created, &updated); err != nil {
+	if err := row.Scan(userScanTargets(&user, &created, &updated)...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.User{}, ErrNotFound
 		}

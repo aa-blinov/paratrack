@@ -122,6 +122,10 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/profile", s.handleAPIProfileUpdate)
 	api("POST", "/api/team/leave", s.handleAPITeamLeave)
 	api("POST", "/api/profile/email", s.handleAPIProfileEmail)
+	// The second factor is managed by a person, not by a token: a bearer token is refused here.
+	api("POST", "/api/profile/2fa/setup", personOnly(s.handleAPITwoFactorSetup))
+	api("POST", "/api/profile/2fa/enable", personOnly(s.handleAPITwoFactorEnable))
+	api("POST", "/api/profile/2fa/disable", personOnly(s.handleAPITwoFactorDisable))
 	api("POST", "/api/profile/password", s.handleAPIProfilePassword)
 
 	// Project API.

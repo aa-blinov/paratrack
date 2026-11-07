@@ -86,7 +86,10 @@ cmd_up() {
 	go build -o "/tmp/$QA_NAME-server" ./cmd/paratrack
 
 	log "starting stand on $QA_PORT"
+	# The browser suites register and sign in at once, so the stand waives the signup
+	# confirmation by default. QA_REQUIRE_EMAIL_VERIFICATION=1 keeps it on for a flow check.
 	PARATRACK_ENV=development PARATRACK_DATABASE_URL="$db_url" \
+		PARATRACK_REQUIRE_EMAIL_VERIFICATION="${QA_REQUIRE_EMAIL_VERIFICATION:-0}" \
 		"/tmp/$QA_NAME-server" web --addr "127.0.0.1:$QA_PORT" \
 		>"/tmp/$QA_NAME.log" 2>&1 &
 	server_pid=$!

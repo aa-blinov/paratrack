@@ -100,6 +100,7 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 		{"integrations", "secret"}, {"webhooks", "secret"},
 		{"teams", "stripe_key"}, {"teams", "stripe_webhook_secret"},
 		{"calendar_connections", "access_token"}, {"calendar_connections", "refresh_token"},
+		{"users", "totp_secret"}, {"users", "totp_pending"},
 	}
 	sealPlaintext := d.secrets.aead != nil
 

@@ -13,6 +13,22 @@ function nextHref(path: string, next: string) {
 
 export function AuthPage({ data }: { data: AuthPageData }) {
   const lang = data.Lang || "en"
+  // The code step after a correct password: the one-time code, or a recovery code (SEC-02).
+  if (data.AuthReact === "two-factor") return <main className="flex w-full items-center justify-center px-4 py-6 sm:px-6">
+    <div className="flex w-full max-w-sm flex-col gap-6">
+      <a href="/" className="flex items-center justify-center gap-2 self-center font-medium" aria-label="paratrack">
+        <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground"><Activity className="size-4" aria-hidden="true" /></span>
+        <span className="text-lg tracking-tight">paratrack</span>
+      </a>
+      <Card><CardContent className="grid gap-3 p-6">
+        <h1 className="text-xl font-semibold">{t(lang, "auth.twoFactor.title")}</h1>
+        <p className="mb-1 text-sm text-muted-foreground">{t(lang, "auth.twoFactor.blurb")}</p>
+        {data.ErrorMsg && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{data.ErrorMsg}</p>}
+        <form method="post" action="/api/login/2fa" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="next" value={data.Next} /><div className="grid gap-1.5"><Label htmlFor="code">{t(lang, "auth.twoFactor.code")}</Label><Input id="code" type="text" name="code" required autoComplete="one-time-code" autoCapitalize="characters" spellCheck={false} placeholder={t(lang, "auth.twoFactor.recoveryHint")} autoFocus style={{ fontSize: 16 }} /></div><Button type="submit" className="mt-1 w-full">{t(lang, "auth.twoFactor.submit")}</Button></form>
+        <p className="mt-2 text-center text-sm"><a href="/login" className="underline underline-offset-4">{t(lang, "auth.backToSignIn")}</a></p>
+      </CardContent></Card>
+    </div>
+  </main>
   if (data.AuthReact === "login") return <main className="flex w-full items-center justify-center px-4 py-6 sm:px-6">
     <div className="flex w-full max-w-sm flex-col gap-6">
       <a href="/" className="flex items-center justify-center gap-2 self-center font-medium" aria-label="paratrack">

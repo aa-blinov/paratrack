@@ -70,9 +70,13 @@ type Dependencies struct {
 	Resets      PasswordResetStore
 	Tokens      APITokenStore
 	Memberships MembershipReader
-	Now         func() time.Time
-	Audit       AuditRecorder
-	Logger      Logger
+	// Security holds the confirmation links and the second factor (SEC-01, SEC-02).
+	Security AccountSecurityStore
+	// RequireEmailVerification makes a new account wait for its confirmation link.
+	RequireEmailVerification bool
+	Now                      func() time.Time
+	Audit                    AuditRecorder
+	Logger                   Logger
 }
 
 type AuditRecorder interface {
@@ -94,6 +98,8 @@ type Service struct {
 	resets      PasswordResetStore
 	tokens      APITokenStore
 	memberships MembershipReader
+	security    AccountSecurityStore
+	requireMail bool
 	now         func() time.Time
 	audit       AuditRecorder
 	logger      Logger
@@ -107,7 +113,7 @@ func NewService(deps Dependencies) (*Service, error) {
 	}{
 		{"users", deps.Users}, {"sessions", deps.Sessions}, {"password resets", deps.Resets},
 		{"API tokens", deps.Tokens}, {"memberships", deps.Memberships},
-		{"audit recorder", deps.Audit}, {"logger", deps.Logger},
+		{"account security", deps.Security}, {"audit recorder", deps.Audit}, {"logger", deps.Logger},
 	}
 	for _, dependency := range missing {
 		if depcheck.IsNil(dependency.port) {
@@ -120,6 +126,7 @@ func NewService(deps Dependencies) (*Service, error) {
 	return &Service{
 		users: deps.Users, sessions: deps.Sessions, resets: deps.Resets,
 		tokens: deps.Tokens, memberships: deps.Memberships, now: deps.Now,
+		security: deps.Security, requireMail: deps.RequireEmailVerification,
 		audit: deps.Audit, logger: deps.Logger,
 	}, nil
 }
@@ -171,6 +178,11 @@ func (s *Service) createUser(ctx context.Context, email, password, name string) 
 // createUserWithTeamName creates the account, its personal workspace with the
 // caller-selected display name, and owner membership as one store operation.
 func (s *Service) createUserWithTeamName(ctx context.Context, request appmodel.RegistrationRequest) (userID, teamID int64, err error) {
+	return s.createAccount(ctx, request, false)
+}
+
+// createAccount is createUserWithTeamName with the choice of starting unverified.
+func (s *Service) createAccount(ctx context.Context, request appmodel.RegistrationRequest, unverified bool) (userID, teamID int64, err error) {
 	if err := Validate(request.Email, request.Password, request.Name); err != nil {
 		return 0, 0, err
 	}
@@ -188,6 +200,7 @@ func (s *Service) createUserWithTeamName(ctx context.Context, request appmodel.R
 
 	userID, teamID, err = s.users.CreateAccount(ctx, appmodel.AccountCreateRequest{
 		Email: request.Email, PasswordHash: string(hash), Name: request.Name, TeamName: request.TeamName,
+		Unverified: unverified,
 	})
 	if err != nil {
 		return 0, 0, err
@@ -229,6 +242,14 @@ func (s *Service) AuthenticatePassword(ctx context.Context, request appmodel.Pas
 	}
 	if err := s.verifyPassword(user, request.Password); err != nil {
 		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, ErrCredentialsInvalid
+	}
+	// The password is right, so the account can be named in the answer. Neither refusal
+	// below starts a session: the caller finishes the step it asks for first.
+	if user.EmailUnverified {
+		return identityOf(user), appmodel.AuthSessionCredential{}, appmodel.ErrAuthEmailNotVerified
+	}
+	if user.TwoFactorEnabled {
+		return identityOf(user), appmodel.AuthSessionCredential{}, appmodel.ErrAuthTwoFactorRequired
 	}
 	session, err := s.newSession(ctx, user.ID)
 	if err != nil {
