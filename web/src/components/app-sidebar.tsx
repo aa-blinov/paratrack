@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/sidebar"
 import { translate as t } from "@/i18n"
 
-type NavGroup = "core" | "analysis" | "money" | "team" | "data" | "settings"
+type NavGroup = "core" | "projects" | "sales" | "time" | "team" | "data" | "settings"
 export type ShellNavItem = { group: NavGroup; key: string; href: string; icon: string; label: string; module?: string; manage?: boolean; matchPrefix?: string }
 export type AppSidebarShell = {
   active: string
@@ -36,23 +36,23 @@ export type AppSidebarShell = {
 
 export const nav: ShellNavItem[] = [
   { group: "core", key: "dashboard", href: "/", icon: "activity", label: "nav.dashboard" },
-  { group: "core", key: "projects", href: "/projects", icon: "folder", label: "nav.projects" },
+  { group: "projects", key: "projects", href: "/projects", icon: "folder", label: "nav.projects" },
   // Sits next to Projects because a project is where a client is picked, and
   // the two are read together. It was missing from this table once already —
   // the Go-side navItems only feed the mobile tabs and the settings screen,
   // so a route registered there alone is unreachable from the desktop menu.
-  { group: "core", key: "clients", href: "/clients", icon: "contact", label: "nav.clients" },
-  { group: "core", key: "crm", href: "/crm", icon: "briefcase", label: "nav.crm", module: "crm" },
-  { group: "core", key: "timesheet", href: "/timesheet", icon: "calendar", label: "nav.timesheet" },
-  { group: "core", key: "tasks", href: "/tasks", icon: "list-checks", label: "nav.tasks", module: "tasks" },
-  { group: "core", key: "stats", href: "/stats", icon: "trending-up", label: "nav.stats" },
-  { group: "analysis", key: "graph", href: "/graph", icon: "clock", label: "nav.graph", module: "graph" },
-  { group: "analysis", key: "goals", href: "/goals", icon: "flag", label: "nav.goals", module: "goals" },
-  { group: "analysis", key: "reports", href: "/reports", icon: "file-text", label: "nav.reports", module: "reports", manage: true },
-  { group: "money", key: "invoices", href: "/invoices", icon: "receipt", label: "nav.invoices", module: "invoices", manage: true },
-  { group: "money", key: "payroll", href: "/payroll", icon: "users", label: "nav.payroll", module: "payroll", manage: true },
-  { group: "team", key: "calendar", href: "/calendar", icon: "calendar-days", label: "nav.calendar", module: "calendar" },
+  { group: "projects", key: "clients", href: "/clients", icon: "contact", label: "nav.clients" },
+  { group: "projects", key: "tasks", href: "/tasks", icon: "list-checks", label: "nav.tasks", module: "tasks" },
+  { group: "sales", key: "crm", href: "/crm", icon: "briefcase", label: "nav.crm", module: "crm" },
+  { group: "sales", key: "invoices", href: "/invoices", icon: "receipt", label: "nav.invoices", module: "invoices", manage: true },
+  { group: "time", key: "timesheet", href: "/timesheet", icon: "calendar", label: "nav.timesheet" },
+  { group: "time", key: "stats", href: "/stats", icon: "trending-up", label: "nav.stats" },
+  { group: "time", key: "graph", href: "/graph", icon: "clock", label: "nav.graph", module: "graph" },
+  { group: "time", key: "goals", href: "/goals", icon: "flag", label: "nav.goals", module: "goals" },
+  { group: "time", key: "reports", href: "/reports", icon: "file-text", label: "nav.reports", module: "reports", manage: true },
+  { group: "time", key: "calendar", href: "/calendar", icon: "calendar-days", label: "nav.calendar", module: "calendar" },
   { group: "team", key: "schedule", href: "/schedule", icon: "calendar", label: "nav.schedule", module: "schedule" },
+  { group: "team", key: "payroll", href: "/payroll", icon: "users", label: "nav.payroll", module: "payroll", manage: true },
   // Members and invites live under Settings → Пространство only: listed here
   // too they had two homes, and both lit up on the same page.
   { group: "data", key: "tags", href: "/tags", icon: "tag", label: "nav.tags", module: "tags" },
@@ -66,10 +66,14 @@ export const nav: ShellNavItem[] = [
   { group: "settings", key: "settings", href: "/settings/profile", matchPrefix: "/settings/", icon: "settings", label: "set.title" },
 ]
 
+// The panel reads top to bottom by the work it serves: projects and the clients
+// behind them, the sales that come out of them, the time and reports on them,
+// then the team and the data around all of it. The dashboard stands alone at the top.
 const groups: Array<{ key: NavGroup; label: string }> = [
-  { key: "core", label: "nav.menu" },
-  { key: "analysis", label: "nav.group.analysis" },
-  { key: "money", label: "nav.group.money" },
+  { key: "core", label: "" },
+  { key: "projects", label: "nav.group.projects" },
+  { key: "sales", label: "nav.group.sales" },
+  { key: "time", label: "nav.group.time" },
   { key: "team", label: "nav.group.team" },
   { key: "data", label: "nav.group.data" },
   { key: "settings", label: "set.title" },
@@ -145,7 +149,7 @@ function readRemembered(): boolean {
   }
 }
 
-function NavigationGroup({ title, items, shell, collapsible = false, group }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean; group?: string }) {
+function NavigationGroup({ title, items, shell, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean }) {
   const { setOpenMobile, state } = useSidebar()
   const visible = items.filter(item => available(item, shell))
   const holdsCurrent = visible.some(item => isCurrent(item, shell))
@@ -166,11 +170,11 @@ function NavigationGroup({ title, items, shell, collapsible = false, group }: { 
       return next
     })
   }
-  // A group of one reads better without a heading that repeats it: «Настройки»
-  // above a link also called «Настройки».
-  // A group of one has no heading only where it would repeat its item («Настройки»).
-  // «Расписание» alone under «Команда» read as part of «Деньги» or «Анализ».
-  const heading = visible.length > 1 || group === "team" ? title : null
+  // A group whose only item carries the group's own name shows no heading: «Настройки»
+  // above a link also called «Настройки». Any other group keeps its heading, even
+  // with one item, so «CRM» alone under «Продажи» does not read as part of the group above.
+  const onlyItemNamesGroup = visible.length === 1 && t(shell.lang, visible[0].label) === title
+  const heading = title && !onlyItemNamesGroup ? title : null
   // Tighter vertical padding between groups: six groups at p-2 push the folded menu past a 900px screen.
   return <SidebarGroup className="py-1">
     {heading && collapsible && !holdsCurrent ? <SidebarGroupLabel asChild><button type="button" aria-expanded={open} className="flex w-full items-center justify-between" onClick={toggle}>{heading}<ChevronDown aria-hidden="true" className={`size-4 transition-transform ${open ? "rotate-180" : ""}`} /></button></SidebarGroupLabel> : heading ? <SidebarGroupLabel>{heading}</SidebarGroupLabel> : null}
@@ -252,7 +256,7 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
     </SidebarHeader>
     <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
       <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
-        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={t(shell.lang, group.label)} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} group={group.key} />) }
+        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={group.label ? t(shell.lang, group.label) : ""} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} />) }
         {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-9 w-full shrink-0 flex-col justify-end">
           <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
           <span className="flex h-6 items-center justify-center gap-1 bg-sidebar text-xs text-sidebar-foreground/70"><ChevronDown className="size-3.5" />{t(shell.lang, "nav.more")}</span>

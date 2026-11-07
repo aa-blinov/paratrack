@@ -652,7 +652,15 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
       if (anchor.target && anchor.target !== "_self" || anchor.hasAttribute("download") || anchor.relList.contains("external")) return
       const url = new URL(anchor.href, location.href)
       if (url.origin !== location.origin || !["http:", "https:"].includes(url.protocol)) return
-      if (url.pathname === location.pathname && url.search === location.search) return
+      if (url.pathname === location.pathname && url.search === location.search) {
+        // A link to the page you are on is not a reload. Left alone, the browser
+        // fetches the same document again and the screen blanks. An anchor on this
+        // page keeps the browser's own jump.
+        if (url.hash) return
+        event.preventDefault()
+        window.scrollTo({ top: 0 })
+        return
+      }
       event.preventDefault()
       void navigate(url, "push")
     }

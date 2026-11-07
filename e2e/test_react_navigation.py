@@ -98,13 +98,20 @@ async def check(browser, width):
     else:
         nav = page.locator('[data-sidebar="sidebar"]:visible')
         assert await nav.locator('[data-slot="sidebar-menu-button"][data-active]').count() == 1
-        assert await nav.locator('[data-slot="sidebar-menu-button"]').evaluate_all('items => items.slice(0,4).map(item => item.textContent)') == ['Обзор','Проекты','Клиенты','Табель']
-        assert await nav.locator('[data-slot="sidebar-group-label"]').all_text_contents() == ['Меню','Анализ','Деньги','Команда','Данные']  # «Настройки» is a group of one: no heading, by design
+        assert await nav.locator('[data-slot="sidebar-menu-button"]').evaluate_all('items => items.slice(0,4).map(item => item.textContent)') == ['Обзор','Проекты','Клиенты','Задачи']
+        # «Обзор» stands alone at the top with no heading; «Настройки» is a group of one with no heading either.
+        assert await nav.locator('[data-slot="sidebar-group-label"]').all_text_contents() == ['Проекты','Продажи','Время','Команда','Данные']
         active = nav.locator('[aria-current="page"]')
         inactive = nav.locator('a[href="/projects"]')
         target = ("/projects", "Проекты")
     if width >= 1024:
         assert await active.evaluate("e => getComputedStyle(e).backgroundColor") != await inactive.evaluate("e => getComputedStyle(e).backgroundColor")
+        # A link to the page you are on must not fetch the document again: that reload is what blanked the screen.
+        documents = []
+        page.on("request", lambda request: documents.append(request.url) if request.resource_type == "document" else None)
+        await active.click()
+        await page.wait_for_timeout(300)
+        assert documents == [], f"the current menu item fetched the page again: {documents}"
     await page.evaluate("""() => {
       window.shellBefore = document.querySelector('.app-shell-header');
       window.blankFrames = 0;
@@ -185,7 +192,7 @@ async def check_member_menu(browser):
     assert await nav.locator('a.mobile-nav-row').evaluate_all(
         'items => items.map(item => item.getAttribute("href"))') == [
             '/projects', '/clients', '/schedule', '/export', '/settings/profile',
-            '/settings/preferences', '/settings/notifications', '/settings/tokens', '/help', '/lang/en?next=%2F']
+            '/settings/preferences', '/settings/notifications', '/settings/calendar-sync', '/settings/tokens', '/help', '/lang/en?next=%2F']
     assert '/settings/team' not in await nav.locator('a.mobile-nav-row').evaluate_all(
         'items => items.map(item => item.getAttribute("href"))'), 'a member is not offered a screen that answers 403'
     print("PASS member: disabled modules, manager-only links, and empty groups hidden")
