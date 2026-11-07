@@ -19,6 +19,7 @@ export function LoginForm({ data }: { data: AuthPageData }) {
     </CardHeader>
     <CardContent className="grid gap-4">
       {data.ErrorMsg && <div role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">{data.ErrorMsg}</div>}
+      {data.InfoMsg && <div role="status" className="rounded-md border bg-card p-3 text-sm">{data.InfoMsg}</div>}
       <form method="post" action="/api/login">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <input type="hidden" name="next" value={data.Next} />

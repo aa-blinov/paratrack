@@ -27,6 +27,9 @@ type Config struct {
 	// SMTP and PublicURL let reminders reach managers by email (TIME-14).
 	SMTP      mail.SMTPConfig
 	PublicURL string
+	// RequireEmailVerification makes a new account confirm its address before the first sign-in
+	// (SEC-01). The command turns it on by default; tests and the QA stand may switch it off.
+	RequireEmailVerification bool
 	// CalendarGoogle and CalendarMicrosoft are the OAuth clients of calendar sync (CRM-19).
 	// A provider with an empty client is not offered; with neither, the sync is off.
 	CalendarGoogle    CalendarOAuthClient

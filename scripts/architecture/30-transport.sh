@@ -16,8 +16,8 @@ done
 public_mux_routes=$(sed -nE 's/^[[:space:]]*mux\.Handle(Func)?\("([^"]+)".*/\2/p' internal/web/routes.go)
 while IFS= read -r route; do
 	case "$route" in
-		"GET /login"|"GET /register"|"GET /lang/{code}"|\
-		"POST /api/login"|"POST /api/register"|"POST /api/logout"|\
+		"GET /login"|"GET /login/2fa"|"GET /register"|"GET /verify-email"|"GET /lang/{code}"|\
+		"POST /api/login"|"POST /api/login/2fa"|"POST /api/register"|"POST /api/logout"|\
 		"GET /static/"|"GET /sw.js"|"GET /static/manifest.webmanifest"|\
 		"POST /api/stripe/webhook"|"POST /sentry-tunnel"|\
 		"GET /forgot-password"|"GET /reset-password"|\

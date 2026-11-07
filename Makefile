@@ -95,7 +95,7 @@ e2e:
 e2e-up: build
 	@pgrep -f "paratrack web --addr $(ADDR)" >/dev/null && \
 	  echo "server already running" || \
-	  ( $(BIN) web --addr $(ADDR) > $(SERVER_LOG) 2>&1 & echo $$! > /tmp/paratrack.pid )
+	  ( PARATRACK_REQUIRE_EMAIL_VERIFICATION=0 $(BIN) web --addr $(ADDR) > $(SERVER_LOG) 2>&1 & echo $$! > /tmp/paratrack.pid )
 	@for i in 1 2 3 4 5; do \
 	  curl -sf http://$(ADDR)/ >/dev/null && break; \
 	  sleep 0.5; \

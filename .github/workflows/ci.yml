@@ -203,7 +203,9 @@ jobs:
 
       - name: Start server
         run: |
-          /tmp/paratrack web --addr 127.0.0.1:8888 > /tmp/paratrack.log 2>&1 &
+          # The browser suites sign in right after signing up, so the signup confirmation is
+          # waived here; the confirmation flow has its own Go tests (SEC-01).
+          PARATRACK_REQUIRE_EMAIL_VERIFICATION=0 /tmp/paratrack web --addr 127.0.0.1:8888 > /tmp/paratrack.log 2>&1 &
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8888/ >/dev/null && break
             sleep 0.5

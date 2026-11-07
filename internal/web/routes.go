@@ -28,6 +28,9 @@ func (s *Server) routes() http.Handler {
 	// ----- public -----
 	s.registerPublicRecoveryRoutes(mux)
 	mux.HandleFunc("GET /login", s.handleLogin)
+	mux.HandleFunc("GET /login/2fa", s.handleLogin2FA)
+	mux.HandleFunc("GET /verify-email", s.handleVerifyEmail)
+	mux.Handle("POST /api/login/2fa", s.rateLimit("login-2fa-ip", 60, time.Minute)(http.HandlerFunc(s.handleAPILogin2FA)))
 	mux.HandleFunc("GET /register", s.handleRegister)
 	mux.HandleFunc("GET /lang/{code}", s.handleSetLang)
 	// Per account from an address, plus a ceiling per address (an office

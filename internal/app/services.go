@@ -117,7 +117,9 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	auditService := shared.Audit
 	authService, err := auth.NewService(auth.Dependencies{
 		Users: database, Sessions: database, Resets: database,
-		Tokens: database, Memberships: database, Now: now, Audit: auditService, Logger: logger,
+		Tokens: database, Memberships: database, Security: database,
+		RequireEmailVerification: config.RequireEmailVerification,
+		Now:                      now, Audit: auditService, Logger: logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct auth service: %w", err)

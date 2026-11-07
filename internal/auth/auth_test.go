@@ -37,7 +37,7 @@ func newTestAuthService(t *testing.T, d *dbpkg.DB) *Service {
 		t.Fatalf("create audit service: %v", err)
 	}
 	service, err := NewService(Dependencies{
-		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d,
+		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
 		Now: time.Now, Audit: auditService, Logger: log.New(io.Discard, "", 0),
 	})
 	if err != nil {
@@ -247,7 +247,7 @@ func TestFindByTokenExpiresAtExactBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	svc, err := NewService(Dependencies{
-		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d,
+		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
 		Now: func() time.Time { return now }, Audit: auditService, Logger: log.New(io.Discard, "", 0),
 	})
 	if err != nil {

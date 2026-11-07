@@ -7,6 +7,8 @@ type AccountCreateRequest struct {
 	PasswordHash string `json:"-"`
 	Name         string
 	TeamName     string
+	// Unverified starts the account with its signup address still to be confirmed.
+	Unverified bool
 }
 
 type PasswordHashUpdateRequest struct {

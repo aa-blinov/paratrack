@@ -852,6 +852,7 @@ export interface ProfileData {
   Lang: string
   CSRFToken: string
   CanManage: boolean
+  TwoFactorEnabled: boolean
   ProfileReact: boolean
   User: { ID: number; Email: string; Name: string }
   Flash: string

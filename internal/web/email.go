@@ -141,6 +141,21 @@ func resetEmail(lang i18n.Lang, name, email, link, ttl string) (string, emailVM)
 	}
 }
 
+// verifyEmail is the signup confirmation: one link, sent to the address the account was made with.
+func verifyEmail(lang i18n.Lang, name, email, link, ttl string) (string, emailVM) {
+	T := func(k string) string { return i18n.T(lang, k) }
+	return T("mail.verify.subject"), emailVM{
+		Lang:        string(lang),
+		LogoURL:     "/static/icon192.png",
+		Preheader:   T("mail.verify.pre"),
+		Heading:     T("mail.verify.heading"),
+		Paras:       []string{fmt.Sprintf(T("mail.hi"), name), fmt.Sprintf(T("mail.verify.body"), email)},
+		ButtonLabel: T("mail.verify.button"), ButtonURL: link, ButtonHint: T("mail.orOpen"),
+		After:  []string{fmt.Sprintf(T("mail.verify.ttl"), ttl)},
+		Footer: T("mail.footer"),
+	}
+}
+
 func inviteEmail(lang i18n.Lang, inviter, team, link string) (string, emailVM) {
 	T := func(k string) string { return i18n.T(lang, k) }
 	return fmt.Sprintf(T("mail.invite.subject"), team), emailVM{
