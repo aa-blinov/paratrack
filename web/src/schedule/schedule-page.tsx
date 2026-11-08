@@ -1,6 +1,7 @@
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Copy, Eye, Plus } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -453,10 +454,8 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
         </CardContent>
       </Card>
       <p className="text-sm text-muted-foreground">{t(lang, data.CanManage ? "sch.hint" : "sch.hintMember")}</p>
-    </> : <Card><CardContent className="py-7 text-center">
-      <p className="font-medium">{t(lang, "sch.empty")}</p>
-      <p className="mx-auto mt-1 text-sm text-muted-foreground">{data.CanManage ? t(lang, "sch.emptyHint") : t(lang, "sch.emptyMember")}</p>
-      {data.CanManage && <Button asChild className="mt-3" size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(lang, "sch.emptyCta")}</a></Button>}
+    </> : <Card><CardContent className="p-5">
+      <EmptyState title={t(lang, "sch.empty")} text={t(lang, data.CanManage ? "sch.emptyHint" : "sch.emptyMember")} action={data.CanManage ? <Button asChild size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(lang, "sch.emptyCta")}</a></Button> : undefined} />
     </CardContent></Card>}
   </main>
 }

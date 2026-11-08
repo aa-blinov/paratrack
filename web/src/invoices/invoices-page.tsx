@@ -3,6 +3,7 @@ import { openDisclosure } from "@/components/ui/collapsible"
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import * as React from "react"
 import { AlertTriangle, ChevronDown, Download, Link as LinkIcon, Mail, Plus, Printer, RefreshCw, Send, Trash2 } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -188,7 +189,9 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         {data.HasOutstanding ? <TableFooter><TableRow className="border-t font-semibold"><TableCell colSpan={5}>{t(lang, "inv.outstanding")}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums text-right">{data.Outstanding}</TableCell></TableRow></TableFooter> : null}
       </Table>
       </div>
-    </CardContent></Card> : <p className="text-sm text-muted-foreground">{data.Items.length ? t(lang, "inv.filterEmpty") : t(lang, "inv.empty")}</p>}
+    </CardContent></Card> : data.Items.length ? <p className="text-sm text-muted-foreground">{t(lang, "inv.filterEmpty")}</p> : <Card><CardContent className="p-5">
+      <EmptyState title={t(lang, "inv.empty")} text={t(lang, "inv.emptyHint")} action={<Button asChild size="sm"><a href="#new">{t(lang, "inv.generate")}</a></Button>} />
+    </CardContent></Card>}
     <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2" onSubmit={askAboutUnapprovedWeeks}>
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />

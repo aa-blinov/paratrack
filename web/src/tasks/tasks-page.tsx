@@ -10,6 +10,7 @@ import { DateField } from "@/components/date-field"
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { askPlanMove } from "./plan-move"
 import { Flash } from "@/components/flash"
+import { EmptyState } from "@/components/empty-state"
 import { translate as t } from "@/i18n"
 import type { TaskItem, TasksData } from "@/dashboard/types"
 import { TaskReport } from "@/tasks/task-report"
@@ -185,9 +186,8 @@ export function TasksPage({ data }: { data: TasksData }) {
     </>}
 
     {reportView ? <TaskReport lang={lang} from={data.ReportFrom} to={data.ReportTo} note={data.ReportNote} rows={data.ReportRows} total={data.ReportTotal} />
-    : tasks.length === 0 ? <Card><CardContent className="py-7 text-center">
-      <p className="font-medium">{archivedView ? t(lang, "tasks.archiveEmpty") : t(lang, "tasks.empty")}</p>
-      <p className="mx-auto mt-1 text-sm text-muted-foreground">{archivedView ? t(lang, "tasks.archiveEmptyHint") : t(lang, "tasks.emptyHint")}</p>
+    : tasks.length === 0 ? <Card><CardContent className="p-5">
+      <EmptyState title={archivedView ? t(lang, "tasks.archiveEmpty") : t(lang, "tasks.empty")} text={archivedView ? t(lang, "tasks.archiveEmptyHint") : t(lang, "tasks.emptyHint")} />
     </CardContent></Card> : data.View === "board" ? (
       <div className="grid gap-4 md:grid-cols-3">
         {statuses.map(status => <section key={status} aria-label={t(lang, `tasks.${status}`)} className="grid content-start gap-2 rounded-lg bg-muted/40 p-3" onDragOver={event => event.preventDefault()} onDrop={() => { const task = tasks.find(item => item.ID === dragging); if (task) changeStatus(task, status); setDragging(null) }}>

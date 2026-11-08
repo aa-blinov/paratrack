@@ -123,6 +123,11 @@ on a resting card, and a colour used as the ink of a label.
   (desktop), `web/src/components/mobile-nav.tsx` (phone).
 - Feedback: `web/src/offline/` (offline banner, toasts, phone mini bar),
   `web/src/components/confirmation-dialog.tsx` (destructive confirmations).
+- Waiting and empty: `web/src/components/page-skeleton.tsx` (the screen a page
+  loads into, under the name of the menu item that was clicked) and
+  `web/src/components/empty-state.tsx` (one shape for "nothing here yet": what
+  the place is, why it is worth filling, one next step; left-aligned to match
+  the card titles).
 - Email letters and the public site have their own rules below; they are not
   React screens.
 

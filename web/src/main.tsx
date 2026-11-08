@@ -5,6 +5,7 @@ import { installConfirmForms } from "@/confirm-forms"
 import { installFormMessages } from "@/form-messages"
 import { MiniBar } from "@/offline/mini-bar"
 import { ToastStack } from "@/offline/toast"
+import { PageSkeleton } from "@/components/page-skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
 import { createElement, lazy as reactLazy, StrictMode, Suspense, startTransition, useLayoutEffect, useEffect, useMemo, useRef, useState, type ComponentType, type ComponentProps } from "react"
@@ -408,7 +409,7 @@ function PageReady({ onReady }: { onReady?: () => void }) {
 function PageScreen({ bootstrap, restoreFocus, routeKey, onReady }: { bootstrap: ReactPageBootstrap; restoreFocus: boolean; routeKey: string; onReady?: () => void }) {
   const data = bootstrap.data
   return (
-    <Suspense fallback={<div className="min-h-32 rounded-lg bg-muted" aria-hidden="true" />}>
+    <Suspense fallback={<PageSkeleton lang={bootstrap.shell.lang} />}>
       <div key={`${routeKey}:${bootstrap.shell.lang}`}>
           {"NewProject" in data && data.NewProject
             ? <ProjectCreate data={data as ProjectCreateData} />
@@ -575,6 +576,14 @@ function withoutAnswer(href: string) {
   return url.href
 }
 
+// The name of the menu item that leads to this address. The page's own title
+// arrives only with the page, so the menu's label stands in while it loads.
+function menuLabel(url: URL): string | null {
+  const link = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar="sidebar"] a[href], [data-mobile-nav] a[href], [role="dialog"] a[href]')]
+    .find(item => new URL(item.href, location.href).pathname === url.pathname)
+  return link?.textContent?.replace(/\s+/g, " ").trim() || null
+}
+
 function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?: () => void }) {
   const [route, setRoute] = useState(() => ({
     bootstrap: initial,
@@ -584,6 +593,9 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
     restoreFocus: document.activeElement instanceof HTMLInputElement && document.activeElement.name === "activity",
     focusMain: false,
   }))
+  // The destination of a navigation that is taking a while: its menu name, shown
+  // in a skeleton in place of the old page. Null while the old page is fine.
+  const [loading, setLoading] = useState<{ title: string } | null>(null)
   useLayoutEffect(() => {
     document.documentElement.lang = route.bootstrap.shell.lang
     document.title = route.title
@@ -601,10 +613,17 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
       request.current?.abort()
       const controller = new AbortController()
       request.current = controller
+      // A menu destination has a name the screen can show before its page arrives.
+      // Anything else has none, so it keeps the old page.
+      const destination = mode === "replace" ? null : menuLabel(url)
       // The old page stays on screen until the new one is ready. After a short
-      // wait the screen says that something is on its way, so a slow page does
-      // not look like a click that did nothing. A fast page never shows it.
-      const pending = window.setTimeout(() => root?.setAttribute("data-navigating", ""), 150)
+      // wait the screen says that something is on its way: a menu destination
+      // gets a skeleton under its name, anything else dims the old page. A fast
+      // page never shows either.
+      const pending = window.setTimeout(() => {
+        root?.setAttribute("data-navigating", "")
+        setLoading(destination ? { title: destination } : null)
+      }, 150)
       if (mode === "push") {
         const currentKey = location.pathname + location.search
         scrollPositions.current.set(currentKey, window.scrollY)
@@ -625,7 +644,12 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
         // A replaced page gets a new key even at the same address, so it mounts
         // again with the data the server just sent.
         const key = finalURL.pathname + finalURL.search + (mode === "replace" ? `#${Date.now()}` : "")
-        startTransition(() => setRoute({ bootstrap: result.bootstrap, title: result.title, translations: result.translations, key, restoreFocus, focusMain: true }))
+        // The skeleton leaves in the same frame the new page arrives, so no
+        // frame shows the old page again.
+        startTransition(() => {
+          setLoading(null)
+          setRoute({ bootstrap: result.bootstrap, title: result.title, translations: result.translations, key, restoreFocus, focusMain: true })
+        })
         requestAnimationFrame(() => {
           if (mode === "pop") window.scrollTo(0, scrollPositions.current.get(finalURL.pathname + finalURL.search) || 0)
           else if (finalURL.hash) document.getElementById(decodeURIComponent(finalURL.hash.slice(1)))?.scrollIntoView()
@@ -710,7 +734,7 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
   }, [route.focusMain, route.key, route.restoreFocus])
 
   const { shell } = route.bootstrap
-  return <ApplicationShell shell={shell}><PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} /><ToastStack />{shell.user && shell.active !== "dashboard" && <MiniBar lang={shell.lang} />}</ApplicationShell>
+  return <ApplicationShell shell={shell}>{loading ? <PageSkeleton lang={shell.lang} title={loading.title} /> : <PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} />}<ToastStack />{shell.user && shell.active !== "dashboard" && <MiniBar lang={shell.lang} />}</ApplicationShell>
 }
 
 // The offline layer wraps fetch before any page request goes out.

@@ -128,7 +128,10 @@ async def check(browser, width):
     await inactive.click()
     await asyncio.wait_for(chunk_started.wait(), 10)
     await page.wait_for_timeout(250)
-    assert await page.locator("#main h1").inner_text() == "Обзор"
+    # While the chunk is held the screen already shows where the click is going:
+    # the menu's name over a skeleton, not the page the person left.
+    assert await page.locator("#main h1").inner_text() == target[1]
+    assert await page.locator("[data-page-skeleton][aria-busy='true']").count() == 1
     assert urlparse(page.url).path == "/"
     if width < 768:
         await page.locator('[data-mobile="true"]').wait_for(state="hidden")

@@ -2,6 +2,7 @@ import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EmptyState } from "@/components/empty-state"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { CRMData } from "@/dashboard/types"
@@ -101,7 +102,7 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
             <span className="text-xs font-normal text-muted-foreground">{t(lang, "crm.overdue")}</span><span className="font-mono text-base tabular-nums">{pipeline.overdue}</span>
           </Button>
         </div>
-        {emptyText && <p className="py-6 text-center text-sm text-muted-foreground">{emptyText}</p>}
+        {emptyText && <Card><CardContent className="p-5"><EmptyState title={emptyText} text={stage || overdueOnly ? undefined : t(lang, "crm.emptyHint")} /></CardContent></Card>}
         {groups.map(group => <section key={group.stage.stage} aria-labelledby={`stage-${group.stage.stage}`} className="grid gap-2">
           <h2 id={`stage-${group.stage.stage}`} className="flex items-center gap-2 text-sm font-semibold">{group.stage.name}<Badge variant="secondary">{group.deals.length}</Badge></h2>
           <ul className="grid divide-y rounded-lg border">

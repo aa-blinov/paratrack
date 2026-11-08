@@ -1,4 +1,5 @@
 import { Flash } from "@/components/flash"
+import { EmptyState } from "@/components/empty-state"
 import * as React from "react"
 import { Archive, ArchiveRestore, Pencil, Plus, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -192,11 +193,8 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
         </table>
       </div>
     </CardContent></Card> : <Card>
-      <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-        <Users aria-hidden="true" className="size-5 text-muted-foreground" />
-        <p className="text-sm text-muted-foreground">{t(lang, "clients.empty")}</p>
-        <p className="max-w-md text-sm text-muted-foreground">{t(lang, "clients.emptyHint")}</p>
-        {data.CanManage && <Button asChild size="sm"><a href="#client-new"><Plus aria-hidden="true" />{t(lang, "clients.new")}</a></Button>}
+      <CardContent className="p-5">
+        <EmptyState icon={Users} title={t(lang, "clients.empty")} text={t(lang, "clients.emptyHint")} action={data.CanManage ? <Button asChild size="sm"><a href="#client-new"><Plus aria-hidden="true" />{t(lang, "clients.new")}</a></Button> : undefined} />
       </CardContent>
     </Card>}
   </main>

@@ -1,6 +1,7 @@
 import { Flash } from "@/components/flash"
 import { openDisclosure } from "@/components/ui/collapsible"
 import { ArrowLeft, Printer, Trash2 } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,7 +52,15 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </TableRow>)}</TableBody>
       </Table>
       </div>
-    </CardContent></Card> : <p className="text-sm text-muted-foreground">{t(lang, "pay.emptyHint")}</p>}
+    </CardContent></Card> : <Card><CardContent className="p-5">
+      <EmptyState title={t(lang, "pay.empty")} text={t(lang, "pay.emptyHint")}>
+        <ol className="grid list-decimal gap-1.5 ps-5 text-sm text-muted-foreground">
+          <li><a className="text-foreground underline underline-offset-4" href="/settings/members">{t(lang, "pay.stepRates")}</a></li>
+          <li>{t(lang, "pay.stepTime")}</li>
+          <li>{t(lang, "pay.stepForm")}</li>
+        </ol>
+      </EmptyState>
+    </CardContent></Card>}
     <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
