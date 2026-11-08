@@ -40,8 +40,8 @@ async def main():
                 # The overview no longer carries a team-actions bar in any mode;
                 # the team pages are in the menu. (bf44041 «обзор проще».)
                 assert await page.locator('#main nav[aria-label="Работа с командой"]').count()==0
-                if manager:assert await page.locator('#main header a[href="/settings/sections"]').count()==1
-                else:assert await page.locator('#main header a[href="/settings/sections"]').count()==0
+                # The mode is changed in settings, not from the overview: the line is text for everyone.
+                assert await page.locator('#main header a[href="/settings/sections"]').count()==0
                 assert not errors,errors
                 assert await page.evaluate('document.documentElement.scrollWidth <= innerWidth')
                 await page.screenshot(path=f'/tmp/paratrack-mode-{width}-{mode}-{manager}.png',full_page=True)

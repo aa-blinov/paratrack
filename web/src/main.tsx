@@ -22,6 +22,7 @@ import { MoreHorizontal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { loadDictionary, translate as t } from "@/i18n"
 import { ApplicationShell } from "@/shell/app-shell"
+import { nav } from "@/components/app-sidebar"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import { StopResult } from "@/dashboard/stop-result"
 import { WorkdayPanel } from "@/dashboard/workday-panel"
@@ -285,7 +286,8 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   return <main className="mx-auto grid w-full max-w-6xl gap-4" aria-busy={busy}>
     {/* «Сколько сегодня» — первое, за чем открывают обзор, поэтому итог
         стоит в шапке, а не четвёртой цифрой в ряду под таймерами. */}
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-2 text-sm text-muted-foreground">{data.CanManage ? <a className="underline underline-offset-4" href="/settings/sections">{modeLine}</a> : <span>{modeLine}</span>}</div></div>
+    {/* Режим меняют в настройках, на обзоре он только говорит, что сейчас открыто. */}
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-2 text-sm text-muted-foreground">{modeLine}</div></div>
       <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span><span className="text-xs text-muted-foreground">{t(lang, "dash.dayNorm", data.DayNormLabel)}</span>{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
     <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />
     {undoWidget}
@@ -576,12 +578,15 @@ function withoutAnswer(href: string) {
   return url.href
 }
 
-// The name of the menu item that leads to this address. The page's own title
-// arrives only with the page, so the menu's label stands in while it loads.
-function menuLabel(url: URL): string | null {
+// The menu item that leads to this address: its name, and the key the sidebar
+// lights it by. The page's own title arrives only with the page, so the menu's
+// name stands in while it loads, and the menu lights that item meanwhile.
+function menuTarget(url: URL): { title: string; key: string } | null {
   const link = [...document.querySelectorAll<HTMLAnchorElement>('[data-sidebar="sidebar"] a[href], [data-mobile-nav] a[href], [role="dialog"] a[href]')]
     .find(item => new URL(item.href, location.href).pathname === url.pathname)
-  return link?.textContent?.replace(/\s+/g, " ").trim() || null
+  const title = link?.textContent?.replace(/\s+/g, " ").trim()
+  if (!title) return null
+  return { title, key: nav.find(item => item.href === url.pathname)?.key ?? "" }
 }
 
 function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?: () => void }) {
@@ -595,7 +600,7 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
   }))
   // The destination of a navigation that is taking a while: its menu name, shown
   // in a skeleton in place of the old page. Null while the old page is fine.
-  const [loading, setLoading] = useState<{ title: string } | null>(null)
+  const [loading, setLoading] = useState<{ title: string; key: string; path: string } | null>(null)
   useLayoutEffect(() => {
     document.documentElement.lang = route.bootstrap.shell.lang
     document.title = route.title
@@ -615,14 +620,14 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
       request.current = controller
       // A menu destination has a name the screen can show before its page arrives.
       // Anything else has none, so it keeps the old page.
-      const destination = mode === "replace" ? null : menuLabel(url)
+      const destination = mode === "replace" ? null : menuTarget(url)
       // The old page stays on screen until the new one is ready. After a short
       // wait the screen says that something is on its way: a menu destination
       // gets a skeleton under its name, anything else dims the old page. A fast
       // page never shows either.
       const pending = window.setTimeout(() => {
         root?.setAttribute("data-navigating", "")
-        setLoading(destination ? { title: destination } : null)
+        setLoading(destination ? { ...destination, path: url.pathname } : null)
       }, 150)
       if (mode === "push") {
         const currentKey = location.pathname + location.search
@@ -734,7 +739,9 @@ function AppRouter({ initial, onReady }: { initial: ReactPageBootstrap; onReady?
   }, [route.focusMain, route.key, route.restoreFocus])
 
   const { shell } = route.bootstrap
-  return <ApplicationShell shell={shell}>{loading ? <PageSkeleton lang={shell.lang} title={loading.title} /> : <PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} />}<ToastStack />{shell.user && shell.active !== "dashboard" && <MiniBar lang={shell.lang} />}</ApplicationShell>
+  // While a menu destination loads, the menu lights that destination, not the page being left.
+  const shownShell = loading ? { ...shell, active: loading.key, requestPath: loading.path } : shell
+  return <ApplicationShell shell={shownShell}>{loading ? <PageSkeleton lang={shell.lang} title={loading.title} /> : <PageScreen bootstrap={route.bootstrap} restoreFocus={route.restoreFocus} routeKey={route.key} onReady={onReady} />}<ToastStack />{shownShell.user && shownShell.active !== "dashboard" && <MiniBar lang={shell.lang} />}</ApplicationShell>
 }
 
 // The offline layer wraps fetch before any page request goes out.

@@ -128,7 +128,8 @@ export function Icon({ name }: { name: string }) {
 // A tall screen (1000px and up) has room for every group: a collapsible group
 // there opens the way the person left it, opened by default on the first visit.
 const TALL_SCREEN = "(min-height: 1000px)"
-const REMEMBER_KEY = "paratrack.nav.data.open"
+// Each collapsible group keeps its own choice. The data group's key predates the others, so its saved choice still applies.
+const rememberKey = (group: NavGroup) => `paratrack.nav.${group}.open`
 
 function useTallScreen() {
   const [tall, setTall] = useState(() => typeof window !== "undefined" && window.matchMedia(TALL_SCREEN).matches)
@@ -141,21 +142,21 @@ function useTallScreen() {
   return tall
 }
 
-function readRemembered(): boolean {
+function readRemembered(group: NavGroup): boolean {
   try {
-    return localStorage.getItem(REMEMBER_KEY) !== "0"
+    return localStorage.getItem(rememberKey(group)) !== "0"
   } catch {
     return true
   }
 }
 
-function NavigationGroup({ title, items, shell, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; collapsible?: boolean }) {
+function NavigationGroup({ title, items, shell, groupKey, collapsible = false }: { title: string; items: ShellNavItem[]; shell: AppSidebarShell; groupKey: NavGroup; collapsible?: boolean }) {
   const { setOpenMobile, state } = useSidebar()
   const visible = items.filter(item => available(item, shell))
   const holdsCurrent = visible.some(item => isCurrent(item, shell))
   const tall = useTallScreen()
   const [expanded, setExpanded] = useState(false)
-  const [remembered, setRemembered] = useState(readRemembered)
+  const [remembered, setRemembered] = useState(() => readRemembered(groupKey))
   if (!visible.length) return null
   // On a short screen a collapsible group folds unless the person is inside it
   // (the whole menu does not fit 900px); on a tall one the remembered choice wins.
@@ -166,7 +167,7 @@ function NavigationGroup({ title, items, shell, collapsible = false }: { title: 
     if (!tall) return setExpanded(value => !value)
     setRemembered(value => {
       const next = !value
-      try { localStorage.setItem(REMEMBER_KEY, next ? "1" : "0") } catch { /* private mode: the choice simply is not kept */ }
+      try { localStorage.setItem(rememberKey(groupKey), next ? "1" : "0") } catch { /* private mode: the choice simply is not kept */ }
       return next
     })
   }
@@ -256,7 +257,9 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
     </SidebarHeader>
     <SidebarContent className="[scrollbar-width:thin] [scrollbar-color:var(--sidebar-foreground)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-sidebar-foreground/35 [&::-webkit-scrollbar-thumb:hover]:bg-sidebar-foreground/60">
       <nav ref={navRef} className="app-shell-desktop-nav" aria-label={t(shell.lang, "nav.menu")}>
-        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={group.label ? t(shell.lang, group.label) : ""} items={nav.filter(item => item.group === group.key)} shell={shell} collapsible={group.key === "data"} />) }
+        {/* On a short screen the team and data groups fold. Team's last items
+            sat under the footer at 900px, and data was below the fold outright. */}
+        {groups.filter(group => group.key !== "settings").map(group => <NavigationGroup key={group.key} title={group.label ? t(shell.lang, group.label) : ""} items={nav.filter(item => item.group === group.key)} shell={shell} groupKey={group.key} collapsible={group.key === "team" || group.key === "data"} />) }
         {moreBelow && <span data-nav-more="below" aria-hidden="true" className="pointer-events-none sticky bottom-0 flex h-9 w-full shrink-0 flex-col justify-end">
           <span className="h-3 w-full bg-linear-to-t from-sidebar to-transparent" />
           <span className="flex h-6 items-center justify-center gap-1 bg-sidebar text-xs text-sidebar-foreground/70"><ChevronDown className="size-3.5" />{t(shell.lang, "nav.more")}</span>
