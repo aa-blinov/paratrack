@@ -1,4 +1,5 @@
 import { Flash } from "@/components/flash"
+import { EmptyState } from "@/components/empty-state"
 import * as React from "react"
 import { ChevronDown, FolderKanban, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -145,12 +146,13 @@ export function ProjectList({ data }: { data: ProjectListData }) {
         </div>
       ) : (
         <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-            <FolderKanban aria-hidden="true" className="size-5 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{t(lang, data.ShowArchived ? "projects.emptyArchived" : "projects.empty")}</p>
-            {data.CanManage
-              ? <Button asChild size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(lang, "projects.createNew")}</a></Button>
-              : <p className="max-w-md text-sm text-muted-foreground">{t(lang, "projects.emptyMember")}</p>}
+          <CardContent className="p-5">
+            <EmptyState
+              icon={FolderKanban}
+              title={t(lang, data.ShowArchived ? "projects.emptyArchived" : "projects.empty")}
+              text={data.ShowArchived ? undefined : t(lang, data.CanManage ? "projects.emptyHint" : "projects.emptyMember")}
+              action={data.CanManage ? <Button asChild size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(lang, "projects.createNew")}</a></Button> : undefined}
+            />
           </CardContent>
         </Card>
       )}

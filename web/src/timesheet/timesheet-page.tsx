@@ -3,6 +3,7 @@ import { Flash } from "@/components/flash"
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import * as React from "react"
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react"
+import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -369,9 +370,8 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </TableRow></TableFooter>
       </Table>
     </CardContent></Card>
-    </> : <Card><CardContent className="flex flex-col items-center py-8 text-center">
-      <p className="font-medium">{t(lang, "ts.empty")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "ts.emptyHint")}</p>
-      <Button asChild size="sm" className="mt-3"><a href="/"><Plus aria-hidden="true" />{t(lang, "ts.emptyCta")}</a></Button>
+    </> : <Card><CardContent className="p-5">
+      <EmptyState title={t(lang, "ts.empty")} text={t(lang, "ts.emptyHint")} action={<Button asChild size="sm"><a href="/"><Plus aria-hidden="true" />{t(lang, "ts.emptyCta")}</a></Button>} />
     </CardContent></Card>}
 
     {!!unlinkedRows.length && <p data-no-project-hint className="text-sm text-muted-foreground">{t(lang, "ts.noProjectHint")}</p>}
