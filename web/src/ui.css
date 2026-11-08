@@ -261,6 +261,14 @@
 #paratrack-react-root .app-boot-main { max-width: 72rem; margin-inline: auto; padding: 1.5rem 1rem; }
 #paratrack-react-root .app-boot-main h1 { font-size: 1.5rem; font-weight: 600; letter-spacing: -.025em; }
 #paratrack-react-root .app-boot-main p { margin-top: 1rem; color: var(--muted-foreground); }
+#paratrack-react-root .app-boot-skeleton { display: grid; gap: .75rem; margin-top: 1rem; }
+#paratrack-react-root .app-boot-bar, #paratrack-react-root .app-boot-blocks span { display: block; border-radius: .5rem; background: var(--muted); }
+#paratrack-react-root .app-boot-bar { height: 1rem; max-width: 20rem; }
+#paratrack-react-root .app-boot-blocks { display: grid; gap: .75rem; }
+#paratrack-react-root .app-boot-blocks span { height: 7rem; border: 1px solid var(--border); background: var(--card); }
+@media (min-width: 640px) { #paratrack-react-root .app-boot-blocks { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: no-preference) { #paratrack-react-root .app-boot-skeleton { animation: app-boot-pulse 2s cubic-bezier(.4, 0, .6, 1) infinite; } }
+@keyframes app-boot-pulse { 50% { opacity: .5; } }
 @media (min-width: 768px) {
   #paratrack-react-root .app-boot-sidebar { display: block; flex: 0 0 16rem; padding: 1.25rem; border-right: 1px solid var(--sidebar-border); background: var(--sidebar); }
   #paratrack-react-root .app-boot-sidebar + .app-boot-content .app-boot-header .app-shell-brand { display: none; }
@@ -691,6 +699,14 @@
    rail's own overflow, which was hidden. */
 #paratrack-react-root [data-collapsible="icon"] [data-sidebar="content"] {
   overflow-y: auto;
+}
+
+/* Below 1000px of height the menu rows are a little denser. At 900px with 32px
+   rows the «Данные» heading sat under the «Ещё» hint, so the one group that
+   was still closed looked missing. */
+@media (min-width: 768px) and (max-height: 999px) {
+  #paratrack-react-root .app-shell-desktop-nav [data-sidebar="menu-button"] { height: 1.75rem; }
+  #paratrack-react-root .app-shell-desktop-nav [data-sidebar="group-label"] { height: 1.5rem; }
 }
 
 /* The week is a grid or a list of days, never a sideways scroll. Measured:

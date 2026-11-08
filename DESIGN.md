@@ -215,8 +215,10 @@ JetBrains Mono with `tabular-nums`.
   peers.
 - **Desktop (1024px and up):** a shadcn `sidebar-01` sidebar. Groups: Меню,
   Анализ, Деньги, Команда, Данные, Настройки. A group of one item has no
-  heading. «Данные» folds on a screen shorter than 1000px unless the person is
-  inside it; on taller screens the last choice is remembered in the browser.
+  heading. «Команда» and «Данные» fold on a screen shorter than 1000px unless the
+  person is inside them; on taller screens each group's last choice is remembered
+  in the browser. Below 1000px the rows are 28px and the group headings 24px, so
+  every heading stays above the footer and the «Ещё» hint does not cover one.
 - **Phone (below 1024px):** a Material 3 navigation bar, 80dp tall, with a
   64x32dp active indicator and 12px labels. A fixed bottom bar with four destinations
   (Обзор, Табель, Статистика, По часам) and «Ещё», which opens a sheet with the

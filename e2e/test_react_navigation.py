@@ -132,6 +132,12 @@ async def check(browser, width):
     # the menu's name over a skeleton, not the page the person left.
     assert await page.locator("#main h1").inner_text() == target[1]
     assert await page.locator("[data-page-skeleton][aria-busy='true']").count() == 1
+    # The desktop menu lights the destination while it loads, not the screen being
+    # left. The phone bar holds four tabs; a destination in its «Ещё» sheet is not one of them.
+    if width >= 1024:
+        lit = page.locator('[data-sidebar="sidebar"] a[aria-current="page"]')
+        lit_hrefs = await lit.evaluate_all("items => items.map(item => item.getAttribute('href'))")
+        assert set(lit_hrefs) == {target[0]}, f"the menu should light {target[0]} while it loads: {lit_hrefs}"
     assert urlparse(page.url).path == "/"
     if width < 768:
         await page.locator('[data-mobile="true"]').wait_for(state="hidden")

@@ -32,7 +32,8 @@
       {{if .User}}<aside class="app-boot-sidebar" aria-hidden="true"><span class="app-shell-brand">paratrack</span></aside>{{end}}
       <div class="app-boot-content">
         <div class="app-boot-header"><span class="app-shell-brand">paratrack</span></div>
-        <div class="app-boot-main"><h1>{{.Title}}</h1><p>{{if eq .Lang "ru"}}Загрузка…{{else}}Loading…{{end}}</p></div>
+        {{/* The shape of the page the React screen is about to draw, the same as the in-app skeleton: a title and blocks, not a line of text. The status text stays for screen readers. */}}
+        <div class="app-boot-main"><h1>{{.Title}}</h1><span class="sr-only">{{if eq .Lang "ru"}}Загрузка…{{else}}Loading…{{end}}</span><div class="app-boot-skeleton" aria-hidden="true"><span class="app-boot-bar"></span><div class="app-boot-blocks"><span></span><span></span></div></div></div>
       </div>
     </div>
     <noscript><p class="app-boot-main">{{if eq .Lang "ru"}}Для работы paratrack включите JavaScript в браузере.{{else}}Enable JavaScript in your browser to use paratrack.{{end}}</p></noscript>
