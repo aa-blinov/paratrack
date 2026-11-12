@@ -397,7 +397,7 @@ export function TaskDetailPage({ data }: { data: TaskDetailData }) {
         <h2 className="text-sm font-medium">{t(lang, "tasks.files")}</h2>
         {data.Attachments.length ? <ul className="grid gap-2">{data.Attachments.map(item => <li key={item.ID} className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <a href={item.URL} className="min-w-0 break-words underline underline-offset-4">{item.Name}</a>
-          <span className="text-xs text-muted-foreground">{item.Size} · {item.Author}, {item.When}</span>
+          <span className="text-xs text-muted-foreground">{item.Size}, {item.Author}, {item.When}</span>
           {!task.Archived && <Button type="button" variant="ghost" size="sm" onClick={() => void removeFile(item.ID)}>{t(lang, "tasks.fileDelete")}</Button>}
         </li>)}</ul> : <p className="text-sm text-muted-foreground">{t(lang, "tasks.filesEmpty")}</p>}
         {!task.Archived && <form onSubmit={addFile} className="flex flex-wrap items-center gap-2">

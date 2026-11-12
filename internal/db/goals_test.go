@@ -93,7 +93,7 @@ func TestActivityNameIsUniquePerTeam(t *testing.T) {
 func TestGoalPeriodRange_Daily(t *testing.T) {
 	// Pick a non-midnight timestamp to verify we still land on day bounds.
 	now := time.Date(2026, 9, 22, 15, 34, 12, 0, time.UTC)
-	start, end := goalPeriodRange("daily", now)
+	start, end := goalPeriodRange("daily", now, time.UTC)
 
 	wantStart := time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
@@ -107,7 +107,7 @@ func TestGoalPeriodRange_Daily(t *testing.T) {
 
 func TestGoalPeriodRange_Daily_NewYear(t *testing.T) {
 	now := time.Date(2026, 12, 31, 23, 59, 59, 0, time.UTC)
-	start, end := goalPeriodRange("daily", now)
+	start, end := goalPeriodRange("daily", now, time.UTC)
 	wantStart := time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
@@ -118,7 +118,7 @@ func TestGoalPeriodRange_Daily_NewYear(t *testing.T) {
 func TestGoalPeriodRange_Weekly_MondayStart(t *testing.T) {
 	// Wed 2026-09-23 should belong to the week starting Mon 2026-09-21.
 	now := time.Date(2026, 9, 23, 10, 0, 0, 0, time.UTC)
-	start, end := goalPeriodRange("weekly", now)
+	start, end := goalPeriodRange("weekly", now, time.UTC)
 
 	wantStart := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
@@ -133,7 +133,7 @@ func TestGoalPeriodRange_Weekly_MondayStart(t *testing.T) {
 func TestGoalPeriodRange_Weekly_Sunday(t *testing.T) {
 	// Sunday 2026-09-27 is the last day of the ISO week that started Mon 09-21.
 	now := time.Date(2026, 9, 27, 23, 30, 0, 0, time.UTC)
-	start, end := goalPeriodRange("weekly", now)
+	start, end := goalPeriodRange("weekly", now, time.UTC)
 	wantStart := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC)
 	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
@@ -145,7 +145,7 @@ func TestGoalPeriodRange_Weekly_Sunday(t *testing.T) {
 func TestGoalPeriodRange_Weekly_MondayExact(t *testing.T) {
 	// Already Monday — should be in the week starting today, not last week.
 	now := time.Date(2026, 9, 21, 0, 1, 0, 0, time.UTC)
-	start, _ := goalPeriodRange("weekly", now)
+	start, _ := goalPeriodRange("weekly", now, time.UTC)
 	wantStart := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
 	if !start.Equal(wantStart) {
 		t.Errorf("Monday weekly: start=%v, want %v", start, wantStart)
@@ -154,7 +154,7 @@ func TestGoalPeriodRange_Weekly_MondayExact(t *testing.T) {
 
 func TestGoalPeriodRange_Monthly(t *testing.T) {
 	now := time.Date(2026, 9, 22, 12, 0, 0, 0, time.UTC)
-	start, end := goalPeriodRange("monthly", now)
+	start, end := goalPeriodRange("monthly", now, time.UTC)
 	wantStart := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
 	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
@@ -164,7 +164,7 @@ func TestGoalPeriodRange_Monthly(t *testing.T) {
 
 func TestGoalPeriodRange_Monthly_YearRollover(t *testing.T) {
 	now := time.Date(2026, 12, 15, 12, 0, 0, 0, time.UTC)
-	start, end := goalPeriodRange("monthly", now)
+	start, end := goalPeriodRange("monthly", now, time.UTC)
 	wantStart := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)
 	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
@@ -179,12 +179,92 @@ func TestGoalPeriodRange_Monthly_YearRollover(t *testing.T) {
 // must still return *some* reasonable window.
 func TestGoalPeriodRange_UnknownFallsBackToDaily(t *testing.T) {
 	now := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
-	start, end := goalPeriodRange("nonsense", now)
+	start, end := goalPeriodRange("nonsense", now, time.UTC)
 	wantStart := time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC)
 	wantEnd := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
 	if !start.Equal(wantStart) || !end.Equal(wantEnd) {
 		t.Errorf("unknown fallback: start=%v end=%v, want %v / %v",
 			start, end, wantStart, wantEnd)
+	}
+}
+
+// The day is cut at midnight in the zone it is read in. 05:00 in Tokyo on 12 Nov is still
+// 20:00 on 11 Nov in UTC, and that Tokyo day starts at 15:00 UTC on 11 Nov.
+func TestGoalPeriodRange_WorkspaceZoneCutsTheDay(t *testing.T) {
+	tokyo, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	losAngeles, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name               string
+		now                time.Time
+		loc                *time.Location
+		wantStart, wantEnd time.Time
+	}{
+		{"Tokyo", time.Date(2026, 11, 11, 20, 0, 0, 0, time.UTC), tokyo,
+			time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC), time.Date(2026, 11, 12, 15, 0, 0, 0, time.UTC)},
+		// November in Los Angeles is PST, UTC-8: 03:00 UTC on 12 Nov is 19:00 on 11 Nov there.
+		{"Los Angeles", time.Date(2026, 11, 12, 3, 0, 0, 0, time.UTC), losAngeles,
+			time.Date(2026, 11, 11, 8, 0, 0, 0, time.UTC), time.Date(2026, 11, 12, 8, 0, 0, 0, time.UTC)},
+	}
+	for _, tc := range cases {
+		start, end := goalPeriodRange("daily", tc.now, tc.loc)
+		if !start.Equal(tc.wantStart) || !end.Equal(tc.wantEnd) {
+			t.Errorf("%s daily: start=%v end=%v, want %v / %v", tc.name, start, end, tc.wantStart, tc.wantEnd)
+		}
+	}
+}
+
+// Once the workspace has a zone, its days decide which goal day a session belongs to,
+// whatever zone the caller reads the clock in. A session at 23:00 in Tokyo on 11 Nov
+// is the 11 Nov day there, not the 12 Nov day that the UTC reading would give it.
+func TestGoalDayFollowsWorkspaceZone(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Goal zone", "goal-zone")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	activity, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "reading"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.UpsertGoalForManager(ctx, appmodel.GoalUpsertRequest{TeamID: teamID, CallerID: ownerID, ActivityName: activity.Name, Period: "daily", Minutes: 60}); err != nil {
+		t.Fatalf("create daily goal: %v", err)
+	}
+	// 23:00 to 23:30 in Tokyo on 11 Nov is 14:00 to 14:30 UTC on 11 Nov.
+	if _, err := d.CreateClosedSession(ctx, appmodel.TimerAddRequest{TeamID: teamID, ActivityID: activity.ID,
+		Start: time.Date(2026, 11, 11, 14, 0, 0, 0, time.UTC), End: time.Date(2026, 11, 11, 14, 30, 0, 0, time.UTC), Note: "reading"}); err != nil {
+		t.Fatalf("create tracked session: %v", err)
+	}
+	// 18:00 UTC on 11 Nov is 03:00 on 12 Nov in Tokyo.
+	now := time.Date(2026, 11, 11, 18, 0, 0, 0, time.UTC)
+
+	// No zone yet: the caller's reading is UTC, so the session is in the 11 Nov day.
+	progress, err := d.ProgressForGoals(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
+	if err != nil {
+		t.Fatalf("ProgressForGoals without zone: %v", err)
+	}
+	if len(progress) != 1 || progress[0].AchievedMinutes != 30 {
+		t.Fatalf("without a zone the session should count for the UTC day: %+v", progress)
+	}
+
+	if err := d.SetTeamCalendar(ctx, appmodel.TeamCalendarRequest{TeamID: teamID, CallerID: ownerID, TimeZone: "Asia/Tokyo", WeekStart: "sun"}); err != nil {
+		t.Fatal(err)
+	}
+	progress, err = d.ProgressForGoals(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
+	if err != nil {
+		t.Fatalf("ProgressForGoals in Tokyo: %v", err)
+	}
+	if len(progress) != 1 || progress[0].AchievedMinutes != 0 {
+		t.Fatalf("in Tokyo the session is the day before the 12 Nov goal day: %+v", progress)
+	}
+	// The period edge is the Tokyo midnight, so the server can name the day from it.
+	if want := time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC); !progress[0].PeriodStart.Equal(want) {
+		t.Fatalf("period start = %v, want Tokyo midnight %v", progress[0].PeriodStart, want)
 	}
 }
 

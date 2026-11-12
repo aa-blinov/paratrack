@@ -216,13 +216,17 @@ func (d *DB) ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQu
 	if len(goals) == 0 {
 		return []GoalProgress{}, nil
 	}
+	loc, err := d.goalZone(ctx, query.TeamID, query.Now.Location())
+	if err != nil {
+		return nil, err
+	}
 
 	activityIDs := make([]int64, 0, len(goals))
 	seenActivities := make(map[int64]struct{}, len(goals))
 	windows := make(map[int64][2]time.Time, len(goals))
 	var rangeStart, rangeEnd time.Time
 	for _, goal := range goals {
-		start, end := goalPeriodRange(goal.Period, query.Now)
+		start, end := goalPeriodRange(goal.Period, query.Now, loc)
 		windows[goal.ID] = [2]time.Time{start, end}
 		if rangeStart.IsZero() || start.Before(rangeStart) {
 			rangeStart = start
@@ -340,16 +344,31 @@ func (d *DB) goalSessionsForActivities(ctx context.Context, teamID int64, activi
 	return sessions, rows.Err()
 }
 
+// goalZone is the zone a goal's days are counted in. A workspace that set its zone
+// gives it to everyone, because the progress is the whole team's and one goal day has
+// to be the same day for every member. A blank zone leaves the days where the caller
+// reads the clock, which is the member's own zone.
+func (d *DB) goalZone(ctx context.Context, teamID int64, fallback *time.Location) (*time.Location, error) {
+	var name string
+	if err := d.sql.QueryRowContext(ctx, `SELECT timezone FROM teams WHERE id = ?`, teamID).Scan(&name); err != nil {
+		return nil, fmt.Errorf("read workspace time zone: %w", err)
+	}
+	if name == "" {
+		return fallback, nil
+	}
+	loc, err := time.LoadLocation(name)
+	if err != nil {
+		return nil, fmt.Errorf("load workspace time zone: %w", err)
+	}
+	return loc, nil
+}
+
 // goalPeriodRange returns the [start, end) window for a goal's period
-// containing `now`. end is exclusive to make overlap math easier.
-func goalPeriodRange(period string, now time.Time) (time.Time, time.Time) {
-	now = now.UTC()
+// containing `now`, with the days cut at local midnight in loc. end is exclusive
+// to make overlap math easier.
+func goalPeriodRange(period string, now time.Time, loc *time.Location) (time.Time, time.Time) {
+	now = now.In(loc)
 	switch period {
-	case "daily":
-		y, mo, d := now.Date()
-		start := time.Date(y, mo, d, 0, 0, 0, 0, time.UTC)
-		end := start.Add(24 * time.Hour)
-		return start, end
 	case "weekly":
 		weekday := int(now.Weekday())
 		if weekday == 0 {
@@ -357,18 +376,17 @@ func goalPeriodRange(period string, now time.Time) (time.Time, time.Time) {
 		}
 		monday := now.AddDate(0, 0, -(weekday - 1))
 		y, mo, d := monday.Date()
-		start := time.Date(y, mo, d, 0, 0, 0, 0, time.UTC)
-		end := start.AddDate(0, 0, 7)
-		return start, end
+		start := time.Date(y, mo, d, 0, 0, 0, 0, loc)
+		return start, start.AddDate(0, 0, 7)
 	case "monthly":
 		y, mo, _ := now.Date()
-		start := time.Date(y, mo, 1, 0, 0, 0, 0, time.UTC)
-		end := start.AddDate(0, 1, 0)
-		return start, end
+		start := time.Date(y, mo, 1, 0, 0, 0, 0, loc)
+		return start, start.AddDate(0, 1, 0)
 	}
+	// daily, and any period the schema does not know, is counted by day.
 	y, mo, d := now.Date()
-	return time.Date(y, mo, d, 0, 0, 0, 0, time.UTC),
-		time.Date(y, mo, d, 0, 0, 0, 0, time.UTC).Add(24 * time.Hour)
+	start := time.Date(y, mo, d, 0, 0, 0, 0, loc)
+	return start, start.AddDate(0, 0, 1)
 }
 
 func scanGoal(r row) (model.Goal, error) {

@@ -84,6 +84,9 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
   // A period with unapproved billable time asks the manager first (FIN-12). The
   // server checks again when the form posts, so this only decides whether to ask.
   const unapprovedChecked = React.useRef(false)
+  // One check at a time: a second press while the first is still asking the server must not
+  // start a second check and a second submit, which the first one's hours would then block.
+  const checking = React.useRef(false)
   async function askAboutUnapprovedWeeks(event: React.FormEvent<HTMLFormElement>) {
     const form = event.currentTarget
     if (unapprovedChecked.current) {
@@ -91,26 +94,32 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
       return
     }
     event.preventDefault()
-    const fields = new FormData(form)
-    const query = new URLSearchParams({ start: String(fields.get("start") ?? ""), end: String(fields.get("end") ?? ""), project_id: String(fields.get("project_id") ?? "") })
-    // Any failure here falls through to the form: the server still makes the same check.
-    let weeks: string[] = []
+    if (checking.current) return
+    checking.current = true
     try {
-      const response = await fetch(`/invoices/unapproved?${query}`, { credentials: "same-origin" })
-      if (response.ok) weeks = ((await response.json()) as { weeks: string[] }).weeks
-    } catch {
-      weeks = []
+      const fields = new FormData(form)
+      const query = new URLSearchParams({ start: String(fields.get("start") ?? ""), end: String(fields.get("end") ?? ""), project_id: String(fields.get("project_id") ?? "") })
+      // Any failure here falls through to the form: the server still makes the same check.
+      let weeks: string[] = []
+      try {
+        const response = await fetch(`/invoices/unapproved?${query}`, { credentials: "same-origin" })
+        if (response.ok) weeks = ((await response.json()) as { weeks: string[] }).weeks
+      } catch {
+        weeks = []
+      }
+      if (weeks.length > 0) {
+        const confirmed = await requestConfirmation(t(lang, "inv.unapprovedBody", weeks.join(", ")), { title: t(lang, "inv.unapprovedTitle"), action: t(lang, "inv.unapprovedConfirm") })
+        if (!confirmed) return
+        const answer = document.createElement("input")
+        answer.type = "hidden"
+        answer.name = "confirm_unapproved"
+        answer.value = "1"
+        form.append(answer)
+      }
+      unapprovedChecked.current = true
+    } finally {
+      checking.current = false
     }
-    if (weeks.length > 0) {
-      const confirmed = await requestConfirmation(t(lang, "inv.unapprovedBody", weeks.join(", ")), { title: t(lang, "inv.unapprovedTitle"), action: t(lang, "inv.unapprovedConfirm") })
-      if (!confirmed) return
-      const answer = document.createElement("input")
-      answer.type = "hidden"
-      answer.name = "confirm_unapproved"
-      answer.value = "1"
-      form.append(answer)
-    }
-    unapprovedChecked.current = true
     form.requestSubmit()
   }
   const flash = <InvoiceFlash data={data} />
