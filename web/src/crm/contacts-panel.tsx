@@ -33,20 +33,30 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
   const [editEmail, setEditEmail] = React.useState("")
   const [editPhone, setEditPhone] = React.useState("")
 
+  // Only the newest load may write: a reply for a client the person has left must not show
+  // that client's people under the name of the one picked now.
+  const latest = React.useRef(0)
   const load = React.useCallback(async (id: string) => {
+    const request = ++latest.current
     if (!id) {
       setContacts([])
       return
     }
     try {
       const response = await apiJSON<{ contacts: Contact[] }>(`/api/crm/contacts?client_id=${id}`, "GET", "")
-      setContacts(response.contacts)
+      if (request === latest.current) setContacts(response.contacts)
     } catch (cause) {
-      setIssue(issueOf(cause, {}, t(lang, "err.generic")))
+      if (request === latest.current) setIssue(issueOf(cause, {}, t(lang, "err.generic")))
     }
   }, [lang])
 
   React.useEffect(() => { void load(clientID) }, [clientID, load])
+
+  // The list of the old client goes at once, so the picked name never sits over someone else's people.
+  function pickClient(value: string) {
+    setPicked(value)
+    setContacts(null)
+  }
 
   function startEdit(contact: Contact) {
     setEditingID(contact.id)
@@ -111,7 +121,7 @@ export function ContactsPanel({ lang, csrf, clients }: { lang: string; csrf: str
       {clients.length === 0 ? <p className="text-sm text-muted-foreground">{t(lang, "crm.noClients")}</p> : <>
         <div className="grid gap-2 sm:max-w-sm">
           <Label htmlFor="contacts-client">{t(lang, "crm.client")}</Label>
-          <Select value={clientID} onValueChange={setPicked}>
+          <Select value={clientID} onValueChange={pickClient}>
             <SelectTrigger id="contacts-client" className="w-full" style={{ fontSize: 16 }}><SelectValue /></SelectTrigger>
             <SelectContent>{clients.map(client => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
           </Select>

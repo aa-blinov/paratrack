@@ -28,14 +28,20 @@ export function LeadsPanel({ lang, csrf, viewerID, canManage, members }: { lang:
   const [selectedID, setSelectedID] = React.useState<number | null>(null)
   const [error, setError] = React.useState("")
 
+  // Only the newest load may write, so a slow reply for a status filter that is no longer
+  // picked cannot replace the list the person is looking at.
+  const latest = React.useRef(0)
   const load = React.useCallback(async () => {
+    const request = ++latest.current
     const query = new URLSearchParams()
     if (status) query.set("status", status)
     try {
       const body = await apiJSON<{ leads: Lead[] }>(`/api/crm/leads?${query}`, "GET", "")
+      if (request !== latest.current) return
       setLeads(body.leads)
       setError("")
     } catch (cause) {
+      if (request !== latest.current) return
       setError(cause instanceof ApiError && cause.message ? cause.message : t(lang, "err.generic"))
     }
   }, [status, lang])

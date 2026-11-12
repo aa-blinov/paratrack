@@ -49,13 +49,19 @@ export function CalendarPage({ data, viewerID }: { data: CalendarData; viewerID:
   const first = view === "week" ? weekStart : monthGridStart(monthStart, sunday)
   const last = addDays(first, view === "week" ? 6 : MONTH_GRID_DAYS - 1)
 
+  // Only the newest load may write. A slow reply for a week the person has already left
+  // would otherwise put that week's events under the week on screen.
+  const latest = React.useRef(0)
   const load = React.useCallback(async (from: string, to: string) => {
+    const request = ++latest.current
     const query = new URLSearchParams({ from, to })
     try {
       const body = await apiJSON<{ events: CalendarEvent[] }>(`/api/calendar/events?${query}`, "GET", "")
+      if (request !== latest.current) return
       setEvents(body.events)
       setError("")
     } catch (cause) {
+      if (request !== latest.current) return
       setError(cause instanceof ApiError && cause.message ? cause.message : t(lang, "err.generic"))
     }
   }, [lang])

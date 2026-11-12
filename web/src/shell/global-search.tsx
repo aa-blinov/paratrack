@@ -15,23 +15,33 @@ export function GlobalSearch({ lang }: { lang: string }) {
   const [groups, setGroups] = React.useState<SearchGroup[]>([])
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
+  // What had the focus when the box opened, so closing it puts the keyboard back there.
+  const opener = React.useRef<HTMLElement | null>(null)
 
   React.useEffect(() => {
+    function openBox() {
+      opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      setOpen(true)
+    }
     function onKeyDown(event: KeyboardEvent) {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault()
-        setOpen(true)
+        openBox()
         return
       }
       const typing = Boolean((event.target as HTMLElement | null)?.closest?.("input, textarea, select, [contenteditable=true]"))
       if (event.key === "/" && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) {
         event.preventDefault()
-        setOpen(true)
+        openBox()
       }
     }
     document.addEventListener("keydown", onKeyDown)
     return () => document.removeEventListener("keydown", onKeyDown)
   }, [])
+
+  React.useEffect(() => {
+    if (!open) opener.current?.focus()
+  }, [open])
 
   // The answer waits for a pause in typing, and a newer text cancels the older request.
   React.useEffect(() => {
@@ -76,7 +86,16 @@ export function GlobalSearch({ lang }: { lang: string }) {
     aria-label={t(lang, "search.title")}
     className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[12vh]"
     onMouseDown={event => { if (event.target === event.currentTarget) setOpen(false) }}
-    onKeyDown={event => { if (event.key === "Escape") setOpen(false) }}
+    onKeyDown={event => {
+      if (event.key === "Escape") setOpen(false)
+      if (event.key !== "Tab") return
+      // The page behind the box is one Tab away otherwise, and Esc would stop working there.
+      const stops = [...event.currentTarget.querySelectorAll<HTMLElement>("input, a[href]")]
+      const first = stops[0]
+      const last = stops[stops.length - 1]
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
+    }}
   >
     <div className="grid w-full max-w-xl gap-3 rounded-lg border bg-popover p-4 text-popover-foreground shadow-lg">
       <div className="flex items-center gap-2">

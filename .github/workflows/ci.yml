@@ -231,6 +231,11 @@ jobs:
           # that had been deleted, and the press-state rule it protects was
           # only half implemented. Now that it runs, it keeps holding.
           python e2e/test_mobile_navigation.py 2>&1 | tee /tmp/e2e-mobile.log
+          # Fixed pages, no server: a late reply must not replace the screen, the search box
+          # keeps the keyboard, a failed chart says so, and a goal day is the workspace's day.
+          python e2e/test_screen_regressions.py 2>&1 | tee /tmp/e2e-regressions.log
+          # The delayed chunk, the lit menu item and the phone sheet on fixed pages.
+          python e2e/test_react_navigation.py 2>&1 | tee /tmp/e2e-navigation.log
           # Contrast, control edges and label-in-name, measured on the live
           # DOM. The impeccable detector scans HTML and CSS but not .tsx, so
           # the React tree was never covered — "detector clean" said nothing.

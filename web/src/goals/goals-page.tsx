@@ -16,8 +16,15 @@ import { ColorMark } from "@/components/color-mark"
 
 type ProgressItem = { goal: { id: number; activity_id: number; period: string; target_minutes: number }; activity_name: string; achieved_minutes: number; percent_complete: number; period_start: string; period_end: string }
 
-function dateLabel(date: string, lang: string) {
-  return new Intl.DateTimeFormat(lang === "ru" ? "ru-RU" : "en-US", { month: "short", day: "numeric" }).format(new Date(date))
+// Each period edge is midnight in the workspace zone, and the first ten characters of its
+// text are that calendar day there. The label is built from the day, not from the instant:
+// a browser west of UTC would show the day before, and one east of it could show the day after.
+function dayOf(edge: string) {
+  return new Date(`${edge.slice(0, 10)}T00:00:00Z`)
+}
+
+function dateLabel(day: Date, lang: string) {
+  return new Intl.DateTimeFormat(lang === "ru" ? "ru-RU" : "en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(day)
 }
 
 export function GoalsPage({ data }: { data: GoalsData }) {
@@ -41,7 +48,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
       ID: item.goal.id, ActivityName: item.activity_name, Color: colors.get(item.activity_name) || "#6366f1", Period: item.goal.period,
       TargetMinutes: item.goal.target_minutes, TargetLabel: durationLabel(item.goal.target_minutes * 60, lang),
       AchievedMinutes: item.achieved_minutes, AchievedLabel: durationLabel(item.achieved_minutes * 60, lang), Percent: item.percent_complete,
-      PeriodStartLabel: dateLabel(item.period_start, lang), PeriodEndLabel: dateLabel(new Date(new Date(item.period_end).getTime() - 864e5).toISOString(), lang), PeriodRangeLabel: t(lang, `goals.${item.goal.period}`),
+      PeriodStartLabel: dateLabel(dayOf(item.period_start), lang), PeriodEndLabel: dateLabel(new Date(dayOf(item.period_end).getTime() - 864e5), lang), PeriodRangeLabel: t(lang, `goals.${item.goal.period}`),
     })))
   }
 

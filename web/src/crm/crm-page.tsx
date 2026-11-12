@@ -42,16 +42,22 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
   const clientNames = React.useMemo(() => new Map(clients.map(client => [client.id, client.name])), [clients])
   const total = pipeline.stages.reduce((sum, item) => sum + item.count, 0)
 
+  // Only the newest load may write: a slow reply for a stage the person has already left
+  // must not fill the list under the filter that is on now.
+  const latest = React.useRef(0)
   const load = React.useCallback(async () => {
+    const request = ++latest.current
     const query = new URLSearchParams()
     if (stage) query.set("stage", stage)
     if (overdueOnly) query.set("overdue", "1")
     try {
       const body = await apiJSON<DealsResponse>(`/api/crm/deals?${query}`, "GET", "")
+      if (request !== latest.current) return
       setDeals(body.deals)
       setPipeline(body.pipeline)
       setError("")
     } catch (cause) {
+      if (request !== latest.current) return
       setError(cause instanceof ApiError && cause.message ? cause.message : t(lang, "err.generic"))
     } finally {
       setLoaded(true)

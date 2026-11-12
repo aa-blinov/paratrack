@@ -27,21 +27,25 @@ function queryFor(data: GraphData, period = data.Period.Label, keepFilters = tru
   return `?${query}`
 }
 
-// ECharts is a shared script: loaded once for the page, whichever mounts first.
+// ECharts is a shared script: loaded once for the page, whichever mounts first. A failed
+// load takes its tag out, so the next mount asks again instead of waiting on a script that
+// will never fire its load event.
 function loadECharts(): Promise<void> {
   if ("echarts" in window) return Promise.resolve()
   const existing = document.querySelector<HTMLScriptElement>('script[data-paratrack-react-echarts]')
-  return new Promise(resolve => {
-    if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true })
-      return
+  return new Promise((resolve, reject) => {
+    const script = existing ?? document.createElement("script")
+    if (!existing) {
+      script.src = "/static/js/echarts.min.js"
+      script.async = true
+      script.dataset.paratrackReactEcharts = "true"
+      document.head.appendChild(script)
     }
-    const script = document.createElement("script")
-    script.src = "/static/js/echarts.min.js"
-    script.async = true
-    script.dataset.paratrackReactEcharts = "true"
     script.addEventListener("load", () => resolve(), { once: true })
-    document.head.appendChild(script)
+    script.addEventListener("error", () => {
+      script.remove()
+      reject(new Error("ECharts did not load"))
+    }, { once: true })
   })
 }
 
@@ -59,6 +63,7 @@ export function GraphPage({ data }: { data: GraphData }) {
   const canvasRef = React.useRef<HTMLDivElement>(null)
   const legendRef = React.useRef<HTMLDivElement>(null)
   const [chartBuilt, setChartBuilt] = React.useState(false)
+  const [chartFailed, setChartFailed] = React.useState(false)
   const timeline = React.useMemo(() => parseTimeline(data.ChartJSON), [data.ChartJSON])
   const hasChart = timeline.hasData
   React.useEffect(() => {
@@ -69,6 +74,8 @@ export function GraphPage({ data }: { data: GraphData }) {
       if (alive && canvasRef.current) {
         cleanup = mountTimeline(canvasRef.current, timeline, legendRef.current, lang, () => setChartBuilt(true))
       }
+    }, () => {
+      if (alive) setChartFailed(true)
     })
     return () => { alive = false; cleanup?.() }
   }, [hasChart, timeline, lang])
@@ -110,7 +117,8 @@ export function GraphPage({ data }: { data: GraphData }) {
         {canShowGraph ? <>
           <div className="echart-wrap min-w-0" id="echart-wrap">
             <div className="relative min-w-0">
-              {!chartBuilt && <div id="echart-skeleton" className="sk-chart absolute inset-0" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>}
+              {chartFailed && <p role="alert" className="absolute inset-0 grid place-items-center text-sm text-destructive">{t(lang, "err.generic")}</p>}
+              {!chartBuilt && !chartFailed && <div id="echart-skeleton" className="sk-chart absolute inset-0" aria-hidden="true"><span style={{ height: "38%" }} /><span style={{ height: "62%" }} /><span style={{ height: "48%" }} /><span style={{ height: "78%" }} /><span style={{ height: "55%" }} /><span style={{ height: "70%" }} /><span style={{ height: "42%" }} /></div>}
               <div ref={canvasRef} id="echart-canvas" className="echart-canvas w-full" style={{ height: 380 }} role="img" aria-label={`${t(lang, "graph.subtitle")}. ${t(lang, "graph.totalTracked")} ${data.Chart.totalLabel}. ${data.Chart.legend.map(item => item.name).join(", ")}`} />
             </div>
           </div>
