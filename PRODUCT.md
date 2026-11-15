@@ -132,6 +132,7 @@ Deliberately not true, and worth knowing before a change:
 - A pay run cannot cover the current week, because the week has to end and be
   approved first.
 - Pay runs are hourly only. There is no per-piece and no salary scheme.
+- A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.
 - Open decision: pricing, and whether there is a paid tier at all. Do not state
   that the service is free or that it is paid.

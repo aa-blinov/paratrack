@@ -138,4 +138,6 @@ type InvoiceExportLine struct {
 	RateCents     int
 	AmountCents   int
 	Currency      string
+	// UnapprovedWeeks is nil for an invoice made before the count was recorded.
+	UnapprovedWeeks *int
 }

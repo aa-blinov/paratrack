@@ -342,6 +342,7 @@ type PayrollWorkflow interface {
 	ListRuns(context.Context, appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error)
 	MemberLines(context.Context, appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
+	UnapprovedPayrollStarts(context.Context, int64, time.Time, time.Time) ([]time.Time, error)
 	MemberSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UpdateMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 }
@@ -443,6 +444,7 @@ type TrackingQueries interface {
 	ListActivities(context.Context, int64, bool) ([]model.Activity, error)
 	HasAnySession(context.Context, int64) (bool, error)
 	Session(context.Context, int64, int64) (model.Session, error)
+	SessionProjectImpact(context.Context, appmodel.SessionProjectImpactQuery) (appmodel.SessionProjectImpact, error)
 	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error)
 	Timesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 	TimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)

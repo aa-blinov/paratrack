@@ -4,6 +4,7 @@
 - The search box keeps the keyboard inside it, closes on Escape and gives the focus back.
 - A chart whose script fails to load says so instead of showing a skeleton forever.
 - A goal's day is the workspace's day, whatever zone the browser is in.
+- The payroll page checks a period the manager picks, and the run's exports are downloads.
 
 Run after `cd web && npm run build:react`: python3 e2e/test_screen_regressions.py
 No server, account, or database is required: every response is fixed here.
@@ -30,6 +31,15 @@ GRAPH_DATA = {"Title": "По часам", "Active": "graph", "GraphReact": True,
 GOALS_DATA = {"Title": "Цели", "Active": "goals", "GoalsReact": True, "CanManage": True,
               "Activities": [{"ID": 1, "Name": "Чтение", "Color": "#6366f1", "ProjectID": 0, "Archived": False}],
               "Goals": []}
+PAYROLL_DATA = {"Title": "Выплаты", "Active": "payroll", "ReactApp": True, "PayrollReact": True, "CanManage": True,
+                "Items": [], "DefStart": "2026-11-01", "DefEnd": "2026-11-08", "DefNotes": "", "Overlap": "",
+                "UnapprovedWeeks": [{"Date": "2026-11-02", "Last": "2026-11-08", "Label": "2 нояб. – 8 нояб.", "Count": 3}],
+                "UnapprovedFrom": "2026-09-14", "UnapprovedTo": "2026-11-08", "UnapprovedAsked": False,
+                "Flash": "", "FlashOK": True}
+PAYROLL_RUN = {"Title": "PAY-2026-001", "Active": "payroll", "ReactApp": True, "PayrollReact": True, "PayrollDetail": True,
+               "Run": {"ID": 7, "Number": "PAY-2026-001", "Status": "draft", "Notes": "", "PeriodLabel": "1 нояб. – 8 нояб.",
+                       "Lines": [], "Total": "0", "TotalCents": 0, "Hours": "0"},
+               "Flash": "", "FlashOK": True}
 SEARCH = {"groups": [{"label": "Клиенты", "items": [
     {"title": "Альфа", "detail": "", "href": "/clients/1"},
     {"title": "Бета", "detail": "", "href": "/clients/2"}]}]}
@@ -195,6 +205,37 @@ async def check_goal_dates_follow_the_workspace_zone(browser):
     print("PASS goals: the period reads the workspace day in a browser west of UTC")
 
 
+async def check_payroll_period_and_exports(browser):
+    # The period form has no action of its own, so the generate form stays the only
+    # form posting to /payroll: the browser suites click that one by its selector.
+    html = page_html("/payroll", "payroll", "Выплаты", PAYROLL_DATA)
+    context, page, errors = await open_page(browser, "/payroll", html, {})
+    await page.get_by_role("button", name="Проверить период").wait_for(timeout=10000)
+    assert await page.get_by_text("Неутверждённые недели").count() >= 1, "the unapproved-weeks section is missing"
+    assert await page.locator('input[name="unapproved_from"]').input_value() == "2026-09-14", "the period starts at the default"
+    assert await page.locator('form[action="/payroll"] button[type="submit"]').count() == 1, "the period form must not share the generate form's selector"
+    assert not errors, errors
+    await context.close()
+
+    asked = {**PAYROLL_DATA, "UnapprovedWeeks": [], "UnapprovedAsked": True}
+    html = page_html("/payroll", "payroll", "Выплаты", asked)
+    context, page, errors = await open_page(browser, "/payroll", html, {})
+    await page.get_by_text("За этот период все недели с учтённым временем утверждены.").wait_for(timeout=10000)
+    assert not errors, errors
+    await context.close()
+
+    html = page_html("/payroll/7", "payroll", "PAY-2026-001", PAYROLL_RUN)
+    context, page, errors = await open_page(browser, "/payroll/7", html, {})
+    csv = page.locator('a[href="/payroll/7/export.csv"]')
+    by_day = page.locator('a[href="/payroll/7/export.csv?by=day"]')
+    await csv.wait_for(timeout=10000)
+    assert await csv.get_attribute("download") is not None, "the run CSV must download, not navigate"
+    assert await by_day.count() == 1, "the day breakdown link is missing"
+    assert not errors, errors
+    await context.close()
+    print("PASS payroll: the period check and the run exports render and download")
+
+
 async def main():
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
@@ -202,6 +243,7 @@ async def main():
         await check_search_keeps_focus(browser)
         await check_graph_reports_a_failed_chart(browser)
         await check_goal_dates_follow_the_workspace_zone(browser)
+        await check_payroll_period_and_exports(browser)
         await browser.close()
 
 

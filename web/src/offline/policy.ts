@@ -6,7 +6,7 @@ const queueablePaths: Record<string, RegExp[]> = {
     /^\/api\/start$/,
     /^\/api\/(?:active\/(?:pause-all|stop-all)|focus\/[^/]+)$/,
     /^\/api\/sessions\/(?:backfill|\d+\/(?:pause|resume|stop|reopen|tags))$/,
-    /^\/api\/(?:activities\/\d+\/project|goals|tags|timesheet\/cell|schedule\/cell)$/,
+    /^\/api\/(?:activities\/\d+\/project|goals|tags|timesheet\/cell|schedule\/cell|workday)$/,
   ],
   PATCH: [/^\/api\/sessions\/\d+$/],
   DELETE: [/^\/api\/sessions\/\d+(?:\/tags)?$/, /^\/api\/(?:goals|tags)$/],

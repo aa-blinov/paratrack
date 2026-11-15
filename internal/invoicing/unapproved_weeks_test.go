@@ -54,7 +54,8 @@ func TestUnapprovedWeeksNameEachWeekByItsMonday(t *testing.T) {
 // and writes nothing; with it the draft goes on as usual (D-3).
 func TestDraftWaitsForTheManagerAboutUnapprovedWeeks(t *testing.T) {
 	reader := &unapprovedDaysReader{draftReaderStub: &draftReaderStub{}, days: []string{"2026-10-12"}}
-	service, err := NewService(testDependencies(reader, &draftWriterStub{}))
+	writer := &draftWriterStub{}
+	service, err := NewService(testDependencies(reader, writer))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,5 +77,29 @@ func TestDraftWaitsForTheManagerAboutUnapprovedWeeks(t *testing.T) {
 	_, err = service.CreateDraftWithOverlapCheck(t.Context(), request)
 	if errors.As(err, &unapproved) {
 		t.Fatalf("a confirmed draft was still refused for unapproved weeks: %v", err)
+	}
+	// The draft keeps how many weeks it was made over, so the export can show it later.
+	if got := writer.drafted[len(writer.drafted)-1].UnapprovedWeeks; got == nil || *got != 1 {
+		t.Fatalf("the confirmed draft recorded %v unapproved weeks, want 1", got)
+	}
+}
+
+// A clean period records zero, which is not the same as an invoice from before the
+// count existed (nil).
+func TestCleanDraftRecordsZeroUnapprovedWeeks(t *testing.T) {
+	writer := &draftWriterStub{}
+	service, err := NewService(testDependencies(&unapprovedDaysReader{draftReaderStub: &draftReaderStub{}}, writer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := appmodel.InvoiceDraftRequest{
+		TeamID: 7, CallerID: 3, Client: "Acme",
+		Start: time.Date(2026, 10, 12, 0, 0, 0, 0, time.UTC), End: time.Date(2026, 10, 19, 0, 0, 0, 0, time.UTC),
+	}
+	if _, err := service.CreateDraftWithOverlapCheck(t.Context(), request); err != nil {
+		t.Fatalf("clean draft: %v", err)
+	}
+	if got := writer.drafted[len(writer.drafted)-1].UnapprovedWeeks; got == nil || *got != 0 {
+		t.Fatalf("the clean draft recorded %v unapproved weeks, want 0", got)
 	}
 }

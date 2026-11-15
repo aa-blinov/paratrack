@@ -41,10 +41,11 @@ func clockOf(at time.Time, loc *time.Location) string {
 // handleWorkday marks the start or the end of the viewer's working day (TIME-06). The
 // start is kept once; the end is the last one given.
 func (s *Server) handleWorkday(w http.ResponseWriter, r *http.Request) {
-	now := userNow(r)
+	// The click time, when the mark was replayed from the offline queue; now otherwise.
+	at := actionTime(r).In(userLoc(r))
 	err := s.services.Scheduling.MarkWorkday(r.Context(), appmodel.WorkdayRequest{
-		TeamID: teamID(r), UserID: authenticatedUserID(r), Day: startOfDay(now).Format("2006-01-02"),
-		Action: r.FormValue("action"), Now: now,
+		TeamID: teamID(r), UserID: authenticatedUserID(r), Day: startOfDay(at).Format("2006-01-02"),
+		Action: r.FormValue("action"), Now: at,
 	})
 	if err != nil {
 		http.Redirect(w, r, "/?flash="+encodeFlash(false, s.teamErrorMessage(r, err)), http.StatusSeeOther)

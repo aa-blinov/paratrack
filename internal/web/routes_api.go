@@ -28,6 +28,7 @@ func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(htt
 	api("POST", "/api/active/stop-all", s.mine(s.handleStopAll))
 	api("POST", "/api/sessions/backfill", s.handleBackfill)
 	api("PATCH", "/api/sessions/{id}", s.handleUpdateSession)
+	api("GET", "/api/sessions/{id}/project-impact", s.handleSessionProjectImpact)
 	api("DELETE", "/api/sessions/{id}", s.handleDeleteSession)
 	api("GET", "/api/tasks", s.module("tasks", s.handleTasksAPIList))
 	api("POST", "/api/tasks", s.module("tasks", s.handleTaskCreate))

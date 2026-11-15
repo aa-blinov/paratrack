@@ -17,7 +17,7 @@ func TestAccountantInvoiceExportAnswersAsCSV(t *testing.T) {
 	if response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/csv") {
 		t.Fatalf("the export answered %d as %q", response.StatusCode, response.Header.Get("Content-Type"))
 	}
-	if !strings.HasPrefix(body, "invoice,date,client,executor,position,hours,rate,amount,currency,status\n") {
+	if !strings.HasPrefix(body, "invoice,date,client,executor,position,hours,rate,amount,currency,status,unapproved_weeks\n") {
 		t.Fatalf("the export header is wrong: %q", body)
 	}
 

@@ -120,7 +120,7 @@ func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request)
 	s.audit(r, "invoice.export", "", "")
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="invoices-export.csv"`)
-	if err := writeInvoicesExportCSV(w, rows, s.sellerName(r), loc); err != nil {
+	if err := writeInvoicesExportCSV(w, rows, s.sellerName(r), loc, dialectOf(r)); err != nil {
 		s.logInternalError(err)
 	}
 }

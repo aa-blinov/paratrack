@@ -244,8 +244,9 @@ func (d *DB) recentTimesheetActivityIDs(ctx context.Context, teamID int64, weekS
 	return ids, nil
 }
 
-// UpsertDayTotal atomically replaces the current actor's total for an
-// activity and day with one synthetic session (or clears the cell). It locks
+// UpsertDayTotal atomically sets the current actor's total for an activity and
+// day: the sheet session takes the difference over the logged intervals, and a
+// total below them is refused (model.ErrCellBelowIntervals). It locks
 // the activity and affected sessions and refuses sent or paid invoice rows.
 
 func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellUpdateRequest) error {
@@ -288,31 +289,39 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 		}
 	}
 
-	// Drop existing closed sessions for this activity/day — the cell is
-	// the source of truth for the sheet.
-	del := `DELETE FROM sessions
-	        WHERE activity_id = ?
-	          AND end_at IS NOT NULL
-	          AND start_at >= ?
-	          AND start_at < ?`
-	delArgs := []any{activityID, FormatTime(dayStart), FormatTime(dayEnd)}
-	if teamID > 0 {
-		del += ` AND team_id = ?`
-		delArgs = append(delArgs, teamID)
-	}
-	// Only the actor's own day: a colleague's sessions on the same
-	// activity are theirs, not this cell's.
-	del += ` AND user_id = ?`
-	delArgs = append(delArgs, actor)
-	if _, err := tx.ExecContext(ctx, del, delArgs...); err != nil {
+	// The cell only raises a day. Closed sessions with real intervals (a start and an
+	// end the person logged) stay as they are; the sheet session holds the difference.
+	// A total below what those intervals already hold would have to erase a start or
+	// an end, so it is refused. Only the actor's own day counts: a colleague's
+	// sessions on the same activity are theirs, not this cell's.
+	var realSecs int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(accumulated_seconds), 0) FROM sessions
+		  WHERE activity_id = ? AND team_id = ? AND user_id = ?
+		    AND end_at IS NOT NULL AND start_at >= ? AND start_at < ?
+		    AND COALESCE(note, '') <> 'timesheet'`,
+		activityID, teamID, actor, FormatTime(dayStart), FormatTime(dayEnd)).Scan(&realSecs); err != nil {
 		return err
 	}
-	if totalSecs == 0 {
+	if int64(totalSecs) < realSecs {
+		return model.ErrCellBelowIntervals
+	}
+	// The earlier sheet session of this cell is replaced; nothing else is.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM sessions
+		  WHERE activity_id = ? AND team_id = ? AND user_id = ?
+		    AND end_at IS NOT NULL AND start_at >= ? AND start_at < ?
+		    AND note = 'timesheet'`,
+		activityID, teamID, actor, FormatTime(dayStart), FormatTime(dayEnd)); err != nil {
+		return err
+	}
+	remainder := int64(totalSecs) - realSecs
+	if remainder == 0 {
 		return tx.Commit()
 	}
-	// One sheet session 09:00 → 09:00+total.
+	// One sheet session 09:00 → 09:00+remainder.
 	start := dayStart.Add(9 * time.Hour)
-	end := start.Add(time.Duration(totalSecs) * time.Second)
+	end := start.Add(time.Duration(remainder) * time.Second)
 	if _, err := insertClosedSessionTx(ctx, tx, teamID, activityID, start, end, "timesheet", 0); err != nil {
 		return err
 	}

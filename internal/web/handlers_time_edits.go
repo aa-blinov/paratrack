@@ -108,6 +108,10 @@ func (s *Server) handleTimeEditDecision(w http.ResponseWriter, r *http.Request) 
 // writeTimeEditError names why a decision was refused. A cell in an approved week is not written
 // until the week is reopened, and the message says so (TIME-19).
 func (s *Server) writeTimeEditError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, model.ErrCellBelowIntervals) {
+		s.writeJSONStatus(w, http.StatusUnprocessableEntity, apiErrorResponse{Error: i18n.T(resolveLang(r), "tse.belowIntervals")})
+		return
+	}
 	if errors.Is(err, model.ErrWeekApproved) {
 		s.writeJSONStatus(w, http.StatusUnprocessableEntity, apiErrorResponse{Error: i18n.T(resolveLang(r), "tse.weekApproved")})
 		return

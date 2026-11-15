@@ -39,7 +39,7 @@ func (s *Service) ExportLines(ctx context.Context, query appmodel.InvoiceExportQ
 			out = append(out, appmodel.InvoiceExportLine{
 				InvoiceNumber: inv.Number, IssuedAt: inv.CreatedAt, Client: inv.ClientName, Status: inv.Status,
 				Label: line.Label, Seconds: line.Seconds, RateCents: line.RateCents, AmountCents: line.AmountCents,
-				Currency: currency,
+				Currency: currency, UnapprovedWeeks: inv.UnapprovedWeeks,
 			})
 		}
 	}

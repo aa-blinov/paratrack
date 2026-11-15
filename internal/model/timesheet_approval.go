@@ -8,7 +8,10 @@ import (
 // A manager approves a finished week of the timesheet. While a week is approved
 // its time is read-only for everyone in the workspace, until a manager reopens it.
 var (
-	ErrWeekApproved        = errors.New("week is approved and locked")
+	ErrWeekApproved = errors.New("week is approved and locked")
+	// ErrCellBelowIntervals refuses a cell total smaller than the closed intervals
+	// already logged that day: the cell only raises a day, it never erases a start or an end.
+	ErrCellBelowIntervals  = errors.New("timesheet cell is below the intervals already logged")
 	ErrWeekNotFinished     = errors.New("week is not finished yet")
 	ErrWeekHasRunningTimer = errors.New("a timer is still running in this week")
 	ErrWeekPaid            = errors.New("a pay run already covers this week")

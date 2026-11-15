@@ -29,6 +29,7 @@ type Store interface {
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	ListMemberPayrollSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
+	UnapprovedPayrollStarts(context.Context, int64, time.Time, time.Time) ([]time.Time, error)
 }
 
 type AuditRecorder interface {
@@ -87,6 +88,19 @@ func (s *Service) UnapprovedPayrollTime(ctx context.Context, teamID int64, from,
 		return nil, fmt.Errorf("check approved payroll time: %w", err)
 	}
 	return notApproved, nil
+}
+
+// UnapprovedPayrollStarts lists the start of every session in [from, to) that is not in
+// an approved week, oldest first, so the page can group them by week in one read.
+func (s *Service) UnapprovedPayrollStarts(ctx context.Context, teamID int64, from, to time.Time) ([]time.Time, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidTeam
+	}
+	starts, err := s.store.UnapprovedPayrollStarts(ctx, teamID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("list unapproved payroll starts: %w", err)
+	}
+	return starts, nil
 }
 
 // MemberLines returns one person's own pay lines in the workspace, read-only (FIN-11).

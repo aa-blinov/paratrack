@@ -72,6 +72,7 @@ func (s *draftReaderStub) ListUnapprovedTimeDays(context.Context, int64, int64, 
 
 type draftWriterStub struct {
 	Writer
+	drafted    []appmodel.InvoiceDraftRequest
 	invoice    model.Invoice
 	lines      []model.InvoiceLine
 	createErr  error
@@ -196,7 +197,8 @@ func (s *recordingAudit) Record(_ context.Context, record model.AuditRecord) err
 	return nil
 }
 
-func (s *draftWriterStub) CreateInvoiceDraft(context.Context, appmodel.InvoiceDraftRequest) (model.Invoice, []model.InvoiceLine, error) {
+func (s *draftWriterStub) CreateInvoiceDraft(_ context.Context, request appmodel.InvoiceDraftRequest) (model.Invoice, []model.InvoiceLine, error) {
+	s.drafted = append(s.drafted, request)
 	return s.invoice, s.lines, s.createErr
 }
 

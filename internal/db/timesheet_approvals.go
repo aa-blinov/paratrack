@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -206,6 +207,39 @@ func requireApprovedPayrollTime(ctx context.Context, tx *Tx, teamID int64, from,
 // warn before a run is refused.
 func (d *DB) UnapprovedPayrollTime(ctx context.Context, teamID int64, from, to time.Time) (*model.PayrollNotApprovedError, error) {
 	return unapprovedPayrollTime(ctx, d.sql, teamID, from, to)
+}
+
+// UnapprovedPayrollStarts lists the start of every closed or running session in
+// [from, to) that no approved week covers, oldest first. It is the same rule as
+// UnapprovedPayrollTime, for a whole window in one query: the payroll page groups
+// the starts by week instead of asking once per week.
+func (d *DB) UnapprovedPayrollStarts(ctx context.Context, teamID int64, from, to time.Time) ([]time.Time, error) {
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT s.start_at FROM sessions s
+		  WHERE s.team_id = ?
+		    AND s.start_at >= ? AND s.start_at < ?
+		    AND NOT EXISTS (
+		      SELECT 1 FROM timesheet_approvals a
+		       WHERE a.team_id = s.team_id AND a.starts_at <= s.start_at AND a.ends_at > s.start_at)
+		  ORDER BY s.start_at`,
+		teamID, FormatTime(from), FormatTime(to))
+	if err != nil {
+		return nil, fmt.Errorf("list unapproved payroll starts: %w", err)
+	}
+	defer rows.Close()
+	var starts []time.Time
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		at, err := ParseTime(raw)
+		if err != nil {
+			return nil, err
+		}
+		starts = append(starts, at)
+	}
+	return starts, rows.Err()
 }
 
 func unapprovedPayrollTime(ctx context.Context, q queryRower, teamID int64, from, to time.Time) (*model.PayrollNotApprovedError, error) {

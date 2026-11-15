@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
@@ -86,4 +87,36 @@ func sessionOwnProject(ctx context.Context, tx *Tx, teamID, activityID, projectI
 		return nil, nil
 	}
 	return projectID, nil
+}
+
+// SessionProjectImpact reads what moving a session to a project would move, under
+// the rules sessionOwnProject applies when the change is written.
+func (d *DB) SessionProjectImpact(ctx context.Context, query appmodel.SessionProjectImpactQuery) (appmodel.SessionProjectImpact, error) {
+	var activityID int64
+	if err := d.sql.QueryRowContext(ctx,
+		`SELECT activity_id FROM sessions WHERE id = ? AND team_id = ?`, query.SessionID, query.TeamID).Scan(&activityID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return appmodel.SessionProjectImpact{}, ErrNotFound
+		}
+		return appmodel.SessionProjectImpact{}, err
+	}
+	var activityProject sql.NullInt64
+	var billed bool
+	if err := d.sql.QueryRowContext(ctx,
+		`SELECT a.project_id, EXISTS (SELECT 1 FROM sessions WHERE activity_id = a.id AND invoice_id IS NOT NULL)
+		   FROM activities a WHERE a.id = ? AND a.team_id = ?`, activityID, query.TeamID).Scan(&activityProject, &billed); err != nil {
+		return appmodel.SessionProjectImpact{}, err
+	}
+	if query.ProjectID <= 0 || activityProject.Valid || billed {
+		return appmodel.SessionProjectImpact{Sessions: 1}, nil
+	}
+	var impact appmodel.SessionProjectImpact
+	impact.Binds = true
+	if err := d.sql.QueryRowContext(ctx,
+		`SELECT COUNT(*), COALESCE(SUM(accumulated_seconds), 0) FROM sessions
+		  WHERE activity_id = ? AND team_id = ? AND project_id IS NULL`,
+		activityID, query.TeamID).Scan(&impact.Sessions, &impact.Seconds); err != nil {
+		return appmodel.SessionProjectImpact{}, err
+	}
+	return impact, nil
 }

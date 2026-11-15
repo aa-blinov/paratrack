@@ -3,12 +3,14 @@ package web
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -171,4 +173,43 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	s.toastL(w, r, "toast.deleted", "", "success")
 	w.Header().Set("HX-Trigger", "sessions-changed")
 	w.WriteHeader(200)
+}
+
+// projectImpactResponse is what the project change confirmation shows before a save.
+func (projectImpactResponse) isJSONResponse() {}
+
+type projectImpactResponse struct {
+	Binds    bool   `json:"binds"`
+	Sessions int    `json:"sessions"`
+	Hours    string `json:"hours"`
+}
+
+// handleSessionProjectImpact reads what moving a session to a project would move too,
+// so the confirmation can name the entries before anything is saved.
+func (s *Server) handleSessionProjectImpact(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r.PathValue("id"))
+	if err != nil || id <= 0 {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "bad id"})
+		return
+	}
+	projectID, err := strconv.ParseInt(r.URL.Query().Get("project_id"), 10, 64)
+	if err != nil {
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid project_id"})
+		return
+	}
+	impact, err := s.services.Tracking.Queries.SessionProjectImpact(r.Context(), appmodel.SessionProjectImpactQuery{
+		TeamID: teamID(r), SessionID: id, ProjectID: projectID,
+	})
+	if err != nil {
+		if errors.Is(err, model.ErrNotFound) {
+			s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "session not found"})
+			return
+		}
+		s.writeInternalJSONError(w, err)
+		return
+	}
+	s.writeJSON(w, projectImpactResponse{
+		Binds: impact.Binds, Sessions: impact.Sessions,
+		Hours: fmtHoursL(resolveLang(r), money.HoursHundredths(impact.Seconds)),
+	})
 }

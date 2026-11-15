@@ -76,9 +76,11 @@ fi
 # Timesheet cell replacement must retain a concrete actor scope even for
 # legacy unscoped records, where no workspace membership row can provide it.
 timesheet_cell_write=$(sed -n '/^func (d \*DB) UpsertDayTotal(/,/^}/p' internal/db/timesheet.go)
+# The cell reads the actor's intervals and replaces only the actor's sheet sessions:
+# both queries must name the actor, or a colleague's time on the same activity could move.
 if ! printf '%s\n' "$timesheet_cell_write" | grep -Fq 'actor := actorID(ctx)' ||
 	! printf '%s\n' "$timesheet_cell_write" | grep -Fq 'if actor <= 0' ||
-	! printf '%s\n' "$timesheet_cell_write" | grep -Fq 'del += ` AND user_id = ?`'; then
+	[ "$(printf '%s\n' "$timesheet_cell_write" | grep -Fc 'AND user_id = ?')" -lt 2 ]; then
 	echo "architecture check: timesheet cell replacement must require and apply an actor scope" >&2
 	exit 1
 fi

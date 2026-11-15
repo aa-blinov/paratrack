@@ -1,6 +1,6 @@
 import { Flash } from "@/components/flash"
 import { openDisclosure } from "@/components/ui/collapsible"
-import { ArrowLeft, Printer, Trash2 } from "lucide-react"
+import { ArrowLeft, Download, Printer, Trash2 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -26,19 +26,30 @@ export function PayrollPage({ data }: { data: PayrollData }) {
     <Flash message={data.Flash} ok={data.FlashOK} />
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
 
-    {data.UnapprovedWeeks?.length ? <div role="status" className="space-y-2 rounded-lg border border-border p-4 text-sm">
-      <p>{t(lang, "pay.unapprovedHint")}</p>
-      <ul className="flex flex-col gap-2">{data.UnapprovedWeeks.map(week => <li key={week.Date} className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <a className="font-medium underline underline-offset-4" href={`/timesheet?date=${week.Date}`}>{t(lang, "pay.unapprovedWeek", week.Label, week.Count)}</a>
-        {/* Approving here saves the trip to the timesheet; the approval itself is the same one the timesheet makes. */}
-        <form method="POST" action="/api/timesheet/approve" className="inline">
-          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
-          <input type="hidden" name="start" value={week.Date} />
-          <input type="hidden" name="end" value={week.Last} />
-          <Button type="submit" size="sm" variant="outline">{t(lang, "pay.approveWeek")}</Button>
+    <section aria-labelledby="unapproved-title" className="space-y-3 rounded-lg border border-border p-4 text-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 id="unapproved-title" className="font-medium">{t(lang, "pay.unapprovedTitle")}</h2>
+        {/* No action attribute: the form goes back to this page, and the generate form keeps its own selector. */}
+        <form method="GET" className="flex flex-wrap items-end gap-2">
+          <div className="space-y-1"><Label htmlFor="unapproved-from">{t(lang, "inv.from")}</Label><DateField id="unapproved-from" name="unapproved_from" required defaultValue={data.UnapprovedFrom} /></div>
+          <div className="space-y-1"><Label htmlFor="unapproved-to">{t(lang, "inv.to")}</Label><DateField id="unapproved-to" name="unapproved_to" required defaultValue={data.UnapprovedTo} /></div>
+          <Button type="submit" size="sm" variant="outline">{t(lang, "pay.checkPeriod")}</Button>
         </form>
-      </li>)}</ul>
-    </div> : null}
+      </div>
+      {data.UnapprovedWeeks?.length ? <div role="status" className="space-y-2">
+        <p>{t(lang, "pay.unapprovedHint")}</p>
+        <ul className="flex flex-col gap-2">{data.UnapprovedWeeks.map(week => <li key={week.Date} className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <a className="font-medium underline underline-offset-4" href={`/timesheet?date=${week.Date}`}>{t(lang, "pay.unapprovedWeek", week.Label, week.Count)}</a>
+          {/* Approving here saves the trip to the timesheet; the approval itself is the same one the timesheet makes. */}
+          <form method="POST" action="/api/timesheet/approve" className="inline">
+            <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+            <input type="hidden" name="start" value={week.Date} />
+            <input type="hidden" name="end" value={week.Last} />
+            <Button type="submit" size="sm" variant="outline">{t(lang, "pay.approveWeek")}</Button>
+          </form>
+        </li>)}</ul>
+      </div> : data.UnapprovedAsked ? <p className="text-muted-foreground">{t(lang, "pay.unapprovedNone")}</p> : null}
+    </section>
     {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
 
 
@@ -82,6 +93,8 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
       <div className="flex flex-wrap items-center gap-2">
         {data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
         <Button type="button" variant="outline" size="sm" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
+        <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv`} download><Download aria-hidden="true" />{t(lang, "pay.exportCSV")}</a></Button>
+        <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv?by=day`} download><Download aria-hidden="true" />{t(lang, "pay.exportDays")}</a></Button>
         <form method="POST" action={`/payroll/${data.Run.ID}/delete`} className="ms-auto" data-confirm={t(lang, "pay.confirmDelete", data.Run.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="destructive" size="sm" aria-label={t(lang, "pay.delete")}><Trash2 aria-hidden="true" />{t(lang, "pay.delete")}</Button></form>
       </div>
     </div>
