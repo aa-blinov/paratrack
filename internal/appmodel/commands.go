@@ -49,6 +49,9 @@ type InvoiceDraftRequest struct {
 	// ConfirmUnapproved is the manager's answer to the unapproved-weeks warning
 	// (FIN-12): without it a period with unapproved billable time is refused.
 	ConfirmUnapproved bool
+	// UnapprovedWeeks is set by the service: the weeks in the period with unapproved
+	// time at the moment of the draft. Nil leaves the invoice without the record.
+	UnapprovedWeeks *int
 }
 
 // InvoiceCreateRequest carries a prepared invoice and its lines through the

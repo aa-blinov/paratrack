@@ -1,7 +1,8 @@
 // Package reminders sends the nudges that need no app to be open: a project
 // deadline is close, a person is planned past the time they have this week, a
-// task is due, or a deal or lead has its next step due today. Each nudge goes
-// out once; a next step goes out once a day.
+// task is due, a deal or lead has its next step due today, or a weekday evening
+// passes with no time logged. Each nudge goes out once; a next step goes out
+// once a day.
 package reminders
 
 import (
@@ -18,6 +19,7 @@ const (
 	TopicDeadline = "project.deadline"
 	TopicOverload = "schedule.overload"
 	TopicTaskDue  = "task.due"
+	TopicDayFill  = appmodel.NotificationTopicDayFill
 	// TopicCRMNextStep is the topic a person switches off for next-step reminders.
 	TopicCRMNextStep = appmodel.NotificationTopicCRMNextStep
 )
@@ -34,6 +36,9 @@ type Store interface {
 	MarkTaskDueReminded(ctx context.Context, request appmodel.TaskDueReminderRequest) error
 	CRMStepsDue(ctx context.Context, through string) ([]appmodel.CRMStep, error)
 	ClaimCRMReminder(ctx context.Context, claim appmodel.CRMReminderClaimRequest) (bool, error)
+	DayFillCandidates(ctx context.Context, query appmodel.DayFillCandidatesQuery) ([]int64, error)
+	ClaimDayFillNotice(ctx context.Context, request appmodel.DayFillNoticeRequest) (bool, error)
+	TeamLocation(ctx context.Context, teamID int64) (*time.Location, error)
 }
 
 // Planner reads a team's week, the same way the schedule page does.
@@ -171,6 +176,9 @@ func (s *Service) Pass(ctx context.Context) error {
 	if err := s.crmSteps(ctx, now); err != nil {
 		return fmt.Errorf("crm next step reminders: %w", err)
 	}
+	if err := s.dayFill(ctx, now); err != nil {
+		return fmt.Errorf("day fill reminders: %w", err)
+	}
 	return nil
 }
 
@@ -247,6 +255,71 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 			}
 			// Email repeats the same nudge. One failed mailbox must not hold back
 			// the other managers' reminders, so its error is kept, not returned early.
+			if s.mailer != nil {
+				if err := s.mailer.Email(ctx, notification); err != nil {
+					mailErrs = append(mailErrs, err)
+				}
+			}
+		}
+	}
+	return errors.Join(mailErrs...)
+}
+
+// The "fill your day" nudge goes out on a weekday evening in the workspace's zone,
+// once per person per day, to a member who started no session that day. The
+// worker ticks hourly, so the first tick inside the window sends it. A claim is
+// stored before the send: a failed send is not retried that day, the same choice
+// as the overload nudge makes.
+const (
+	dayFillFromHour = 18
+	dayFillToHour   = 22
+)
+
+func (s *Service) dayFill(ctx context.Context, now time.Time) error {
+	teams, err := s.store.TeamIDs(ctx)
+	if err != nil {
+		return err
+	}
+	var mailErrs []error
+	for _, teamID := range teams {
+		loc, err := s.store.TeamLocation(ctx, teamID)
+		if err != nil {
+			return err
+		}
+		local := now.In(loc)
+		if local.Weekday() == time.Saturday || local.Weekday() == time.Sunday {
+			continue
+		}
+		if local.Hour() < dayFillFromHour || local.Hour() >= dayFillToHour {
+			continue
+		}
+		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+		users, err := s.store.DayFillCandidates(ctx, appmodel.DayFillCandidatesQuery{
+			TeamID: teamID, From: day, To: day.AddDate(0, 0, 1),
+		})
+		if err != nil {
+			return err
+		}
+		for _, userID := range users {
+			claimed, err := s.store.ClaimDayFillNotice(ctx, appmodel.DayFillNoticeRequest{
+				TeamID: teamID, UserID: userID, Day: day.Format("2006-01-02"),
+			})
+			if err != nil {
+				return err
+			}
+			if !claimed {
+				continue
+			}
+			notification := Notification{
+				TeamID: teamID, UserIDs: []int64{userID}, Topic: TopicDayFill,
+				Title: "За сегодня нет записей",
+				Body:  "За сегодня нет записей. Отметьте время, если работали",
+				URL:   "/timesheet",
+			}
+			if err := s.sender.Send(ctx, notification); err != nil {
+				return err
+			}
+			// The email repeats the push. A failed mailbox does not hold back the others.
 			if s.mailer != nil {
 				if err := s.mailer.Email(ctx, notification); err != nil {
 					mailErrs = append(mailErrs, err)

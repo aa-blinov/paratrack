@@ -189,8 +189,14 @@ func TestMCPMemberTimeEditRequestIsApprovedByTheOwner(t *testing.T) {
 	if n := countRows(t, owner, `SELECT COUNT(*) FROM time_edit_requests WHERE id = ? AND status = 'approved'`, requestID); n != 1 {
 		t.Fatalf("the request is not approved")
 	}
+	// The logged hour stays as it was logged; the approval adds the 30 minutes that are
+	// missing, as one timesheet session, so the day reads 90 minutes.
 	if n := countRows(t, owner, `SELECT COUNT(*) FROM sessions
-		WHERE user_id = (SELECT user_id FROM time_edit_requests WHERE id = ?) AND note = 'timesheet' AND accumulated_seconds = 5400`, requestID); n != 1 {
-		t.Fatalf("the member's day does not hold the 90-minute session")
+		WHERE user_id = (SELECT user_id FROM time_edit_requests WHERE id = ?) AND note = 'timesheet' AND accumulated_seconds = 1800`, requestID); n != 1 {
+		t.Fatalf("the member's day does not hold the 30-minute difference")
+	}
+	if n := countRows(t, owner, `SELECT COUNT(*) FROM sessions
+		WHERE user_id = (SELECT user_id FROM time_edit_requests WHERE id = ?) AND activity_id = ? AND accumulated_seconds = 3600 AND COALESCE(note, '') <> 'timesheet'`, requestID, activityID); n != 1 {
+		t.Fatalf("the logged hour was not kept")
 	}
 }

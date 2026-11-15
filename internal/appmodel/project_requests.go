@@ -131,3 +131,21 @@ type ProjectPageSnapshot struct {
 	ProjectsByID  map[int64]ProjectSummary
 	Unbilled      []UnbilledProject
 }
+
+// SessionProjectImpactQuery asks what moving one session to a project also moves.
+type SessionProjectImpactQuery struct {
+	TeamID    int64
+	SessionID int64
+	ProjectID int64
+}
+
+// SessionProjectImpact is what a project change moves. A session with its own
+// project moves alone. An activity with no project takes the project from the first
+// session tagged with one, and every session of that activity without a project of
+// its own follows it, unless the activity is billed. Binds says that case applies,
+// and Sessions and Seconds count the sessions that would move, this one included.
+type SessionProjectImpact struct {
+	Binds    bool
+	Sessions int
+	Seconds  int
+}

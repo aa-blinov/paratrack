@@ -336,7 +336,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
             <DropdownMenuItem disabled={data.RunningCount === 0} onSelect={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => { if (!(await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }))) return; if (active.some(timerIsLong) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate("/api/active/stop-all") }}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
           </DropdownMenuContent></DropdownMenu>}</div>
-          {active.length ? <div className="grid gap-3">{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          {active.length ? <div className="grid gap-3">{active.some(timerIsLong) && <p className="rounded-md border border-amber-500/40 p-2 text-sm">{t(lang, "dash.longTimerHint")}</p>}{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             {/* Название и часы на одной строке: часы и есть ответ на «сколько
                 уже идёт». Статус виден только на паузе, идущий таймер его не
                 называет; проект и время начала уходят в строку под ними. */}

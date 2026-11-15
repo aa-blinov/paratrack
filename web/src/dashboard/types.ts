@@ -533,6 +533,9 @@ export interface PayrollData {
   DefNotes: string
   Overlap: string
   UnapprovedWeeks?: Array<{ Date: string; Last: string; Label: string; Count: number }>
+  UnapprovedFrom: string
+  UnapprovedTo: string
+  UnapprovedAsked: boolean
   Flash: string
   FlashOK: boolean
 }

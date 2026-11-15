@@ -49,6 +49,9 @@ var columnMigrations = []struct {
 	{"invoices", "payment_url", "TEXT"},
 	{"invoices", "stripe_session_id", "TEXT"},
 	{"invoices", "paid_at", "TEXT"},
+	// Weeks with unapproved time when the invoice was drafted. NULL is an invoice made
+	// before this was recorded, which is not the same as a clean 0.
+	{"invoices", "unapproved_weeks", "INTEGER"},
 	{"sessions", "user_id", "BIGINT"},
 	{"memberships", "hourly_pay_cents", "BIGINT"},
 	{"memberships", "capacity_minutes", "BIGINT"},
@@ -539,6 +542,13 @@ var compatibilityStatements = []string{
 		FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 		FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+	)`,
+	`CREATE TABLE IF NOT EXISTS day_fill_reminders (
+		team_id BIGINT NOT NULL,
+		user_id BIGINT NOT NULL,
+		day TEXT NOT NULL,
+		created_at TEXT NOT NULL,
+		PRIMARY KEY (team_id, user_id, day)
 	)`,
 	`CREATE TABLE IF NOT EXISTS schedule_overload_reminders (
 		team_id BIGINT NOT NULL,

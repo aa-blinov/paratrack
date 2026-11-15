@@ -40,6 +40,7 @@ var notificationTopics = []string{
 	appmodel.NotificationTopicTaskDue,
 	appmodel.NotificationTopicTaskWatch,
 	appmodel.NotificationTopicCRMNextStep,
+	appmodel.NotificationTopicDayFill,
 }
 
 func isNotificationTopic(topic string) bool {

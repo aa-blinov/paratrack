@@ -30,6 +30,7 @@ export function DayMarkCard({ week, lang, csrfToken }: { week: MarkWeek; lang: s
           <Input id="mark-note" name="note" maxLength={200} /></div>
         <Button type="submit" variant="outline">{t(lang, "stats.markSave")}</Button>
       </form>
+      <p className="text-xs text-muted-foreground">{t(lang, "stats.markVisible")}</p>
       {week.Marks.length ? <ul className="grid divide-y">
         {week.Marks.map(mark => <li key={mark.Day} className="flex flex-wrap items-center justify-between gap-3 py-2 text-sm">
           <span><span className="font-medium">{mark.DayLabel}</span>{": "}{mark.KindLabel}{mark.Note ? ` (${mark.Note})` : ""}</span>

@@ -4,7 +4,9 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -90,26 +92,70 @@ func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc
 }
 
 // invoicesExportCSVHeader is the column order of the accountant's invoice export (FIN-05).
-var invoicesExportCSVHeader = []string{"invoice", "date", "client", "executor", "position", "hours", "rate", "amount", "currency", "status"}
+var invoicesExportCSVHeader = []string{"invoice", "date", "client", "executor", "position", "hours", "rate", "amount", "currency", "status", "unapproved_weeks"}
+
+// csvDialect is how an accountant's export writes its file. The default is RFC 4180:
+// a comma between columns and a decimal point in numbers. The Excel dialect
+// (?format=excel) starts with a byte order mark, puts ';' between columns and writes a
+// decimal comma, which Russian Excel and 1С read as one column per field.
+type csvDialect struct{ excel bool }
+
+func dialectOf(r *http.Request) csvDialect {
+	return csvDialect{excel: r.URL.Query().Get("format") == "excel"}
+}
+
+// writer starts a CSV file in the dialect. The byte order mark goes before the header.
+func (d csvDialect) writer(w io.Writer) (*csv.Writer, error) {
+	if d.excel {
+		if _, err := w.Write([]byte{0xEF, 0xBB, 0xBF}); err != nil {
+			return nil, err
+		}
+	}
+	out := csv.NewWriter(w)
+	if d.excel {
+		out.Comma = ';'
+	}
+	return out, nil
+}
+
+// number writes a decimal number in the dialect: a decimal comma for Excel, a point otherwise.
+func (d csvDialect) number(s string) string {
+	if d.excel {
+		return strings.ReplaceAll(s, ".", ",")
+	}
+	return s
+}
 
 // writeInvoicesExportCSV writes one row per invoice line. Amounts are decimal in the
 // currency of the line; the executor is the workspace's seller name on every row.
-func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, executor string, loc *time.Location) error {
-	out := csv.NewWriter(w)
+func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, executor string, loc *time.Location, d csvDialect) error {
+	out, err := d.writer(w)
+	if err != nil {
+		return err
+	}
 	if err := out.Write(invoicesExportCSVHeader); err != nil {
 		return err
 	}
 	for _, row := range rows {
 		if err := out.Write([]string{
 			row.InvoiceNumber, row.IssuedAt.In(loc).Format("2006-01-02"), row.Client, executor, row.Label,
-			formatHoursDecimal(row.Seconds), money.FormatCents(row.RateCents), money.FormatCents(row.AmountCents),
-			row.Currency, row.Status,
+			d.number(formatHoursDecimal(row.Seconds)), d.number(money.FormatCents(row.RateCents)), d.number(money.FormatCents(row.AmountCents)),
+			row.Currency, row.Status, unapprovedWeeksCell(row.UnapprovedWeeks),
 		}); err != nil {
 			return err
 		}
 	}
 	out.Flush()
 	return out.Error()
+}
+
+// unapprovedWeeksCell is empty for an invoice made before the count was recorded, so a
+// spreadsheet cannot read the gap as "nothing unapproved".
+func unapprovedWeeksCell(weeks *int) string {
+	if weeks == nil {
+		return ""
+	}
+	return strconv.Itoa(*weeks)
 }
 
 // formatHoursDecimal writes seconds as hours with two digits after a decimal point,

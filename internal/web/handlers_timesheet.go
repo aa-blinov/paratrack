@@ -292,6 +292,10 @@ func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Reque
 		s.respondTimesheetRow(w, r, actID, day, autoLockMessage(resolveLang(r), autoLockErr))
 		return
 	}
+	if errors.Is(err, model.ErrCellBelowIntervals) {
+		s.respondTimesheetRow(w, r, actID, day, i18n.T(resolveLang(r), "ts.belowIntervals"))
+		return
+	}
 	var lockErr *model.SessionInvoiceLockError
 	if errors.As(err, &lockErr) {
 		// Put the row back to what the invoice billed; the page shows why.

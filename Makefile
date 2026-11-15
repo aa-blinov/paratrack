@@ -75,12 +75,14 @@ verify:
 	scripts/check-architecture.sh
 
 # staticcheck is out of `verify` until it can read the export data Go
-# 1.27.3 writes: v0.8.1 (the newest release, and @master too) fails with
+# 1.27.4 writes (the pinned toolchain since govulncheck flagged 1.27.3): v0.8.1
+# (the newest release, and @master too) fails with
 # "export data version 5 is greater than maximum supported version 4".
 # Staying on Go 1.27.1 instead only trades that for a live CVE,
 # GO-2026-6617, a remotely reachable HTTP/2 crash — so the toolchain moved
 # and this step waited. Run it by hand with `make lint`; put the line back
-# in `verify` as soon as a staticcheck release handles 1.27.3.
+# in `verify` as soon as a staticcheck release handles 1.27.4. Checked again
+# with 1.27.4: the same export-data error.
 lint:
 	$(GO) run $(STATICCHECK) $(GO_PACKAGES)
 

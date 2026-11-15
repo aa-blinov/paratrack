@@ -1,5 +1,7 @@
 package appmodel
 
+import "time"
+
 // DueProject is a project whose deadline falls in the reminder window.
 type DueProject struct {
 	TeamID     int64
@@ -41,4 +43,19 @@ type OverloadNoticeRequest struct {
 	TeamID int64
 	UserID int64
 	Week   string
+}
+
+// DayFillCandidatesQuery asks for the members who started no session in [From, To).
+type DayFillCandidatesQuery struct {
+	TeamID int64
+	From   time.Time
+	To     time.Time
+}
+
+// DayFillNoticeRequest claims the one "fill your day" notice a person gets on a
+// workspace day. Day is the workspace's calendar day, YYYY-MM-DD.
+type DayFillNoticeRequest struct {
+	TeamID int64
+	UserID int64
+	Day    string
 }

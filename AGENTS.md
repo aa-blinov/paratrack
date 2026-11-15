@@ -22,7 +22,7 @@ make e2e           # the Playwright suite against it
 make qa            # throwaway database, server, suite and teardown, one command
 ```
 
-Go 1.27.2, Node 22 and Postgres 17. The browser suite needs a Python
+Go 1.27.4, Node 22 and Postgres 17. The browser suite needs a Python
 virtualenv, which `bash scripts/setup_e2e.sh` creates. `scripts/test.sh` takes
 the arguments `go test` takes, so `scripts/test.sh -run TestName ./internal/web`
 runs one test.
@@ -80,10 +80,11 @@ is in the Makefile.
   `/ -> /login -> /`. Registration creates a personal workspace as part of
   signing up, and login does the same for an account that has none. The check
   is in `e2e/qa_full.py`, section U.
-- **A grid cell owns the day.** `UpsertDayTotal` deletes the day's closed
-  sessions for the activity and inserts one synthetic session with
-  `note="timesheet"`, anchored at 09:00. Minutes `0` clears the day, and
-  editing a cell replaces the sessions behind it.
+- **A grid cell only raises the day.** `UpsertDayTotal` keeps the closed sessions
+  that carry a real start and end, replaces the one synthetic session with
+  `note="timesheet"` (anchored at 09:00) by the difference, and refuses a total below
+  the logged intervals (`ErrCellBelowIntervals`). Clearing a whole row is the one
+  action that erases.
 - **Time comes from an injected clock.** A feature workflow may not call
   `time.Now`, `time.Since` or `time.Until`, and the architecture check fails
   the build when one does. The same holds for the process environment: only
@@ -91,11 +92,11 @@ is in the Makefile.
 - **The CLI resolves the workspace with the lowest id.** `FirstTeamID` runs
   `SELECT id FROM teams ORDER BY id LIMIT 1` and the CLI then acts as that
   workspace's owner. It is a single-user default, not a selection mechanism.
-- **`staticcheck` waits for Go 1.27.2.** v0.8.1 cannot read the export data
+- **`staticcheck` waits for a release that reads Go 1.27.4.** v0.8.1 cannot read the export data
   that version writes ("export data version 5 is greater than maximum supported
   version 4"), and staying on Go 1.27.1 would trade that for GO-2026-6617, a
   remotely reachable HTTP/2 crash. Run it by hand with `make lint` and put the
-  step back into `verify` as soon as a staticcheck release handles 1.27.2.
+  step back into `verify` as soon as a staticcheck release handles 1.27.4.
 - **Never use `<input type="date">` or `datetime-local`.** The browser draws
   them in its own locale and no attribute moves it, which is how a Russian
   screen ended up offering «10/13/2026». Use `DateField` and `DateTimeField`

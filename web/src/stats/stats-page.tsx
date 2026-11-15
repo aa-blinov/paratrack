@@ -112,7 +112,21 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   // A project change touches this entry only. The user confirms it first, and the
   // select goes back to the stored project if the confirmation is refused.
   async function changeProject(next: string) {
-    const confirmed = await requestConfirmation(t(data.Lang, "stats.projectConfirm", session.ActivityName), { title: t(data.Lang, "stats.changeProject") })
+    // The confirmation names what the change moves: a project put on an activity that has
+    // none carries every entry of that activity without a project of its own.
+    let impact: { binds: boolean; sessions: number; hours: string } | null = null
+    if (next) {
+      try {
+        const response = await fetch(`/api/sessions/${session.ID}/project-impact?project_id=${encodeURIComponent(next)}`, { credentials: "same-origin", headers: { Accept: "application/json" } })
+        if (response.ok) impact = await response.json()
+      } catch {
+        impact = null
+      }
+    }
+    const message = impact?.binds
+      ? t(data.Lang, "stats.projectConfirmBinds", session.ActivityName, impact.sessions, impact.hours)
+      : t(data.Lang, "stats.projectConfirm", session.ActivityName)
+    const confirmed = await requestConfirmation(message, { title: t(data.Lang, "stats.changeProject") })
     if (!confirmed) {
       setProject(session.ProjectID ? String(session.ProjectID) : "")
       return

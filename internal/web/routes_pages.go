@@ -71,6 +71,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /payroll", s.module("payroll", s.manage(s.handlePayroll)))
 	pages.HandleFunc("POST /payroll", s.module("payroll", s.manage(s.handlePayrollCreate)))
 	pages.HandleFunc("GET /payroll/{id}", s.module("payroll", s.manage(s.handlePayrollDetail)))
+	pages.HandleFunc("GET /payroll/{id}/export.csv", s.module("payroll", s.manage(s.handlePayrollExport)))
 	pages.HandleFunc("POST /payroll/{id}/paid", s.module("payroll", s.manage(s.handlePayrollPaid)))
 	pages.HandleFunc("POST /payroll/{id}/delete", s.module("payroll", s.manage(s.handlePayrollDelete)))
 	pages.HandleFunc("POST /api/member/pay", s.manage(s.handleMemberPay))

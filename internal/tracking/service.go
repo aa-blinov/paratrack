@@ -52,6 +52,7 @@ type SessionQueryStore interface {
 	ListClosedSessions(context.Context, appmodel.ClosedSessionsQuery) ([]appmodel.ActiveSession, error)
 	HasAnySession(context.Context, int64) (bool, error)
 	ListSessionsPage(context.Context, appmodel.SessionHistoryPageQuery) ([]appmodel.ActiveSession, bool, error)
+	SessionProjectImpact(context.Context, appmodel.SessionProjectImpactQuery) (appmodel.SessionProjectImpact, error)
 }
 
 // ActivityStore provides activity lookup and lifecycle operations.
@@ -306,6 +307,14 @@ func (s *Service) Session(ctx context.Context, teamID, sessionID int64) (model.S
 		return model.Session{}, fmt.Errorf("get session: %w", err)
 	}
 	return session, nil
+}
+
+// SessionProjectImpact says what moving a session to a project would move too.
+func (s *Service) SessionProjectImpact(ctx context.Context, query appmodel.SessionProjectImpactQuery) (appmodel.SessionProjectImpact, error) {
+	if query.TeamID <= 0 || query.SessionID <= 0 {
+		return appmodel.SessionProjectImpact{}, ErrInvalidEdit
+	}
+	return s.queries.SessionProjectImpact(ctx, query)
 }
 
 func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error) {

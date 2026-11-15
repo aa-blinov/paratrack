@@ -72,7 +72,10 @@ type Invoice struct {
 	Receipt       string
 	ByPerson      bool
 	Revision      int64
-	CreatedAt     time.Time
+	// UnapprovedWeeks counts the weeks with unapproved time in the period when the
+	// invoice was drafted; nil for an invoice made before it was recorded.
+	UnapprovedWeeks *int
+	CreatedAt       time.Time
 }
 
 // InvoiceLine is an invoice row. Project and session references are transient

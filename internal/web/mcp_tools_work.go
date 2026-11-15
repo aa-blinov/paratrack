@@ -718,7 +718,8 @@ var mcpWorkTools = []mcpTool{
 	{
 		Name: "time_edit_request_create",
 		Description: "Ask for a change to the time of one activity on one day, as a timesheet cell asks. The proposed minutes become " +
-			"that day's total for the activity once a manager approves. The activity is given by id, or by name when the id is not " +
+			"that day's total for the activity once a manager approves, and a total below the time already logged with a start and an end " +
+			"that day cannot be approved. The activity is given by id, or by name when the id is not " +
 			"known. Anyone may ask, and the request always concerns the asker's own time.",
 		Write: true,
 		Schema: objectSchema(map[string]any{
@@ -783,7 +784,8 @@ var mcpWorkTools = []mcpTool{
 	{
 		Name: "time_edit_request_decide",
 		Description: "Approve or refuse a pending time edit request. An approved request sets the minutes of its activity on its day " +
-			"as the requester's time. Only a manager can decide.",
+			"as the requester's time. A total below the time already logged with a start and an end that day is refused, and the request " +
+			"stays pending. Only a manager can decide.",
 		Write: true,
 		Schema: objectSchema(map[string]any{
 			"request_id": integerProp("Time edit request id"),
@@ -811,6 +813,10 @@ var mcpWorkTools = []mcpTool{
 			if err := s.services.Tracking.Commands.DecideTimeEdit(c.ctx, appmodel.TimeEditDecisionRequest{
 				TeamID: c.teamID, CallerID: c.userID, RequestID: in.RequestID, Approve: *in.Approve, Note: in.Note,
 			}); err != nil {
+				// A day that already holds more logged time than the request asks for cannot be shrunk by the approval.
+				if errors.Is(err, model.ErrCellBelowIntervals) {
+					return nil, appmodel.FieldError{Field: "minutes"}
+				}
 				// The workflow answers a request that is no longer pending, or a note too long, with the invalid-input error.
 				if errors.Is(err, appmodel.ErrInvalidTask) {
 					return nil, appmodel.FieldError{Field: "request_id"}

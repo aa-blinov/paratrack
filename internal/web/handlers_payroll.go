@@ -86,34 +86,69 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
-	data.UnapprovedWeeks = s.unapprovedPayrollWeeks(r, now)
+	from, to, asked := unapprovedWindow(r, now)
+	data.UnapprovedFrom, data.UnapprovedTo, data.UnapprovedAsked = from.Format("2006-01-02"), to.Format("2006-01-02"), asked
+	data.UnapprovedWeeks = s.unapprovedPayrollWeeks(r, startOfWeek(r, now), from, to)
 	s.renderPageForRequest(w, r, "Payroll", "payroll", &data)
 }
 
-// unapprovedPayrollWeeks looks back over the last eight finished weeks. The
-// current week is not listed: it cannot be approved until it ends.
-func (s *Server) unapprovedPayrollWeeks(r *http.Request, now time.Time) []payrollWeekHint {
-	lang := resolveLang(r)
+// maxUnapprovedWindowWeeks bounds the period a manager can ask about: each week is
+// one lookup, so a year is the most the page checks at once.
+const maxUnapprovedWindowWeeks = 53
+
+// unapprovedWindow is the span of days the page checks for unapproved weeks, both
+// ends inclusive. A period the manager asked for replaces the default, which is the
+// last eight finished weeks. A period that does not parse, runs backwards or is
+// longer than the bound falls back to the default.
+func unapprovedWindow(r *http.Request, now time.Time) (time.Time, time.Time, bool) {
 	thisWeek := startOfWeek(r, now)
+	from, to := thisWeek.AddDate(0, 0, -7*8), thisWeek.AddDate(0, 0, -1)
+	q := r.URL.Query()
+	asked, errFrom := time.ParseInLocation("2006-01-02", q.Get("unapproved_from"), now.Location())
+	last, errTo := time.ParseInLocation("2006-01-02", q.Get("unapproved_to"), now.Location())
+	if errFrom != nil || errTo != nil || last.Before(asked) || last.Sub(asked) > maxUnapprovedWindowWeeks*7*24*time.Hour {
+		return from, to, false
+	}
+	return asked, last, true
+}
+
+// unapprovedPayrollWeeks lists the finished weeks with tracked time that no approval
+// covers, newest first, within the window. The current week is never listed: it
+// cannot be approved until it ends. One read covers the whole window; the starts are
+// grouped by the week they fall in, on the viewer's week start.
+func (s *Server) unapprovedPayrollWeeks(r *http.Request, thisWeek, from, to time.Time) []payrollWeekHint {
+	lang := resolveLang(r)
+	last := startOfWeek(r, to)
+	if !last.Before(thisWeek) {
+		last = thisWeek.AddDate(0, 0, -7)
+	}
+	first := startOfWeek(r, from)
+	if last.Before(first) {
+		return nil
+	}
+	starts, err := s.services.Payroll.UnapprovedPayrollStarts(r.Context(), teamID(r), first, last.AddDate(0, 0, 7))
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Printf("web: payroll unapproved weeks: %v", err)
+		}
+		return nil
+	}
+	counts := map[time.Time]int{}
+	for _, at := range starts {
+		counts[startOfWeek(r, at.In(userLoc(r)))]++
+	}
 	var weeks []payrollWeekHint
-	for back := 1; back <= 8; back++ {
-		start := thisWeek.AddDate(0, 0, -7*back)
+	for start := last; !start.Before(first); start = start.AddDate(0, 0, -7) {
+		count := counts[start]
+		if count == 0 {
+			continue
+		}
 		end := start.AddDate(0, 0, 7)
-		notApproved, err := s.services.Payroll.UnapprovedPayrollTime(r.Context(), teamID(r), start, end)
-		if err != nil {
-			if s.logger != nil {
-				s.logger.Printf("web: payroll unapproved weeks: %v", err)
-			}
-			continue
-		}
-		if notApproved == nil {
-			continue
-		}
 		weeks = append(weeks, payrollWeekHint{
 			Date:  start.Format("2006-01-02"),
 			Last:  end.AddDate(0, 0, -1).Format("2006-01-02"),
 			Label: periodSpan(lang, fmtDay(lang, start), fmtDay(lang, end.AddDate(0, 0, -1))),
-			Count: notApproved.Count,
+			Count: count,
 		})
 	}
 	return weeks
@@ -141,6 +176,10 @@ type payrollPage struct {
 	// UnapprovedWeeks are the finished weeks with tracked time that no approval
 	// covers yet, newest first: a run over them would be refused.
 	UnapprovedWeeks []payrollWeekHint
+	// UnapprovedFrom and UnapprovedTo are the days checked, inclusive, YYYY-MM-DD.
+	UnapprovedFrom  string
+	UnapprovedTo    string
+	UnapprovedAsked bool
 }
 
 type payrollWeekHint struct {
