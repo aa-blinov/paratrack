@@ -241,6 +241,9 @@ jobs:
           # the React tree was never covered — "detector clean" said nothing.
           # This fails the build instead of being noticed by eye.
           python e2e/a11y_check.py 2>&1 | tee /tmp/e2e-a11y.log
+          # The click budgets from docs/screens as a gate (UX-42): a golden
+          # path that grew a click stops the build instead of going quietly.
+          python e2e/test_click_budget.py 2>&1 | tee /tmp/e2e-click-budget.log
 
       - name: Upload e2e artefacts
         if: always()
