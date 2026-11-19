@@ -2,7 +2,7 @@ import { Flash } from "@/components/flash"
 import { formatShare } from "@/lib/utils"
 import { planLoad } from "@/reports/plan-load"
 import { Table, TableHeader, TableBody, TableFooter, TableRow, TableHead, TableCell } from "@/components/ui/table"
-import { Activity, BarChart3, CalendarDays, Download, Folder, Printer, Users, X, Zap } from "lucide-react"
+import { Activity, BarChart3, CalendarDays, Download, Folder, ListChecks, Printer, Users, X, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
@@ -11,7 +11,7 @@ import { translate as t, translateOptional } from "@/i18n"
 import type { ReportRunData, ReportsData } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
 
-const icons = { folder: Folder, activity: Activity, calendar: CalendarDays, zap: Zap, users: Users } as const
+const icons = { folder: Folder, activity: Activity, "check-square": ListChecks, calendar: CalendarDays, zap: Zap, users: Users } as const
 
 // A saved report is just the statistics screen with its filters pinned, so its
 // row links straight to that view. The list lives here, next to the templates:

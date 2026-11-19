@@ -40,7 +40,7 @@ func TestReportTemplates(t *testing.T) {
 		}
 		ids[tpl.ID] = true
 	}
-	for _, want := range []string{"by-project", "by-activity", "by-day", "billable", "utilization"} {
+	for _, want := range []string{"by-project", "by-activity", "by-day", "by-task", "billable", "utilization"} {
 		if !ids[want] {
 			t.Errorf("missing template %s", want)
 		}
@@ -73,6 +73,15 @@ func TestReportRunAndCSV(t *testing.T) {
 	}
 	if !strings.Contains(page, "consulting") {
 		t.Fatalf("missing row")
+	}
+	// The by-task report (UX-16): time on an activity with no task is not
+	// lost — it keeps the activity's own row.
+	resp = e.do("GET", "/reports/run?id=by-task&from="+from+"&to="+to, nil, nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("by-task report: %d %s", resp.StatusCode, readBody(t, resp))
+	}
+	if page := readBody(t, resp); !strings.Contains(page, "consulting") {
+		t.Fatalf("by-task missing free activity row")
 	}
 	// CSV
 	resp = e.do("GET", path+"&format=csv", nil, nil)

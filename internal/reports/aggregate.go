@@ -133,6 +133,14 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			} else {
 				label = input.UnassignedUser
 			}
+		case appmodel.ReportGroupTask:
+			// The task owns its activities' time; free activities keep their
+			// own name, so nothing disappears from the report.
+			if task, ok := input.ActivityTasks[session.Activity.ID]; ok && task != "" {
+				label = task
+			} else {
+				label = session.Activity.Name
+			}
 		}
 
 		currency := teamCurrency
@@ -149,8 +157,13 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 		current := buckets[key]
 		if current == nil {
 			current = &bucket{currency: currency, day: day}
-			if input.GroupBy == appmodel.ReportGroupActivity {
+			if input.GroupBy == appmodel.ReportGroupActivity || input.GroupBy == appmodel.ReportGroupTask {
+				// The row needs its project for the detail line: an activity
+				// row shows it next to the activity, a task row shows which
+				// project prices the task; a free activity keeps its own.
 				current.project = input.Projects[session.Activity.ProjectID].Name
+			}
+			if input.GroupBy == appmodel.ReportGroupActivity {
 				current.task = input.ActivityTasks[session.Activity.ID]
 			}
 			buckets[key] = current

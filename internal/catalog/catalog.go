@@ -69,6 +69,7 @@ func ReportTemplates() []ReportTemplate {
 	return []ReportTemplate{
 		{ID: "by-project", Name: "Hours by project", Blurb: "Tracked time grouped per project.", Icon: "folder", GroupBy: appmodel.ReportGroupProject, Billable: true},
 		{ID: "by-activity", Name: "Hours by activity", Blurb: "Tracked time grouped per activity.", Icon: "activity", GroupBy: appmodel.ReportGroupActivity, Billable: true},
+		{ID: "by-task", Name: "Hours by task", Blurb: "Each task's time at its project's rate: what the task cost.", Icon: "check-square", GroupBy: appmodel.ReportGroupTask, Billable: true},
 		{ID: "by-day", Name: "Hours by day", Blurb: "Daily totals across the period.", Icon: "calendar", GroupBy: appmodel.ReportGroupDay},
 		{ID: "by-day-person", Name: "Hours by day and person", Blurb: "Each day's time, split by person.", Icon: "calendar", GroupBy: appmodel.ReportGroupDayPerson},
 		{ID: "billable", Name: "Billable summary", Blurb: "Billable hours × project rate → revenue.", Icon: "zap", GroupBy: appmodel.ReportGroupProject, Billable: true},

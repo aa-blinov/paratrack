@@ -113,6 +113,12 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		} else if tpl.GroupBy == appmodel.ReportGroupActivity {
 			key = labels[i]
 			detail = activityDetail(resolveLang(r), row)
+		} else if tpl.GroupBy == appmodel.ReportGroupTask {
+			// The key is already the task, so the detail names only the
+			// project whose rate prices it.
+			if row.Project != "" {
+				detail = fmt.Sprintf(i18n.T(resolveLang(r), "report.activityProject"), row.Project)
+			}
 		}
 		if tpl.Billable && row.Currency != result.TeamCurrency {
 			key += " (" + row.Currency + ")"
