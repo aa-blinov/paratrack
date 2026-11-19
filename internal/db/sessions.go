@@ -84,6 +84,9 @@ func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartReques
 	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockClosedMonth(ctx, tx, teamID, startAt); err != nil {
+		return model.Session{}, err
+	}
 
 	activeQuery := `SELECT s.id FROM sessions s WHERE s.activity_id = ? AND s.end_at IS NULL`
 	activeArgs := []any{activityID}
@@ -192,6 +195,9 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 	if err := lockAutoClosedSessionStart(ctx, tx, teamID, lockedSession.startAt, d.currentTime()); err != nil {
 		return err
 	}
+	if err := lockClosedMonthSessionByID(ctx, tx, teamID, id); err != nil {
+		return err
+	}
 	update, err = resolveLockedSessionUpdate(lockedSession, request)
 	if err != nil {
 		return err
@@ -201,6 +207,9 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 			return err
 		}
 		if err := lockAutoClosed(ctx, tx, teamID, *update.StartAt, d.currentTime()); err != nil {
+			return err
+		}
+		if err := lockClosedMonth(ctx, tx, teamID, *update.StartAt); err != nil {
 			return err
 		}
 	}
@@ -374,6 +383,9 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
 		return model.Session{}, err
 	}
+	if err := lockClosedMonth(ctx, tx, teamID, startAt); err != nil {
+		return model.Session{}, err
+	}
 	// A session recorded afterwards has already happened: an end in the future is a
 	// mistake to refuse, not a timer to wait for.
 	if endAt.After(d.currentTime()) {
@@ -474,6 +486,9 @@ func (d *DB) DeleteSession(ctx context.Context, request appmodel.SessionDeleteRe
 		return err
 	}
 	if err := lockAutoClosedSessionByID(ctx, tx, teamID, id, d.currentTime()); err != nil {
+		return err
+	}
+	if err := lockClosedMonthSessionByID(ctx, tx, teamID, id); err != nil {
 		return err
 	}
 	q := `DELETE FROM sessions WHERE id = ?`

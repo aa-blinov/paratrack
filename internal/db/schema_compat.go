@@ -427,6 +427,16 @@ var compatibilityStatements = []string{
 	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
 	    UNIQUE (team_id, month)
 	)`,
+	// A closed month (FIN-25): its hours, invoices and payouts are fixed until
+	// a manager reopens it. Month is the month's first day in the workspace zone.
+	`CREATE TABLE IF NOT EXISTS closed_periods (
+	    team_id BIGINT NOT NULL,
+	    month TEXT NOT NULL,
+	    closed_at TEXT NOT NULL,
+	    closed_by BIGINT NOT NULL,
+	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+	    PRIMARY KEY (team_id, month)
+	)`,
 	// The payment journal of an invoice (FIN-08). Rows are only added, so what
 	// the client paid stays as it was booked.
 	`CREATE TABLE IF NOT EXISTS invoice_payments (

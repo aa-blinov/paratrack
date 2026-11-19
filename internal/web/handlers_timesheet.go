@@ -362,6 +362,11 @@ func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Reque
 		s.respondTimesheetRow(w, r, actID, day, autoLockMessage(resolveLang(r), autoLockErr))
 		return
 	}
+	var periodErr *model.PeriodClosedError
+	if errors.As(err, &periodErr) {
+		s.respondTimesheetRow(w, r, actID, day, monthClosedMessage(resolveLang(r), periodErr))
+		return
+	}
 	if errors.Is(err, model.ErrCellBelowIntervals) {
 		s.respondTimesheetRow(w, r, actID, day, i18n.T(resolveLang(r), "ts.belowIntervals"))
 		return

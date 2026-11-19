@@ -162,6 +162,9 @@ func (s *Service) recurringOne(ctx context.Context, workspace RecurringWorkspace
 			switch {
 			case errors.Is(err, model.ErrNoBillableTime), isAlreadyBilledPeriod(err):
 				continue // nothing the schedule can add: quiet by design
+			case errors.Is(err, model.ErrPeriodClosed):
+				// The month is closed by hand, the schedule does not argue (FIN-25).
+				continue
 			}
 			return fmt.Errorf("create the recurring draft for project %d: %w", project.ID, err)
 		}

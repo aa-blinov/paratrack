@@ -76,6 +76,11 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	if err := requireApprovedPayrollTime(ctx, tx, teamID, start, end); err != nil {
 		return PayrollRun{}, nil, err
 	}
+	// A closed month pays nothing more: the payout reads numbers that were
+	// fixed when the bookkeeping gate closed (FIN-25).
+	if err := lockClosedPeriodSpan(ctx, tx, teamID, start, end); err != nil {
+		return PayrollRun{}, nil, err
+	}
 	// Serialize period checks with every other payroll draft creation. The
 	// workspace lock makes confirmation meaningful even under concurrent posts.
 	overlaps, err := payrollOverlapsTx(ctx, tx, teamID, start, end)

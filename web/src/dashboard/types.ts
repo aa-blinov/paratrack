@@ -541,6 +541,7 @@ export interface PayrollData {
   DefEnd: string
   DefNotes: string
   Overlap: string
+  ClosedMonths?: Array<{ Month: string; Label: string; ClosedOn: string; ClosedBy: string }>
   UnapprovedWeeks?: Array<{ Date: string; Last: string; Label: string; Count: number }>
   UnapprovedFrom: string
   UnapprovedTo: string

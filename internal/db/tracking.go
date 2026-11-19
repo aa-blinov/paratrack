@@ -123,6 +123,9 @@ func (d *DB) FocusActivity(ctx context.Context, request appmodel.TimerFocusReque
 	if err := lockAutoClosed(ctx, tx, teamID, now, d.currentTime()); err != nil {
 		return result, err
 	}
+	if err := lockClosedMonth(ctx, tx, teamID, now); err != nil {
+		return result, err
+	}
 
 	activityQuery := `SELECT id, name FROM activities WHERE id = ?`
 	activityArgs := []any{activityID}

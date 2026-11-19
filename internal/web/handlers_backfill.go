@@ -114,6 +114,11 @@ func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 			s.backfillError(w, r, "form", autoLockMessage(resolveLang(r), autoLockErr))
 			return
 		}
+		var periodErr *model.PeriodClosedError
+		if errors.As(err, &periodErr) {
+			s.backfillError(w, r, "form", monthClosedMessage(resolveLang(r), periodErr))
+			return
+		}
 		if errors.Is(err, model.ErrAlreadyBilled) {
 			s.backfillError(w, r, "form", i18n.T(resolveLang(r), "inv.activityProjectLocked"))
 			return

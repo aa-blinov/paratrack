@@ -209,6 +209,9 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 		return Invoice{}, nil, err
 	}
 	now := d.currentTime()
+	if err := lockClosedPeriodSpan(ctx, tx, teamID, start, end); err != nil {
+		return Invoice{}, nil, err
+	}
 	rules, err := billingRules(ctx, tx, teamID)
 	if err != nil {
 		return Invoice{}, nil, fmt.Errorf("load invoice rules: %w", err)

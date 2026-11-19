@@ -284,12 +284,15 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 func (s *Server) writeSessionLockConflict(w http.ResponseWriter, r *http.Request, err error) bool {
 	var approvalErr *model.SessionApprovalLockError
 	var autoLockErr *model.SessionAutoLockError
+	var periodErr *model.PeriodClosedError
 	var msg string
 	switch {
 	case errors.As(err, &approvalErr):
 		msg = weekLockedMessage(resolveLang(r), userLoc(r), approvalErr)
 	case errors.As(err, &autoLockErr):
 		msg = autoLockMessage(resolveLang(r), autoLockErr)
+	case errors.As(err, &periodErr):
+		msg = monthClosedMessage(resolveLang(r), periodErr)
 	}
 	if msg != "" {
 		s.toast(w, msg, "error")

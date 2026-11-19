@@ -532,6 +532,22 @@ def main() -> int:
         check("payroll run", "/payroll/" in pg.url and "PAY-" in pb, pg.url)
         shot(pg, "k1-payroll")
 
+        # The whole-month gate (FIN-25): the accountant closes one month on the
+        # payouts page, the page lists it, and a reopen lifts the gate again.
+        pg.goto(BASE + "/payroll")
+        pg.wait_for_selector('#period form[action="/api/period/close"]')
+        wait_ready(pg)
+        last_month = (datetime.date.today().replace(day=1) - datetime.timedelta(days=1)).replace(day=1)
+        pg.fill('#period input[data-date-input="month"]', last_month.isoformat())
+        pg.locator('#period form[action="/api/period/close"] button[type="submit"]').click()
+        pg.wait_for_selector('#period ul form[action="/api/period/reopen"]', timeout=10000)
+        check("period close lists one month", pg.locator('#period ul li').count() == 1, pg.inner_text('#period')[:120].replace("\n", " | "))
+        pg.locator('#period form[action="/api/period/reopen"] button[type="submit"]').click()
+        pg.wait_for_selector('#period ul', state="detached", timeout=10000)
+        flash = pg.inner_text("main").split("\n")[1] if pg.locator("main").count() else "?"
+        check("period reopen clears the list", pg.locator('#period ul li').count() == 0, flash[:120])
+        shot(pg, "k2-period-close")
+
         # ---------- L. Reports ----------
         print("== L. Reports")
         pg.goto(BASE + "/reports")
