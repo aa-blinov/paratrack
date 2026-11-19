@@ -542,7 +542,7 @@ def main() -> int:
         # Report rows come from tracked time, so run them over the window the
         # backfill landed in rather than a hardcoded month.
         win = f"&from={assign['from']}&to={assign['to']}" if assign.get("from") and assign.get("to") else ""
-        for rid, label in [("by-project", "project"), ("by-activity", "activity"), ("by-day", "day"), ("billable", "billable")]:
+        for rid, label in [("by-project", "project"), ("by-activity", "activity"), ("by-task", "task"), ("by-day", "day"), ("billable", "billable")]:
             pg.goto(BASE + f"/reports/run?id={rid}{win}")
             pg.wait_for_load_state("load")
             wait_ready(pg)

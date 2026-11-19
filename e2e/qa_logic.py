@@ -293,7 +293,7 @@ def main() -> int:
     print("\n== F. Report templates & CSV")
     r = get("/reports")
     check("reports gallery 200", r.status_code == 200)
-    for tid in ("by-project", "by-activity", "by-day", "billable", "utilization"):
+    for tid in ("by-project", "by-activity", "by-task", "by-day", "billable", "utilization"):
         rr = get(f"/reports/run?id={tid}&from={P_FROM}&to={P_TO}")
         check(f"report {tid} 200", rr.status_code == 200, f"{rr.status_code}")
     r = get(f"/reports/run?id=billable&from={P_FROM}&to={P_TO}&format=csv")

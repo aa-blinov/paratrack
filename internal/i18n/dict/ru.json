@@ -756,6 +756,8 @@
   "push.failed": "Не удалось изменить настройки уведомлений. Попробуйте ещё раз.",
   "rep.by-project.name": "Часы по проектам",
   "rep.by-activity.name": "Часы по активностям",
+  "rep.by-task.name": "Часы по задачам",
+  "rep.by-task.blurb": "Время каждой задачи по ставке проекта: сколько задача стоила.",
   "report.activityProject": "Проект: %s",
   "report.activityTask": "Задача: %s",
   "rep.by-day.name": "Часы по дням",

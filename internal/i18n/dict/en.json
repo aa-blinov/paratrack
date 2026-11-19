@@ -756,6 +756,8 @@
   "push.failed": "Could not update notification settings. Try again.",
   "rep.by-project.name": "Hours by project",
   "rep.by-activity.name": "Hours by activity",
+  "rep.by-task.name": "Hours by task",
+  "rep.by-task.blurb": "Each task's time at its project's rate: what the task cost.",
   "report.activityProject": "Project: %s",
   "report.activityTask": "Task: %s",
   "rep.by-day.name": "Hours by day",
