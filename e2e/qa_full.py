@@ -207,6 +207,26 @@ def main() -> int:
         pg.wait_for_timeout(400)
         check("resume", pg.locator("#active-list time[data-state=running]").count() >= 1)
 
+        # «Только эта» жестом (UX-32): проезд пальцем влево по строке ставит
+        # остальные таймеры на паузу. Синтетические TouchEvents ведут сам
+        # обработчик строки, как и палец.
+        swipe = """(() => {
+          const row = document.querySelector('#active-list [data-session-id]')
+          const rect = row.getBoundingClientRect()
+          const y = rect.top + rect.height / 2
+          const emit = (type, x) => row.dispatchEvent(new TouchEvent(type, {
+            bubbles: true, cancelable: true,
+            touches: type === 'touchend' ? [] : [new Touch({ identifier: 1, target: row, clientX: x, clientY: y })],
+            changedTouches: [new Touch({ identifier: 1, target: row, clientX: x, clientY: y })],
+          }))
+          emit('touchstart', rect.right - 20)
+          emit('touchmove', rect.right - 140)
+          emit('touchend', rect.right - 140)
+        })()"""
+        pg.evaluate(swipe)
+        pg.wait_for_timeout(600)
+        check("swipe = «Только эта»", pg.locator(".status-pill.is-paused").count() >= 1)
+
         pg.locator('button:has-text("Stop")').last.click()
         pg.wait_for_timeout(500)
         check("stop one", pg.locator("#active-list [data-session-id]").count() >= 1)

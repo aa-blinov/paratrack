@@ -17,13 +17,13 @@ import type { TeamMembersData } from "@/dashboard/types"
 function MemberPayForm({ data, member }: { data: TeamMembersData; member: { UserID: number } }) {
   const lang = data.Lang || "en"
   const initial = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0, Kind: "hourly", Monthly: "" }
-  const [kind, setKind] = useState(initial.Kind || "hourly")
+  const [kind, setKind] = useState<"hourly" | "monthly">(initial.Kind === "monthly" ? "monthly" : "hourly")
   const salary = kind === "monthly"
   return <form method="post" action="/api/member/pay" className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(7.5rem,1fr)_minmax(5rem,1fr)_minmax(5rem,1fr)_minmax(5rem,0.8fr)_auto]">
     <input type="hidden" name="csrf_token" value={data.CSRFToken} />
     <input type="hidden" name="user_id" value={member.UserID} />
     <div className="grid gap-1"><Label htmlFor={`kind-${member.UserID}`} className="text-xs">{t(lang, "pay.kindCol")}</Label>
-      <Select name="pay_kind" value={kind} onValueChange={setKind}>
+      <Select name="pay_kind" value={kind} onValueChange={value => setKind(value === "monthly" ? "monthly" : "hourly")}>
         <SelectTrigger id={`kind-${member.UserID}`}><SelectValue /></SelectTrigger>
         <SelectContent>
           <SelectItem value="hourly">{t(lang, "pay.kindHourly")}</SelectItem>
