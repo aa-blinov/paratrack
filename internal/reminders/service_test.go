@@ -12,27 +12,45 @@ import (
 )
 
 type fakeStore struct {
-	due      []appmodel.DueProject
-	reminded []string
-	claimed  map[string]bool
-	managers []int64
-	teams    []int64
+	due            []appmodel.DueProject
+	reminded       []string
+	claimed        map[string]bool
+	managers       []int64
+	managersByTeam map[int64][]int64
+	teams          []int64
 	// members are the people with no time on the day asked about; dayClaims keys team:user:day.
 	members   []int64
 	dayClaims map[string]bool
 	zone      *time.Location
+	// userZones holds the hand-set zone of each member; empty means they never chose.
+	userZones map[int64]string
 }
 
 func (f *fakeStore) ProjectsDueBetween(_ context.Context, _, _ string) ([]appmodel.DueProject, error) {
-	out := f.due
-	f.due = nil // a reminded project is no longer due
+	// The real read returns everything not marked yet, so a reminder the night
+	// gate held back is still due — the same list, minus the marked ones.
+	reminded := make(map[string]bool, len(f.reminded))
+	for _, deadline := range f.reminded {
+		reminded[deadline] = true
+	}
+	var out []appmodel.DueProject
+	for _, project := range f.due {
+		if !reminded[project.Deadline] {
+			out = append(out, project)
+		}
+	}
 	return out, nil
 }
 func (f *fakeStore) MarkDeadlineReminded(_ context.Context, request appmodel.DeadlineReminderRequest) error {
 	f.reminded = append(f.reminded, request.Deadline)
 	return nil
 }
-func (f *fakeStore) ManagerIDs(context.Context, int64) ([]int64, error)             { return f.managers, nil }
+func (f *fakeStore) ManagerIDs(_ context.Context, teamID int64) ([]int64, error) {
+	if byTeam, ok := f.managersByTeam[teamID]; ok {
+		return byTeam, nil
+	}
+	return f.managers, nil
+}
 func (f *fakeStore) TasksDueOn(context.Context, string) ([]appmodel.DueTask, error) { return nil, nil }
 func (f *fakeStore) MarkTaskDueReminded(context.Context, appmodel.TaskDueReminderRequest) error {
 	return nil
@@ -126,6 +144,14 @@ func (f *fakeStore) TeamLocation(context.Context, int64) (*time.Location, error)
 		return time.UTC, nil
 	}
 	return f.zone, nil
+}
+
+func (f *fakeStore) UserTimeZones(_ context.Context, userIDs []int64) (map[int64]string, error) {
+	out := make(map[int64]string, len(userIDs))
+	for _, id := range userIDs {
+		out[id] = f.userZones[id]
+	}
+	return out, nil
 }
 
 type funcLogger struct{ logf func(string, ...any) }
@@ -259,5 +285,57 @@ func TestDayFillAlsoGoesByEmail(t *testing.T) {
 	}
 	if mail.sent[0].Topic != TopicDayFill || mail.sent[0].Body != rec.sent[0].Body {
 		t.Fatalf("email = %+v, want the same day fill nudge as the push", mail.sent[0])
+	}
+}
+
+// The night gate (UX-33): however late the pass runs, a member whose local
+// clock says night keeps their push until their morning. The workspace that
+// stays awake hears its reminder in the night pass; the sleeping one is
+// neither pushed nor claimed, and the next pass — its morning — delivers it.
+func TestNightGateKeepsPushUntilTheRecipientsMorning(t *testing.T) {
+	// 18:00 Tuesday in UTC is 03:00 Wednesday in Tokyo: the same pass is an
+	// awake afternoon for the UTC workspace and night for the Tokyo one.
+	now := time.Date(2026, 11, 11, 18, 0, 0, 0, time.UTC)
+	store := &fakeStore{
+		teams: []int64{1, 2},
+		managersByTeam: map[int64][]int64{
+			1: {5},
+			2: {6},
+		},
+		claimed:   map[string]bool{},
+		userZones: map[int64]string{5: "", 6: "Asia/Tokyo"},
+		due: []appmodel.DueProject{
+			{TeamID: 1, ProjectID: 7, Name: "Сайт", Slug: "site", Deadline: "2026-11-15", LeadUserID: 5},
+			{TeamID: 2, ProjectID: 8, Name: "Платформа", Slug: "platform", Deadline: "2026-11-16", LeadUserID: 6},
+		},
+	}
+	rec := &recorder{}
+	service, err := New(Dependencies{Store: store, Planner: fakePlanner{}, Sender: rec, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+
+	if err := service.Pass(ctx); err != nil {
+		t.Fatalf("night pass: %v", err)
+	}
+	if len(rec.sent) != 1 || rec.sent[0].UserIDs[0] != 5 {
+		t.Fatalf("night pass sent %+v, want only the UTC workspace's reminder", rec.sent)
+	}
+	if len(store.reminded) != 1 || store.reminded[0] != "2026-11-15" {
+		t.Fatalf("the night pass marked %v, want only the delivered deadline", store.reminded)
+	}
+
+	// 00:30 UTC is 09:30 in Tokyo: the Tokyo workspace hears its reminder now.
+	morning := time.Date(2026, 11, 12, 0, 30, 0, 0, time.UTC)
+	service.now = func() time.Time { return morning }
+	if err := service.Pass(ctx); err != nil {
+		t.Fatalf("morning pass: %v", err)
+	}
+	if len(rec.sent) != 2 || rec.sent[1].UserIDs[0] != 6 {
+		t.Fatalf("morning pass sent %+v, want the Tokyo reminder added", rec.sent)
+	}
+	if len(store.reminded) != 2 {
+		t.Fatalf("both deadlines reminded: %v", store.reminded)
 	}
 }

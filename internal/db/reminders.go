@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -158,4 +160,54 @@ func (d *DB) TeamLocation(ctx context.Context, teamID int64) (*time.Location, er
 		return time.UTC, nil
 	}
 	return loc, nil
+}
+
+// UserTimeZones reads each member's hand-set zone from their preferences row
+// (the "tz" key, empty when they never chose one). The reminders' night gate
+// (UX-33) uses it for workspaces that left their own zone blank: a member
+// whose zone says night keeps their push until morning. An invalid zone
+// resolves like an absent one — its owner reads the workspace fallback.
+func (d *DB) UserTimeZones(ctx context.Context, userIDs []int64) (map[int64]string, error) {
+	zones := make(map[int64]string, len(userIDs))
+	if len(userIDs) == 0 {
+		return zones, nil
+	}
+	marks := make([]string, len(userIDs))
+	args := make([]any, len(userIDs))
+	for i, id := range userIDs {
+		marks[i] = "?"
+		args[i] = id
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT id, prefs FROM users WHERE id IN (`+strings.Join(marks, ", ")+`)`,
+		args...)
+	if err != nil {
+		return nil, fmt.Errorf("read member time zones: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var raw string
+		if err := rows.Scan(&id, &raw); err != nil {
+			return nil, err
+		}
+		zones[id] = prefsZone(raw)
+	}
+	return zones, rows.Err()
+}
+
+// prefsZone pulls the hand-set zone out of a preferences JSON row. A row that
+// never existed, is empty or does not parse answers empty, the same as "never
+// chose": one broken row must not decide whether its owner wakes at night.
+func prefsZone(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	var prefs struct {
+		TZ string `json:"tz"`
+	}
+	if json.Unmarshal([]byte(raw), &prefs) != nil {
+		return ""
+	}
+	return prefs.TZ
 }

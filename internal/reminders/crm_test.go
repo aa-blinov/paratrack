@@ -132,9 +132,12 @@ func TestCRMNextStepDueTomorrowIsNotReminded(t *testing.T) {
 // 25th in Moscow, so a step due on the 25th is reminded in that workspace and not in
 // the UTC one (CRM-15).
 func TestCRMWorkspaceZoneDecidesToday(t *testing.T) {
-	now := time.Date(2026, 10, 24, 22, 30, 0, 0, time.UTC)
+	// 21:00 UTC reads Oct 24 in London and Oct 25 09:00 in Auckland: the step
+	// is already due in the Auckland day while London's day has not reached it.
+	// Both zones are awake — the push would not land in the night gate (UX-33).
+	now := time.Date(2026, 10, 24, 21, 0, 0, 0, time.UTC)
 	store := newCRMStore(
-		appmodel.CRMStep{TeamID: 1, Kind: appmodel.CRMItemDeal, ItemID: 1, Name: "Москва", OwnerID: 5, NextStepAt: "2026-10-25", Zone: "Europe/Moscow"},
+		appmodel.CRMStep{TeamID: 1, Kind: appmodel.CRMItemDeal, ItemID: 1, Name: "Окленд", OwnerID: 5, NextStepAt: "2026-10-25", Zone: "Pacific/Auckland"},
 		appmodel.CRMStep{TeamID: 2, Kind: appmodel.CRMItemDeal, ItemID: 2, Name: "Лондон", OwnerID: 6, NextStepAt: "2026-10-25", Zone: ""},
 	)
 	audience := &crmAudienceStub{}

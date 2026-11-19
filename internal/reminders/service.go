@@ -39,6 +39,10 @@ type Store interface {
 	DayFillCandidates(ctx context.Context, query appmodel.DayFillCandidatesQuery) ([]int64, error)
 	ClaimDayFillNotice(ctx context.Context, request appmodel.DayFillNoticeRequest) (bool, error)
 	TeamLocation(ctx context.Context, teamID int64) (*time.Location, error)
+	// UserTimeZones reads the hand-set zone of each named member ("tz" of their
+	// preferences, empty when they never chose). The night gate needs it for
+	// workspaces that left their own zone blank (UX-33).
+	UserTimeZones(ctx context.Context, userIDs []int64) (map[int64]string, error)
 }
 
 // Planner reads a team's week, the same way the schedule page does.
@@ -143,6 +147,15 @@ func (s *Service) taskDues(ctx context.Context, now time.Time) error {
 		if task.Reminded == marker {
 			continue
 		}
+		night, err := s.teamNightOnes(ctx, task.TeamID, []int64{task.AssigneeID}, now)
+		if err != nil {
+			return err
+		}
+		if night[task.AssigneeID] {
+			// The push would wake the assignee: the nudge is not claimed and
+			// waits for the next pass, which delivers it in their morning.
+			continue
+		}
 		notification := Notification{
 			TeamID: task.TeamID, UserIDs: []int64{task.AssigneeID}, Topic: TopicTaskDue,
 			Title: title, Body: body, URL: "/tasks",
@@ -225,8 +238,18 @@ func (s *Service) deadlines(ctx context.Context, now time.Time) error {
 		if project.LeadUserID > 0 && !contains(recipients, project.LeadUserID) {
 			recipients = append(recipients, project.LeadUserID)
 		}
+		night, err := s.teamNightOnes(ctx, project.TeamID, recipients, now)
+		if err != nil {
+			return err
+		}
+		awake := without(recipients, night)
+		if len(awake) == 0 {
+			// All recipients are asleep: the reminder is not claimed, so a
+			// later pass delivers it when someone is awake again.
+			continue
+		}
 		if err := s.sender.Send(ctx, Notification{
-			TeamID: project.TeamID, UserIDs: recipients, Topic: TopicDeadline,
+			TeamID: project.TeamID, UserIDs: awake, Topic: TopicDeadline,
 			Title: "Срок проекта близко",
 			Body:  fmt.Sprintf("%s: срок %s", project.Name, project.Deadline),
 			URL:   "/projects/" + project.Slug,
@@ -262,6 +285,16 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 			if row.AvailableMinutes <= 0 || row.Total <= row.AvailableMinutes {
 				continue
 			}
+			night, err := s.teamNightOnes(ctx, teamID, managers, now)
+			if err != nil {
+				return err
+			}
+			awake := without(managers, night)
+			if len(awake) == 0 {
+				// Every manager is asleep: the notice is not claimed, so a
+				// later pass delivers it into an awake workspace.
+				continue
+			}
 			claimed, err := s.store.ClaimOverloadNotice(ctx, appmodel.OverloadNoticeRequest{TeamID: teamID, UserID: row.UserID, Week: week.Format("2006-01-02")})
 			if err != nil {
 				return err
@@ -270,7 +303,7 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 				continue
 			}
 			notification := Notification{
-				TeamID: teamID, UserIDs: managers, Topic: TopicOverload,
+				TeamID: teamID, UserIDs: awake, Topic: TopicOverload,
 				Title: "Перегрузка на неделе",
 				Body:  fmt.Sprintf("%s: запланировано %d мин из %d доступных", row.UserName, row.Total, row.AvailableMinutes),
 				URL:   "/schedule?date=" + week.Format("2006-01-02"),
@@ -326,6 +359,16 @@ func (s *Service) dayFill(ctx context.Context, now time.Time) error {
 			return err
 		}
 		for _, userID := range users {
+			night, err := s.nightOnes(ctx, loc, []int64{userID}, now)
+			if err != nil {
+				return err
+			}
+			if night[userID] {
+				// The workspace's evening is the member's night: the push
+				// waits. The nudge is not claimed, so a later pass sends it
+				// while the window is still open for them.
+				continue
+			}
 			claimed, err := s.store.ClaimDayFillNotice(ctx, appmodel.DayFillNoticeRequest{
 				TeamID: teamID, UserID: userID, Day: day.Format("2006-01-02"),
 			})
@@ -360,6 +403,69 @@ func weekStart(t time.Time) time.Time {
 	day := t.UTC()
 	offset := (int(day.Weekday()) + 6) % 7
 	return time.Date(day.Year(), day.Month(), day.Day()-offset, 0, 0, 0, 0, time.UTC)
+}
+
+// The night gate (UX-33): a reminder's push must not wake a person, however
+// late the pass runs — a restart at three in the morning ran the first pass
+// immediately, and an hour tick can land inside someone's night. Night is
+// 22:00–08:00 by the recipient's own days: the zone they set by hand answers
+// first (it is literally their night), and the workspace's zone — the caller
+// resolves it, as every section already does — answers for those who never
+// chose. The email twin goes regardless — a letter in a mailbox does not wake
+// anyone.
+const (
+	quietFromHour = 22
+	quietToHour   = 8
+)
+
+// teamNightOnes resolves the workspace's zone the way every section does and
+// runs the night gate with it as the members' fallback.
+func (s *Service) teamNightOnes(ctx context.Context, teamID int64, userIDs []int64, now time.Time) (map[int64]bool, error) {
+	teamLoc, err := s.store.TeamLocation(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("read the workspace zone for the night gate: %w", err)
+	}
+	return s.nightOnes(ctx, teamLoc, userIDs, now)
+}
+
+// nightOnes answers, for each named member, whether push is quiet for them at
+// this instant. workspaceLoc is the zone the caller's section already keeps its
+// days in; a member without a hand-set zone reads its answer, so one
+// unresolvable person cannot stay awake by accident.
+func (s *Service) nightOnes(ctx context.Context, workspaceLoc *time.Location, userIDs []int64, now time.Time) (map[int64]bool, error) {
+	night := make(map[int64]bool, len(userIDs))
+	if len(userIDs) == 0 {
+		return night, nil
+	}
+	zones, err := s.store.UserTimeZones(ctx, userIDs)
+	if err != nil {
+		return nil, fmt.Errorf("read member zones for the night gate: %w", err)
+	}
+	for _, id := range userIDs {
+		if id <= 0 {
+			continue
+		}
+		loc := workspaceLoc
+		if name := zones[id]; name != "" {
+			if resolved, err := time.LoadLocation(name); err == nil {
+				loc = resolved
+			}
+		}
+		hour := now.In(loc).Hour()
+		night[id] = hour >= quietFromHour || hour < quietToHour
+	}
+	return night, nil
+}
+
+// without drops the night ones from a push recipient list.
+func without(ids []int64, night map[int64]bool) []int64 {
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if !night[id] {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 func contains(ids []int64, id int64) bool {
