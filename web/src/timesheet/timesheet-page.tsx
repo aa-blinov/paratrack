@@ -200,6 +200,15 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
       return
     }
+    // Zeroing a day that holds real intervals erases them (the grid replaces
+    // the day's closed sessions); the one destructive write in the grid asks
+    // first, the way the row-wide clear does.
+    if (minutes === 0 && cell.Secs - (cell.Live ?? 0) >= 60) {
+      if (!await requestConfirmation(t(lang, "ts.zeroConfirm", row.ActivityName, dayName(cell.ISO)))) {
+        setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
+        return
+      }
+    }
     attempted.current = { key, value }
     const before: CellEdit = { activityId: row.ActivityID, activity: row.ActivityName, date: cell.ISO, index: cell.Index, minutes: cell.Min }
     setNotice(null)
@@ -282,6 +291,21 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     ? t(lang, "pwa.cellQueued")
     : t(lang, notice.kind === "restored" ? "ts.undone" : "ts.saved", notice.activity, notice.date ? dayName(notice.date) : "")
 
+  // The week's plan against its tracked time, one line per scheduled project:
+  // the sheet stops standing alone and answers "did the week cover the plan".
+  const planFact = React.useMemo(() => {
+    const planned = data.PlannedByProject ?? {}
+    const tracked: Record<string, number> = {}
+    for (const row of data.Rows) if (row.ProjectID > 0) tracked[row.ProjectID] = (tracked[row.ProjectID] ?? 0) + row.RowTotal
+    return Object.keys(planned).map(key => {
+      const id = Number(key)
+      const planMin = planned[key] ?? 0
+      const factMin = Math.round((tracked[id] ?? 0) / 60)
+      return { id, name: data.ProjectNames?.[String(id)] ?? String(id), slug: data.ProjectSlugs?.[String(id)], planMin, factMin, delta: factMin - planMin }
+    }).filter(item => item.planMin > 0 || item.factMin > 0).sort((a, b) => a.name.localeCompare(b.name))
+  }, [data.Rows, data.PlannedByProject, data.ProjectNames, data.ProjectSlugs])
+  const clock = (min: number) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")}`
+
   return <main className="mx-auto w-full max-w-6xl space-y-4">
     <Flash message={initial.Flash} ok={initial.FlashOK} />
     <header className="flex flex-wrap items-end justify-between gap-4">
@@ -292,9 +316,25 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         <Button asChild variant="ghost" size="icon" title={t(lang, "sch.next")}><a href={`/timesheet?date=${data.NextWeek}`} aria-label={t(lang, "sch.next")}><ArrowRight aria-hidden="true" /></a></Button>
         <Button asChild variant="ghost" size="sm"><a href="/timesheet">{t(lang, "ts.thisWeek")}</a></Button>
       </nav>
+      {data.People && data.People.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">{t(lang, "ts.whoseSheet")}</span>
+          <Select value={data.Person ? String(data.Person) : "__all__"} onValueChange={value => {
+            const query = new URLSearchParams({ date: data.DateISO })
+            if (value !== "__all__") query.set("person", value)
+            window.location.assign(`/timesheet?${query}`)
+          }}>
+            <SelectTrigger className="w-56" aria-label={t(lang, "ts.whoseSheet")}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t(lang, "ts.wholeWorkspace")}</SelectItem>
+              {data.People.map(person => <SelectItem key={person.ID} value={String(person.ID)}>{person.Name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
     </header>
 
-    <p className="text-sm text-muted-foreground">{t(lang, "ts.saveHint")}</p>
+    <p className="text-sm text-muted-foreground">{data.Person ? t(lang, "ts.personSheetHint") : t(lang, "ts.saveHint")}</p>
     {data.AutoLockNotice && <p className="text-sm text-muted-foreground">{data.AutoLockNotice}</p>}
     <div role="status" className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm">
       <span className="font-medium">{approved ? t(lang, "ts.approvedOn", data.Approval.ApprovedOn) : t(lang, "ts.notApproved")}</span>
@@ -316,12 +356,45 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           <Button type="submit" size="sm">{t(lang, "ts.approve")}</Button>
         </form>
       )}
+      {data.Approval.CanManage && data.Approval.Finished && data.People && data.People.length > 1 && !approved && (
+        <form method="post" action="/api/timesheet/approve" className="flex items-center gap-1" data-confirm={t(lang, "ts.approvePersonConfirm")}>
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <input type="hidden" name="start" value={data.Approval.StartISO} />
+          <input type="hidden" name="end" value={data.Approval.EndISO} />
+          <Select name="user_id" defaultValue={data.Person ? String(data.Person) : String(data.People[0]?.ID ?? 0)}>
+            <SelectTrigger className="h-8 w-40" aria-label={t(lang, "ts.approveFor")}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {data.People.map(person => <SelectItem key={person.ID} value={String(person.ID)}>{person.Name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Button type="submit" variant="outline" size="sm">{t(lang, "ts.approveFor")}</Button>
+        </form>
+      )}
+      {data.Approval.MemberApprovals && data.Approval.MemberApprovals.length > 0 && (
+        <span className="text-xs text-muted-foreground">
+          {t(lang, "ts.membersApproved", data.Approval.MemberApprovals.map(item => `${item.UserName}${data.Approval.CanManage ? "" : ""}`).join(", "))}
+        </span>
+      )}
     </div>
     <div className="flex flex-wrap items-center gap-2">
       <StatusLine text={saving ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
     </div>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
+
+    {planFact.length > 0 && <Card data-plan-fact><CardContent className="p-4">
+      <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(lang, "ts.planFactTitle")}</h3>
+      <ul className="mt-2 grid gap-1.5">
+        {planFact.map(item => <li key={item.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
+          {item.slug ? <a href={`/projects/${item.slug}`} className="min-w-0 underline-offset-4 hover:underline [overflow-wrap:anywhere]">{item.name}</a> : <span className="min-w-0 [overflow-wrap:anywhere]">{item.name}</span>}
+          <span className="font-mono tabular-nums text-muted-foreground">{t(lang, "ts.planFactRow", clock(item.planMin), clock(item.factMin))}</span>
+          {item.planMin > 0 && (item.delta >= 0
+            ? <span className="font-mono text-xs tabular-nums text-muted-foreground">{t(lang, "ts.planOver", clock(item.delta))}</span>
+            : <span className="font-mono text-xs tabular-nums text-destructive">{t(lang, "ts.planUnder", clock(-item.delta))}</span>)}
+        </li>)}
+      </ul>
+      <p className="mt-2 text-xs text-muted-foreground">{t(lang, "ts.planFactHint")}</p>
+    </CardContent></Card>}
 
     {data.Rows.length ? <>
       {/* A week is seven days wide. On a phone that meant a sideways scroll on

@@ -82,6 +82,14 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			ID: project.ID, Name: project.Name, Selected: project.ID == want,
 			Eligible: projectOption.Eligible,
 		}
+		// The rate prices every line of a draft, yet nothing on the page said
+		// what it was: a person had to open the project to learn the number
+		// the form was about to multiply by. The workspace currency is the
+		// invoice's own default; a project with its own currency shows that
+		// on the invoice it produces.
+		if project.BillableRateCents != nil && *project.BillableRateCents > 0 {
+			option.Rate = moneyL(resolveLang(r), *project.BillableRateCents, settings.Currency)
+		}
 		if projectOption.HasClient {
 			option.ClientName = projectOption.Client.Name
 			option.ClientDetails = projectOption.Client.Details

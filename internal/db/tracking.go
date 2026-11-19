@@ -117,7 +117,7 @@ func (d *DB) FocusActivity(ctx context.Context, request appmodel.TimerFocusReque
 	}
 	// Focus opens a new timer at the client's instant, so it needs the same
 	// approved-week and auto-close checks as a plain start.
-	if err := lockApprovedWeek(ctx, tx, teamID, now); err != nil {
+	if err := lockApprovedWeek(ctx, tx, teamID, now, actorID(ctx)); err != nil {
 		return result, err
 	}
 	if err := lockAutoClosed(ctx, tx, teamID, now, d.currentTime()); err != nil {

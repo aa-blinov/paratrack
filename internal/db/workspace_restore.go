@@ -463,8 +463,19 @@ func (r *restorer) Approval(a appmodel.ExportApproval) error {
 	if err != nil {
 		return err
 	}
-	return r.exec("approved week", `INSERT INTO timesheet_approvals (team_id, starts_at, ends_at, approved_by, approved_at)
-		VALUES (?, ?, ?, ?, ?)`, r.teamID, a.StartsAt, a.EndsAt, approver, a.ApprovedAt)
+	// A member-scoped approval names the person it closes the week for; an
+	// empty email means the file was written before TIME-23 and the row
+	// keeps the whole-workspace meaning.
+	forUser := int64(0)
+	if a.UserEmail != "" {
+		id, err := r.person(a.UserEmail)
+		if err != nil || id == nil {
+			return fmt.Errorf("restore approved week: %w", err)
+		}
+		forUser = id.(int64)
+	}
+	return r.exec("approved week", `INSERT INTO timesheet_approvals (team_id, starts_at, ends_at, approved_by, approved_at, user_id)
+		VALUES (?, ?, ?, ?, ?, ?)`, r.teamID, a.StartsAt, a.EndsAt, approver, a.ApprovedAt, forUser)
 }
 
 func (r *restorer) Report(rep appmodel.ExportReport) error {

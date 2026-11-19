@@ -435,14 +435,15 @@ func exportSchedule(ctx context.Context, tx *Tx, teamID int64, emails map[int64]
 
 func exportApprovals(ctx context.Context, tx *Tx, teamID int64, emails map[int64]string, sink appmodel.WorkspaceSink) error {
 	return queryRows(ctx, tx, "export approvals",
-		`SELECT starts_at, ends_at, COALESCE(approved_by, 0), approved_at FROM timesheet_approvals WHERE team_id = ? ORDER BY id`,
+		`SELECT starts_at, ends_at, COALESCE(approved_by, 0), approved_at, user_id FROM timesheet_approvals WHERE team_id = ? ORDER BY id`,
 		func(rows *sql.Rows) error {
-			var by int64
+			var by, forUser int64
 			var a appmodel.ExportApproval
-			if err := rows.Scan(&a.StartsAt, &a.EndsAt, &by, &a.ApprovedAt); err != nil {
+			if err := rows.Scan(&a.StartsAt, &a.EndsAt, &by, &a.ApprovedAt, &forUser); err != nil {
 				return err
 			}
 			a.ApprovedByEmail = emails[by]
+			a.UserEmail = emails[forUser]
 			return sink.Approval(a)
 		}, teamID)
 }

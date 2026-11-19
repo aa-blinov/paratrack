@@ -78,7 +78,7 @@ func (d *DB) StartSession(ctx context.Context, request appmodel.TimerStartReques
 	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
 		return model.Session{}, err
 	}
-	if err := lockApprovedWeek(ctx, tx, teamID, startAt); err != nil {
+	if err := lockApprovedWeek(ctx, tx, teamID, startAt, actorID(ctx)); err != nil {
 		return model.Session{}, err
 	}
 	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {
@@ -186,7 +186,7 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 	if err != nil {
 		return err
 	}
-	if err := lockApprovedSessionStart(ctx, tx, teamID, lockedSession.startAt); err != nil {
+	if err := lockApprovedSessionStart(ctx, tx, teamID, lockedSession.startAt, lockedSession.userID); err != nil {
 		return err
 	}
 	if err := lockAutoClosedSessionStart(ctx, tx, teamID, lockedSession.startAt, d.currentTime()); err != nil {
@@ -197,7 +197,7 @@ func (d *DB) UpdateSessionFields(ctx context.Context, request appmodel.SessionUp
 		return err
 	}
 	if update.StartAt != nil {
-		if err := lockApprovedWeek(ctx, tx, teamID, *update.StartAt); err != nil {
+		if err := lockApprovedWeek(ctx, tx, teamID, *update.StartAt, lockedSession.userID); err != nil {
 			return err
 		}
 		if err := lockAutoClosed(ctx, tx, teamID, *update.StartAt, d.currentTime()); err != nil {
@@ -272,6 +272,7 @@ type sessionEditState struct {
 	invoiceID          int64
 	activityID         int64
 	startAt            string
+	userID             int64
 	endAt              sql.NullString
 	wasOpen            bool
 	note               sql.NullString
@@ -312,7 +313,7 @@ func resolveLockedSessionUpdate(state sessionEditState, request appmodel.Session
 // lockSessionForEdit serializes a session edit with invoice status changes.
 // Sent and paid invoices freeze their linked sessions; drafts remain editable.
 func lockSessionForEdit(ctx context.Context, tx *Tx, teamID, id, scopeUserID int64) (sessionEditState, error) {
-	query := `SELECT COALESCE(invoice_id, 0), activity_id, start_at, end_at, note, accumulated_seconds, COALESCE(project_id, 0) FROM sessions WHERE id = ?`
+	query := `SELECT COALESCE(invoice_id, 0), activity_id, start_at, COALESCE(user_id, 0), end_at, note, accumulated_seconds, COALESCE(project_id, 0) FROM sessions WHERE id = ?`
 	args := []any{id}
 	if teamID > 0 {
 		query += ` AND team_id = ?`
@@ -326,7 +327,7 @@ func lockSessionForEdit(ctx context.Context, tx *Tx, teamID, id, scopeUserID int
 	var state sessionEditState
 	var startAt string
 	var endAt sql.NullString
-	if err := tx.QueryRowContext(ctx, query, args...).Scan(&state.invoiceID, &state.activityID, &startAt, &endAt,
+	if err := tx.QueryRowContext(ctx, query, args...).Scan(&state.invoiceID, &state.activityID, &startAt, &state.userID, &endAt,
 		&state.note, &state.accumulatedSeconds, &state.ownProject); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return sessionEditState{}, ErrNotFound
@@ -367,7 +368,7 @@ func (d *DB) CreateClosedSession(ctx context.Context, request appmodel.TimerAddR
 	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
 		return model.Session{}, err
 	}
-	if err := lockApprovedWeek(ctx, tx, teamID, startAt); err != nil {
+	if err := lockApprovedWeek(ctx, tx, teamID, startAt, actorID(ctx)); err != nil {
 		return model.Session{}, err
 	}
 	if err := lockAutoClosed(ctx, tx, teamID, startAt, d.currentTime()); err != nil {

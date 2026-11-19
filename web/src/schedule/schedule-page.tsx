@@ -305,11 +305,14 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
       onChange={event => setDrafts(previous => ({ ...previous, [key]: event.target.value }))}
       onBlur={event => void saveCell(person, line, index, event.target.value)}
       onKeyDown={event => {
-        if (event.key !== "Enter") return
-        // Enter saves the cell and moves to the next hour field in the grid.
+        // Enter saves and moves down a field; the arrows walk the same order
+        // without a pointer, the way the timesheet grid does.
         const fields = Array.from(document.querySelectorAll<HTMLInputElement>('main table input[name="hours"]'))
         const field = event.currentTarget
-        const next = fields[fields.indexOf(field) + 1]
+        const step = event.key === "Enter" || event.key === "ArrowDown" ? 1 : event.key === "ArrowUp" ? -1 : 0
+        if (!step) return
+        event.preventDefault()
+        const next = fields[fields.indexOf(field) + step]
         field.blur()
         next?.focus()
       }}

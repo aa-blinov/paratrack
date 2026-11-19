@@ -192,7 +192,7 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
     <section aria-label={t(data.Lang, "projects.allTime")} className={`grid gap-4 sm:grid-cols-2 ${data.EstimateLabel && data.RateLabel ? "lg:grid-cols-4" : "lg:grid-cols-3"}`}>
       <SummaryCard title={t(data.Lang, "projects.last30")} value={data.MonthTotal} />
       <SummaryCard title={t(data.Lang, "projects.allTime")} value={data.Total} />
-      {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} />}
+      {data.RateLabel && <SummaryCard title={t(data.Lang, "bill.rate")} value={data.RateLabel} hint={data.Project.Billable ? t(data.Lang, "proj.billableOn") : t(data.Lang, "proj.billableOff")} />}
       {data.RemainingLabel && <SummaryCard title={t(data.Lang, "proj.remaining")} value={data.RemainingLabel} hint={t(data.Lang, "proj.remainingHint")} />}
       {data.EstimateLabel && <Card><CardContent className="space-y-3 p-5">
         <h3 className="text-xs font-semibold tracking-wide text-muted-foreground">{t(data.Lang, "est.vsActual")}</h3>

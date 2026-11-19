@@ -291,6 +291,10 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 			PeriodLabel: periodSpan(resolveLang(r), fmtDate(resolveLang(r), run.PeriodStart.In(loc)), fmtDate(resolveLang(r), run.PeriodEnd.In(loc).AddDate(0, 0, -1))),
 			Lines:       vms, Total: moneyL(resolveLang(r), details.TotalCents, run.Currency), TotalCents: details.TotalCents,
 			Hours: fmtHoursL(resolveLang(r), details.TotalHoursHundredths),
+			// Money follows approved weeks; naming them turns the run from a
+			// bare sum into a traceable document. The timesheet link opens the
+			// first week of the period.
+			WeeksLabel: payrollWeeksLabel(r, loc, days),
 		},
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
@@ -342,6 +346,34 @@ func payrollDays(lang i18n.Lang, days []time.Time, seconds []int) []payrollDayVM
 	return out
 }
 
+// payrollWeeksLabel names the distinct calendar weeks of a run's days: the
+// run's money is approved weeks, and the label lets a person check which
+// ones without opening the timesheet. A week is named by its first day.
+func payrollWeeksLabel(r *http.Request, loc *time.Location, days []time.Time) string {
+	if len(days) == 0 {
+		return ""
+	}
+	sunday := weekStartsSunday(r)
+	firstDay := func(day time.Time) time.Time {
+		start := weekStartOn(sunday, day)
+		return time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, loc)
+	}
+	var labels []string
+	var last time.Time
+	for _, day := range days {
+		start := firstDay(day)
+		if !last.IsZero() && start.Equal(last) {
+			continue
+		}
+		last = start
+		labels = append(labels, fmtDay(resolveLang(r), start))
+		if len(labels) >= 4 {
+			break
+		}
+	}
+	return strings.Join(labels, ", ")
+}
+
 type payrollVM struct {
 	ID          int64
 	Number      string
@@ -352,6 +384,9 @@ type payrollVM struct {
 	Total       string
 	TotalCents  int
 	Hours       string
+	// WeeksLabel names the calendar weeks the run's hours came from, so the
+	// payout can be traced back to its approved weeks.
+	WeeksLabel string
 }
 
 type payrollDetailPage struct {

@@ -207,8 +207,8 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         <input type="hidden" name="project_id" value={project === "__all__" ? "" : project} />
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-project">{t(lang, "dash.projectLabel")}</Label>
           <Select value={project} onValueChange={setProjectAndPrefill}><SelectTrigger id="inv-project" className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-            <SelectItem value="__all__">{t(lang, "stats.all")}</SelectItem>{data.Projects.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}</SelectItem>)}
-          </SelectContent></Select><p className="text-xs text-muted-foreground">{t(lang, "inv.projectHint")}</p>
+            <SelectItem value="__all__">{t(lang, "stats.all")}</SelectItem>{data.Projects.map(option => <SelectItem key={option.ID} value={String(option.ID)}>{option.Name}{option.Rate ? ` — ${option.Rate}/${t(lang, "inv.hourShort")}` : ""}</SelectItem>)}
+          </SelectContent></Select><p className="text-xs text-muted-foreground">{(() => { const sel = data.Projects.find(item => String(item.ID) === project); if (sel?.Rate) return t(lang, "inv.rateFrom", sel.Name, sel.Rate); return t(lang, "inv.projectHint") })()}</p>
         </div>
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-client">{t(lang, "inv.client")}</Label><Input id="inv-client" type="text" name="client" required placeholder={t(lang, "ph.client")} value={client.name} onChange={event => editClientField("name", event.target.value)} /></div>
 

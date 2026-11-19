@@ -81,6 +81,39 @@ func (d *DB) nextInvoiceNumber(ctx context.Context, teamID int64, at time.Time) 
 	return nextInvoiceNumberWithRules(ctx, d.sql, teamID, rules, at)
 }
 
+// billedInvoiceNumbersInPeriod lists the invoices that stamped sessions of
+// this window, newest first, capped at a handful: the refusal names documents,
+// it is not a report. Runs inside the creation transaction, so its answer
+// matches the rows the draft builder just considered.
+func billedInvoiceNumbersInPeriod(ctx context.Context, queryer invoiceQueryer, teamID int64, start, end time.Time, projectID int64) ([]string, error) {
+	q := `
+		SELECT DISTINCT inv.number
+		FROM sessions s
+		JOIN invoices inv ON inv.id = s.invoice_id
+		WHERE s.start_at >= ? AND s.start_at < ? AND s.invoice_id IS NOT NULL
+		  AND s.team_id = ? AND inv.team_id = ?`
+	args := []any{FormatTime(start), FormatTime(end), teamID, teamID}
+	if projectID > 0 {
+		q += ` AND EXISTS (SELECT 1 FROM activities x WHERE x.id = s.activity_id AND x.project_id = ?)`
+		args = append(args, projectID)
+	}
+	q += ` ORDER BY inv.number DESC LIMIT 3`
+	rows, err := queryer.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var number string
+		if err := rows.Scan(&number); err != nil {
+			return nil, err
+		}
+		out = append(out, number)
+	}
+	return out, rows.Err()
+}
+
 // nextInvoiceNumberWithRules uses its caller's queryer so invoice creation
 // never checks out a second pool connection while holding the workspace lock.
 func nextInvoiceNumberWithRules(ctx context.Context, queryer invoiceQueryer, teamID int64, rules BillingRules, at time.Time) (string, error) {
@@ -187,6 +220,12 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 		return Invoice{}, nil, fmt.Errorf("build invoice lines: %w", err)
 	}
 	if len(lines) == 0 {
+		// "Nothing to bill" reads as "wrong dates" when the truth is that
+		// the period was billed already. Name the invoice that holds this
+		// time, so the next step is one click instead of a search.
+		if numbers, err := billedInvoiceNumbersInPeriod(ctx, tx, teamID, start, end, projectID); err == nil && len(numbers) > 0 {
+			return Invoice{}, nil, model.NewAlreadyBilledInPeriodError(numbers)
+		}
 		return Invoice{}, nil, model.ErrNoBillableTime
 	}
 	currency, err := invoiceCurrency(ctx, tx, teamID, lines)

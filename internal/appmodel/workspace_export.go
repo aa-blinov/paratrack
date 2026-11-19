@@ -250,6 +250,9 @@ type ExportApproval struct {
 	EndsAt          string
 	ApprovedByEmail string
 	ApprovedAt      string
+	// UserEmail is empty for a whole-workspace approval, or the member the
+	// week is closed for (TIME-23).
+	UserEmail string
 }
 
 type ExportReport struct {

@@ -67,6 +67,24 @@ func (d *DB) applySchemaContext(ctx context.Context) error {
 	cols()
 	stmts = append(stmts, compatibilityStatements...)
 	cols()
+	// A week can be approved for one member (TIME-23), so the uniqueness of
+	// an approval row grew a user: (team, week, user). Older databases carry
+	// the two-column constraint from CREATE TABLE; replace it once and cover
+	// both shapes with the same unique index. This must run after cols() gives
+	// the column to legacy databases — schema.sql only creates it on new ones.
+	stmts = append(stmts,
+		`DO $$ BEGIN
+		   IF EXISTS (
+		     SELECT 1 FROM pg_constraint
+		     WHERE conrelid = 'timesheet_approvals'::regclass
+		       AND conname = 'timesheet_approvals_team_id_starts_at_key'
+		   ) THEN
+		     ALTER TABLE timesheet_approvals DROP CONSTRAINT timesheet_approvals_team_id_starts_at_key;
+		   END IF;
+		 END $$`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS uniq_timesheet_approvals_team_week_user
+		   ON timesheet_approvals(team_id, starts_at, user_id)`,
+	)
 	// A board item is imported once per workspace. The index follows the columns
 	// above, so a fresh database has them when it is created.
 	stmts = append(stmts, `CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_external ON tasks(team_id, external_ref) WHERE external_ref IS NOT NULL`)

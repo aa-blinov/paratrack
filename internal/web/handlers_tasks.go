@@ -54,6 +54,10 @@ type taskPerson struct {
 	Name string
 }
 
+// personOption is a member of the workspace as a selector shows them: the
+// timesheet's "whose week" picker (TIME-24).
+type personOption = taskPerson
+
 type tasksPage struct {
 	pageData
 	TasksReact bool

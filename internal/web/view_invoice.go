@@ -64,6 +64,7 @@ type paymentVM struct {
 type invoiceProjectOpt struct {
 	ID                                     int64
 	Name                                   string
+	Rate                                   string // money per hour, empty when the project has none
 	ClientName, ClientDetails, ClientEmail string
 	Selected, Eligible                     bool
 }
