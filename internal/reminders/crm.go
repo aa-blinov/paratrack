@@ -60,28 +60,38 @@ func (s *Service) crmSteps(ctx context.Context, now time.Time) error {
 			return err
 		}
 		day := now.In(loc).Format("2006-01-02")
+		// The night gate (UX-33) applies to the push only: the claim is per
+		// channel, so a skipped push leaves the next pass free to send it in
+		// the owner's morning, while the letter rides the queue regardless.
+		night, err := s.nightOnes(ctx, loc, []int64{key.userID}, now)
+		if err != nil {
+			return err
+		}
+		skipPush := night[key.userID]
 		lang := i18n.Normalize(s.audience.Language(ctx, key.userID))
 		var mailed []appmodel.CRMStep
 		for _, step := range byOwner[key] {
 			if step.NextStepAt > day {
 				continue
 			}
-			claim := appmodel.CRMReminderClaimRequest{TeamID: key.teamID, Kind: step.Kind, ItemID: step.ItemID, Day: day, Channel: appmodel.CRMChannelPush}
-			pushed, err := s.store.ClaimCRMReminder(ctx, claim)
-			if err != nil {
-				return err
-			}
-			if pushed {
-				title, body := crmPushText(lang, step)
-				if err := s.sender.Send(ctx, Notification{
-					TeamID: key.teamID, UserIDs: []int64{key.userID}, Topic: TopicCRMNextStep,
-					Title: title, Body: body, URL: "/crm",
-				}); err != nil {
+			pushClaim := appmodel.CRMReminderClaimRequest{TeamID: key.teamID, Kind: step.Kind, ItemID: step.ItemID, Day: day, Channel: appmodel.CRMChannelPush}
+			if !skipPush {
+				pushed, err := s.store.ClaimCRMReminder(ctx, pushClaim)
+				if err != nil {
 					return err
 				}
+				if pushed {
+					title, body := crmPushText(lang, step)
+					if err := s.sender.Send(ctx, Notification{
+						TeamID: key.teamID, UserIDs: []int64{key.userID}, Topic: TopicCRMNextStep,
+						Title: title, Body: body, URL: "/crm",
+					}); err != nil {
+						return err
+					}
+				}
 			}
-			claim.Channel = appmodel.CRMChannelEmail
-			lettered, err := s.store.ClaimCRMReminder(ctx, claim)
+			pushClaim.Channel = appmodel.CRMChannelEmail
+			lettered, err := s.store.ClaimCRMReminder(ctx, pushClaim)
 			if err != nil {
 				return err
 			}
