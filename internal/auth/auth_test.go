@@ -419,9 +419,11 @@ func TestSessionExpiredIsRejected(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Force the session to be expired by rewriting expires_at directly.
+	// The row stores the token's digest rather than the token itself, so the
+	// update targets the user's only session instead of the raw value.
 	if _, err := d.TestSQL().ExecContext(ctx,
-		`UPDATE auth_sessions SET expires_at = ? WHERE token = ?`,
-		dbpkg.FormatTime(time.Now().UTC().Add(-time.Hour)), sess.Token,
+		`UPDATE auth_sessions SET expires_at = ? WHERE user_id = ?`,
+		dbpkg.FormatTime(time.Now().UTC().Add(-time.Hour)), uid,
 	); err != nil {
 		t.Fatal(err)
 	}
