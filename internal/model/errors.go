@@ -1,6 +1,9 @@
 package model
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 var (
 	ErrActiveSessionExists     = errors.New("activity already has an active session")
@@ -39,3 +42,18 @@ var (
 	ErrSessionLengthInvalid   = errors.New("session duration cannot be negative")
 	ErrProjectRebindForbidden = errors.New("members may assign only unassigned activities to projects")
 )
+
+// AlreadyBilledInPeriodError says the period was billed already and names the
+// invoices that hold its time. "Nothing to bill" alone reads as "wrong dates"
+// and sends a person hunting through their period bounds instead of the list.
+type AlreadyBilledInPeriodError struct {
+	Invoices []string
+}
+
+func NewAlreadyBilledInPeriodError(invoices []string) *AlreadyBilledInPeriodError {
+	return &AlreadyBilledInPeriodError{Invoices: invoices}
+}
+
+func (e *AlreadyBilledInPeriodError) Error() string {
+	return "this period's time is already on invoices: " + strings.Join(e.Invoices, ", ")
+}

@@ -63,6 +63,9 @@ function ProjectRow({ data, project, open, onToggle }: {
           <ColorMark color={project.Color} />
           <a href={href} title={project.Name} className="min-w-0 font-medium [overflow-wrap:anywhere] underline-offset-4 hover:underline">{project.Name}</a>
           {project.Archived && <Badge variant="secondary" className="shrink-0">{t(lang, "projects.archivedBadge")}</Badge>}
+          {/* A rateless billable project silently blocks invoicing; the
+              manager sees which row to fix before the end of the month. */}
+          {data.CanManage && !project.RateLabel && <Badge variant="outline" className="shrink-0 text-muted-foreground">{t(lang, "projects.noRateBadge")}</Badge>}
         </div>
         {/* На телефоне отдельных колонок для клиента и чисел нет: 375 пикселей
             не оставляют названию места, а «Або…» не читается. Клиент и метрики

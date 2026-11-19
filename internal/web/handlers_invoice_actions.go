@@ -75,6 +75,14 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 		},
 		ConfirmUnapproved: r.PostForm.Get("confirm_unapproved") == "1",
 	})
+	var billed *model.AlreadyBilledInPeriodError
+	if errors.As(err, &billed) && len(billed.Invoices) > 0 {
+		// The period is not empty; its time is on named documents. Saying so
+		// replaces a misleading "nothing to bill" that reads as "wrong dates".
+		msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.billedInPeriod"), strings.Join(billed.Invoices, ", "))
+		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, msg), http.StatusSeeOther)
+		return
+	}
 	if errors.Is(err, appmodel.ErrNoBillableTime) {
 		http.Redirect(w, r, "/invoices?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.no billable time in that period")), http.StatusSeeOther)
 		return

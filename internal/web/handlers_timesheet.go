@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
 
@@ -68,7 +70,16 @@ type timesheetData struct {
 	Others          []activityView // big workspace: activities not on the sheet
 	Added           []int64        // rows added by hand this visit
 	DateISO         string
-	Approval        timesheetApproval
+	// PlannedByProject carries this week's scheduled minutes per project from
+	// the schedule, so a row can say how its tracked time stands against the
+	// plan. Projects without a plan are absent from the map.
+	PlannedByProject map[int64]int
+	// Person is the member whose sheet is on screen (0 = the whole workspace
+	// for a manager, or the viewer's own for a member). People fills the
+	// manager's selector (TIME-24).
+	Person   int64
+	People   []personOption
+	Approval timesheetApproval
 	// AutoLockNotice names the first open day when the workspace closes past
 	// days for edits; empty when it does not.
 	AutoLockNotice string
@@ -77,14 +88,49 @@ type timesheetData struct {
 	FlashOK bool
 }
 
+// weekPlanByProject sums the schedule's per-project plan for the week the
+// sheet shows, across every member. The schedule stores per-day cells; the
+// row only needs the week's total to say "plan 16 h, tracked 14 h".
+func (s *Server) weekPlanByProject(r *http.Request, weekStart, now time.Time) (map[int64]int, error) {
+	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart, Now: now})
+	if err != nil {
+		return nil, fmt.Errorf("load the week's plan: %w", err)
+	}
+	planned := map[int64]int{}
+	for _, row := range snapshot.Rows {
+		for projectID, minutes := range row.ByProject {
+			for _, day := range minutes {
+				planned[projectID] += day
+			}
+		}
+	}
+	return planned, nil
+}
+
 // handleTimesheet renders the weekly grid. ?date= any day inside the
-// week selects it; default is today's week.
+// week selects it; default is today's week. For a manager, ?person=<id>
+// shows one member's sheet instead of the whole workspace's (TIME-24):
+// the read is scoped to that member's sessions the same way a member's own
+// view is.
 func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 	now := userNow(r)
 	day := now
 	if v := r.URL.Query().Get("date"); v != "" {
 		if t, err := timeparse.ParseDateTime(v, now); err == nil {
 			day = t
+		}
+	}
+	personID := int64(0)
+	if canManage(r) {
+		if v := r.URL.Query().Get("person"); v != "" {
+			if id, err := strconv.ParseInt(v, 10, 64); err == nil && id > 0 {
+				for _, candidate := range s.taskPeople(r) {
+					if candidate.ID == id {
+						personID = id
+						break
+					}
+				}
+			}
 		}
 	}
 	weekStart := startOfWeek(r, day)
@@ -97,7 +143,14 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 			added = append(added, id)
 		}
 	}
-	grid, err := s.services.Tracking.Queries.Timesheet(r.Context(), appmodel.TimesheetRequest{
+	// The member view is a read: the grid is scoped to that person's sessions
+	// the way a member's own view is, while the caller keeps manager rights for
+	// approvals and the week status above the sheet.
+	gridCtx := r.Context()
+	if personID > 0 {
+		gridCtx = requestctx.WithScope(gridCtx, personID)
+	}
+	grid, err := s.services.Tracking.Queries.Timesheet(gridCtx, appmodel.TimesheetRequest{
 		TeamID: teamID(r), WeekStart: weekStart, Now: now, ExtraActivityIDs: added,
 	})
 	if err != nil {
@@ -177,30 +230,47 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	// The week's plan, by project, straight from the schedule the same week
+	// reads. A row of the sheet answers "how much of the plan did this
+	// project's time cover" instead of standing alone.
+	plannedByProject, err := s.weekPlanByProject(r, weekStart, now)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	// The manager's selector of whose sheet is on screen. A member gets none:
+	// their sheet is always their own.
+	var people []personOption
+	if canManage(r) {
+		people = s.taskPeople(r)
+	}
 	data := timesheetData{
 		pageData: pageData{
 			Title: "Timesheet", Active: "timesheet", Lang: lang, ReactApp: true,
 		},
-		TimesheetReact:  true,
-		EditRequests:    edits,
-		AutoLockNotice:  autoLockNotice,
-		CanDecide:       canManage(r),
-		WeekStart:       weekStart,
-		WeekEnd:         weekEnd,
-		WeekLabel:       periodSpan(resolveLang(r), fmtDay(resolveLang(r), weekStart), fmtDay(resolveLang(r), weekEnd)),
-		PrevWeek:        weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
-		NextWeek:        weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
-		Days:            days,
-		Rows:            rows,
-		ProjectNames:    projectNames,
-		ProjectSlugs:    projectSlugs,
-		DayTotals:       grid.DayTotals,
-		DayTotalLabels:  dayTotalLabels,
-		GrandTotal:      grid.GrandTotal,
-		GrandTotalLabel: fmtDur(r, grid.GrandTotal),
-		Others:          activityViews(grid.Others, string(resolveLang(r))),
-		Added:           added,
-		DateISO:         weekStart.Format("2006-01-02"),
+		TimesheetReact:   true,
+		EditRequests:     edits,
+		AutoLockNotice:   autoLockNotice,
+		CanDecide:        canManage(r),
+		WeekStart:        weekStart,
+		WeekEnd:          weekEnd,
+		WeekLabel:        periodSpan(resolveLang(r), fmtDay(resolveLang(r), weekStart), fmtDay(resolveLang(r), weekEnd)),
+		PrevWeek:         weekStart.AddDate(0, 0, -7).Format("2006-01-02"),
+		NextWeek:         weekStart.AddDate(0, 0, 7).Format("2006-01-02"),
+		Days:             days,
+		Rows:             rows,
+		ProjectNames:     projectNames,
+		ProjectSlugs:     projectSlugs,
+		PlannedByProject: plannedByProject,
+		DayTotals:        grid.DayTotals,
+		DayTotalLabels:   dayTotalLabels,
+		GrandTotal:       grid.GrandTotal,
+		GrandTotalLabel:  fmtDur(r, grid.GrandTotal),
+		Others:           activityViews(grid.Others, string(resolveLang(r))),
+		Added:            added,
+		DateISO:          weekStart.Format("2006-01-02"),
+		Person:           personID,
+		People:           people,
 	}
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
@@ -418,6 +488,16 @@ type timesheetApproval struct {
 	CanManage  bool
 	StartISO   string
 	EndISO     string
+	// MemberApprovals names the members whose own approval closes the week,
+	// besides a possible whole-workspace one. The manager sees who is closed
+	// and can reopen one person without touching the rest (TIME-23).
+	MemberApprovals []timesheetMemberApproval
+}
+
+type timesheetMemberApproval struct {
+	UserID     int64
+	UserName   string
+	ApprovedOn string
 }
 
 // timesheetAutoLockNotice returns the sentence that tells the viewer which past
@@ -444,12 +524,25 @@ func (s *Server) timesheetApprovalFor(r *http.Request, weekStart, now time.Time)
 	if err != nil {
 		return view, err
 	}
+	names := s.taskPeople(r)
+	byID := make(map[int64]string, len(names))
+	for _, person := range names {
+		byID[person.ID] = person.Name
+	}
 	for _, item := range items {
-		if !weekStart.Before(item.Start) && weekStart.Before(item.End) {
+		// Only this exact week's rows count: the query window can also return
+		// approvals of a neighbouring week that merely overlaps the bounds.
+		if !weekStart.Equal(item.Start) {
+			continue
+		}
+		if item.UserID == 0 {
 			view.Approved = true
 			view.ApprovedOn = item.ApprovedAt.In(userLoc(r)).Format("02.01.2006")
-			break
+			continue
 		}
+		view.MemberApprovals = append(view.MemberApprovals, timesheetMemberApproval{
+			UserID: item.UserID, UserName: byID[item.UserID], ApprovedOn: item.ApprovedAt.In(userLoc(r)).Format("02.01.2006"),
+		})
 	}
 	return view, nil
 }
@@ -478,8 +571,18 @@ func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, appr
 		http.Redirect(w, r, "/timesheet?flash="+encodeFlash(false, i18n.T(lang, "err.invalidInput")), http.StatusSeeOther)
 		return
 	}
+	// user_id picks whose week the form closes: 0 for the whole workspace, or
+	// one member (TIME-23). A bad value falls back to the workspace-wide read
+	// rather than failing the form.
+	userID, _ := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)
+	if userID < 0 {
+		userID = 0
+	}
 	back := "/timesheet?date=" + first.Format("2006-01-02")
-	request := appmodel.TimesheetApprovalRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Start: first, End: last.AddDate(0, 0, 1)}
+	if person := r.URL.Query().Get("person"); person != "" {
+		back += "&person=" + url.QueryEscape(person)
+	}
+	request := appmodel.TimesheetApprovalRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Start: first, End: last.AddDate(0, 0, 1), UserID: userID}
 	action, okKey := "timesheet.reopen", "ts.reopenDone"
 	change := s.services.Tracking.Commands.ReopenWeek
 	if approve {

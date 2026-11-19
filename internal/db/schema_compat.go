@@ -36,6 +36,10 @@ var columnMigrations = []struct {
 	{"projects", "deadline_reminded", "TEXT"},
 	// An activity may belong to one task; a task holds many activities.
 	{"activities", "task_id", "BIGINT"},
+	// A week can be approved for one member rather than the whole workspace
+	// (TIME-23). user_id 0 keeps the old meaning: the week is closed for
+	// everyone. Existing rows predate the column and stay 0.
+	{"timesheet_approvals", "user_id", "BIGINT NOT NULL DEFAULT 0"},
 	{"tasks", "due_reminder", "TEXT"},
 	{"tasks", "description", "TEXT NOT NULL DEFAULT ''"},
 	{"tasks", "external_ref", "TEXT"},
@@ -403,6 +407,7 @@ var compatibilityStatements = []string{
 	    ends_at TEXT NOT NULL,
 	    approved_by BIGINT NOT NULL,
 	    approved_at TEXT NOT NULL,
+	    user_id BIGINT NOT NULL DEFAULT 0,
 	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
 	    UNIQUE (team_id, starts_at)
 	)`,

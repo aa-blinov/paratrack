@@ -483,7 +483,7 @@ export interface TimeEditRequest {
 }
 
 export interface TimesheetData {
-  Approval: TimesheetApproval
+  Approval: TimesheetApproval & { MemberApprovals?: Array<{ UserID: number; UserName: string; ApprovedOn: string }> }
   // Empty when the workspace closes no past days; the server writes the sentence.
   AutoLockNotice?: string
   EditRequests: TimeEditRequest[]
@@ -509,6 +509,13 @@ export interface TimesheetData {
   PrevWeek: string
   NextWeek: string
   WeekLabel: string
+  // Whose sheet is on screen: 0 = the whole workspace (manager view) or the
+  // viewer's own (member). People fills the manager's selector (TIME-24).
+  Person: number
+  People: Array<{ ID: number; Name: string }>
+  // This week's scheduled minutes by project: the row answers "how much of
+  // the plan did this time cover". Absent key = no plan for the project.
+  PlannedByProject?: Record<string, number>
 }
 
 export interface PayrollSummary {
@@ -558,6 +565,7 @@ export interface PayrollDetailData {
     Total: string
     TotalCents: number
     Hours: string
+    WeeksLabel: string
   }
   Flash: string
   FlashOK: boolean
@@ -635,6 +643,7 @@ export interface InvoiceSummary {
 export interface InvoiceProjectOption {
   ID: number
   Name: string
+  Rate: string
   ClientName: string
   ClientDetails: string
   ClientEmail: string

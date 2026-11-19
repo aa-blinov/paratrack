@@ -205,8 +205,8 @@ CREATE TABLE IF NOT EXISTS timesheet_approvals (
     ends_at TEXT NOT NULL,
     approved_by BIGINT NOT NULL,
     approved_at TEXT NOT NULL,
-    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
-    UNIQUE (team_id, starts_at)
+    user_id BIGINT NOT NULL DEFAULT 0,
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_timesheet_approvals_team ON timesheet_approvals(team_id);
 
