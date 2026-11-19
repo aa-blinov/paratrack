@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { translate as t } from "@/i18n"
 import {
   firstWeekday, formatDate, formatDateTime, monthLabel, parseDateInput,
   parseDateTimeInput, parseISODate, weekdayLabels,
@@ -84,37 +85,81 @@ function MonthGrid({ lang, selected, onPick }: { lang: string; selected: string;
   const daysInMonth = new Date(Date.UTC(cursor.year, cursor.month + 1, 0)).getUTCDate()
   const today = todayISO()
 
-  return <div className="w-64 rounded-lg border bg-card p-3 shadow-md" role="group" aria-label={lang === "en" ? "Calendar" : "Календарь"}>
+  // Focus follows the arrows, not the tab order: the day buttons take no tab
+  // stops of their own, and the one the keyboard sits on is focused by hand.
+  const [pending, setPending] = React.useState("")
+  const grid = React.useRef<HTMLDivElement>(null)
+  React.useLayoutEffect(() => {
+    if (!pending) return
+    grid.current?.querySelector<HTMLButtonElement>(`button[data-day="${pending}"]`)?.focus()
+    setPending("")
+  }, [pending])
+
+  // A step lands on a real date, so it can cross the month edge: the grid
+  // follows the focus there instead of stopping at the border the eye sees.
+  const stepTo = (iso: string, days: number) => {
+    const from = parseISODate(iso)!
+    const next = new Date(Date.UTC(from.y, from.m - 1, from.d + days))
+    setCursor({ year: next.getUTCFullYear(), month: next.getUTCMonth() })
+    setPending(`${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`)
+  }
+
+  // Enter and Space stay with the button, which picks its day natively; Esc
+  // is answered by the field's own document listener.
+  const onGridKey = (event: React.KeyboardEvent) => {
+    const day = event.target instanceof Element ? (event.target as Element).closest<HTMLElement>("[data-day]") : null
+    if (!day?.dataset.day) return
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }
+    const step = steps[event.key]
+    if (step === undefined) return
+    event.preventDefault()
+    stepTo(day.dataset.day, step)
+  }
+
+  // Weeks as rows, so the calendar can be a grid: a screen reader hears rows
+  // and columns, and the blanks keep the 1st on its own weekday.
+  const weeks: Array<Array<string | null>> = []
+  let row: Array<string | null> = Array.from({ length: lead }, () => null)
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    row.push(`${cursor.year}-${pad(cursor.month + 1)}-${pad(day)}`)
+    if (row.length === 7) { weeks.push(row); row = [] }
+  }
+  if (row.length) {
+    while (row.length < 7) row.push(null)
+    weeks.push(row)
+  }
+
+  return <div className="w-64 rounded-lg border bg-card p-3 shadow-md">
     <div className="mb-2 flex items-center justify-between">
-      <Button type="button" variant="ghost" size="icon" aria-label={lang === "en" ? "Previous month" : "Предыдущий месяц"} onClick={() => shift(-1)}>
+      <Button type="button" variant="ghost" size="icon" aria-label={t(lang, "date.prevMonth")} onClick={() => shift(-1)}>
         <ChevronLeft aria-hidden="true" className="size-4" />
       </Button>
       <span className="text-sm font-medium"><span className="capitalize">{monthLabel(cursor.month, lang)}</span> {cursor.year}</span>
-      <Button type="button" variant="ghost" size="icon" aria-label={lang === "en" ? "Next month" : "Следующий месяц"} onClick={() => shift(1)}>
+      <Button type="button" variant="ghost" size="icon" aria-label={t(lang, "date.nextMonth")} onClick={() => shift(1)}>
         <ChevronRight aria-hidden="true" className="size-4" />
       </Button>
     </div>
     <div className="mb-1 grid grid-cols-7 gap-0.5 text-center text-xs text-muted-foreground">
       {weekdayLabels(lang).map(label => <span key={label}>{label}</span>)}
     </div>
-    <div className="grid grid-cols-7 gap-0.5">
-      {Array.from({ length: lead }, (_, i) => <span key={`blank-${i}`} />)}
-      {Array.from({ length: daysInMonth }, (_, i) => {
-        const iso = `${cursor.year}-${pad(cursor.month + 1)}-${pad(i + 1)}`
-        const chosen = iso === selected
-        return <button
-          key={iso}
-          type="button"
-          onClick={() => onPick(iso)}
-          aria-pressed={chosen}
-          aria-current={iso === today ? "date" : undefined}
-          className={`h-8 rounded-md text-sm tabular-nums hover:bg-muted ${chosen ? "bg-primary text-primary-foreground" : ""} ${iso === today && !chosen ? "font-semibold text-foreground underline underline-offset-2" : ""}`}
-        >{i + 1}</button>
-      })}
+    <div ref={grid} role="grid" aria-label={t(lang, "date.calendar")} className="grid gap-0.5" onKeyDown={onGridKey}>
+      {weeks.map((week, rowIndex) => <div role="row" key={rowIndex} className="grid grid-cols-7 gap-0.5">
+        {week.map((iso, cellIndex) => iso === null
+          ? <span role="gridcell" aria-hidden="true" key={`blank-${rowIndex}-${cellIndex}`} />
+          : <div role="gridcell" key={iso}><button
+              type="button"
+              data-day={iso}
+              tabIndex={-1}
+              onClick={() => onPick(iso)}
+              aria-pressed={iso === selected}
+              aria-current={iso === today ? "date" : undefined}
+              className={`h-8 rounded-md text-sm tabular-nums hover:bg-muted ${iso === selected ? "bg-primary text-primary-foreground" : ""} ${iso === today && iso !== selected ? "font-semibold text-foreground underline underline-offset-2" : ""}`}
+            >{Number(iso.slice(8))}</button></div>)}
+      </div>)}
     </div>
     <div className="mt-2 flex justify-between border-t pt-2">
-      <Button type="button" variant="ghost" size="sm" onClick={() => onPick(todayISO())}>{lang === "en" ? "Today" : "Сегодня"}</Button>
-      <Button type="button" variant="ghost" size="sm" onClick={() => onPick("")}>{lang === "en" ? "Clear" : "Очистить"}</Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => onPick(todayISO())}>{t(lang, "date.today")}</Button>
+      <Button type="button" variant="ghost" size="sm" onClick={() => onPick("")}>{t(lang, "date.clear")}</Button>
     </div>
   </div>
 }
@@ -126,6 +171,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
 
   const root = React.useRef<HTMLDivElement>(null)
   const panel = React.useRef<HTMLDivElement>(null)
+  const input = React.useRef<HTMLInputElement>(null)
   const [open, setOpen] = React.useState(false)
   const [anchor, setAnchor] = React.useState<{ top: number; left: number } | null>(null)
   // Every page sets <html lang>, and a prop here would be one more thing a
@@ -185,9 +231,18 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
       if (root.current?.contains(target) || panel.current?.contains(target)) return
       setOpen(false)
     }
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") setOpen(false) }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+      // Esc from the grid hands the focus back to the field the panel came
+      // from, instead of dropping the keyboard on <body>.
+      const inside = panel.current?.contains(document.activeElement) === true
+      setOpen(false)
+      if (inside) input.current?.focus()
+    }
     // Tabbing on past the field closes its grid: two open grids used to sit
-    // over the form while the focus was already on the submit button.
+    // over the form while the focus was already on the submit button. The
+    // check is the whole field-plus-panel container, so the focus the grid
+    // itself takes (below) keeps the panel open.
     const onFocus = (event: FocusEvent) => {
       const target = event.target as Node
       if (root.current?.contains(target) || panel.current?.contains(target)) return
@@ -211,6 +266,18 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
     onValueChange?.(next)
   }
 
+  // The portal sits at the end of the React root, so the browser's own tab
+  // order reaches it only after the whole form — long after the focusin
+  // above has closed it. Tab and ↓ walk into the grid by hand instead, onto
+  // the chosen day, or today when nothing is chosen yet.
+  const enterGrid = () => {
+    const buttons = panel.current?.querySelectorAll<HTMLButtonElement>("button[data-day]")
+    if (!buttons || !buttons.length) return
+    const wanted = iso.slice(0, 10) || todayISO()
+    const hit = [...buttons].find(button => button.dataset.day === wanted) ?? buttons[0]
+    hit.focus()
+  }
+
   return <div className="relative w-full min-w-0" ref={root}>
     {/* The form posts exactly what it always posted. */}
     <input type="hidden" name={name} value={iso} disabled={disabled} />
@@ -219,6 +286,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
     <div className="relative flex min-w-0 items-center">
       <Input
         id={id}
+        ref={input}
         type="text"
         inputMode="numeric"
         autoComplete="off"
@@ -232,7 +300,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         style={style}
         // The format, not a sample date: «02.01.2000» in two empty filter
         // fields read as a range already set.
-        placeholder={(lang === "en" ? "mm/dd/yyyy" : "дд.мм.гггг") + (kind === "date" ? "" : lang === "en" ? " hh:mm" : " чч:мм")}
+        placeholder={t(lang, kind === "date" ? "date.formatHint" : "date.formatHintTime")}
         onChange={event => {
           const raw = event.target.value
           setText(raw)
@@ -251,8 +319,14 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         onBlur={() => onCommit?.(iso)}
         // A click or Enter opens the grid, a Tab passing through does not:
         // on a phone the grid opened with the keyboard and hid the next field.
+        // Once it is open, Tab and ↓ step into it — the browser would take
+        // the Tab through the whole form first and close it on the way.
         onClick={() => setOpen(true)}
-        onKeyDown={event => { if (event.key === "Enter" && !open) { setOpen(true); event.preventDefault() } }}
+        onKeyDown={event => {
+          if (event.key === "Enter" && !open) { setOpen(true); event.preventDefault(); return }
+          if (!open) return
+          if (event.key === "ArrowDown" || (event.key === "Tab" && !event.shiftKey)) { event.preventDefault(); enterGrid() }
+        }}
         className={`min-w-0 flex-1 pe-11 ${broken ? "border-destructive focus-visible:ring-destructive/40" : ""} ${className || ""}`}
       />
       <Button
@@ -261,7 +335,7 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
         size="icon-sm"
         className="date-field-trailing end-1 top-1/2 -translate-y-1/2"
         disabled={disabled}
-        aria-label={lang === "en" ? "Pick a date" : "Выбрать дату"}
+        aria-label={t(lang, "date.choose")}
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
@@ -285,6 +359,9 @@ function DateControl({ kind, fieldProps }: { kind: Kind; fieldProps: FieldProps 
           setBroken(false)
           onBrokenChange?.(false)
           setOpen(false)
+          // The chosen day's button is about to unmount: the field takes the
+          // focus back, so a keyboard pick does not drop it on <body>.
+          input.current?.focus()
           onCommit?.(next)
         }}
         />

@@ -79,12 +79,12 @@ func notificationTopicViews(muted []string) []notificationTopic {
 // every event instead of leaving a stale partial answer behind.
 func (s *Server) handleNotificationTopics(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	user, ok := UserFrom(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, i18n.T(resolveLang(r), "err.unauthorized"), http.StatusUnauthorized)
 		return
 	}
 	command := appmodel.NotificationTopicsCommand{
@@ -117,12 +117,12 @@ func (s *Server) handleNotificationTopics(w http.ResponseWriter, r *http.Request
 // not set up, which is the failure this screen exists to rule out.
 func (s *Server) handleNotificationTest(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	user, ok := UserFrom(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, i18n.T(resolveLang(r), "err.unauthorized"), http.StatusUnauthorized)
 		return
 	}
 	lang := resolveLang(r)

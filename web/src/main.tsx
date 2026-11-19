@@ -5,6 +5,7 @@ import { installConfirmForms } from "@/confirm-forms"
 import { installFormMessages } from "@/form-messages"
 import { MiniBar } from "@/offline/mini-bar"
 import { ToastStack } from "@/offline/toast"
+import { AppErrorBoundary } from "@/components/error-boundary"
 import { PageSkeleton } from "@/components/page-skeleton"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Disclosure, DisclosureTrigger } from "@/components/ui/collapsible"
@@ -28,7 +29,7 @@ import { StopResult } from "@/dashboard/stop-result"
 import { WorkdayPanel } from "@/dashboard/workday-panel"
 import type { AuditData, AuthPageData, CalendarData, CalendarSyncData, CRMData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, AgentActionsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
-import { responseMessage } from "@/lib/response-message"
+import { isNetworkError, responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
 
 const root = document.getElementById("paratrack-react-root")
@@ -105,6 +106,9 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   // from the snapshot that refresh() loads a moment later.
   const [stopped, setStopped] = useState<{ ids: number[]; message: string; taskId?: number } | null>(null)
   const [error, setError] = useState("")
+  // A parked write is not an error: the line under the form says the action
+  // is waiting, while the banner above counts what the connection owes.
+  const [queuedNote, setQueuedNote] = useState("")
   const [showNext, setShowNext] = useState(true)
   const [backfillFailure, setBackfillFailure] = useState<{ field: string; message: string } | null>(null)
   const [rebindWarning, setRebindWarning] = useState(false)
@@ -119,10 +123,16 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     if (restoreFocus || askedForTimer) document.getElementById("activity")?.focus()
   }, [restoreFocus, askedForTimer])
 
+  // Only the newest reply may land: a tick's refresh and a mutation's
+  // refresh can be in flight at once, and the stale one used to paint the
+  // counts the tick asked for over the state the mutation just changed.
+  const latestRefresh = useRef(0)
   async function refresh() {
+    const request = ++latestRefresh.current
     const response = await fetch("/api/dashboard", { headers: { Accept: "application/json" }, credentials: "same-origin" })
     if (!response.ok) throw new Error(await response.text())
     const body = await response.json() as { data: DashboardData }
+    if (request !== latestRefresh.current) return
     setData(body.data)
   }
 
@@ -146,6 +156,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   async function mutate(url: string, fields: Record<string, string> = {}): Promise<boolean> {
     setBusy(true)
     setError("")
+    setQueuedNote("")
     if (url === "/api/sessions/backfill") setBackfillFailure(null)
     try {
       const body = new URLSearchParams({ csrf_token: data.CSRFToken, ...fields })
@@ -154,6 +165,14 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken },
         body,
       })
+      // The offline layer answers a parked write with 202 and this header.
+      // There is no result to read and nothing to refresh: the dashboard
+      // keeps what it shows, and the line under the form says the action is
+      // waiting for the connection.
+      if (response.headers.get("X-Offline-Queued")) {
+        setQueuedNote(t(lang, "pwa.queued"))
+        return true
+      }
       if (url === "/api/sessions/backfill" && response.headers.get("X-Backfill-Confirm") === "long") {
         // Only the confirmed save goes through, so the form sends the same fields again.
         const accepted = await requestConfirmation(await messageFrom(response))
@@ -192,7 +211,9 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       })
       return true
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+      // A request that never left the browser reports itself in English on
+      // every screen; the person reads their own language here.
+      setError(isNetworkError(cause) ? t(lang, "err.network") : cause instanceof Error ? cause.message : t(lang, "err.generic"))
       return false
     } finally { setBusy(false) }
   }
@@ -292,6 +313,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />
     {undoWidget}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
+    {queuedNote && <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">{queuedNote}</p>}
     {!data.HasSession && <section className="rounded-md border p-4 max-lg:rounded-xl max-lg:border-0 max-lg:bg-card"><p className="font-medium">{t(lang, "onb.try")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "onb.tryHint")}</p><div className="mt-3 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">{t(lang, "onb.examples")}</span>{t(lang, "onb.exampleList").split(",").map(item => item.trim()).filter(Boolean).map(item => <Button key={item} data-chip variant="outline" size="sm" disabled={busy} onClick={() => { setActivity(item); void mutate("/api/start", { activity: item, project_id: project }) }}>{item}</Button>)}</div></section>}
     <Card>
       <CardContent className="grid gap-5 p-5">
@@ -755,7 +777,9 @@ if (root && payload) {
     await Promise.all([preloadInitialPage(initial.data), loadDictionary(initial.shell.lang)])
     if (root.isConnected) {
       await new Promise<void>(resolve => {
-        createRoot(root).render(<StrictMode><AppRouter initial={initial} onReady={resolve} /></StrictMode>)
+        // The boundary turns a render crash into a card with a reload,
+        // instead of the blank page the crash used to leave behind.
+        createRoot(root).render(<StrictMode><AppErrorBoundary><AppRouter initial={initial} onReady={resolve} /></AppErrorBoundary></StrictMode>)
       })
     }
   } catch (error) {

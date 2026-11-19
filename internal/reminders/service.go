@@ -67,6 +67,12 @@ type Mailer interface {
 	Email(ctx context.Context, notification Notification) error
 }
 
+// Logger is the process-owned diagnostics sink; a nil logger keeps the
+// worker silent, which the tests rely on.
+type Logger interface {
+	Printf(string, ...any)
+}
+
 // Service runs one pass of reminders on an interval.
 type Service struct {
 	store     Store
@@ -76,6 +82,7 @@ type Service struct {
 	audience  CRMAudience
 	publicURL string
 	now       func() time.Time
+	logger    Logger
 }
 
 // Dependencies are the ports a reminder pass needs. Mailer and Audience are
@@ -89,6 +96,7 @@ type Dependencies struct {
 	Audience  CRMAudience
 	PublicURL string
 	Now       func() time.Time
+	Logger    Logger
 }
 
 // New builds the reminder worker. Now defaults to the wall clock.
@@ -102,8 +110,17 @@ func New(deps Dependencies) (*Service, error) {
 	}
 	return &Service{
 		store: deps.Store, planner: deps.Planner, sender: deps.Sender, mailer: deps.Mailer,
-		audience: deps.Audience, publicURL: deps.PublicURL, now: now,
+		audience: deps.Audience, publicURL: deps.PublicURL, now: now, logger: deps.Logger,
 	}, nil
+}
+
+// logf names a failure on the process logger. A silently dead reminder pass
+// leaves deadlines and due dates unnudged with no trace anywhere, which is
+// worse than the failure itself.
+func (s *Service) logf(format string, args ...any) {
+	if s.logger != nil {
+		s.logger.Printf(format, args...)
+	}
 }
 
 // taskDues nudges the assignee of an open task that is due today or tomorrow,
@@ -151,7 +168,10 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	defer ticker.Stop()
 	for {
 		if err := s.Pass(ctx); err != nil && ctx.Err() == nil {
-			_ = err // a failed pass retries on the next tick; nothing is marked sent
+			// A failed pass retries on the next tick; nothing is marked sent.
+			// The error is logged because a dead worker is otherwise invisible
+			// until someone notices a deadline that went unnudged.
+			s.logf("reminders: pass failed, retrying next tick: %v", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -161,25 +181,30 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	}
 }
 
-// Pass sends every nudge that is due and not yet sent.
+// Pass sends every nudge that is due and not yet sent. Each section runs on
+// its own: one failing store read used to end the pass, taking the task,
+// overload and day nudges down with the deadline section for as long as the
+// failure lasted.
 func (s *Service) Pass(ctx context.Context) error {
 	now := s.now().UTC()
-	if err := s.deadlines(ctx, now); err != nil {
-		return fmt.Errorf("deadline reminders: %w", err)
+	sections := []struct {
+		name string
+		run  func(context.Context, time.Time) error
+	}{
+		{"deadline reminders", s.deadlines},
+		{"task due reminders", s.taskDues},
+		{"overload reminders", s.overloads},
+		{"crm next step reminders", s.crmSteps},
+		{"day fill reminders", s.dayFill},
 	}
-	if err := s.taskDues(ctx, now); err != nil {
-		return fmt.Errorf("task due reminders: %w", err)
+	var errs []error
+	for _, section := range sections {
+		if err := section.run(ctx, now); err != nil {
+			s.logf("reminders: %s: %v", section.name, err)
+			errs = append(errs, fmt.Errorf("%s: %w", section.name, err))
+		}
 	}
-	if err := s.overloads(ctx, now); err != nil {
-		return fmt.Errorf("overload reminders: %w", err)
-	}
-	if err := s.crmSteps(ctx, now); err != nil {
-		return fmt.Errorf("crm next step reminders: %w", err)
-	}
-	if err := s.dayFill(ctx, now); err != nil {
-		return fmt.Errorf("day fill reminders: %w", err)
-	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // deadlines warns about projects whose deadline is within three days, once per

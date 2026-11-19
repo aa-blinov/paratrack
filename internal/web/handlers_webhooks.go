@@ -79,7 +79,7 @@ func (p *webhooksPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 
 func (s *Server) handleWebhookCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	_, err := s.services.Webhooks.Create(operationContext(r), appmodel.WebhookCreateRequest{
@@ -131,7 +131,7 @@ func (s *Server) handleWebhookRotate(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad id", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	if err := s.services.Webhooks.Delete(operationContext(r), appmodel.WebhookDeleteRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), WebhookID: id}); err != nil {
@@ -147,7 +147,7 @@ func (s *Server) handleWebhookDelete(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleWebhookTest(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
-		http.Error(w, "bad id", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	if err := r.ParseForm(); err != nil {

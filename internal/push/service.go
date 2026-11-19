@@ -30,7 +30,12 @@ var (
 	ErrNilShutdownContext     = errors.New("push shutdown context is nil")
 )
 
-const deliveryQueueCapacity = 128
+// deliveryQueueCapacity absorbs a burst of timer events without blocking the
+// write that produced them; notifications beyond it are refused loudly
+// rather than silently. A durable at-rest queue is what the mail and webhook
+// channels have; push stays best-effort because every reminder also has an
+// email twin.
+const deliveryQueueCapacity = 512
 
 type Store interface {
 	EnsureVAPIDKeys(context.Context) (string, string, error)
@@ -153,6 +158,10 @@ func (s *Service) enqueue(teamID int64, userIDs []int64, notification Notificati
 	case s.queue <- job:
 		return nil
 	default:
+		// Losing a notification must be visible in the server log, not
+		// only in the caller's error path, because most callers treat the
+		// queue as fire-and-forget.
+		s.logger.Printf("push: delivery queue is full; notification for team %d dropped", teamID)
 		return ErrDeliveryQueueFull
 	}
 }

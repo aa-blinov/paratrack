@@ -85,25 +85,25 @@ func (s *Server) handleGoalsProgress(w http.ResponseWriter, r *http.Request) {
 //	minutes    required — integer target in minutes
 func (s *Server) handleGoalsUpsert(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	activityName := strings.TrimSpace(r.FormValue("activity"))
 	period := strings.TrimSpace(r.FormValue("period"))
 	minsStr := strings.TrimSpace(r.FormValue("minutes"))
 	if activityName == "" || period == "" || minsStr == "" {
-		http.Error(w, "activity, period and minutes are required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.goalRequired"), 400)
 		return
 	}
 	mins, err := strconv.Atoi(minsStr)
 	if err != nil {
-		http.Error(w, "minutes must be a positive integer", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.goalMinutes"), 400)
 		return
 	}
 	g, err := s.services.Goals.UpsertForManager(r.Context(), appmodel.GoalUpsertRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), ActivityName: activityName, Period: period, Minutes: mins})
 	if err != nil {
 		if isGoalValidationError(err) {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, i18n.T(resolveLang(r), "err.goalInvalid"), 400)
 		} else {
 			s.writeInternalError(w, err)
 		}
@@ -118,12 +118,12 @@ func (s *Server) handleGoalsDelete(w http.ResponseWriter, r *http.Request) {
 	activityName := strings.TrimSpace(r.URL.Query().Get("activity"))
 	period := strings.TrimSpace(r.URL.Query().Get("period"))
 	if activityName == "" || period == "" {
-		http.Error(w, "activity and period query params are required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.goalRequired"), 400)
 		return
 	}
 	if err := s.services.Goals.DeleteForManager(r.Context(), appmodel.GoalDeleteRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), ActivityName: activityName, Period: period}); err != nil {
 		if isGoalValidationError(err) {
-			http.Error(w, err.Error(), 400)
+			http.Error(w, i18n.T(resolveLang(r), "err.goalInvalid"), 400)
 			return
 		}
 		if errors.Is(err, model.ErrNotFound) {

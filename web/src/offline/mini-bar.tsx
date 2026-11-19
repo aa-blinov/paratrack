@@ -3,6 +3,7 @@ import { Pause, Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { translate as t } from "@/i18n"
 import { scheduleBadge, subscribeOffline } from "./controller"
+import { readCSRFCookie } from "@/lib/csrf"
 import { ColorMark } from "@/components/color-mark"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 
@@ -16,11 +17,6 @@ type RunningItem = {
   Clock: string
   ResumeISO: string
   AccumulatedSeconds: number
-}
-
-const csrf = () => {
-  const match = document.cookie.match(/(?:^|;\s*)paratrack_csrf=([^;]+)/)
-  return match ? decodeURIComponent(match[1]) : ""
 }
 
 // The phone's "now tracking" bar, above the tab bar on every page but the
@@ -63,7 +59,7 @@ export function MiniBar({ lang }: { lang: string }) {
 
   async function act(id: number, action: "pause" | "resume" | "stop") {
     const response = await fetch(`/api/sessions/${id}/${action}`, {
-      method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": csrf() },
+      method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": readCSRFCookie() },
     })
     if (response.ok || response.headers.get("X-Offline-Queued")) {
       scheduleBadge()

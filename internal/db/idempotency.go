@@ -82,3 +82,18 @@ func (d *DB) ReleaseIdempotencyKey(ctx context.Context, request appmodel.Idempot
 		request.UserID, request.Key)
 	return err
 }
+
+// idempotencyRetention is how long a finished attempt's row stays useful: the
+// offline queue replays within hours, so anything older only feeds a table
+// that would otherwise grow forever.
+const idempotencyRetention = 7 * 24 * time.Hour
+
+// PurgeStaleIdempotencyKeys drops claims past their retention, finished or
+// not. An unfinished claim that old belongs to a process that is long gone,
+// and a live retry claims again anyway.
+func (d *DB) PurgeStaleIdempotencyKeys(ctx context.Context) error {
+	_, err := d.sql.ExecContext(ctx,
+		`DELETE FROM idempotency_keys WHERE created_at < ?`,
+		FormatTime(d.currentTime().UTC().Add(-idempotencyRetention)))
+	return err
+}

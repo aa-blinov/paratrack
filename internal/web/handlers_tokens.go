@@ -80,7 +80,7 @@ func (p tokensPage) usesReactApp() bool { return p.TokensReact }
 // response itself (a redirect carried it in the URL: history, logs).
 func (s *Server) handleAPITokenCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	u, _ := UserFrom(r.Context())

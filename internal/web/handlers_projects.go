@@ -51,7 +51,7 @@ func (s *Server) handleAPIProjectCreate(w http.ResponseWriter, r *http.Request) 
 		name, slug, color = body.Name, body.Slug, body.Color
 	} else {
 		if err := r.ParseForm(); err != nil {
-			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 			return
 		}
 		name, slug, color = r.Form.Get("name"), r.Form.Get("slug"), r.Form.Get("color")
@@ -111,7 +111,7 @@ func (s *Server) handleAPIProjectUpdate(w http.ResponseWriter, r *http.Request) 
 		update.Archived = body.Archived
 	} else {
 		if err := r.ParseForm(); err != nil {
-			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 			return
 		}
 		update.Name = r.Form.Get("name")
@@ -189,7 +189,7 @@ func (s *Server) handleAPIAssignActivityProject(w http.ResponseWriter, r *http.R
 		pid = body.ProjectID
 	} else {
 		if err := r.ParseForm(); err != nil {
-			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 			return
 		}
 		if v := r.Form.Get("project_id"); v != "" {

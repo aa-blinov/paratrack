@@ -65,9 +65,9 @@ func (s *Server) handleCSV(w http.ResponseWriter, r *http.Request) {
 			dur = strconv.Itoa(row.DurationSeconds)
 		}
 		if err := csvWriter.Write([]string{
-			strconv.FormatInt(row.SessionID, 10), row.ActivityName, row.ProjectName,
+			strconv.FormatInt(row.SessionID, 10), csvNeutralizeCell(row.ActivityName), csvNeutralizeCell(row.ProjectName),
 			row.StartAt.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339),
-			dur, row.Note,
+			dur, csvNeutralizeCell(row.Note),
 		}); err != nil {
 			return
 		}

@@ -4,6 +4,7 @@ Run:  . .venv/bin/activate && python e2e/qa_logic.py
 """
 from __future__ import annotations
 
+import datetime as dt
 import json
 import pathlib
 import re
@@ -19,6 +20,31 @@ OUT = pathlib.Path(__file__).resolve().parent / "screenshots" / "qa-logic"
 OUT.mkdir(parents=True, exist_ok=True)
 
 PASS = FAIL = 0
+
+# The suite used to pin absolute dates (2026-09-25 and friends): they were
+# inside the API's default window when the snapshot was recorded, and then the
+# window moved on and every downstream check cascaded red. All periods are
+# computed from yesterday so the run works on any day it is started.
+_backfill_day = dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1)
+D = str(_backfill_day)          # the backfilled session lands on yesterday
+D_START = f"{D}T09:00:00Z"
+D_END = f"{D}T11:30:00Z"
+P_FROM = str(_backfill_day - dt.timedelta(days=3))
+P_TO = str(_backfill_day + dt.timedelta(days=3))
+# The timesheet writes must land inside the week the sheet shows by default,
+# which is the week of today — a Monday run has no earlier day in it.
+_today = _backfill_day + dt.timedelta(days=1)
+_week_start = _today - dt.timedelta(days=_today.weekday())
+CELL_DAY = str(max(_today - dt.timedelta(days=1), _week_start))
+# The bill-and-pay story needs a week that has already ended: a pay run
+# cannot cover the week that is still running, and the invoice over an
+# approved past week asks for no confirmation.
+_last_week_monday = _week_start - dt.timedelta(days=7)
+BW = str(_last_week_monday + dt.timedelta(days=3))   # Thursday of the completed week
+BW_START = f"{BW}T09:00:00Z"
+BW_END = f"{BW}T11:30:00Z"
+LW_FROM = str(_last_week_monday)
+LW_TO = str(_week_start - dt.timedelta(days=1))
 
 
 def check(name: str, ok: bool, detail: str = ""):
@@ -58,6 +84,14 @@ def main() -> int:
     def get(path, **kw):
         return s.get(f"{BASE}{path}", **kw)
 
+    # A new workspace waits at /welcome until its owner picks sections, and
+    # the gate silently redirects the page routes until then — a POST that
+    # "succeeds" with 303 may have created nothing. The studio preset holds
+    # every section, so every later check finds its screen.
+    r = post("/api/team/modules", data={"preset": "studio", "from": "welcome", "csrf_token": csrf})
+    check("choose sections (studio preset)", r.status_code in (200, 303), f"{r.status_code}")
+    csrf = s.cookies.get("paratrack_csrf", "")
+
     # ---------- 1. timer + duration math ----------
     print("\n== A. Timer & tracked-time math")
     r = post("/api/start", data={"activity": "timer-live", "csrf_token": csrf})
@@ -65,13 +99,11 @@ def main() -> int:
 
     # stop after a known window is hard; instead patch a closed session
     # create one via backfill with exact seconds
-    start = "2026-09-25T09:00:00Z"
-    end = "2026-09-25T11:30:00Z"
     r = post(
         "/api/sessions/backfill",
-        data={"activity": "deep-work", "start": start, "end": end, "note": "logic-backfill", "csrf_token": csrf},
+        data={"activity": "deep-work", "start": D_START, "end": D_END, "note": "logic-backfill", "csrf_token": csrf},
     )
-    check("backfill 2h30m session", r.status_code in (200, 303), f"{r.status_code}")
+    check("backfill 2h30m session", r.status_code in (200, 204, 303), f"{r.status_code}")
 
     r = get("/api/v1/sessions")
     payload = r.json()
@@ -89,9 +121,10 @@ def main() -> int:
     r = post("/projects/new", data={"name": "LogicCo", "slug": "logicco", "csrf_token": csrf})
     check("create project", r.status_code in (200, 303), f"{r.status_code}")
 
-    # find the project slug
+    # find the project slug — the React list renders its links client-side, so
+    # the page carries the data in its bootstrap JSON, not in href attributes
     r = get("/projects")
-    m = re.search(r'href="/projects/(logicco[^"/]*)"', r.text)
+    m = re.search(r'"Slug":\s*"(logicco[^"]*)"', r.text)
     slug = m.group(1) if m else "logicco"
     check("project slug resolvable", bool(m), f"slug={slug}")
 
@@ -115,12 +148,13 @@ def main() -> int:
             if (a.get("name") or "") == "deep-work":
                 act_id_n = a.get("id") or a.get("activity_id") or 0
     if not act_id_n:
-        m2 = re.search(r'activity_id":\s*(\d+)[^\n]*deep-work|deep-work[^\n]*activity_id":\s*(\d+)', get("/timesheet").text)
+        # the timesheet grid carries its rows in the bootstrap JSON
+        m2 = re.search(r'"ActivityID":\s*(\d+),\s*"ActivityName":\s*"deep-work"', get("/timesheet").text)
         if m2:
-            act_id_n = int(m2.group(1) or m2.group(2) or 0)
+            act_id_n = int(m2.group(1))
     # fall back to first activity id on timesheet
     if not act_id_n:
-        ids = re.findall(r'activity_id":\s*(\d+)', get("/timesheet").text)
+        ids = re.findall(r'"ActivityID":\s*(\d+),\s*"ActivityName"', get("/timesheet").text)
         act_id_n = int(ids[0]) if ids else 0
     check("resolved activity id", act_id_n > 0, f"id={act_id_n}")
     # project_id must be the numeric id (slug is rejected with 400)
@@ -136,34 +170,42 @@ def main() -> int:
         pass
     check("resolved numeric project id", pid > 0, f"pid={pid}")
 
-    # Invoice proof is a dedicated 2h30m activity — nothing else may join it.
+    # Invoice proof is a dedicated 2h30m activity on the completed week —
+    # nothing else may join it, and the payroll later needs that week approved.
     post("/api/stop", data={"csrf_token": csrf})
     post("/api/sessions/backfill", data={
-        "activity": "bill-me", "start": "2026-09-25T09:00",
-        "end": "2026-09-25T11:30", "csrf_token": csrf,
+        "activity": "bill-me", "start": BW_START,
+        "end": BW_END, "csrf_token": csrf,
     })
     ts_html = get("/timesheet").text
-    # each timesheet row prints the activity NAME first, then its activity_id
+    # the timesheet grid names each row's activity with its numeric id
     act_bill = 0
-    pos = ts_html.find("bill-me")
-    if pos >= 0:
-        m = re.search(r'activity_id"?:\s*(\d+)', ts_html[pos:])
-        if m:
-            act_bill = int(m.group(1))
+    m = re.search(r'"ActivityID":\s*(\d+),\s*"ActivityName":\s*"bill-me"', ts_html)
+    if m:
+        act_bill = int(m.group(1))
     check("resolved bill-me activity id", act_bill > 0, f"id={act_bill}")
     r = post(f"/api/activities/{act_bill}/project", data={"project_id": str(pid), "csrf_token": csrf})
     check("assign activity to project", r.status_code in (200, 204, 303), f"{r.status_code}")
+    # A pay run later counts only approved time, so close the completed week
+    # the way the screen does before any money is read from it.
+    r = post("/api/timesheet/approve", data={"start": LW_FROM, "end": LW_TO, "csrf_token": csrf})
+    check("approve the completed week", r.status_code in (200, 303), f"{r.status_code}")
 
     r = post("/invoices", data={
         "client": "Logic Client",
-        "start": "2026-09-25",
-        "end": "2026-09-25",
+        "start": BW,
+        "end": BW,
         "csrf_token": csrf,
     }, allow_redirects=True)
     check("create invoice", r.status_code in (200, 303), f"{r.status_code}")
 
-    r = get("/invoices")
-    inv = re.search(r'href="/invoices/(\d+)"', r.text) or re.search(r'/invoices/(\d+)', r.text)
+    # the creation redirect lands on the document itself
+    inv = re.search(r"/invoices/(\d+)$", r.url)
+    if not inv:
+        # the React list carries the documents in its bootstrap JSON
+        lst = get("/invoices")
+        inv = (re.search(r'"ID":\s*(\d+)[^}]*?"Number":\s*"INV-', lst.text)
+               or re.search(r'"Number":\s*"INV-[^"]*"[^}]*?"ID":\s*(\d+)', lst.text))
     check("invoice listed", bool(inv), inv.group(1) if inv else "none")
     if inv:
         iid = inv.group(1)
@@ -187,22 +229,28 @@ def main() -> int:
     # resolve activity_id
     acts = s.get(f"{BASE}/api/v1/projects").text
     r0 = get("/timesheet")
-    ids = re.findall(r'activity_id"?:\s*(\d+)', r0.text) or re.findall(r'activity_id=(\d+)', r0.text)
-    act_id = ids[0] if ids else "0"
+    # write the cell on the live timer's activity: its time sits on today, so
+    # yesterday's cell is empty and the "cell only raises the day" rule lets
+    # the write through (an activity with logged minutes there is refused
+    # with a message that still answers 200, and the grid would not change)
+    m_act = re.search(r'"ActivityID":\s*(\d+),\s*"ActivityName":\s*"timer-live"', r0.text)
+    act_id = m_act.group(1) if m_act else "0"
     check("timesheet exposes activity_id", act_id != "0", f"id={act_id}")
     r = post("/api/timesheet/cell", data={
-        "activity_id": act_id, "date": "2026-09-24", "minutes": "120", "csrf_token": csrf,
+        "activity_id": act_id, "date": CELL_DAY, "minutes": "120", "csrf_token": csrf,
     })
-    check("timesheet cell 120m", r.status_code in (200, 303), f"{r.status_code}")
+    check("timesheet cell 120m", r.status_code in (200, 204, 303), f"{r.status_code}")
     r = get("/timesheet")
     check("timesheet page 200", r.status_code == 200)
-    check("timesheet shows 2h", bool(re.search(r">\s*2h\s*<|>2h<|2h 0m", r.text)), "grid cell")
+    # the grid is React-rendered; its bootstrap carries the cell the same way
+    # the screen prints it, so the written minutes are the visible minutes
+    check("timesheet shows the 2h cell", re.search(r'"Min":\s*120\b', r.text) is not None, "grid cell")
 
     # 0 clears the day
     r = post("/api/timesheet/cell", data={
-        "activity_id": act_id, "date": "2026-09-23", "minutes": "0", "csrf_token": csrf,
+        "activity_id": act_id, "date": CELL_DAY, "minutes": "0", "csrf_token": csrf,
     })
-    check("timesheet clear (0m) accepted", r.status_code in (200, 303), f"{r.status_code}")
+    check("timesheet clear (0m) accepted", r.status_code in (200, 204, 303), f"{r.status_code}")
 
     # ---------- 4. estimates ----------
     print("\n== D. Estimates vs actual")
@@ -226,12 +274,16 @@ def main() -> int:
     check("set member pay 10000", r.status_code in (200, 303), f"{r.status_code}")
 
     r = post("/payroll", data={
-        "start": "2026-09-22", "end": "2026-09-28", "csrf_token": csrf,
-    })
+        "start": LW_FROM, "end": LW_TO, "csrf_token": csrf,
+    }, allow_redirects=True)
     check("create payroll run", r.status_code in (200, 303), f"{r.status_code}")
-    r = get("/payroll")
-    check("payroll list 200", r.status_code == 200)
-    pay = re.search(r'href="/payroll/(\d+)"', r.text) or re.search(r'/payroll/(\d+)', r.text)
+    # the creation redirect lands on the run itself; the list otherwise
+    # carries the runs in its bootstrap JSON
+    pay = re.search(r"/payroll/(\d+)$", r.url)
+    if not pay:
+        r = get("/payroll")
+        pay = (re.search(r'"ID":\s*(\d+)[^}]*?"Number":\s*"PAY-', r.text)
+               or re.search(r'"Number":\s*"PAY-[^"]*"[^}]*?"ID":\s*(\d+)', r.text))
     check("payroll run listed", bool(pay), pay.group(1) if pay else "none")
     if pay:
         rp = get(f"/payroll/{pay.group(1)}")
@@ -242,9 +294,9 @@ def main() -> int:
     r = get("/reports")
     check("reports gallery 200", r.status_code == 200)
     for tid in ("by-project", "by-activity", "by-day", "billable", "utilization"):
-        rr = get(f"/reports/run?id={tid}&from=2026-09-22&to=2026-09-28")
+        rr = get(f"/reports/run?id={tid}&from={P_FROM}&to={P_TO}")
         check(f"report {tid} 200", rr.status_code == 200, f"{rr.status_code}")
-    r = get("/reports/run?id=billable&from=2026-09-22&to=2026-09-28&format=csv")
+    r = get(f"/reports/run?id=billable&from={P_FROM}&to={P_TO}&format=csv")
     check("billable CSV 200", r.status_code == 200)
     check("CSV header key,hours", r.text.splitlines()[0].startswith("key,") if r.text else False,
           r.text.splitlines()[0] if r.text else "empty")
@@ -253,7 +305,8 @@ def main() -> int:
     print("\n== G. Marketplace")
     r = get("/integrations/marketplace")
     check("marketplace 200", r.status_code == 200)
-    check("marketplace lists 11 cards", r.text.count("Connect") + r.text.count("coming") >= 8)
+    # the cards are React-rendered; the bootstrap carries the provider catalog
+    check("marketplace lists providers", "GitHub" in r.text and "GitLab" in r.text)
 
     # ---------- 8. API v1 + Bearer ----------
     print("\n== H. API v1 & Bearer tokens")
@@ -261,18 +314,9 @@ def main() -> int:
     check("tokens page 200", r.status_code == 200)
     r = post("/api/tokens", data={"name": "logic-token", "csrf_token": csrf})
     check("create token", r.status_code in (200, 303), f"{r.status_code}")
-    m = re.search(r"[?&]token=(pt_[0-9a-f]+)", r.headers.get("Location", "") + r.text)
-    if not m:
-        # follow
-        loc = r.headers.get("Location", "")
-        if loc:
-            r2 = s.get(BASE + loc)
-            m = re.search(r"pt_[0-9a-f]{16,}", r2.text)
-            raw = m.group(0) if m else ""
-        else:
-            raw = ""
-    else:
-        raw = m.group(1)
+    # the raw token is rendered once, into this response itself
+    m = re.search(r"pt_[A-Za-z0-9_-]{16,}", r.text)
+    raw = m.group(0) if m else ""
     check("raw pt_ token surfaced once", raw.startswith("pt_"), raw[:14] + "…" if raw else "none")
 
     if raw:
@@ -324,11 +368,13 @@ def main() -> int:
     print("\n== K. i18n")
     r = get("/lang/ru", allow_redirects=False)
     check("switch to RU", r.status_code in (200, 303))
-    r = get("/")
-    check("RU dashboard", "Панель" in r.text or "Сессии" in r.text or "Активност" in r.text)
+    # the dashboard renders client-side; the login page is server-rendered, so
+    # the language choice is read where the HTML itself speaks
+    r = get("/login")
+    check("RU login page", "Вход" in r.text)
     r = get("/lang/en", allow_redirects=False)
-    r = get("/")
-    check("EN dashboard", "Dashboard" in r.text)
+    r = get("/login")
+    check("EN login page", "Log in" in r.text and "Вход" not in r.text)
 
     # ---------- 12. CSV export ----------
     print("\n== L. CSV export")

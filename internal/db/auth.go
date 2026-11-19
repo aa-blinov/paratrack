@@ -148,6 +148,15 @@ func (d *DB) UpdateUserPasswordIfHashMatches(ctx context.Context, request appmod
 	if _, err := tx.ExecContext(ctx, `DELETE FROM api_tokens WHERE user_id = ?`, request.UserID); err != nil {
 		return false, err
 	}
+	// A stolen session must not outlive the password it was minted under
+	// either. The browser that changed the password keeps its own session;
+	// every other device signs in again. An empty keep token means no
+	// browser session was presented, and all of them go.
+	if _, err := tx.ExecContext(ctx,
+		`DELETE FROM auth_sessions WHERE user_id = ? AND token <> ? AND token <> ?`,
+		request.UserID, authSessionTokenHash(request.KeepSessionToken), request.KeepSessionToken); err != nil {
+		return false, err
+	}
 	if err := tx.Commit(); err != nil {
 		return false, err
 	}
@@ -155,9 +164,12 @@ func (d *DB) UpdateUserPasswordIfHashMatches(ctx context.Context, request appmod
 }
 
 func (d *DB) CreateAuthSession(ctx context.Context, request appmodel.AuthSessionCreateRequest) (model.AuthSession, error) {
+	// The stored value is the token's digest, never the token itself, so a
+	// leaked database dump cannot be replayed as logins. Lookups match the
+	// digest with a raw fallback for rows written by older binaries.
 	if _, err := d.sql.ExecContext(ctx,
 		`INSERT INTO auth_sessions (token, user_id, created_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?)`,
-		request.Token, request.UserID, FormatTime(request.CreatedAt), FormatTime(request.ExpiresAt), FormatTime(request.CreatedAt),
+		authSessionTokenHash(request.Token), request.UserID, FormatTime(request.CreatedAt), FormatTime(request.ExpiresAt), FormatTime(request.CreatedAt),
 	); err != nil {
 		return model.AuthSession{}, err
 	}
@@ -165,13 +177,16 @@ func (d *DB) CreateAuthSession(ctx context.Context, request appmodel.AuthSession
 }
 
 func (d *DB) FindAuthSession(ctx context.Context, token string) (model.AuthSession, model.User, error) {
+	digest := authSessionTokenHash(token)
 	var session model.AuthSession
 	var user model.User
 	var created, expires, lastSeen, userCreated, userUpdated string
 	err := d.sql.QueryRowContext(ctx, `
 		SELECT s.token, s.user_id, s.created_at, s.expires_at, s.last_seen_at,
 		       u.id, u.email, u.password_hash, u.name, u.created_at, u.updated_at
-		FROM auth_sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ?`, token,
+		FROM auth_sessions s JOIN users u ON u.id = s.user_id
+		WHERE s.token = ? OR s.token = ?
+		ORDER BY CASE WHEN s.token = ? THEN 0 ELSE 1 END LIMIT 1`, digest, token, digest,
 	).Scan(&session.Token, &session.UserID, &created, &expires, &lastSeen,
 		&user.ID, &user.Email, &user.PasswordHash, &user.Name, &userCreated, &userUpdated)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -180,6 +195,11 @@ func (d *DB) FindAuthSession(ctx context.Context, token string) (model.AuthSessi
 	if err != nil {
 		return model.AuthSession{}, model.User{}, err
 	}
+	// The model carries what the browser holds, not what the row stores.
+	// A row still holding the raw token was written by an older binary; the
+	// dual match above accepts it, and the startup pass converts the rest —
+	// reads here stay pure, the way the persistence guard requires.
+	session.Token = token
 	if session.CreatedAt, err = ScanTime(created); err != nil {
 		return model.AuthSession{}, model.User{}, fmt.Errorf("parse auth session creation time: %w", err)
 	}
@@ -199,12 +219,17 @@ func (d *DB) FindAuthSession(ctx context.Context, token string) (model.AuthSessi
 }
 
 func (d *DB) TouchAuthSession(ctx context.Context, request appmodel.AuthSessionTouchRequest) error {
-	_, err := d.sql.ExecContext(ctx, `UPDATE auth_sessions SET last_seen_at = ? WHERE token = ?`, FormatTime(request.At), request.Token)
+	// The raw fallback covers rows the lazy conversion has not reached yet.
+	_, err := d.sql.ExecContext(ctx,
+		`UPDATE auth_sessions SET last_seen_at = ? WHERE token IN (?, ?)`,
+		FormatTime(request.At), authSessionTokenHash(request.Token), request.Token)
 	return err
 }
 
 func (d *DB) DeleteAuthSession(ctx context.Context, request appmodel.AuthSessionDeleteRequest) error {
-	_, err := d.sql.ExecContext(ctx, `DELETE FROM auth_sessions WHERE token = ?`, request.Token)
+	_, err := d.sql.ExecContext(ctx,
+		`DELETE FROM auth_sessions WHERE token IN (?, ?)`,
+		authSessionTokenHash(request.Token), request.Token)
 	return err
 }
 

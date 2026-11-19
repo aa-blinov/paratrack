@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
+import { isNetworkError } from "@/lib/response-message"
 import type { ScheduleData, ScheduleDay, SchedulePerson, ScheduleLine } from "@/dashboard/types"
 import { loadState } from "@/schedule/load-state"
 
@@ -85,6 +86,9 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   const [adminDrafts, setAdminDrafts] = React.useState<Record<number, string>>({})
   const [saving, setSaving] = React.useState<string | null>(null)
   const [error, setError] = React.useState("")
+  // A parked write is not an error: it says so here, in the muted voice, while
+  // the banner above counts what waits for the connection.
+  const [notice, setNotice] = React.useState("")
   const lang = data.Lang
   const format = data.DurationFormat
   const canEdit = data.CanManage
@@ -102,7 +106,10 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     }))
   }
 
-  async function send(url: string, fields: Record<string, string>): Promise<PlanUpdate> {
+  // Sends a mutation and returns the plan the server holds now, or null when
+  // the offline layer parked the write: 202 with X-Offline-Queued is a promise
+  // to send, not a plan, and the page keeps what it shows until the replay.
+  async function send(url: string, fields: Record<string, string>): Promise<PlanUpdate | null> {
     const response = await fetch(url, {
       method: "POST",
       credentials: "same-origin",
@@ -113,13 +120,14 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
       },
       body: new URLSearchParams({ csrf_token: data.CSRFToken, ...fields }),
     })
+    if (response.headers.get("X-Offline-Queued")) return null
     const update = (await response.json()) as PlanUpdate
     if (!response.ok) throw new Error(update.error || response.statusText)
     return update
   }
 
   function fail(cause: unknown) {
-    setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    setError(isNetworkError(cause) ? t(lang, "err.network") : cause instanceof Error ? cause.message : t(lang, "err.generic"))
   }
 
   // The minutes a cell shows right now: what is being typed, else saved.
@@ -146,6 +154,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     }
     setSaving(key)
     setError("")
+    setNotice("")
     try {
       const update = await send("/api/schedule/cell", {
         user_id: String(person.UserID),
@@ -153,6 +162,12 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
         date: data.Days[index].ISO,
         minutes: String(minutes),
       })
+      if (!update) {
+        // Queued: the typed hours stay in the cell as the optimistic value
+        // until the replay brings the recalculated plan back.
+        setNotice(t(lang, "sch.cellQueued"))
+        return
+      }
       applyPlan(update)
       setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
     } catch (cause) {
@@ -165,22 +180,34 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
 
   async function saveAdmin(person: SchedulePerson, value: string) {
     const minutes = parseMinutes(value, ADMIN_MAX)
-    setAdminDrafts(previous => { const next = { ...previous }; delete next[person.UserID]; return next })
     if (minutes === null) {
+      setAdminDrafts(previous => { const next = { ...previous }; delete next[person.UserID]; return next })
       setError(t(lang, "err.invalidInput"))
       return
     }
-    if (minutes === person.AdminMin) return
+    if (minutes === person.AdminMin) {
+      setAdminDrafts(previous => { const next = { ...previous }; delete next[person.UserID]; return next })
+      return
+    }
     setSaving(`admin:${person.UserID}`)
     setError("")
+    setNotice("")
     try {
-      applyPlan(await send("/api/schedule/admin", {
+      const update = await send("/api/schedule/admin", {
         user_id: String(person.UserID),
         minutes: String(minutes),
         week: data.ThisWeek,
-      }))
+      })
+      if (!update) {
+        // Queued: the typed hours stay as the optimistic value.
+        setNotice(t(lang, "sch.cellQueued"))
+        return
+      }
+      applyPlan(update)
+      setAdminDrafts(previous => { const next = { ...previous }; delete next[person.UserID]; return next })
     } catch (cause) {
       fail(cause)
+      setAdminDrafts(previous => { const next = { ...previous }; delete next[person.UserID]; return next })
     } finally {
       setSaving(null)
     }
@@ -189,8 +216,11 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   async function copyWeek() {
     setSaving("copy")
     setError("")
+    setNotice("")
     try {
-      applyPlan(await send("/api/schedule/copy", { week: data.ThisWeek }))
+      const update = await send("/api/schedule/copy", { week: data.ThisWeek })
+      if (!update) return
+      applyPlan(update)
     } catch (cause) {
       fail(cause)
     } finally {
@@ -218,12 +248,15 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   async function addLine(person: SchedulePerson, projectId: number) {
     setSaving(`line:${person.UserID}:${projectId}`)
     setError("")
+    setNotice("")
     try {
-      applyPlan(await send("/api/schedule/line", {
+      const update = await send("/api/schedule/line", {
         user_id: String(person.UserID),
         project_id: String(projectId),
         week: data.ThisWeek,
-      }))
+      })
+      if (!update) return
+      applyPlan(update)
     } catch (cause) {
       fail(cause)
     } finally {
@@ -234,12 +267,15 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   async function removeLine(person: SchedulePerson, line: ScheduleLine) {
     setSaving(`line:${person.UserID}:${line.ProjectID}`)
     setError("")
+    setNotice("")
     try {
-      applyPlan(await send("/api/schedule/line/remove", {
+      const update = await send("/api/schedule/line/remove", {
         user_id: String(person.UserID),
         project_id: String(line.ProjectID),
         week: data.ThisWeek,
-      }))
+      })
+      if (!update) return
+      applyPlan(update)
     } catch (cause) {
       fail(cause)
     } finally {
@@ -337,6 +373,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     </header>
 
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
+    {notice && <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">{notice}</p>}
 
     {data.Projects.length ? <>
       {data.Projects.length > 1 && <div className="flex flex-wrap items-center gap-2">

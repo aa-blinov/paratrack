@@ -74,12 +74,12 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 		s.writeJSON(w, resp)
 	case http.MethodPost:
 		if err := r.ParseForm(); err != nil {
-			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 			return
 		}
 		name := strings.TrimSpace(r.FormValue("activity"))
 		if name == "" {
-			s.writeJSONStatus(w, 400, apiErrorResponse{Error: "activity is required"})
+			s.writeJSONStatus(w, 400, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.activityRequired")})
 			return
 		}
 		ctx := operationContext(r)

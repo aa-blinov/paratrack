@@ -425,16 +425,17 @@ list are in [MCP.md](MCP.md).
 
 | Control | Detail |
 |---|---|
-| CSRF | Double-submit cookie `paratrack_csrf` + `X-CSRF-Token` / `csrf_token` on every mutation |
-| Auth rate limit | login 10/min per IP and email, with a 200/min IP ceiling; register 30/min, forgot 5/min, reset 10/min per IP; 429 + `Retry-After` |
+| CSRF | Double-submit cookie + `X-CSRF-Token` / `csrf_token` on every mutation. On TLS the cookie is `__Host-paratrack_csrf`, a name a browser refuses to accept from another site, so a page on a shared parent domain cannot inject a known pair; plain HTTP keeps the legacy name |
+| Auth rate limit | login 10/min per IP and email, with a 200/min IP ceiling and a 20/min ceiling per mailbox across all addresses; register 30/min per IP and 10/min per mailbox; forgot 5/min, reset 10/min per IP; the Sentry tunnel 60/min per IP; 429 + `Retry-After`. A full limiter table no longer refuses unseen keys: the per-key budget still holds for every tracked key |
 | Headers | `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, CSP, HSTS on TLS |
-| Passwords | bcrypt |
+| Passwords | bcrypt, cost 12 for new hashes; an existing hash verifies at its own recorded cost |
+| Sessions | The cookie is HttpOnly + `Secure` on TLS and lives 30 days. The database stores the token's SHA-256 digest, never the token, with a startup pass that hashes rows written by older binaries. A password change keeps the browser that asked for it and revokes every other session, like the reset link does; a change with no browser session revokes all of them |
 | API tokens | high-entropy `pt_`, SHA-256 at rest, raw shown exactly once. A password change or reset deletes the account's API tokens |
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
 | Signup confirmation (SEC-01) | A new account starts unverified. Its link (`/verify-email?token=`, 48 h, single use, only the SHA-256 kept) goes by mail, and a password sign-in before it is refused with a fresh link at most once a minute. A completed password reset confirms the address too. Accounts from before the check are unaffected. `PARATRACK_REQUIRE_EMAIL_VERIFICATION=0` turns the check off; the test suites and the QA stand do |
 | Two-factor sign-in (SEC-02) | Optional per account. TOTP as an authenticator app reads it (SHA-1, six digits, 30 s, one step accepted either side); the secret is sealed with `PARATRACK_SECRET_KEY`. Set-up is on the profile page and ends with ten one-time recovery codes, shown once and stored as hashes. A code counts once per step. The open step lives five minutes in an HttpOnly cookie and ends after five wrong codes. Turning it off asks the password and a current code. An API token cannot change it. Single sign-on does not ask it: the identity provider decides |
-| Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
-| Sessions | HttpOnly + `Secure` cookies when the request is TLS |
+| Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`, plus the timestamped V2 `X-Paratrack-Signature-V2: hex(hmac-sha256(secret, ts + "." + body))` — verify V2 to refuse a captured delivery replayed later. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
+| CSV exports | Names, notes and labels that start like a spreadsheet formula (=, +, -, @, tab) are written with a leading apostrophe, so opening an export in Excel or 1С cannot execute them |
 | Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
 | Client tags | Every member reads a client's tags. Only a manager sets them, on the client card or with `client_tags_set` (CRM-18) |
 

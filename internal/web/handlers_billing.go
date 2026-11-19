@@ -206,7 +206,7 @@ func (s *Server) handleInvoicePayLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	mode := strings.TrimSpace(r.PostForm.Get("mode"))

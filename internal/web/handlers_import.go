@@ -56,7 +56,7 @@ func (p *importPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 // proxy logs).
 func (s *Server) handleImportPreview(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	f := func(k string) string { return strings.TrimSpace(r.PostForm.Get(k)) }

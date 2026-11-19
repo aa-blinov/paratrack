@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/money"
 )
@@ -56,7 +57,7 @@ func (s *Server) writePayrollDayCSV(w http.ResponseWriter, r *http.Request, deta
 	run := details.Run
 	days := runDays(run.PeriodStart.In(loc), run.PeriodEnd.In(loc))
 	if days == nil {
-		http.Error(w, "pay run is too long for a day breakdown", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.payRunTooLong"), http.StatusBadRequest)
 		return
 	}
 	tracked, err := s.services.Scheduling.TrackedSecondsByPersonDay(r.Context(), appmodel.PersonDayQuery{TeamID: teamID(r), Days: days, Now: userNow(r)})
@@ -83,7 +84,7 @@ func (s *Server) writePayrollDayCSV(w http.ResponseWriter, r *http.Request, deta
 				continue
 			}
 			if err := out.Write([]string{
-				run.Number, line.Label, weekStartOn(sunday, day).Format("2006-01-02"), day.Format("2006-01-02"),
+				run.Number, csvNeutralizeCell(line.Label), weekStartOn(sunday, day).Format("2006-01-02"), day.Format("2006-01-02"),
 				dialectOf(r).number(formatHoursDecimal(seconds[i])), strconv.Itoa(seconds[i]),
 			}); err != nil {
 				s.logInternalError(err)
@@ -109,7 +110,7 @@ func writePayrollRunCSV(w io.Writer, number, currency string, lines []model.Payr
 	}
 	for _, line := range lines {
 		if err := out.Write([]string{
-			number, line.Label, d.number(formatHoursDecimal(line.Seconds)), strconv.Itoa(line.Seconds),
+			number, csvNeutralizeCell(line.Label), d.number(formatHoursDecimal(line.Seconds)), strconv.Itoa(line.Seconds),
 			d.number(money.FormatCents(line.RateCents)), d.number(money.FormatCents(line.AmountCents)), currency,
 		}); err != nil {
 			return err

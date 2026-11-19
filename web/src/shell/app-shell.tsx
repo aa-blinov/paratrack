@@ -13,6 +13,7 @@ import { AppSidebar, type ShellNavItem } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
 import { OfflineBanner } from "@/offline/offline-banner"
 import { GlobalSearch } from "@/shell/global-search"
+import { readCSRFCookie } from "@/lib/csrf"
 import { translate as t } from "@/i18n"
 
 type ShellUser = { id: number; name: string; email: string } | null
@@ -88,13 +89,10 @@ export function useShellShortcuts() {
           // server directly. No reload: on the other screens pausing changes
           // nothing you are looking at, and a reload would throw away the
           // filters and the scroll position.
-          const token = decodeURIComponent(
-            document.cookie.match(/(?:^|;\s*)paratrack_csrf=([^;]+)/)?.[1] ?? "",
-          )
           void fetch("/api/active/pause-all", {
             method: "POST",
             credentials: "same-origin",
-            headers: { "X-CSRF-Token": token },
+            headers: { "X-CSRF-Token": readCSRFCookie() },
           })
           break
         }

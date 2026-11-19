@@ -451,17 +451,19 @@ func (d *DB) ListTasks(ctx context.Context, query appmodel.TaskQuery) ([]appmode
 	return out, nil
 }
 
+// taskByID reads one task with a single query. It used to scan the whole
+// board — every task, every activity, all-time tracking — because it reused
+// ListTasks, so each small edit paid for the entire workspace.
 func (d *DB) taskByID(ctx context.Context, teamID, taskID int64) (model.Task, error) {
-	rows, err := d.ListTasks(ctx, appmodel.TaskQuery{TeamID: teamID, Now: d.currentTime()})
+	task, _, _, err := scanTaskRow(d.sql.QueryRowContext(ctx,
+		taskSelect+` WHERE t.team_id = ? AND t.id = ?`, teamID, taskID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return model.Task{}, appmodel.ErrTaskNotFound
+	}
 	if err != nil {
 		return model.Task{}, err
 	}
-	for _, row := range rows {
-		if row.Task.ID == taskID {
-			return row.Task, nil
-		}
-	}
-	return model.Task{}, appmodel.ErrTaskNotFound
+	return task, nil
 }
 
 func (d *DB) attachTaskActivities(ctx context.Context, teamID int64, out []appmodel.TaskRow, index map[int64]int) error {

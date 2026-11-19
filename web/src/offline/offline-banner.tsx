@@ -13,13 +13,20 @@ export function OfflineBanner({ lang }: { lang: string }) {
   let actions = false
   if (state.hint === "iosInstall") {
     text = t(lang, "pwa.iosInstall")
-  } else if (state.blockedStatus !== null && state.queueLength > 0) {
-    text = state.blockedStatus === 0
-      ? t(lang, "pwa.queueNetworkFailed")
-      : message("pwa.queueFailed", state.blockedStatus)
+  } else if (state.failedCount > 0) {
+    // The round went on past the refusals: what applied, what did not, and
+    // the server's own words for the refusal — a bare code says nothing.
+    const parts: string[] = []
+    if (state.appliedCount > 0) parts.push(message("pwa.queueApplied", state.appliedCount))
+    parts.push(message("pwa.queueFailedSome", state.failedCount))
+    if (state.lastError) parts.push(t(lang, "pwa.queueLastError", state.lastError))
+    text = parts.join(". ")
     actions = true
   } else if (!state.online) {
     text = state.queueLength ? message("pwa.offlinePending", state.queueLength) : t(lang, "pwa.offline")
+  } else if (state.blockedStatus !== null && state.queueLength > 0) {
+    text = t(lang, "pwa.queueNetworkFailed")
+    actions = true
   } else if (state.queueLength) {
     text = message("pwa.syncing", state.queueLength)
   }
@@ -29,7 +36,7 @@ export function OfflineBanner({ lang }: { lang: string }) {
     <span>{text}</span>
     {actions && <div className="flex gap-2">
       <Button type="button" size="sm" variant="outline" onClick={retryQueue}>{t(lang, "pwa.queueRetry")}</Button>
-      <Button type="button" size="sm" variant="ghost" onClick={discardFirstQueued}>{t(lang, "pwa.queueDiscard")}</Button>
+      <Button type="button" size="sm" variant="ghost" onClick={() => void discardFirstQueued(lang)}>{t(lang, "pwa.queueDiscard")}</Button>
     </div>}
   </div>
 }

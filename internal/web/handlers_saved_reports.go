@@ -61,7 +61,7 @@ func (s *Server) handleSavedReportsCreate(w http.ResponseWriter, r *http.Request
 func (s *Server) handleSavedReportsDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad id", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	me, _ := UserFrom(r.Context())

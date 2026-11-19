@@ -18,7 +18,7 @@ import (
 
 func (s *Server) handleInvoiceAssignActivity(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	activityID, errA := strconv.ParseInt(r.PostForm.Get("activity_id"), 10, 64)
@@ -41,7 +41,7 @@ func (s *Server) handleInvoiceAssignActivity(w http.ResponseWriter, r *http.Requ
 
 func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	client := strings.TrimSpace(r.PostForm.Get("client"))
@@ -114,7 +114,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleInvoiceStatus(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -124,7 +124,7 @@ func (s *Server) handleInvoiceStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	status := strings.TrimSpace(r.PostForm.Get("status"))
 	if status != "sent" {
-		http.Error(w, "invalid invoice status transition", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invoiceStatusTransition"), http.StatusBadRequest)
 		return
 	}
 	if err := s.services.Invoicing.Drafts.MarkSent(r.Context(), appmodel.InvoiceMutationRequest{TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r)}); err != nil {
@@ -283,7 +283,7 @@ func (unapprovedWeeksResponse) isJSONResponse() {}
 func (s *Server) handleInvoiceUnapproved(w http.ResponseWriter, r *http.Request) {
 	start, end, ok := invoicePeriod(r, r.URL.Query().Get("start"), r.URL.Query().Get("end"))
 	if !ok {
-		http.Error(w, "invalid period", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.badDate"), http.StatusBadRequest)
 		return
 	}
 	projectID, _ := strconv.ParseInt(r.URL.Query().Get("project_id"), 10, 64)
@@ -366,7 +366,7 @@ func (s *Server) handleInvoicePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	lang := resolveLang(r)

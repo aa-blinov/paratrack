@@ -237,7 +237,7 @@ func (s *Server) hasSchedulePlan(r *http.Request, weekStart time.Time) (bool, er
 // Form: user_id, project_id, date (YYYY-MM-DD), minutes.
 func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	uid, err1 := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)
@@ -287,7 +287,7 @@ func (s *Server) handleScheduleCell(w http.ResponseWriter, r *http.Request) {
 // refused, never merged, and the page says why.
 func (s *Server) handleScheduleCopy(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	parsed, err := time.Parse("2006-01-02", strings.TrimSpace(r.PostForm.Get("week")))
@@ -319,7 +319,7 @@ func (s *Server) handleScheduleCopy(w http.ResponseWriter, r *http.Request) {
 // Form: user_id, minutes, week (the week on screen, to answer with).
 func (s *Server) handleScheduleAdmin(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	uid, err1 := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("user_id")), 10, 64)
@@ -411,7 +411,7 @@ func (s *Server) handleScheduleLineRemove(w http.ResponseWriter, r *http.Request
 
 func (s *Server) scheduleLineForm(w http.ResponseWriter, r *http.Request) (appmodel.ScheduleLineRequest, time.Time, bool) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return appmodel.ScheduleLineRequest{}, time.Time{}, false
 	}
 	uid, err1 := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("user_id")), 10, 64)

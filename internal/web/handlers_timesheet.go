@@ -216,23 +216,23 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 // Responds with the re-rendered row so HTMX can swap it.
 func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	actID, err := strconv.ParseInt(r.FormValue("activity_id"), 10, 64)
 	if err != nil || actID <= 0 {
-		http.Error(w, "activity_id required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.activityRequired"), 400)
 		return
 	}
 	dateStr := strings.TrimSpace(r.FormValue("date"))
 	day, err := time.ParseInLocation("2006-01-02", dateStr, userLoc(r))
 	if err != nil {
-		http.Error(w, "bad date", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.badDate"), 400)
 		return
 	}
 	mins, err := strconv.Atoi(strings.TrimSpace(r.FormValue("minutes")))
 	if err != nil || mins < 0 || mins > 24*60 {
-		http.Error(w, "minutes must be 0..1440", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.minutesRange"), 400)
 		return
 	}
 	if err := s.services.Tracking.Commands.SetDayTotal(r.Context(), appmodel.TimesheetCellUpdateRequest{TeamID: teamID(r), ActivityID: actID, Day: day, TotalSeconds: mins * 60}); err != nil {
@@ -255,18 +255,18 @@ func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 // the response is the same recomputed row so day and week totals stay right.
 func (s *Server) handleTimesheetRowClear(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	actID, err := strconv.ParseInt(r.FormValue("activity_id"), 10, 64)
 	if err != nil || actID <= 0 {
-		http.Error(w, "activity_id required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.activityRequired"), 400)
 		return
 	}
 	dateStr := strings.TrimSpace(r.FormValue("date"))
 	day, err := time.ParseInLocation("2006-01-02", dateStr, userLoc(r))
 	if err != nil {
-		http.Error(w, "bad date", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.badDate"), 400)
 		return
 	}
 	weekStart := startOfWeek(r, day)
@@ -311,9 +311,9 @@ func (s *Server) respondTimesheetWriteError(w http.ResponseWriter, r *http.Reque
 	case errors.Is(err, appmodel.ErrInvalidSessionEdit):
 		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 	case errors.Is(err, model.ErrNotFound):
-		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "activity not found"})
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.activityNotFound")})
 	case errors.Is(err, model.ErrForbidden):
-		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "workspace membership required"})
+		s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.forbiddenAction")})
 	default:
 		s.writeInternalJSONError(w, err)
 	}
@@ -380,7 +380,7 @@ func (s *Server) respondTimesheetRow(w http.ResponseWriter, r *http.Request, act
 		return
 	}
 	// The activity is no longer in the grid.
-	http.Error(w, "row not found", 404)
+	http.Error(w, i18n.T(resolveLang(r), "err.notFoundEntity"), 404)
 }
 
 // liveByDay is each running timer's time per day of the week, by activity,
@@ -467,7 +467,7 @@ func (s *Server) handleTimesheetReopen(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, approve bool) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	lang := resolveLang(r)

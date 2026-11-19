@@ -39,6 +39,8 @@ type Config struct {
 	RequireSecretKey bool
 	Logger           *log.Logger
 	Now              func() time.Time
+	// MaxOpenConns caps the connection pool. Zero means defaultMaxOpenConns.
+	MaxOpenConns int
 }
 
 // OpenConfiguredContext connects to Postgres and applies schema and data
@@ -59,10 +61,22 @@ func OpenConfiguredContext(ctx context.Context, config Config) (*DB, error) {
 	if config.Now == nil {
 		return nil, ErrMissingClock
 	}
-	return openContext(ctx, config.URL, config.SecretKey, config.Logger, config.Now)
+	return openContext(ctx, config.URL, config.SecretKey, config.Logger, config.Now, maxConnsOf(config))
 }
 
-func openContext(ctx context.Context, url, secretKey string, logger *log.Logger, now func() time.Time) (*DB, error) {
+// defaultMaxOpenConns covers the webhook and mail workers, the reminder pass
+// and regular HTTP traffic on one self-hosted binary. PARATRACK_DB_MAX_CONNS
+// raises it for a busy instance instead of an edit to this file.
+const defaultMaxOpenConns = 20
+
+func maxConnsOf(config Config) int {
+	if config.MaxOpenConns > 0 {
+		return config.MaxOpenConns
+	}
+	return defaultMaxOpenConns
+}
+
+func openContext(ctx context.Context, url, secretKey string, logger *log.Logger, now func() time.Time, maxConns int) (*DB, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -70,7 +84,10 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 	if err != nil {
 		return nil, err
 	}
-	sdb.SetMaxOpenConns(10)
+	if maxConns <= 0 {
+		maxConns = defaultMaxOpenConns
+	}
+	sdb.SetMaxOpenConns(maxConns)
 	sdb.SetConnMaxIdleTime(5 * time.Minute)
 	d := &DB{
 		sql:     &Conn{db: sdb},
@@ -87,6 +104,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"activity colours", func() error { return d.migrateActivityColors(ctx) }},
 		{"seal secrets", func() error { return d.sealExistingSecretsContext(ctx) }},
 		{"hash invite tokens", func() error { return d.migrateInviteTokensContext(ctx) }},
+		{"hash session tokens", func() error { return d.migrateAuthSessionTokensContext(ctx) }},
 		{"assign orphan sessions", func() error { return d.assignOrphanSessions(ctx) }},
 		{"resolve saved report filters", func() error { return d.migrateSavedReportFilterIDs(ctx) }},
 		{"stamp legacy invoices", func() error { return d.stampLegacyInvoices(ctx) }},
@@ -95,6 +113,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"personal workspace names", func() error { return d.migratePersonalTeamNames(ctx) }},
 		{"lead first responses", func() error { return d.migrateLeadFirstResponses(ctx) }},
 		{"crm stage times", func() error { return d.migrateCRMStageTimes(ctx) }},
+		{"purge idempotency keys", func() error { return d.PurgeStaleIdempotencyKeys(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {
 		if closeErr := sdb.Close(); closeErr != nil {

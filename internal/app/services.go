@@ -45,11 +45,16 @@ import (
 var ErrNilDatabase = errors.New("application database is nil")
 
 type applicationResources struct {
-	webhooks  workerShutdown
-	push      workerShutdown
-	clients   idleHTTPClients
-	closeOnce sync.Once
-	closeErr  error
+	webhooks workerShutdown
+	push     workerShutdown
+	clients  idleHTTPClients
+	// shutdownBudget caps the drain wait at close. The server can afford ten
+	// seconds; a CLI command is a person at a terminal, so it passes a much
+	// smaller budget and drops a straggler delivery instead of hanging the
+	// prompt. Zero means the server default.
+	shutdownBudget time.Duration
+	closeOnce      sync.Once
+	closeErr       error
 }
 
 type workerShutdown interface {
@@ -61,7 +66,11 @@ func (r *applicationResources) Close() error {
 		return nil
 	}
 	r.closeOnce.Do(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		budget := r.shutdownBudget
+		if budget <= 0 {
+			budget = 10 * time.Second
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), budget)
 		defer cancel()
 		shutdownResults := make(chan error, 2)
 		shutdownCount := 0
@@ -206,6 +215,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Mailer:    reminderEmail{push: pushService, identities: authService, sender: reminderMailer, publicURL: config.PublicURL},
 		Audience:  crmAudience{push: pushService, identities: authService, preferences: preferenceService, queue: mailQueueService, sender: reminderMailer},
 		PublicURL: config.PublicURL,
+		Logger:    logger,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)

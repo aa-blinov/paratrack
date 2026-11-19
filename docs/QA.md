@@ -7,10 +7,10 @@ GitHub Actions is the source of truth for pushes and pull requests targeting
 
 | Job | Commands / coverage |
 |---|---|
-| UI build | `npm ci`, `npm run build`, `npm run typecheck`, `npm run test:unit`, `npm run test:js` |
-| Architecture | `make verify` (Go static/security/build checks, architecture rules, JS lint/import graph and npm audit) |
-| Go tests | `go test -race -count=1 -p 1 ./...` plus coverage for `internal/db`, `internal/web` and `internal/timeparse` |
-| Browser E2E | `python e2e/test_dashboard.py` against the CI Postgres service |
+| UI build | `npm ci`, `npm run build`, `npm run typecheck`, `npm run test:unit` |
+| Architecture | `make verify` (tidy -diff, vet, govulncheck, build, architecture rules) |
+| Go tests | `go test -race -count=1 -timeout 30m -p 8 ./...` plus coverage for `internal/db`, `internal/web` and `internal/timeparse` |
+| Browser E2E | `test_dashboard`, `test_clients`, `test_tasks`, `test_revoke`, `test_invite_link_actions`, `test_workspace_move`, `qa_full`, `test_invoice_form_submits`, `test_invoice_unapproved_weeks`, `test_mobile_navigation`, `test_screen_regressions`, `test_react_navigation`, `a11y_check` — the same list `make e2e` runs locally |
 
 The expanded QA suites below are manual acceptance runs. Their counts are the
 last recorded snapshot and do not prove the current working tree or a specific
@@ -20,10 +20,21 @@ commit; use the CI run for commit-specific status.
 
 | Suite | Command | Result |
 |---|---|---|
-| Unit + integration | `go test ./...` | 6 packages ok |
-| UI / visual | `python e2e/qa_full.py` | **63/63** |
-| Business logic | `python e2e/qa_logic.py` | **65/65** |
-| Offline + push | `python e2e/qa_offline_push.py` | **14/14** |
+| Unit + integration | `go test ./...` | 60 packages; the full gate runs in CI, see above |
+| UI / visual | `python e2e/test_dashboard.py` | **182/182** |
+| Business logic | `python e2e/qa_logic.py` | **66/66** |
+| Offline + push | `python e2e/qa_offline_push.py` | **13/13** |
+| React navigation | `python e2e/test_react_navigation.py` | **pass at 1440/820/390 px + member roles** |
+| Screen regressions | `python e2e/test_screen_regressions.py` | **pass (late reply, search focus, graph error, goals zone, payroll exports)** |
+| Accessibility | `python e2e/a11y_check.py` | **0 below AA, 0 control edges under 3:1, 0 label-in-name misses** |
+
+Recorded 2026-11-19 against a throwaway Postgres. The business-logic and
+offline suites compute their dates from the run day (they used to pin absolute
+September dates that aged out of the API's default window), choose the
+workspace sections the way the welcome screen does, resolve ids from the React
+bootstrap JSON, and read the raw API token out of the creation response —
+so they no longer depend on server-side markup that the React screens
+replaced.
 
 Screenshots: `e2e/screenshots/qa/`, `e2e/screenshots/qa-logic/`, `e2e/screenshots/offline-push/`.
 

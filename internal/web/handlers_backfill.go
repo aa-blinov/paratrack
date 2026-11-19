@@ -30,7 +30,7 @@ func (s *Server) backfillError(w http.ResponseWriter, r *http.Request, field, me
 
 func (s *Server) handleBackfill(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("activity"))

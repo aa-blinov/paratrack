@@ -16,6 +16,10 @@ type PasswordHashUpdateRequest struct {
 	CallerID     int64
 	ExpectedHash string `json:"-"`
 	PasswordHash string `json:"-"`
+	// KeepSessionToken is the browser session that asked for the change. The
+	// persistence layer revokes every other session, so a stolen session does
+	// not outlive the password it was minted under. Empty revokes them all.
+	KeepSessionToken string `json:"-"`
 }
 
 type PasswordResetCreateRequest struct {
@@ -88,6 +92,9 @@ type PasswordChangeRequest struct {
 	CallerID        int64
 	CurrentPassword string `json:"-"`
 	NewPassword     string `json:"-"`
+	// SessionToken is the caller's own browser session, read from the cookie by
+	// the HTTP adapter. It survives the change; every other session is revoked.
+	SessionToken string `json:"-"`
 }
 
 type PasswordLoginRequest struct {

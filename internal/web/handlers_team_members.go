@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
 	"net/http"
 	"strconv"
@@ -67,12 +68,12 @@ func (s *Server) handleAPIMemberRemove(w http.ResponseWriter, r *http.Request) {
 	caller, _ := UserFrom(r.Context())
 	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/api/team/members/"), "/")
 	if len(parts) == 0 || parts[0] == "" {
-		http.Error(w, "missing user id", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	uid, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
-		http.Error(w, "bad user id", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	if err := s.services.Teams.Administration.RemoveMember(r.Context(), appmodel.TeamMemberRemovalRequest{TeamID: team.ID, TargetUserID: uid, CallerID: caller.ID}); err != nil {

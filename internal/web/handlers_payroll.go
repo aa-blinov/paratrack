@@ -194,7 +194,7 @@ func (p *payrollPage) setCSRF(t string) { p.pageData.setCSRF(t) }
 // handlePayrollCreate generates a pay run from tracked time.
 func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	startStr := strings.TrimSpace(r.PostForm.Get("start"))
@@ -406,7 +406,7 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	}
 	caller, ok := UserFrom(r.Context()) // the manage middleware authenticates the manager
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, i18n.T(resolveLang(r), "err.unauthorized"), http.StatusUnauthorized)
 		return
 	}
 	var pay, cap *int

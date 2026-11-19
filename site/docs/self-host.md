@@ -52,6 +52,7 @@ time.example.com {
 | `POSTGRES_PASSWORD` | пароль базы, обязательно |
 | `PARATRACK_SECRET_KEY` | шифрование ключей в базе, обязательно |
 | `PARATRACK_PORT` | порт на `127.0.0.1`, по умолчанию 8000 |
+| `PARATRACK_DB_MAX_CONNS` | пул соединений с базой, по умолчанию 20; поднимите для нагруженного экземпляра |
 | `PARATRACK_TZ` | часовой пояс до того, как браузер сообщит свой, по умолчанию `Europe/Moscow` |
 | `PARATRACK_PUBLIC_URL` | канонический origin приложения для ссылок в письмах, SSO и Stripe; вне `development`/`test` обязателен и должен начинаться с `https://` |
 | `PARATRACK_TRUSTED_PROXIES` | CIDR доверенных reverse proxy; только от них принимаются `X-Forwarded-Host`, `X-Forwarded-Proto` и `X-Forwarded-For` |
