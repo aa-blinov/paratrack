@@ -1,5 +1,6 @@
 import * as React from "react"
 import { Keyboard, Search, Settings, X } from "lucide-react"
+import { shortcuts } from "@/shell/shortcuts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -33,9 +34,8 @@ const guides: ReadonlyArray<{ id: string; href: string; section?: string; manage
 
 const faqNumbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
 
-const keys = [
-  ["N", "help.keyN"], ["S", "help.keyS"], ["G", "help.keyG"], ["T", "help.keyT"], ["P", "help.keyP"],
-] as const
+// The same list the `?` sheet shows (UX-40); the help page's search filters it.
+const keys = shortcuts.map(row => [row.key, row.label] as const)
 
 const destinations = [
   ["team.currencyTitle", "help.where6", "/settings/money#currency", "manage"],

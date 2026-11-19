@@ -131,9 +131,24 @@ func (s *Service) ListRuns(ctx context.Context, query appmodel.PayrollRunListQue
 		}
 		summaries = append(summaries, appmodel.PayrollRunSummary{
 			Run: details.Run, TotalCents: totalCents, TotalHoursHundredths: totalHours,
+			Members: lineMembers(details.Lines),
 		})
 	}
 	return summaries, nil
+}
+
+// lineMembers names each person a run prices, once, in the order the lines go.
+func lineMembers(lines []model.PayrollLine) []string {
+	seen := make(map[string]bool, len(lines))
+	members := make([]string, 0, len(lines))
+	for _, line := range lines {
+		if seen[line.Label] {
+			continue
+		}
+		seen[line.Label] = true
+		members = append(members, line.Label)
+	}
+	return members
 }
 
 func (s *Service) GetRun(ctx context.Context, teamID, runID int64) (appmodel.PayrollRunDetail, error) {

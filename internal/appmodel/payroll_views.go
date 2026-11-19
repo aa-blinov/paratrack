@@ -10,6 +10,9 @@ type PayrollRunSummary struct {
 	Run                  model.PayrollRun
 	TotalCents           int
 	TotalHoursHundredths int
+	// Members names the people whose lines the run carries, in the order the
+	// lines go — three same-looking runs are told apart by their people (UX-44).
+	Members []string
 }
 
 type PayrollRunDetail struct {
