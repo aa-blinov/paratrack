@@ -2,6 +2,7 @@
 // screen, from any screen. The list itself lives in shortcuts.ts — this sheet
 // reads it like the help page does, so the two can never disagree.
 import * as React from "react"
+import type { ReactNode } from "react"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { shortcuts } from "@/shell/shortcuts"
 import { translate as t } from "@/i18n"
@@ -25,7 +26,7 @@ export function useShortcutsSheet(lang: string): [ReactNode, () => void] {
 
   const sheet = (
     <Sheet open={open} onOpenChange={setOpen}>
-      <SheetContent side="end" className="shortcuts-sheet">
+      <SheetContent side="right" className="shortcuts-sheet">
         <SheetHeader>
           <SheetTitle className="text-left">{t(lang, "kbd.sheetTitle")}</SheetTitle>
         </SheetHeader>

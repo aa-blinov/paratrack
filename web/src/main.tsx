@@ -27,6 +27,7 @@ import { nav } from "@/components/app-sidebar"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 import { StopResult } from "@/dashboard/stop-result"
 import { WorkdayPanel } from "@/dashboard/workday-panel"
+import { onInteractiveControl, swipeIntent } from "@/dashboard/swipe"
 import type { AuditData, AuthPageData, CalendarData, CalendarSyncData, CRMData, ClientDetailData, ClientsPageData, DashboardData, ExportData, GoalsData, GraphData, HelpData, ImportData, IntegrationDetailData, IntegrationsData, InviteAcceptData, InvoiceDetailData, InvoicesData, MarketplaceData, NotificationsData, PayrollData, PayrollDetailData, PreferencesData, ProfileData, ProjectCreateData, ProjectDetailData, ProjectListData, ReactPageBootstrap, ReactPageData, ReportRunData, ReportsData, ScheduleData, SectionsData, Session, StatsData, TagsData, TaskDetailData, TasksData, AgentActionsData, TeamInvitesData, TeamMembersData, TeamSettingsData, TimesheetData, TokensData, WebhooksData } from "@/dashboard/types"
 import { activityColor } from "@/lib/activity-color"
 import { isNetworkError, responseMessage } from "@/lib/response-message"
@@ -283,10 +284,30 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     // On a phone the row's actions sit under its meta line, flush left; on a
     // wide screen they sit at the right of the row, beside the name.
     return <div className="-ml-2 flex justify-start gap-1 sm:ml-0 sm:justify-end">
-      <Button variant="ghost" size="sm" disabled={busy} title={t(lang, "dash.focusTitle")} onClick={() => void mutate(`/api/focus/${encodeURIComponent(session.ActivityName)}`)}>{labels.focus}</Button>
-      <Button variant="ghost" size="sm" disabled={busy} onClick={() => void mutate(`/api/sessions/${session.ID}/${session.Paused ? "resume" : "pause"}`)}>{session.Paused ? labels.resume : labels.pause}</Button>
-      <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busy} onClick={async () => { if (timerIsLong(session) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate(`/api/sessions/${session.ID}/stop`) }}>{labels.stop}</Button>
+      <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-3" disabled={busy} title={t(lang, "dash.focusTitle")} onClick={() => void mutate(`/api/focus/${encodeURIComponent(session.ActivityName)}`)}>{labels.focus}</Button>
+      <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-3" disabled={busy} onClick={() => void mutate(`/api/sessions/${session.ID}/${session.Paused ? "resume" : "pause"}`)}>{session.Paused ? labels.resume : labels.pause}</Button>
+      <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-3 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busy} onClick={async () => { if (timerIsLong(session) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate(`/api/sessions/${session.ID}/stop`) }}>{labels.stop}</Button>
     </div>
+  }
+
+  // «Только эта» жестом (UX-32): провод пальцем влево по строке ставит
+  // остальные таймеры на паузу и оставляет идти этот. Жест читает весь свой
+  // ход: вертикальный проезд остаётся скроллом, проезд от кнопки — кнопкой.
+  const swipe = useRef({ x: 0, y: 0, onControl: false, fired: false })
+  const focusSwipe = {
+    onTouchStart: (event: React.TouchEvent) => {
+      const start = event.touches[0]
+      swipe.current = { x: start.clientX, y: start.clientY, onControl: onInteractiveControl(event.target as Element), fired: false }
+    },
+    onTouchMove: (event: React.TouchEvent) => {
+      if (swipe.current.fired) return
+      const point = event.touches[0]
+      if (swipeIntent({ dx: point.clientX - swipe.current.x, dy: point.clientY - swipe.current.y, onControl: swipe.current.onControl }) !== "focus") return
+      const name = event.currentTarget.getAttribute("data-focus-name")
+      if (!name) return
+      swipe.current.fired = true
+      void mutate(`/api/focus/${encodeURIComponent(name)}`)
+    },
   }
 
   // Stopping is the moment a person is most likely to want it back, and the
@@ -364,7 +385,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
             <DropdownMenuItem disabled={data.RunningCount === 0} onSelect={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => { if (!(await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }))) return; if (active.some(timerIsLong) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate("/api/active/stop-all") }}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
           </DropdownMenuContent></DropdownMenu>}</div></div>
-          {active.length ? <div className="grid gap-3">{active.some(timerIsLong) && <p className="rounded-md border border-amber-500/40 p-2 text-sm">{t(lang, "dash.longTimerHint")}</p>}{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          {active.length ? <div className="grid gap-3">{active.some(timerIsLong) && <p className="rounded-md border border-amber-500/40 p-2 text-sm">{t(lang, "dash.longTimerHint")}</p>}{active.map(session => <div key={session.ID} data-session-id={session.ID} data-focus-name={session.ActivityName} {...focusSwipe} className="max-lg:order-first grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             {/* Название и часы на одной строке: часы и есть ответ на «сколько
                 уже идёт». Статус виден только на паузе, идущий таймер его не
                 называет; проект и время начала уходят в строку под ними. */}
