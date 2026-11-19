@@ -8,7 +8,41 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
 import { canRemoveMember } from "@/settings/member-actions"
+import { useState } from "react"
 import type { TeamMembersData } from "@/dashboard/types"
+
+// The pay kind (FIN-26) picks the money field the form carries: an hourly
+// rate for tracked time, or a fixed salary per calendar month a run covers.
+// The server keeps both amounts and prices by the kind.
+function MemberPayForm({ data, member }: { data: TeamMembersData; member: { UserID: number } }) {
+  const lang = data.Lang || "en"
+  const initial = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0, Kind: "hourly", Monthly: "" }
+  const [kind, setKind] = useState(initial.Kind || "hourly")
+  const salary = kind === "monthly"
+  return <form method="post" action="/api/member/pay" className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(7.5rem,1fr)_minmax(5rem,1fr)_minmax(5rem,1fr)_minmax(5rem,0.8fr)_auto]">
+    <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+    <input type="hidden" name="user_id" value={member.UserID} />
+    <div className="grid gap-1"><Label htmlFor={`kind-${member.UserID}`} className="text-xs">{t(lang, "pay.kindCol")}</Label>
+      <Select name="pay_kind" value={kind} onValueChange={setKind}>
+        <SelectTrigger id={`kind-${member.UserID}`}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="hourly">{t(lang, "pay.kindHourly")}</SelectItem>
+          <SelectItem value="monthly">{t(lang, "pay.kindMonthly")}</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div className="grid gap-1"><Label htmlFor={`pay-${member.UserID}`} className="text-xs">{t(lang, "pay.payCol")}</Label>
+      <Input id={`pay-${member.UserID}`} name="hourly_pay" inputMode="decimal" autoComplete="off" defaultValue={initial.Rate} placeholder="0" disabled={salary} />
+    </div>
+    <div className="grid gap-1"><Label htmlFor={`monthly-${member.UserID}`} className="text-xs">{t(lang, "pay.monthlyCol")}</Label>
+      <Input id={`monthly-${member.UserID}`} name="monthly_pay" inputMode="decimal" autoComplete="off" defaultValue={initial.Monthly} placeholder="0" disabled={!salary} />
+    </div>
+    <div className="grid gap-1"><Label htmlFor={`capacity-${member.UserID}`} className="text-xs">{t(lang, "pay.capCol")}</Label>
+      <Input id={`capacity-${member.UserID}`} type="number" name="capacity_minutes" min="0" step="30" defaultValue={initial.Capacity || ""} placeholder="480" />
+    </div>
+    <Button type="submit" className="col-span-2 justify-center sm:col-span-1 sm:justify-start">{t(lang, "projects.save")}</Button>
+  </form>
+}
 
 export function TeamMembersPage({ data }: { data: TeamMembersData }) {
   const lang = data.Lang || "en"
@@ -18,12 +52,12 @@ export function TeamMembersPage({ data }: { data: TeamMembersData }) {
     <Flash message={data.Flash} ok={data.FlashOK} />
     <Card><CardHeader><CardTitle>{t(lang, "team.members")} ({data.Members.length})</CardTitle></CardHeader><CardContent className="grid divide-y">
       {data.Members.length ? data.Members.map(member => {
-        const pay = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0 }
+        const pay = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0, Kind: "hourly", Monthly: "" }
         const ownerLocked = member.Role === "owner" && !data.IsOwner
         return <article key={member.UserID} className="grid min-w-0 gap-3 py-3 xl:grid-cols-[minmax(12rem,1.2fr)_minmax(10rem,1fr)_minmax(18rem,1.5fr)_auto] xl:items-center">
           <div className="min-w-0"><p className="flex items-center gap-1.5 font-medium"><UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="truncate">{member.Name}</span>{member.UserID === data.User.ID && <span className="shrink-0 text-xs font-normal text-muted-foreground">{t(lang, "team.you")}</span>}</p><p className="truncate text-sm text-muted-foreground" title={member.Email}>{member.Email}</p></div>
           <div>{member.Role === "owner" ? <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"><Crown className="size-3" aria-hidden="true" />{t(lang, "team.roleOwner")}</span> : data.IsOwner ? <form method="post" action={`/api/team/members/${member.UserID}/role`} className="flex items-center gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Select name="role" defaultValue={member.Role}><SelectTrigger aria-label={t(lang, "team.roleCol")}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="member">{t(lang, "team.roleMember")}</SelectItem><SelectItem value="admin">{t(lang, "team.roleAdmin")}</SelectItem></SelectContent></Select><Button type="submit" size="sm" variant="outline">{t(lang, "projects.save")}</Button></form> : <span className="text-sm text-muted-foreground">{member.Role === "admin" ? t(lang, "team.roleAdmin") : t(lang, "team.roleMember")}</span>}</div>
-          {ownerLocked ? <div className="flex gap-4 text-sm"><span>{t(lang, "pay.payCol")}: {pay.Rate || "–"}</span><span>{t(lang, "pay.capCol")}: {pay.Capacity || "–"}</span></div> : <form method="post" action="/api/member/pay" className="grid grid-cols-2 items-end gap-2 sm:grid-cols-[minmax(5rem,1fr)_minmax(5rem,0.8fr)_auto]"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="user_id" value={member.UserID} /><div className="grid gap-1"><Label htmlFor={`pay-${member.UserID}`} className="text-xs">{t(lang, "pay.payCol")}</Label><Input id={`pay-${member.UserID}`} name="hourly_pay" inputMode="decimal" autoComplete="off" defaultValue={pay.Rate} placeholder="0" /></div><div className="grid gap-1"><Label htmlFor={`capacity-${member.UserID}`} className="text-xs">{t(lang, "pay.capCol")}</Label><Input id={`capacity-${member.UserID}`} type="number" name="capacity_minutes" min="0" step="30" defaultValue={pay.Capacity || ""} placeholder="480" /></div><Button type="submit" className="col-span-2 justify-center sm:col-span-1 sm:justify-start">{t(lang, "projects.save")}</Button></form>}
+          {ownerLocked ? <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm"><span>{(pay.Kind || "hourly") === "monthly" ? `${t(lang, "pay.monthlyCol")}: ${pay.Monthly || "0"}` : `${t(lang, "pay.payCol")}: ${pay.Rate || "–"}`}</span><span>{t(lang, "pay.capCol")}: {pay.Capacity || "–"}</span></div> : <MemberPayForm data={data} member={member} />}
           <div className="flex justify-end">{canRemoveMember(member, data.User, data.IsOwner) && <form method="post" action={`/api/team/members/${member.UserID}/remove`} data-confirm={t(lang, "team.confirmRemove")}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant="ghost"><Trash2 aria-hidden="true" />{t(lang, "team.remove")}</Button></form>}</div>
         </article>
       }) : <p className="text-sm text-muted-foreground">{t(lang, "team.noMembers")}</p>}

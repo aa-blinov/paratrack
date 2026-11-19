@@ -222,6 +222,12 @@ func (s *Service) UpdateMemberPay(ctx context.Context, request appmodel.PayrollM
 	if request.PayCents != nil && *request.PayCents < 0 {
 		return fmt.Errorf("pay must be non-negative")
 	}
+	if request.MonthlyPayCents != nil && *request.MonthlyPayCents < 0 {
+		return fmt.Errorf("pay must be non-negative")
+	}
+	if request.Kind != nil && *request.Kind != "hourly" && *request.Kind != "monthly" {
+		return fmt.Errorf("pay kind must be hourly or monthly")
+	}
 	if request.CapacityMinutes != nil && *request.CapacityMinutes < 0 {
 		return fmt.Errorf("capacity must be non-negative")
 	}

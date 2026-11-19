@@ -5,10 +5,15 @@ import (
 )
 
 // MemberPayrollSettings are the pay rate and planned daily capacity used by
-// payroll workflows for each current workspace member.
+// payroll workflows for each current workspace member. Kind picks how the
+// member is paid (FIN-26): "hourly" prices their tracked time by PayCents,
+// "monthly" pays MonthlyPayCents per calendar month a run covers, whatever
+// the tracked time says.
 type MemberPayrollSettings struct {
 	UserID          int64
+	Kind            string // "hourly" | "monthly"
 	PayCents        int
+	MonthlyPayCents int
 	CapacityMinutes int
 }
 

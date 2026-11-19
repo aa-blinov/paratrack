@@ -98,10 +98,13 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 		return PayrollRun{}, nil, fmt.Errorf("build payroll lines: %w", err)
 	}
 	if len(lines) == 0 {
-		// Say which of the two it is: nobody has a rate, or nobody tracked time.
+		// Say which of the two it is: nobody has a pay, or nobody tracked
+		// time. A salary counts as a pay (FIN-26) even though it prices no
+		// tracked time.
 		var rated int
 		if err := tx.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM memberships WHERE team_id = ? AND COALESCE(hourly_pay_cents, 0) > 0`, teamID).Scan(&rated); err != nil {
+			`SELECT COUNT(*) FROM memberships WHERE team_id = ?
+			  AND (COALESCE(hourly_pay_cents, 0) > 0 OR (COALESCE(pay_kind, 'hourly') = 'monthly' AND COALESCE(monthly_pay_cents, 0) > 0))`, teamID).Scan(&rated); err != nil {
 			return PayrollRun{}, nil, err
 		}
 		if rated == 0 {

@@ -68,6 +68,8 @@ func (p settingsPageData) T(key string) string { return i18n.T(i18n.Lang(p.Lang)
 
 type memberPayView struct {
 	Rate     string // currency units, "" when unset
+	Kind     string // "hourly" | "monthly" (FIN-26), hourly by default
+	Monthly  string // the monthly salary, currency units, "" when unset
 	Capacity int
 }
 
@@ -210,9 +212,15 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Pay:          map[int64]memberPayView{},
 	}
 	for _, settings := range snapshot.PaySettings {
-		view := memberPayView{Capacity: settings.CapacityMinutes}
+		view := memberPayView{Capacity: settings.CapacityMinutes, Kind: settings.Kind}
+		if view.Kind == "" {
+			view.Kind = "hourly"
+		}
 		if settings.PayCents > 0 {
 			view.Rate = formatMoneyInput(resolveLang(r), settings.PayCents)
+		}
+		if settings.MonthlyPayCents > 0 {
+			view.Monthly = formatMoneyInput(resolveLang(r), settings.MonthlyPayCents)
 		}
 		data.Pay[settings.UserID] = view
 	}

@@ -21,14 +21,14 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 	if teamID <= 0 || start.IsZero() || !end.After(start) || now.IsZero() {
 		return nil, ErrInvalidPayrollQuery
 	}
-	// members with pay > 0
+	// members with a pay: hourly rates, or the fixed monthly salary (FIN-26)
 	mrows, err := queryer.QueryContext(ctx,
-		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), u.name, u.email
+		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email
 		 FROM memberships m
 		 JOIN users u ON u.id = m.user_id
-		 WHERE m.team_id = ? AND COALESCE(m.hourly_pay_cents, 0) > 0
+		 WHERE m.team_id = ? AND (COALESCE(m.hourly_pay_cents, 0) > 0 OR (COALESCE(m.pay_kind, 'hourly') = 'monthly' AND COALESCE(m.monthly_pay_cents, 0) > 0))
 		 UNION ALL
-		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), u.name, u.email
+		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), 'hourly', 0, u.name, u.email
 		 FROM former_members f
 		 JOIN users u ON u.id = f.user_id
 		 WHERE f.team_id = ? AND COALESCE(f.hourly_pay_cents, 0) > 0
@@ -38,15 +38,17 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 	}
 	defer mrows.Close()
 	type member struct {
-		id    int64
-		rate  int
-		name  string
-		email string
+		id     int64
+		rate   int
+		kind   string
+		salary int
+		name   string
+		email  string
 	}
 	var members []member
 	for mrows.Next() {
 		var m member
-		if err := mrows.Scan(&m.id, &m.rate, &m.name, &m.email); err != nil {
+		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email); err != nil {
 			mrows.Close()
 			return nil, err
 		}
@@ -119,8 +121,32 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 		return nil, err
 	}
 
+	// Months the period covers, for the salary line (FIN-26): a salaried
+	// member is paid their salary per calendar month the run touches, in
+	// whole months — the studio's monthly runs pay one each.
+	salary, err := salaryForMonths(start, end)
+	if err != nil {
+		return nil, err
+	}
+
 	lines := make([]PayrollLine, 0, len(members))
 	for _, m := range members {
+		label := m.name
+		if label == "" {
+			label = m.email
+		}
+		if m.kind == "monthly" {
+			// The salary prices the month, not the hours: tracked time stays
+			// unpriced on top of a fixed pay.
+			if m.salary <= 0 || salary <= 0 {
+				continue
+			}
+			lines = append(lines, PayrollLine{
+				UserID: m.id, Label: label,
+				Seconds: 0, RateCents: 0, AmountCents: m.salary * salary,
+			})
+			continue
+		}
 		sec := secsByUser[m.id]
 		if HoursHundredths(sec) == 0 {
 			continue
@@ -129,14 +155,25 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 		if err != nil {
 			return nil, fmt.Errorf("price payroll member %d: %w", m.id, err)
 		}
-		label := m.name
-		if label == "" {
-			label = m.email
-		}
 		lines = append(lines, PayrollLine{
 			UserID: m.id, Label: label,
 			Seconds: sec, RateCents: m.rate, AmountCents: amount,
 		})
 	}
 	return lines, nil
+}
+
+// salaryForMonths counts the calendar months the period overlaps: one run
+// normally covers a month, a two-month run pays two salaries.
+func salaryForMonths(start, end time.Time) (int, error) {
+	if !end.After(start) {
+		return 0, ErrInvalidPayrollQuery
+	}
+	first := start
+	last := end.Add(-time.Nanosecond)
+	months := (last.Year()-first.Year())*12 + int(last.Month()) - int(first.Month()) + 1
+	if months <= 0 {
+		return 0, ErrInvalidPayrollQuery
+	}
+	return months, nil
 }
