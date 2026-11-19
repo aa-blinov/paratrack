@@ -89,6 +89,10 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   // The cell that could not be read: marked where it is, not in a banner
   // above the table that pushed the grid down and named no cell.
   const [invalid, setInvalid] = React.useState<string | null>(null)
+  // The cell whose last write the server refused (for instance a total below
+  // the day's logged intervals, which answers 200 with the reason in the row).
+  // The full reason sits in the alert above the grid; this marks the field.
+  const [cellError, setCellError] = React.useState<string | null>(null)
   const [newActivity, setNewActivity] = React.useState("")
   const lang = data.Lang
   // A week a manager approved is read-only for everyone until it is reopened.
@@ -148,6 +152,9 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   async function writeCell(row: TimesheetRow, cell: TimesheetRow["Cells"][number], minutes: number): Promise<"saved" | "queued" | "failed"> {
     const key = cellKey(row.ActivityID, cell.Index)
     setSaving(key); setError("")
+    // A fresh attempt of the same cell clears its refusal marker; a refusal
+    // on another cell leaves this one marked until it is edited too.
+    setCellError(previous => (previous === key ? null : previous))
     const body = new URLSearchParams({ csrf_token: data.CSRFToken, activity_id: String(row.ActivityID), date: cell.ISO, minutes: String(minutes) })
     try {
       const response = await fetch("/api/timesheet/cell", {
@@ -168,6 +175,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       return "saved"
     } catch (cause) {
       setError(isNetworkError(cause) ? t(lang, "err.network") : cause instanceof Error ? cause.message : t(lang, "err.generic"))
+      setCellError(key)
       return "failed"
     } finally { setSaving(null) }
   }
@@ -348,9 +356,9 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
                     <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
                       <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
                   </span>
-                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="w-20 shrink-0 px-2 text-center font-mono tabular-nums" name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null) }} aria-invalid={invalid === key || undefined} onKeyDown={event => {
+                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className={`w-20 shrink-0 px-2 text-center font-mono tabular-nums ${cellError === key ? "ring-2 ring-destructive" : ""}`} name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null); if (cellError === key) setCellError(null) }} aria-invalid={invalid === key || cellError === key || undefined} onKeyDown={event => {
                   if (event.key === "Enter") { event.preventDefault(); const typed = event.currentTarget.value; void saveCell(row, cell, typed, true); if (readable(typed)) moveFrom(event.currentTarget, 1) }
-                  else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : <span aria-hidden="true" className="block h-4" />}</span>
+                  else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : cellError === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.cellRefused")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : <span aria-hidden="true" className="block h-4" />}</span>
                   <Button type="button" variant="ghost" size="icon" className="ts-row-clear shrink-0" disabled={busy || approved} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button>
                 </div>
               })}
@@ -375,9 +383,9 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
               return <TableCell key={cell.ISO} className={`p-1 text-center align-top ${cell.IsToday ? "bg-muted/70" : ""}`}>
-                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className="h-8 w-16 px-1 text-center font-mono text-xs tabular-nums" name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null) }} aria-invalid={invalid === key || undefined} onKeyDown={event => {
+                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className={`h-8 w-16 px-1 text-center font-mono text-xs tabular-nums ${cellError === key ? "ring-2 ring-destructive" : ""}`} name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null); if (cellError === key) setCellError(null) }} aria-invalid={invalid === key || cellError === key || undefined} onKeyDown={event => {
                   if (event.key === "Enter") { event.preventDefault(); const typed = event.currentTarget.value; void saveCell(row, cell, typed, true); if (readable(typed)) moveFrom(event.currentTarget, 1) }
-                  else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : <span aria-hidden="true" className="block h-4" />}
+                  else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : cellError === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.cellRefused")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : <span aria-hidden="true" className="block h-4" />}
               </TableCell>
             })}
             <TableCell className="whitespace-nowrap px-3 py-2 text-right font-mono leading-tight tabular-nums" title={row.RowTotalLabel}>{totalClock(row.RowTotal)}</TableCell>

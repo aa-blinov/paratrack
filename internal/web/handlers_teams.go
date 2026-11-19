@@ -317,6 +317,8 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "flash.returned"), true
 	case "invoice_deleted":
 		return i18n.T(lang, "inv.deleted"), true
+	case "run_deleted":
+		return i18n.T(lang, "pay.runDeleted"), true
 	case "left":
 		return i18n.T(lang, "flash.left"), true
 	case "webhook.created":
