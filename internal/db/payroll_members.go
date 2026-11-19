@@ -17,6 +17,7 @@ import (
 func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPayRequest) error {
 	teamID, userID, callerID := request.TeamID, request.UserID, request.CallerID
 	payCents, capacityMinutes := request.PayCents, request.CapacityMinutes
+	kind, monthlyPayCents := request.Kind, request.MonthlyPayCents
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -54,6 +55,22 @@ func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPay
 		sets = append(sets, "capacity_minutes = ?")
 		args = append(args, *capacityMinutes)
 	}
+	if kind != nil {
+		// The pay kind is exactly one of the two: an unknown name would make
+		// the member invisible to both pays at once (FIN-26).
+		if *kind != "hourly" && *kind != "monthly" {
+			return fmt.Errorf("pay kind must be hourly or monthly")
+		}
+		sets = append(sets, "pay_kind = ?")
+		args = append(args, *kind)
+	}
+	if monthlyPayCents != nil {
+		if *monthlyPayCents < 0 {
+			return fmt.Errorf("pay must be >= 0")
+		}
+		sets = append(sets, "monthly_pay_cents = ?")
+		args = append(args, *monthlyPayCents)
+	}
 	if len(sets) == 0 {
 		return tx.Commit()
 	}
@@ -77,7 +94,7 @@ func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPay
 // member in one query for payroll roster views.
 func (d *DB) ListMemberPayrollSettings(ctx context.Context, teamID int64) ([]model.MemberPayrollSettings, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT user_id, COALESCE(hourly_pay_cents, 0), COALESCE(capacity_minutes, 0)
+		`SELECT user_id, COALESCE(pay_kind, 'hourly'), COALESCE(hourly_pay_cents, 0), COALESCE(monthly_pay_cents, 0), COALESCE(capacity_minutes, 0)
 		 FROM memberships WHERE team_id = ? ORDER BY user_id`, teamID)
 	if err != nil {
 		return nil, err
@@ -86,7 +103,7 @@ func (d *DB) ListMemberPayrollSettings(ctx context.Context, teamID int64) ([]mod
 	var settings []model.MemberPayrollSettings
 	for rows.Next() {
 		var item model.MemberPayrollSettings
-		if err := rows.Scan(&item.UserID, &item.PayCents, &item.CapacityMinutes); err != nil {
+		if err := rows.Scan(&item.UserID, &item.Kind, &item.PayCents, &item.MonthlyPayCents, &item.CapacityMinutes); err != nil {
 			return nil, err
 		}
 		settings = append(settings, item)

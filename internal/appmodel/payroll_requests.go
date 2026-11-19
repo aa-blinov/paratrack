@@ -23,4 +23,9 @@ type PayrollMemberPayRequest struct {
 	CallerID        int64
 	PayCents        *int
 	CapacityMinutes *int
+	// Kind switches how the member is paid (FIN-26): nil keeps the current
+	// kind, "hourly" prices tracked time by PayCents, "monthly" pays the
+	// fixed MonthlyPayCents per calendar month a run covers.
+	Kind            *string
+	MonthlyPayCents *int
 }

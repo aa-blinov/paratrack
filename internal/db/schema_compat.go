@@ -59,6 +59,11 @@ var columnMigrations = []struct {
 	{"sessions", "user_id", "BIGINT"},
 	{"memberships", "hourly_pay_cents", "BIGINT"},
 	{"memberships", "capacity_minutes", "BIGINT"},
+	// The pay kind (FIN-26/UX-22): 'hourly' pays tracked time by the rate,
+	// 'monthly' pays the fixed salary per calendar month the run covers.
+	// monthly_pay_cents holds that salary.
+	{"memberships", "pay_kind", "TEXT NOT NULL DEFAULT 'hourly'"},
+	{"memberships", "monthly_pay_cents", "BIGINT NOT NULL DEFAULT 0"},
 	{"memberships", "admin_minutes", "BIGINT"},
 	// Currency: the workspace default, a project override ('' = inherit),
 	// and the currency fixed on each document when it is created.

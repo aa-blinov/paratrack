@@ -951,7 +951,7 @@ export interface TeamMembersData {
   User: { ID: number; Email: string; Name: string }
   Members: Array<{ UserID: number; Email: string; Name: string; Role: string }>
   Former: Array<{ UserID: number; Email: string; Name: string; LeftAt: string }>
-  Pay: Record<string, { Rate: string; Capacity: number }>
+  Pay: Record<string, { Rate: string; Capacity: number; Kind?: "hourly" | "monthly"; Monthly?: string }>
   IsOwner: boolean
   Flash: string
   FlashOK: boolean

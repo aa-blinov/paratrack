@@ -475,7 +475,26 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 		}
 		cap = &n
 	}
-	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap}); err != nil {
+	// The pay kind (FIN-26): the select travels on every save of this form, so
+	// a save also pins the member's kind; both money fields travel with it.
+	// An older caller that sends no kind keeps the kind as it is.
+	var kind *string
+	switch v := r.PostForm.Get("pay_kind"); v {
+	case "hourly", "monthly":
+		kind = &v
+	case "":
+	default:
+		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, "bad pay kind"), http.StatusSeeOther)
+		return
+	}
+	var monthly *int
+	if n, has, err := formCents(r, "monthly_pay"); err != nil {
+		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+		return
+	} else if has {
+		monthly = &n
+	}
+	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly}); err != nil {
 		if errors.Is(err, appmodel.ErrForbidden) || errors.Is(err, appmodel.ErrNotFound) {
 			http.Redirect(w, r, "/settings/members?flash=forbidden", http.StatusSeeOther)
 			return
