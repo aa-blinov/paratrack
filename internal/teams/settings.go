@@ -53,6 +53,11 @@ func (s *Service) UpdateBilling(ctx context.Context, request appmodel.TeamBillin
 	if !validInvoicePrefix(b.InvoicePrefix) {
 		return fmt.Errorf("%w: invalid invoice prefix", ErrInvalidBilling)
 	}
+	switch b.Recurring {
+	case "", "1st":
+	default:
+		return fmt.Errorf("%w: unsupported recurring schedule", ErrInvalidBilling)
+	}
 	request.Rules = b
 	if err := s.settings.SetTeamBilling(ctx, request); err != nil {
 		return fmt.Errorf("update team billing settings: %w", err)

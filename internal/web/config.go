@@ -20,6 +20,13 @@ type RuntimeDependencies struct {
 	WebhookDeliveryWorker WebhookDeliveryWorker
 	ReminderWorker        ReminderWorker
 	CalendarSyncWorker    CalendarSyncWorker
+	RecurringInvoices     RecurringInvoicesWorker
+}
+
+// RecurringInvoicesWorker runs the invoice schedule (UX-20) until its context
+// ends: drafts for the previous month in the workspaces that switched it on.
+type RecurringInvoicesWorker interface {
+	RunRecurring(context.Context, time.Duration)
 }
 
 // CalendarSyncWorker runs the calendar sync schedule until its context ends.

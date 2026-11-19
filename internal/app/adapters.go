@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -12,6 +13,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/invoicing"
 	"github.com/aa-blinov/paratrack/internal/mail"
 	"github.com/aa-blinov/paratrack/internal/mailport"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/push"
 	"github.com/aa-blinov/paratrack/internal/reminders"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
@@ -217,4 +219,81 @@ func (clients idleHTTPClients) Close() error {
 		client.CloseIdleConnections()
 	}
 	return nil
+}
+
+// recurringInvoicesMail hands the "ready to issue" letter (UX-20) to the
+// managers who issue invoices: each one's own language and mailbox, through
+// the durable outbox. A person without an address gets no letter, and with no
+// mail configured there is nothing to queue — the drafts still appear in the
+// invoices list.
+type recurringInvoicesMail struct {
+	sender     mail.Sender
+	identities interface {
+		FindIdentitiesByID(context.Context, []int64) (map[int64]appmodel.UserIdentity, error)
+	}
+	preferences interface {
+		Load(context.Context, int64) (appmodel.UserPreferences, error)
+	}
+	queue interface {
+		EnqueueReminder(context.Context, mailport.ReminderQueueRequest) error
+	}
+	managers interface {
+		ManagerIDs(context.Context, int64) ([]int64, error)
+	}
+}
+
+func (a recurringInvoicesMail) ReadyToIssue(ctx context.Context, teamID int64, month string, drafts []invoicing.DraftSummary, skipped []invoicing.SkippedDraft) {
+	if a.sender == nil || !mail.Available(a.sender) || (len(drafts) == 0 && len(skipped) == 0) {
+		return
+	}
+	managers, err := a.managers.ManagerIDs(ctx, teamID)
+	if err != nil {
+		return
+	}
+	for _, userID := range managers {
+		lang := i18n.Normalize("")
+		if prefs, err := a.preferences.Load(ctx, userID); err == nil {
+			lang = i18n.Normalize(prefs.Language)
+		}
+		subject, text := recurringLetterText(lang, month, drafts, skipped)
+		identities, err := a.identities.FindIdentitiesByID(ctx, []int64{userID})
+		if err != nil {
+			continue
+		}
+		user, ok := identities[userID]
+		if !ok || user.Email == "" {
+			continue
+		}
+		if err := a.queue.EnqueueReminder(ctx, mailport.ReminderQueueRequest{
+			TeamID: teamID, Recipient: user.Email,
+			Message: mailport.Message{To: user.Email, Subject: subject, Text: text},
+		}); err != nil {
+			continue
+		}
+	}
+}
+
+// recurringLetterText keeps the letter honest: what became ready (numbers, not
+// vibes), what did not and the next step for it.
+func recurringLetterText(lang i18n.Lang, month string, drafts []invoicing.DraftSummary, skipped []invoicing.SkippedDraft) (string, string) {
+	subject := fmt.Sprintf(i18n.T(lang, "mail.recurring.subject"), month)
+	var lines []string
+	for _, draft := range drafts {
+		lines = append(lines, fmt.Sprintf(i18n.T(lang, "mail.recurring.line"),
+			draft.Number, draft.Project, money.FormatCents(draft.AmountCents)+" "+draft.Currency))
+	}
+	for _, skip := range skipped {
+		if len(skip.UnapprovedWeeks) == 0 {
+			continue
+		}
+		var weeks []string
+		for _, week := range skip.UnapprovedWeeks {
+			weeks = append(weeks, week.Format("02.01"))
+		}
+		lines = append(lines, fmt.Sprintf(i18n.T(lang, "mail.recurring.skipped"),
+			skip.Project, strings.Join(weeks, ", ")))
+	}
+	text := fmt.Sprintf(i18n.T(lang, "mail.recurring.intro"), month) + "\n\n" + strings.Join(lines, "\n") +
+		"\n\n" + i18n.T(lang, "mail.recurring.outro")
+	return subject, text
 }

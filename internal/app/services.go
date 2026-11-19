@@ -220,6 +220,14 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 	if err != nil {
 		return nil, fmt.Errorf("construct scheduling service: %w", err)
 	}
+	// The recurring invoice schedule (UX-20) rides the same persistence adapter
+	// and the same mail queue; it starts when the web process starts the workers.
+	if err := invoiceService.StartRecurring(database, recurringInvoicesMail{
+		sender: reminderMailer, identities: authService, preferences: preferenceService,
+		queue: mailQueueService, managers: database,
+	}, now); err != nil {
+		return nil, fmt.Errorf("construct recurring invoice schedule: %w", err)
+	}
 	agentActionService, err := agentactions.New(database)
 	if err != nil {
 		return nil, fmt.Errorf("construct agent action queue: %w", err)

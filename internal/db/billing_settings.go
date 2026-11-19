@@ -26,8 +26,8 @@ type invoiceQueryer interface {
 
 func billingRules(ctx context.Context, queryer invoiceQueryer, teamID int64) (BillingRules, error) {
 	var b BillingRules
-	err := queryer.QueryRowContext(ctx, `SELECT round_minutes, round_mode, invoice_prefix, logo FROM teams WHERE id = ?`, teamID).
-		Scan(&b.RoundMinutes, &b.RoundMode, &b.InvoicePrefix, &b.Logo)
+	err := queryer.QueryRowContext(ctx, `SELECT round_minutes, round_mode, invoice_prefix, logo, recurring_invoices FROM teams WHERE id = ?`, teamID).
+		Scan(&b.RoundMinutes, &b.RoundMode, &b.InvoicePrefix, &b.Logo, &b.Recurring)
 	if errors.Is(err, sql.ErrNoRows) {
 		return BillingRules{}, model.ErrNotFound
 	}
@@ -38,8 +38,8 @@ func billingRules(ctx context.Context, queryer invoiceQueryer, teamID int64) (Bi
 }
 
 func (d *DB) SetTeamBilling(ctx context.Context, request appmodel.TeamBillingRequest) error {
-	return d.execOwnerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET round_minutes = ?, round_mode = ?, invoice_prefix = ? WHERE id = ?`,
-		request.Rules.RoundMinutes, request.Rules.RoundMode, request.Rules.InvoicePrefix, request.TeamID)
+	return d.execOwnerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET round_minutes = ?, round_mode = ?, invoice_prefix = ?, recurring_invoices = ? WHERE id = ?`,
+		request.Rules.RoundMinutes, request.Rules.RoundMode, request.Rules.InvoicePrefix, request.Rules.Recurring, request.TeamID)
 }
 
 func (d *DB) SetTeamLogo(ctx context.Context, request appmodel.TeamLogoRequest) error {
