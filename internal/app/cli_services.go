@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/cliport"
 	"github.com/aa-blinov/paratrack/internal/db"
@@ -65,7 +66,7 @@ func NewCLIServices(database *db.DB, config CLIConfig) (*cliport.Services, io.Cl
 	if err != nil {
 		return nil, nil, err
 	}
-	resources := &applicationResources{}
+	resources := &applicationResources{shutdownBudget: 2 * time.Second}
 	pushService, err := newPushService(database, logger, shared.Audit, resources)
 	if err != nil {
 		return nil, nil, errors.Join(err, resources.Close())

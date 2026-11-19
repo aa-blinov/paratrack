@@ -42,12 +42,12 @@ func actionTime(r *http.Request) time.Time {
 
 func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("activity"))
 	if name == "" {
-		http.Error(w, "activity is required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.activityRequired"), 400)
 		return
 	}
 	note := strings.TrimSpace(r.FormValue("note"))
@@ -126,7 +126,8 @@ func (s *Server) writeTimerStartError(w http.ResponseWriter, r *http.Request, ac
 		return
 	}
 	if errors.Is(err, model.ErrActiveSessionExists) {
-		http.Error(w, fmt.Sprintf("%q already has an active session", activityName), http.StatusConflict)
+		message := strings.NewReplacer("{name}", activityName).Replace(i18n.T(resolveLang(r), "err.activeSessionExists"))
+		http.Error(w, message, http.StatusConflict)
 		return
 	}
 	s.writeInternalError(w, err)
@@ -148,7 +149,7 @@ func (s *Server) writeTaskArchived(w http.ResponseWriter, r *http.Request, err e
 func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	ctx := operationContext(r)
@@ -159,7 +160,7 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, model.ErrSessionNotActive) {
-			http.Error(w, "already stopped", http.StatusConflict)
+			http.Error(w, i18n.T(resolveLang(r), "err.alreadyStopped"), http.StatusConflict)
 			return
 		}
 		// A session in an approved week is refused with the same message as an edit.
@@ -197,7 +198,7 @@ func (s *Server) handleStop(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleReopen(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	ctx := operationContext(r)
@@ -207,11 +208,11 @@ func (s *Server) handleReopen(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, model.ErrSessionReopenExpired) {
-			http.Error(w, err.Error(), http.StatusConflict)
+			http.Error(w, i18n.T(resolveLang(r), "err.reopenExpired"), http.StatusConflict)
 			return
 		}
 		if errors.Is(err, model.ErrActiveSessionExists) {
-			http.Error(w, "activity already has an active session", http.StatusConflict)
+			http.Error(w, i18n.T(resolveLang(r), "err.activeSessionExistsPlain"), http.StatusConflict)
 			return
 		}
 		s.writeInternalError(w, err)
@@ -224,7 +225,7 @@ func (s *Server) handleReopen(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handlePause(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	ctx := r.Context()
@@ -234,11 +235,11 @@ func (s *Server) handlePause(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, model.ErrSessionNotActive) {
-			http.Error(w, "session already stopped", http.StatusConflict)
+			http.Error(w, i18n.T(resolveLang(r), "err.alreadyStopped"), http.StatusConflict)
 			return
 		}
 		if errors.Is(err, model.ErrSessionAlreadyPaused) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, i18n.T(resolveLang(r), "err.alreadyPaused"), http.StatusBadRequest)
 			return
 		}
 		s.writeInternalError(w, err)
@@ -251,7 +252,7 @@ func (s *Server) handlePause(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	ctx := r.Context()
@@ -261,14 +262,14 @@ func (s *Server) handleResume(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, model.ErrSessionNotActive) {
-			http.Error(w, "session already stopped", http.StatusConflict)
+			http.Error(w, i18n.T(resolveLang(r), "err.alreadyStopped"), http.StatusConflict)
 			return
 		}
 		if s.writeTaskArchived(w, r, err) {
 			return
 		}
 		if errors.Is(err, model.ErrSessionNotPaused) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, i18n.T(resolveLang(r), "err.notPaused"), http.StatusBadRequest)
 			return
 		}
 		s.writeInternalError(w, err)
@@ -355,7 +356,7 @@ func (s *Server) handleStopAll(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 	name := r.PathValue("name")
 	if name == "" {
-		http.Error(w, "name is required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.nameRequired"), 400)
 		return
 	}
 	act, _, err := s.services.TrackingOps.FocusActivity(operationContext(r), appmodel.TimerFocusByNameRequest{
@@ -363,7 +364,7 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {
-			http.Error(w, "activity not found", http.StatusNotFound)
+			http.Error(w, i18n.T(resolveLang(r), "err.activityNotFound"), http.StatusNotFound)
 			return
 		}
 		if s.writeTaskArchived(w, r, err) {

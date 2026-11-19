@@ -117,7 +117,7 @@ func (p integrationDetailPage) usesReactApp() bool { return p.IntegrationReact }
 // Form: provider=github|trello, name, secret, extra (repo or board id).
 func (s *Server) handleIntegrationConnect(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	provider := strings.TrimSpace(r.PostForm.Get("provider"))
@@ -155,7 +155,7 @@ func (s *Server) integrationErrorMessage(r *http.Request, err error) string {
 func (s *Server) handleIntegrationDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad id", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	request := appmodel.IntegrationMutationRequest{TeamID: teamID(r), IntegrationID: id, CallerID: authenticatedUserID(r)}
@@ -173,7 +173,7 @@ func (s *Server) handleIntegrationDelete(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleIntegrationSync(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
-		http.Error(w, "bad id", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	n, ierr := s.services.Integrations.Commands.SyncProvider(operationContext(r), appmodel.IntegrationMutationRequest{TeamID: teamID(r), IntegrationID: id, CallerID: authenticatedUserID(r)})
@@ -187,12 +187,12 @@ func (s *Server) handleIntegrationSync(w http.ResponseWriter, r *http.Request) {
 // handleIntegrationStart starts a timer on an imported task's activity.
 func (s *Server) handleIntegrationStart(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "bad form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	tid, err := strconv.ParseInt(r.PostForm.Get("task_id"), 10, 64)
 	if err != nil || tid <= 0 {
-		http.Error(w, "task_id required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	activity, _, err := s.services.ImportedTaskTracking.Start(operationContext(r), appmodel.ImportedTaskStartRequest{

@@ -117,6 +117,12 @@ Confirmed by the code:
 - Every page and every `/api/*` call passes through `requireAuth`, with a
   session cookie or a bearer `pt_` token. Reads are scoped to the workspace,
   and for a member to their own sessions.
+- The database stores the session token's SHA-256 digest, never the token, so
+  a leaked dump cannot be replayed as logins. A password change keeps the
+  browser that asked for it and signs every other device out.
+- The account can require a second factor: a TOTP code from an authenticator
+  app and ten one-time backup codes. Turning it off needs the password and a
+  live code. API tokens are unaffected.
 - Money is integer cents throughout, and the arithmetic lives in
   `internal/money`.
 
@@ -126,7 +132,10 @@ Deliberately not true, and worth knowing before a change:
   provider.
 - Live provider import needs real personal access tokens. There are no
   sandbox credentials in the repository.
-- There is no email verification on signup.
+- Email verification on signup is on by default; an operator can switch it
+  off with `PARATRACK_REQUIRE_EMAIL_VERIFICATION=0`, which is how the browser
+  suite and self-hosts without SMTP run it. The confirmation link lives 48
+  hours, and password reset confirms the address too.
 - Approval is per workspace week, so one approval covers every member's time in
   that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week has to end and be

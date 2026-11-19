@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // taskChecklistView is one step of a task's checklist on the task page (TASK-10).
@@ -36,7 +37,7 @@ func (s *Server) handleTaskChecklistAdd(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	item, err := s.services.Tasks.AddChecklistItem(r.Context(), appmodel.TaskChecklistAddRequest{
@@ -56,7 +57,7 @@ func (s *Server) handleTaskChecklistSet(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	if err := s.services.Tasks.SetChecklistItem(r.Context(), appmodel.TaskChecklistSetRequest{

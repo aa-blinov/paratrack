@@ -13,3 +13,10 @@ export async function responseMessage(response: Response): Promise<string> {
   const text = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()
   return text || response.statusText || "Request failed"
 }
+
+// fetch rejects with a TypeError when the request never left the browser, and
+// that message ("Failed to fetch") is English on every screen. The caller
+// swaps it for a phrase of its own language.
+export function isNetworkError(cause: unknown): boolean {
+  return typeof cause === "object" && cause !== null && (cause as { name?: unknown }).name === "TypeError"
+}

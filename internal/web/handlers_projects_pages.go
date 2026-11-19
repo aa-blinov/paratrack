@@ -256,7 +256,7 @@ func (s *Server) suggestedProjectColor(r *http.Request) (string, error) {
 func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request) {
 	tid := teamID(r)
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	rate, hasRate, rerr := formCents(r, "rate")
@@ -302,7 +302,7 @@ func (s *Server) handleProjectCreateForm(w http.ResponseWriter, r *http.Request)
 		BudgetCents: budgetPtr, Deadline: deadline, LeadUserID: lead, ClientID: client,
 	})
 	if err != nil {
-		flash := encodeFlash(false, s.projectFlashError(err, "create"))
+		flash := encodeFlash(false, s.projectFlashError(r, err))
 		http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 		return
 	}
@@ -326,7 +326,7 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 		slug = slug[:i]
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	update := appmodel.ProjectUpdate{Name: r.Form.Get("name"), Color: r.Form.Get("color")}
@@ -418,7 +418,7 @@ func (s *Server) handleProjectUpdateForm(w http.ResponseWriter, r *http.Request)
 			s.writeProjectLookupError(w, r, err)
 			return
 		}
-		http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, s.projectFlashError(err, "update")), http.StatusSeeOther)
+		http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(false, s.projectFlashError(r, err)), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(true, "updated"), http.StatusSeeOther)
@@ -436,7 +436,7 @@ func (s *Server) handleProjectDeleteForm(w http.ResponseWriter, r *http.Request)
 			s.writeProjectLookupError(w, r, err)
 			return
 		}
-		flash := encodeFlash(false, s.projectFlashError(err, "delete"))
+		flash := encodeFlash(false, s.projectFlashError(r, err))
 		http.Redirect(w, r, "/projects?flash="+flash, http.StatusSeeOther)
 		return
 	}
@@ -452,19 +452,22 @@ func (s *Server) writeProjectLookupError(w http.ResponseWriter, r *http.Request,
 	s.writeInternalError(w, err)
 }
 
-func (s *Server) projectFlashError(err error, action string) string {
+func (s *Server) projectFlashError(r *http.Request, err error) string {
+	// Unexpected failures keep their cause in the log; the flash stays
+	// localized instead of leaking the English internals.
+	lang := resolveLang(r)
 	switch {
 	case errors.Is(err, model.ErrAlreadyExists):
-		return "a project with that slug or name already exists"
+		return i18n.T(lang, "err.projectExists")
 	case errors.Is(err, model.ErrNotFound):
-		return "project not found"
+		return i18n.T(lang, "err.notFoundEntity")
 	case errors.Is(err, model.ErrForbidden):
-		return "manager role required"
+		return i18n.T(lang, "err.forbiddenAction")
 	case isProjectInputError(err):
-		return err.Error()
+		return i18n.T(lang, "err.invalidInput")
 	default:
 		s.logInternalError(err)
-		return "could not " + action + " project"
+		return i18n.T(lang, "err.generic")
 	}
 }
 
@@ -496,7 +499,7 @@ func (s *Server) handleProjectRate(w http.ResponseWriter, r *http.Request) {
 	}
 	caller, ok := UserFrom(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, i18n.T(resolveLang(r), "err.unauthorized"), http.StatusUnauthorized)
 		return
 	}
 	if err := s.services.Projects.Commands.UpdateRate(r.Context(), appmodel.ProjectRateRequest{TeamID: teamID(r), ProjectID: p.ID, CallerID: caller.ID, RateCents: rate, Billable: billable}); err != nil {
@@ -504,7 +507,7 @@ func (s *Server) handleProjectRate(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/projects/"+url.PathEscape(slug)+"?flash=forbidden", http.StatusSeeOther)
 			return
 		}
-		http.Redirect(w, r, "/projects/"+url.PathEscape(slug)+"?flash="+encodeFlash(false, s.projectFlashError(err, "update")), http.StatusSeeOther)
+		http.Redirect(w, r, "/projects/"+url.PathEscape(slug)+"?flash="+encodeFlash(false, s.projectFlashError(r, err)), http.StatusSeeOther)
 		return
 	}
 	http.Redirect(w, r, "/projects/"+slug+"?flash="+encodeFlash(true, "updated"), http.StatusSeeOther)
@@ -532,7 +535,7 @@ func (s *Server) clientOptions(r *http.Request) []clientRef {
 func (s *Server) handleProjectWeeklyNorm(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	lang := resolveLang(r)

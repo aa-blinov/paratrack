@@ -3,6 +3,7 @@ package web
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -34,9 +35,20 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /register", s.handleRegister)
 	mux.HandleFunc("GET /lang/{code}", s.handleSetLang)
 	// Per account from an address, plus a ceiling per address (an office
-	// shares one IP).
-	mux.Handle("POST /api/login", s.rateLimit("login-ip", 200, time.Minute)(s.rateLimit("login", 10, time.Minute, "email")(http.HandlerFunc(s.handleAPILogin))))
-	mux.Handle("POST /api/register", s.rateLimit("register", 30, time.Minute)(http.HandlerFunc(s.handleAPIRegister)))
+	// shares one IP), plus a per-account ceiling across all addresses: a
+	// botnet spreading over IPs must not outvote the per-address budget.
+	mux.Handle("POST /api/login",
+		s.rateLimitKeyed("login-account", 20, time.Minute, func(r *http.Request) string {
+			return strings.ToLower(strings.TrimSpace(r.FormValue("email")))
+		})(
+			s.rateLimit("login-ip", 200, time.Minute)(
+				s.rateLimit("login", 10, time.Minute, "email")(http.HandlerFunc(s.handleAPILogin)))))
+	// Registration is throttled per address and per mailbox: a botnet can
+	// rotate addresses, but mass-created accounts are noise in every
+	// workspace list from the first minute.
+	mux.Handle("POST /api/register",
+		s.rateLimit("register", 30, time.Minute)(
+			s.rateLimit("register-email", 10, time.Minute, "email")(http.HandlerFunc(s.handleAPIRegister))))
 	mux.HandleFunc("POST /api/logout", s.handleAPILogout)
 
 	staticFS, _ := fs.Sub(assets, "static")
@@ -47,7 +59,9 @@ func (s *Server) routes() http.Handler {
 	mux.HandleFunc("GET /static/manifest.webmanifest", s.handleManifest)
 	mux.HandleFunc("POST /api/stripe/webhook", s.handleStripeWebhook)
 	// Browser error reports are relayed to Sentry only for our configured DSN.
-	mux.HandleFunc("POST /sentry-tunnel", s.handleSentryTunnel)
+	// The relay is rate-limited like any other public POST: an open tunnel is
+	// a way to drain the Sentry quota with garbage envelopes.
+	mux.Handle("POST /sentry-tunnel", s.rateLimit("sentry-tunnel", 60, time.Minute)(http.HandlerFunc(s.handleSentryTunnel)))
 	// A client's link to an invoice's PDF: the token is the key, and the rate limit keeps
 	// guessing slow (FIN-13).
 	mux.Handle("GET /share/invoices/{token}", s.rateLimit("share-invoice", 120, time.Minute)(http.HandlerFunc(s.handleSharedInvoicePDF)))

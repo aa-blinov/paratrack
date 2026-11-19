@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 )
 
 // taskLinkView is a task named on the other end of a dependency (TASK-11).
@@ -22,7 +23,7 @@ func (s *Server) handleTaskDependencyAdd(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	dependsOn, _ := strconv.ParseInt(r.PostForm.Get("depends_on"), 10, 64)

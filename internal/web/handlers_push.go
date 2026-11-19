@@ -28,7 +28,7 @@ func (s *Server) handlePushKey(w http.ResponseWriter, r *http.Request) {
 // Body: endpoint, p256dh, auth.
 func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	endpoint := strings.TrimSpace(r.PostForm.Get("endpoint"))
@@ -36,14 +36,14 @@ func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 	auth := strings.TrimSpace(r.PostForm.Get("auth"))
 	u, ok := UserFrom(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, i18n.T(resolveLang(r), "err.unauthorized"), http.StatusUnauthorized)
 		return
 	}
 	if err := s.services.Push.Subscribe(operationContext(r), appmodel.PushSubscribeRequest{
 		TeamID: teamID(r), UserID: u.ID, CallerID: u.ID, Endpoint: endpoint, PublicKey: p256dh, AuthSecret: auth,
 	}); err != nil {
 		if errors.Is(err, appmodel.ErrInvalidPushSubscription) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, i18n.T(resolveLang(r), "err.invalidSubscription"), http.StatusBadRequest)
 		} else {
 			s.writeInternalError(w, err)
 		}
@@ -55,17 +55,17 @@ func (s *Server) handlePushSubscribe(w http.ResponseWriter, r *http.Request) {
 // handlePushUnsubscribe drops a subscription by endpoint.
 func (s *Server) handlePushUnsubscribe(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	endpoint := strings.TrimSpace(r.PostForm.Get("endpoint"))
 	if endpoint == "" {
-		http.Error(w, "endpoint is required", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	u, ok := UserFrom(r.Context())
 	if !ok {
-		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		http.Error(w, i18n.T(resolveLang(r), "err.unauthorized"), http.StatusUnauthorized)
 		return
 	}
 	if err := s.services.Push.UnsubscribeForMember(operationContext(r), appmodel.PushUnsubscribeRequest{TeamID: teamID(r), UserID: u.ID, CallerID: u.ID, Endpoint: endpoint}); err != nil {

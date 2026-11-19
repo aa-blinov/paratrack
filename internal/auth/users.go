@@ -403,6 +403,7 @@ func (s *Service) ChangePassword(ctx context.Context, request appmodel.PasswordC
 	}
 	updated, err := s.users.UpdateUserPasswordIfHashMatches(ctx, appmodel.PasswordHashUpdateRequest{
 		UserID: userID, CallerID: request.CallerID, ExpectedHash: user.PasswordHash, PasswordHash: string(hash),
+		KeepSessionToken: strings.TrimSpace(request.SessionToken),
 	})
 	if err != nil {
 		return mapStoreNotFound(err)
@@ -459,8 +460,13 @@ func (s *Service) ChangeEmail(ctx context.Context, request appmodel.ProfileEmail
 	return nil
 }
 
+// bcryptCost is above the library default: a login is not hot-path enough to
+// price a weaker hash, and an existing hash verifies at its own recorded
+// cost, so raising this only changes how new passwords are stored.
+const bcryptCost = 12
+
 func hashPassword(password string) ([]byte, error) {
-	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	return bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 }
 
 func identityOf(user User) appmodel.UserIdentity {

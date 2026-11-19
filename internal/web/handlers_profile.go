@@ -154,9 +154,16 @@ func (s *Server) handleAPIProfilePassword(w http.ResponseWriter, r *http.Request
 	}
 	newPassword := r.PostForm.Get("new_password")
 	currentPassword := r.PostForm.Get("current_password")
+	// The browser session that asked for the change stays signed in; the
+	// persistence layer revokes every other session with the password. A
+	// bearer-token caller has no session to keep and loses all of them.
+	sessionToken := ""
+	if cookie, err := r.Cookie(sessionCookieName); err == nil {
+		sessionToken = strings.TrimSpace(cookie.Value)
+	}
 	// A live session alone must not be enough to take over the account.
-	if err := s.services.Auth.Profile.ChangePassword(r.Context(), appmodel.PasswordChangeRequest{UserID: user.ID, CallerID: user.ID, CurrentPassword: currentPassword, NewPassword: newPassword}); errors.Is(err, appmodel.ErrAuthBadPassword) {
-		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "current password is wrong"), http.StatusSeeOther)
+	if err := s.services.Auth.Profile.ChangePassword(r.Context(), appmodel.PasswordChangeRequest{UserID: user.ID, CallerID: user.ID, CurrentPassword: currentPassword, NewPassword: newPassword, SessionToken: sessionToken}); errors.Is(err, appmodel.ErrAuthBadPassword) {
+		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "e:profile.passwordWrong"), http.StatusSeeOther)
 		return
 	} else if err != nil {
 		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, s.profileErrorMessage(r, err)), http.StatusSeeOther)
@@ -182,11 +189,11 @@ func (s *Server) handleAPIProfileEmail(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case errors.Is(err, appmodel.ErrAuthBadPassword):
-		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "profile.current password is wrong"), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "e:profile.passwordWrong"), http.StatusSeeOther)
 	case errors.Is(err, appmodel.ErrAuthEmailTaken):
-		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "profile.email is taken"), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "e:profile.emailTaken"), http.StatusSeeOther)
 	case errors.Is(err, appmodel.ErrAuthInvalidEmail):
-		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "profile.email is invalid"), http.StatusSeeOther)
+		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, "e:profile.emailInvalid"), http.StatusSeeOther)
 	case err != nil:
 		http.Redirect(w, r, "/settings/profile?flash="+encodeFlash(false, s.profileErrorMessage(r, err)), http.StatusSeeOther)
 	default:

@@ -59,7 +59,7 @@ func (s *Server) timeEditViews(r *http.Request) ([]timeEditView, error) {
 // handleTimeEditCreate records a member's request to change one of their timesheet cells (TIME-19).
 func (s *Server) handleTimeEditCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	activityID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("activity_id")), 10, 64)
@@ -92,7 +92,7 @@ func (s *Server) handleTimeEditDecision(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	if err := s.services.Tracking.Commands.DecideTimeEdit(r.Context(), appmodel.TimeEditDecisionRequest{

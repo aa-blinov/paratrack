@@ -156,7 +156,7 @@ func (s *Server) handleUpdateSession(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	if err := s.services.TrackingOps.Delete(operationContext(r), appmodel.SessionDeleteRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), SessionID: id}); err != nil {
@@ -164,7 +164,7 @@ func (s *Server) handleDeleteSession(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if errors.Is(err, model.ErrNotFound) {
-			http.Error(w, "session not found", 404)
+			http.Error(w, i18n.T(resolveLang(r), "err.sessionNotFound"), 404)
 			return
 		}
 		s.writeInternalError(w, err)

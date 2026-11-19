@@ -13,7 +13,10 @@ import (
 func TestMemberMarksADayAndTheTeamWeekShowsIt(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("day-mark@x.test")
-	today := time.Now().UTC().Format("2006-01-02")
+	// The mark is parsed in the viewer's zone, which for a fresh account is
+	// the machine's own; a UTC string would name yesterday's day during an
+	// evening run on a machine ahead of UTC.
+	today := time.Now().In(time.Local).Format("2006-01-02")
 
 	saved := e.do("POST", "/api/day-marks", url.Values{"day": {today}, "kind": {"overload"}, "note": {"релиз"}}, nil)
 	readBody(t, saved)

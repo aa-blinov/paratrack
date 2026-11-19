@@ -17,6 +17,21 @@ import (
 // the currency of their row, with two digits and no minor units in the column name.
 var reportCSVHeader = []string{"key", "hours", "seconds", "rate", "amount", "currency", "share"}
 
+// csvNeutralizeCell stops a spreadsheet from reading a cell as a formula. A
+// leading =, +, -, @ or tab is how Excel and 1С decide a cell computes; an
+// apostrophe in front makes the same text a literal. Only cells that can
+// carry user-entered names and notes pass through it, never numbers or dates.
+func csvNeutralizeCell(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r':
+		return "'" + s
+	}
+	return s
+}
+
 // writeReportCSV writes a report as RFC 4180 CSV. Hours use a decimal point in any
 // language, so a spreadsheet and an accountant read the same number. A rate that
 // varies inside a row is left empty, as it is on screen.
@@ -31,7 +46,7 @@ func writeReportCSV(w io.Writer, rows []reportRow) error {
 			rate = money.FormatCents(row.RateCents)
 		}
 		if err := out.Write([]string{
-			row.Key, formatHoursDecimal(row.Secs), strconv.Itoa(row.Secs), rate,
+			csvNeutralizeCell(row.Key), formatHoursDecimal(row.Secs), strconv.Itoa(row.Secs), rate,
 			money.FormatCents(row.AmountCents), row.Currency, fmt.Sprintf("%.1f", row.Share),
 		}); err != nil {
 			return err
@@ -58,7 +73,7 @@ func writeTaskReportCSV(w io.Writer, rows []taskReportRow) error {
 			estimate = formatHoursDecimal(row.EstimateMin * 60)
 		}
 		if err := out.Write([]string{
-			row.Title, row.ProjectName, row.AssigneeName, row.Status, estimate,
+			csvNeutralizeCell(row.Title), csvNeutralizeCell(row.ProjectName), csvNeutralizeCell(row.AssigneeName), row.Status, estimate,
 			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds), row.Due,
 		}); err != nil {
 			return err
@@ -82,7 +97,8 @@ func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc
 		start, end := row.Start.In(loc), row.End.In(loc)
 		if err := out.Write([]string{
 			start.Format("2006-01-02"), start.Format("15:04"), end.Format("15:04"),
-			row.Person, row.Project, row.Activity, formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds),
+			csvNeutralizeCell(row.Person), csvNeutralizeCell(row.Project), csvNeutralizeCell(row.Activity),
+			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds),
 		}); err != nil {
 			return err
 		}
@@ -138,7 +154,7 @@ func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, exec
 	}
 	for _, row := range rows {
 		if err := out.Write([]string{
-			row.InvoiceNumber, row.IssuedAt.In(loc).Format("2006-01-02"), row.Client, executor, row.Label,
+			row.InvoiceNumber, row.IssuedAt.In(loc).Format("2006-01-02"), csvNeutralizeCell(row.Client), csvNeutralizeCell(executor), csvNeutralizeCell(row.Label),
 			d.number(formatHoursDecimal(row.Seconds)), d.number(money.FormatCents(row.RateCents)), d.number(money.FormatCents(row.AmountCents)),
 			row.Currency, row.Status, unapprovedWeeksCell(row.UnapprovedWeeks),
 		}); err != nil {

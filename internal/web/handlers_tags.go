@@ -36,17 +36,17 @@ func (s *Server) handleTagsList(w http.ResponseWriter, r *http.Request) {
 // refreshes in place; plain requests keep the JSON shape.
 func (s *Server) handleTagsCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		http.Error(w, "name is required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.nameRequired"), 400)
 		return
 	}
 	t, err := s.services.Tagging.Commands.CreateForMember(r.Context(), appmodel.TagCreateRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Name: name})
 	if err != nil {
-		s.writeTagCreateError(w, err)
+		s.writeTagCreateError(w, r, err)
 		return
 	}
 	s.toastL(w, r, "toast.tagReady", t.Name, "success")
@@ -58,12 +58,12 @@ func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
 	idStr := strings.TrimSpace(r.URL.Query().Get("id"))
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, "id query param required (int64)", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	if err := s.services.Tagging.Commands.Delete(r.Context(), appmodel.TagDeleteRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), TagID: id}); err != nil {
 		if errors.Is(err, appmodel.ErrTagNotFound) {
-			http.Error(w, "tag not found", 404)
+			http.Error(w, i18n.T(resolveLang(r), "err.tagNotFound"), 404)
 			return
 		}
 		s.writeInternalError(w, err)
@@ -78,17 +78,17 @@ func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
 // page list refreshes in place; plain requests keep the JSON shape.
 func (s *Server) handleTagsRename(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	id, err := parseID(strings.TrimSpace(r.FormValue("id")))
 	if err != nil {
-		http.Error(w, "id query param required (int64)", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		http.Error(w, "name is required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.nameRequired"), 400)
 		return
 	}
 	t, err := s.services.Tagging.Commands.Rename(r.Context(), appmodel.TagRenameRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), TagID: id, Name: name})
@@ -105,20 +105,20 @@ func (s *Server) handleTagsRename(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessionTagAdd(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		http.Error(w, "name is required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.nameRequired"), 400)
 		return
 	}
 	if err := s.services.Tagging.Commands.AttachForMember(r.Context(), appmodel.SessionTagRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), SessionID: id, Name: name}); err != nil {
-		s.writeTagSessionError(w, err)
+		s.writeTagSessionError(w, r, err)
 		return
 	}
 	s.toastL(w, r, "toast.tagged", name, "success")
@@ -129,39 +129,39 @@ func (s *Server) handleSessionTagAdd(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleSessionTagRemove(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r.PathValue("id"))
 	if err != nil {
-		http.Error(w, err.Error(), 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), 400)
 		return
 	}
 	name := strings.TrimSpace(r.URL.Query().Get("name"))
 	if name == "" {
-		http.Error(w, "name query param required", 400)
+		http.Error(w, i18n.T(resolveLang(r), "err.nameRequired"), 400)
 		return
 	}
 	if err := s.services.Tagging.Commands.DetachForMember(r.Context(), appmodel.SessionTagRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), SessionID: id, Name: name}); err != nil {
-		s.writeTagSessionError(w, err)
+		s.writeTagSessionError(w, r, err)
 		return
 	}
 	s.toastL(w, r, "toast.untagged", name, "success")
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (s *Server) writeTagSessionError(w http.ResponseWriter, err error) {
+func (s *Server) writeTagSessionError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, model.ErrNotFound), errors.Is(err, appmodel.ErrTagNotFound):
-		http.Error(w, "session or tag not found", http.StatusNotFound)
+		http.Error(w, i18n.T(resolveLang(r), "err.notFoundEntity"), http.StatusNotFound)
 	case errors.Is(err, model.ErrForbidden):
-		http.Error(w, "workspace membership required", http.StatusForbidden)
+		http.Error(w, i18n.T(resolveLang(r), "err.forbiddenAction"), http.StatusForbidden)
 	default:
 		s.writeInternalError(w, err)
 	}
 }
 
-func (s *Server) writeTagCreateError(w http.ResponseWriter, err error) {
+func (s *Server) writeTagCreateError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, appmodel.ErrInvalidTagTeam), errors.Is(err, appmodel.ErrInvalidTag):
-		http.Error(w, "invalid tag", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 	case errors.Is(err, model.ErrForbidden):
-		http.Error(w, "workspace membership required", http.StatusForbidden)
+		http.Error(w, i18n.T(resolveLang(r), "err.forbiddenAction"), http.StatusForbidden)
 	default:
 		s.writeInternalError(w, err)
 	}
@@ -177,9 +177,9 @@ func (s *Server) writeTagRenameError(w http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, appmodel.ErrInvalidTagTeam), errors.Is(err, appmodel.ErrInvalidTag):
 		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 	case errors.Is(err, appmodel.ErrTagNotFound):
-		http.Error(w, "tag not found", http.StatusNotFound)
+		http.Error(w, i18n.T(resolveLang(r), "err.tagNotFound"), http.StatusNotFound)
 	case errors.Is(err, model.ErrForbidden):
-		http.Error(w, "workspace membership required", http.StatusForbidden)
+		http.Error(w, i18n.T(resolveLang(r), "err.forbiddenAction"), http.StatusForbidden)
 	default:
 		s.writeInternalError(w, err)
 	}

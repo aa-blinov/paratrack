@@ -17,10 +17,11 @@ declare global {
 }
 
 import { PALETTE_HEX } from "@/lib/activity-color"
+import { translate as t } from "@/i18n"
 
 // Localised short units, as the rest of the interface writes them.
 export function durationUnits(lang: string): [string, string, string] {
-  return lang === "ru" ? [" ч", " мин", " с"] : ["h", "m", "s"]
+  return [t(lang, "graph.hourShort"), t(lang, "graph.minShort"), t(lang, "graph.secShort")]
 }
 
 // The theme tokens live on #paratrack-react-root (the CSS is scoped there),

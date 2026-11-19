@@ -506,7 +506,7 @@ func taskEstimateMinutes(raw string) (int, error) {
 
 func (s *Server) handleTaskCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	projectID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("project_id")), 10, 64)
@@ -537,7 +537,7 @@ func (s *Server) handleTaskUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	request := appmodel.TaskUpdateRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), TaskID: id}
@@ -703,7 +703,7 @@ func (s *Server) handleTaskActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	activityID, _ := strconv.ParseInt(strings.TrimSpace(r.PostForm.Get("activity_id")), 10, 64)
@@ -828,7 +828,7 @@ func (s *Server) handleTaskComment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: "invalid form"})
+		s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
 		return
 	}
 	comment, err := s.services.Tasks.AddComment(r.Context(), appmodel.TaskCommentRequest{

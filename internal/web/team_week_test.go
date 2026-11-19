@@ -13,8 +13,12 @@ func TestManagerStatsCarriesTheTeamWeek(t *testing.T) {
 	e.register("team-week@x.test")
 	// A session recorded afterwards has ended already, so the hour is the last one before now,
 	// kept inside today.
-	now := time.Now().UTC()
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
+	// The server cuts days in the viewer's zone, which for a fresh test
+	// account is the machine's own, so compute in that zone too: on a machine
+	// ahead of UTC an evening run would otherwise write the hour onto the
+	// wrong side of the local midnight and the test would flake by clock.
+	now := time.Now().In(time.Local)
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
 	end := now.Add(-time.Minute)
 	start := now.Add(-2 * time.Hour)
 	if start.Before(midnight) {

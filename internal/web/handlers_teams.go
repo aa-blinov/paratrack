@@ -351,6 +351,12 @@ func decodeFlash(code string, lang i18n.Lang) (string, bool) {
 		return i18n.T(lang, "clients.notFound"), false
 	case "e:clients.saveFailed":
 		return i18n.T(lang, "clients.saveFailed"), false
+	case "e:profile.passwordWrong":
+		return i18n.T(lang, "profile.currentPasswordWrong"), false
+	case "e:profile.emailTaken":
+		return i18n.T(lang, "err.emailTaken"), false
+	case "e:profile.emailInvalid":
+		return i18n.T(lang, "err.badEmail"), false
 	case "clients.created":
 		return i18n.T(lang, "clients.created"), true
 	case "clients.updated":

@@ -416,18 +416,29 @@ func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopy
 		return appmodel.ErrScheduleNothingToCopy
 	}
 	now := FormatTime(d.currentTime().UTC())
-	for _, c := range cells {
+	// One statement instead of a round-trip per cell: copying a busy week
+	// held the workspace lock far longer than the write itself needs.
+	userIDs := make([]int64, len(cells))
+	projectIDs := make([]int64, len(cells))
+	days := make([]string, len(cells))
+	minutes := make([]int, len(cells))
+	for i, c := range cells {
 		day, err := time.Parse("2006-01-02", c.day)
 		if err != nil {
 			return fmt.Errorf("parse planned day %q: %w", c.day, err)
 		}
-		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO schedule_entries (team_id, user_id, project_id, day, minutes, note, created_at)
-			 VALUES (?, ?, ?, ?, ?, '', ?)
-			 ON CONFLICT (team_id, user_id, project_id, day) DO UPDATE SET minutes = excluded.minutes`,
-			teamID, c.userID, c.projectID, scheduleDay(day.AddDate(0, 0, 7)), c.minutes, now); err != nil {
-			return fmt.Errorf("copy planned cell: %w", err)
-		}
+		userIDs[i] = c.userID
+		projectIDs[i] = c.projectID
+		days[i] = scheduleDay(day.AddDate(0, 0, 7))
+		minutes[i] = c.minutes
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO schedule_entries (team_id, user_id, project_id, day, minutes, note, created_at)
+		 SELECT ?, source.user_id, source.project_id, source.day, source.minutes, '', ?
+		 FROM unnest(?::bigint[], ?::bigint[], ?::text[], ?::int[]) AS source(user_id, project_id, day, minutes)
+		 ON CONFLICT (team_id, user_id, project_id, day) DO UPDATE SET minutes = excluded.minutes`,
+		teamID, now, userIDs, projectIDs, days, minutes); err != nil {
+		return fmt.Errorf("copy planned cells: %w", err)
 	}
 	return tx.Commit()
 }

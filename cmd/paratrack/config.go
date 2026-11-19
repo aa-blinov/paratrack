@@ -28,10 +28,21 @@ type processConfig struct {
 
 func loadDatabaseConfig(logger *log.Logger, now func() time.Time) db.Config {
 	environment := strings.ToLower(strings.TrimSpace(os.Getenv("PARATRACK_ENV")))
-	return makeDatabaseConfig(environment, os.Getenv("PARATRACK_DATABASE_URL"), os.Getenv("PARATRACK_SECRET_KEY"), logger, now)
+	return makeDatabaseConfig(environment, os.Getenv("PARATRACK_DATABASE_URL"), os.Getenv("PARATRACK_SECRET_KEY"), logger, now, os.Getenv("PARATRACK_DB_MAX_CONNS"))
 }
 
-func makeDatabaseConfig(environment, databaseURL, secretKey string, logger *log.Logger, now func() time.Time) db.Config {
+// parseDBMaxConns reads the pool override. An unset or invalid value keeps
+// the database package's default rather than failing startup: a mistyped
+// number should not take a self-hosted instance down.
+func parseDBMaxConns(raw string) int {
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || value <= 0 {
+		return 0
+	}
+	return value
+}
+
+func makeDatabaseConfig(environment, databaseURL, secretKey string, logger *log.Logger, now func() time.Time, rawMaxConns string) db.Config {
 	if now == nil {
 		now = time.Now
 	}
@@ -44,6 +55,7 @@ func makeDatabaseConfig(environment, databaseURL, secretKey string, logger *log.
 		SecretKey:        strings.TrimSpace(secretKey),
 		RequireSecretKey: environment != "development" && environment != "test",
 		Now:              now,
+		MaxOpenConns:     parseDBMaxConns(rawMaxConns),
 	}
 }
 
@@ -175,7 +187,7 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 		Password: getenv("PARATRACK_SMTP_PASS"), From: getenv("PARATRACK_MAIL_FROM"),
 	}
 	return processConfig{
-		database: makeDatabaseConfig(environment, getenv("PARATRACK_DATABASE_URL"), getenv("PARATRACK_SECRET_KEY"), logger, now),
+		database: makeDatabaseConfig(environment, getenv("PARATRACK_DATABASE_URL"), getenv("PARATRACK_SECRET_KEY"), logger, now, getenv("PARATRACK_DB_MAX_CONNS")),
 		services: app.Config{
 			Logger:                  logger,
 			Now:                     now,

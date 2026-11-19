@@ -50,10 +50,24 @@ func ensureCSRF(w http.ResponseWriter, r *http.Request) string {
 	return issueCSRF(w, r)
 }
 
+// csrfCookieNameFor is the cookie name for this request. On HTTPS the
+// __Host- prefix applies: the browser then refuses to store a cookie of that
+// name set from any other site, so a page on a shared parent domain cannot
+// inject a known csrf pair and ride the session cookie, which travels
+// cross-site with SameSite=None. Plain HTTP keeps the legacy name, because a
+// __Host- cookie must be Secure.
+func csrfCookieNameFor(r *http.Request) string {
+	if r != nil && isSecureRequest(r) {
+		return "__Host-" + csrfCookieName
+	}
+	return csrfCookieName
+}
+
 // issueCSRF reads the cookie or mints a fresh token and sets the cookie.
 func issueCSRF(w http.ResponseWriter, r *http.Request) string {
+	name := csrfCookieNameFor(r)
 	if r != nil {
-		if c, err := r.Cookie(csrfCookieName); err == nil && c.Value != "" {
+		if c, err := r.Cookie(name); err == nil && c.Value != "" {
 			return c.Value
 		}
 	}
@@ -63,7 +77,7 @@ func issueCSRF(w http.ResponseWriter, r *http.Request) string {
 	}
 	token := base64.RawURLEncoding.EncodeToString(b[:])
 	http.SetCookie(w, &http.Cookie{
-		Name:     csrfCookieName,
+		Name:     name,
 		Value:    token,
 		Path:     "/",
 		HttpOnly: false, // JS must read it for hx-headers

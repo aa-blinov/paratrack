@@ -75,14 +75,21 @@ func TestRateLimiterBoundsDistinctKeysAndRecoversAfterCleanup(t *testing.T) {
 	}
 	l.lastGC = now
 
-	if l.allow("overflow-client") {
-		t.Fatal("new key was allowed while the limiter table was full")
+	// A table full of live keys is itself an attack state. Refusing unseen
+	// keys would hand the attacker a switch that turns the public endpoints
+	// off for every newcomer, so a new key passes untracked instead, and the
+	// per-key budget keeps holding for every key the table already holds.
+	if !l.allow("overflow-client") {
+		t.Fatal("new key was refused while the limiter table was full")
 	}
 	if _, exists := l.windows["overflow-client"]; exists {
 		t.Fatal("overflow key was stored beyond the configured capacity")
 	}
 	if got := len(l.windows); got != rateLimiterMaxKeys {
 		t.Fatalf("stored key count = %d, want %d", got, rateLimiterMaxKeys)
+	}
+	if l.allow("client-0") {
+		t.Fatal("a tracked key lost its budget because the table was full")
 	}
 
 	now = now.Add(time.Minute + time.Nanosecond)

@@ -210,7 +210,7 @@ func moneyByCurrencyOrDash(lang i18n.Lang, sums map[string]int) string {
 func (s *Server) handleClientCreate(w http.ResponseWriter, r *http.Request) {
 	lang := resolveLang(r)
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))
@@ -252,7 +252,7 @@ func (s *Server) handleClientUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "invalid form", http.StatusBadRequest)
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
 		return
 	}
 	name := strings.TrimSpace(r.FormValue("name"))

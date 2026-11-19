@@ -14,7 +14,7 @@ import type { TimesheetData, TimesheetRow } from "@/dashboard/types"
 import { TimeEditRequests } from "./time-edit-requests"
 import { activityColor } from "@/lib/activity-color"
 import { SegmentedControl } from "@/components/segmented"
-import { responseMessage } from "@/lib/response-message"
+import { isNetworkError, responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
 
 type CellResponse = {
@@ -76,7 +76,7 @@ type CellEdit = { activityId: number; activity: string; date: string; index: num
 // would silently resurrect old hours.
 const undoDepth = 10
 
-type Notice = { kind: "saved" | "restored" | "cleared"; activity: string; date?: string }
+type Notice = { kind: "saved" | "queued" | "restored" | "cleared"; activity: string; date?: string }
 
 export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   const [data, setData] = React.useState(initial)
@@ -142,9 +142,10 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     setDrafts(previous => { const next = { ...previous }; for (const key of Object.keys(next)) if (key.startsWith(prefix)) delete next[key]; return next })
   }
 
-  // writeCell sends one cell value and reports whether the server accepted it.
-  // Callers decide what the notice says, so undo can name the cell it undid.
-  async function writeCell(row: TimesheetRow, cell: TimesheetRow["Cells"][number], minutes: number) {
+  // writeCell sends one cell value and reports what came of it: saved on the
+  // server, parked in the offline queue, or refused. Callers decide what the
+  // notice says, so undo can name the cell it undid.
+  async function writeCell(row: TimesheetRow, cell: TimesheetRow["Cells"][number], minutes: number): Promise<"saved" | "queued" | "failed"> {
     const key = cellKey(row.ActivityID, cell.Index)
     setSaving(key); setError("")
     const body = new URLSearchParams({ csrf_token: data.CSRFToken, activity_id: String(row.ActivityID), date: cell.ISO, minutes: String(minutes) })
@@ -154,15 +155,20 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8", "X-CSRF-Token": data.CSRFToken,
         }, body,
       })
+      // The offline layer answers a queued write with 202 and this header:
+      // the body is a promise to send, not a grid recalculation, and reading
+      // it as one crashed the page. The typed value stays as the optimistic
+      // one until the replay lands.
+      if (response.headers.get("X-Offline-Queued")) return "queued"
       if (!response.ok) throw new Error(await responseMessage(response))
       const update = await response.json() as CellResponse
       if (update.error) throw new Error(update.error)
       applyRow(update)
       setDrafts(previous => { const next = { ...previous }; delete next[key]; return next })
-      return true
+      return "saved"
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
-      return false
+      setError(isNetworkError(cause) ? t(lang, "err.network") : cause instanceof Error ? cause.message : t(lang, "err.generic"))
+      return "failed"
     } finally { setSaving(null) }
   }
 
@@ -189,7 +195,15 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     attempted.current = { key, value }
     const before: CellEdit = { activityId: row.ActivityID, activity: row.ActivityName, date: cell.ISO, index: cell.Index, minutes: cell.Min }
     setNotice(null)
-    if (!await writeCell(row, cell, minutes)) return
+    const outcome = await writeCell(row, cell, minutes)
+    if (outcome === "failed") return
+    if (outcome === "queued") {
+      // The draft keeps the typed value as the optimistic one, and the
+      // attempted value stays: leaving the cell again must not queue the
+      // same write a second time while the first one waits for the line.
+      setNotice({ kind: "queued", activity: before.activity, date: before.date })
+      return
+    }
     attempted.current = null
     setNotice({ kind: "saved", activity: before.activity, date: before.date })
     setHistory(previous => [...previous, before].slice(-undoDepth))
@@ -211,9 +225,14 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       return
     }
     setNotice(null)
-    if (!await writeCell(row, cell, entry.minutes)) return
+    const outcome = await writeCell(row, cell, entry.minutes)
+    if (outcome === "failed") return
+    // The entry goes whether it applied or only parked: a queued undo is
+    // already on its way, and the button must not queue a second one.
     setHistory(previous => previous.filter(item => item !== entry))
-    setNotice({ kind: "restored", activity: entry.activity, date: entry.date })
+    setNotice(outcome === "queued"
+      ? { kind: "queued", activity: entry.activity, date: entry.date }
+      : { kind: "restored", activity: entry.activity, date: entry.date })
   }
 
   // clearRow empties a whole activity row for the week on screen. It is
@@ -237,7 +256,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       setHistory(previous => previous.filter(item => item.activityId !== row.ActivityID))
       setNotice({ kind: "cleared", activity: row.ActivityName })
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+      setError(isNetworkError(cause) ? t(lang, "err.network") : cause instanceof Error ? cause.message : t(lang, "err.generic"))
     } finally { setClearing(false) }
   }
 
@@ -251,6 +270,8 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 
   const noticeText = !notice ? "" : notice.kind === "cleared"
     ? t(lang, "ts.rowCleared", notice.activity)
+    : notice.kind === "queued"
+    ? t(lang, "pwa.cellQueued")
     : t(lang, notice.kind === "restored" ? "ts.undone" : "ts.saved", notice.activity, notice.date ? dayName(notice.date) : "")
 
   return <main className="mx-auto w-full max-w-6xl space-y-4">

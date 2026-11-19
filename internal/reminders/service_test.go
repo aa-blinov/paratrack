@@ -2,7 +2,9 @@ package reminders
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,6 +126,56 @@ func (f *fakeStore) TeamLocation(context.Context, int64) (*time.Location, error)
 		return time.UTC, nil
 	}
 	return f.zone, nil
+}
+
+type funcLogger struct{ logf func(string, ...any) }
+
+func (l funcLogger) Printf(format string, args ...any) { l.logf(format, args...) }
+
+// failingDeadlinesStore breaks only the deadlines read; the task, overload and
+// day sections still answer.
+type failingDeadlinesStore struct {
+	*fakeStore
+	tasks []appmodel.DueTask
+}
+
+func (f *failingDeadlinesStore) ProjectsDueBetween(context.Context, string, string) ([]appmodel.DueProject, error) {
+	return nil, errors.New("the deadlines table is unreachable")
+}
+
+func (f *failingDeadlinesStore) TasksDueOn(context.Context, string) ([]appmodel.DueTask, error) {
+	return f.tasks, nil
+}
+
+// One failing section must not silence the rest: a broken deadlines read used
+// to end the pass before the task nudges ran, and the swallowed error left no
+// trace of why every nudge had stopped.
+func TestAFailingSectionDoesNotStopTheOthers(t *testing.T) {
+	now := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	base := &fakeStore{managers: []int64{1}, teams: []int64{1}, claimed: map[string]bool{}}
+	store := &failingDeadlinesStore{fakeStore: base, tasks: []appmodel.DueTask{
+		{TeamID: 1, TaskID: 9, AssigneeID: 5, Title: "Правки", Due: "2026-11-02"},
+	}}
+	rec := &recorder{}
+	var logged []string
+	service, err := New(Dependencies{
+		Store: store, Planner: fakePlanner{}, Sender: rec, Now: func() time.Time { return now },
+		Logger: funcLogger{func(format string, args ...any) { logged = append(logged, fmt.Sprintf(format, args...)) }},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = service.Pass(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "deadline reminders") {
+		t.Fatalf("pass error = %v, want the deadline failure named in it", err)
+	}
+	if len(rec.sent) != 1 || rec.sent[0].Topic != TopicTaskDue {
+		t.Fatalf("the failing deadlines section silenced the task nudge: %+v", rec.sent)
+	}
+	if len(logged) == 0 || !strings.Contains(logged[0], "deadline reminders") {
+		t.Fatalf("the failure left no log line: %q", logged)
+	}
 }
 
 // The fill-your-day nudge goes out once per person on a weekday evening in the

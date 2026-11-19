@@ -55,7 +55,11 @@ func (l *rateLimiter) allow(key string) bool {
 	if !knownKey && len(l.windows) >= rateLimiterMaxKeys {
 		l.collectExpired(now, cut)
 		if len(l.windows) >= rateLimiterMaxKeys {
-			return false
+			// The table is full of live keys, which is itself an attack state.
+			// Refusing new keys would hand the attacker a switch that turns the
+			// public endpoints off for every newcomer, so an unseen key passes
+			// untracked: the per-key budget still holds for every tracked key.
+			return true
 		}
 	}
 	// Drop expired from the front; keep the rest and record this hit.

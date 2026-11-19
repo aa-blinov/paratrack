@@ -93,6 +93,17 @@ e2e:
 	@if [ ! -d .venv ]; then echo "no .venv — run scripts/setup_e2e.sh first"; exit 1; fi
 	. .venv/bin/activate && python e2e/test_dashboard.py
 	. .venv/bin/activate && python e2e/test_clients.py
+	. .venv/bin/activate && python e2e/test_tasks.py
+	. .venv/bin/activate && python e2e/test_revoke.py
+	. .venv/bin/activate && python e2e/test_invite_link_actions.py
+	. .venv/bin/activate && python e2e/test_workspace_move.py
+	. .venv/bin/activate && python e2e/qa_full.py
+	. .venv/bin/activate && python e2e/test_invoice_form_submits.py
+	. .venv/bin/activate && python e2e/test_invoice_unapproved_weeks.py
+	. .venv/bin/activate && python e2e/test_mobile_navigation.py
+	. .venv/bin/activate && python e2e/test_screen_regressions.py
+	. .venv/bin/activate && python e2e/test_react_navigation.py
+	. .venv/bin/activate && python e2e/a11y_check.py
 
 e2e-up: build
 	@pgrep -f "paratrack web --addr $(ADDR)" >/dev/null && \
