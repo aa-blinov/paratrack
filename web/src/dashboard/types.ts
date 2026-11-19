@@ -525,6 +525,8 @@ export interface PayrollSummary {
   Total: string
   Hours: string
   Period: string
+  Members: string
+  DuplicateOf: string
 }
 
 export interface PayrollData {

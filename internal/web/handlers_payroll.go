@@ -60,9 +60,11 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 		data.Items = append(data.Items, payrollSummary{
 			ID: run.ID, Number: run.Number, Status: run.Status,
 			Total: moneyL(resolveLang(r), item.TotalCents, run.Currency), Hours: fmtHoursL(resolveLang(r), item.TotalHoursHundredths),
-			Period: periodSpan(resolveLang(r), fmtDay(resolveLang(r), run.PeriodStart.In(userLoc(r))), fmtDay(resolveLang(r), run.PeriodEnd.In(userLoc(r)).AddDate(0, 0, -1))),
+			Period:  periodSpan(resolveLang(r), fmtDay(resolveLang(r), run.PeriodStart.In(userLoc(r))), fmtDay(resolveLang(r), run.PeriodEnd.In(userLoc(r)).AddDate(0, 0, -1))),
+			Members: strings.Join(item.Members, ", "),
 		})
 	}
+	markPeriodDuplicates(data.Items)
 	now := userNow(r)
 	data.DefStart = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location()).Format("2006-01-02")
 	// The current week cannot be approved until it ends, so a run over it is
@@ -165,6 +167,12 @@ type payrollSummary struct {
 	Total  string
 	Hours  string
 	Period string
+	// Members names the people the run prices (UX-44): three runs of one
+	// period are told apart by who is in them.
+	Members string
+	// DuplicateOf is the number of the run this one repeats the period of —
+	// empty everywhere but on the second and later runs of one period.
+	DuplicateOf string
 }
 
 type payrollPage struct {
@@ -475,3 +483,17 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 }
 
 // ---------------------------------------------------------------------------
+
+// markPeriodDuplicates names, on every run of a period but the first in the
+// list, the run it repeats. The list is newest first, so a repeat carries the
+// number of the older document the period is now shared with.
+func markPeriodDuplicates(items []payrollSummary) {
+	firstByPeriod := map[string]string{}
+	for i, item := range items {
+		if first, seen := firstByPeriod[item.Period]; seen {
+			items[i].DuplicateOf = first
+			continue
+		}
+		firstByPeriod[item.Period] = item.Number
+	}
+}

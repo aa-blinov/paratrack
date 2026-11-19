@@ -13,6 +13,7 @@ import { AppSidebar, type ShellNavItem } from "@/components/app-sidebar"
 import { MobileNav } from "@/components/mobile-nav"
 import { OfflineBanner } from "@/offline/offline-banner"
 import { GlobalSearch } from "@/shell/global-search"
+import { useShortcutsSheet } from "@/shell/shortcuts-sheet"
 import { readCSRFCookie } from "@/lib/csrf"
 import { translate as t } from "@/i18n"
 
@@ -119,6 +120,7 @@ function useFinePointer() {
 export function ApplicationShell({ shell, children }: { shell: AppShellData; children: ReactNode }) {
   useShellShortcuts()
   const finePointer = useFinePointer()
+  const [shortcutsSheet, openShortcutsSheet] = useShortcutsSheet(shell.lang)
   // A build without a stamped version reports "dev"; that is not a version to show.
   const releaseVersion = Boolean(shell.appVersion) && shell.appVersion !== "dev"
   // /welcome is where the sections get picked; a menu of all nine before that
@@ -139,7 +141,7 @@ export function ApplicationShell({ shell, children }: { shell: AppShellData; chi
       <OfflineBanner lang={shell.lang} />
       <div id="main" tabIndex={-1} className={`app-shell-main ${shell.user ? "" : "app-shell-public"}`}>{children}</div>
       {navigable && <MobileNav shell={shell} />}
-      {shell.user && <footer className="app-shell-footer">{releaseVersion && <span>{shell.appVersion}</span>}{finePointer && shell.requestPath !== "/welcome" && <span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}</span>}<div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button></footer>}
+      {shortcutsSheet}{shell.user && <footer className="app-shell-footer">{releaseVersion && <span>{shell.appVersion}</span>}{finePointer && shell.requestPath !== "/welcome" && <span className="hidden sm:inline">{t(shell.lang, "kbd.title")}: N {t(shell.lang, "kbd.new")}, D {t(shell.lang, "kbd.overview")}, S {t(shell.lang, "kbd.stats")}, G {t(shell.lang, "kbd.graph")}, P {t(shell.lang, "kbd.pause")}, T {t(shell.lang, "kbd.theme")}, <button type="button" className="cursor-pointer underline underline-offset-4" onClick={openShortcutsSheet}>{t(shell.lang, "kbd.all")}</button></span>}<div className="flex-1" /><Button variant="ghost" type="button" data-install hidden className="text-sm underline">{t(shell.lang, "pwa.install")}</Button></footer>}
     </div>
   </SidebarProvider></TooltipProvider>
 }
