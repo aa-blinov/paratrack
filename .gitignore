@@ -43,3 +43,8 @@
 # impeccable review captures and critique drafts (local)
 /.impeccable/review/
 /.impeccable/critique/
+
+# Windows build artefacts (qa-env rebuild keeps a backup beside the exe)
+/paratrack.exe
+/paratrack.exe~
+e2e-server-err.log
