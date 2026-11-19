@@ -31,7 +31,11 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 	case errors.Is(err, appmodel.ErrInvalidPayrollTeam), errors.Is(err, model.ErrNotFound):
 		return "pay run not found"
 	case errors.Is(err, appmodel.ErrForbidden), errors.Is(err, model.ErrForbidden):
-		return "manager role required"
+		// Reachable today only from the delete route: the other payroll
+		// routes answer ErrForbidden before the handler runs, and the
+		// draft-only transition is what actually refuses here. The flash
+		// says that, not "you lack the role" (the caller is the manager).
+		return "pay run is draft only"
 	default:
 		s.logInternalError(err)
 		return i18n.T(resolveLang(r), "err.internal")
@@ -390,7 +394,7 @@ func (s *Server) handlePayrollDelete(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/payroll?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/payroll?flash=removed", http.StatusSeeOther)
+	http.Redirect(w, r, "/payroll?flash=run_deleted", http.StatusSeeOther)
 }
 
 // handleMemberPay saves a member's pay rate + daily capacity.

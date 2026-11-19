@@ -17,6 +17,9 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
   const noClient = "__no_client__"
   const [client, setClient] = React.useState(noClient)
   const [currency, setCurrency] = React.useState("__workspace_currency__")
+  // Options answer their parent: an invoicing workspace opens them, a click
+  // from a person toggles them, and the two never fight over one copy.
+  const [optionalOpen, setOptionalOpen] = React.useState(Boolean(data.Mods?.invoices))
   const lang = data.Lang
 
   return <main className="mx-auto w-full max-w-3xl space-y-6">
@@ -39,7 +42,7 @@ export function ProjectCreate({ data }: { data: ProjectCreateData }) {
           <Input id="new-project-budget" name="budget" inputMode="decimal" autoComplete="off" placeholder={t(lang, "budget.amountPlaceholder")} />
           <p className="text-xs text-muted-foreground">{t(lang, "budget.hint")}</p>
         </div>
-        <Disclosure open={Boolean(data.Mods?.invoices)} className="sm:col-span-2">
+        <Disclosure open={optionalOpen || Boolean(data.Mods?.invoices)} onOpenChange={setOptionalOpen} className="sm:col-span-2">
           <DisclosureTrigger className="group inline-flex min-h-11 cursor-pointer items-center gap-1 text-sm text-muted-foreground sm:min-h-0">{t(lang, "projects.options")}<ChevronDown aria-hidden="true" className="size-4 transition-transform group-data-[state=open]:rotate-180" /></DisclosureTrigger>
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="new-project-slug">{t(lang, "projects.slugOpt")}</Label><Input id="new-project-slug" name="slug" pattern="[a-z0-9](?:[a-z0-9_]|-)*" className="font-mono" placeholder="sait-dlya-klienta" /></div>

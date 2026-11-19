@@ -362,6 +362,9 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
           <span className="whitespace-nowrap px-2 font-mono text-sm">{data.WeekLabel}</span>
           <Button asChild variant="ghost" size="icon" className="text-foreground" title={t(lang, "sch.next")}><a href={`/schedule?date=${data.NextWeek}`} aria-label={t(lang, "sch.next")}><ArrowRight aria-hidden="true" /></a></Button>
           <Button asChild variant="ghost" size="sm" className="text-foreground"><a href="/schedule">{t(lang, "ts.thisWeek")}</a></Button>
+          {/* The plan and the fact of the same week are one question; the
+              sheet answers it with this link rather than a menu trip. */}
+          <Button asChild variant="ghost" size="sm" className="text-foreground"><a href={`/timesheet?date=${data.ThisWeek}`}>{t(lang, "sch.compareFact")}</a></Button>
         </nav>
         {canEdit && data.Projects.length > 0 && <div className="flex flex-col items-end gap-1">
           <Button type="button" variant="outline" size="sm" disabled={!copyReady || saving !== null} onClick={() => void copyWeek()}>

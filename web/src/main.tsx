@@ -111,8 +111,14 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const [queuedNote, setQueuedNote] = useState("")
   const [showNext, setShowNext] = useState(true)
   const [backfillFailure, setBackfillFailure] = useState<{ field: string; message: string } | null>(null)
+  // The "forgot to start?" hint next to the running list opens the past-session
+  // form, so its disclosure state lives here rather than inside the component.
+  const [backfillOpen, setBackfillOpen] = useState(false)
   const [rebindWarning, setRebindWarning] = useState(false)
   const [activityRequired, setActivityRequired] = useState(false)
+  // The optional-fields disclosure answers its parent too, so a default
+  // project can open it without fighting an internal state copy.
+  const [optionalOpen, setOptionalOpen] = useState(Boolean(data.DefaultProject))
   const lang = data.Lang || "en"
 
   // The phone's floating button sends the person here to start something, so
@@ -336,7 +342,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
               appears with its message is not announced reliably. Empty text
               adds nothing to the layout. */}
           <p id="activity-required" role="alert" className="text-sm text-destructive">{activityRequired ? t(lang, "dash.activityRequired") : ""}</p>
-          <Disclosure open={Boolean(data.DefaultProject)} className="group border-t pt-3">
+          <Disclosure open={optionalOpen || Boolean(data.DefaultProject)} onOpenChange={setOptionalOpen} className="group border-t pt-3">
             <DisclosureTrigger className="flex min-h-11 cursor-pointer items-center text-sm text-muted-foreground sm:min-h-0">{t(lang, "dash.optionalFields")}{project && <span className="ml-2 font-medium text-foreground">{projects.find(item => item.ID === Number(project))?.Name}</span>}</DisclosureTrigger>
             <div className="ledger-split grid mt-3 gap-3">
               <div className="grid gap-2"><Label htmlFor="project_id">{t(lang, "dash.fieldProject")}</Label>
@@ -354,10 +360,10 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         </form>
         <Separator />
         <section id="active-list" aria-labelledby="active-heading" className="grid gap-3">
-          <div className="flex items-center justify-between gap-2"><CardTitle id="active-heading" className="text-sm font-medium">{labels.active}</CardTitle>{active.length > 1 && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-10" disabled={busy} aria-label={t(lang, "dash.allTimers")} title={t(lang, "dash.allTimers")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
+          <div className="flex items-center justify-between gap-2"><CardTitle id="active-heading" className="text-sm font-medium">{labels.active}</CardTitle><div className="flex items-center gap-1">{data.Widgets?.backfill && <button type="button" className="py-1 text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground" data-backfill-hint onClick={() => { setBackfillOpen(true); window.setTimeout(() => { document.getElementById("backfill")?.scrollIntoView({ behavior: "smooth", block: "start" }); const trigger = document.getElementById("backfill")?.querySelector("button[aria-expanded]"); if (trigger instanceof HTMLElement && trigger.getAttribute("aria-expanded") !== "true") trigger.click() }, 50) }}>{t(lang, "dash.backfillHint")}</button>}{active.length > 1 && <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-10" disabled={busy} aria-label={t(lang, "dash.allTimers")} title={t(lang, "dash.allTimers")}><MoreHorizontal aria-hidden="true" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end">
             <DropdownMenuItem disabled={data.RunningCount === 0} onSelect={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => { if (!(await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }))) return; if (active.some(timerIsLong) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate("/api/active/stop-all") }}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
-          </DropdownMenuContent></DropdownMenu>}</div>
+          </DropdownMenuContent></DropdownMenu>}</div></div>
           {active.length ? <div className="grid gap-3">{active.some(timerIsLong) && <p className="rounded-md border border-amber-500/40 p-2 text-sm">{t(lang, "dash.longTimerHint")}</p>}{active.map(session => <div key={session.ID} data-session-id={session.ID} className="grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             {/* Название и часы на одной строке: часы и есть ответ на «сколько
                 уже идёт». Статус виден только на паузе, идущий таймер его не
@@ -373,7 +379,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
     <div data-dashboard-widgets className="grid min-w-0 gap-4 lg:grid-cols-2 [&:has(>_:only-child)]:lg:grid-cols-1">
     {mode === "freelance" ? <>{unbilledWidget}{goalsWidget}</> : <>{goalsWidget}{unbilledWidget}</>}
     </div>
-    {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} />}
+    {data.Widgets?.backfill && <Backfill data={data} failure={backfillFailure} onSubmit={fields => mutate("/api/sessions/backfill", fields)} busy={busy} open={backfillOpen} onOpenChange={setBackfillOpen} />}
     {data.Widgets?.recent && recent.length > 0 && <Card><CardHeader className="flex-row items-center justify-between space-y-0"><CardTitle>{labels.recent}</CardTitle><a className="py-1 text-sm underline underline-offset-4" href="/stats">{labels.viewAll}</a></CardHeader><CardContent>
       <div className="hidden overflow-x-auto sm:block"><Table className="w-full text-left text-sm"><TableHeader><TableRow className="border-b text-muted-foreground"><TableHead className="p-2">{t(lang, "dash.activity")}</TableHead><TableHead className="p-2">{t(lang, "dash.startLabel")}</TableHead><TableHead className="p-2">{t(lang, "stats.end")}</TableHead><TableHead className="p-2">{labels.duration}</TableHead>{withNotes && <TableHead className="p-2">{t(lang, "stats.note")}</TableHead>}{withTags && <TableHead className="p-2">{t(lang, "stats.tags")}</TableHead>}<TableHead className="p-2" /></TableRow></TableHeader><TableBody>{recent.map(session => <TableRow key={session.ID} className="border-b last:border-0"><TableCell className="whitespace-normal p-2"><ColorMark className="mr-2" color={activityColor(session.Color)} /><span className="[overflow-wrap:anywhere]">{session.ActivityName}</span>{session.ProjectName && <div><Badge variant="outline" className="h-auto max-w-full items-start whitespace-normal [overflow-wrap:anywhere]">{session.ProjectName}</Badge></div>}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.StartLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.EndLocal}</TableCell><TableCell className="whitespace-normal whitespace-nowrap p-2 font-mono">{session.Duration}</TableCell>{withNotes && <TableCell className="whitespace-normal p-2 [overflow-wrap:anywhere]">{session.Note}</TableCell>}{withTags && <TableCell className="whitespace-normal p-2">{session.Tags?.map(tag => <a key={tag.ID} className="mr-1 inline-block py-1 [overflow-wrap:anywhere]" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</TableCell>}<TableCell className="whitespace-normal p-2"><Button variant="ghost" size="sm" aria-label={`${t(lang, "dash.again")}: ${session.ActivityName}`} onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></TableCell></TableRow>)}</TableBody></Table></div>
       <div data-recent-sessions-mobile className="grid gap-2 sm:hidden">{recent.map(session => <article key={session.ID} className="grid min-w-0 gap-2 border-t border-border/70 py-3 text-sm first:border-t-0 first:pt-0"><div className="flex min-w-0 items-start gap-2"><ColorMark color={activityColor(session.Color)} /><div className="min-w-0"><strong className="break-all">{session.ActivityName}</strong>{session.ProjectName && <div className="mt-1"><Badge variant="outline" className="h-auto max-w-full whitespace-normal break-all">{session.ProjectName}</Badge></div>}</div></div><div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground"><span>{session.StartLocal}</span><span aria-hidden="true">→</span><span>{session.EndLocal}</span><span className="font-mono text-foreground">{session.Duration}</span></div>{session.Note && <p className="break-words text-muted-foreground">{session.Note}</p>}{session.Tags?.length > 0 && <div className="flex flex-wrap gap-2">{session.Tags.map(tag => <a key={tag.ID} className="py-1 text-primary underline-offset-4 hover:underline" href={`/stats?tag=${encodeURIComponent(tag.Name)}`}>#{tag.Name}</a>)}</div>}<Button className="w-fit" variant="outline" size="sm" aria-label={`${t(lang, "dash.again")}: ${session.ActivityName}`} onClick={() => void mutate("/api/start", { activity: session.ActivityName })}>{t(lang, "dash.again")}</Button></article>)}</div>
@@ -382,8 +388,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   </main>
 }
 
-function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; failure: { field: string; message: string } | null; onSubmit: (fields: Record<string, string>) => Promise<boolean>; busy: boolean }) {
-  const [open, setOpen] = useState(false)
+function Backfill({ data, failure, onSubmit, busy, open, onOpenChange }: { data: DashboardData; failure: { field: string; message: string } | null; onSubmit: (fields: Record<string, string>) => Promise<boolean>; busy: boolean; open: boolean; onOpenChange: (open: boolean) => void }) {
   const [fields, setFields] = useState(() => ({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }))
   const [dismissed, setDismissed] = useState<string[]>([])
   // A session without a project stays out of project reports: the first save asks, the second one saves.
@@ -396,7 +401,7 @@ function Backfill({ data, failure, onSubmit, busy }: { data: DashboardData; fail
   const lang = data.Lang
   const set = (key: keyof typeof fields, value: string) => { setFields(previous => ({ ...previous, [key]: value })); setDismissed(previous => [...previous, key]) }
   const fieldError = (key: string) => failure?.field === key && !dismissed.includes(key) ? failure.message : ""
-  return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={setOpen}><DisclosureTrigger className="flex min-h-11 cursor-pointer list-none items-center py-1 text-sm font-medium text-muted-foreground hover:text-foreground sm:min-h-0">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
+  return <section className="border-t border-border/70 pt-4"><Disclosure id="backfill" open={open} onOpenChange={onOpenChange}><DisclosureTrigger className="flex min-h-11 cursor-pointer list-none items-center py-1 text-sm font-medium text-muted-foreground hover:text-foreground sm:min-h-0">{t(lang, "dash.backfillTitle")}</DisclosureTrigger><div className="grid gap-3 pb-2 pt-3">
     <p className="text-sm text-muted-foreground">{t(lang, "dash.backfillBlurb")}</p>
     <form className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-3" onSubmit={async event => { event.preventDefault(); if (!fields.project_id && !confirmNoProject) { setConfirmNoProject(true); return }; if (await onSubmit(fields)) { setConfirmNoProject(false); setFields({ activity: "", start: "", end: "", project_id: data.DefaultProject ? String(data.DefaultProject) : "", note: "" }) } }}>
       {data.OpenTasks?.length ? <div className="grid gap-1.5"><Label htmlFor="b-task" className="text-xs">{t(lang, "dash.taskChoose")}</Label>
