@@ -101,6 +101,9 @@ type BillingRules struct {
 	RoundMode     string // "up" | "nearest"
 	InvoicePrefix string // "INV" → INV-2026-001
 	Logo          string // data: URL of a small PNG/JPEG, "" = none
+	// Recurring is the invoice schedule the workspace chose (UX-20): "" is
+	// off, "1st" makes drafts for the previous month on the 1st.
+	Recurring string
 }
 
 // TeamSettings groups workspace preferences needed by the settings page.

@@ -96,6 +96,7 @@ func main() {
 		runtimeDeps.WebhookDeliveryWorker = services.Webhooks
 		runtimeDeps.ReminderWorker = services.Reminders
 		runtimeDeps.CalendarSyncWorker = services.CalendarSync
+		runtimeDeps.RecurringInvoices = services.Invoicing
 		server, err := web.New(web.Dependencies{
 			Idempotency: services.Idempotency,
 			Billing:     services.Billing,

@@ -929,7 +929,7 @@ export interface TeamSettingsData {
   Currencies: Array<{ Code: string; Label: string }>
   Requisites: string
   VATNote: string
-  Billing: { RoundMinutes: number; RoundMode: string; InvoicePrefix: string; HasLogo: boolean }
+  Billing: { RoundMinutes: number; RoundMode: string; InvoicePrefix: string; Recurring: string; HasLogo: boolean }
   RoundOpts: number[]
   LogoURL: string
   Flash: string

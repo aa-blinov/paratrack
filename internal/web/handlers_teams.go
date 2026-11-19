@@ -113,7 +113,10 @@ type billingRulesView struct {
 	RoundMinutes  int
 	RoundMode     string
 	InvoicePrefix string
-	HasLogo       bool
+	// Recurring is the invoice schedule the workspace chose (UX-20): "" off,
+	// "1st" for the first of the month.
+	Recurring string
+	HasLogo   bool
 }
 
 type inviteView struct {
@@ -176,6 +179,7 @@ func (s *Server) handleTeamSettings(w http.ResponseWriter, r *http.Request) {
 		RoundMinutes:  settings.Billing.RoundMinutes,
 		RoundMode:     settings.Billing.RoundMode,
 		InvoicePrefix: settings.Billing.InvoicePrefix,
+		Recurring:     settings.Billing.Recurring,
 		HasLogo:       settings.Billing.Logo != "",
 	}
 	data.RoundOpts = []int{0, 6, 15, 30, 60}

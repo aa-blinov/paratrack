@@ -97,6 +97,8 @@ type StripeCheckoutRequest struct {
 type StripePaymentLink = appmodel.InvoiceStripePaymentLink
 
 // Dependencies separates invoice queries from transactional commands.
+// RecurringStore and RecurringNotifier belong to the recurring schedule (UX-20)
+// and are optional: without them the schedule's passes answer at once.
 type Dependencies struct {
 	Reader              Reader
 	Projects            ProjectBillingReader
@@ -108,6 +110,9 @@ type Dependencies struct {
 	StripeWebhookSecret string
 	Audit               AuditRecorder
 	Logger              Logger
+	RecurringStore      RecurringStore
+	RecurringNotifier   RecurringNotifier
+	RecurringNow        func() time.Time
 }
 
 type AuditRecorder interface {
@@ -132,6 +137,7 @@ type Service struct {
 	stripeWebhookSecret string
 	audit               AuditRecorder
 	logger              Logger
+	recurring           recurringSchedule
 }
 
 // DraftCreation is the result of creating a draft and running its advisory
@@ -160,6 +166,12 @@ func NewService(deps Dependencies) (*Service, error) {
 		stripeAPIKey: deps.StripeAPIKey, stripeWebhookSecret: deps.StripeWebhookSecret,
 		audit: deps.Audit, logger: deps.Logger,
 	}, nil
+}
+
+// StartRecurring arms the monthly schedule (UX-20) on an already built service;
+// a nil store keeps it unarmed.
+func (s *Service) StartRecurring(store RecurringStore, notifier RecurringNotifier, now func() time.Time) error {
+	return s.startRecurring(store, notifier, now)
 }
 
 var (

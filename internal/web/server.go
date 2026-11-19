@@ -140,6 +140,7 @@ func (s *Server) ListenAndServeContext(ctx context.Context) error {
 	stopWebhookWorker := s.startWebhookWorker(ctx)
 	stopReminderWorker := s.startReminderWorker(ctx)
 	stopCalendarSyncWorker := s.startCalendarSyncWorker(ctx)
+	stopRecurringWorker := s.startRecurringInvoicesWorker(ctx)
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- s.httpd.Serve(ln) }()
 	var serveErr error
@@ -165,6 +166,7 @@ func (s *Server) ListenAndServeContext(ctx context.Context) error {
 	stopWorker()
 	stopReminderWorker()
 	stopCalendarSyncWorker()
+	stopRecurringWorker()
 	stopWebhookWorker()
 	s.sentry.close()
 	if serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
@@ -201,6 +203,25 @@ func (s *Server) startCalendarSyncWorker(parent context.Context) func() {
 	go func() {
 		defer close(done)
 		s.runtime.CalendarSyncWorker.Run(workerCtx, time.Minute)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+// startRecurringInvoicesWorker serves the invoice schedule (UX-20) hourly: the
+// day the drafts belong to is known from the calendar, so the hour is only how
+// soon the 1st of the month is noticed. The pass's claims make repeats free.
+func (s *Server) startRecurringInvoicesWorker(parent context.Context) func() {
+	if depcheck.IsNil(s.runtime.RecurringInvoices) {
+		return func() {}
+	}
+	workerCtx, cancel := context.WithCancel(parent)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		s.runtime.RecurringInvoices.RunRecurring(workerCtx, time.Hour)
 	}()
 	return func() {
 		cancel()

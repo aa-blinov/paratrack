@@ -111,6 +111,9 @@ func (s *Server) handleAPITeamBilling(w http.ResponseWriter, r *http.Request) {
 		RoundMinutes:  roundMinutes,
 		RoundMode:     roundMode,
 		InvoicePrefix: strings.TrimSpace(r.FormValue("invoice_prefix")),
+		// A checkbox posts its value only when ticked; the schedule has one
+		// mode, so the absence reads "off".
+		Recurring: r.FormValue("recurring_invoices"),
 	}
 	if err := s.services.TeamOps.UpdateBilling(operationContext(r), appmodel.TeamBillingRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Rules: b}); errors.Is(err, appmodel.ErrInvalidTeamBilling) {
 		// Named for what is wrong: the rules, not the form (the flash used to read «Некорректная отправка формы»).
