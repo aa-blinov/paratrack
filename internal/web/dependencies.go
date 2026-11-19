@@ -446,6 +446,8 @@ type TrackingQueries interface {
 	Session(context.Context, int64, int64) (model.Session, error)
 	SessionProjectImpact(context.Context, appmodel.SessionProjectImpactQuery) (appmodel.SessionProjectImpact, error)
 	SessionHistoryPage(context.Context, appmodel.SessionHistoryPageQuery) (appmodel.SessionPage, error)
+	// ClosedMonths reads the months the workspace closed as a whole (FIN-25).
+	ClosedMonths(context.Context, int64) ([]appmodel.PeriodClose, error)
 	Timesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 	TimesheetApprovals(context.Context, int64, time.Time, time.Time) ([]appmodel.TimesheetApproval, error)
 	TimesheetAutoLockCutoff(context.Context, int64) (time.Time, bool, error)
@@ -464,6 +466,8 @@ type TrackingCommands interface {
 	DecideTimeEdit(context.Context, appmodel.TimeEditDecisionRequest) error
 	ApproveWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	ReopenWeek(context.Context, appmodel.TimesheetApprovalRequest) error
+	ClosePeriod(context.Context, appmodel.PeriodCloseRequest) error
+	ReopenPeriod(context.Context, appmodel.PeriodCloseRequest) error
 	UpdateFields(context.Context, appmodel.SessionUpdateRequest) error
 }
 

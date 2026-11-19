@@ -17,6 +17,12 @@ var (
 	ErrWeekPaid            = errors.New("a pay run already covers this week")
 	ErrWeekNotApproved     = errors.New("time is not in an approved week")
 	ErrDateClosed          = errors.New("time before the closing date is locked")
+	// ErrPeriodClosed guards a month the workspace closed as a whole (FIN-25):
+	// its hours, invoices and payouts are fixed until a manager reopens it.
+	ErrPeriodClosed = errors.New("the month is closed for changes")
+	// ErrMonthNotFinished refuses closing a month that is still running: a
+	// closed running month would strand the open timers inside it.
+	ErrMonthNotFinished = errors.New("the month is not over yet")
 )
 
 // SessionApprovalLockError says which approved week refused a write. Like the
@@ -62,3 +68,14 @@ type UnapprovedWeeksError struct {
 func (e *UnapprovedWeeksError) Error() string { return ErrWeekNotApproved.Error() }
 
 func (e *UnapprovedWeeksError) Unwrap() error { return ErrWeekNotApproved }
+
+// PeriodClosedError names the closed month that refused a write. Month is the
+// first day of that month in the workspace's zone. Like the other date locks,
+// it wraps its sentinel so callers can match either form.
+type PeriodClosedError struct {
+	Month time.Time
+}
+
+func (e *PeriodClosedError) Error() string { return ErrPeriodClosed.Error() }
+
+func (e *PeriodClosedError) Unwrap() error { return ErrPeriodClosed }

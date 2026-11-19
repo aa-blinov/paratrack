@@ -67,6 +67,9 @@ type ActivityStore interface {
 type TimesheetStore interface {
 	UpsertDayTotal(context.Context, appmodel.TimesheetCellUpdateRequest) error
 	ClearWeekRow(context.Context, appmodel.TimesheetRowClearRequest) error
+	CloseMonth(context.Context, appmodel.PeriodCloseRequest) error
+	ReopenMonth(context.Context, appmodel.PeriodCloseRequest) error
+	ListClosedMonths(context.Context, int64) ([]appmodel.PeriodClose, error)
 	ListTimesheet(context.Context, appmodel.TimesheetRequest) (appmodel.TimesheetWeek, error)
 	ApproveTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
 	ReopenTimesheetWeek(context.Context, appmodel.TimesheetApprovalRequest) error
@@ -552,6 +555,32 @@ func (s *Service) ReopenWeek(ctx context.Context, request appmodel.TimesheetAppr
 		return ErrInvalidEdit
 	}
 	return s.timesheets.ReopenTimesheetWeek(ctx, request)
+}
+
+// CloseMonth fixes a finished month as a whole (FIN-25): its hours, invoices
+// and payouts refuse new writes until a manager reopens it. The store refuses
+// a month that is still running or holds a timer nobody stopped.
+func (s *Service) ClosePeriod(ctx context.Context, request appmodel.PeriodCloseRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.Month == "" {
+		return ErrInvalidEdit
+	}
+	return s.timesheets.CloseMonth(ctx, request)
+}
+
+// ReopenPeriod lifts the month's close so the time can change again.
+func (s *Service) ReopenPeriod(ctx context.Context, request appmodel.PeriodCloseRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 || request.Month == "" {
+		return ErrInvalidEdit
+	}
+	return s.timesheets.ReopenMonth(ctx, request)
+}
+
+// ClosedMonths reads the months a workspace closed as a whole, newest first.
+func (s *Service) ClosedMonths(ctx context.Context, teamID int64) ([]appmodel.PeriodClose, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidEdit
+	}
+	return s.timesheets.ListClosedMonths(ctx, teamID)
 }
 
 // TimesheetApprovals lists the approved weeks that overlap the given span.

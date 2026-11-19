@@ -50,6 +50,26 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </li>)}</ul>
       </div> : data.UnapprovedAsked ? <p className="text-muted-foreground">{t(lang, "pay.unapprovedNone")}</p> : null}
     </section>
+    <section id="period" aria-labelledby="period-title" className="space-y-3 rounded-lg border border-border p-4 text-sm">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 id="period-title" className="font-medium">{t(lang, "pay.periodTitle")}</h2>
+        {/* Any day in the month names the month; the store closes the whole month. */}
+        <form method="POST" action="/api/period/close" className="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <div className="space-y-1"><Label htmlFor="period-day">{t(lang, "pay.periodMonthLabel")}</Label><DateField id="period-day" name="month" required /></div>
+          <Button type="submit" size="sm" variant="outline">{t(lang, "pay.periodCloseAction")}</Button>
+        </form>
+      </div>
+      <p className="text-muted-foreground">{t(lang, "pay.periodHint")}</p>
+      {data.ClosedMonths?.length ? <ul className="flex flex-col gap-2">{data.ClosedMonths.map(month => <li key={month.Month} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0"><span className="font-medium">{month.Label}</span><span className="ms-2 text-xs text-muted-foreground">{month.ClosedBy ? `${month.ClosedBy}, ${month.ClosedOn}` : month.ClosedOn}</span></div>
+        <form method="POST" action="/api/period/reopen" className="inline">
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <input type="hidden" name="month" value={month.Month} />
+          <Button type="submit" size="sm" variant="outline">{t(lang, "pay.periodReopenAction")}</Button>
+        </form>
+      </li>)}</ul> : <p className="text-muted-foreground">{t(lang, "pay.periodNone")}</p>}
+    </section>
     {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
 
 

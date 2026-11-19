@@ -274,6 +274,9 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 	if err := lockAutoClosed(ctx, tx, teamID, dayStart, d.currentTime()); err != nil {
 		return err
 	}
+	if err := lockClosedPeriodSpan(ctx, tx, teamID, dayStart, dayEnd); err != nil {
+		return err
+	}
 	if err := lockSessionOwner(ctx, tx, teamID); err != nil {
 		return err
 	}
@@ -356,6 +359,9 @@ func (d *DB) ClearWeekRow(ctx context.Context, request appmodel.TimesheetRowClea
 		return err
 	}
 	if err := lockAutoClosed(ctx, tx, teamID, weekStart, d.currentTime()); err != nil {
+		return err
+	}
+	if err := lockClosedPeriodSpan(ctx, tx, teamID, weekStart, weekEnd); err != nil {
 		return err
 	}
 	if err := lockSessionOwner(ctx, tx, teamID); err != nil {

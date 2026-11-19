@@ -23,6 +23,10 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /api/timesheet/row/clear", s.mine(s.handleTimesheetRowClear))
 	pages.HandleFunc("POST /api/timesheet/approve", s.manage(s.handleTimesheetApprove))
 	pages.HandleFunc("POST /api/timesheet/reopen", s.manage(s.handleTimesheetReopen))
+	// Whole-month closures live with the payouts: the accountant closes there,
+	// the guard reads on every write the month touches (FIN-25).
+	pages.HandleFunc("POST /api/period/close", s.manage(s.handlePeriodClose))
+	pages.HandleFunc("POST /api/period/reopen", s.manage(s.handlePeriodReopen))
 	pages.HandleFunc("POST /api/reports/save", s.handleSavedReportsCreate)
 	pages.HandleFunc("POST /api/reports/{id}/delete", s.handleSavedReportsDelete)
 

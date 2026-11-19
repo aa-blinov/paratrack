@@ -95,6 +95,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	from, to, asked := unapprovedWindow(r, now)
 	data.UnapprovedFrom, data.UnapprovedTo, data.UnapprovedAsked = from.Format("2006-01-02"), to.Format("2006-01-02"), asked
 	data.UnapprovedWeeks = s.unapprovedPayrollWeeks(r, startOfWeek(r, now), from, to)
+	data.ClosedMonths = s.closedMonthsFor(r)
 	s.renderPageForRequest(w, r, "Payroll", "payroll", &data)
 }
 
@@ -185,6 +186,9 @@ type payrollPage struct {
 	Overlap      string // runs whose period this one overlaps, "PAY-…, PAY-…"
 	Flash        string
 	FlashOK      bool
+	// ClosedMonths are the months the workspace closed as a whole (FIN-25),
+	// newest first: what they hold is fixed until a manager reopens them.
+	ClosedMonths []payrollClosedMonth
 	// UnapprovedWeeks are the finished weeks with tracked time that no approval
 	// covers yet, newest first: a run over them would be refused.
 	UnapprovedWeeks []payrollWeekHint
