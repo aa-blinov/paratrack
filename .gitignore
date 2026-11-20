@@ -48,3 +48,6 @@
 /paratrack.exe
 /paratrack.exe~
 e2e-server-err.log
+
+# Ревизии ЦА: улики ревьюеров не грузим в репозиторий
+e2e/screenshots/rev-*/
