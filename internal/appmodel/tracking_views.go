@@ -22,10 +22,19 @@ type TimesheetWeek struct {
 }
 
 // SessionCursor marks the final session returned in a descending history page.
+// Start is the stored canonical timestamp text: the page query compares it
+// byte for byte, so a re-formatted time that renders the same instant
+// differently breaks the tie-break and repeats rows across pages.
 type SessionCursor struct {
 	Start string
 	ID    int64
 }
+
+// CanonicalTimestampLayout is the one storage form of an instant: UTC, always
+// nine fraction digits. Everything that writes a TEXT timestamp, or compares
+// one by text (cursors, window edges), formats with this layout; a value that
+// merely parses back to the same instant is not enough.
+const CanonicalTimestampLayout = "2006-01-02T15:04:05.000000000Z"
 
 // SessionPage is one page of workspace-scoped session history.
 type SessionPage struct {

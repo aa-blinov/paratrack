@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -22,49 +24,60 @@ const idempotencyStaleAfter = 2 * time.Minute
 func (d *DB) ClaimIdempotencyKey(ctx context.Context, request appmodel.IdempotencyRequest) (bool, int, error) {
 	userID, key, now := request.UserID, request.Key, request.Now
 	nowStr := FormatTime(now.UTC())
-	res, err := d.sql.ExecContext(ctx,
-		`INSERT INTO idempotency_keys (user_id, request_key, status, created_at) VALUES (?, ?, 0, ?)
-		 ON CONFLICT (user_id, request_key) DO NOTHING`, userID, key, nowStr)
-	if err != nil {
-		return false, 0, err
-	}
-	if n, err := res.RowsAffected(); err != nil {
-		return false, 0, err
-	} else if n == 1 {
+	// Two passes: the claim that won our INSERT conflict can vanish before
+	// we read it (its attempt failed and released the key). The second
+	// INSERT then takes the free key instead of surfacing a raw no-rows
+	// error to the replaying browser.
+	for attempt := 0; attempt < 2; attempt++ {
+		res, err := d.sql.ExecContext(ctx,
+			`INSERT INTO idempotency_keys (user_id, request_key, status, created_at) VALUES (?, ?, 0, ?)
+			 ON CONFLICT (user_id, request_key) DO NOTHING`, userID, key, nowStr)
+		if err != nil {
+			return false, 0, err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return false, 0, err
+		} else if n == 1 {
+			return false, 0, nil
+		}
+
+		var status int
+		var claimedRaw string
+		err = d.sql.QueryRowContext(ctx,
+			`SELECT status, created_at FROM idempotency_keys WHERE user_id = ? AND request_key = ?`,
+			userID, key).Scan(&status, &claimedRaw)
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
+		}
+		if err != nil {
+			return false, 0, err
+		}
+		if status > 0 {
+			return true, status, nil
+		}
+		claimed, err := ParseTime(claimedRaw)
+		if err != nil {
+			return false, 0, err
+		}
+		if now.Sub(claimed) < idempotencyStaleAfter {
+			return false, 0, model.ErrRequestInProgress
+		}
+		// Take over only the stale claim that was read, so two retries cannot both win.
+		res, err = d.sql.ExecContext(ctx,
+			`UPDATE idempotency_keys SET created_at = ?
+			  WHERE user_id = ? AND request_key = ? AND status = 0 AND created_at = ?`,
+			nowStr, userID, key, claimedRaw)
+		if err != nil {
+			return false, 0, err
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return false, 0, err
+		} else if n != 1 {
+			return false, 0, model.ErrRequestInProgress
+		}
 		return false, 0, nil
 	}
-
-	var status int
-	var claimedRaw string
-	if err := d.sql.QueryRowContext(ctx,
-		`SELECT status, created_at FROM idempotency_keys WHERE user_id = ? AND request_key = ?`,
-		userID, key).Scan(&status, &claimedRaw); err != nil {
-		return false, 0, err
-	}
-	if status > 0 {
-		return true, status, nil
-	}
-	claimed, err := ParseTime(claimedRaw)
-	if err != nil {
-		return false, 0, err
-	}
-	if now.Sub(claimed) < idempotencyStaleAfter {
-		return false, 0, model.ErrRequestInProgress
-	}
-	// Take over only the stale claim that was read, so two retries cannot both win.
-	res, err = d.sql.ExecContext(ctx,
-		`UPDATE idempotency_keys SET created_at = ?
-		  WHERE user_id = ? AND request_key = ? AND status = 0 AND created_at = ?`,
-		nowStr, userID, key, claimedRaw)
-	if err != nil {
-		return false, 0, err
-	}
-	if n, err := res.RowsAffected(); err != nil {
-		return false, 0, err
-	} else if n != 1 {
-		return false, 0, model.ErrRequestInProgress
-	}
-	return false, 0, nil
+	return false, 0, model.ErrRequestInProgress
 }
 
 // FinishIdempotencyKey records the status a finished attempt returned.

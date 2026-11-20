@@ -248,9 +248,23 @@ func (d *DB) recentTimesheetActivityIDs(ctx context.Context, teamID int64, weekS
 // day: the sheet session takes the difference over the logged intervals, and a
 // total below them is refused (model.ErrCellBelowIntervals). It locks
 // the activity and affected sessions and refuses sent or paid invoice rows.
-
 func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellUpdateRequest) error {
-	teamID, activityID, day, totalSecs := request.TeamID, request.ActivityID, request.Day, request.TotalSeconds
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := upsertDayTotalTx(ctx, d, tx, request.TeamID, request.ActivityID, request.Day, request.TotalSeconds); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upsertDayTotalTx is the cell write inside a caller's transaction.
+// DecideTimeEditRequest claims a request and writes the approved cell as one
+// step, so a refusal leaves nothing behind and two concurrent decisions
+// cannot both act (TIME-19).
+func upsertDayTotalTx(ctx context.Context, d *DB, tx *Tx, teamID, activityID int64, day time.Time, totalSecs int) error {
 	if teamID <= 0 {
 		return model.ErrForbidden
 	}
@@ -263,11 +277,6 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 	}
 	dayStart := time.Date(day.Year(), day.Month(), day.Day(), 0, 0, 0, 0, day.Location())
 	dayEnd := dayStart.AddDate(0, 0, 1)
-	tx, err := d.sql.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
 	if err := lockApprovedSpan(ctx, tx, teamID, dayStart, dayEnd); err != nil {
 		return err
 	}
@@ -281,6 +290,35 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 		return err
 	}
 	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
+		return err
+	}
+	// The day's sessions are locked before the activity row, in id order,
+	// the same order the invoice builder locks (sessions, then activity):
+	// the opposite order is a deadlock between a cell write and a draft over
+	// the same day. The lock also closes the intervals race: a stop or an
+	// edit committing between the read below and the write would otherwise
+	// push the day past what the cell counted.
+	daySessions, err := tx.QueryContext(ctx,
+		`SELECT id FROM sessions
+		  WHERE activity_id = ? AND team_id = ? AND user_id = ?
+		    AND end_at IS NOT NULL AND start_at >= ? AND start_at < ?
+		  ORDER BY id FOR UPDATE`,
+		activityID, teamID, actor, FormatTime(dayStart), FormatTime(dayEnd))
+	if err != nil {
+		return err
+	}
+	for daySessions.Next() {
+		var lockedID int64
+		if err := daySessions.Scan(&lockedID); err != nil {
+			daySessions.Close()
+			return err
+		}
+	}
+	if err := daySessions.Err(); err != nil {
+		daySessions.Close()
+		return err
+	}
+	if err := daySessions.Close(); err != nil {
 		return err
 	}
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
@@ -320,15 +358,22 @@ func (d *DB) UpsertDayTotal(ctx context.Context, request appmodel.TimesheetCellU
 	}
 	remainder := int64(totalSecs) - realSecs
 	if remainder == 0 {
-		return tx.Commit()
+		return nil
 	}
-	// One sheet session 09:00 → 09:00+remainder.
+	// One sheet session 09:00 → 09:00+remainder. A remainder above fifteen
+	// hours would push that anchor past midnight, and the grid files a
+	// session under the day it starts on, so the surplus would surface on
+	// the next day. A large remainder anchors back from the end of the day
+	// instead: the session stays inside the day the cell belongs to.
 	start := dayStart.Add(9 * time.Hour)
+	if reach := start.Add(time.Duration(remainder) * time.Second); reach.After(dayEnd) {
+		start = dayEnd.Add(-time.Duration(remainder) * time.Second)
+	}
 	end := start.Add(time.Duration(remainder) * time.Second)
 	if _, err := insertClosedSessionTx(ctx, tx, teamID, activityID, start, end, "timesheet", 0); err != nil {
 		return err
 	}
-	return tx.Commit()
+	return nil
 }
 
 // ClearWeekRow empties every cell of one activity for the current actor in a
@@ -368,6 +413,32 @@ func (d *DB) ClearWeekRow(ctx context.Context, request appmodel.TimesheetRowClea
 		return err
 	}
 	if err := requireTeamMembership(ctx, tx, teamID); err != nil {
+		return err
+	}
+	// The week's sessions lock before the activity row for the same reason
+	// as a cell write: the invoice builder locks sessions first, and the
+	// opposite order is a deadlock between the two.
+	weekSessions, err := tx.QueryContext(ctx,
+		`SELECT id FROM sessions
+		  WHERE activity_id = ? AND team_id = ? AND user_id = ?
+		    AND end_at IS NOT NULL AND start_at >= ? AND start_at < ?
+		  ORDER BY id FOR UPDATE`,
+		activityID, teamID, actor, FormatTime(weekStart), FormatTime(weekEnd))
+	if err != nil {
+		return err
+	}
+	for weekSessions.Next() {
+		var lockedID int64
+		if err := weekSessions.Scan(&lockedID); err != nil {
+			weekSessions.Close()
+			return err
+		}
+	}
+	if err := weekSessions.Err(); err != nil {
+		weekSessions.Close()
+		return err
+	}
+	if err := weekSessions.Close(); err != nil {
 		return err
 	}
 	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {

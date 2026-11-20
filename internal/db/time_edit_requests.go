@@ -101,9 +101,13 @@ func (d *DB) ListTimeEditRequests(ctx context.Context, teamID, viewerID int64, a
 	return out, rows.Err()
 }
 
-// DecideTimeEditRequest approves or refuses a pending request. Only a manager decides. An approval
-// writes the cell as the person who asked, through the ordinary timesheet write, so the approved
-// week lock and the cell rules apply as they do for the person (TIME-19).
+// DecideTimeEditRequest approves or refuses a pending request. Only a manager decides. The
+// decision is claimed in one statement before anything is written: two managers clicking
+// approve and reject at once cannot both act, and the loser reads a decided request. An
+// approval writes the cell as the person who asked, through the ordinary timesheet write
+// inside the claim's own transaction, so the approved-week lock and the cell rules apply as
+// they do for the person, a refusal writes nothing, and a failed cell write rolls the
+// claim back to pending (TIME-19).
 func (d *DB) DecideTimeEditRequest(ctx context.Context, decision appmodel.TimeEditDecisionRequest) error {
 	if decision.TeamID <= 0 || decision.CallerID <= 0 || decision.RequestID <= 0 {
 		return ErrNotFound
@@ -112,56 +116,56 @@ func (d *DB) DecideTimeEditRequest(ctx context.Context, decision appmodel.TimeEd
 	if len([]rune(note)) > maxTimeEditReason {
 		return appmodel.ErrInvalidTask
 	}
-	if err := d.checkManagerOf(ctx, decision.TeamID, decision.CallerID); err != nil {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
 		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, decision.TeamID, decision.CallerID); err != nil {
+		return err
+	}
+	next := "rejected"
+	if decision.Approve {
+		next = "approved"
 	}
 	var requesterID, activityID int64
 	var day string
 	var minutes int
-	var status string
-	if err := d.sql.QueryRowContext(ctx,
-		`SELECT user_id, activity_id, day, minutes, status FROM time_edit_requests WHERE id = ? AND team_id = ?`,
-		decision.RequestID, decision.TeamID).Scan(&requesterID, &activityID, &day, &minutes, &status); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
+	err = tx.QueryRowContext(ctx,
+		`UPDATE time_edit_requests SET status = ?, decided_by = ?, decision_note = ?, decided_at = ?
+		  WHERE id = ? AND team_id = ? AND status = 'pending'
+		  RETURNING user_id, activity_id, day, minutes`,
+		next, decision.CallerID, note, FormatTime(d.currentTime().UTC()), decision.RequestID, decision.TeamID).Scan(&requesterID, &activityID, &day, &minutes)
+	if errors.Is(err, sql.ErrNoRows) {
+		// A decided request and a missing one read differently, so the caller
+		// can say which happened.
+		var status string
+		if err := tx.QueryRowContext(ctx,
+			`SELECT status FROM time_edit_requests WHERE id = ? AND team_id = ?`,
+			decision.RequestID, decision.TeamID).Scan(&status); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNotFound
+			}
+			return err
 		}
-		return err
-	}
-	if status != "pending" {
 		return appmodel.ErrInvalidTask
+	}
+	if err != nil {
+		return err
 	}
 	if decision.Approve {
 		when, err := time.Parse("2006-01-02", day)
 		if err != nil {
 			return err
 		}
-		// The cell is written as the person who asked: UpsertDayTotal owns its transaction, and a
-		// set of minutes is idempotent, so a repeated approval writes the same cell again.
-		if err := d.UpsertDayTotal(requestctx.WithActor(ctx, requesterID), appmodel.TimesheetCellUpdateRequest{
-			TeamID: decision.TeamID, ActivityID: activityID, Day: when, TotalSeconds: minutes * 60,
-		}); err != nil {
+		// The cell is written as the person who asked. A set of minutes is
+		// idempotent, so a repeated approval writes the same cell again.
+		if err := upsertDayTotalTx(requestctx.WithActor(ctx, requesterID), d, tx,
+			decision.TeamID, activityID, when, minutes*60); err != nil {
 			return err
 		}
 	}
-	next := "rejected"
-	if decision.Approve {
-		next = "approved"
-	}
-	res, err := d.sql.ExecContext(ctx,
-		`UPDATE time_edit_requests SET status = ?, decided_by = ?, decision_note = ?, decided_at = ?
-		  WHERE id = ? AND team_id = ? AND status = 'pending'`,
-		next, decision.CallerID, note, FormatTime(d.currentTime().UTC()), decision.RequestID, decision.TeamID)
-	if err != nil {
-		return err
-	}
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return ErrNotFound
-	}
-	return nil
+	return tx.Commit()
 }
 
 // checkManagerOf reads the caller's role in the workspace and refuses anyone who is not a manager.

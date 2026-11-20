@@ -9,8 +9,8 @@ import (
 
 // schema is the full Postgres DDL. Every statement is idempotent, so it
 // runs on each start; columnMigrations and compatibilityStatements bring older
-// databases up to date. Timestamps are TEXT (RFC3339Nano UTC, see
-// FormatTime); case-insensitive names are CITEXT.
+// databases up to date. Timestamps are TEXT in the canonical fixed-width
+// UTC form (see FormatTime); case-insensitive names are CITEXT.
 //
 //go:embed schema.sql
 var schema string
