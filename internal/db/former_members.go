@@ -58,9 +58,11 @@ func (d *DB) ReturnTeamMember(ctx context.Context, request appmodel.TeamMemberRe
 		return err
 	}
 	var pay sql.NullInt64
+	var kind sql.NullString
+	var monthly sql.NullInt64
 	err = tx.QueryRowContext(ctx,
-		`SELECT hourly_pay_cents FROM former_members WHERE team_id = ? AND user_id = ? FOR UPDATE`,
-		request.TeamID, request.TargetUserID).Scan(&pay)
+		`SELECT hourly_pay_cents, pay_kind, monthly_pay_cents FROM former_members WHERE team_id = ? AND user_id = ? FOR UPDATE`,
+		request.TeamID, request.TargetUserID).Scan(&pay, &kind, &monthly)
 	if errors.Is(err, sql.ErrNoRows) {
 		return model.ErrNotFound
 	}
@@ -81,9 +83,11 @@ func (d *DB) ReturnTeamMember(ctx context.Context, request appmodel.TeamMemberRe
 		return err
 	}
 	now := FormatTime(d.currentTime().UTC())
+	// The departure row kept every part of the pay, so the return restores
+	// all of it: the rate, the kind and the salary amount.
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents) VALUES (?, ?, 'member', ?, ?)`,
-		request.TeamID, request.TargetUserID, now, pay); err != nil {
+		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, pay_kind, monthly_pay_cents) VALUES (?, ?, 'member', ?, ?, ?, ?)`,
+		request.TeamID, request.TargetUserID, now, pay, kind, monthly); err != nil {
 		return fmt.Errorf("add returned member: %w", err)
 	}
 	// The membership holds the pay from now on; the departure row would count it twice.

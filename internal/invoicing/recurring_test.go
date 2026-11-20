@@ -102,8 +102,8 @@ func TestRecurringPassCreatesPreviousMonthDrafts(t *testing.T) {
 	if start.Format("2006-01-02 15:04") != "2026-11-01 00:00" {
 		t.Fatalf("draft start = %s, want the 1st of November in Berlin", start)
 	}
-	if end.Format("2006-01-02 15:04") != "2026-11-30 23:59" {
-		t.Fatalf("draft end = %s, want the last minute of November", end)
+	if end.Format("2006-01-02 15:04") != "2026-12-01 00:00" {
+		t.Fatalf("draft end = %s, want the exclusive midnight after November", end)
 	}
 	if len(notifier.ready) != 1 || notifier.ready[0].month != "2026-11" || notifier.ready[0].teamID != 1 {
 		t.Fatalf("letter = %+v, want one for 2026-11 to team 1", notifier.ready)
@@ -132,7 +132,7 @@ func TestRecurringPassHoldsUnapprovedWeeksBack(t *testing.T) {
 		{ID: 7, Name: "Сайт", Billable: true, BillableRateCents: &rate},
 		{ID: 12, Name: "Аудит", Billable: true, BillableRateCents: &rate},
 	}}
-	reader := &unapprovedReaderStub{days: map[int64][]string{12: {"2026-11-17", "2026-11-19"}}}
+	reader := &unapprovedReaderStub{weeks: map[int64][]string{12: {"2026-11-16", "2026-11-16"}}}
 	writer := &draftWriterStub{
 		invoice: model.Invoice{Number: "INV-2026-005", Currency: "RUB"},
 		lines:   []model.InvoiceLine{{AmountCents: 40_000, Currency: "RUB"}},
@@ -162,10 +162,11 @@ func TestRecurringPassHoldsUnapprovedWeeksBack(t *testing.T) {
 
 type unapprovedReaderStub struct {
 	draftReaderStub
-	// days keys project id → the days with billable time outside approved weeks.
-	days map[int64][]string
+	// weeks keys project id → the first days of weeks with billable time
+	// outside approved weeks.
+	weeks map[int64][]string
 }
 
-func (s *unapprovedReaderStub) ListUnapprovedTimeDays(_ context.Context, _, projectID int64, _, _ time.Time) ([]string, error) {
-	return s.days[projectID], nil
+func (s *unapprovedReaderStub) ListUnapprovedTimeWeeks(_ context.Context, _, projectID int64, _, _ time.Time) ([]string, error) {
+	return s.weeks[projectID], nil
 }

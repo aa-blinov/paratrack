@@ -66,7 +66,7 @@ func (s *draftReaderStub) OverlappingInvoices(_ context.Context, query appmodel.
 	return []string{"INV-OLD"}, s.overlapErr
 }
 
-func (s *draftReaderStub) ListUnapprovedTimeDays(context.Context, int64, int64, time.Time, time.Time) ([]string, error) {
+func (s *draftReaderStub) ListUnapprovedTimeWeeks(context.Context, int64, int64, time.Time, time.Time) ([]string, error) {
 	return nil, nil
 }
 

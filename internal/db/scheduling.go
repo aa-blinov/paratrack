@@ -234,9 +234,13 @@ func loadScheduleTracked(ctx context.Context, tx *Tx, query appmodel.ScheduleQue
 	weekEnd := query.WeekStart.AddDate(0, 0, 7)
 	rows, err := tx.QueryContext(ctx,
 		`SELECT user_id, start_at, end_at, accumulated_seconds, paused, last_resume_at
-		 FROM sessions
-		 WHERE team_id = ? AND start_at < ? AND (end_at IS NULL OR end_at >= ?)`,
-		query.TeamID, FormatTime(weekEnd), FormatTime(query.WeekStart))
+		   FROM sessions s
+		  WHERE `+windowedSessionsClosed(false)+`
+		  UNION ALL
+		  SELECT user_id, start_at, end_at, accumulated_seconds, paused, last_resume_at
+		   FROM sessions s
+		  WHERE `+windowedSessionsOpen(),
+		query.TeamID, FormatTime(query.WeekStart), FormatTime(weekEnd), query.TeamID, FormatTime(weekEnd))
 	if err != nil {
 		return nil, err
 	}

@@ -87,6 +87,26 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	if err != nil {
 		return PayrollRun{}, nil, err
 	}
+	// Two runs can price one month without their periods meeting: a salary
+	// pays the calendar month, not the hours. Runs that already paid a
+	// salary to a member who is still salaried count as overlaps when they
+	// touch any month the new run covers, so paying a month twice is a
+	// confirmed choice with a written reason, the same as re-paying hours
+	// (FIN-22).
+	salaried, err := salaryOverlapsTx(ctx, tx, teamID, start, end)
+	if err != nil {
+		return PayrollRun{}, nil, err
+	}
+	seen := make(map[int64]bool, len(overlaps))
+	for _, run := range overlaps {
+		seen[run.ID] = true
+	}
+	for _, run := range salaried {
+		if !seen[run.ID] {
+			overlaps = append(overlaps, run)
+			seen[run.ID] = true
+		}
+	}
 	if len(overlaps) > 0 && !allowOverlap {
 		return PayrollRun{}, overlaps, nil
 	}
@@ -132,6 +152,50 @@ func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end tim
 		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
 		 FROM payroll_runs WHERE team_id = ? AND period_start < ? AND ? < period_end
 		 ORDER BY period_start, id FOR UPDATE`, teamID, FormatTime(end), FormatTime(start))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PayrollRun
+	for rows.Next() {
+		run, err := scanPayrollRun(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, run)
+	}
+	return out, rows.Err()
+}
+
+// salaryOverlapsTx lists the runs that already paid a salary line to a member
+// who is still salaried (or left with a salary) and whose period touches any
+// calendar month the new run covers. A salary line is the one with no hours
+// and no rate: hourly lines always carry a positive rate, so the shape is
+// unambiguous.
+func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time) ([]PayrollRun, error) {
+	first := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
+	last := end.Add(-time.Nanosecond)
+	monthEnd := time.Date(last.Year(), last.Month(), 1, 0, 0, 0, 0, last.Location()).AddDate(0, 1, 0)
+	rows, err := tx.QueryContext(ctx,
+		`SELECT id, team_id, number, period_start, period_end, status, notes,
+		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
+		 FROM payroll_runs
+		 WHERE team_id = ? AND period_start < ? AND ? < period_end
+		   AND id IN (
+		       SELECT DISTINCT l.run_id FROM payroll_lines l
+		        WHERE l.seconds = 0 AND l.rate_cents = 0 AND l.amount_cents > 0
+		          AND EXISTS (
+		              SELECT 1 FROM memberships m
+		               WHERE m.team_id = payroll_runs.team_id AND m.user_id = l.user_id
+		                 AND COALESCE(m.pay_kind, 'hourly') = 'monthly' AND COALESCE(m.monthly_pay_cents, 0) > 0
+		              UNION ALL
+		              SELECT 1 FROM former_members f
+		               WHERE f.team_id = payroll_runs.team_id AND f.user_id = l.user_id
+		                 AND COALESCE(f.pay_kind, 'hourly') = 'monthly' AND COALESCE(f.monthly_pay_cents, 0) > 0
+		          )
+		   )
+		 ORDER BY period_start, id FOR UPDATE`,
+		teamID, FormatTime(monthEnd), FormatTime(first))
 	if err != nil {
 		return nil, err
 	}

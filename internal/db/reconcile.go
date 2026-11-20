@@ -44,8 +44,14 @@ func (d *DB) ReconcileClients(ctx context.Context, query appmodel.ReconcileQuery
 		   FROM sessions s
 		   JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
 		   JOIN projects p ON p.id = `+sessionProject+` AND p.team_id = s.team_id
-		  WHERE s.team_id = ? AND p.client_id IS NOT NULL AND s.start_at < ? AND (s.end_at IS NULL OR s.end_at > ?)`,
-		query.TeamID, FormatTime(query.Until), FormatTime(query.From))
+		  WHERE p.client_id IS NOT NULL AND `+windowedSessionsClosed(true)+`
+		  UNION ALL
+		  SELECT s.invoice_id, p.client_id, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
+		   FROM sessions s
+		   JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
+		   JOIN projects p ON p.id = `+sessionProject+` AND p.team_id = s.team_id
+		  WHERE p.client_id IS NOT NULL AND `+windowedSessionsOpen(),
+		query.TeamID, FormatTime(query.From), FormatTime(query.Until), query.TeamID, FormatTime(query.Until))
 	if err != nil {
 		return nil, fmt.Errorf("read sessions for the reconciliation: %w", err)
 	}

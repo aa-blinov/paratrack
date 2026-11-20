@@ -23,15 +23,15 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 	}
 	// members with a pay: hourly rates, or the fixed monthly salary (FIN-26)
 	mrows, err := queryer.QueryContext(ctx,
-		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email
+		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email, '' AS left_at
 		 FROM memberships m
 		 JOIN users u ON u.id = m.user_id
 		 WHERE m.team_id = ? AND (COALESCE(m.hourly_pay_cents, 0) > 0 OR (COALESCE(m.pay_kind, 'hourly') = 'monthly' AND COALESCE(m.monthly_pay_cents, 0) > 0))
 		 UNION ALL
-		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), 'hourly', 0, u.name, u.email
+		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), COALESCE(f.pay_kind, 'hourly'), COALESCE(f.monthly_pay_cents, 0), u.name, u.email, f.left_at
 		 FROM former_members f
 		 JOIN users u ON u.id = f.user_id
-		 WHERE f.team_id = ? AND COALESCE(f.hourly_pay_cents, 0) > 0
+		 WHERE f.team_id = ? AND (COALESCE(f.hourly_pay_cents, 0) > 0 OR (COALESCE(f.pay_kind, 'hourly') = 'monthly' AND COALESCE(f.monthly_pay_cents, 0) > 0))
 		   AND NOT EXISTS (SELECT 1 FROM memberships m WHERE m.team_id = f.team_id AND m.user_id = f.user_id)`, teamID, teamID)
 	if err != nil {
 		return nil, err
@@ -44,11 +44,12 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 		salary int
 		name   string
 		email  string
+		left   string
 	}
 	var members []member
 	for mrows.Next() {
 		var m member
-		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email); err != nil {
+		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email, &m.left); err != nil {
 			mrows.Close()
 			return nil, err
 		}
@@ -61,16 +62,26 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 
 	// tracked seconds per user in window
 	secsByUser := map[int64]int{}
+	// The branches give the plan a floor per index: the closed rows scan
+	// (team_id, end_at) from the window's start instead of walking the whole
+	// history. The union feeds an IN subquery because a locking clause cannot
+	// sit on a statement whose top level is a set operation, while it can sit
+	// on this plain single-table select.
 	q := `
 		SELECT COALESCE(s.user_id, 0), s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
 		FROM sessions s
-		WHERE s.start_at < ?
-		  AND (s.end_at IS NULL OR s.end_at >= ?)`
-	args := []any{FormatTime(end), FormatTime(start)}
-	q += ` AND s.team_id = ?`
-	args = append(args, teamID)
+		WHERE s.id IN (
+			SELECT id FROM (
+				SELECT s.id FROM sessions s WHERE ` + windowedSessionsClosed(false) + `
+				UNION ALL
+				SELECT s.id FROM sessions s WHERE ` + windowedSessionsOpen() + `
+			) w
+		)`
+	args := []any{teamID, FormatTime(start), FormatTime(end), teamID, FormatTime(end)}
 	if lockSessions {
-		q += ` ORDER BY s.id FOR UPDATE OF s`
+		// Id order keeps concurrent runs from locking the same rows in
+		// opposite orders.
+		q += ` ORDER BY s.id FOR UPDATE`
 	}
 	rows, err := queryer.QueryContext(ctx, q, args...)
 	if err != nil {
@@ -141,9 +152,28 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 			if m.salary <= 0 || salary <= 0 {
 				continue
 			}
+			months := salary
+			if m.left != "" {
+				// A former member prices only the months they were present
+				// for: the departure row keeps the pay they left with, and a
+				// month entirely after the departure is not theirs.
+				leftAt, err := ParseTime(m.left)
+				if err != nil {
+					return nil, fmt.Errorf("parse former member departure: %w", err)
+				}
+				months = monthsPresent(start, end, leftAt)
+				if months <= 0 {
+					continue
+				}
+			}
+			// The only money multiplication in the payroll path: the guard
+			// lives with it, like money.AddInt guards the additions.
+			if int64(months) > ((1<<63)-1)/int64(m.salary) {
+				return nil, fmt.Errorf("salary for member %d overflows cents", m.id)
+			}
 			lines = append(lines, PayrollLine{
 				UserID: m.id, Label: label,
-				Seconds: 0, RateCents: 0, AmountCents: m.salary * salary,
+				Seconds: 0, RateCents: 0, AmountCents: m.salary * months,
 			})
 			continue
 		}
@@ -176,4 +206,21 @@ func salaryForMonths(start, end time.Time) (int, error) {
 		return 0, ErrInvalidPayrollQuery
 	}
 	return months, nil
+}
+
+// monthsPresent counts the calendar months of the period that begin at or
+// before the departure instant. A former member's salary prices the months
+// they were a member for at least in part; a run that starts after the
+// departure prices none.
+func monthsPresent(start, end, leftAt time.Time) int {
+	first := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
+	last := end.Add(-time.Nanosecond)
+	lastMonth := time.Date(last.Year(), last.Month(), 1, 0, 0, 0, 0, last.Location())
+	if leftMonth := time.Date(leftAt.Year(), leftAt.Month(), 1, 0, 0, 0, 0, leftAt.Location()); lastMonth.After(leftMonth) {
+		lastMonth = leftMonth
+	}
+	if lastMonth.Before(first) {
+		return 0
+	}
+	return (lastMonth.Year()-first.Year())*12 + int(lastMonth.Month()) - int(first.Month()) + 1
 }

@@ -160,8 +160,8 @@ func (d *DB) RemoveTeamMember(ctx context.Context, request appmodel.TeamMemberRe
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO former_members (team_id, user_id, hourly_pay_cents, left_at)
-		SELECT team_id, user_id, hourly_pay_cents, ? FROM memberships WHERE team_id = ? AND user_id = ?`,
+		INSERT INTO former_members (team_id, user_id, hourly_pay_cents, pay_kind, monthly_pay_cents, left_at)
+		SELECT team_id, user_id, hourly_pay_cents, COALESCE(pay_kind, 'hourly'), COALESCE(monthly_pay_cents, 0), ? FROM memberships WHERE team_id = ? AND user_id = ?`,
 		FormatTime(request.LeftAt), teamID, userID); err != nil {
 		return err
 	}

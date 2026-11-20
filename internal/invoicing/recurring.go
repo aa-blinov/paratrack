@@ -127,9 +127,12 @@ func (s *Service) recurringOne(ctx context.Context, workspace RecurringWorkspace
 	thisMonth := time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, workspace.Zone)
 	monthStart := thisMonth.AddDate(0, -1, 0)
 	month := monthStart.Format("2006-01")
-	// The invoice convention: the period ends where the exclusive end steps
-	// back, so the draft covers the whole month in one window.
-	start, end := monthStart, thisMonth.Add(-time.Second)
+	// The invoice convention: the period end is exclusive, the same midnight
+	// the manual form sends, so the draft covers the whole month in one
+	// window and matches the draft a manager made by hand for the same
+	// month. Stepping back a second here left the month's last second
+	// unbilled and printed the period a day short.
+	start, end := monthStart, thisMonth
 
 	projects, err := s.projects.ListProjects(ctx, appmodel.ProjectCatalogQuery{TeamID: workspace.TeamID})
 	if err != nil {
@@ -144,19 +147,24 @@ func (s *Service) recurringOne(ctx context.Context, workspace RecurringWorkspace
 		// Unapproved weeks (D-3) hold a draft back until someone approves the
 		// week; the letter names that as the next step instead of letting the
 		// schedule confirm anything in silence.
-		days, err := s.reader.ListUnapprovedTimeDays(ctx, workspace.TeamID, project.ID, start, end)
+		weeks, err := s.UnapprovedWeeks(ctx, workspace.TeamID, project.ID, start, end)
 		if err != nil {
-			return fmt.Errorf("list unapproved days for project %d: %w", project.ID, err)
+			return fmt.Errorf("list unapproved weeks for project %d: %w", project.ID, err)
 		}
-		if len(days) > 0 {
-			weeks := unapprovedWeeks(days)
+		if len(weeks) > 0 {
 			skipped = append(skipped, SkippedDraft{Project: project.Name, UnapprovedWeeks: weeks})
 			continue
 		}
+		// The pass held every unapproved week back above, so the draft it
+		// writes is clean: the count is an honest 0, the same value the
+		// manual path records, and the accountant's export can tell it
+		// from an invoice made before the count existed (NULL).
+		clean := 0
 		invoice, lines, err := s.createDraft(ctx, appmodel.InvoiceDraftRequest{
 			TeamID: workspace.TeamID, CallerID: workspace.OwnerID,
 			Start: start, End: end,
-			Options: appmodel.InvoiceOptions{ProjectID: project.ID},
+			Options:         appmodel.InvoiceOptions{ProjectID: project.ID},
+			UnapprovedWeeks: &clean,
 		})
 		if err != nil {
 			switch {
@@ -201,23 +209,4 @@ func (s *Service) recurringOne(ctx context.Context, workspace RecurringWorkspace
 func isAlreadyBilledPeriod(err error) bool {
 	var billed *model.AlreadyBilledInPeriodError
 	return errors.As(err, &billed) || errors.Is(err, appmodel.ErrAlreadyBilled)
-}
-
-// unapprovedWeeks names the Mondays of the weeks a list of unapproved days
-// falls into (see UnapprovedWeeks — the same week rule).
-func unapprovedWeeks(days []string) []time.Time {
-	var weeks []time.Time
-	seen := make(map[string]bool)
-	for _, day := range days {
-		at, err := time.Parse("2006-01-02", day)
-		if err != nil {
-			continue
-		}
-		monday := at.AddDate(0, 0, -((int(at.Weekday()) + 6) % 7))
-		if key := monday.Format("2006-01-02"); !seen[key] {
-			seen[key] = true
-			weeks = append(weeks, monday)
-		}
-	}
-	return weeks
 }
