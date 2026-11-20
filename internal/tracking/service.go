@@ -335,7 +335,11 @@ func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.Session
 		if err != nil || query.After.ID <= 0 {
 			return appmodel.SessionPage{}, fmt.Errorf("invalid session cursor")
 		}
-		canonical := start.UTC().Format(time.RFC3339Nano)
+		// The cursor's text is compared byte for byte against the stored
+		// column, so it is re-rendered in the storage layout: a form that
+		// merely parses back to the same instant loses the tie-break and
+		// repeats rows across pages.
+		canonical := start.UTC().Format(appmodel.CanonicalTimestampLayout)
 		query.After = &appmodel.SessionCursor{Start: canonical, ID: query.After.ID}
 	}
 	items, more, err := s.queries.ListSessionsPage(ctx, query)
@@ -345,7 +349,7 @@ func (s *Service) SessionHistoryPage(ctx context.Context, query appmodel.Session
 	page := appmodel.SessionPage{Items: items, HasMore: more}
 	if more && len(items) > 0 {
 		last := items[len(items)-1].Session
-		page.NextCursor = &appmodel.SessionCursor{Start: last.StartAt.UTC().Format(time.RFC3339Nano), ID: last.ID}
+		page.NextCursor = &appmodel.SessionCursor{Start: last.StartAt.UTC().Format(appmodel.CanonicalTimestampLayout), ID: last.ID}
 	}
 	return page, nil
 }

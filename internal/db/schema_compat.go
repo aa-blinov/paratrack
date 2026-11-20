@@ -61,9 +61,12 @@ var columnMigrations = []struct {
 	{"memberships", "capacity_minutes", "BIGINT"},
 	// The pay kind (FIN-26/UX-22): 'hourly' pays tracked time by the rate,
 	// 'monthly' pays the fixed salary per calendar month the run covers.
-	// monthly_pay_cents holds that salary.
+	// monthly_pay_cents holds that salary. The departure row keeps both, so
+	// a run after the member left still pays the months they were present.
 	{"memberships", "pay_kind", "TEXT NOT NULL DEFAULT 'hourly'"},
 	{"memberships", "monthly_pay_cents", "BIGINT NOT NULL DEFAULT 0"},
+	{"former_members", "pay_kind", "TEXT NOT NULL DEFAULT 'hourly'"},
+	{"former_members", "monthly_pay_cents", "BIGINT NOT NULL DEFAULT 0"},
 	{"memberships", "admin_minutes", "BIGINT"},
 	// Currency: the workspace default, a project override ('' = inherit),
 	// and the currency fixed on each document when it is created.
@@ -179,6 +182,11 @@ var columnMigrations = []struct {
 	{"users", "totp_secret", "TEXT NOT NULL DEFAULT ''"},
 	{"users", "totp_pending", "TEXT NOT NULL DEFAULT ''"},
 	{"users", "totp_last_step", "BIGINT NOT NULL DEFAULT 0"},
+	// The provider-side subject of the last single sign-in that created or
+	// entered the account. Empty marks a password-born account, whose
+	// address was claimed rather than proven; a single sign-in into such an
+	// account goes through the password-reset flow instead.
+	{"users", "sso_subject", "TEXT NOT NULL DEFAULT ''"},
 }
 
 // compatibilityStatements create or update schema objects introduced after
@@ -283,6 +291,10 @@ var compatibilityStatements = []string{
 	    PRIMARY KEY (team_id, user_id)
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_external ON sessions(team_id, external_id) WHERE external_id IS NOT NULL`,
+	// The weekly window reads split closed from open sessions; these give
+	// each branch the index it needs (see windowed_sessions.go).
+	`CREATE INDEX IF NOT EXISTS idx_sessions_team_end ON sessions(team_id, end_at) WHERE end_at IS NOT NULL`,
+	`CREATE INDEX IF NOT EXISTS idx_sessions_team_open ON sessions(team_id) WHERE end_at IS NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_activities_project ON activities(project_id)`,
 	// Older DBs predate the password-reset table; IF NOT EXISTS makes
 	// this safe to re-run on every startup.
@@ -332,7 +344,7 @@ var compatibilityStatements = []string{
 	    project_slug TEXT NOT NULL DEFAULT '',
 	    tag TEXT NOT NULL DEFAULT '',
 	    created_by BIGINT,
-	    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+	    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
 	    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
 	    UNIQUE (team_id, name)
 	)`,

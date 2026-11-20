@@ -142,7 +142,7 @@ func TestSessionHistoryPageNormalizesLimitAndCursorInQuery(t *testing.T) {
 	if _, err := service.SessionHistoryPage(context.Background(), query); err != nil {
 		t.Fatal(err)
 	}
-	if store.page.Limit != 500 || store.page.After == nil || store.page.After.Start != "2026-01-01T00:00:00Z" || store.page.TeamID != query.TeamID {
+	if store.page.Limit != 500 || store.page.After == nil || store.page.After.Start != "2026-01-01T00:00:00.000000000Z" || store.page.TeamID != query.TeamID {
 		t.Fatalf("session history query = %+v, want capped limit, canonical cursor and workspace", store.page)
 	}
 }

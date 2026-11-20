@@ -1,6 +1,8 @@
 // Package db manages the paratrack database (Postgres).
 //
-// Timestamps are stored as RFC3339Nano UTC strings (e.g. "2026-09-22T07:25:30.123456Z").
+// Timestamps are stored as canonical UTC strings with a fixed nine-digit
+// fraction (e.g. "2026-09-22T07:25:30.123456000Z", see FormatTime), so text
+// order is chronological order.
 package db
 
 import (
@@ -12,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib" // registers "pgx"
 )
@@ -113,6 +116,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"personal workspace names", func() error { return d.migratePersonalTeamNames(ctx) }},
 		{"lead first responses", func() error { return d.migrateLeadFirstResponses(ctx) }},
 		{"crm stage times", func() error { return d.migrateCRMStageTimes(ctx) }},
+		{"canonical timestamps", func() error { return d.migrateCanonicalTimestamps(ctx) }},
 		{"purge idempotency keys", func() error { return d.PurgeStaleIdempotencyKeys(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {
@@ -142,10 +146,14 @@ func (d *DB) TestSQL() *Conn { return d.sql }
 // Close releases the underlying database handle.
 func (d *DB) Close() error { return d.sql.Close() }
 
-// FormatTime returns the canonical RFC3339Nano UTC string used to store
-// timestamps. Centralised so all writers agree.
+// FormatTime returns the canonical UTC string used to store timestamps.
+// Centralised so all writers agree. The layout is appmodel's canonical one:
+// SQL compares these TEXT columns as strings (range predicates, cursor walks,
+// unique approval windows), and a form that drops a zero fraction made '.'
+// sort before 'Z' inside the same second — a session half a second past an
+// approved week's midnight read as inside it.
 func FormatTime(t time.Time) string {
-	return t.UTC().Format(time.RFC3339Nano)
+	return t.UTC().Format(appmodel.CanonicalTimestampLayout)
 }
 
 // ParseTime accepts the multiple timestamp formats we may encounter:

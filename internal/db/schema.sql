@@ -3,17 +3,20 @@ CREATE TABLE IF NOT EXISTS users (
     email TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     name TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS'))
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    -- The provider-side subject of the last single sign-in that created or
+    -- entered the account; empty marks a password-born account.
+    sso_subject TEXT NOT NULL DEFAULT ''
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uniq_users_email ON users(email);
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
     token TEXT PRIMARY KEY,
     user_id BIGINT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     expires_at TEXT NOT NULL,
-    last_seen_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    last_seen_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user ON auth_sessions(user_id);
@@ -23,7 +26,7 @@ CREATE TABLE IF NOT EXISTS teams (
     slug TEXT NOT NULL,
     name TEXT NOT NULL,
     owner_id BIGINT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     timezone TEXT NOT NULL DEFAULT '',
     week_start TEXT NOT NULL DEFAULT '',
     recurring_invoices TEXT NOT NULL DEFAULT '',
@@ -35,7 +38,7 @@ CREATE TABLE IF NOT EXISTS memberships (
     team_id BIGINT NOT NULL,
     user_id BIGINT NOT NULL,
     role TEXT NOT NULL CHECK(role IN ('owner', 'admin', 'member')),
-    joined_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    joined_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     PRIMARY KEY (team_id, user_id),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -47,7 +50,7 @@ CREATE TABLE IF NOT EXISTS invites (
     team_id BIGINT NOT NULL,
     role TEXT NOT NULL DEFAULT 'member' CHECK(role IN ('owner', 'member')),
     created_by BIGINT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     expires_at TEXT NOT NULL,
     accepted_at TEXT,
     accepted_by BIGINT,
@@ -71,8 +74,8 @@ CREATE TABLE IF NOT EXISTS clients (
     currency TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
     archived BIGINT NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     UNIQUE (team_id, name)
 );
@@ -85,8 +88,8 @@ CREATE TABLE IF NOT EXISTS projects (
     name TEXT NOT NULL,
     color TEXT NOT NULL DEFAULT '#7c8499',
     archived BIGINT NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     UNIQUE (team_id, slug)
 );
@@ -98,8 +101,8 @@ CREATE TABLE IF NOT EXISTS activities (
     team_id BIGINT,
     project_id BIGINT,
     archived BIGINT NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
 );
@@ -117,8 +120,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     paused_at TEXT,
     accumulated_seconds BIGINT NOT NULL DEFAULT 0,
     last_resume_at TEXT,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );
@@ -126,12 +129,17 @@ CREATE INDEX IF NOT EXISTS idx_sessions_activity ON sessions(activity_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_team     ON sessions(team_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_start    ON sessions(start_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_end      ON sessions(end_at);
+-- The weekly window reads split closed from open sessions: the closed branch
+-- scans from the window's start on (team_id, end_at), the open branch is the
+-- handful of running timers a partial index keeps.
+CREATE INDEX IF NOT EXISTS idx_sessions_team_end ON sessions(team_id, end_at) WHERE end_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_sessions_team_open ON sessions(team_id) WHERE end_at IS NULL;
 
 CREATE TABLE IF NOT EXISTS tags (
     id BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
     name CITEXT NOT NULL,
     team_id BIGINT,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
     UNIQUE (team_id, name)
 );
@@ -154,8 +162,8 @@ CREATE TABLE IF NOT EXISTS goals (
     team_id BIGINT NOT NULL DEFAULT 0,
     period TEXT NOT NULL CHECK(period IN ('daily', 'weekly', 'monthly')),
     target_minutes BIGINT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
     UNIQUE (team_id, activity_id, period)
 );
@@ -167,8 +175,8 @@ CREATE TABLE IF NOT EXISTS reminders (
     every_minutes BIGINT NOT NULL,
     "window" TEXT,
     enabled BIGINT NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
-    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS')),
+    created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
+    updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE
 );
 
