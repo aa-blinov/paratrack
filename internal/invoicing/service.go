@@ -22,7 +22,7 @@ type Reader interface {
 	ReconcileClients(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	Unbilled(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 	UnassignedActivities(context.Context, int64) ([]appmodel.UnassignedActivity, error)
-	ListUnapprovedTimeDays(context.Context, int64, int64, time.Time, time.Time) ([]string, error)
+	ListUnapprovedTimeWeeks(context.Context, int64, int64, time.Time, time.Time) ([]string, error)
 	OverlappingInvoices(context.Context, appmodel.InvoiceOverlapQuery) ([]string, error)
 	TrackedSecondsForInvoice(ctx context.Context, teamID, invoiceID int64) (int, error)
 	PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, toDay string) (int, string, error)
@@ -113,7 +113,6 @@ type Dependencies struct {
 	Logger              Logger
 	RecurringStore      RecurringStore
 	RecurringNotifier   RecurringNotifier
-	RecurringNow        func() time.Time
 }
 
 type AuditRecorder interface {

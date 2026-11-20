@@ -10,23 +10,23 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-// unapprovedDaysReader answers the unapproved-days question with planted days
-// and remembers which project it was asked about.
-type unapprovedDaysReader struct {
+// unapprovedWeeksReader answers the unapproved-weeks question with planted
+// week names and remembers which project it was asked about.
+type unapprovedWeeksReader struct {
 	*draftReaderStub
-	days    []string
+	weeks   []string
 	project int64
 }
 
-func (s *unapprovedDaysReader) ListUnapprovedTimeDays(_ context.Context, _, projectID int64, _, _ time.Time) ([]string, error) {
+func (s *unapprovedWeeksReader) ListUnapprovedTimeWeeks(_ context.Context, _, projectID int64, _, _ time.Time) ([]string, error) {
 	s.project = projectID
-	return s.days, nil
+	return s.weeks, nil
 }
 
-// A week is named by its Monday, so a Sunday belongs to the week that began six
-// days earlier (FIN-12).
-func TestUnapprovedWeeksNameEachWeekByItsMonday(t *testing.T) {
-	reader := &unapprovedDaysReader{draftReaderStub: &draftReaderStub{}, days: []string{"2026-10-12", "2026-10-14", "2026-10-18", "2026-10-19"}}
+// A week is named by its first day, the day the store says the workspace's
+// weeks start on (FIN-12).
+func TestUnapprovedWeeksPassTheStoreWeeksThrough(t *testing.T) {
+	reader := &unapprovedWeeksReader{draftReaderStub: &draftReaderStub{}, weeks: []string{"2026-10-11", "2026-10-18"}}
 	service, err := NewService(testDependencies(reader, &draftWriterStub{}))
 	if err != nil {
 		t.Fatal(err)
@@ -36,10 +36,10 @@ func TestUnapprovedWeeksNameEachWeekByItsMonday(t *testing.T) {
 		t.Fatal(err)
 	}
 	var got []string
-	for _, monday := range weeks {
-		got = append(got, monday.Format("2006-01-02"))
+	for _, week := range weeks {
+		got = append(got, week.Format("2006-01-02"))
 	}
-	if want := []string{"2026-10-12", "2026-10-19"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
+	if want := []string{"2026-10-11", "2026-10-18"}; len(got) != len(want) || got[0] != want[0] || got[1] != want[1] {
 		t.Fatalf("weeks = %v, want %v", got, want)
 	}
 	if reader.project != 3 {
@@ -53,7 +53,7 @@ func TestUnapprovedWeeksNameEachWeekByItsMonday(t *testing.T) {
 // The draft waits for the manager: without the confirmation it names the weeks
 // and writes nothing; with it the draft goes on as usual (D-3).
 func TestDraftWaitsForTheManagerAboutUnapprovedWeeks(t *testing.T) {
-	reader := &unapprovedDaysReader{draftReaderStub: &draftReaderStub{}, days: []string{"2026-10-12"}}
+	reader := &unapprovedWeeksReader{draftReaderStub: &draftReaderStub{}, weeks: []string{"2026-10-12"}}
 	writer := &draftWriterStub{}
 	service, err := NewService(testDependencies(reader, writer))
 	if err != nil {
@@ -88,7 +88,7 @@ func TestDraftWaitsForTheManagerAboutUnapprovedWeeks(t *testing.T) {
 // count existed (nil).
 func TestCleanDraftRecordsZeroUnapprovedWeeks(t *testing.T) {
 	writer := &draftWriterStub{}
-	service, err := NewService(testDependencies(&unapprovedDaysReader{draftReaderStub: &draftReaderStub{}}, writer))
+	service, err := NewService(testDependencies(&unapprovedWeeksReader{draftReaderStub: &draftReaderStub{}}, writer))
 	if err != nil {
 		t.Fatal(err)
 	}
