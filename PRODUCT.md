@@ -94,7 +94,8 @@ Confirmed by the code:
   startup.
 - A CLI (`paratrack start|stop|stats...`) works against the same Postgres
   through `PARATRACK_DATABASE_URL`. It is a real feature rather than a
-  development tool.
+  development tool. `stats` counts a running timer the way the web stats do,
+  so the CLI and the screen agree on today.
 - An agent reaches the workspace through `POST /mcp` with an API token and the token owner's rights. Deleting an
   invoice or a pay run, reopening an approved week and deleting the workspace are only requested. A person confirms
   each request in the app, under Settings, Confirmations.
@@ -123,6 +124,10 @@ Confirmed by the code:
 - The account can require a second factor: a TOTP code from an authenticator
   app and ten one-time backup codes. Turning it off needs the password and a
   live code. API tokens are unaffected.
+- A single sign-in never enters an account whose address nobody has
+  confirmed. It goes to the password-reset flow instead, which proves the
+  address and clears the credentials whoever set them: a registration under
+  someone else's address cannot capture the owner's SSO.
 - Money is integer cents throughout, and the arithmetic lives in
   `internal/money`.
 
@@ -140,7 +145,7 @@ Deliberately not true, and worth knowing before a change:
   that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week has to end and be
   approved first.
-- Pay runs are hourly only. There is no per-piece and no salary scheme.
+- Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.
 - Open decision: pricing, and whether there is a paid tier at all. Do not state

@@ -82,7 +82,8 @@ is in the Makefile.
   is in `e2e/qa_full.py`, section U.
 - **A grid cell only raises the day.** `UpsertDayTotal` keeps the closed sessions
   that carry a real start and end, replaces the one synthetic session with
-  `note="timesheet"` (anchored at 09:00) by the difference, and refuses a total below
+  `note="timesheet"` (anchored at 09:00, or back from the day's end when the
+  remainder would cross midnight) by the difference, and refuses a total below
   the logged intervals (`ErrCellBelowIntervals`). Clearing a whole row is the one
   action that erases.
 - **Time comes from an injected clock.** A feature workflow may not call
