@@ -47,7 +47,9 @@ defines the tracked total and discards pause history by design.
 
 A grid cell sets the actor's total for that activity/day, and only raises it. Closed sessions
 with a real start and end stay. `UpsertDayTotal` replaces the one synthetic `note="timesheet"`
-session anchored at **09:00** with the difference between the cell and those intervals. A cell below
+session anchored at **09:00** with the difference between the cell and those intervals. A cell
+above fifteen hours would push the 09:00 anchor past midnight, so a large surplus anchors back
+from the end of the day instead and stays inside the day the cell belongs to. A cell below
 the logged intervals is refused (`ErrCellBelowIntervals`), and so is a `0` over logged time: the
 start and the end the person logged are never erased by the grid. Clearing a whole week row
 (`ClearWeekRow`) is the separate action that does erase.
@@ -103,12 +105,12 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Non-billable projects **never** land on an invoice
 - Unassigned (no-project) time is **not invoiceable**
 - Lines group tracked time by (project, activity)
-- `amount_cents = seconds × rate / 3600` (truncated to the cent)
+- `amount_cents = seconds × rate / 3600`, rounded half up to the cent by `money.PriceCents`, the single pricing point every document uses
 - The rate is snapshotted onto the line at creation time
 - Invoice period `start`/`end` are dates; `end` is exclusive (`2026-09-25`–`2026-09-25` = one day)
 - A draft carries an optional payment due day (`invoices.due_date`, `YYYY-MM-DD`, empty = none). It is set with the draft details and frozen when the invoice is sent (FIN-07)
 - A sent invoice still unpaid after its due day is overdue: the list and the invoice page mark it. The due day itself is not late, a draft is never overdue, and a paid invoice is never overdue
-- A sent invoice takes payments into a journal (`invoice_payments`: date, amount, note, source). It is paid when the journal covers the total; marking it paid books what is still owed, so the journal always adds up to the total. A partial payment leaves it sent and shows how far it got. The journal is only ever added to, and it is exported with the workspace (FIN-08)
+- A sent invoice takes payments into a journal (`invoice_payments`: date, amount, note, source). It is paid when the journal covers the total; marking it paid books what is still owed, so the journal always adds up to the total. A partial payment leaves it sent and shows how far it got. The journal is only ever added to, and it is exported with the workspace (FIN-08). The automatic row a paid transition books carries the day in the process clock's own zone (`PARATRACK_TZ`), the calendar day the button was pressed, and the dashboard's earned month is cut in the zone the page reads the clock in, so the two agree for a self-hosted workspace
 - The invoice list filters by status (overdue included), by the day it was issued, and by "not paid" (FIN-09). Without SMTP the invoice letter can still go out as an `.eml` file with the PDF inside (FIN-10)
 - The invoice page downloads its sessions appendix (`GET /invoices/{id}/sessions.csv`, managers): one row per session billed on the invoice (`sessions.invoice_id`), oldest first, with the day, the start and end in the viewer's zone, the person, project, activity, hours and seconds. The invoice lines stay summed; the appendix is where the hours can be checked against the time they came from (FIN-06)
 - A member marks the start and the end of their working day on the dashboard (`POST /api/workday`, `workday_marks`, TIME-06). Offline the mark waits in the queue and is dated by the click (TIME-28). The start is kept once; the end can be given again, and the last one counts. The day's start and end show beside today's total, which is set against the six-hour norm
@@ -122,7 +124,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - The invoice carries `unapproved_weeks`: how many weeks with unapproved time it was drafted over. It is NULL for an invoice made before the count was recorded, and the export leaves that cell empty rather than writing 0.
 - The accountant's export takes `format=excel` as well: a byte order mark, `;` between columns and a decimal comma in numbers, which Russian Excel and 1С read as one column per field. The default stays RFC 4180 (comma, decimal point).
 - The accountant's export (`GET /invoices/export.csv?export_from&export_to&export_client`, managers) lists one row per line of the issued invoices (drafts left out), by invoice date in the viewer's zone, with the client, the seller's name as executor, the line's label, hours, rate, amount, currency and status. `export_from` and `export_to` are days, both included; `export_client` is an exact name (FIN-05). The dates follow the workspace zone when it is set, and the viewer's zone otherwise
-- An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). Payroll still counts approved weeks only
+- An invoice whose period holds billable time in a week the timesheet has not approved is not created at once: the form names those weeks and the manager confirms, and only then is the draft written (D-3, FIN-12). The named weeks are cut in the workspace's own time zone and from its own first weekday (ADM-07), so the warning names a week the manager can actually approve. Payroll still counts approved weeks only
 - The overlap warning names the invoices in the period that hold the same line label, and also those that bill sessions of the same activity, whatever their lines were called (FIN-23). A session is billed once: a session already stamped on an invoice cannot be billed again, so the warning is advisory
 - While the issuer's requisites are blank, the invoices screen says so: an invoice issued then prints only the name (ADM-17)
 - VAT: the workspace rate (requisites, percent, 0 for none) is fixed on each new invoice. Invoice prices already include VAT, so the invoice shows the VAT inside its total, `total × rate ÷ (100 + rate)` rounded half up to the cent, on a line "including VAT". Totals and payments do not change; an issued invoice keeps the rate it was drafted with (FIN-16)
@@ -140,7 +142,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 - Member carries `hourly_pay_cents` (0 = not on payroll) and `capacity_minutes` (default 480)
 - Runs skip members with pay 0
 - A member sees their own pay lines on the profile page, read-only: the runs in this workspace that hold a line for them, newest period first, with hours, rate, amount and whether the run is paid. The sums are the amount still to be paid and the amount paid, in the currency of the first line (FIN-11). It reads only that person's lines (`ListMemberPayrollLines`)
-- Removing a member stops their timers and keeps their pay in `former_members`; their sessions, tasks and history stay. A manager brings a former member back from `/settings/members` as a member, with that pay, and the departure row goes (`ReturnTeamMember`, ADM-04). Someone still in the workspace is refused
+- Removing a member stops their timers and keeps their pay in `former_members` — the hourly rate, the pay kind and the salary amount; their sessions, tasks and history stay. A manager brings a former member back from `/settings/members` as a member, with that pay, and the departure row goes (`ReturnTeamMember`, ADM-04). Someone still in the workspace is refused
 - A pay run downloads as CSV (`GET /payroll/{id}/export.csv`, managers): one row per person with hours, seconds, rate, amount and currency, the numbers the run page shows. `?by=day` gives one row per person per day with the Monday or Sunday that opens its week, so a sheet sums by week. Amounts stay on the person rows: a week rounded on its own does not add up to the person's total.
 - The payroll page checks unapproved weeks over the last eight finished weeks. `unapproved_from` and `unapproved_to` (days, both included) check a period of up to 53 weeks instead; a period that does not parse, runs backwards or is longer falls back to the default.
 - A payroll line opens to the hours its person logged on each day of the run. Days with no time are left out, and a run longer than 370 days shows its totals only (FIN-18)
@@ -154,6 +156,8 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
   time from the last eight, each linking to its timesheet, with a button that approves that week
   from here (the same approval the timesheet makes; the form sends the Monday and the Sunday).
 - A run over hours that another run already pays (the overlap warning) is created only with a written reason. An empty reason sends the manager back to the form with a message, and the reason goes to the audit log as `payroll.overlap` (FIN-22)
+- A salary prices a calendar month, and two runs can price one month without their periods ever meeting. Runs that already paid a salary line to a member who is still salaried count in the same overlap warning whatever their period, so paying a month twice is a written choice, not a silent second salary
+- A former member keeps their pay kind: a run prices the months they were present for at least in part, a month entirely after the departure pays nothing, and the return restores the kind with the amount
 
 **Reports**
 
@@ -434,6 +438,7 @@ list are in [MCP.md](MCP.md).
 | Password reset | 30 min single-use token, always answers `?sent=1` (no user enumeration) |
 | Signup confirmation (SEC-01) | A new account starts unverified. Its link (`/verify-email?token=`, 48 h, single use, only the SHA-256 kept) goes by mail, and a password sign-in before it is refused with a fresh link at most once a minute. A completed password reset confirms the address too. Accounts from before the check are unaffected. `PARATRACK_REQUIRE_EMAIL_VERIFICATION=0` turns the check off; the test suites and the QA stand do |
 | Two-factor sign-in (SEC-02) | Optional per account. TOTP as an authenticator app reads it (SHA-1, six digits, 30 s, one step accepted either side); the secret is sealed with `PARATRACK_SECRET_KEY`. Set-up is on the profile page and ends with ten one-time recovery codes, shown once and stored as hashes. A code counts once per step. The open step lives five minutes in an HttpOnly cookie and ends after five wrong codes. Turning it off asks the password and a current code. An API token cannot change it. Single sign-on does not ask it: the identity provider decides |
+| Single sign-in (SSO) | A sign-in through the provider never enters an account whose address nobody has proven: an unconfirmed registration, or any password-born account while the signup check is off. It is refused to the password-reset flow (`/forgot-password`, error `sso_unconfirmed`), which confirms the address and clears the credentials whoever set them. An account a provider vouched for (created or entered by single sign-in, `users.sso_subject`) passes as before, and a confirmed account passes with the check on |
 | Webhooks | `X-Paratrack-Signature: hex(hmac-sha256(secret, body))`, plus the timestamped V2 `X-Paratrack-Signature-V2: hex(hmac-sha256(secret, ts + "." + body))` — verify V2 to refuse a captured delivery replayed later. A manager replaces the secret with `POST /api/webhooks/{id}/secret`: the new one is 32 random bytes in hex, answered once with `Cache-Control: no-store`, and deliveries sent after the rotation sign with it (ADM-13). Localhost and private addresses are refused; the webhooks page explains how to receive a delivery through a tunnel (ADM-20) |
 | CSV exports | Names, notes and labels that start like a spreadsheet formula (=, +, -, @, tab) are written with a leading apostrophe, so opening an export in Excel or 1С cannot execute them |
 | Client contacts and money | A member sees a client's name, its projects and the time on them. Email, requisites, internal notes, money and invoices reach managers only, on the pages and in `/api/v1/clients` (D-2, ADM-08) |
@@ -608,6 +613,7 @@ Env knobs: `PARATRACK_SMTP_*`, `PARATRACK_JIRA_SITE`, `PARATRACK_GITLAB_SITE`,
 `PARATRACK_MICROSOFT_CALENDAR_CLIENT_SECRET` (calendar sync; the redirect URI is `<PARATRACK_PUBLIC_URL>/settings/calendar-sync/<provider>/callback`),
 `PARATRACK_PUBLIC_URL` (required HTTPS origin in production),
 `PARATRACK_REQUIRE_EMAIL_VERIFICATION` (on unless `0`: a new account confirms its address before its first sign-in),
+`PARATRACK_SMTP_ALLOW_PLAINTEXT` (`1` only for a relay without STARTTLS beside the binary),
 `PARATRACK_TRUSTED_PROXIES` (comma-separated CIDR ranges for reverse proxies;
 forwarded host/proto/IP headers are ignored from all other peers). The public
 HTTPS origin marks cookies and HSTS secure behind a TLS terminator; trusted
@@ -644,6 +650,6 @@ python e2e/qa_offline_push.py                   # offline + push
 - Two-factor sign-in is per account: nothing requires it for owners or admins, and the email change in the profile does not ask for a fresh confirmation of the new address
 - Approval is per workspace week: one approval covers every member's time in that week. There is no per-member approval.
 - A pay run cannot cover the current week, because the week must end and be approved first.
-- Pay runs are hourly only; there is no per-piece or salary scheme.
+- Pay runs are hourly or a fixed monthly salary per calendar month the run touches; there is no per-piece scheme.
 - The team calendar has no recurring events. Google and Outlook sync is verified against stub servers only; the real providers, their consent screens and token refresh against the live service have not been tested. Sync reads the whole window on each run instead of an incremental sync token, and all-day events are not imported.
 - The agent endpoint answers with plain JSON. It has no streaming and no OAuth; it accepts one message per request, not batches.
