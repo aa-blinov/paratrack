@@ -596,32 +596,45 @@ async def check_running_projects_are_readable(browser):
           const cards = [...document.querySelectorAll('#active-list [data-session-id]')];
           return cards.map(card => {
             const name = card.querySelector('strong');
-            const chip = card.querySelector('button.ledger-project');
+            const compact = card.hasAttribute('data-timer-compact');
+            const chip = compact ? null : card.querySelector('button.ledger-project');
             const value = chip && chip.querySelector('[data-slot="select-value"]');
             const clipped = el => !!el && el.scrollWidth > el.clientWidth + 1;
             return {activity: name ? name.textContent.trim() : '',
                     activityClipped: clipped(name),
-                    chipHeight: Math.round(chip.getBoundingClientRect().height),
-                    chipLeft: Math.round(chip.getBoundingClientRect().left),
+                    chipHeight: chip ? Math.round(chip.getBoundingClientRect().height) : 0,
+                    chipLeft: chip ? Math.round(chip.getBoundingClientRect().left) : 0,
                     valueClipped: clipped(value),
                     textOverflow: value ? getComputedStyle(value).textOverflow : '',
-                    project: value ? value.textContent.trim() : ''};
+                    project: value ? value.textContent.trim() : '',
+                    compact,
+                    rowHeight: Math.round(card.getBoundingClientRect().height),
+                    hasStop: [...card.querySelectorAll('button')].some(b => b.textContent.trim() === 'Стоп')
+          };
           });
         }""")
         assert rows, f'{width}px: the running timers are on the dashboard'
+        # Since UX-45 the first running timer keeps the full card and the rest
+        # are compact single rows without a project chip. The full card keeps
+        # the old invariants; a compact row must stay short and keep «Стоп»
+        # reachable — an off-screen stop was the whole point of UX-45.
         for row in rows:
-            assert not row['activityClipped'], \
-                f'{width}px: «{row["activity"]}» is sliced to make room for its project'
+            if row['compact']:
+                assert row['hasStop'],                     f'{width}px: the compact row of «{row["activity"]}» lost its «Стоп»'
+                assert row['rowHeight'] <= 64,                     f'{width}px: the compact row of «{row["activity"]}» grew to {row["rowHeight"]}px'
+                continue
+            assert not row['activityClipped'],                 f'{width}px: «{row["activity"]}» is sliced to make room for its project'
             if row['valueClipped']:
-                assert row['textOverflow'] == 'ellipsis', \
-                    f'{width}px: «{row["project"]}» is cut with nothing to say so — it needs an ellipsis'
+                assert row['textOverflow'] == 'ellipsis',                     f'{width}px: «{row["project"]}» is cut with nothing to say so — it needs an ellipsis'
             else:
-                assert row['project'] in PROJECTS_BY_NAME, \
-                    f'{width}px: «{row["project"]}» fits, so it must be the whole name'
-        assert len({row['chipLeft'] for row in rows}) == 1, \
-            f'{width}px: every project chip starts on the same line — {[r["chipLeft"] for r in rows]}'
-        assert max(row['chipHeight'] for row in rows) < TOUCH, \
-            f'{width}px: the chip must not set the row height — {[r["chipHeight"] for r in rows]}px of a {TOUCH}px target'
+                assert row['project'] in PROJECTS_BY_NAME,                     f'{width}px: «{row["project"]}» fits, so it must be the whole name'
+        full_rows = [row for row in rows if not row['compact']]
+        assert len(full_rows) == 1, \
+            f'{width}px: exactly one running timer keeps the full card - {len(full_rows)}'
+        assert len({row['chipLeft'] for row in full_rows}) == 1, \
+            f'{width}px: the project chip of the full card starts on one line - {[r["chipLeft"] for r in full_rows]}'
+        assert max(row['chipHeight'] for row in full_rows) < TOUCH, \
+            f'{width}px: the chip must not set the row height - {[r["chipHeight"] for r in full_rows]}px of a {TOUCH}px target'
         assert not errors, errors
         await context.close()
 
