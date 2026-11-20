@@ -123,6 +123,13 @@ func runStats(rt *Runtime, args []string) error {
 	if err != nil {
 		return fmt.Errorf("list sessions: %w", err)
 	}
+	// Running timers come too, the same way the web stats count them: one
+	// day reads the same everywhere, and the window clips the running part.
+	running, err := services.TimerQueries.ActiveSessions(ctx, teamID)
+	if err != nil {
+		return fmt.Errorf("list running sessions: %w", err)
+	}
+	sessions = append(sessions, running...)
 
 	summary, err := reportstats.Summarize(sessions, nil, period.Start, period.End, now, "Uncategorized")
 	if err != nil {

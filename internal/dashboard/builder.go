@@ -150,9 +150,10 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 		}
 		// The earned line answers «сколько уже заработал» while the hour count
 		// is still zero on a slow month. Like goals, a failed read hides the
-		// line without losing the page.
-		utc := now.UTC()
-		monthStart := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+		// line without losing the page. The month is cut in the zone the page
+		// reads the clock in (the workspace's, when it set one): «заработано
+		// за ноябрь» means November where the person lives.
+		monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 		snapshot.EarnedCents, snapshot.EarnedCurrency, err = b.invoices.PaidCentsInMonth(ctx, query.TeamID,
 			monthStart.Format("2006-01-02"), monthStart.AddDate(0, 1, 0).Format("2006-01-02"))
 		if err != nil {

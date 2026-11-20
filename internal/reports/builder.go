@@ -315,6 +315,14 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report sessions: %w", err)
 	}
+	// Running timers come too, the same as the stats and graph paths: the
+	// totals count time as it runs, so one day reads the same on every
+	// screen. The window clips what the running session contributes.
+	running, err := b.sessions.ActiveSessions(ctx, query.TeamID)
+	if err != nil {
+		return AggregateResult{}, fmt.Errorf("load report running sessions: %w", err)
+	}
+	sessions = append(sessions, running...)
 	linked, err := b.tasks.LinkedActivityTasks(ctx, query.TeamID)
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report task links: %w", err)
