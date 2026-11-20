@@ -1,4 +1,11 @@
 // Package stripe implements the outbound Stripe Checkout and webhook-signature protocols.
+// The wire protocol runs through the official stripe-go SDK: it pins the API
+// version it was built against, retries transient failures with its own
+// idempotency keys, and tracks Stripe's protocol changes as they are
+// announced. The webhook signature check is the one documented, stable
+// scheme (t=..., v1=..., HMAC-SHA256) and stays in this package so the
+// verification keeps anchoring at the moment the request arrived, not at
+// the SDK's own wall clock.
 package stripe
 
 import (
@@ -7,13 +14,14 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/stripe/stripe-go/v87"
 )
 
 // StatusError is a Stripe answer that was not 200. The code tells an invalid key
@@ -30,6 +38,17 @@ func (e *StatusError) Error() string {
 		return fmt.Sprintf("stripe returned status %d: %s", e.Code, e.Body)
 	}
 	return fmt.Sprintf("stripe returned status %d while %s: %s", e.Code, e.Action, e.Body)
+}
+
+// translateError maps the SDK's typed answer onto the status error the
+// application already knows how to read (invalid key from outage).
+func translateError(err error, action string) error {
+	var api *stripe.Error
+	if errors.As(err, &api) {
+		body := err.Error()
+		return &StatusError{Code: api.HTTPStatusCode, Body: body[:min(180, len(body))], Action: action}
+	}
+	return err
 }
 
 type WebhookEvent struct {
@@ -82,7 +101,9 @@ type CheckoutSession struct {
 	URL string
 }
 
-// CreateCheckout creates one hosted payment session through Stripe's form API.
+// CreateCheckout creates one hosted payment session. The key is per
+// workspace, so the client is built per call; the HTTP client is the one the
+// composition root wired, with its timeouts and connection settings.
 func CreateCheckout(ctx context.Context, client *http.Client, secret string, input CheckoutRequest) (CheckoutSession, error) {
 	if client == nil {
 		return CheckoutSession{}, fmt.Errorf("stripe HTTP client is not configured")
@@ -90,52 +111,38 @@ func CreateCheckout(ctx context.Context, client *http.Client, secret string, inp
 	if secret == "" || input.InvoiceID <= 0 || input.TeamID <= 0 || input.TotalCents <= 0 {
 		return CheckoutSession{}, fmt.Errorf("invalid Stripe checkout input")
 	}
-	form := url.Values{
-		"mode":                                   {"payment"},
-		"success_url":                            {input.SuccessURL + "?flash=paid"},
-		"cancel_url":                             {input.SuccessURL},
-		"client_reference_id":                    {strconv.FormatInt(input.InvoiceID, 10)},
-		"metadata[invoice_id]":                   {strconv.FormatInt(input.InvoiceID, 10)},
-		"metadata[team_id]":                      {strconv.FormatInt(input.TeamID, 10)},
-		"line_items[0][quantity]":                {"1"},
-		"line_items[0][price_data][currency]":    {strings.ToLower(input.Currency)},
-		"line_items[0][price_data][unit_amount]": {strconv.Itoa(input.TotalCents)},
-	}
 	label := "Invoice " + input.InvoiceNumber
 	if len(label) > 100 {
 		label = label[:100]
 	}
-	form.Set("line_items[0][price_data][product_data][name]", label)
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.stripe.com/v1/checkout/sessions", strings.NewReader(form.Encode()))
+	sc := stripe.NewClient(secret, stripe.WithBackends(stripe.NewBackends(client)))
+	session, err := sc.V1CheckoutSessions.Create(ctx, &stripe.CheckoutSessionCreateParams{
+		Mode:              stripe.String("payment"),
+		SuccessURL:        stripe.String(input.SuccessURL + "?flash=paid"),
+		CancelURL:         stripe.String(input.SuccessURL),
+		ClientReferenceID: stripe.String(strconv.FormatInt(input.InvoiceID, 10)),
+		Metadata: map[string]string{
+			"invoice_id": strconv.FormatInt(input.InvoiceID, 10),
+			"team_id":    strconv.FormatInt(input.TeamID, 10),
+		},
+		LineItems: []*stripe.CheckoutSessionCreateLineItemParams{{
+			Quantity: stripe.Int64(1),
+			PriceData: &stripe.CheckoutSessionCreateLineItemPriceDataParams{
+				Currency:   stripe.String(strings.ToLower(input.Currency)),
+				UnitAmount: stripe.Int64(int64(input.TotalCents)),
+				ProductData: &stripe.CheckoutSessionCreateLineItemPriceDataProductDataParams{
+					Name: stripe.String(label),
+				},
+			},
+		}},
+	})
 	if err != nil {
-		return CheckoutSession{}, fmt.Errorf("build Stripe checkout request: %w", err)
+		return CheckoutSession{}, translateError(err, "")
 	}
-	req.Header.Set("Authorization", "Bearer "+secret)
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := client.Do(req)
-	if err != nil {
-		return CheckoutSession{}, fmt.Errorf("create Stripe checkout session: %w", err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
-	if err != nil {
-		return CheckoutSession{}, fmt.Errorf("read Stripe checkout response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return CheckoutSession{}, &StatusError{Code: resp.StatusCode, Body: string(body)[:min(180, len(body))]}
-	}
-	var result struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return CheckoutSession{}, fmt.Errorf("decode Stripe checkout response: %w", err)
-	}
-	if result.ID == "" || result.URL == "" {
+	if session == nil || session.ID == "" || session.URL == "" {
 		return CheckoutSession{}, fmt.Errorf("stripe returned an incomplete checkout session")
 	}
-	return CheckoutSession{ID: result.ID, URL: result.URL}, nil
+	return CheckoutSession{ID: session.ID, URL: session.URL}, nil
 }
 
 // ExpireCheckout closes an open hosted session that the application could not
@@ -144,23 +151,10 @@ func ExpireCheckout(ctx context.Context, client *http.Client, secret, sessionID 
 	if client == nil || secret == "" || strings.TrimSpace(sessionID) == "" {
 		return fmt.Errorf("invalid Stripe checkout expiration input")
 	}
-	endpoint := "https://api.stripe.com/v1/checkout/sessions/" + url.PathEscape(sessionID) + "/expire"
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, nil)
+	sc := stripe.NewClient(secret, stripe.WithBackends(stripe.NewBackends(client)))
+	_, err := sc.V1CheckoutSessions.Expire(ctx, sessionID, &stripe.CheckoutSessionExpireParams{})
 	if err != nil {
-		return fmt.Errorf("build Stripe checkout expiration request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+secret)
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("expire Stripe checkout session: %w", err)
-	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
-	if err != nil {
-		return fmt.Errorf("read Stripe checkout expiration response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return &StatusError{Code: resp.StatusCode, Body: string(body)[:min(180, len(body))], Action: "expiring checkout"}
+		return translateError(err, "expiring checkout")
 	}
 	return nil
 }

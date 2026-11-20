@@ -42,9 +42,13 @@ func TestCreateCheckoutTransportFailureIsNotAStatus(t *testing.T) {
 	}
 }
 
+// The status of a refused call survives for every answer in Stripe's
+// documented error shape. A body outside that shape (a proxy, not Stripe)
+// cannot carry a status through the SDK and lands in the outage bucket —
+// the safe default, since only a real 401/403 from Stripe names the key.
 func TestExpireCheckoutKeepsTheStatusAndNamesTheCall(t *testing.T) {
 	client := &http.Client{Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{}`)), Header: make(http.Header)}, nil
+		return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Invalid API Key provided","type":"invalid_request_error"}}`)), Header: make(http.Header)}, nil
 	})}
 	err := ExpireCheckout(t.Context(), client, "sk_bad", "cs_123")
 	var status *StatusError
