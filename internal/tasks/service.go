@@ -62,13 +62,15 @@ type Service struct {
 }
 
 // New builds the task service. The source may be nil: the GitHub import then
-// refuses to run. Now defaults to the wall clock.
+// refuses to run. The clock comes from the caller: a workflow reaching for
+// the wall clock on its own can neither be frozen in a test nor paused in a
+// demo database.
 func New(store Store, source ProjectSource, now func() time.Time) (*Service, error) {
 	if store == nil {
 		return nil, fmt.Errorf("tasks store is required")
 	}
 	if now == nil {
-		now = time.Now
+		return nil, fmt.Errorf("tasks service needs a clock")
 	}
 	return &Service{store: store, source: source, now: now}, nil
 }

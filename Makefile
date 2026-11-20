@@ -103,6 +103,7 @@ e2e:
 	. .venv/bin/activate && python e2e/test_mobile_navigation.py
 	. .venv/bin/activate && python e2e/test_screen_regressions.py
 	. .venv/bin/activate && python e2e/test_react_navigation.py
+	. .venv/bin/activate && python e2e/test_click_budget.py
 	. .venv/bin/activate && python e2e/a11y_check.py
 
 e2e-up: build

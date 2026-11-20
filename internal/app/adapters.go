@@ -139,9 +139,11 @@ func (n reminderPushNotifications) Send(_ context.Context, notification reminder
 type trackingPushNotifications struct{ push *push.Service }
 
 func (n trackingPushNotifications) SessionStopped(_ context.Context, request appmodel.SessionStoppedNotification) error {
+	// Russian by the reminders convention: the push channel speaks one
+	// language, the interface's first one, without a dictionary round trip.
 	return n.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: []int64{request.UserID},
-		Notification: push.Notification{Title: "Session stopped", Body: request.ActivityName + " finished", URL: "/stats", Topic: appmodel.NotificationTopicSessionStopped},
+		Notification: push.Notification{Title: "Таймер остановлен", Body: request.ActivityName, URL: "/stats", Topic: appmodel.NotificationTopicSessionStopped},
 	})
 }
 
@@ -154,14 +156,14 @@ func (n trackingPushNotifications) GoalAchieved(ctx context.Context, request app
 	}
 	return n.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: []int64{request.UserID},
-		Notification: push.Notification{Title: "Goal met", Body: request.Goal.ActivityName + ": " + period, URL: "/goals", Topic: appmodel.NotificationTopicGoalAchieved},
+		Notification: push.Notification{Title: "Цель достигнута", Body: request.Goal.ActivityName + ": " + period, URL: "/goals", Topic: appmodel.NotificationTopicGoalAchieved},
 	})
 }
 
 func (p payrollPushNotifications) EnqueuePayrollPaid(_ context.Context, request appmodel.PayrollPaidNotification) error {
 	return p.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: request.Recipients,
-		Notification: push.Notification{Title: "Payroll paid", Body: "Pay run marked paid", URL: "/stats", Topic: appmodel.NotificationTopicPayrollPaid},
+		Notification: push.Notification{Title: "Выплата отправлена", Body: "Расчёт отмечен оплаченным", URL: "/stats", Topic: appmodel.NotificationTopicPayrollPaid},
 	})
 }
 

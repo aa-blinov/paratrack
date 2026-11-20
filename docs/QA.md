@@ -10,7 +10,7 @@ GitHub Actions is the source of truth for pushes and pull requests targeting
 | UI build | `npm ci`, `npm run build`, `npm run typecheck`, `npm run test:unit` |
 | Architecture | `make verify` (tidy -diff, vet, govulncheck, build, architecture rules) |
 | Go tests | `go test -race -count=1 -timeout 30m -p 8 ./...` plus coverage for `internal/db`, `internal/web` and `internal/timeparse` |
-| Browser E2E | `test_dashboard`, `test_clients`, `test_tasks`, `test_revoke`, `test_invite_link_actions`, `test_workspace_move`, `qa_full`, `test_invoice_form_submits`, `test_invoice_unapproved_weeks`, `test_mobile_navigation`, `test_screen_regressions`, `test_react_navigation`, `a11y_check` — the same list `make e2e` runs locally |
+| Browser E2E | `test_dashboard`, `test_clients`, `test_tasks`, `test_revoke`, `test_invite_link_actions`, `test_workspace_move`, `qa_full`, `test_invoice_form_submits`, `test_invoice_unapproved_weeks`, `test_mobile_navigation`, `test_screen_regressions`, `test_react_navigation`, `test_click_budget`, `a11y_check` — the same list `make e2e` runs locally |
 
 The expanded QA suites below are manual acceptance runs. Their counts are the
 last recorded snapshot and do not prove the current working tree or a specific

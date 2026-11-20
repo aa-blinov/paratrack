@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/depcheck"
 	"github.com/aa-blinov/paratrack/internal/httpjson"
@@ -36,6 +37,10 @@ type Client struct {
 	config      Config
 	discoveryMu sync.Mutex
 	discovery   *discoveryDocument
+	// discoveryFetched is when the cached document was read; discoveryTTL
+	// bounds how long a provider's endpoint change takes to reach us.
+	discoveryFetched time.Time
+	now              func() time.Time
 }
 
 func New(httpClient *http.Client, config Config) (*Client, error) {
@@ -45,7 +50,7 @@ func New(httpClient *http.Client, config Config) (*Client, error) {
 	if err := validateURL(config.Issuer, config.RequireHTTPS); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidIssuer, err)
 	}
-	return &Client{httpClient: httpClient, config: config}, nil
+	return &Client{httpClient: httpClient, config: config, now: time.Now}, nil
 }
 
 func (c *Client) CloseIdleConnections() { c.httpClient.CloseIdleConnections() }
@@ -167,17 +172,30 @@ type discoveryDocument struct {
 	SigningAlgs   []string `json:"id_token_signing_alg_values_supported"`
 }
 
+// discoveryTTL is how long a discovery document stays trusted. Providers
+// rotate endpoints rarely, but never is the wrong answer: a moved userinfo
+// URL would keep failing every sign-in until the process restarted.
+const discoveryTTL = 24 * time.Hour
+
 func (c *Client) discover(ctx context.Context) (discoveryDocument, error) {
 	c.discoveryMu.Lock()
 	defer c.discoveryMu.Unlock()
-	if c.discovery != nil {
+	if c.discovery != nil && c.now().Sub(c.discoveryFetched) < discoveryTTL {
 		return *c.discovery, nil
 	}
 	endpoints, err := c.fetchDiscovery(ctx)
 	if err != nil {
+		// A stale document still signs people in while the provider is
+		// unreachable: the endpoints move rarely, and refusing here would
+		// turn a provider hiccup into a sign-in outage. The first fetch has
+		// nothing to fall back to and fails as before.
+		if c.discovery != nil {
+			return *c.discovery, nil
+		}
 		return discoveryDocument{}, err
 	}
 	c.discovery = &endpoints
+	c.discoveryFetched = c.now()
 	return endpoints, nil
 }
 

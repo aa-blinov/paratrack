@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+	"runtime"
 	"time"
 )
 
@@ -46,6 +47,14 @@ func runWeb(rt *Runtime, args []string) error {
 // (e.g. on a headless server), we silently continue — the server is
 // still reachable from the printed URL.
 func openBrowser(u string) {
+	// Windows has no "open"/"xdg-open" to find on PATH; the documented shell
+	// verb goes through rundll32. On every other platform the candidate list
+	// covers macOS, Linux and WSL (wslview hands the URL to the Windows
+	// browser from inside a WSL build).
+	if runtime.GOOS == "windows" {
+		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", u).Start()
+		return
+	}
 	exe, err := lookupBrowserCmd()
 	if err != nil || exe == "" {
 		return

@@ -3,6 +3,7 @@ package tasks
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -50,7 +51,10 @@ func TestImportRefusesBadInputBeforeReadingTheBoard(t *testing.T) {
 	if err == nil {
 		t.Fatal("a service without a store must not be built")
 	}
-	service, err = New(&stubStore{}, source, nil)
+	// The clock is supplied here as everywhere: a nil clock is a build error,
+	// and the test's own fixture time is as good as any.
+	stubClock := func() time.Time { return time.Date(2026, 11, 20, 12, 0, 0, 0, time.UTC) }
+	service, err = New(&stubStore{}, source, stubClock)
 	if err != nil {
 		t.Fatalf("new: %v", err)
 	}

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -99,7 +100,7 @@ func runStop(rt *Runtime, args []string) error {
 	}
 	stopped := 0
 	for _, as := range active {
-		if equalsFold(as.Activity.Name, target) {
+		if strings.EqualFold(as.Activity.Name, target) {
 			if _, err := services.TimerOperations.Stop(ctx, appmodel.TimerStopRequest{TeamID: teamID, SessionID: as.Session.ID, At: rt.now()}); err != nil {
 				return fmt.Errorf("stop %d: %w", as.Session.ID, err)
 			}
@@ -154,7 +155,7 @@ func runPause(rt *Runtime, args []string) error {
 		if as.Session.Paused {
 			continue
 		}
-		if !equalsFold(as.Activity.Name, target) {
+		if !strings.EqualFold(as.Activity.Name, target) {
 			continue
 		}
 		if _, err := services.TimerCommands.Pause(ctx, appmodel.TimerSessionRequest{TeamID: teamID, SessionID: as.Session.ID, At: now}); err != nil {
@@ -198,7 +199,7 @@ func runResume(rt *Runtime, args []string) error {
 		if !as.Session.Paused {
 			continue
 		}
-		if target != "" && !equalsFold(as.Activity.Name, target) {
+		if target != "" && !strings.EqualFold(as.Activity.Name, target) {
 			continue
 		}
 		if _, err := services.TimerCommands.Resume(ctx, appmodel.TimerSessionRequest{TeamID: teamID, SessionID: as.Session.ID, At: now}); err != nil {

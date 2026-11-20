@@ -218,7 +218,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Logger:    logger,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("construct scheduling service: %w", err)
+		return nil, fmt.Errorf("construct reminder service: %w", err)
 	}
 	// The recurring invoice schedule (UX-20) rides the same persistence adapter
 	// and the same mail queue; it starts when the web process starts the workers.

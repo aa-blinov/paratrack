@@ -10,7 +10,7 @@ for name in $core_packages; do
 	imports=$(printf '%s' "$(package_imports "$package")" | tr ' ' ',')
 	for source in internal/"$name"/*.go; do
 		case "$source" in *_test.go) continue ;; esac
-		if grep -Eq 'time\.(Now|Since|Until)\(' "$source"; then
+		if grep -Eq 'time\.(Now|Since|Until)\b' "$source"; then
 			echo "architecture check: workflow source $source must use caller-supplied time or an injected clock" >&2
 			exit 1
 		fi
