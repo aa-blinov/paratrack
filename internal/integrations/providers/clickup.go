@@ -11,7 +11,7 @@ func (c *Client) fetchClickUpTasks(ctx context.Context, token, listID string) ([
 		return nil, fmt.Errorf("clickup list id is required")
 	}
 	var out []extItem
-	for page := 0; len(out) < maxImportTasks; page++ {
+	for page := 0; page < maxProviderPages && len(out) < maxImportTasks; page++ {
 		u := fmt.Sprintf("https://api.clickup.com/api/v2/list/%s/task?include_closed=false&order_by=updated&reverse=true&page=%d",
 			url.PathEscape(listID), page)
 		var raw struct {

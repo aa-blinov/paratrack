@@ -17,7 +17,12 @@ func (c *Client) fetchGitHubIssues(ctx context.Context, token, repo string) ([]e
 			url.PathEscape(parts[0]), url.PathEscape(parts[1]))
 	}
 	var out []extItem
+	page := 0
 	for next != "" && len(out) < maxImportTasks {
+		if page >= maxProviderPages {
+			break
+		}
+		page++
 		var raw []struct {
 			Number  int    `json:"number"`
 			Title   string `json:"title"`

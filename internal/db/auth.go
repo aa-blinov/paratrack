@@ -52,8 +52,7 @@ func (d *DB) CreateAccount(ctx context.Context, request appmodel.AccountCreateRe
 }
 
 func (d *DB) FindUserByEmail(ctx context.Context, email string) (model.User, error) {
-	return scanAuthUser(d.sql.QueryRowContext(ctx,
-		`SELECT `+userColumns+` FROM users WHERE email = ?`,
+	return scanAuthUser(d.sql.QueryRowContext(ctx, `SELECT `+userColumns+` FROM users WHERE email = ?`,
 		strings.ToLower(strings.TrimSpace(email)),
 	))
 }
@@ -62,6 +61,20 @@ func (d *DB) FindUserByID(ctx context.Context, id int64) (model.User, error) {
 	return scanAuthUser(d.sql.QueryRowContext(ctx,
 		`SELECT `+userColumns+` FROM users WHERE id = ?`, id,
 	))
+}
+
+// SetUserSSOSubject records the provider-side subject an account was last
+// entered or created by through single sign-in. The empty subject marks a
+// password-born account, the one whose address was claimed rather than
+// proven.
+func (d *DB) SetUserSSOSubject(ctx context.Context, request appmodel.SSOSubjectSetRequest) error {
+	if request.UserID <= 0 {
+		return ErrNotFound
+	}
+	_, err := d.sql.ExecContext(ctx,
+		`UPDATE users SET sso_subject = ?, updated_at = ? WHERE id = ?`,
+		request.Subject, FormatTime(d.currentTime().UTC()), request.UserID)
+	return err
 }
 
 func (d *DB) FindUserIdentitiesByIDs(ctx context.Context, ids []int64) (map[int64]appmodel.UserIdentity, error) {
@@ -365,11 +378,11 @@ func (d *DB) ConsumePasswordReset(ctx context.Context, request appmodel.Password
 }
 
 // userColumns are the columns every user lookup reads, in the order userScanTargets fills.
-const userColumns = `id, email, password_hash, name, created_at, updated_at, email_unverified, totp_enabled`
+const userColumns = `id, email, password_hash, name, created_at, updated_at, email_unverified, totp_enabled, sso_subject`
 
 // userScanTargets points the columns of userColumns at a user record and its timestamps.
 func userScanTargets(user *model.User, created, updated *string) []any {
-	return []any{&user.ID, &user.Email, &user.PasswordHash, &user.Name, created, updated, &user.EmailUnverified, &user.TwoFactorEnabled}
+	return []any{&user.ID, &user.Email, &user.PasswordHash, &user.Name, created, updated, &user.EmailUnverified, &user.TwoFactorEnabled, &user.SSOSubject}
 }
 
 func scanAuthUser(row interface{ Scan(...any) error }) (model.User, error) {

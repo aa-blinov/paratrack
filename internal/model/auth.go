@@ -15,6 +15,11 @@ type User struct {
 	// EmailUnverified is set on an account whose signup address is not confirmed yet.
 	// Accounts from before the check have it clear.
 	EmailUnverified bool
+	// SSOSubject is the provider-side subject this account was last entered
+	// or created by through single sign-in. Empty means the account was born
+	// from a password: its address was only claimed, not proven, until the
+	// confirmation link or a reset says otherwise.
+	SSOSubject string
 	// TwoFactorEnabled is set when a one-time code is asked after the password.
 	TwoFactorEnabled bool
 }

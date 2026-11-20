@@ -126,7 +126,8 @@ func (d *DB) GetWebhook(ctx context.Context, query appmodel.WebhookLookupQuery) 
 	return h, err
 }
 
-// DeleteWebhook removes an endpoint and its delivery log.
+// DeleteWebhook removes an endpoint; its delivery log and queued retries
+// follow through the ON DELETE CASCADE of both tables.
 func (d *DB) DeleteWebhook(ctx context.Context, request appmodel.WebhookDeleteRequest) error {
 	if request.TeamID <= 0 || request.CallerID <= 0 || request.WebhookID <= 0 {
 		return ErrNotFound
