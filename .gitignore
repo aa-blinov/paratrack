@@ -49,5 +49,11 @@
 /paratrack.exe~
 e2e-server-err.log
 
+# Runtime logs of local e2e stands
+e2e-server.log
+
+# Python bytecode of local tooling
+__pycache__/
+
 # Ревизии ЦА: улики ревьюеров не грузим в репозиторий
 e2e/screenshots/rev-*/

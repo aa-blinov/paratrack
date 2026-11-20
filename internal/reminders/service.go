@@ -103,15 +103,17 @@ type Dependencies struct {
 	Logger    Logger
 }
 
-// New builds the reminder worker. Now defaults to the wall clock.
+// New builds the reminder worker. The clock comes from the caller, the same
+// as every other workflow: a reminder run against the wall clock could not
+// be frozen in a test or kept deterministic across a nightly pass.
 func New(deps Dependencies) (*Service, error) {
 	if deps.Store == nil || deps.Planner == nil || deps.Sender == nil {
 		return nil, fmt.Errorf("reminders dependencies are incomplete")
 	}
-	now := deps.Now
-	if now == nil {
-		now = time.Now
+	if deps.Now == nil {
+		return nil, fmt.Errorf("reminders need a clock")
 	}
+	now := deps.Now
 	return &Service{
 		store: deps.Store, planner: deps.Planner, sender: deps.Sender, mailer: deps.Mailer,
 		audience: deps.Audience, publicURL: deps.PublicURL, now: now, logger: deps.Logger,

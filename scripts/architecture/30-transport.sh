@@ -319,6 +319,15 @@ if grep -Eq '(window|globalThis)\.[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]*=[^=]' int
 	echo "architecture check: frontend modules must not publish mutable globals; use ES module imports/exports" >&2
 	exit 1
 fi
+# The React tree lives by the same rule. Its one sanctioned write is the
+# offline controller replacing window.fetch, which is the module that owns
+# replay; anything else publishing state on window or globalThis is a new
+# offender and stops the build.
+if grep -R -n -E --include='*.ts' --include='*.tsx' '(window|globalThis)\.[A-Za-z_$][A-Za-z0-9_$]*[[:space:]]*=[^=]' web/src \
+	| grep -v 'window\.fetch[[:space:]]*=' | grep -q .; then
+	echo "architecture check: React sources must not publish mutable globals either; use module imports/exports" >&2
+	exit 1
+fi
 for source in internal/web/static/js/app*.js; do
 	[ "$source" = "internal/web/static/js/app-offline.js" ] && continue
 if grep -Eq '(^|[^[:alnum:]_])fetch[[:space:]]*\(' "$source"; then

@@ -289,10 +289,10 @@ def seed(page):
         now = time.localtime()
         start = time.localtime(time.time() - hours * 3600)
         pad = lambda n: str(n).zfill(2)
-        stamp = lambda t: f"{t.tm_year}-{pad(t.tm_mon)}-{pad(t.tm_mday)} {pad(t.tm_hour)}:{pad(t.tm_min)}:00"
+        fmt_clock = lambda t: f"{t.tm_year}-{pad(t.tm_mon)}-{pad(t.tm_mday)} {pad(t.tm_hour)}:{pad(t.tm_min)}:00"
         page.fill("#b-activity", activity)
-        page.fill("#b-start", stamp(start))
-        page.fill("#b-end", stamp(now))
+        page.fill("#b-start", fmt_clock(start))
+        page.fill("#b-end", fmt_clock(now))
         if project_id:
             # Unassigned time is not invoiceable, so the session must carry its
             # project. The form picks it through a Radix select: a trigger
@@ -316,10 +316,6 @@ def seed(page):
         warned = page.evaluate("()=>[...document.querySelectorAll('[role=alert]')].map(e=>e.textContent.trim()).filter(Boolean)")
         if warned:
             print(f"  ! {activity}: {warned}")
-
-    # Bind an activity to the project, without which time is not invoiceable.
-    page.goto(BASE + f"/projects/nordwind-{stamp}")
-    page.wait_for_load_state("networkidle")
 
     # Two invoices: one paid, one still open. Paid against unpaid is the pair
     # a person has to tell apart at a glance.

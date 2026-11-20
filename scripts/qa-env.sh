@@ -125,9 +125,25 @@ cmd_check() {
 	. "$STATE"
 	[ -d .venv ] || fail "no .venv — run: scripts/setup_e2e.sh"
 
-	PARATRACK_BASE="$BASE_URL" .venv/bin/python e2e/test_dashboard.py
-	PARATRACK_BASE="$BASE_URL" .venv/bin/python e2e/test_clients.py
-	PARATRACK_BASE="$BASE_URL" .venv/bin/python e2e/qa_full.py
+	# The full browser list, kept in step with the e2e target of the
+	# Makefile: `make qa` is the one command that runs what CI runs.
+	for suite in \
+		test_dashboard \
+		test_clients \
+		test_tasks \
+		test_revoke \
+		test_invite_link_actions \
+		test_workspace_move \
+		qa_full \
+		test_invoice_form_submits \
+		test_invoice_unapproved_weeks \
+		test_mobile_navigation \
+		test_screen_regressions \
+		test_react_navigation \
+		test_click_budget \
+		a11y_check; do
+		PARATRACK_BASE="$BASE_URL" .venv/bin/python "e2e/$suite.py" || fail "$suite failed"
+	done
 }
 
 cmd_down() {

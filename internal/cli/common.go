@@ -74,24 +74,3 @@ func printActive(rt *Runtime, rows []appmodel.ActiveSession) {
 	}
 	_ = tw.Flush()
 }
-
-// equalsFold is a tiny case-insensitive compare that avoids pulling in
-// strings just for one call site.
-func equalsFold(a, b string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := 0; i < len(a); i++ {
-		ca, cb := a[i], b[i]
-		if 'A' <= ca && ca <= 'Z' {
-			ca += 'a' - 'A'
-		}
-		if 'A' <= cb && cb <= 'Z' {
-			cb += 'a' - 'A'
-		}
-		if ca != cb {
-			return false
-		}
-	}
-	return true
-}

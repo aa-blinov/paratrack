@@ -432,11 +432,24 @@ func (s *SyncService) push(ctx context.Context, adapter calendarport.Adapter, to
 	if err != nil {
 		return err
 	}
+	// Remote ids adopted as an unlinked candidate's own copy this pass, so
+	// two candidates with the same title and span cannot both claim one twin.
+	claimed := make(map[string]bool)
 	for _, candidate := range candidates {
 		event := toProviderEvent(candidate.Event)
 		var written calendarport.RemoteEvent
 		if !candidate.Linked {
-			written, err = adapter.Create(ctx, token, event)
+			// The listing is the truth of what already exists remotely. When
+			// a link write failed after the provider copy appeared, the
+			// candidate's twin sits in that listing: adopting it instead of
+			// creating a second copy closes the failure window, and a normal
+			// pass matches nothing, because a linked candidate never reaches
+			// this branch.
+			if twin, ok := remoteTwin(present, claimed, event); ok {
+				written = twin
+			} else {
+				written, err = adapter.Create(ctx, token, event)
+			}
 		} else if remoteEvent, ok := present[candidate.Link.ExternalID]; !ok {
 			written, err = adapter.Create(ctx, token, event)
 		} else if remoteEvent.Etag == candidate.Link.Etag && !candidate.UpdatedAt.After(candidate.Link.SyncedAt) {
@@ -511,6 +524,21 @@ func overlaps(starts, ends time.Time, window calendarport.Window) bool {
 
 func toProviderEvent(fields appmodel.CalendarEventFields) calendarport.Event {
 	return calendarport.Event{Title: fields.Title, Location: fields.Location, Notes: fields.Notes, StartsAt: fields.StartsAt, EndsAt: fields.EndsAt}
+}
+
+// remoteTwin finds the remote event that is this candidate's own copy: the
+// same title over the same span, not claimed by another candidate this pass.
+func remoteTwin(present map[string]calendarport.RemoteEvent, claimed map[string]bool, event calendarport.Event) (calendarport.RemoteEvent, bool) {
+	for id, remote := range present {
+		if claimed[id] {
+			continue
+		}
+		if remote.Title == event.Title && remote.StartsAt.Equal(event.StartsAt) && remote.EndsAt.Equal(event.EndsAt) {
+			claimed[id] = true
+			return remote, true
+		}
+	}
+	return calendarport.RemoteEvent{}, false
 }
 
 func toAppTokens(tokens calendarport.Tokens) appmodel.CalendarTokens {

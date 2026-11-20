@@ -304,14 +304,17 @@ func ResolvePeriod(name string, now time.Time) (Period, error) {
 			offset += 7
 		}
 		thisMon := startOfDay(now.AddDate(0, 0, -offset))
-		end = thisMon.Add(-time.Second) // Sunday 23:59:59
+		// Half-open, like "yesterday" already is: the end is this week's
+		// midnight. Every read the CLI feeds treats the end exclusively, so a
+		// window stopped at 23:59:59 lost the last second of Sunday.
+		end = thisMon
 		start = thisMon.AddDate(0, 0, -7)
 	case "month":
 		start = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	case "last_month":
 		firstThis := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
-		end = firstThis.Add(-time.Second)
-		start = time.Date(end.Year(), end.Month(), 1, 0, 0, 0, 0, end.Location())
+		end = firstThis
+		start = firstThis.AddDate(0, -1, 0)
 	default:
 		return Period{}, fmt.Errorf("unknown period %q", name)
 	}

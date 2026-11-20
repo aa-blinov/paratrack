@@ -75,7 +75,9 @@ fi
 
 # Timesheet cell replacement must retain a concrete actor scope even for
 # legacy unscoped records, where no workspace membership row can provide it.
-timesheet_cell_write=$(sed -n '/^func (d \*DB) UpsertDayTotal(/,/^}/p' internal/db/timesheet.go)
+# UpsertDayTotal delegates the write to upsertDayTotalTx so a decision can
+# claim and write in one transaction; the rule follows both bodies.
+timesheet_cell_write=$(sed -n '/^func (d \*DB) UpsertDayTotal(/,/^}/p' internal/db/timesheet.go; sed -n '/^func upsertDayTotalTx(/,/^}/p' internal/db/timesheet.go)
 # The cell reads the actor's intervals and replaces only the actor's sheet sessions:
 # both queries must name the actor, or a colleague's time on the same activity could move.
 if ! printf '%s\n' "$timesheet_cell_write" | grep -Fq 'actor := actorID(ctx)' ||
@@ -274,7 +276,10 @@ if ! printf '%s\n' "$unbilled_builder" | grep -Fq 'query.TeamID <= 0' ||
 	echo "architecture check: unbilled invoice totals must require scope and join tenant-owned activities and projects" >&2
 	exit 1
 fi
-payroll_line_builder=$(sed -n '/^func buildPayrollLines(/,/^}/p' internal/db/payroll_calculation.go)
+# Payroll aggregates sessions through the shared windowed helpers (see
+# windowed_sessions.go): the workspace constraint lives there, and the rule
+# follows both bodies so it still proves the sessions are team-scoped.
+payroll_line_builder=$(sed -n '/^func buildPayrollLines(/,/^}/p' internal/db/payroll_calculation.go; sed -n '/^func windowedSessionsClosed(/,/^}/p' internal/db/windowed_sessions.go; sed -n '/^func windowedSessionsOpen(/,/^}/p' internal/db/windowed_sessions.go)
 if ! printf '%s\n' "$payroll_line_builder" | grep -Fq 'teamID <= 0' ||
 	! printf '%s\n' "$payroll_line_builder" | grep -Fq 's.team_id = ?'; then
 	echo "architecture check: payroll aggregation must reject missing scope and constrain sessions to the payroll workspace" >&2

@@ -166,9 +166,24 @@ func TestResolvePeriod_LastWeek(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantStart := time.Date(2026, 9, 14, 0, 0, 0, 0, time.UTC)
-	wantEnd := time.Date(2026, 9, 20, 23, 59, 59, 0, time.UTC)
+	// Half-open: the end is this Monday's midnight, so the whole last
+	// Sunday is inside the window, its last second included.
+	wantEnd := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
 	if !p.Start.Equal(wantStart) || !p.End.Equal(wantEnd) {
 		t.Errorf("last_week = [%v, %v], want [%v, %v]",
+			p.Start, p.End, wantStart, wantEnd)
+	}
+}
+
+func TestResolvePeriod_LastMonth(t *testing.T) {
+	p, err := ResolvePeriod("last_month", fixedNow)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantStart := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	wantEnd := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	if !p.Start.Equal(wantStart) || !p.End.Equal(wantEnd) {
+		t.Errorf("last_month = [%v, %v], want [%v, %v]",
 			p.Start, p.End, wantStart, wantEnd)
 	}
 }
