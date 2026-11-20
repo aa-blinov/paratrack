@@ -133,8 +133,8 @@ Confirmed by the code:
 
 Deliberately not true, and worth knowing before a change:
 
-- Stripe Checkout and OIDC are wired but have never been run against a real
-  provider.
+- Stripe Checkout is wired but has never been run against a real provider.
+  OIDC has: the full SSO cycle was run against a live Dex in November 2026.
 - Live provider import needs real personal access tokens. There are no
   sandbox credentials in the repository.
 - Email verification on signup is on by default; an operator can switch it

@@ -643,7 +643,7 @@ python e2e/qa_offline_push.py                   # offline + push
 
 ## 10. Known limitations
 
-- Stripe Checkout and OIDC are wired but untested against real providers
+- Stripe Checkout is wired but untested against a real provider; OIDC is tested against a live Dex (full SSO cycle, November 2026)
 - Live provider import needs real PATs (no sandbox credentials in-repo)
 - `NextInvoiceNumber` returns an advisory display value; concurrent reads may return the same value, while invoice draft creation allocates under a workspace lock. Payroll numbers are allocated inside atomic payroll draft creation.
 - Rate limiting is per-process (single-binary target), with at most 10,000 tracked keys per limiter; when full, unseen keys fail closed until cleanup frees capacity
