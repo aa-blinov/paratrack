@@ -27,9 +27,9 @@
   <main class="card">
     <h1>Нет соединения</h1>
     <p>Эта страница ещё не открывалась без сети. Идущие таймеры не остановились: время считает сервер, и оно не потеряется.</p>
-    <button type="button" onclick="location.reload()">Повторить</button>
+    <button type="button" id="offline-retry">Повторить</button>
     <p class="en">You are offline. Running timers keep counting on the server, nothing is lost. Reconnect and tap the button.</p>
   </main>
-  <script>window.addEventListener("online", () => location.reload());</script>
+  <script src="js/offline-reload.js"></script>
 </body>
 </html>

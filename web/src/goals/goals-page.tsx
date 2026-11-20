@@ -34,9 +34,24 @@ export function GoalsPage({ data }: { data: GoalsData }) {
   const [error, setError] = React.useState("")
   const lang = data.Lang
 
+  // Offline, the action is queued and the progress list refreshes when the
+  // connection is back, so a failed refresh is not the person's failure.
+  function failureText(cause: unknown): string {
+    if (cause instanceof TypeError) return t(lang, "pwa.offline")
+    return cause instanceof Error ? cause.message : t(lang, "err.generic")
+  }
+  async function refreshQuietly() {
+    try { await refresh() } catch { /* the list catches up when the connection returns */ }
+  }
+
   async function request(url: string, method: string, body?: URLSearchParams) {
     const response = await fetch(url, { method, credentials: "same-origin", headers: { "X-CSRF-Token": data.CSRFToken, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}) }, body })
+    // The offline layer answers a queued write with 202: the goal is a
+    // promise to send, not a done change, and the page keeps its state
+    // until the replay lands.
+    if (response.headers.get("X-Offline-Queued")) return "queued"
     if (!response.ok) throw new Error(await responseMessage(response))
+    return "saved"
   }
 
   async function refresh() {
@@ -58,21 +73,28 @@ export function GoalsPage({ data }: { data: GoalsData }) {
     const form = new FormData(formElement)
     const body = new URLSearchParams({ activity: String(form.get("activity") || ""), period, minutes: String(form.get("minutes") || "") })
     setBusy(true); setError("")
-    try { await request("/api/goals", "POST", body); await refresh(); formElement.reset() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
+    try {
+      // A queued goal is taken: the form clears, the banner says it waits,
+      // and the progress list catches up after the replay.
+      if (await request("/api/goals", "POST", body) === "queued") { formElement.reset(); return }
+      await refresh()
+      formElement.reset()
+    } catch (cause) { setError(failureText(cause)) }
     finally { setBusy(false) }
   }
 
   async function remove(goal: GoalView) {
     if (!await requestConfirmation(t(lang, "goals.confirmDelete"))) return
     setBusy(true); setError("")
-    try { const query = new URLSearchParams({ activity: goal.ActivityName, period: goal.Period }); await request(`/api/goals?${query}`, "DELETE"); await refresh() }
-    catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
+    try {
+      if (await request(`/api/goals?${new URLSearchParams({ activity: goal.ActivityName, period: goal.Period })}`, "DELETE") === "queued") return
+      await refresh()
+    } catch (cause) { setError(failureText(cause)) }
     finally { setBusy(false) }
   }
 
   React.useEffect(() => {
-    const timer = window.setInterval(() => void refresh().catch(() => {}), 60_000)
+    const timer = window.setInterval(() => void refreshQuietly(), 60_000)
     return () => window.clearInterval(timer)
   }, [])
 

@@ -2,6 +2,8 @@ package appmodel
 
 import "time"
 
+// WebhookManagementSnapshot contains the credential-free data needed by the
+// webhook settings page.
 type WebhookManagementSnapshot struct {
 	Endpoints  []WebhookEndpointView
 	Deliveries map[int64][]WebhookDeliveryView

@@ -17,5 +17,3 @@ func flashCode(ok bool, msg string) string {
 func encodeFlash(ok bool, msg string) string {
 	return url.QueryEscape(flashCode(ok, msg))
 }
-
-// handleAPITeamBilling saves rounding and the invoice number prefix.

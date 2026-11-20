@@ -103,9 +103,6 @@ type InvoiceIndexSnapshot struct {
 	Unassigned   []UnassignedActivity
 }
 
-// WebhookManagementSnapshot contains the credential-free data needed by the
-// webhook settings page.
-
 // InvoiceSessionRow is one tracked session billed on an invoice, as the invoice's
 // appendix lists it: who, where, when and how long (FIN-06).
 type InvoiceSessionRow struct {

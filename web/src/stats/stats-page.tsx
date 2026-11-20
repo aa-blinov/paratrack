@@ -41,9 +41,16 @@ function queryFor(data: StatsData, period = data.Period.Label, project = data.Pr
   return `/stats?${query}`
 }
 
+// send reports "queued" when the offline layer took the write: the body is a
+// promise to send, not a done edit. A queued action must not reload the page —
+// the network-first service worker would serve offline.html while the queue
+// still holds the click — and the replay reloads the page when the queue
+// drains, so the edit lands on screen without another round trip.
 async function send(url: string, method: string, body: URLSearchParams | undefined, csrf: string) {
   const response = await fetch(url, { method, credentials: "same-origin", body, headers: { "X-CSRF-Token": csrf, ...(body ? { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" } : {}) } })
+  if (response.headers.get("X-Offline-Queued")) return "queued"
   if (!response.ok) throw new Error(await responseMessage(response))
+  return "saved"
 }
 
 // A session longer than this is worth splitting (TIME-18). The save still goes
@@ -92,7 +99,7 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
       if (length !== null && length > LONG_SESSION_MINUTES && !(await requestConfirmation(t(data.Lang, "stats.longSessionConfirm")))) return
       const body = new URLSearchParams({ note: session.Note ?? "", ...patch })
       setError("")
-      await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken)
+      if (await send(`/api/sessions/${session.ID}`, "PATCH", body, data.CSRFToken) === "queued") return
       window.location.reload()
     } catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
     finally { busy.current = false }
@@ -137,7 +144,7 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     if (busy.current) return
     busy.current = true
     setError("")
-    try { await send(`/api/sessions/${session.ID}`, "PATCH", new URLSearchParams({ note: session.Note ?? "", project_id: next }), data.CSRFToken); window.location.reload() }
+    try { if (await send(`/api/sessions/${session.ID}`, "PATCH", new URLSearchParams({ note: session.Note ?? "", project_id: next }), data.CSRFToken) === "queued") return; window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
     finally { busy.current = false }
   }
@@ -146,12 +153,12 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
     event?.preventDefault()
     const name = tag.trim()
     if (!name) return
-    try { await send(`/api/sessions/${session.ID}/tags`, "POST", new URLSearchParams({ name }), data.CSRFToken); window.location.reload() }
+    try { if (await send(`/api/sessions/${session.ID}/tags`, "POST", new URLSearchParams({ name }), data.CSRFToken) === "queued") return; window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
   }
 
   async function removeTag(name: string) {
-    try { await send(`/api/sessions/${session.ID}/tags?name=${encodeURIComponent(name)}`, "DELETE", undefined, data.CSRFToken); window.location.reload() }
+    try { if (await send(`/api/sessions/${session.ID}/tags?name=${encodeURIComponent(name)}`, "DELETE", undefined, data.CSRFToken) === "queued") return; window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(data.Lang, "err.generic")) }
   }
 
@@ -165,7 +172,7 @@ function EditableSession({ data, session, onRemove }: { data: StatsData; session
   return <>
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">{fields}</div>
     <div className="mt-2 flex flex-wrap items-center gap-2">
-      {session.Tags?.map(item => <Badge key={item.ID} variant="outline" className="gap-1"><a href={queryFor(data, data.Period.Label, data.ProjectFilter, item.Name, data.PersonFilter)} title={t(data.Lang, "stats.filterByTag")} className="underline-offset-4 hover:underline">#{item.Name}</a><Button variant="ghost" size="icon-sm" className="size-5" type="button" aria-label={`${t(data.Lang, "stats.removeTag")} ${item.Name}`} onClick={() => void removeTag(item.Name)}><X aria-hidden="true" className="size-3" /></Button></Badge>)}
+      {session.Tags?.map(item => <Badge key={item.ID} variant="outline" className="gap-1"><a href={queryFor(data, data.Period.Label, data.ProjectFilter, item.Name, data.PersonFilter)} title={t(data.Lang, "stats.filterByTag")} className="underline-offset-4 hover:underline">#{item.Name}</a><Button variant="ghost" size="icon-sm" type="button" aria-label={`${t(data.Lang, "stats.removeTag")} ${item.Name}`} onClick={() => void removeTag(item.Name)}><X aria-hidden="true" className="size-3" /></Button></Badge>)}
       <form className="flex max-w-xs items-center gap-1" onSubmit={addTag}><Input list="known-tags-all" aria-label={`${t(data.Lang, "stats.addTag")} — ${session.ActivityName}`} placeholder={t(data.Lang, "stats.addTag")} value={tag} onChange={event => setTag(event.target.value)} /><Button type="submit" size="icon" variant="outline" aria-label={t(data.Lang, "stats.attachTag")}><Plus aria-hidden="true" /></Button></form>
       <Button type="button" size="icon" variant="ghost" className="ml-auto text-destructive" disabled={session.Locked} title={session.Locked ? session.LockNote : t(data.Lang, "stats.deleteSession")} aria-label={t(data.Lang, "stats.deleteSession")} onClick={async () => await requestConfirmation(t(data.Lang, "stats.confirmDelete")) && onRemove(session.ID)}><Trash2 aria-hidden="true" /></Button>
     </div>
@@ -182,7 +189,7 @@ export function StatsPage({ data }: { data: StatsData }) {
   // wide screen the fold is irrelevant and the content is always shown.
   const [editorOpen, setEditorOpen] = React.useState(false)
   async function removeSession(id: number) {
-    try { await send(`/api/sessions/${id}`, "DELETE", undefined, data.CSRFToken); window.location.reload() }
+    try { if (await send(`/api/sessions/${id}`, "DELETE", undefined, data.CSRFToken) === "queued") return; window.location.reload() }
     catch (cause) { setError(cause instanceof Error ? cause.message : t(lang, "err.generic")) }
   }
   const graphQuery = new URLSearchParams({ period: data.Period.Label })

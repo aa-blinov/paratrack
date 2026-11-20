@@ -228,7 +228,11 @@ func (s *Server) sectionsData(r *http.Request, welcome bool) *sectionsPage {
 // handleWelcome is the one onboarding question: how will you use it?
 func (s *Server) handleWelcome(w http.ResponseWriter, r *http.Request) {
 	if !canManage(r) {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
+		// A member cannot answer the question, and the sections gate would
+		// send them straight back here from "/": two redirects that never
+		// change state. The settings screens stay open while the sections
+		// are unchosen, so the member waits there with an explanation.
+		http.Redirect(w, r, "/settings?flash="+encodeFlash(false, i18n.T(resolveLang(r), "welcome.waitOwner")), http.StatusSeeOther)
 		return
 	}
 	s.renderPageForRequest(w, r, "Welcome", "welcome", s.sectionsData(r, true))

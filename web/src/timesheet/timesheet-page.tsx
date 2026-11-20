@@ -81,7 +81,10 @@ type Notice = { kind: "saved" | "queued" | "restored" | "cleared"; activity: str
 export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   const [data, setData] = React.useState(initial)
   const [drafts, setDrafts] = React.useState<Record<string, string>>({})
-  const [saving, setSaving] = React.useState<string | null>(null)
+  // Several cells can be in flight at once: Tab through a row sends one
+  // write per cell, and a single slot would unmark a cell whose write is
+  // still in the air.
+  const [saving, setSaving] = React.useState<ReadonlySet<string>>(new Set())
   const [clearing, setClearing] = React.useState(false)
   const [notice, setNotice] = React.useState<Notice | null>(null)
   const [history, setHistory] = React.useState<CellEdit[]>([])
@@ -100,7 +103,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   // A screen reader read «2026-10-05» digit by digit; the grid's own header says «пн 5».
   // Under a minute a cell shows «<1» like its row total, not a rounded-up «1».
   const dayName = (iso: string) => { const day = data.Days.find(item => item.ISO === iso); return day ? `${day.Label} ${day.Date}` : iso }
-  const busy = saving !== null || clearing
+  const busy = saving.size > 0 || clearing
   const lastEdit = history[history.length - 1] ?? null
   // A row whose activity has no project still takes minutes, but its time
   // reaches no project report — say so once instead of leaving "Без проекта"
@@ -151,7 +154,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
   // notice says, so undo can name the cell it undid.
   async function writeCell(row: TimesheetRow, cell: TimesheetRow["Cells"][number], minutes: number): Promise<"saved" | "queued" | "failed"> {
     const key = cellKey(row.ActivityID, cell.Index)
-    setSaving(key); setError("")
+    setSaving(previous => new Set(previous).add(key)); setError("")
     // A fresh attempt of the same cell clears its refusal marker; a refusal
     // on another cell leaves this one marked until it is edited too.
     setCellError(previous => (previous === key ? null : previous))
@@ -177,7 +180,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       setError(isNetworkError(cause) ? t(lang, "err.network") : cause instanceof Error ? cause.message : t(lang, "err.generic"))
       setCellError(key)
       return "failed"
-    } finally { setSaving(null) }
+    } finally { setSaving(previous => { const next = new Set(previous); next.delete(key); return next }) }
   }
 
   // The last value tried for a cell. Leaving the cell does not retry a write
@@ -189,7 +192,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     if (!retry && attempted.current?.key === key && attempted.current.value === value) return
     // Tabbing through a cell is not an edit: a «<1» cell read as 0 and wrote
     // minutes=0 for a day nobody touched.
-    if (!(key in drafts) || saving === key) return
+    if (!(key in drafts) || saving.has(key)) return
     const minutes = cellMinutes(value)
     if (!Number.isInteger(minutes) || minutes < 0 || minutes > 1440) {
       setInvalid(key)
@@ -378,7 +381,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       )}
     </div>
     <div className="flex flex-wrap items-center gap-2">
-      <StatusLine text={saving ? t(lang, "ts.saving") : noticeText} className="text-sm" />
+      <StatusLine text={saving.size > 0 ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
     </div>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
@@ -430,7 +433,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
                     <span className="min-w-0"><span className="block break-words text-sm font-medium [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:3] overflow-hidden" title={row.ActivityName}>{row.ActivityName}</span>
                       <span className="block truncate text-xs font-normal text-muted-foreground" title={projectOf(row)}>{projectOf(row)}</span></span>
                   </span>
-                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className={`w-20 shrink-0 px-2 text-center font-mono tabular-nums ${cellError === key ? "ring-2 ring-destructive" : ""}`} name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null); if (cellError === key) setCellError(null) }} aria-invalid={invalid === key || cellError === key || undefined} onKeyDown={event => {
+                  <span className="grid shrink-0 justify-items-center gap-0.5"><Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className={`w-20 shrink-0 px-2 text-center font-mono tabular-nums ${cellError === key ? "ring-2 ring-destructive" : ""}`} name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving.has(key) || clearing} aria-busy={saving.has(key) || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null); if (cellError === key) setCellError(null) }} aria-invalid={invalid === key || cellError === key || undefined} onKeyDown={event => {
                   if (event.key === "Enter") { event.preventDefault(); const typed = event.currentTarget.value; void saveCell(row, cell, typed, true); if (readable(typed)) moveFrom(event.currentTarget, 1) }
                   else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : cellError === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.cellRefused")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : <span aria-hidden="true" className="block h-4" />}</span>
                   <Button type="button" variant="ghost" size="icon" className="ts-row-clear shrink-0" disabled={busy || approved} title={t(lang, "ts.clearRow", row.ActivityName)} aria-label={t(lang, "ts.clearRow", row.ActivityName)} onClick={() => void clearRow(row)}><Trash2 aria-hidden="true" /></Button>
@@ -457,7 +460,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
             {row.Cells.map(cell => {
               const key = cellKey(row.ActivityID, cell.Index)
               return <TableCell key={cell.ISO} className={`p-1 text-center align-top ${cell.IsToday ? "bg-muted/70" : ""}`}>
-                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className={`h-8 w-16 px-1 text-center font-mono text-xs tabular-nums ${cellError === key ? "ring-2 ring-destructive" : ""}`} name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving === key || clearing} aria-busy={saving === key || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null); if (cellError === key) setCellError(null) }} aria-invalid={invalid === key || cellError === key || undefined} onKeyDown={event => {
+                <Input type="text" inputMode="text" autoComplete="off" spellCheck={false} className={`h-8 w-16 px-1 text-center font-mono text-xs tabular-nums ${cellError === key ? "ring-2 ring-destructive" : ""}`} name="minutes" data-ts-cell={`${rowIndex}:${cell.Index}`} value={drafts[key] ?? (cell.Min > 0 && cell.Secs - (cell.Live ?? 0) >= 60 ? cellClock(cell.Min) : "")} placeholder={cell.Secs - (cell.Live ?? 0) > 0 && cell.Secs - (cell.Live ?? 0) < 60 ? "<1" : "—"} title={dayName(cell.ISO)} aria-label={`${row.ActivityName} — ${projectOf(row)} — ${dayName(cell.ISO)}`} readOnly={approved || saving.has(key) || clearing} aria-busy={saving.has(key) || undefined} onChange={event => { setDrafts(previous => ({ ...previous, [key]: event.target.value })); if (invalid === key) setInvalid(null); if (cellError === key) setCellError(null) }} aria-invalid={invalid === key || cellError === key || undefined} onKeyDown={event => {
                   if (event.key === "Enter") { event.preventDefault(); const typed = event.currentTarget.value; void saveCell(row, cell, typed, true); if (readable(typed)) moveFrom(event.currentTarget, 1) }
                   else if (event.key === "ArrowDown" || event.key === "ArrowUp") { event.preventDefault(); moveFrom(event.currentTarget, event.key === "ArrowDown" ? 1 : -1) } }} onBlur={event => void saveCell(row, cell, event.target.value)} />{invalid === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.badCell")}</span> : cellError === key ? <span role="alert" className="block max-w-24 text-center text-xs leading-4 text-destructive">{t(lang, "ts.cellRefused")}</span> : null}{cell.Live ? <span data-cell-live className="block text-center text-xs leading-4 text-muted-foreground" title={t(lang, "ts.liveHint")}>+{cell.Live < 60 ? "<1" : Math.floor(cell.Live / 60)}</span> : <span aria-hidden="true" className="block h-4" />}
               </TableCell>

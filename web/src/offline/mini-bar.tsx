@@ -3,7 +3,9 @@ import { Pause, Play, Square } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { translate as t } from "@/i18n"
 import { scheduleBadge, subscribeOffline } from "./controller"
+import type { ToastDetail } from "./controller"
 import { readCSRFCookie } from "@/lib/csrf"
+import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
 import { clockLabel, sessionElapsedSeconds } from "@/dashboard/time"
 
@@ -52,6 +54,8 @@ export function MiniBar({ lang }: { lang: string }) {
     const timer = window.setInterval(() => { if (!document.hidden) void load() }, 30000)
     const shown = () => { if (!document.hidden) void load() }
     document.addEventListener("visibilitychange", shown)
+    // paratrack:synced is the replay seam the browser suite pokes to wake the
+    // bar without waiting for the poll; a production replay reloads the page.
     const synced = () => { void load() }
     window.addEventListener("paratrack:synced", synced)
     return () => { window.clearInterval(timer); window.removeEventListener("paratrack:synced", synced); document.removeEventListener("visibilitychange", shown) }
@@ -61,10 +65,21 @@ export function MiniBar({ lang }: { lang: string }) {
     const response = await fetch(`/api/sessions/${id}/${action}`, {
       method: "POST", credentials: "same-origin", headers: { "X-CSRF-Token": readCSRFCookie() },
     })
-    if (response.ok || response.headers.get("X-Offline-Queued")) {
+    if (response.headers.get("X-Offline-Queued")) {
       scheduleBadge()
-      await load()
+      return
     }
+    if (!response.ok) {
+      // The timer was already stopped from another window and the like: the
+      // bar must not keep ticking in silence while the server said no.
+      window.dispatchEvent(new CustomEvent<ToastDetail>("paratrack:toast", {
+        detail: { message: await responseMessage(response), kind: "error" },
+      }))
+      await load()
+      return
+    }
+    scheduleBadge()
+    await load()
   }
 
   const current = items[0]

@@ -5,6 +5,7 @@ const OFFLINE = "/static/offline.html";
 const RU = (self.navigator.language || "").toLowerCase().startsWith("ru");
 const SHELL = [
   OFFLINE,
+  "/static/js/offline-reload.js",
   "/static/fonts/inter-latin.woff2",
   "/static/fonts/inter-cyrillic.woff2",
   "/static/icons.svg",

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -69,5 +70,51 @@ func TestWelcomeCustomListSavesAndOpensTheMenu(t *testing.T) {
 	}
 	if strings.Contains(page, `"payroll":true`) {
 		t.Fatal("an unticked section is on after the custom save")
+	}
+}
+
+// A member of a workspace whose sections are not chosen yet must not bounce
+// between / and /welcome: the member cannot answer the question, so the
+// welcome screen sends them to the settings screens — which the gate keeps
+// open — with an explanation instead of a redirect carousel.
+func TestWelcomeSendsAMemberToSettingsNotALoop(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("loop-owner@roles.test")
+	member := newAPIEnvSharedDB(t, owner)
+	member.register("loop-member@roles.test")
+	resp := owner.do("POST", "/api/team/create", url.Values{"name": {"Студия"}}, nil)
+	resp.Body.Close()
+	for _, c := range resp.Cookies() {
+		owner.jar[c.Name] = c.Value
+	}
+	// The sections stay unchosen here on purpose: that is the state a new
+	// shared workspace waits in while its owner has not answered yet.
+	resp = owner.do("POST", "/api/team/invites", nil, nil)
+	loc, _ := url.QueryUnescape(resp.Header.Get("Location"))
+	resp.Body.Close()
+	token := regexp.MustCompile(`/invites/([A-Za-z0-9_-]+)`).FindStringSubmatch(loc)
+	if token == nil {
+		t.Fatalf("no invite link in %q", loc)
+	}
+	resp = member.do("POST", "/api/invites/"+token[1]+"/accept", nil, nil)
+	resp.Body.Close()
+	for _, c := range resp.Cookies() {
+		member.jar[c.Name] = c.Value
+	}
+
+	home := member.do("GET", "/", nil, nil)
+	home.Body.Close()
+	if loc := home.Header.Get("Location"); loc != "/welcome" {
+		t.Fatalf("the member's / goes to %q, want /welcome while the sections wait", loc)
+	}
+	welcome := member.do("GET", "/welcome", nil, nil)
+	welcome.Body.Close()
+	if loc := welcome.Header.Get("Location"); !strings.HasPrefix(loc, "/settings") {
+		t.Fatalf("the member's /welcome goes to %q, want settings, not the loop back to /", loc)
+	}
+	settings := member.do("GET", "/settings", nil, nil)
+	settings.Body.Close()
+	if loc := settings.Header.Get("Location"); loc != "/settings/profile" {
+		t.Fatalf("the member's /settings redirects to %q, want the profile page, not back into the gate", loc)
 	}
 }
