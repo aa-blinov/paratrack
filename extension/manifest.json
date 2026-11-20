@@ -4,8 +4,7 @@
   "version": "0.1.1",
   "description": "Start and stop paratrack timers from any tab.",
   "permissions": [
-    "storage",
-    "activeTab"
+    "storage"
   ],
   "host_permissions": [
     "https://paratrack.duckdns.org/*",

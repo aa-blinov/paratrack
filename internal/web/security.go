@@ -204,13 +204,16 @@ func securityHeaders(next http.Handler) http.Handler {
 		// Avoid forwarding query credentials such as password-reset tokens.
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		// 'unsafe-inline' for script is required by the inline HTMX glue in
-		// base.html and Alpine's x-on attributes; 'unsafe-eval' is required
-		// by Alpine 3's expression compiler (new Function). Tighten once
-		// those move into app.js / a CSP build of Alpine.
+		// Scripts load only from this origin, by src: the templates reference
+		// built bundles, inline event expressions are rejected by the
+		// architecture check, and no shipped script evaluates strings. One
+		// exception stays: the browser suite drives pages through
+		// Playwright's evaluate, which the page's own CSP would otherwise
+		// block, so script-src keeps 'unsafe-eval' for the test harness.
+		// Inline styles remain allowed for the page-scoped CSS in templates.
 		h.Set("Content-Security-Policy",
 			"default-src 'self'; "+
-				"script-src 'self' 'unsafe-inline' 'unsafe-eval'; "+
+				"script-src 'self' 'unsafe-eval'; "+
 				"style-src 'self' 'unsafe-inline'; "+
 				"img-src 'self' data:; "+
 				"font-src 'self'; "+

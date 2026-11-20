@@ -17,7 +17,7 @@ import (
 const langCookieName = "paratrack_lang"
 
 // resolveLang picks the visitor's language: explicit cookie first, then
-// Accept-Language, then English.
+// Accept-Language, then the default (Russian).
 func resolveLang(r *http.Request) i18n.Lang {
 	if c, err := r.Cookie(langCookieName); err == nil && c.Value != "" {
 		return i18n.Normalize(c.Value)

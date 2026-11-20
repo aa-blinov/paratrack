@@ -1146,6 +1146,7 @@ body {
   #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip):not(.date-field-trailing) { position: relative; }
   #paratrack-react-root [data-slot="button"]:not([data-chip]):not([data-card]):not(.mobile-nav-fab):not(.legend-chip)::after { content: ""; position: absolute; inset: -4px; }
   #paratrack-react-root [data-slot="button"][data-size="sm"]:not([data-chip]):not([data-card]):not(.legend-chip)::after { inset: -8px; }
+  #paratrack-react-root [data-slot="button"][data-size="icon-sm"]:not([data-chip]):not([data-card]):not(.legend-chip)::after { inset: -8px; }
   #paratrack-react-root nav[aria-label] a:not([data-slot]),
   #paratrack-react-root [data-slot="breadcrumb-link"],
   #paratrack-react-root .app-shell-brand { display: inline-flex; align-items: center; min-height: 44px; }
