@@ -27,6 +27,17 @@ func (d *DB) UpsertPushSubscription(ctx context.Context, request appmodel.PushSu
 	if request.Endpoint == "" || request.PublicKey == "" || request.AuthSecret == "" {
 		return errors.New("endpoint, p256dh and auth are required")
 	}
+	// The browser key material is a secret at rest, the same class as an
+	// integration token: a database dump alone must not be enough to send
+	// push to the subscribed devices.
+	p256dh, err := d.sealSecret(request.PublicKey)
+	if err != nil {
+		return fmt.Errorf("seal subscription key: %w", err)
+	}
+	auth, err := d.sealSecret(request.AuthSecret)
+	if err != nil {
+		return fmt.Errorf("seal subscription auth: %w", err)
+	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -61,7 +72,7 @@ func (d *DB) UpsertPushSubscription(ctx context.Context, request appmodel.PushSu
 		  p256dh = excluded.p256dh,
 		  auth = excluded.auth
 		WHERE push_subscriptions.user_id = excluded.user_id`,
-		request.TeamID, request.UserID, request.Endpoint, request.PublicKey, request.AuthSecret,
+		request.TeamID, request.UserID, request.Endpoint, p256dh, auth,
 		d.formatNowUTC())
 	if err != nil {
 		return err
@@ -94,9 +105,13 @@ func (d *DB) ListPushSubscriptions(ctx context.Context, teamID int64, userIDs ..
 	var out []pushport.Subscription
 	for rows.Next() {
 		var s pushport.Subscription
-		if err := rows.Scan(&s.ID, &s.TeamID, &s.UserID, &s.Endpoint, &s.P256DH, &s.Auth); err != nil {
+		var p256dhRaw, authRaw string
+		if err := rows.Scan(&s.ID, &s.TeamID, &s.UserID, &s.Endpoint, &p256dhRaw, &authRaw); err != nil {
 			return nil, err
 		}
+		// Sealed at rest; opened here for the one delivery that needs them.
+		s.P256DH = d.mustOpen(p256dhRaw)
+		s.Auth = d.mustOpen(authRaw)
 		out = append(out, s)
 	}
 	return out, rows.Err()
@@ -212,7 +227,9 @@ func (d *DB) DeletePushSubscriptionForCleanup(ctx context.Context, request appmo
 }
 
 // EnsureVAPIDKeys generates a keypair on first call and stores it.
-// Returns (publicBase64URL, privateBase64URL).
+// Returns (publicBase64URL, privateBase64URL). The private half is sealed at
+// rest like every other signing secret; the keyless development mode keeps
+// the plaintext form and stays functional.
 func (d *DB) EnsureVAPIDKeys(ctx context.Context) (string, string, error) {
 	var pub, priv string
 	err := d.sql.QueryRowContext(ctx,
@@ -221,7 +238,7 @@ func (d *DB) EnsureVAPIDKeys(ctx context.Context) (string, string, error) {
 		if pub == "" || priv == "" {
 			return "", "", errors.New("stored VAPID keypair is incomplete")
 		}
-		return pub, priv, nil
+		return pub, d.mustOpen(priv), nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return "", "", fmt.Errorf("read VAPID keypair: %w", err)
@@ -242,10 +259,14 @@ func (d *DB) EnsureVAPIDKeys(ctx context.Context) (string, string, error) {
 		return "", "", fmt.Errorf("encode VAPID private key: %w", err)
 	}
 	priv = base64.RawURLEncoding.EncodeToString(privBytes)
+	sealed, err := d.sealSecret(priv)
+	if err != nil {
+		return "", "", fmt.Errorf("seal VAPID private key: %w", err)
+	}
 	_, err = d.sql.ExecContext(ctx,
 		`INSERT INTO push_keys (id, public_key, private_key) VALUES (1, ?, ?)
 		 ON CONFLICT (id) DO NOTHING`,
-		pub, priv)
+		pub, sealed)
 	if err != nil {
 		return "", "", fmt.Errorf("store VAPID keypair: %w", err)
 	}
@@ -258,5 +279,5 @@ func (d *DB) EnsureVAPIDKeys(ctx context.Context) (string, string, error) {
 	if pub == "" || priv == "" {
 		return "", "", errors.New("initialized VAPID keypair is incomplete")
 	}
-	return pub, priv, nil
+	return pub, d.mustOpen(priv), nil
 }

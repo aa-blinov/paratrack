@@ -4,7 +4,9 @@ package providers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 	"github.com/aa-blinov/paratrack/internal/depcheck"
@@ -31,6 +33,14 @@ func (s *Sender) Send(ctx context.Context, sub pushport.Subscription, publicKey,
 		VAPIDPrivateKey: privateKey, TTL: 86400, HTTPClient: s.client,
 	})
 	if err != nil {
+		// A transport failure is a *url.Error, and its text names the
+		// subscription endpoint: a capability URL that whoever reads the
+		// logs must not get. The category of the failure travels; the
+		// address does not.
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			return pushport.SendResult{}, fmt.Errorf("web push to the subscription endpoint: %w", errors.Unwrap(urlErr))
+		}
 		return pushport.SendResult{}, err
 	}
 	if response == nil {

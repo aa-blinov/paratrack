@@ -30,7 +30,12 @@ func (c *Client) fetchGitLabIssues(ctx context.Context, token, project string) (
 	}
 	next := site + "/api/v4/projects/" + url.PathEscape(project) + "/issues?state=opened&per_page=100"
 	var out []extItem
+	page := 0
 	for next != "" && len(out) < maxImportTasks {
+		if page >= maxProviderPages {
+			break
+		}
+		page++
 		var raw []struct {
 			IID    int    `json:"iid"`
 			Title  string `json:"title"`

@@ -101,7 +101,12 @@ func (c *Client) FetchGitHubProject(ctx context.Context, token, projectURL strin
 
 	var out []appmodel.GitHubProjectItem
 	cursor := ""
+	page := 0
 	for {
+		if page >= maxProviderPages {
+			return nil, fmt.Errorf("github board pagination exceeded %d pages", maxProviderPages)
+		}
+		page++
 		board, err := c.gitHubBoardPage(ctx, token, root, login, number, cursor)
 		if err != nil {
 			return nil, err

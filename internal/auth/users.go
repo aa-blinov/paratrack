@@ -32,6 +32,7 @@ type UserStore interface {
 	UpdateUserName(context.Context, appmodel.ProfileNameRequest) error
 	UpdateUserEmail(context.Context, appmodel.ProfileEmailUpdateRequest) (bool, error)
 	UpdateUserPasswordIfHashMatches(context.Context, appmodel.PasswordHashUpdateRequest) (bool, error)
+	SetUserSSOSubject(context.Context, appmodel.SSOSubjectSetRequest) error
 }
 
 // SessionStore provides authentication-session persistence.
@@ -235,6 +236,11 @@ func (s *Service) findByEmail(ctx context.Context, email string) (User, error) {
 func (s *Service) AuthenticatePassword(ctx context.Context, request appmodel.PasswordLoginRequest) (appmodel.UserIdentity, appmodel.AuthSessionCredential, error) {
 	user, err := s.findByEmail(ctx, request.Email)
 	if errors.Is(err, ErrNotFound) {
+		// The refusal text is the same for both cases, so the timing has to
+		// be too: an unknown address that answers in a fraction of the time
+		// names which addresses exist. One bcrypt against a throwaway hash
+		// closes the channel; a login is not hot-path enough to feel it.
+		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(request.Password))
 		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, ErrCredentialsInvalid
 	}
 	if err != nil {
@@ -281,6 +287,12 @@ func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action
 // creating its personal workspace on first use, then issues an auth session.
 // If callbacks race to register the same address, the losing callback reloads
 // and uses the account that won.
+//
+// A single sign-in is the provider's proof of the address, so it never hands
+// over an account whose address nobody has proven yet: whoever registered it
+// with a password may not be the owner. The refusal sends the visitor to the
+// password-reset flow, which confirms the address and clears every other
+// credential (ErrAuthSSOUnverifiedOwner).
 func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthenticationRequest) (identity appmodel.UserIdentity, session appmodel.AuthSessionCredential, created bool, err error) {
 	var user User
 	user, err = s.findByEmail(ctx, request.Email)
@@ -304,6 +316,9 @@ func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthe
 			if err != nil {
 				return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("create SSO account: %w", createErr)
 			}
+			if ssoNeedsAddressProof(user, s.requireMail) {
+				return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, appmodel.ErrAuthSSOUnverifiedOwner
+			}
 		} else {
 			user, err = s.findByID(ctx, userID)
 			if err != nil {
@@ -313,10 +328,17 @@ func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthe
 		}
 	} else if err != nil {
 		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("find SSO account: %w", err)
+	} else if ssoNeedsAddressProof(user, s.requireMail) {
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, appmodel.ErrAuthSSOUnverifiedOwner
 	}
 	createdSession, err := s.newSession(ctx, user.ID)
 	if err != nil {
 		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("create SSO session: %w", err)
+	}
+	// The subject is what later sign-ins recognise this account by: it marks
+	// the address as proven by a provider rather than merely claimed.
+	if err := s.users.SetUserSSOSubject(ctx, appmodel.SSOSubjectSetRequest{UserID: user.ID, Subject: request.Subject}); err != nil {
+		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, false, fmt.Errorf("record SSO subject: %w", err)
 	}
 	session = appmodel.AuthSessionCredential{Token: createdSession.Token}
 	if created {
@@ -324,6 +346,20 @@ func (s *Service) AuthenticateSSO(ctx context.Context, request appmodel.SSOAuthe
 	}
 	s.recordAudit(ctx, requestctx.TeamID(ctx), user.ID, "auth.sso_login", user.Email, request.Subject)
 	return identityOf(user), session, created, nil
+}
+
+// ssoNeedsAddressProof reports whether the account's address was never
+// actually proven. With the signup confirmation on, the flag says so; with it
+// off, no password registration ever proves an address, so only an account a
+// provider already vouched for (its subject is set) counts as proven.
+func ssoNeedsAddressProof(user User, requireMail bool) bool {
+	if user.SSOSubject != "" {
+		return false
+	}
+	if requireMail {
+		return user.EmailUnverified
+	}
+	return true
 }
 
 // findByID returns the user with the given id.
@@ -464,6 +500,16 @@ func (s *Service) ChangeEmail(ctx context.Context, request appmodel.ProfileEmail
 // price a weaker hash, and an existing hash verifies at its own recorded
 // cost, so raising this only changes how new passwords are stored.
 const bcryptCost = 12
+
+// dummyPasswordHash prices an unknown address the same bcrypt as a known
+// one; see AuthenticatePassword for why the cost is worth paying.
+var dummyPasswordHash = func() []byte {
+	hash, err := bcrypt.GenerateFromPassword([]byte("paratrack timing equaliser"), bcryptCost)
+	if err != nil {
+		panic("auth: hash the timing equaliser: " + err.Error())
+	}
+	return hash
+}()
 
 func hashPassword(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcryptCost)

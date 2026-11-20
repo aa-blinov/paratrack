@@ -18,6 +18,14 @@ import (
 
 const maxImportTasks = integrationport.MaxSyncTasks
 
+// maxProviderPages bounds every provider's pagination loop. The task cap
+// alone cannot stop a spin: a page that keeps a cursor while contributing
+// no accepted task (a board of pull requests, a contract change at the
+// provider) would loop forever with the user's token in flight, so the page
+// count is a hard stop the way the history imports and the calendar sync
+// already have one.
+const maxProviderPages = 100
+
 // Task is a normalized external task returned by a provider API.
 type Task struct {
 	ID     string

@@ -71,6 +71,10 @@ type SMTPSender struct {
 	Username string
 	Password string
 	From     string // "paratrack@example.com"
+	// AllowPlaintext opts into a relay that offers no STARTTLS: a local
+	// relay beside the binary. The default refuses, because these letters
+	// carry password-reset links.
+	AllowPlaintext bool
 }
 
 func (s SMTPSender) Available() bool { return s.Host != "" }
@@ -118,6 +122,12 @@ func (s SMTPSender) Deliver(ctx context.Context, m Message) error {
 		if err := c.StartTLS(&tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}); err != nil {
 			return err
 		}
+	} else if !s.AllowPlaintext {
+		// A reset link rides these letters. A relay on an open network that
+		// offers no STARTTLS would carry it in clear text; a local relay
+		// (a sidecar Postfix) is the documented plaintext case and opts in
+		// through the process config.
+		return fmt.Errorf("smtp relay %s offers no STARTTLS: refusing to send in clear text", host)
 	}
 	var auth smtp.Auth
 	if s.Username != "" {
@@ -265,6 +275,8 @@ type SMTPConfig struct {
 	Username string
 	Password string
 	From     string
+	// AllowPlaintext opts into a relay without STARTTLS; see SMTPSender.
+	AllowPlaintext bool
 }
 
 // NewSender selects SMTP when configured, otherwise it uses the log sink.
@@ -278,10 +290,11 @@ func NewSender(config SMTPConfig, logger *log.Logger) (Sender, error) {
 		return LogSender{Logger: logger}, nil
 	}
 	return SMTPSender{
-		Host:     config.Host,
-		Username: config.Username,
-		Password: config.Password,
-		From:     orDefault(config.From, "paratrack@localhost"),
+		Host:           config.Host,
+		Username:       config.Username,
+		Password:       config.Password,
+		From:           orDefault(config.From, "paratrack@localhost"),
+		AllowPlaintext: config.AllowPlaintext,
 	}, nil
 }
 

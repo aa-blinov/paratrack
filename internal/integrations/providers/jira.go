@@ -44,7 +44,7 @@ func (c *Client) fetchJiraIssues(ctx context.Context, secret, target string) ([]
 	jql := jiraJQL(target)
 	var out []extItem
 	token := ""
-	for len(out) < maxImportTasks {
+	for page := 0; page < maxProviderPages && len(out) < maxImportTasks; page++ {
 		u := site + "/rest/api/3/search/jql?jql=" + url.QueryEscape(jql) + "&maxResults=100&fields=summary,status"
 		if token != "" {
 			u += "&nextPageToken=" + url.QueryEscape(token)

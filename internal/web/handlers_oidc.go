@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -137,6 +138,13 @@ func (s *Server) handleSSOCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, appmodel.ErrAuthInvalidEmail) || errors.Is(err, appmodel.ErrAuthValidation) {
 			http.Redirect(w, r, "/register?error=could_not_register", http.StatusSeeOther)
+			return
+		}
+		if errors.Is(err, appmodel.ErrAuthSSOUnverifiedOwner) {
+			// The address names an account nobody has confirmed. The reset
+			// link proves the address, signs its owner in and clears the
+			// credentials whoever set them, so that is where this goes.
+			http.Redirect(w, r, "/forgot-password?email="+url.QueryEscape(identity.Email)+"&error=sso_unconfirmed", http.StatusSeeOther)
 			return
 		}
 		fail("internal", err.Error())

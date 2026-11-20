@@ -41,7 +41,7 @@ func (c *Client) fetchNotionTasks(ctx context.Context, secret, dbID string) ([]e
 	var out []extItem
 	for _, src := range db.DataSources {
 		cursor := ""
-		for len(out) < maxImportTasks {
+		for page := 0; page < maxProviderPages && len(out) < maxImportTasks; page++ {
 			body, err := json.Marshal(notionQueryRequest{PageSize: 100, StartCursor: cursor})
 			if err != nil {
 				return nil, fmt.Errorf("encode Notion query: %w", err)

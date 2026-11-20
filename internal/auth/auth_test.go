@@ -32,13 +32,19 @@ func openTestDB(t *testing.T) *dbpkg.DB {
 
 func newTestAuthService(t *testing.T, d *dbpkg.DB) *Service {
 	t.Helper()
+	return newTestAuthServiceWithMailCheck(t, d, false)
+}
+
+func newTestAuthServiceWithMailCheck(t *testing.T, d *dbpkg.DB, requireMail bool) *Service {
+	t.Helper()
 	auditService, err := audit.New(d)
 	if err != nil {
 		t.Fatalf("create audit service: %v", err)
 	}
 	service, err := NewService(Dependencies{
 		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
-		Now: time.Now, Audit: auditService, Logger: log.New(io.Discard, "", 0),
+		RequireEmailVerification: requireMail,
+		Now:                      time.Now, Audit: auditService, Logger: log.New(io.Discard, "", 0),
 	})
 	if err != nil {
 		t.Fatalf("create auth service: %v", err)
@@ -196,6 +202,58 @@ func TestAuthenticateSSOCreatesOnceAndReusesExistingAccount(t *testing.T) {
 	}
 	if secondSession.Token == "" || secondSession.Token == firstSession.Token {
 		t.Fatal("second AuthenticateSSO did not issue a distinct session")
+	}
+}
+
+// A single sign-in is a provider's proof of the address, so it never hands
+// over an account whose address nobody has proven yet: whoever registered it
+// with a password may not be its owner. The refusal holds both with the
+// signup confirmation on (an account still waiting for its link) and with
+// it off (where only a provider-vouched account counts as proven), and the
+// confirmation link or the reset flow opens the way in.
+func TestAuthenticateSSORefusesAnUnconfirmedAccount(t *testing.T) {
+	d := openTestDB(t)
+	ctx := context.Background()
+
+	// With the signup check on, the registration waits for its link and the
+	// sign-in is refused until that link is spent.
+	strict := newTestAuthServiceWithMailCheck(t, d, true)
+	outcome, err := strict.RegisterAccount(ctx, appmodel.RegistrationRequest{
+		Email: "taken@x.test", Password: "longenoughpw", Name: "Taken", TeamName: "W",
+	})
+	if err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	_, session, _, err := strict.AuthenticateSSO(ctx, appmodel.SSOAuthenticationRequest{
+		Email: "taken@x.test", Subject: "sub-1", TeamName: "W",
+	})
+	if !errors.Is(err, appmodel.ErrAuthSSOUnverifiedOwner) {
+		t.Fatalf("SSO into an unconfirmed account = (%v, token %q), want ErrAuthSSOUnverifiedOwner", err, session.Token)
+	}
+	if _, err := strict.ConfirmEmail(ctx, outcome.VerifyToken); err != nil {
+		t.Fatalf("spend the confirmation link: %v", err)
+	}
+	_, session, _, err = strict.AuthenticateSSO(ctx, appmodel.SSOAuthenticationRequest{
+		Email: "taken@x.test", Subject: "sub-1", TeamName: "W",
+	})
+	if err != nil || session.Token == "" {
+		t.Fatalf("SSO after the confirmation = (%v, token %q), want a session", err, session.Token)
+	}
+
+	// Without the signup check a password registration proves nothing, so
+	// the sign-in still asks for the reset flow; an account a provider
+	// already vouched for passes as before.
+	lax := newTestAuthService(t, d)
+	if _, _, err := lax.RegisterAndStartSession(ctx, appmodel.RegistrationRequest{
+		Email: "claimed@x.test", Password: "longenoughpw", Name: "Claimed", TeamName: "W",
+	}); err != nil {
+		t.Fatalf("register without the check: %v", err)
+	}
+	_, _, _, err = lax.AuthenticateSSO(ctx, appmodel.SSOAuthenticationRequest{
+		Email: "claimed@x.test", Subject: "sub-2", TeamName: "W",
+	})
+	if !errors.Is(err, appmodel.ErrAuthSSOUnverifiedOwner) {
+		t.Fatalf("SSO into a password-born account without the check = %v, want ErrAuthSSOUnverifiedOwner", err)
 	}
 }
 

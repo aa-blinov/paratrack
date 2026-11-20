@@ -8,7 +8,7 @@ import (
 func (c *Client) fetchTodoistTasks(ctx context.Context, token, projectID string) ([]extItem, error) {
 	var out []extItem
 	cursor := ""
-	for len(out) < maxImportTasks {
+	for page := 0; page < maxProviderPages && len(out) < maxImportTasks; page++ {
 		u := "https://api.todoist.com/api/v1/tasks?limit=200"
 		if projectID != "" {
 			u += "&project_id=" + url.QueryEscape(projectID)

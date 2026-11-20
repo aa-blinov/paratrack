@@ -70,6 +70,12 @@ var (
 	// ErrAuthVerificationInvalid is the one answer for a confirmation link that is unknown,
 	// used, or expired.
 	ErrAuthVerificationInvalid = errors.New("verification link invalid")
+	// ErrAuthSSOUnverifiedOwner refuses a single sign-in into an account whose
+	// address nobody has proven: whoever registered that address with a
+	// password may not be its owner, so the sign-in sends the visitor to the
+	// password-reset flow, which confirms the address and clears every other
+	// credential.
+	ErrAuthSSOUnverifiedOwner = errors.New("single sign-in into an unconfirmed account")
 	// ErrAuthTwoFactorRequired means the password was right and a one-time code is
 	// still owed; the answer carries the account, so the caller can open the code step.
 	ErrAuthTwoFactorRequired = errors.New("two-factor code required")

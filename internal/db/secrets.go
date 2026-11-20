@@ -101,6 +101,10 @@ func (d *DB) sealExistingSecretsContext(ctx context.Context) error {
 		{"teams", "stripe_key"}, {"teams", "stripe_webhook_secret"},
 		{"calendar_connections", "access_token"}, {"calendar_connections", "refresh_token"},
 		{"users", "totp_secret"}, {"users", "totp_pending"},
+		// The push signing key and the browser subscription material are a
+		// database dump away from sending notifications to every device.
+		{"push_keys", "private_key"},
+		{"push_subscriptions", "p256dh"}, {"push_subscriptions", "auth"},
 	}
 	sealPlaintext := d.secrets.aead != nil
 

@@ -10,7 +10,6 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
-	"golang.org/x/crypto/bcrypt"
 )
 
 // ResetTTL is how long a forgot-password link stays valid.
@@ -59,7 +58,9 @@ func (s *Service) consumePasswordReset(ctx context.Context, token, newPassword s
 	if len(newPassword) < 8 || len(newPassword) > 72 {
 		return User{}, fmt.Errorf("%w: password must be 8-72 characters", ErrValidation)
 	}
-	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	// The reset writes with the same cost as registration and the change
+	// form: the library default is weaker than the project's floor (12).
+	hash, err := hashPassword(newPassword)
 	if err != nil {
 		return User{}, err
 	}

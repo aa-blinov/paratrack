@@ -185,6 +185,9 @@ func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Lo
 	smtp := mail.SMTPConfig{
 		Host: getenv("PARATRACK_SMTP_HOST"), Username: getenv("PARATRACK_SMTP_USER"),
 		Password: getenv("PARATRACK_SMTP_PASS"), From: getenv("PARATRACK_MAIL_FROM"),
+		// Off unless set to 1: a relay that offers no STARTTLS refuses to
+		// carry the reset links. A local relay beside the binary opts in.
+		AllowPlaintext: getenv("PARATRACK_SMTP_ALLOW_PLAINTEXT") == "1",
 	}
 	return processConfig{
 		database: makeDatabaseConfig(environment, getenv("PARATRACK_DATABASE_URL"), getenv("PARATRACK_SECRET_KEY"), logger, now, getenv("PARATRACK_DB_MAX_CONNS")),

@@ -335,6 +335,8 @@ func humaniseAuthError(code string, lang i18n.Lang) string {
 		return i18n.T(lang, "err.resetInvalid")
 	case "email_unverified":
 		return i18n.T(lang, "auth.err.emailNotVerified")
+	case "sso_unconfirmed":
+		return i18n.T(lang, "auth.err.ssoUnconfirmed")
 	case "verify_invalid":
 		return i18n.T(lang, "auth.err.verifyInvalid")
 	case "bad_code":

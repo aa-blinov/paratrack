@@ -11,6 +11,13 @@ type AccountCreateRequest struct {
 	Unverified bool
 }
 
+// SSOSubjectSetRequest records the provider-side subject an account was
+// entered or created by through single sign-in.
+type SSOSubjectSetRequest struct {
+	UserID  int64
+	Subject string
+}
+
 type PasswordHashUpdateRequest struct {
 	UserID       int64
 	CallerID     int64

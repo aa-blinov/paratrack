@@ -12,7 +12,7 @@ func (c *Client) fetchAsanaTasks(ctx context.Context, token, projectGID string) 
 	}
 	var out []extItem
 	offset := ""
-	for len(out) < maxImportTasks {
+	for page := 0; page < maxProviderPages && len(out) < maxImportTasks; page++ {
 		u := fmt.Sprintf("https://app.asana.com/api/1.0/projects/%s/tasks?opt_fields=name,completed,permalink_url&completed_since=now&limit=100",
 			url.PathEscape(projectGID))
 		if offset != "" {
