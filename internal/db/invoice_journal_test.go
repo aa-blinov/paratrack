@@ -126,16 +126,27 @@ func TestPaidCentsInMonthSumsTheJournal(t *testing.T) {
 	if err := d.MarkInvoiceSentOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); err != nil {
 		t.Fatal(err)
 	}
-	if settled, err := d.RecordInvoicePayment(ctx, appmodel.InvoicePaymentRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, PaidOn: "2026-11-14", AmountCents: 12000, Note: ""}); err != nil || !settled {
-		t.Fatalf("full payment: settled %v, err %v", settled, err)
+	// A partial payment does not settle the invoice yet, but the person has
+	// already earned the money: the journal is the sum, not the status.
+	if settled, err := d.RecordInvoicePayment(ctx, appmodel.InvoicePaymentRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, PaidOn: "2026-11-14", AmountCents: 12000, Note: ""}); err != nil || settled {
+		t.Fatalf("partial payment: settled %v, err %v; want an open invoice", settled, err)
+	}
+	if total, currency, err := d.PaidCentsInMonth(ctx, teamID, "2026-11-01", "2026-12-01"); err != nil {
+		t.Fatal(err)
+	} else if total != 12000 || currency == "" {
+		t.Fatalf("november after partial: %d cents, currency %q; want 12000 and the workspace currency", total, currency)
+	}
+
+	if settled, err := d.RecordInvoicePayment(ctx, appmodel.InvoicePaymentRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, PaidOn: "2026-11-15", AmountCents: 8000, Note: ""}); err != nil || !settled {
+		t.Fatalf("remaining payment: settled %v, err %v; want the invoice closed", settled, err)
 	}
 
 	total, currency, err := d.PaidCentsInMonth(ctx, teamID, "2026-11-01", "2026-12-01")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if total != 12000 || currency == "" {
-		t.Fatalf("november sum: %d cents, currency %q; want 12000 and the workspace currency", total, currency)
+	if total != 20000 || currency == "" {
+		t.Fatalf("november total: %d cents, currency %q; want 20000 and the workspace currency", total, currency)
 	}
 	if total, _, err := d.PaidCentsInMonth(ctx, teamID, "2026-10-01", "2026-11-01"); err != nil || total != 0 {
 		t.Fatalf("october sum: %d, err %v; want 0", total, err)

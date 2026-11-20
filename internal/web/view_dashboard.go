@@ -75,8 +75,8 @@ type dashboardData struct {
 	// the workspace currency; empty when the month has no payments yet.
 	Earned   string
 	Goals    []goalView
-	ActiveVM     activeListVM // wrapper so active-list can call {{.T}}
-	GoalsVM      goalsListVM  // wrapper so goals-list can call {{.T}}
+	ActiveVM activeListVM // wrapper so active-list can call {{.T}}
+	GoalsVM  goalsListVM  // wrapper so goals-list can call {{.T}}
 
 	// How many sections this workspace has open and how many the full set has:
 	// the mode line says what the mode means, not just its name.
