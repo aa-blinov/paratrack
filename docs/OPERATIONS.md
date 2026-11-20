@@ -69,17 +69,36 @@ aws s3 cp s3://$S3_BUCKET/daily/<stamp>.sql.gz - | gunzip | \
 
 ## Первый живой OIDC
 
-Тоже ни разу не гонялся. Порядок:
+Проверено против Dex v2.46.1 в Docker (ноябрь 2026), полный цикл:
+discovery по http в dev-режиме, PKCE S256, обмен кода, JWKS, userinfo,
+создание аккаунта, повторный вход по субъекту и запрет входа в занятый
+паролем аккаунт. Порядок для нового провайдера:
 
 1. Зарегистрировать приложение у провайдера, redirect
    `https://<host>/sso/callback`.
 2. `PARATRACK_OIDC_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET`.
 3. Войти, проверить: аккаунт создан, `email_verified` от провайдера обязателен
    (иначе отказ на странице логина с кодом `bad_email`), выход из
-   неподтверждённого аккаунта уходит на восстановление пароля (новое
-   поведение SSO-запрета).
+   неподтверждённого аккаунта уходит на восстановление пароля.
 4. Смена адреса в профиле без подтверждения — известное ограничение
    (docs/PRODUCT.md, «Known limitations»).
+
+Локальная проверка с Dex (стиль выше: скрипт `e2e/sso_local_run.py`,
+порядок сборки стенда в истории коммита «oidc: живой прогон против Dex»):
+
+```
+docker run -d --name dex -p 127.0.0.1:5556:5556 dexidp/dex:v2.46.1 \
+  dex serve /etc/dex/config.yaml
+# config: staticPasswords с bcrypt-хешем пароля (хеш можно взять из
+# users.password_hash после регистрации в paratrack), staticClients с
+# redirect http://127.0.0.1:8890/sso/callback, skipApprovalScreen: true
+PARATRACK_OIDC_ISSUER=http://127.0.0.1:5556/dex \
+PARATRACK_OIDC_CLIENT_ID=paratrack \
+PARATRACK_OIDC_CLIENT_SECRET=... ./paratrack web --addr 127.0.0.1:8890
+.venv/Scripts/python e2e/sso_local_run.py user@x.test <пароль>
+# FINAL_URL с сессией — вход; /forgot-password?error=sso_unconfirmed —
+# аккаунт с тем адресом уже занят паролем, и его не отдали.
+```
 
 ## Что требует решения владельца
 
