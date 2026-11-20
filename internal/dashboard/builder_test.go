@@ -236,6 +236,31 @@ func TestBuildUsesFirstRunFallbackWhenRecentSessionsAreEmpty(t *testing.T) {
 	}
 }
 
+// The earned line's month is cut in the zone the page reads the clock in:
+// half past midnight on the first of December in Moscow is still November
+// in UTC, and «заработано за декабрь» must mean the Moscow December.
+func TestBuildEarnedMonthFollowsTheWorkspaceZone(t *testing.T) {
+	moscow, err := time.LoadLocation("Europe/Moscow")
+	if err != nil {
+		t.Fatalf("load timezone: %v", err)
+	}
+	invoices := &invoicesStub{}
+	builder, err := NewBuilder(Dependencies{
+		Goals: goalsStub{}, Tracking: &trackingStub{withSessions: true}, Projects: &projectsStub{}, Decorations: decorationsForTest(t, &projectsStub{}, &tagsStub{}, &loggerStub{}), Invoices: invoices,
+		Logger: &loggerStub{},
+	})
+	if err != nil {
+		t.Fatalf("construct dashboard builder: %v", err)
+	}
+	now := time.Date(2026, 12, 1, 0, 30, 0, 0, moscow)
+	if _, err := builder.Build(context.Background(), Query{TeamID: 7, Now: now, IncludeBilling: true}); err != nil {
+		t.Fatalf("build dashboard: %v", err)
+	}
+	if invoices.earnedFrom != "2026-12-01" || invoices.earnedTo != "2027-01-01" {
+		t.Fatalf("earned month = [%s, %s), want the Moscow December", invoices.earnedFrom, invoices.earnedTo)
+	}
+}
+
 func TestBuildActiveListCoordinatesRowsAndFirstRunState(t *testing.T) {
 	tracking := &trackingStub{withSessions: true}
 	projects := &projectsStub{}

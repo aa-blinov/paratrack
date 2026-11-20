@@ -88,7 +88,11 @@ func (d *DB) MarkInvoicePaidOnce(ctx context.Context, request appmodel.InvoiceMu
 	if status == "paid" {
 		return number, false, nil
 	}
-	transitionTime := d.currentTime().UTC()
+	// The day of an automatic journal row follows the process clock's own
+	// zone (PARATRACK_TZ, the workspace's own for a self-host), so the row
+	// lands on the calendar day the person pressed the button, not on the
+	// UTC day the instant converts to. paid_at stays an instant in UTC.
+	transitionTime := d.currentTime()
 	if err := recordRemainingPaymentTx(ctx, tx, teamID, id, "manual", transitionTime); err != nil {
 		return "", false, err
 	}
@@ -144,7 +148,10 @@ func (d *DB) MarkInvoicePaidFromStripe(ctx context.Context, request appmodel.Inv
 	if status == "paid" {
 		return false, nil
 	}
-	transitionTime := d.currentTime().UTC()
+	// See the manual path: the automatic row's day follows the process
+	// clock's own zone, the calendar day the payment happened for the
+	// workspace.
+	transitionTime := d.currentTime()
 	if err := recordRemainingPaymentTx(ctx, tx, teamID, id, "stripe", transitionTime); err != nil {
 		return false, err
 	}
