@@ -1128,8 +1128,13 @@ def main() -> int:
             page.locator('form[action="/api/team/modules"]:has(input[name="preset"][value="studio"]) button').click()
         page.goto(BASE + "/reports")
         expect(page.locator("#main h1")).to_be_visible()
+        # The template count grows with the registry (UX-16 added «Часы по
+        # задачам»); what holds is that every template opens its own preview
+        # and the page shows one submit per template, not a second document.
+        run_forms = page.locator('form[action="/reports/run"]')
         check("report action says it opens a read-only result",
-              page.locator('form[action="/reports/run"] button[type="submit"]').count() == 6)
+              run_forms.count() >= 6
+              and run_forms.count() == run_forms.locator('button[type="submit"]').count())
         page.locator('form[action="/reports/run"] button[type="submit"]').first.click()
         expect(page.locator("#main table")).to_be_visible()
         check("report preview opens without creating a document",
