@@ -13,20 +13,20 @@ type DashboardQuery struct {
 }
 
 type DashboardSnapshot struct {
-	Activities        []model.Activity
-	ActiveSessions    []ActiveSession
-	TodaySessions     []ActiveSession
-	RecentSessions    []ActiveSession
-	Projects          []model.Project
-	TagsBySession     map[int64][]model.Tag
-	ProjectsByID      map[int64]ProjectSummary
-	Goals             []GoalProgress
-	Unbilled          []UnbilledProject
+	Activities     []model.Activity
+	ActiveSessions []ActiveSession
+	TodaySessions  []ActiveSession
+	RecentSessions []ActiveSession
+	Projects       []model.Project
+	TagsBySession  map[int64][]model.Tag
+	ProjectsByID   map[int64]ProjectSummary
+	Goals          []GoalProgress
+	Unbilled       []UnbilledProject
 	// EarnedCents is the payment journal over the current month, not invoice
 	// status: partially paid documents paid partly. The overview's answer to
 	// «сколько уже заработал» for the person who never opens the money section.
-	EarnedCents   int
-	EarnedCurrency string
+	EarnedCents       int
+	EarnedCurrency    string
 	TodayStart        time.Time
 	TodayEnd          time.Time
 	RecentStart       time.Time
