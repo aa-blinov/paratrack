@@ -95,8 +95,11 @@ func decorationsForTest(t *testing.T, projects *projectsStub, tags *tagsStub, lo
 }
 
 type invoicesStub struct {
-	calls int
-	query appmodel.UnbilledProjectQuery
+	calls                int
+	query                appmodel.UnbilledProjectQuery
+	earnedCents          int
+	earnedTeam           int64
+	earnedFrom, earnedTo string
 }
 
 func (s *invoicesStub) UnbilledProjectTime(_ context.Context, query appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error) {
@@ -279,4 +282,9 @@ func TestBuildActiveListUsesFirstRunFallback(t *testing.T) {
 	if !snapshot.FirstRun || tracking.checkedAny != 1 {
 		t.Fatalf("first-run state = %v after %d history checks, want true after one", snapshot.FirstRun, tracking.checkedAny)
 	}
+}
+
+func (s *invoicesStub) PaidCentsInMonth(_ context.Context, teamID int64, fromDay, toDay string) (int, string, error) {
+	s.earnedTeam, s.earnedFrom, s.earnedTo = teamID, fromDay, toDay
+	return s.earnedCents, "RUB", nil
 }

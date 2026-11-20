@@ -25,6 +25,7 @@ type Reader interface {
 	ListUnapprovedTimeDays(context.Context, int64, int64, time.Time, time.Time) ([]string, error)
 	OverlappingInvoices(context.Context, appmodel.InvoiceOverlapQuery) ([]string, error)
 	TrackedSecondsForInvoice(ctx context.Context, teamID, invoiceID int64) (int, error)
+	PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, toDay string) (int, string, error)
 }
 
 // ProjectBillingReader provides the project catalog data needed to prepare

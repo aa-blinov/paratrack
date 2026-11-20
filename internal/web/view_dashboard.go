@@ -71,7 +71,10 @@ type dashboardData struct {
 	DayNormLabel string
 	TodaySecs    int // seed for the live-ticking «учтено»
 	TopToday     string
-	Goals        []goalView
+	// Earned is the paid-amount line («заработано за месяц»), formatted with
+	// the workspace currency; empty when the month has no payments yet.
+	Earned   string
+	Goals    []goalView
 	ActiveVM     activeListVM // wrapper so active-list can call {{.T}}
 	GoalsVM      goalsListVM  // wrapper so goals-list can call {{.T}}
 

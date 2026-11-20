@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -164,4 +165,23 @@ func (d *DB) attachPayments(ctx context.Context, teamID int64, details []appmode
 		details[i].Payments = byInvoice[details[i].Invoice.ID]
 	}
 	return details, nil
+}
+
+// PaidCentsInMonth sums the payment journal over a month of paid_on dates.
+// The sum a person earned is the journal, not invoice status: partially paid
+// documents paid partly.
+func (d *DB) PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, toDay string) (int, string, error) {
+	if teamID <= 0 {
+		return 0, "", ErrNotFound
+	}
+	var total int
+	var currency string
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(p.amount_cents), 0), (SELECT currency FROM teams WHERE id = ?)
+		 FROM invoice_payments p WHERE p.team_id = ? AND p.paid_on >= ? AND p.paid_on < ?`,
+		teamID, teamID, fromDay, toDay).Scan(&total, &currency)
+	if err != nil {
+		return 0, "", fmt.Errorf("sum invoice payments for team %d: %w", teamID, err)
+	}
+	return total, currency, nil
 }

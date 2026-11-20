@@ -40,6 +40,13 @@ type ClientFields = { name: string; email: string; details: string }
 export function InvoicesPage({ data }: { data: InvoicesData }) {
   const [project, setProject] = React.useState(data.Projects.find(item => item.Selected)?.ID.toString() ?? "__all__")
   const [client, setClient] = React.useState<ClientFields>({ name: data.Prefill.ClientName, email: data.Prefill.ClientEmail, details: data.Prefill.ClientDetails })
+  const [period, setPeriod] = React.useState({ start: data.DefStart, end: data.DefEnd })
+  // Период предзаполняется только не тронутым руками: если человек вписал
+  // свой период, выбор проекта его не переписывает.
+  const periodTouched = React.useRef({ start: false, end: false })
+  // Номер предзаполнения вместо ключа-от-даты: поле пересоздаётся только
+  // в момент предзаполнения, а не на каждый валидный ввод (фокус бы терялся).
+  const [prefillNo, setPrefillNo] = React.useState(0)
   const autoFilled = React.useRef<Record<keyof ClientFields, boolean>>({ name: false, email: false, details: false })
   const lang = data.Lang
 
@@ -47,6 +54,12 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     setProject(value)
     const selected = data.Projects.find(item => String(item.ID) === value)
     if (!selected) return
+    // Ревизия ЦА (UX-47): при выборе проекта период должен подставляться сам,
+    // вот от этого момента идёт невыставленное время, — как клиент и реквизиты.
+    if (value === "__all__" && !periodTouched.current.start) setPeriod(previous => ({ ...previous, start: data.DefStart }))
+    const since = data.Unbilled.find(item => String(item.ProjectID) === value)?.SinceISO
+    if (since && !periodTouched.current.start) setPeriod(previous => ({ ...previous, start: since }))
+    if (!periodTouched.current.start && (value === "__all__" || data.Unbilled.some(item => String(item.ProjectID) === value && item.SinceISO))) setPrefillNo(no => no + 1)
     setClient(previous => {
       const next = { ...previous }
       const values: ClientFields = { name: selected.ClientName, email: selected.ClientEmail, details: selected.ClientDetails }
@@ -212,8 +225,8 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         </div>
         <div className="space-y-2 sm:col-span-2"><Label htmlFor="inv-client">{t(lang, "inv.client")}</Label><Input id="inv-client" type="text" name="client" required placeholder={t(lang, "ph.client")} value={client.name} onChange={event => editClientField("name", event.target.value)} /></div>
 
-        <div className="space-y-2"><Label htmlFor="inv-start">{t(lang, "inv.from")}</Label><DateField id="inv-start" name="start" required defaultValue={data.DefStart} /></div>
-        <div className="space-y-2"><Label htmlFor="inv-end">{t(lang, "inv.to")}</Label><DateField id="inv-end" name="end" required defaultValue={data.DefEnd} /></div>
+        <div className="space-y-2"><Label htmlFor="inv-start">{t(lang, "inv.from")}</Label><DateField id="inv-start" name="start" required defaultValue={period.start} key={`period-start-${prefillNo}`} onValueChange={iso => { periodTouched.current.start = true; setPeriod(previous => ({ ...previous, start: iso })) }} /></div>
+        <div className="space-y-2"><Label htmlFor="inv-end">{t(lang, "inv.to")}</Label><DateField id="inv-end" name="end" required defaultValue={period.end} key={`period-end-${prefillNo}`} onValueChange={iso => { periodTouched.current.end = true; setPeriod(previous => ({ ...previous, end: iso })) }} /></div>
         <Disclosure open={Boolean(client.email || client.details)} className="sm:col-span-2">
           <DisclosureTrigger className="inline-flex cursor-pointer items-center gap-1 text-sm text-muted-foreground">{t(lang, "inv.optionalFields")}<ChevronDown aria-hidden="true" className="size-4" /></DisclosureTrigger>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">

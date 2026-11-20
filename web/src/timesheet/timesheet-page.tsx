@@ -340,6 +340,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       <span className="font-medium">{approved ? t(lang, "ts.approvedOn", data.Approval.ApprovedOn) : t(lang, "ts.notApproved")}</span>
       {approved && <span className="text-muted-foreground">{t(lang, data.Approval.CanManage ? "ts.lockedManager" : "ts.lockedMember")}</span>}
       {!approved && !data.Approval.Finished && <span className="text-muted-foreground">{t(lang, "ts.weekRunningNote")}</span>}
+      {!approved && data.Approval.Finished && !data.Approval.CanManage && <span className="text-muted-foreground">{t(lang, "ts.waitingManagerNote")}</span>}
       {data.Approval.CanManage && approved && (
         <form method="post" action="/api/timesheet/reopen">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
