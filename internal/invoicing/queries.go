@@ -241,3 +241,16 @@ func (s *Service) Reconcile(ctx context.Context, query appmodel.ReconcileQuery) 
 	}
 	return rows, nil
 }
+
+// PaidCentsInMonth reads the payment journal over a month: the overview's
+// «заработано за месяц» without a trip through the invoices section.
+func (s *Service) PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, toDay string) (int, string, error) {
+	if teamID <= 0 {
+		return 0, "", ErrInvalidInvoice
+	}
+	total, currency, err := s.reader.PaidCentsInMonth(ctx, teamID, fromDay, toDay)
+	if err != nil {
+		return 0, "", fmt.Errorf("sum paid invoices for month: %w", err)
+	}
+	return total, currency, nil
+}

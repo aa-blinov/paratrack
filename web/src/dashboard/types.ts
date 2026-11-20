@@ -96,6 +96,7 @@ export interface DashboardData {
   PausedCount: number
   TodayTotal: string
   DayNormLabel: string
+  Earned?: string
   TodaySecs: number
   TopToday: string
   Goals: Goal[]

@@ -115,6 +115,14 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   // The "forgot to start?" hint next to the running list opens the past-session
   // form, so its disclosure state lives here rather than inside the component.
   const [backfillOpen, setBackfillOpen] = useState(false)
+  // Ревизия ЦА: после «Только эта» карточки молча перерисовались. Явная строка
+  // статуса с таймером жизни закрывает вопрос «а что теперь?».
+  const [focusNote, setFocusNote] = useState("")
+  useEffect(() => {
+    if (!focusNote) return
+    const timer = window.setTimeout(() => setFocusNote(""), 6000)
+    return () => window.clearTimeout(timer)
+  }, [focusNote])
   const [rebindWarning, setRebindWarning] = useState(false)
   const [activityRequired, setActivityRequired] = useState(false)
   // The optional-fields disclosure answers its parent too, so a default
@@ -280,13 +288,17 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const withNotes = recent.some(session => session.Note)
   const withTags = recent.some(session => session.Tags?.length > 0)
 
-  function sessionActions(session: Session) {
+  function sessionActions(session: Session, compact = false) {
+    const sizeClass = compact ? "max-sm:h-9" : "max-sm:h-11 max-sm:px-3"
     // On a phone the row's actions sit under its meta line, flush left; on a
-    // wide screen they sit at the right of the row, beside the name.
-    return <div className="-ml-2 flex justify-start gap-1 sm:ml-0 sm:justify-end">
-      <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-3" disabled={busy} title={t(lang, "dash.focusTitle")} onClick={() => void mutate(`/api/focus/${encodeURIComponent(session.ActivityName)}`)}>{labels.focus}</Button>
-      <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-3" disabled={busy} onClick={() => void mutate(`/api/sessions/${session.ID}/${session.Paused ? "resume" : "pause"}`)}>{session.Paused ? labels.resume : labels.pause}</Button>
-      <Button variant="ghost" size="sm" className="max-sm:h-11 max-sm:px-3 text-destructive hover:bg-destructive/10 hover:text-destructive" disabled={busy} onClick={async () => { if (timerIsLong(session) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate(`/api/sessions/${session.ID}/stop`) }}>{labels.stop}</Button>
+    // wide screen they sit at the right of the row, beside the name. «Стоп»
+    // стоит после «Только эта» и читается раньше «Паузы» (ревизия ЦА):
+    // останавливать приходятся чаще, чем ставить на паузу, а промах в
+    // «Паузу» оставлял таймер идти.
+    return <div className="-ml-1 flex justify-start gap-1 sm:ml-0 sm:justify-end">
+      <Button variant="ghost" size="sm" className={`${sizeClass} px-2`} disabled={busy} title={t(lang, "dash.focusTitle")} onClick={async () => { await mutate(`/api/focus/${encodeURIComponent(session.ActivityName)}`); setFocusNote(t(lang, "dash.focusDone")) }}>{labels.focus}</Button>
+      <Button variant="outline" size="sm" className={`${sizeClass} text-destructive hover:bg-destructive/10 hover:text-destructive`} disabled={busy} onClick={async () => { if (timerIsLong(session) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate(`/api/sessions/${session.ID}/stop`) }}>{labels.stop}</Button>
+      <Button variant="ghost" size="sm" className={`${sizeClass} px-2`} disabled={busy} onClick={() => void mutate(`/api/sessions/${session.ID}/${session.Paused ? "resume" : "pause"}`)}>{session.Paused ? labels.resume : labels.pause}</Button>
     </div>
   }
 
@@ -336,7 +348,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         стоит в шапке, а не четвёртой цифрой в ряду под таймерами. */}
     {/* Режим меняют в настройках, на обзоре он только говорит, что сейчас открыто. */}
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-2 text-sm text-muted-foreground">{modeLine}</div></div>
-      <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span><span className="text-xs text-muted-foreground">{t(lang, "dash.dayNorm", data.DayNormLabel)}</span>{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
+      <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span><span className="text-xs text-muted-foreground">{t(lang, "dash.dayNorm", data.DayNormLabel)}</span>{data.Earned && <span className="text-xs text-muted-foreground" data-earned>{t(lang, "dash.earnedMonth", data.Earned)}</span>}{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
     <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />
     {undoWidget}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
@@ -385,14 +397,21 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
             <DropdownMenuItem disabled={data.RunningCount === 0} onSelect={() => void mutate("/api/active/pause-all")}>{t(lang, "dash.pauseAll")}</DropdownMenuItem>
             <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={async () => { if (!(await requestConfirmation(t(lang, "dash.stopAllConfirm", active.length), { title: t(lang, "dash.stopAllTitle"), action: t(lang, "dash.stopAllAction") }))) return; if (active.some(timerIsLong) && !(await requestConfirmation(t(lang, "stats.longSessionConfirm")))) return; void mutate("/api/active/stop-all") }}>{t(lang, "dash.stopAll")}</DropdownMenuItem>
           </DropdownMenuContent></DropdownMenu>}</div></div>
-          {active.length ? <div className="grid gap-3">{active.some(timerIsLong) && <p className="rounded-md border border-amber-500/40 p-2 text-sm">{t(lang, "dash.longTimerHint")}</p>}{active.map(session => <div key={session.ID} data-session-id={session.ID} data-focus-name={session.ActivityName} {...focusSwipe} className="max-lg:order-first grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          {active.length ? <div className="grid gap-3">{active.some(timerIsLong) && <p className="rounded-md border border-amber-500/40 p-2 text-sm">{t(lang, "dash.longTimerHint")}</p>}{active.map((session, index) => index === 0 ? <div key={session.ID} data-session-id={session.ID} data-focus-name={session.ActivityName} {...focusSwipe} className="max-lg:order-first grid gap-2 border-t border-border/70 py-3 first:border-t-0 first:pt-0 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             {/* Название и часы на одной строке: часы и есть ответ на «сколько
                 уже идёт». Статус виден только на паузе, идущий таймер его не
                 называет; проект и время начала уходят в строку под ними. */}
             <div className="min-w-0"><div className="flex min-w-0 items-baseline gap-2"><ColorMark color={activityColor(session.Color)} /><strong className="ledger-activity min-w-0 break-words">{session.ActivityName}</strong><LiveClock session={session} className={`ms-auto shrink-0 text-base font-semibold sm:ms-2 sm:text-lg ${session.Paused ? "text-muted-foreground" : ""}`} /></div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">{session.Paused && <Badge variant="secondary" className="status-pill is-paused" data-state="paused">{t(lang, "dash.statusPaused")}</Badge>}{projects.length > 0 ? <Select value={String(session.ProjectID || 0)} onValueChange={value => void mutate(`/api/activities/${session.ActivityID}/project`, { project_id: value })}><SelectTrigger aria-label={labels.project} className="ledger-project h-7 w-fit max-w-40 border-0 bg-transparent px-2 text-xs sm:max-w-40 dark:bg-transparent" data-value={session.ProjectID || 0}><SelectValue /></SelectTrigger><SelectContent><SelectItem value="0">{labels.uncategorized}</SelectItem>{projects.map(item => <SelectItem key={item.ID} value={String(item.ID)}>{item.Name}</SelectItem>)}</SelectContent></Select> : session.ProjectName && <span>{session.ProjectName}</span>}<span>{t(lang, "dash.started")} {session.StartLocal}</span></div></div>
             {sessionActions(session)}
+          </div> : <div key={session.ID} data-session-id={session.ID} data-focus-name={session.ActivityName} {...focusSwipe} data-timer-compact className="max-lg:order-first flex items-center gap-2 border-t border-border/70 py-2 first:border-t-0 first:pt-0">
+            {/* Ревизия ЦА (UX-45): на телефоне вторая идущая карточка начиналась
+                за нижним краем экрана. Одна полная карточка — у первой строки;
+                остальные — одной строкой имя, часы и те же действия. */}
+            <ColorMark color={activityColor(session.Color)} /><strong className="min-w-0 truncate text-sm">{session.ActivityName}</strong>{session.Paused && <Badge variant="secondary" className="status-pill is-paused shrink-0" data-state="paused">{t(lang, "dash.statusPaused")}</Badge>}<LiveClock session={session} className={`ms-auto shrink-0 font-mono text-sm tabular-nums ${session.Paused ? "text-muted-foreground" : ""}`} />
+            {sessionActions(session, true)}
           </div>)}</div> : <div className="py-5 text-sm text-muted-foreground"><p>{labels.noActive}</p><p>{labels.noActiveHint}</p></div>}
+          {focusNote && <p role="status" className="text-sm text-muted-foreground">{focusNote}</p>}
         </section>
       </CardContent>
     </Card>

@@ -35,6 +35,7 @@ type SessionDecorationBuilder interface {
 
 type InvoiceReader interface {
 	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
+	PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, toDay string) (int, string, error)
 }
 
 type Logger interface {
@@ -146,6 +147,17 @@ func (b *Builder) Build(ctx context.Context, query Query) (Snapshot, error) {
 		snapshot.Unbilled, err = b.invoices.UnbilledProjectTime(ctx, appmodel.UnbilledProjectQuery{TeamID: query.TeamID})
 		if err != nil {
 			return Snapshot{}, fmt.Errorf("load dashboard unbilled time: %w", err)
+		}
+		// The earned line answers «сколько уже заработал» while the hour count
+		// is still zero on a slow month. Like goals, a failed read hides the
+		// line without losing the page.
+		utc := now.UTC()
+		monthStart := time.Date(utc.Year(), utc.Month(), 1, 0, 0, 0, 0, time.UTC)
+		snapshot.EarnedCents, snapshot.EarnedCurrency, err = b.invoices.PaidCentsInMonth(ctx, query.TeamID,
+			monthStart.Format("2006-01-02"), monthStart.AddDate(0, 1, 0).Format("2006-01-02"))
+		if err != nil {
+			b.logger.Printf("dashboard: sum paid invoices for team %d: %v", query.TeamID, err)
+			snapshot.EarnedCents, snapshot.EarnedCurrency = 0, ""
 		}
 	}
 	return snapshot, nil

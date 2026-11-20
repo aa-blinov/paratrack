@@ -80,6 +80,9 @@ func buildDashboardData(r *http.Request, now time.Time, snapshot appmodel.Dashbo
 		data.Unbilled = unbilledViewsFrom(snapshot.Unbilled, r)
 	}
 
+	if snapshot.EarnedCents > 0 {
+		data.Earned = moneyL(langValue, snapshot.EarnedCents, snapshot.EarnedCurrency)
+	}
 	data.TodayTotal = fmtDur(r, snapshot.TodayTotalSeconds)
 	data.DayNormLabel = fmtDur(r, dayNormSeconds)
 	data.TodaySecs = snapshot.TodayTotalSeconds

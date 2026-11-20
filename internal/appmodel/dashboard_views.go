@@ -22,6 +22,11 @@ type DashboardSnapshot struct {
 	ProjectsByID      map[int64]ProjectSummary
 	Goals             []GoalProgress
 	Unbilled          []UnbilledProject
+	// EarnedCents is the payment journal over the current month, not invoice
+	// status: partially paid documents paid partly. The overview's answer to
+	// «сколько уже заработал» for the person who never opens the money section.
+	EarnedCents   int
+	EarnedCurrency string
 	TodayStart        time.Time
 	TodayEnd          time.Time
 	RecentStart       time.Time

@@ -108,3 +108,36 @@ func TestMarkingPaidBooksWhatIsStillOwed(t *testing.T) {
 		t.Fatalf("journal = %+v (sum %d), want the 80 booked and the 120 remainder, adding to 200", details.Payments, sum)
 	}
 }
+
+// The overview's «заработано за месяц» reads the payment journal: only the
+// month the person asked about, in the money of the workspace, and nothing
+// from drafts (they have nowhere to pay from).
+func TestPaidCentsInMonthSumsTheJournal(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Заработано", "earned")
+	ownerID := teamOwner(t, d, teamID)
+	start := time.Date(2026, 9, 3, 0, 0, 0, 0, time.UTC)
+	lines := []model.InvoiceLine{{Label: "Работа", Seconds: 7200, RateCents: 10000, AmountCents: 20000}}
+	inv, err := d.CreateInvoice(ctx, appmodel.InvoiceCreateRequest{TeamID: teamID, CallerID: ownerID, Number: "INV-EARNED-1", Client: "Client", Start: start, End: start.AddDate(0, 0, 1), Lines: lines})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.MarkInvoiceSentOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); err != nil {
+		t.Fatal(err)
+	}
+	if settled, err := d.RecordInvoicePayment(ctx, appmodel.InvoicePaymentRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, PaidOn: "2026-11-14", AmountCents: 12000, Note: ""}); err != nil || !settled {
+		t.Fatalf("full payment: settled %v, err %v", settled, err)
+	}
+
+	total, currency, err := d.PaidCentsInMonth(ctx, teamID, "2026-11-01", "2026-12-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 12000 || currency == "" {
+		t.Fatalf("november sum: %d cents, currency %q; want 12000 and the workspace currency", total, currency)
+	}
+	if total, _, err := d.PaidCentsInMonth(ctx, teamID, "2026-10-01", "2026-11-01"); err != nil || total != 0 {
+		t.Fatalf("october sum: %d, err %v; want 0", total, err)
+	}
+}
