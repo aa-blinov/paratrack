@@ -238,9 +238,9 @@ export function AppSidebar({ shell, themeControl }: { shell: AppSidebarShell; th
   // Every settings page lights «Настройки», members and invites included.
   const inSettings = shell.requestPath.startsWith("/settings/")
   return <Sidebar collapsible="icon" variant="sidebar">
-    <SidebarHeader className="gap-2 px-3 py-2">
-      <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight" aria-label="paratrack">
-        <span className="flex size-7 items-center justify-center rounded-md bg-brand text-brand-foreground"><Activity className="size-4" aria-hidden="true" /></span>
+    <SidebarHeader className="gap-2 px-3 py-2 group-data-[collapsible=icon]:px-2">
+      <a href="/" className="flex h-10 items-center gap-2 px-2 font-semibold tracking-tight group-data-[collapsible=icon]:px-0.5" aria-label="paratrack">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-brand text-brand-foreground"><Activity className="size-4" aria-hidden="true" /></span>
         <span className="text-base group-data-[collapsible=icon]:hidden">paratrack</span>
       </a>
       {shell.team && (shell.userTeams.length < 2
