@@ -48,8 +48,13 @@ func TestAuthSessionTokenIsStoredAsDigestAndStillRoundTrips(t *testing.T) {
 	if err != nil || session.Token != rawToken {
 		t.Fatalf("find session = (%q, %v), want the raw token round trip", session.Token, err)
 	}
-	if err := d.TouchAuthSession(ctx, appmodel.AuthSessionTouchRequest{Token: rawToken, At: now.Add(time.Minute)}); err != nil {
-		t.Fatal(err)
+	for _, at := range []time.Time{now.Add(2 * time.Minute), now.Add(2*time.Minute + 30*time.Second)} {
+		if err := d.TouchAuthSession(ctx, appmodel.AuthSessionTouchRequest{Token: rawToken, At: at}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if touched, _, err := d.FindAuthSession(ctx, rawToken); err != nil || !touched.LastSeenAt.Equal(now.Add(2*time.Minute)) {
+		t.Fatalf("last seen = %v (%v), want the first touch kept and the one 30s later skipped", touched.LastSeenAt, err)
 	}
 	if err := d.DeleteAuthSession(ctx, appmodel.AuthSessionDeleteRequest{Token: rawToken}); err != nil {
 		t.Fatal(err)

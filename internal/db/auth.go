@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -233,9 +234,11 @@ func (d *DB) FindAuthSession(ctx context.Context, token string) (model.AuthSessi
 
 func (d *DB) TouchAuthSession(ctx context.Context, request appmodel.AuthSessionTouchRequest) error {
 	// The raw fallback covers rows the lazy conversion has not reached yet.
+	// At most one write a minute per session: every request, polling
+	// included, used to rewrite the row. Canonical timestamps compare as text.
 	_, err := d.sql.ExecContext(ctx,
-		`UPDATE auth_sessions SET last_seen_at = ? WHERE token IN (?, ?)`,
-		FormatTime(request.At), authSessionTokenHash(request.Token), request.Token)
+		`UPDATE auth_sessions SET last_seen_at = ? WHERE token IN (?, ?) AND last_seen_at < ?`,
+		FormatTime(request.At), authSessionTokenHash(request.Token), request.Token, FormatTime(request.At.Add(-time.Minute)))
 	return err
 }
 
