@@ -131,10 +131,11 @@ is in the Makefile.
   browser modules, and a new internal package that has not been classified as a
   workflow, a leaf, an adapter or a special package.
 - **A Go test needs Postgres.** `scripts/test.sh` starts `postgres:17-alpine`
-  on port 15432 and removes it on exit. Every test that touches the database
-  creates its own schema and points `search_path` at it, so the packages do not
-  collide and CI runs them with `-p 8`: 693 s serial against 333 s at `-p 8` on
-  this tree, 60 packages, no failures and no data races either way.
+  on port 15432 and removes it on exit. Each test binary migrates one template
+  database once, and every test that touches the database gets its own copy
+  (`CREATE DATABASE ... TEMPLATE`, ~0.3 s against ~1.8 s for a fresh
+  migration), so the packages do not collide and CI runs them with `-p 8`:
+  317 s for the whole tree at `-p 8`, `internal/web` the long pole at ~300 s.
 
 ## Style / safety rails
 
