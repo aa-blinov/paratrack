@@ -69,7 +69,7 @@ func (s *Service) AuthenticateSessionToken(ctx context.Context, token string) (a
 	return user, err
 }
 
-// Touch bumps last_seen_at. Cheap UPDATE; safe to call on every request.
+// Touch bumps last_seen_at, at most once a minute; safe to call on every request.
 func (s *Service) Touch(ctx context.Context, token string) {
 	if err := s.sessions.TouchAuthSession(ctx, appmodel.AuthSessionTouchRequest{Token: token, At: s.now().UTC()}); err != nil {
 		s.logger.Printf("auth: update session last seen: %v", err)
