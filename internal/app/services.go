@@ -128,6 +128,7 @@ func NewServices(database *db.DB, config Config) (result *Services, returnErr er
 		Users: database, Sessions: database, Resets: database,
 		Tokens: database, Memberships: database, Security: database,
 		RequireEmailVerification: config.RequireEmailVerification,
+		PasswordCost:             config.PasswordCost,
 		Now:                      now, Audit: auditService, Logger: logger,
 	})
 	if err != nil {

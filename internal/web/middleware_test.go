@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +42,8 @@ func newTestServer(t *testing.T) (*Server, string) {
 	}
 	authSvc, err := auth.NewService(auth.Dependencies{
 		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
-		Now: time.Now, Audit: auditService, Logger: log.Default(),
+		PasswordCost: bcrypt.MinCost,
+		Now:          time.Now, Audit: auditService, Logger: log.Default(),
 	})
 	if err != nil {
 		t.Fatalf("auth service: %v", err)
@@ -66,7 +68,7 @@ func newServerForTest(database *dbpkg.DB, addr string) (*Server, error) {
 // newServerForTestWith builds the test server with the default configuration, adjusted by
 // mutate when given. The flags of a scenario are set here, not in shared state.
 func newServerForTestWith(database *dbpkg.DB, addr string, mutate func(*app.Config)) (*Server, error) {
-	cfg := app.Config{Logger: log.Default(), Now: time.Now}
+	cfg := app.Config{Logger: log.Default(), Now: time.Now, PasswordCost: bcrypt.MinCost}
 	if mutate != nil {
 		mutate(&cfg)
 	}

@@ -30,6 +30,9 @@ type Config struct {
 	// RequireEmailVerification makes a new account confirm its address before the first sign-in
 	// (SEC-01). The command turns it on by default; tests and the QA stand may switch it off.
 	RequireEmailVerification bool
+	// PasswordCost is the bcrypt cost of new password hashes; zero keeps the
+	// project floor. Only tests lower it.
+	PasswordCost int
 	// CalendarGoogle and CalendarMicrosoft are the OAuth clients of calendar sync (CRM-19).
 	// A provider with an empty client is not offered; with neither, the sync is off.
 	CalendarGoogle    CalendarOAuthClient

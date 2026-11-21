@@ -60,7 +60,7 @@ func (s *Service) consumePasswordReset(ctx context.Context, token, newPassword s
 	}
 	// The reset writes with the same cost as registration and the change
 	// form: the library default is weaker than the project's floor (12).
-	hash, err := hashPassword(newPassword)
+	hash, err := s.hashPassword(newPassword)
 	if err != nil {
 		return User{}, err
 	}
