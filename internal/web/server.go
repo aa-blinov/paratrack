@@ -80,6 +80,9 @@ func New(services Dependencies, addr string, config Config, runtime RuntimeDepen
 	if assetVersionErr != nil {
 		return nil, fmt.Errorf("hash embedded static assets: %w", assetVersionErr)
 	}
+	if modulePreloadsErr != nil {
+		return nil, modulePreloadsErr
+	}
 	sentry := initSentry(config.Sentry, config.Logger)
 	if err := i18n.Validate(); err != nil {
 		sentry.close()

@@ -17,6 +17,9 @@ export default defineConfig({
     outDir: fileURLToPath(new URL("../internal/web/static/ui", import.meta.url)),
     emptyOutDir: true,
     cssCodeSplit: false,
+    // The server reads it to put modulepreload links in the page head
+    // (internal/web/module_preload.go).
+    manifest: "manifest.json",
     rollupOptions: {
       input: fileURLToPath(new URL("./src/main.tsx", import.meta.url)),
       output: {

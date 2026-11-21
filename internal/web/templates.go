@@ -40,6 +40,12 @@ func templateFuncs(sentry sentryState) template.FuncMap {
 		// template name in lock-step so cards and tables always agree.
 		"fmtDuration": fmtDuration,
 		"asset":       func(p string) string { return "/static/" + p + "?v=" + assetVersion },
+		"modulePreloads": func(lang string) []string {
+			if lang != "en" {
+				lang = "ru"
+			}
+			return modulePreloads[lang]
+		},
 		// tOr translates key, or returns fallback when the key is missing.
 		"tOr": func(lang, key, fallback string) string {
 			if t := i18n.T(i18n.Lang(lang), key); t != key {

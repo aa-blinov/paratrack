@@ -25,6 +25,7 @@
   <script src="{{asset "js/sentry.min.js"}}"></script>
   <script src="{{asset "js/sentry-init.js"}}"></script>{{end}}
   <script type="module" blocking="render" src="{{asset "ui/app.js"}}"></script>
+  {{range modulePreloads .Lang}}<link rel="modulepreload" href="{{.}}">{{end}}
 </head>
 <body class="min-h-screen flex flex-col" style="margin:0">
   <div id="react-page-data" hidden>{{.ReactPayload}}</div><div id="paratrack-react-root">
