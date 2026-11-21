@@ -135,10 +135,11 @@ is in the Makefile.
   database once, and every test that touches the database gets its own copy
   (`CREATE DATABASE ... TEMPLATE`, opened with `SchemaCurrent` so the DDL
   pass is skipped: ~0.15 s against ~1.8 s for a fresh migration), so the
-  packages do not collide and `go test` runs them at its default parallelism
-  (one package per CPU). The whole tree takes ~130 s and is bounded by
-  `internal/web` alone, so a higher `-p` buys nothing; a forced `-p 1` cost
-  the Docker build ~17 minutes.
+  tests do not collide: `OpenTest` calls `t.Parallel` itself, and the
+  packages run at `go test`'s default `-p`. The whole tree takes ~80 s; a
+  forced `-p 1` once cost the Docker build ~17 minutes. A test that calls
+  `t.Setenv` stays serial, and must call it before `OpenTest`, since
+  `t.Setenv` panics in a parallel test.
   Test constructors pass `PasswordCost: bcrypt.MinCost`: at the production
   cost of 12 every registration and sign-in hashes for ~250 ms.
 

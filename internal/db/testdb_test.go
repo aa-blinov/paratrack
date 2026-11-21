@@ -20,6 +20,7 @@ import (
 // fresh migration cost ~1.8s a test, a template copy ~0.15s, since the copy skips the DDL pass.
 func OpenTest(tb testing.TB) (*DB, error) {
 	tb.Helper()
+	parallel(tb)
 	base := os.Getenv("PARATRACK_TEST_PG")
 	if base == "" {
 		tb.Fatal("PARATRACK_TEST_PG is not set: run scripts/test.sh")
@@ -110,4 +111,17 @@ func testConfig(dsn string) Config {
 		Logger:    log.New(io.Discard, "", 0),
 		Now:       time.Now,
 	}
+}
+
+// parallel runs every database test alongside the others: each one owns its
+// database, so the package wall time drops to its slowest tests instead of
+// their sum. t.Parallel panics, before it changes any state, in a test that
+// set an environment variable or already went parallel; those stay as they are.
+func parallel(tb testing.TB) {
+	t, ok := tb.(*testing.T)
+	if !ok {
+		return
+	}
+	defer func() { _ = recover() }()
+	t.Parallel()
 }

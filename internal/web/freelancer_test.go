@@ -81,7 +81,6 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	}
 
 	// Send it (mail is queued durably and captured by a worker).
-	t.Setenv("PARATRACK_SMTP_HOST", "smtp.test:25")
 	cm := &captureMail{}
 	e.srv.runtime.Mailer = cm
 	stopWorker := e.srv.startMailWorker(context.Background())
