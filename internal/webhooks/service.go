@@ -88,6 +88,7 @@ type Service struct {
 	runCancel  context.CancelFunc
 	runDone    chan struct{}
 	wake       chan struct{}
+	eventWake  chan struct{}
 }
 
 func New(store Store, deliverer Deliverer, now func() time.Time, audit AuditRecorder, logger Logger) (*Service, error) {
@@ -108,8 +109,9 @@ func New(store Store, deliverer Deliverer, now func() time.Time, audit AuditReco
 	}
 	return &Service{
 		store: store, deliverer: deliverer, now: now, audit: audit, logger: logger,
-		backoff: []time.Duration{2 * time.Second, 10 * time.Second, 60 * time.Second},
-		wake:    make(chan struct{}, deliveryWorkerCount),
+		backoff:   []time.Duration{2 * time.Second, 10 * time.Second, 60 * time.Second},
+		wake:      make(chan struct{}, deliveryWorkerCount),
+		eventWake: make(chan struct{}, eventWorkerCount),
 	}, nil
 }
 

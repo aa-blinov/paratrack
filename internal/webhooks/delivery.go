@@ -125,24 +125,27 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 
 	var workers sync.WaitGroup
 	workers.Add(eventWorkerCount + deliveryWorkerCount)
-	for range eventWorkerCount {
+	// Only the first worker of each pool polls the database on the interval.
+	// Ten pollers kept an idle install at ~20 transactions a second; the rest
+	// now sleep until a claim or an in-process enqueue wakes them.
+	for i := range eventWorkerCount {
 		go func() {
 			defer workers.Done()
-			s.runEventWorker(workerCtx, interval)
+			s.runEventWorker(workerCtx, interval, i == 0)
 		}()
 	}
-	for range deliveryWorkerCount {
+	for i := range deliveryWorkerCount {
 		go func() {
 			defer workers.Done()
-			s.runDeliveryWorker(workerCtx, interval)
+			s.runDeliveryWorker(workerCtx, interval, i == 0)
 		}()
 	}
 	workers.Wait()
 }
 
-func (s *Service) runEventWorker(ctx context.Context, interval time.Duration) {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+func (s *Service) runEventWorker(ctx context.Context, interval time.Duration, polls bool) {
+	tick, stop := pollTicker(interval, polls)
+	defer stop()
 	for ctx.Err() == nil {
 		event, ok, err := s.store.ClaimWebhookEvent(ctx)
 		if err != nil {
@@ -152,20 +155,44 @@ func (s *Service) runEventWorker(ctx context.Context, interval time.Duration) {
 			s.logger.Printf("webhooks: claim event: %v", err)
 		}
 		if ok {
+			signal(s.eventWake)
 			s.processQueuedEvent(ctx, event)
 			continue
 		}
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-s.eventWake:
+		case <-tick:
 		}
 	}
 }
 
-func (s *Service) runDeliveryWorker(ctx context.Context, interval time.Duration) {
+// pollTicker gives the polling worker its ticker; the others get a nil
+// channel, which never fires, so they wait for a wake signal alone.
+func pollTicker(interval time.Duration, polls bool) (<-chan time.Time, func()) {
+	if !polls {
+		return nil, func() {}
+	}
 	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	return ticker.C, ticker.Stop
+}
+
+// signal wakes every sleeping worker of a pool without blocking: a backlog
+// found by the poller is then drained by the whole pool, not by one worker.
+func signal(wake chan struct{}) {
+	for range cap(wake) {
+		select {
+		case wake <- struct{}{}:
+		default:
+			return
+		}
+	}
+}
+
+func (s *Service) runDeliveryWorker(ctx context.Context, interval time.Duration, polls bool) {
+	tick, stop := pollTicker(interval, polls)
+	defer stop()
 	for ctx.Err() == nil {
 		job, ok, err := s.store.ClaimWebhookDelivery(ctx)
 		if err != nil {
@@ -173,23 +200,17 @@ func (s *Service) runDeliveryWorker(ctx context.Context, interval time.Duration)
 				return
 			}
 			s.logger.Printf("webhooks: claim delivery: %v", err)
+		}
+		if err != nil || !ok {
 			select {
 			case <-ctx.Done():
 				return
 			case <-s.wake:
-			case <-ticker.C:
+			case <-tick:
 			}
 			continue
 		}
-		if !ok {
-			select {
-			case <-ctx.Done():
-				return
-			case <-s.wake:
-			case <-ticker.C:
-			}
-			continue
-		}
+		signal(s.wake)
 		s.deliverQueued(ctx, job)
 	}
 }
