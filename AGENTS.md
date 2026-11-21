@@ -133,9 +133,10 @@ is in the Makefile.
 - **A Go test needs Postgres.** `scripts/test.sh` starts `postgres:17-alpine`
   on port 15432 and removes it on exit. Each test binary migrates one template
   database once, and every test that touches the database gets its own copy
-  (`CREATE DATABASE ... TEMPLATE`, ~0.3 s against ~1.8 s for a fresh
-  migration), so the packages do not collide and CI runs them with `-p 8`:
-  ~200-240 s for the whole tree at `-p 8`, `internal/web` the long pole.
+  (`CREATE DATABASE ... TEMPLATE`, opened with `SchemaCurrent` so the DDL
+  pass is skipped: ~0.15 s against ~1.8 s for a fresh migration), so the
+  packages do not collide and `scripts/test.sh` and CI run them with `-p 8`:
+  ~140 s for the whole tree, `internal/web` the long pole.
   Test constructors pass `PasswordCost: bcrypt.MinCost`: at the production
   cost of 12 every registration and sign-in hashes for ~250 ms.
 

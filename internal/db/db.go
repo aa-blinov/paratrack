@@ -44,6 +44,10 @@ type Config struct {
 	Now              func() time.Time
 	// MaxOpenConns caps the connection pool. Zero means defaultMaxOpenConns.
 	MaxOpenConns int
+	// SchemaCurrent skips the DDL pass (~180 ms) for a database this binary
+	// already migrated: the test fixtures copy a migrated template per test.
+	// The data migrations still run.
+	SchemaCurrent bool
 }
 
 // OpenConfiguredContext connects to Postgres and applies schema and data
@@ -64,7 +68,7 @@ func OpenConfiguredContext(ctx context.Context, config Config) (*DB, error) {
 	if config.Now == nil {
 		return nil, ErrMissingClock
 	}
-	return openContext(ctx, config.URL, config.SecretKey, config.Logger, config.Now, maxConnsOf(config))
+	return openContext(ctx, config.URL, config.SecretKey, config.Logger, config.Now, maxConnsOf(config), config.SchemaCurrent)
 }
 
 // defaultMaxOpenConns covers the webhook and mail workers, the reminder pass
@@ -79,7 +83,7 @@ func maxConnsOf(config Config) int {
 	return defaultMaxOpenConns
 }
 
-func openContext(ctx context.Context, url, secretKey string, logger *log.Logger, now func() time.Time, maxConns int) (*DB, error) {
+func openContext(ctx context.Context, url, secretKey string, logger *log.Logger, now func() time.Time, maxConns int, schemaCurrent bool) (*DB, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -102,7 +106,12 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		name string
 		fn   func() error
 	}{
-		{"apply schema", func() error { return d.applySchemaContext(ctx) }},
+		{"apply schema", func() error {
+			if schemaCurrent {
+				return nil
+			}
+			return d.applySchemaContext(ctx)
+		}},
 		{"activity keys", func() error { return d.migrateActivityKeys(ctx) }},
 		{"activity colours", func() error { return d.migrateActivityColors(ctx) }},
 		{"seal secrets", func() error { return d.sealExistingSecretsContext(ctx) }},
