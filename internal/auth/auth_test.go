@@ -491,3 +491,52 @@ func TestSessionExpiredIsRejected(t *testing.T) {
 		t.Errorf("expired session: want ErrSessionInvalid, got %v", err)
 	}
 }
+
+type touchCountingStore struct {
+	SessionStore
+	touches int
+}
+
+func (s *touchCountingStore) TouchAuthSession(ctx context.Context, request appmodel.AuthSessionTouchRequest) error {
+	s.touches++
+	return s.SessionStore.TouchAuthSession(ctx, request)
+}
+
+func TestAuthenticateSessionTokenTouchesOncePerMinute(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Date(2025, time.January, 2, 3, 4, 5, 0, time.UTC)
+	auditService, err := audit.New(d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := &touchCountingStore{SessionStore: d}
+	svc, err := NewService(Dependencies{
+		Users: d, Sessions: store, Resets: d, Tokens: d, Memberships: d, Security: d,
+		PasswordCost: bcrypt.MinCost,
+		Now:          func() time.Time { return now }, Audit: auditService, Logger: log.New(io.Discard, "", 0),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	userID, _, err := svc.createUser(ctx, "touch@example.com", "longenough", "Touch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := svc.newSession(ctx, userID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []struct {
+		after time.Duration
+		want  int
+	}{{30 * time.Second, 0}, {29 * time.Second, 0}, {2 * time.Second, 1}, {10 * time.Second, 1}} {
+		now = now.Add(step.after)
+		if _, err := svc.AuthenticateSessionToken(ctx, session.Token); err != nil {
+			t.Fatal(err)
+		}
+		if store.touches != step.want {
+			t.Fatalf("after +%v: %d touches, want %d", step.after, store.touches, step.want)
+		}
+	}
+}

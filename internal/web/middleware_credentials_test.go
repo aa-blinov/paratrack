@@ -15,8 +15,8 @@ import (
 )
 
 type credentialIdentityStub struct {
-	user       appmodel.UserIdentity
-	touchCalls []string
+	user         appmodel.UserIdentity
+	sessionCalls []string
 }
 
 func (s *credentialIdentityStub) APITokenByRaw(context.Context, appmodel.APITokenLookupRequest) (appmodel.APITokenIdentity, error) {
@@ -29,12 +29,9 @@ func (s *credentialIdentityStub) IdentityByID(context.Context, int64) (appmodel.
 	return s.user, nil
 }
 
-func (s *credentialIdentityStub) AuthenticateSessionToken(context.Context, string) (appmodel.UserIdentity, error) {
+func (s *credentialIdentityStub) AuthenticateSessionToken(_ context.Context, token string) (appmodel.UserIdentity, error) {
+	s.sessionCalls = append(s.sessionCalls, token)
 	return s.user, nil
-}
-
-func (s *credentialIdentityStub) Touch(_ context.Context, token string) {
-	s.touchCalls = append(s.touchCalls, token)
 }
 
 type credentialTeamDirectoryStub struct{ membership model.TeamMembership }
@@ -115,14 +112,13 @@ func TestRequireAuthTouchesOnlyBrowserSessions(t *testing.T) {
 			if !called {
 				t.Fatalf("authenticated request did not reach the next handler: status %d", recorder.Code)
 			}
-			if len(identity.touchCalls) != 0 && len(identity.touchCalls) != 1 {
-				t.Fatalf("Touch called %d times, want at most once", len(identity.touchCalls))
+			// The session lookup is what touches last_seen_at, so an API token
+			// must never reach it.
+			if test.wantTouch == "" && len(identity.sessionCalls) != 0 {
+				t.Fatalf("API token unexpectedly touched browser session %q", identity.sessionCalls[0])
 			}
-			if test.wantTouch == "" && len(identity.touchCalls) != 0 {
-				t.Fatalf("API token unexpectedly touched browser session %q", identity.touchCalls[0])
-			}
-			if test.wantTouch != "" && (len(identity.touchCalls) != 1 || identity.touchCalls[0] != test.wantTouch) {
-				t.Fatalf("Touch calls = %v, want [%q]", identity.touchCalls, test.wantTouch)
+			if test.wantTouch != "" && (len(identity.sessionCalls) != 1 || identity.sessionCalls[0] != test.wantTouch) {
+				t.Fatalf("session calls = %v, want [%q]", identity.sessionCalls, test.wantTouch)
 			}
 		})
 	}

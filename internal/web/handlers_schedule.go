@@ -226,11 +226,17 @@ func (s *Server) loadSchedulePlan(r *http.Request, weekStart time.Time) (schedPl
 
 // hasSchedulePlan reports whether any member has planned time that week.
 func (s *Server) hasSchedulePlan(r *http.Request, weekStart time.Time) (bool, error) {
-	snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: weekStart, Now: userNow(r)})
+	// One SUM, not the whole week's grid: the answer only enables a button.
+	planned, err := s.services.Scheduling.PlannedMinutesByUser(r.Context(), teamID(r), weekStart, weekStart.AddDate(0, 0, 7))
 	if err != nil {
 		return false, err
 	}
-	return snapshot.TotalMinutes > 0, nil
+	for _, minutes := range planned {
+		if minutes > 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // handleScheduleCell writes one plan cell.

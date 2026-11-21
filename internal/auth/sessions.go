@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -61,19 +62,22 @@ func (s *Service) findByToken(ctx context.Context, token string) (Session, appmo
 	return sess, identityOf(user), nil
 }
 
-// AuthenticateSessionToken validates a browser session and returns only the
-// credential-free identity needed by request middleware. The caller already
-// has the presented token and can pass it to Touch separately.
+// AuthenticateSessionToken validates a browser session, keeps its
+// last_seen_at within a minute of activity, and returns only the
+// credential-free identity needed by request middleware.
 func (s *Service) AuthenticateSessionToken(ctx context.Context, token string) (appmodel.UserIdentity, error) {
-	_, user, err := s.findByToken(ctx, token)
-	return user, err
-}
-
-// Touch bumps last_seen_at, at most once a minute; safe to call on every request.
-func (s *Service) Touch(ctx context.Context, token string) {
-	if err := s.sessions.TouchAuthSession(ctx, appmodel.AuthSessionTouchRequest{Token: token, At: s.now().UTC()}); err != nil {
-		s.logger.Printf("auth: update session last seen: %v", err)
+	sess, user, err := s.findByToken(ctx, token)
+	if err != nil {
+		return user, err
 	}
+	// The row just read says whether the bump is due, so a fresh session
+	// costs no UPDATE round trip. The store repeats the check for races.
+	if now := s.now().UTC(); now.Sub(sess.LastSeenAt) >= time.Minute {
+		if err := s.sessions.TouchAuthSession(ctx, appmodel.AuthSessionTouchRequest{Token: token, At: now}); err != nil {
+			s.logger.Printf("auth: update session last seen: %v", err)
+		}
+	}
+	return user, nil
 }
 
 // deleteByToken removes a session row. Used by logout and by expiry.

@@ -494,7 +494,6 @@ type IdentityWorkflow interface {
 	Logout(context.Context, appmodel.LogoutRequest) error
 	IdentityByID(context.Context, int64) (appmodel.UserIdentity, error)
 	AuthenticateSessionToken(context.Context, string) (appmodel.UserIdentity, error)
-	Touch(context.Context, string)
 }
 
 // SignInWorkflow handles password, SSO and account-registration sign-in.

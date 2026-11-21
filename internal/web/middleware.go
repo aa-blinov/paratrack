@@ -134,7 +134,6 @@ func (s *Server) authenticateRequest(ctx context.Context, r *http.Request) (auth
 //     for pages redirects to /login, for /api/* returns 401 JSON).
 //   - Otherwise attach User + Team to the context and call the next
 //     handler.
-//   - Touches the session so last_seen_at stays within a minute of activity.
 //   - Also enforces the "current team" cookie: if it points to a team
 //     the user is no longer in, fall back to their personal team.
 func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Request)) func(http.Handler) http.Handler {
@@ -157,11 +156,6 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 				return
 			}
 			user := principal.user
-			// Keep browser-session activity current without issuing a no-op
-			// session UPDATE for API-token requests.
-			if principal.sessionToken != "" {
-				s.services.Auth.Identity.Touch(ctx, principal.sessionToken)
-			}
 
 			var team model.Team
 			var role model.TeamRole

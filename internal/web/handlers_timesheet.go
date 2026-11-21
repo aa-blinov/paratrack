@@ -186,12 +186,13 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 
 	running := s.liveByDay(r, weekStart, now)
 	rows := make([]timesheetRow, 0, len(grid.Rows))
+	colors := s.activityColors(r)
 	for _, rc := range grid.Rows {
 		row := timesheetRow{
 			ActivityID:    rc.ActivityID,
 			ActivityName:  rc.ActivityName,
 			ProjectID:     rc.ProjectID,
-			Color:         activityColor(s.activityColors(r), rc.ActivityName),
+			Color:         activityColor(colors, rc.ActivityName),
 			Secs:          rc.Secs,
 			RowTotal:      rc.RowTotal,
 			RowTotalLabel: fmtDur(r, rc.RowTotal),
