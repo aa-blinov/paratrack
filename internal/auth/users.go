@@ -75,9 +75,13 @@ type Dependencies struct {
 	Security AccountSecurityStore
 	// RequireEmailVerification makes a new account wait for its confirmation link.
 	RequireEmailVerification bool
-	Now                      func() time.Time
-	Audit                    AuditRecorder
-	Logger                   Logger
+	// PasswordCost is the bcrypt cost of new hashes; zero means the project
+	// floor of 12. Tests pass bcrypt.MinCost: at 12 a registration or a
+	// sign-in costs ~250ms, which was most of the Go suite's wall time.
+	PasswordCost int
+	Now          func() time.Time
+	Audit        AuditRecorder
+	Logger       Logger
 }
 
 type AuditRecorder interface {
@@ -104,6 +108,10 @@ type Service struct {
 	now         func() time.Time
 	audit       AuditRecorder
 	logger      Logger
+	cost        int
+	// dummyHash prices an unknown address the same bcrypt as a known one;
+	// see AuthenticatePassword for why the cost is worth paying.
+	dummyHash []byte
 }
 
 // NewService returns a Service bound to its persistence contract.
@@ -124,11 +132,19 @@ func NewService(deps Dependencies) (*Service, error) {
 	if deps.Now == nil {
 		return nil, fmt.Errorf("%w: clock", ErrIncompleteDependencies)
 	}
+	cost := deps.PasswordCost
+	if cost == 0 {
+		cost = bcryptCost
+	}
+	dummyHash, err := bcrypt.GenerateFromPassword([]byte("paratrack timing equaliser"), cost)
+	if err != nil {
+		return nil, fmt.Errorf("hash the timing equaliser: %w", err)
+	}
 	return &Service{
 		users: deps.Users, sessions: deps.Sessions, resets: deps.Resets,
 		tokens: deps.Tokens, memberships: deps.Memberships, now: deps.Now,
 		security: deps.Security, requireMail: deps.RequireEmailVerification,
-		audit: deps.Audit, logger: deps.Logger,
+		audit: deps.Audit, logger: deps.Logger, cost: cost, dummyHash: dummyHash,
 	}, nil
 }
 
@@ -194,7 +210,7 @@ func (s *Service) createAccount(ctx context.Context, request appmodel.Registrati
 	request.Email = strings.ToLower(strings.TrimSpace(request.Email))
 	request.Name = strings.TrimSpace(request.Name)
 
-	hash, err := hashPassword(request.Password)
+	hash, err := s.hashPassword(request.Password)
 	if err != nil {
 		return 0, 0, fmt.Errorf("hash password: %w", err)
 	}
@@ -240,7 +256,7 @@ func (s *Service) AuthenticatePassword(ctx context.Context, request appmodel.Pas
 		// be too: an unknown address that answers in a fraction of the time
 		// names which addresses exist. One bcrypt against a throwaway hash
 		// closes the channel; a login is not hot-path enough to feel it.
-		_ = bcrypt.CompareHashAndPassword(dummyPasswordHash, []byte(request.Password))
+		_ = bcrypt.CompareHashAndPassword(s.dummyHash, []byte(request.Password))
 		return appmodel.UserIdentity{}, appmodel.AuthSessionCredential{}, ErrCredentialsInvalid
 	}
 	if err != nil {
@@ -433,7 +449,7 @@ func (s *Service) ChangePassword(ctx context.Context, request appmodel.PasswordC
 	if len(newPassword) < 8 || len(newPassword) > 72 {
 		return fmt.Errorf("%w: password must be 8-72 characters", ErrValidation)
 	}
-	hash, err := hashPassword(newPassword)
+	hash, err := s.hashPassword(newPassword)
 	if err != nil {
 		return fmt.Errorf("hash new password: %w", err)
 	}
@@ -501,18 +517,8 @@ func (s *Service) ChangeEmail(ctx context.Context, request appmodel.ProfileEmail
 // cost, so raising this only changes how new passwords are stored.
 const bcryptCost = 12
 
-// dummyPasswordHash prices an unknown address the same bcrypt as a known
-// one; see AuthenticatePassword for why the cost is worth paying.
-var dummyPasswordHash = func() []byte {
-	hash, err := bcrypt.GenerateFromPassword([]byte("paratrack timing equaliser"), bcryptCost)
-	if err != nil {
-		panic("auth: hash the timing equaliser: " + err.Error())
-	}
-	return hash
-}()
-
-func hashPassword(password string) ([]byte, error) {
-	return bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
+func (s *Service) hashPassword(password string) ([]byte, error) {
+	return bcrypt.GenerateFromPassword([]byte(password), s.cost)
 }
 
 func identityOf(user User) appmodel.UserIdentity {

@@ -135,7 +135,9 @@ is in the Makefile.
   database once, and every test that touches the database gets its own copy
   (`CREATE DATABASE ... TEMPLATE`, ~0.3 s against ~1.8 s for a fresh
   migration), so the packages do not collide and CI runs them with `-p 8`:
-  317 s for the whole tree at `-p 8`, `internal/web` the long pole at ~300 s.
+  ~200-240 s for the whole tree at `-p 8`, `internal/web` the long pole.
+  Test constructors pass `PasswordCost: bcrypt.MinCost`: at the production
+  cost of 12 every registration and sign-in hashes for ~250 ms.
 
 ## Style / safety rails
 

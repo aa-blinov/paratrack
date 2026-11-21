@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"io"
 	"log"
 	"strings"
@@ -43,8 +44,8 @@ func newTestAuthServiceWithMailCheck(t *testing.T, d *dbpkg.DB, requireMail bool
 	}
 	service, err := NewService(Dependencies{
 		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
-		RequireEmailVerification: requireMail,
-		Now:                      time.Now, Audit: auditService, Logger: log.New(io.Discard, "", 0),
+		RequireEmailVerification: requireMail, PasswordCost: bcrypt.MinCost,
+		Now: time.Now, Audit: auditService, Logger: log.New(io.Discard, "", 0),
 	})
 	if err != nil {
 		t.Fatalf("create auth service: %v", err)
@@ -152,7 +153,7 @@ func TestChangePasswordUsesCurrentCredentialAndConditionalUpdate(t *testing.T) {
 	if passwordChangeAudits != 1 {
 		t.Fatalf("password-change audits = %d, want 1", passwordChangeAudits)
 	}
-	concurrentHash, err := hashPassword("concurrent-password")
+	concurrentHash, err := bcrypt.GenerateFromPassword([]byte("concurrent-password"), bcrypt.MinCost)
 	if err != nil {
 		t.Fatalf("hash concurrent password: %v", err)
 	}
@@ -306,7 +307,8 @@ func TestFindByTokenExpiresAtExactBoundary(t *testing.T) {
 	}
 	svc, err := NewService(Dependencies{
 		Users: d, Sessions: d, Resets: d, Tokens: d, Memberships: d, Security: d,
-		Now: func() time.Time { return now }, Audit: auditService, Logger: log.New(io.Discard, "", 0),
+		PasswordCost: bcrypt.MinCost,
+		Now:          func() time.Time { return now }, Audit: auditService, Logger: log.New(io.Discard, "", 0),
 	})
 	if err != nil {
 		t.Fatalf("create auth service: %v", err)
