@@ -20,11 +20,14 @@ COPY . .
 COPY --from=css /src/internal/web/static/ui internal/web/static/ui
 ENV CGO_ENABLED=0
 # A red test suite never becomes an image. Tests need a Postgres: a
-# throwaway one runs inside this step and dies with it.
-RUN apk add --no-cache postgresql17 postgresql17-contrib >/dev/null \
+# throwaway one runs inside this step and dies with it. SKIP_TESTS=1 is for
+# redeploying a tree the suite already passed on: serial it costs ~25 min.
+# Each test owns its schema, so -p 8 is safe, as in CI.
+ARG SKIP_TESTS=0
+RUN [ "$SKIP_TESTS" = 1 ] || { apk add --no-cache postgresql17 postgresql17-contrib >/dev/null \
  && mkdir -p /run/postgresql /tmp/pg && chown postgres /run/postgresql /tmp/pg \
  && su postgres -c "initdb -D /tmp/pg -U t --auth=trust >/dev/null && pg_ctl -D /tmp/pg -o '-h 127.0.0.1' -w -l /tmp/pg.log start >/dev/null" \
- && PARATRACK_TEST_PG='postgres://t@127.0.0.1:5432/postgres?sslmode=disable' go test -p 1 -timeout 40m ./...
+ && PARATRACK_TEST_PG='postgres://t@127.0.0.1:5432/postgres?sslmode=disable' go test -p 8 -timeout 40m ./... ; }
 # VERSION is stamped so the footer shows the build that is actually running.
 # It used to live in the translation dictionary, where nothing tied it to
 # this binary.
