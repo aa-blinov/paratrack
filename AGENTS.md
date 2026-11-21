@@ -135,8 +135,10 @@ is in the Makefile.
   database once, and every test that touches the database gets its own copy
   (`CREATE DATABASE ... TEMPLATE`, opened with `SchemaCurrent` so the DDL
   pass is skipped: ~0.15 s against ~1.8 s for a fresh migration), so the
-  packages do not collide and `scripts/test.sh` and CI run them with `-p 8`:
-  ~140 s for the whole tree, `internal/web` the long pole.
+  packages do not collide and `go test` runs them at its default parallelism
+  (one package per CPU). The whole tree takes ~130 s and is bounded by
+  `internal/web` alone, so a higher `-p` buys nothing; a forced `-p 1` cost
+  the Docker build ~17 minutes.
   Test constructors pass `PasswordCost: bcrypt.MinCost`: at the production
   cost of 12 every registration and sign-in hashes for ~250 ms.
 
