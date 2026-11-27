@@ -20,18 +20,7 @@
 /web/node_modules/
 
 # never commit screenshot artefacts (regen with /e2e/audit*.py)
-/e2e/screenshots/audit-*.png
-/e2e/screenshots/native-*.png
-/e2e/screenshots/mobile-*.png
-/e2e/screenshots/graph-*.png
-/e2e/screenshots/echart-*.png
-/e2e/screenshots/clients-*.png
-/e2e/screenshots/client-detail.png
-/e2e/screenshots/prod-*.png
-/e2e/screenshots/seed-demo*.png
-/e2e/screenshots/demo-overbudget.png
-/e2e/screenshots/demo-*.png
-/e2e/screenshots/project-*.png
+/e2e/screenshots/
 
 # local compose data
 /data/
@@ -54,6 +43,3 @@ e2e-server.log
 
 # Python bytecode of local tooling
 __pycache__/
-
-# Ревизии ЦА: улики ревьюеров не грузим в репозиторий
-e2e/screenshots/rev-*/
