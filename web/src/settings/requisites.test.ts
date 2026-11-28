@@ -47,6 +47,15 @@ describe("requisites", () => {
     expect(text).toContain("ИП Иванов И.И.")
   })
 
+  it("reads the ИНН/КПП pair the way 1C prints it", () => {
+    const { fields, rest } = parseRequisites("ООО Ромашка, ИНН/КПП 7707083893/770701001")
+    expect(fields.org).toBe("ООО Ромашка")
+    expect(fields.inn).toBe("7707083893")
+    expect(fields.kpp).toBe("770701001")
+    expect(rest).toEqual([])
+    expect(invalidRequisites(fields)).toEqual([])
+  })
+
   it("never drops a second number of the same kind", () => {
     const { fields, rest } = parseRequisites("ООО Ромашка\nИНН 7707083893\nИНН 500100732259 (учредитель)")
     expect(fields.inn).toBe("7707083893")

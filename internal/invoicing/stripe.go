@@ -49,6 +49,16 @@ func (s *Service) CreateStripePaymentLink(ctx context.Context, request appmodel.
 	if totalCents <= 0 {
 		return StripePaymentLink{}, ErrInvalidInvoice
 	}
+	// The transaction that stores the link checks this too; checking here
+	// first keeps a refused draft from leaving a checkout session at Stripe.
+	if details.Invoice.Status == "draft" {
+		if bad := model.RequisiteProblems(details.Invoice.SellerDetails); len(bad) > 0 {
+			return StripePaymentLink{}, &model.RequisitesError{Fields: bad}
+		}
+		if bad := model.RequisiteProblems(details.Invoice.ClientDetails); len(bad) > 0 {
+			return StripePaymentLink{}, &model.RequisitesError{Client: true, Fields: bad}
+		}
+	}
 	key, _, err := s.stripeCredentials.TeamStripe(ctx, teamID)
 	if err != nil {
 		return StripePaymentLink{}, fmt.Errorf("load workspace Stripe credentials: %w", err)

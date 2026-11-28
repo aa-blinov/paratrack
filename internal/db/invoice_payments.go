@@ -42,6 +42,13 @@ func (d *DB) SetPaymentURL(ctx context.Context, request appmodel.InvoicePaymentL
 	if revision != expectedRevision {
 		return model.ErrInvoiceChanged
 	}
+	// A payment link on a draft is the client paying a document that was
+	// never cleared to go out. Clearing a link is always allowed.
+	if status == "draft" && strings.TrimSpace(paymentURL) != "" {
+		if err := requireInvoiceIssuableTx(ctx, tx, teamID, id); err != nil {
+			return err
+		}
+	}
 	now := d.currentTime().UTC()
 	if _, err := tx.ExecContext(ctx,
 		`UPDATE invoices SET payment_url = ?, stripe_session_id = ? WHERE id = ? AND team_id = ?`,
@@ -87,6 +94,12 @@ func (d *DB) MarkInvoicePaidOnce(ctx context.Context, request appmodel.InvoiceMu
 	}
 	if status == "paid" {
 		return number, false, nil
+	}
+	// Paid straight from a draft skips "sent", and with it the check.
+	if status == "draft" {
+		if err := requireInvoiceIssuableTx(ctx, tx, teamID, id); err != nil {
+			return "", false, err
+		}
 	}
 	// The day of an automatic journal row follows the process clock's own
 	// zone (PARATRACK_TZ, the workspace's own for a self-host), so the row

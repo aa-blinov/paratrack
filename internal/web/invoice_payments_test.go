@@ -161,8 +161,10 @@ func TestManualPaymentLinkEndpoint(t *testing.T) {
 	}
 }
 
-// Issuer details and the VAT line are copied onto the invoice at creation,
-// and the act renders for the same lines.
+// Issuer details and the VAT line are copied onto the invoice, and a sent
+// invoice keeps that copy when the workspace's details change later (a
+// draft follows the settings until it goes out). The act renders for the
+// same lines.
 func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("act@x.test")
@@ -176,6 +178,7 @@ func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 	if !strings.HasPrefix(loc, "/invoices/") {
 		t.Fatalf("create: %d %s", resp.StatusCode, loc)
 	}
+	e.do("POST", loc+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
 	readBody(t, e.do("POST", "/api/team/requisites", url.Values{"requisites": {"changed"}}, nil))
 	page := readBody(t, e.do("GET", loc, nil, nil))
 	for _, want := range []string{"ИНН 500100732259", "НДС не облагается", "КПП 770001001", "5\u00a0001,00"} {

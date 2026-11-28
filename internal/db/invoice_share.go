@@ -22,13 +22,20 @@ func (d *DB) CreateInvoiceShareLink(ctx context.Context, request appmodel.Invoic
 	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
 		return err
 	}
-	var count int
+	var status string
 	if err := tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM invoices WHERE id = ? AND team_id = ?`, request.InvoiceID, request.TeamID).Scan(&count); err != nil {
+		`SELECT status FROM invoices WHERE id = ? AND team_id = ?`, request.InvoiceID, request.TeamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
 		return err
 	}
-	if count == 0 {
-		return ErrNotFound
+	// A client link to a draft shows the client a document that was never
+	// cleared to go out.
+	if status == "draft" {
+		if err := requireInvoiceIssuableTx(ctx, tx, request.TeamID, request.InvoiceID); err != nil {
+			return err
+		}
 	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO invoice_share_links (team_id, invoice_id, token_hash, created_by, created_at, expires_at)

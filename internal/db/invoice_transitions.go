@@ -316,7 +316,7 @@ func (d *DB) MarkInvoiceSentOnce(ctx context.Context, request appmodel.InvoiceMu
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
 		return err
 	}
-	if err := requireInvoiceIssuableTx(ctx, tx, id); err != nil {
+	if err := requireInvoiceIssuableTx(ctx, tx, teamID, id); err != nil {
 		return err
 	}
 	result, err := tx.ExecContext(ctx,
@@ -461,21 +461,24 @@ func requireInvoiceTotalTx(ctx context.Context, tx *Tx, invoiceID int64) error {
 	return nil
 }
 
-// requireInvoiceIssuableTx is what every path that lets an invoice go out
-// (marking it sent, queuing the email) checks: the total is not negative and
-// the numbers in the seller's and the client's details check out. The
-// seller's details are copied into the draft when it is made, and a rebuild
-// copies them again, so fixing them in the settings and rebuilding unblocks it.
-func requireInvoiceIssuableTx(ctx context.Context, tx *Tx, invoiceID int64) error {
-	if err := requireInvoiceTotalTx(ctx, tx, invoiceID); err != nil {
-		return err
-	}
+// requireInvoiceIssuableTx is what every path that puts an invoice in front of
+// the client checks: marking it sent, queuing the email, recording a payment
+// on a draft, attaching a payment link and opening a client link. The total is
+// not negative and the numbers in the seller's and the client's details check
+// out. A draft carries the workspace's current details (SetTeamRequisites
+// passes them on), so fixing them in the settings unblocks it. The row is read
+// for this workspace and locked, so a concurrent edit of the client's details
+// cannot slip in between the check and the transition.
+func requireInvoiceIssuableTx(ctx context.Context, tx *Tx, teamID, invoiceID int64) error {
 	var seller, client string
 	if err := tx.QueryRowContext(ctx,
-		`SELECT seller_details, client_details FROM invoices WHERE id = ?`, invoiceID).Scan(&seller, &client); err != nil {
+		`SELECT seller_details, client_details FROM invoices WHERE id = ? AND team_id = ? FOR UPDATE`, invoiceID, teamID).Scan(&seller, &client); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
 		}
+		return err
+	}
+	if err := requireInvoiceTotalTx(ctx, tx, invoiceID); err != nil {
 		return err
 	}
 	if bad := model.RequisiteProblems(seller); len(bad) > 0 {

@@ -36,11 +36,23 @@ var requisitePatterns = []struct {
 	{RequisiteCorr, regexp.MustCompile(`(?i)к/с` + requisiteNumber)},
 }
 
+// requisiteINNKPP reads the "ИНН/КПП 7707083893/770701001" pair 1C prints on
+// every invoice; read field by field, the КПП label would take the ИНН.
+var requisiteINNKPP = regexp.MustCompile(`(?i)ИНН\s*/\s*КПП\s*[:№]?\s*(\d+)\s*/\s*(\d+)`)
+
 // RequisiteProblems lists the labelled numbers in text that fail their
 // length or control-digit check, in a fixed order.
 func RequisiteProblems(text string) []string {
 	found := map[string]string{}
 	for _, line := range strings.Split(text, "\n") {
+		if m := requisiteINNKPP.FindStringSubmatch(line); m != nil {
+			if _, ok := found[RequisiteINN]; !ok {
+				found[RequisiteINN] = m[1]
+			}
+			if _, ok := found[RequisiteKPP]; !ok {
+				found[RequisiteKPP] = m[2]
+			}
+		}
 		for _, p := range requisitePatterns {
 			if _, ok := found[p.field]; ok {
 				continue

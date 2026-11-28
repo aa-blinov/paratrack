@@ -88,8 +88,35 @@ func (d *DB) TeamRequisites(ctx context.Context, teamID int64) (requisites, vatN
 	return
 }
 
+// SetTeamRequisites saves the workspace's details and gives them to its
+// drafts. A draft has not reached anyone, so it carries the details as they
+// are now: fixing a number in the settings fixes every unsent invoice, without
+// a rebuild that would drop its manual lines. A sent document keeps the copy
+// it went out with. The revision moves so a PDF prepared with the old details
+// is not mailed.
 func (d *DB) SetTeamRequisites(ctx context.Context, request appmodel.TeamRequisitesRequest) error {
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID, `UPDATE teams SET requisites = ?, vat_note = ?, hide_executor_names = ?, vat_rate = ? WHERE id = ?`, request.Requisites, request.VATNote, boolInt(request.HideExecutorNames), request.VATRate, request.TeamID)
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	if err := execRequireRows(ctx, tx, `UPDATE teams SET requisites = ?, vat_note = ?, hide_executor_names = ?, vat_rate = ? WHERE id = ?`,
+		request.Requisites, request.VATNote, boolInt(request.HideExecutorNames), request.VATRate, request.TeamID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE invoices SET seller_details = ?, revision = revision + 1
+		  WHERE team_id = ? AND status = 'draft' AND seller_details <> ?`,
+		request.Requisites, request.TeamID, request.Requisites); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // TeamCurrency is the workspace default (RUB when unset or no team).
