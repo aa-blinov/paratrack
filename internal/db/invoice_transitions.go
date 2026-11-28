@@ -169,7 +169,9 @@ func (d *DB) RebuildInvoice(ctx context.Context, request appmodel.InvoiceMutatio
 		return err
 	}
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE invoices SET revision = revision + 1, payment_url = '', stripe_session_id = '' WHERE id = ? AND team_id = ?`, id, teamID); err != nil {
+		`UPDATE invoices SET revision = revision + 1, payment_url = '', stripe_session_id = '',
+		        seller_details = (SELECT requisites FROM teams WHERE id = ?)
+		  WHERE id = ? AND team_id = ?`, teamID, id, teamID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -314,7 +316,7 @@ func (d *DB) MarkInvoiceSentOnce(ctx context.Context, request appmodel.InvoiceMu
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
 		return err
 	}
-	if err := requireInvoiceTotalTx(ctx, tx, id); err != nil {
+	if err := requireInvoiceIssuableTx(ctx, tx, id); err != nil {
 		return err
 	}
 	result, err := tx.ExecContext(ctx,
@@ -455,6 +457,32 @@ func requireInvoiceTotalTx(ctx context.Context, tx *Tx, invoiceID int64) error {
 	}
 	if total < 0 {
 		return ErrInvoiceTotal
+	}
+	return nil
+}
+
+// requireInvoiceIssuableTx is what every path that lets an invoice go out
+// (marking it sent, queuing the email) checks: the total is not negative and
+// the numbers in the seller's and the client's details check out. The
+// seller's details are copied into the draft when it is made, and a rebuild
+// copies them again, so fixing them in the settings and rebuilding unblocks it.
+func requireInvoiceIssuableTx(ctx context.Context, tx *Tx, invoiceID int64) error {
+	if err := requireInvoiceTotalTx(ctx, tx, invoiceID); err != nil {
+		return err
+	}
+	var seller, client string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT seller_details, client_details FROM invoices WHERE id = ?`, invoiceID).Scan(&seller, &client); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if bad := model.RequisiteProblems(seller); len(bad) > 0 {
+		return &model.RequisitesError{Fields: bad}
+	}
+	if bad := model.RequisiteProblems(client); len(bad) > 0 {
+		return &model.RequisitesError{Client: true, Fields: bad}
 	}
 	return nil
 }

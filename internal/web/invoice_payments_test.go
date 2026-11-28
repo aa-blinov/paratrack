@@ -166,7 +166,7 @@ func TestManualPaymentLinkEndpoint(t *testing.T) {
 func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("act@x.test")
-	readBody(t, e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИНН 770000000000"}, "vat_note": {"НДС не облагается"}}, nil))
+	readBody(t, e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИНН 500100732259"}, "vat_note": {"НДС не облагается"}}, nil))
 	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Ромашка"}, "rate": {"2 500,50"}}, nil))
 	readBody(t, e.do("POST", "/api/sessions/backfill", url.Values{"activity": {"вёрстка"}, "start": {"вчера 10:00"}, "end": {"вчера 12:00"}, "project_id": {"1"}}, map[string]string{"HX-Request": "true"}))
 	day := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
@@ -178,7 +178,7 @@ func TestInvoiceRequisitesSnapshotAndAct(t *testing.T) {
 	}
 	readBody(t, e.do("POST", "/api/team/requisites", url.Values{"requisites": {"changed"}}, nil))
 	page := readBody(t, e.do("GET", loc, nil, nil))
-	for _, want := range []string{"ИНН 770000000000", "НДС не облагается", "КПП 770001001", "5\u00a0001,00"} {
+	for _, want := range []string{"ИНН 500100732259", "НДС не облагается", "КПП 770001001", "5\u00a0001,00"} {
 		if !strings.Contains(page, want) {
 			t.Errorf("invoice page lacks %q", want)
 		}

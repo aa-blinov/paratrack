@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -116,6 +117,10 @@ func (s *Server) invoiceBack(w http.ResponseWriter, r *http.Request, ok bool, ms
 
 // invoiceErrorMessage maps workflow and domain errors to user-facing text.
 func (s *Server) invoiceErrorMessage(r *http.Request, err error) string {
+	var details *model.RequisitesError
+	if errors.As(err, &details) {
+		return requisitesMessage(resolveLang(r), details)
+	}
 	switch {
 	case errors.Is(err, appmodel.ErrNoBillableTime):
 		return "no billable time in that period"
@@ -141,4 +146,19 @@ func (s *Server) invoiceErrorMessage(r *http.Request, err error) string {
 		s.logInternalError(err)
 		return i18n.T(resolveLang(r), "err.internal")
 	}
+}
+
+// requisitesMessage names the numbers that do not check out and says where to
+// fix them: the workspace's details live in the settings, the client's in the
+// invoice itself.
+func requisitesMessage(lang i18n.Lang, err *model.RequisitesError) string {
+	names := make([]string, 0, len(err.Fields))
+	for _, f := range err.Fields {
+		names = append(names, i18n.T(lang, "req."+f))
+	}
+	key := "inv.sellerDetailsBad"
+	if err.Client {
+		key = "inv.clientDetailsBad"
+	}
+	return fmt.Sprintf(i18n.T(lang, key), strings.Join(names, ", "))
 }

@@ -15,7 +15,7 @@ func TestInvoicesWarnWhileRequisitesAreBlank(t *testing.T) {
 		t.Fatal("a workspace with no requisites does not warn on the invoices screen")
 	}
 
-	saved := e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИП Иванова А. С., ИНН 770000000000"}}, nil)
+	saved := e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИП Иванова А. С., ИНН 500100732259"}}, nil)
 	readBody(t, saved)
 	if reactData[invoicesPage](t, readBody(t, e.do("GET", "/invoices", nil, nil))).RequisitesEmpty {
 		t.Fatal("the warning stays after the requisites are saved")

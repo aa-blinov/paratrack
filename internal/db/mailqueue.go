@@ -60,7 +60,7 @@ func (d *DB) EnqueueInvoiceEmail(ctx context.Context, request appmodel.InvoiceEm
 	if currentRevision != revision {
 		return ErrInvoiceChanged
 	}
-	if err := requireInvoiceTotalTx(ctx, tx, invoiceID); err != nil {
+	if err := requireInvoiceIssuableTx(ctx, tx, invoiceID); err != nil {
 		return err
 	}
 	now := FormatTime(d.currentTime().UTC())

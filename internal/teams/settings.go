@@ -146,6 +146,11 @@ func (s *Service) UpdateRequisites(ctx context.Context, request appmodel.TeamReq
 	if request.VATRate < 0 || request.VATRate > 100 {
 		return fmt.Errorf("%w: VAT rate is a percentage from 0 to 100", ErrInvalidSettings)
 	}
+	// The builder in the browser already refuses a number that does not
+	// check out, but the text field takes anything typed by hand.
+	if bad := model.RequisiteProblems(requisites); len(bad) > 0 {
+		return &model.RequisitesError{Fields: bad}
+	}
 	if err := s.settings.SetTeamRequisites(ctx, request); err != nil {
 		return fmt.Errorf("update team requisites: %w", err)
 	}

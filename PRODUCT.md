@@ -96,7 +96,10 @@ Confirmed by the code:
   address and the token in `~/.config/paratrack/config.json` (mode 0600), a
   `.paratrack` file in the project directory overrides it, and the environment
   overrides both. A command the remote mode does not support fails with the list
-  of the ones it does, and never falls back to a local Postgres. It is a real
+  of the ones it does, and never falls back to a local Postgres.
+  `status --short` is meant for a shell prompt: it answers within 0.4 s, draws
+  the line from its last answer (marked `?`) when the server is slow, prints
+  `offline` when it has nothing, and never exits with an error. It is a real
   feature rather than a development tool. `stats` counts a running timer the way the web stats do,
   so the CLI and the screen agree on today.
 - An agent reaches the workspace through `POST /mcp` with an API token and the token owner's rights. Deleting an
@@ -153,9 +156,15 @@ Deliberately not true, and worth knowing before a change:
   hourly or only the salaried ones, and the overlap check compares only the
   same members. Draft pay runs can include one-off bonus or deduction
   adjustments per member, as an amount or as a percent of what the member
-  earned in the run. A draft invoice takes manual one-off lines and discounts
+  earned in the run. "Recalculate" prices a draft again from the current
+  timesheet for the people on it; fixed adjustments stay, percent ones are
+  taken of the new earnings. A draft invoice takes manual one-off lines and discounts
   without touching the sessions; a discount cannot take the total below
-  zero, and an invoice with a negative total cannot be sent.
+  zero, and an invoice with a negative total cannot be sent. The labelled
+  numbers in Russian details (ИНН, КПП, ОГРН, БИК, р/с, к/с) are checked by
+  length and control digits when the workspace saves them and again, for the
+  seller and the client, before an invoice is sent or emailed. Rebuilding a
+  draft takes a fresh copy of the workspace's details.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.

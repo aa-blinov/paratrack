@@ -99,6 +99,18 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 		t.Fatalf("an invoice with a negative total was sent: status %q", status)
 	}
 
+	// Details typed by hand are checked on the server too: a wrong ИНН is
+	// not saved, whatever the browser let through.
+	reqResp := e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИП Иванов\nИНН 7707083894"}}, nil)
+	reqResp.Body.Close()
+	if loc := reqResp.Header.Get("Location"); !strings.Contains(loc, "flash=") || strings.Contains(loc, "flash=updated") {
+		t.Fatalf("a wrong ИНН was saved: redirect %q", loc)
+	}
+	settings := readBody(t, e.do("GET", "/settings/money", nil, nil))
+	if strings.Contains(settings, "7707083894") {
+		t.Fatal("the wrong ИНН reached the saved details")
+	}
+
 	// Bulk invites.
 	bulkResp := e.do("POST", "/api/team/invites", url.Values{"emails": {"a@studio.test\nb@studio.test, invalid-email"}}, nil)
 	bulkResp.Body.Close()

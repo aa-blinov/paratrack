@@ -122,3 +122,52 @@ func TestLegacyPayrollAdjustmentsAreMarkedOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// An invoice whose seller or client numbers do not check out cannot go out.
+// The seller's details are a copy made with the draft; fixing them in the
+// workspace and rebuilding the draft takes the new copy and unblocks it.
+func TestInvoiceWithBadDetailsCannotGoOut(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Реквизиты", "invoice-details")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE teams SET requisites = 'ИП Иванов, ИНН 7707083894' WHERE id = ?`, teamID); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	inv, err := d.CreateInvoice(ctx, appmodel.InvoiceCreateRequest{TeamID: teamID, CallerID: ownerID, Number: "INV-2026-960", Client: "Client", Start: start, End: start.AddDate(0, 1, 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// CreateInvoice stores no copy of the seller's details; the production
+	// draft path does. Put the copy in place as that path would.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE invoices SET seller_details = 'ИП Иванов, ИНН 7707083894' WHERE id = ?`, inv.ID); err != nil {
+		t.Fatal(err)
+	}
+	send := func() error {
+		return d.MarkInvoiceSentOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID})
+	}
+	var bad *model.RequisitesError
+	if err := send(); !errors.As(err, &bad) || bad.Client || len(bad.Fields) != 1 || bad.Fields[0] != model.RequisiteINN {
+		t.Fatalf("bad seller ИНН: err = %v", err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE teams SET requisites = 'ИП Иванов, ИНН 7707083893' WHERE id = ?`, teamID); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.RebuildInvoice(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); err != nil {
+		t.Fatalf("rebuild: %v", err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE invoices SET client_details = 'БИК 044525225, к/с 30101810400000000226' WHERE id = ?`, inv.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := send(); !errors.As(err, &bad) || !bad.Client {
+		t.Fatalf("bad client к/с: err = %v", err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE invoices SET client_details = '' WHERE id = ?`, inv.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := send(); err != nil {
+		t.Fatalf("after fixing both sides: %v", err)
+	}
+}

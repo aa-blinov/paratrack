@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -85,7 +86,18 @@ func (s *Server) handleAPITeamRequisites(w http.ResponseWriter, r *http.Request)
 		}
 		rate = value
 	}
-	if err := s.services.Teams.Settings.UpdateRequisites(r.Context(), appmodel.TeamRequisitesRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Requisites: req, VATNote: vat, HideExecutorNames: hide, VATRate: rate}); errors.Is(err, appmodel.ErrInvalidTeamSettings) {
+	err := s.services.Teams.Settings.UpdateRequisites(r.Context(), appmodel.TeamRequisitesRequest{TeamID: team.ID, CallerID: authenticatedUserID(r), Requisites: req, VATNote: vat, HideExecutorNames: hide, VATRate: rate})
+	var bad *model.RequisitesError
+	if errors.As(err, &bad) {
+		lang := resolveLang(r)
+		names := make([]string, 0, len(bad.Fields))
+		for _, f := range bad.Fields {
+			names = append(names, i18n.T(lang, "req."+f))
+		}
+		http.Redirect(w, r, "/settings/money?flash="+encodeFlash(false, fmt.Sprintf(i18n.T(lang, "team.requisitesBad"), strings.Join(names, ", ")))+"#requisites", http.StatusSeeOther)
+		return
+	}
+	if errors.Is(err, appmodel.ErrInvalidTeamSettings) {
 		http.Redirect(w, r, "/settings/money?flash=bad_request"+"#requisites", http.StatusSeeOther)
 		return
 	} else if err != nil {
