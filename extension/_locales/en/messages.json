@@ -1,0 +1,117 @@
+{
+  "setupHint": {
+    "message": "Paste an API token from Settings → API tokens."
+  },
+  "server": {
+    "message": "Server"
+  },
+  "apiToken": {
+    "message": "API token"
+  },
+  "saveConnect": {
+    "message": "Save & connect"
+  },
+  "idle": {
+    "message": "idle"
+  },
+  "active": {
+    "message": "active"
+  },
+  "paused": {
+    "message": "paused"
+  },
+  "fromTask": {
+    "message": "Start from task"
+  },
+  "pickTask": {
+    "message": "— pick a task —"
+  },
+  "orActivity": {
+    "message": "…or type activity"
+  },
+  "activityPh": {
+    "message": "reading, work…"
+  },
+  "start": {
+    "message": "Start"
+  },
+  "stop": {
+    "message": "Stop"
+  },
+  "pause": {
+    "message": "Pause"
+  },
+  "resume": {
+    "message": "Resume"
+  },
+  "refresh": {
+    "message": "Refresh"
+  },
+  "settings": {
+    "message": "Settings"
+  },
+  "connected": {
+    "message": "Connected"
+  },
+  "tokenRequired": {
+    "message": "Token required"
+  },
+  "badAddress": {
+    "message": "Bad server address"
+  },
+  "notGranted": {
+    "message": "Access to $1 was not granted",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "unreachable": {
+    "message": "Server unreachable"
+  },
+  "serverError": {
+    "message": "Server error ($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "notParatrack": {
+    "message": "This address does not answer as paratrack: check the server address ($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "tokenNotAccepted": {
+    "message": "The token is not accepted"
+  },
+  "noAccess": {
+    "message": "No access"
+  },
+  "pickOrType": {
+    "message": "Pick a task or type an activity"
+  },
+  "started": {
+    "message": "Started: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "stopped": {
+    "message": "Stopped"
+  },
+  "failed": {
+    "message": "Failed ($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  }
+}

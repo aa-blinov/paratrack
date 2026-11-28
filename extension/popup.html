@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="utf-8">
   <title>paratrack</title>
@@ -51,41 +51,42 @@
 <body>
   <h1>paratrack <span id="who"></span></h1>
 
-  <!-- Setup -->
+  <!-- Setup. Every text comes from _locales through data-i18n. -->
   <section id="setup">
-    <p class="muted">Paste an API token from Settings → API tokens.</p>
-    <label for="base">Server</label>
+    <p class="muted" data-i18n="setupHint"></p>
+    <label for="base" data-i18n="server"></label>
     <input id="base" placeholder="https://paratrack.duckdns.org" />
-    <label for="token">API token</label>
+    <label for="token" data-i18n="apiToken"></label>
     <input id="token" type="password" placeholder="pt_…" />
-    <button id="save">Save &amp; connect</button>
-    <div id="status"></div>
+    <button id="save" data-i18n="saveConnect"></button>
+    <div id="setup-status" role="status"></div>
   </section>
 
   <!-- Timer -->
   <section id="app" class="hidden">
     <div class="row" style="align-items:center;justify-content:space-between;margin-bottom:6px">
-      <span id="state" class="pill off">idle</span>
+      <span id="state" class="pill off" data-i18n="idle"></span>
       <span id="active-name" class="muted" style="margin:0"></span>
     </div>
     <div id="clock" class="timer">0m</div>
 
-    <label for="task">Start from task</label>
-    <select id="task"><option value="">— pick a task —</option></select>
+    <label for="task" data-i18n="fromTask"></label>
+    <select id="task"><option value="" data-i18n="pickTask"></option></select>
 
-    <label for="activity">…or type activity</label>
-    <input id="activity" placeholder="reading, work…" />
+    <label for="activity" data-i18n="orActivity"></label>
+    <input id="activity" data-i18n-placeholder="activityPh" />
 
     <div class="row">
-      <button id="start">Start</button>
-      <button id="stop" class="danger">Stop</button>
+      <button id="start" data-i18n="start"></button>
+      <button id="stop" class="danger" data-i18n="stop"></button>
     </div>
     <div class="row" style="margin-top:6px">
-      <button id="pause" class="ghost">Pause</button>
-      <button id="resume" class="ghost">Resume</button>
-      <button id="refresh" class="ghost">Refresh</button>
+      <button id="pause" class="ghost" data-i18n="pause"></button>
+      <button id="resume" class="ghost" data-i18n="resume"></button>
+      <button id="refresh" class="ghost" data-i18n="refresh"></button>
+      <button id="settings" class="ghost" data-i18n="settings"></button>
     </div>
-    <div id="status"></div>
+    <div id="app-status" role="status"></div>
   </section>
 
   <script src="popup.js"></script>

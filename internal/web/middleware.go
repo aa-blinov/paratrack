@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -267,7 +268,11 @@ func pageRedirect(w http.ResponseWriter, r *http.Request) {
 func apiUnauthorized(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusUnauthorized)
-	_, _ = w.Write([]byte(`{"error":"unauthorized"}`))
+	body, err := json.Marshal(apiErrorResponse{Error: i18n.T(resolveLang(r), "err.tokenNotAccepted")})
+	if err != nil {
+		body = []byte(`{"error":"unauthorized"}`)
+	}
+	_, _ = w.Write(body)
 }
 
 // setSessionCookie writes the HttpOnly session token and ensures the

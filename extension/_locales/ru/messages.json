@@ -1,0 +1,117 @@
+{
+  "setupHint": {
+    "message": "Вставьте API-токен из «Настройки → Токены»."
+  },
+  "server": {
+    "message": "Сервер"
+  },
+  "apiToken": {
+    "message": "API-токен"
+  },
+  "saveConnect": {
+    "message": "Сохранить и подключиться"
+  },
+  "idle": {
+    "message": "не идёт"
+  },
+  "active": {
+    "message": "идёт"
+  },
+  "paused": {
+    "message": "пауза"
+  },
+  "fromTask": {
+    "message": "Начать с задачи"
+  },
+  "pickTask": {
+    "message": "— выберите задачу —"
+  },
+  "orActivity": {
+    "message": "…или впишите занятие"
+  },
+  "activityPh": {
+    "message": "вёрстка, созвон…"
+  },
+  "start": {
+    "message": "Старт"
+  },
+  "stop": {
+    "message": "Стоп"
+  },
+  "pause": {
+    "message": "Пауза"
+  },
+  "resume": {
+    "message": "Продолжить"
+  },
+  "refresh": {
+    "message": "Обновить"
+  },
+  "settings": {
+    "message": "Настройки"
+  },
+  "connected": {
+    "message": "Подключено"
+  },
+  "tokenRequired": {
+    "message": "Нужен токен"
+  },
+  "badAddress": {
+    "message": "Адрес сервера не похож на адрес"
+  },
+  "notGranted": {
+    "message": "Нет доступа к $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "unreachable": {
+    "message": "Сервер не отвечает"
+  },
+  "serverError": {
+    "message": "Ошибка на сервере ($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "notParatrack": {
+    "message": "По этому адресу отвечает не paratrack: проверьте адрес сервера ($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "tokenNotAccepted": {
+    "message": "Токен не принят"
+  },
+  "noAccess": {
+    "message": "Нет доступа"
+  },
+  "pickOrType": {
+    "message": "Выберите задачу или впишите занятие"
+  },
+  "started": {
+    "message": "Запущено: $1",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "stopped": {
+    "message": "Остановлено"
+  },
+  "failed": {
+    "message": "Не получилось ($1)",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  }
+}
