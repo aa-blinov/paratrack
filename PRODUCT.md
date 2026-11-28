@@ -117,6 +117,10 @@ Confirmed by the code:
   breakdown leaves the person column empty too. Whether the names are hidden
   is frozen on the invoice when it is sent or emailed (`invoices.hide_names`):
   a draft follows the workspace switch, a sent document reads as it went out.
+- An accountant role reads the money without managing: invoices, payouts and
+  reports with their exports, recording payments and closing a month, never
+  editing a document, a rate or the time. A month an accountant closed is
+  reopened only by them or the owner.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

@@ -351,7 +351,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	// and what they would get, with the warnings, and nothing written until
 	// the manager confirms the new total.
 	var preview *payrollRecalcPreviewVM
-	if run.Status == "draft" && r.URL.Query().Get("preview") == "recalculate" {
+	if canManage(r) && run.Status == "draft" && r.URL.Query().Get("preview") == "recalculate" {
 		res, err := s.services.Payroll.PreviewRecalculation(r.Context(), appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: run.ID, CallerID: authenticatedUserID(r)})
 		if err != nil {
 			http.Redirect(w, r, "/payroll/"+strconv.FormatInt(run.ID, 10)+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)

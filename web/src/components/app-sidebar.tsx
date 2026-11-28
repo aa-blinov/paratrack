@@ -29,6 +29,7 @@ export type AppSidebarShell = {
   requestPath: string
   csrfToken: string
   canManage: boolean
+  canReadFinance?: boolean
   mods: Record<string, boolean> | null
   /** The phone bar's four tabs, as chosen on the Interface page. */
   tabs?: { key: string }[]
@@ -79,8 +80,12 @@ const groups: Array<{ key: NavGroup; label: string }> = [
   { key: "settings", label: "set.title" },
 ]
 
+// financeKeys are the manager-only entries an accountant opens too.
+const financeKeys = new Set(["invoices", "payroll", "reports"])
+
 export function available(item: ShellNavItem, shell: AppSidebarShell) {
-  return (!item.module || shell.mods === null || shell.mods[item.module] === true) && (!item.manage || shell.canManage)
+  const open = !item.manage || shell.canManage || (shell.canReadFinance === true && financeKeys.has(item.key))
+  return (!item.module || shell.mods === null || shell.mods[item.module] === true) && open
 }
 
 // isCurrent marks the panel entry the open screen belongs to. An item with a

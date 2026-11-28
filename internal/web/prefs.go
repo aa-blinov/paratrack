@@ -97,7 +97,7 @@ var defaultTabs = []string{"dashboard", "timesheet", "stats", "graph"}
 // off stays off and a short list stays short.
 func (s *Server) tabsFor(r *http.Request, mods map[string]bool) []navItem {
 	avail := func(n navItem) bool {
-		return (n.Module == "" || mods[n.Module]) && (!n.Manage || canManage(r))
+		return (n.Module == "" || mods[n.Module]) && (!n.Manage || mayOpen(r, n.Key))
 	}
 	picks := prefsOf(r).Tabs
 	if picks == nil {
@@ -157,7 +157,7 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 	data := &prefsPage{pageData: pageData{Title: "Preferences", Active: "settings-prefs", Lang: string(lang), ReactApp: true}, PrefsReact: true, P: p, Zones: zones}
 	team := s.teamModules(r)
 	for _, m := range modules {
-		if team[m.Key] && (!m.Manage || canManage(r)) {
+		if team[m.Key] && (!m.Manage || mayOpen(r, m.Key)) {
 			data.Sections = append(data.Sections, prefCheck{m.Key, m.Icon, m.Label, !has(p.HiddenSections, m.Key)})
 		}
 	}
@@ -166,7 +166,7 @@ func (s *Server) handlePreferencesPage(w http.ResponseWriter, r *http.Request) {
 		tabs[n.Key] = true
 	}
 	for _, n := range navItems {
-		if (n.Module == "" || team[n.Module]) && (!n.Manage || canManage(r)) {
+		if (n.Module == "" || team[n.Module]) && (!n.Manage || mayOpen(r, n.Key)) {
 			data.TabOpts = append(data.TabOpts, prefCheck{n.Key, n.Icon, n.Label, tabs[n.Key]})
 		}
 	}

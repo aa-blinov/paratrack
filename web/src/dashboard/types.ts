@@ -545,6 +545,7 @@ export interface PayrollSummary {
 }
 
 export interface PayrollData {
+  CanManage: boolean
   Title: string
   Active: string
   ReactApp: boolean
@@ -558,7 +559,7 @@ export interface PayrollData {
   DefNotes: string
   DefUserIDs?: number[]
   Overlap: string
-  ClosedMonths?: Array<{ Month: string; Label: string; ClosedOn: string; ClosedBy: string }>
+  ClosedMonths?: Array<{ Month: string; Label: string; ClosedOn: string; ClosedBy: string; CanReopen: boolean }>
   UnapprovedWeeks?: Array<{ Date: string; Last: string; Label: string; Count: number }>
   UnapprovedFrom: string
   UnapprovedTo: string
@@ -568,6 +569,7 @@ export interface PayrollData {
 }
 
 export interface PayrollDetailData {
+  CanManage: boolean
   Title: string
   Active: string
   ReactApp: boolean
@@ -686,6 +688,7 @@ export interface InvoiceProjectOption {
 }
 
 export interface InvoicesData {
+  CanManage: boolean
   Reconcile?: {
     From: string
     To: string
@@ -719,6 +722,7 @@ export interface InvoicesData {
 }
 
 export interface InvoiceDetailData {
+  CanManage: boolean
   ReactApp: boolean
   InvoiceReact: boolean
   InvoiceDetail: boolean

@@ -19,4 +19,6 @@ type PeriodClose struct {
 	Month      time.Time
 	ClosedOn   time.Time
 	ClosedByID int64
+	// ClosedByRole is the closer's role now, empty when they have left.
+	ClosedByRole string
 }

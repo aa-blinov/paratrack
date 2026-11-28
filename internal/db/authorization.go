@@ -21,6 +21,19 @@ func lockTeamManager(ctx context.Context, tx *Tx, teamID, callerID int64) (int64
 	return ownerID, role, nil
 }
 
+// lockTeamFinance is lockTeamManager for the bookkeeping an accountant does
+// too: recording a payment that came in.
+func lockTeamFinance(ctx context.Context, tx *Tx, teamID, callerID int64) error {
+	_, role, err := lockTeamRole(ctx, tx, teamID, callerID)
+	if err != nil {
+		return err
+	}
+	if !role.CanReadFinance() {
+		return model.ErrForbidden
+	}
+	return nil
+}
+
 // lockTeamOwner is lockTeamManager for the settings only the owner changes: the currency,
 // the invoice rules, Stripe and webhooks (ADM-15). An admin is refused here even though the
 // admin may manage the rest of the workspace.

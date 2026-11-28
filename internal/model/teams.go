@@ -11,9 +11,18 @@ const (
 	TeamRoleOwner  TeamRole = "owner"
 	TeamRoleAdmin  TeamRole = "admin"
 	TeamRoleMember TeamRole = "member"
+	// TeamRoleAccountant tracks their own time like a member and, besides,
+	// reads the money: invoices, payouts and reports, their exports, records
+	// the payments that came in and closes a month. They never edit time,
+	// rates, documents or settings.
+	TeamRoleAccountant TeamRole = "accountant"
 )
 
 func (r TeamRole) CanManage() bool { return r == TeamRoleOwner || r == TeamRoleAdmin }
+
+// CanReadFinance reports whether the role sees the invoices, the payouts and
+// the reports, and may record a payment and close a month.
+func (r TeamRole) CanReadFinance() bool { return r.CanManage() || r == TeamRoleAccountant }
 
 // IsOwner reports whether the role is the workspace owner's, the only one that changes
 // the currency, the invoice rules, Stripe and webhooks (ADM-15).

@@ -20,7 +20,7 @@ import { translate as t } from "@/i18n"
 type ShellUser = { id: number; name: string; email: string } | null
 type ShellTeam = { id: number; name: string } | null
 type ShellTeamMembership = { id: number; name: string; role: string }
-export type AppShellData = { title: string; active: string; user: ShellUser; team: ShellTeam; userTeams: ShellTeamMembership[]; requestPath: string; csrfToken: string; lang: string; canManage: boolean; mods: Record<string, boolean> | null; tabs: ShellNavItem[]; appVersion: string }
+export type AppShellData = { title: string; active: string; user: ShellUser; team: ShellTeam; userTeams: ShellTeamMembership[]; requestPath: string; csrfToken: string; lang: string; canManage: boolean; canReadFinance?: boolean; mods: Record<string, boolean> | null; tabs: ShellNavItem[]; appVersion: string }
 function ThemeControl({ shell }: { shell: AppShellData }) {
   const [mode, cycle] = useTheme()
   const labelKey = mode === "light" ? "theme.light" : mode === "dark" ? "theme.dark" : "theme.auto"

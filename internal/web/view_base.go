@@ -66,8 +66,10 @@ type reactShellData struct {
 	CSRFToken   string          `json:"csrfToken"`
 	Lang        string          `json:"lang"`
 	CanManage   bool            `json:"canManage"`
-	Mods        map[string]bool `json:"mods"`
-	Tabs        []shellNavItem  `json:"tabs"`
+	// CanReadFinance opens the invoices, payouts and reports to an accountant.
+	CanReadFinance bool            `json:"canReadFinance"`
+	Mods           map[string]bool `json:"mods"`
+	Tabs           []shellNavItem  `json:"tabs"`
 }
 
 type shellUserView struct {

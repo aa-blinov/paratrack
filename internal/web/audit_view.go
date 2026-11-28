@@ -51,6 +51,8 @@ func roleLabel(lang i18n.Lang, role string) string {
 		return i18n.T(lang, "team.roleAdmin")
 	case string(model.TeamRoleMember):
 		return i18n.T(lang, "team.roleMember")
+	case string(model.TeamRoleAccountant):
+		return i18n.T(lang, "team.roleAccountant")
 	}
 	return role
 }

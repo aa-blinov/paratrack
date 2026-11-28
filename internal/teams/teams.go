@@ -20,6 +20,8 @@ const (
 	RoleOwner  = model.TeamRoleOwner
 	RoleAdmin  = model.TeamRoleAdmin
 	RoleMember = model.TeamRoleMember
+
+	RoleAccountant = model.TeamRoleAccountant
 )
 
 type Team = model.Team

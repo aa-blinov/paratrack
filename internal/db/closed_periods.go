@@ -38,7 +38,7 @@ func (d *DB) CloseMonth(ctx context.Context, request appmodel.PeriodCloseRequest
 	if err != nil {
 		return err
 	}
-	if !role.CanManage() {
+	if !role.CanReadFinance() {
 		return model.ErrForbidden
 	}
 	key, err := periodKey(request.Month)
@@ -92,12 +92,34 @@ func (d *DB) ReopenMonth(ctx context.Context, request appmodel.PeriodCloseReques
 	if err != nil {
 		return err
 	}
-	if !role.CanManage() {
+	if !role.CanReadFinance() {
 		return model.ErrForbidden
 	}
 	key, err := periodKey(request.Month)
 	if err != nil {
 		return err
+	}
+	// The owner reopens any month and whoever closed a month may reopen it.
+	// An admin reopens the rest, except a month an accountant closed: the
+	// books handed in are not reopened behind the accountant's back.
+	if !role.IsOwner() {
+		var closedBy int64
+		var closerRole sql.NullString
+		err := tx.QueryRowContext(ctx,
+			`SELECT c.closed_by, m.role FROM closed_periods c
+			   LEFT JOIN memberships m ON m.team_id = c.team_id AND m.user_id = c.closed_by
+			  WHERE c.team_id = ? AND c.month = ?`, request.TeamID, key.day).Scan(&closedBy, &closerRole)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		mine := closedBy == request.CallerID
+		byAccountant := closerRole.String == string(model.TeamRoleAccountant)
+		if !mine && (role != model.TeamRoleAdmin || byAccountant) {
+			return model.ErrForbidden
+		}
 	}
 	if _, err := tx.ExecContext(ctx,
 		`DELETE FROM closed_periods WHERE team_id = ? AND month = ?`,
@@ -115,7 +137,9 @@ func (d *DB) ListClosedMonths(ctx context.Context, teamID int64) ([]appmodel.Per
 		return nil, err
 	}
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT month, closed_at, closed_by FROM closed_periods WHERE team_id = ? ORDER BY month DESC`,
+		`SELECT c.month, c.closed_at, c.closed_by, COALESCE(m.role, '') FROM closed_periods c
+		   LEFT JOIN memberships m ON m.team_id = c.team_id AND m.user_id = c.closed_by
+		  WHERE c.team_id = ? ORDER BY c.month DESC`,
 		teamID)
 	if err != nil {
 		return nil, fmt.Errorf("list closed months for team %d: %w", teamID, err)
@@ -125,7 +149,7 @@ func (d *DB) ListClosedMonths(ctx context.Context, teamID int64) ([]appmodel.Per
 	for rows.Next() {
 		var item appmodel.PeriodClose
 		var month, closedAt string
-		if err := rows.Scan(&month, &closedAt, &item.ClosedByID); err != nil {
+		if err := rows.Scan(&month, &closedAt, &item.ClosedByID, &item.ClosedByRole); err != nil {
 			return nil, err
 		}
 		if item.Month, err = time.ParseInLocation("2006-01-02", month, loc); err != nil {

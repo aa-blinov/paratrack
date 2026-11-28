@@ -43,17 +43,17 @@ func (d *DB) applySchemaContext(ctx context.Context) error {
 		     ALTER TABLE teams ALTER COLUMN slug TYPE CITEXT;
 		   END IF;
 		 END $$`,
-		// Roles grew an admin. Replace the legacy CHECK once, then leave the
-		// current constraint alone on later process starts.
+		// Roles grew an admin, then an accountant. Replace an older CHECK once,
+		// then leave the current constraint alone on later process starts.
 		`DO $$ BEGIN
 		   IF NOT EXISTS (
 		     SELECT 1 FROM pg_constraint
 		     WHERE conrelid = 'memberships'::regclass
 		       AND conname = 'memberships_role_check'
-		       AND position('admin' in pg_get_constraintdef(oid)) > 0
+		       AND position('accountant' in pg_get_constraintdef(oid)) > 0
 		   ) THEN
 		     ALTER TABLE memberships DROP CONSTRAINT IF EXISTS memberships_role_check;
-		     ALTER TABLE memberships ADD CONSTRAINT memberships_role_check CHECK (role IN ('owner', 'admin', 'member'));
+		     ALTER TABLE memberships ADD CONSTRAINT memberships_role_check CHECK (role IN ('owner', 'admin', 'member', 'accountant'));
 		   END IF;
 		 END $$`,
 	}

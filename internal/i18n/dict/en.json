@@ -1529,7 +1529,7 @@
   "err.notFoundHintGuest": "The link is old or the address has a typo. Sign in to open the section you need.",
   "err.backToDashboard": "Back to dashboard",
   "title.Access denied": "Access denied",
-  "team.rolesHint": "A member tracks and sees only their own time. An admin, like the owner, runs projects, rates, invoices, payroll and settings; only the owner can delete the workspace.",
+  "team.rolesHint": "A member tracks and sees only their own time. An accountant also sees invoices, payroll and reports, exports them, records payments and closes a month, but edits none of it. An admin, like the owner, runs projects, rates, invoices, payroll and settings; only the owner can delete the workspace.",
   "report.formerMember": "Former member",
   "stats.teamWeekTitle": "Team this week",
   "stats.teamWeekBlurb": "Tracked time by day. Marked where a day that has passed, or is running, has less than %s.",
@@ -2383,5 +2383,8 @@
   "date.choose": "Pick a date",
   "graph.hourShort": "h",
   "graph.minShort": "m",
-  "graph.secShort": "s"
+  "graph.secShort": "s",
+  "team.roleAccountant": "accountant",
+  "team.role.accountant": "accountant",
+  "role.accountant": "accountant"
 }

@@ -67,7 +67,7 @@ func (d *DB) RecordInvoicePayment(ctx context.Context, request appmodel.InvoiceP
 		return false, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+	if err := lockTeamFinance(ctx, tx, teamID, callerID); err != nil {
 		return false, err
 	}
 	var status string

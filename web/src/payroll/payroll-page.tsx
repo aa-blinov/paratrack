@@ -34,7 +34,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
   const allSelected = members.length > 0 && selectedIds.length === members.length
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1></div>{data.CanManage && data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
     {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} userIds={data.DefUserIDs} />}
 
 
@@ -57,7 +57,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </ol>
       </EmptyState>
     </CardContent></Card>}
-    <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
+    {data.CanManage && <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><DateField id="pay-start" name="start" required defaultValue={data.DefStart} /></div>
@@ -83,7 +83,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </div>}
       </form>
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
-    </DisclosureSection>
+    </DisclosureSection>}
     <section aria-labelledby="unapproved-title" className="space-y-3 rounded-lg border border-border p-4 text-sm">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h2 id="unapproved-title" className="font-medium">{t(lang, "pay.unapprovedTitle")}</h2>
@@ -99,12 +99,12 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         <ul className="flex flex-col gap-2">{data.UnapprovedWeeks.map(week => <li key={week.Date} className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <a className="font-medium underline underline-offset-4" href={`/timesheet?date=${week.Date}`}>{t(lang, "pay.unapprovedWeek", week.Label, week.Count)}</a>
           {/* Approving here saves the trip to the timesheet; the approval itself is the same one the timesheet makes. */}
-          <form method="POST" action="/api/timesheet/approve" className="inline">
+          {data.CanManage && <form method="POST" action="/api/timesheet/approve" className="inline">
             <input type="hidden" name="csrf_token" value={data.CSRFToken} />
             <input type="hidden" name="start" value={week.Date} />
             <input type="hidden" name="end" value={week.Last} />
             <Button type="submit" size="sm" variant="outline">{t(lang, "pay.approveWeek")}</Button>
-          </form>
+          </form>}
         </li>)}</ul>
       </div> : data.UnapprovedAsked ? <p className="text-muted-foreground">{t(lang, "pay.unapprovedNone")}</p> : null}
     </section>
@@ -121,11 +121,11 @@ export function PayrollPage({ data }: { data: PayrollData }) {
       <p className="text-muted-foreground">{t(lang, "pay.periodHint")}</p>
       {data.ClosedMonths?.length ? <ul className="flex flex-col gap-2">{data.ClosedMonths.map(month => <li key={month.Month} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="min-w-0"><span className="font-medium">{month.Label}</span><span className="ms-2 text-xs text-muted-foreground">{month.ClosedBy ? `${month.ClosedBy}, ${month.ClosedOn}` : month.ClosedOn}</span></div>
-        <form method="POST" action="/api/period/reopen" className="inline">
+        {month.CanReopen && <form method="POST" action="/api/period/reopen" className="inline">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
           <input type="hidden" name="month" value={month.Month} />
           <Button type="submit" size="sm" variant="outline">{t(lang, "pay.periodReopenAction")}</Button>
-        </form>
+        </form>}
       </li>)}</ul> : <p className="text-muted-foreground">{t(lang, "pay.periodNone")}</p>}
     </section>
   </main>
@@ -138,18 +138,18 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
   const [adjUnit, setAdjUnit] = React.useState<"amount" | "percent">("amount")
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
-    {data.RecalcPreview && <RecalcPreview lang={lang} runID={data.Run.ID} csrfToken={data.CSRFToken} preview={data.RecalcPreview} />}
+    {data.CanManage && data.RecalcPreview && <RecalcPreview lang={lang} runID={data.Run.ID} csrfToken={data.CSRFToken} preview={data.RecalcPreview} />}
     <div className="no-print space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm"><a href="/payroll" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "pay.title")}</a><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono">{data.Run.Number}</span><Status lang={lang} status={data.Run.Status} /></div>
       <div className="flex flex-wrap items-center gap-2">
-        {data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
+        {data.CanManage && data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
         {/* After a timesheet edit the draft would otherwise pay the old
             hours, and a percent bonus would stay worked out from them. */}
-        {data.Run.Status === "draft" && !data.RecalcPreview && <Button asChild size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}><a href={`/payroll/${data.Run.ID}?preview=recalculate#recalc-preview`}>{t(lang, "pay.recalculate")}</a></Button>}
+        {data.CanManage && data.Run.Status === "draft" && !data.RecalcPreview && <Button asChild size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}><a href={`/payroll/${data.Run.ID}?preview=recalculate#recalc-preview`}>{t(lang, "pay.recalculate")}</a></Button>}
         <Button type="button" variant="outline" size="sm" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv`} download><Download aria-hidden="true" />{t(lang, "pay.exportCSV")}</a></Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv?by=day`} download><Download aria-hidden="true" />{t(lang, "pay.exportDays")}</a></Button>
-        {data.Run.Status === "paid"
+        {!data.CanManage ? null : data.Run.Status === "paid"
           ? <p className="ms-auto max-w-sm text-xs text-muted-foreground">{t(lang, "pay.deleteLocked")}</p>
           : <form method="POST" action={`/payroll/${data.Run.ID}/delete`} className="ms-auto" data-confirm={t(lang, "pay.confirmDelete", data.Run.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="destructive" size="sm" aria-label={t(lang, "pay.delete")}><Trash2 aria-hidden="true" />{t(lang, "pay.delete")}</Button></form>}
       </div>
@@ -160,13 +160,13 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
       <div className="grid gap-3 sm:hidden print:hidden">{data.Run.Lines.map((line, index) => <article key={`${line.Label}:${index}`} className={`grid gap-3 border-b pb-3 last:border-0 last:pb-0${line.Under ? " ps-4" : ""}`}><h2 className={`break-words ${line.Under ? "text-muted-foreground" : "font-medium"}`}>{line.Label}</h2>{line.Projects && line.Projects.length > 0 && <PayrollProjects lang={lang} projects={line.Projects} />}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{line.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "pay.payRate")}</dt><dd className="font-mono tabular-nums">{line.Rate}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono font-medium tabular-nums">{line.Amount}</dd></div></dl></article>)}<dl className="grid grid-cols-2 gap-x-4 border-t pt-3 text-sm font-semibold"><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.hours")}</span>{data.Run.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.amount")}</span>{data.Run.Total}</dd></div></dl></div>
       <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table">
         <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "pay.payRate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader>
-        <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell className={line.Under ? "ps-6 text-muted-foreground" : undefined}>{line.Label}{line.Projects && line.Projects.length > 0 && <PayrollProjects lang={lang} projects={line.Projects} />}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{data.Run.Status === "draft" && line.Adjustment && line.ID ? <form method="POST" action={`/payroll/${data.Run.ID}/adjustments/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "pay.adjDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
+        <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell className={line.Under ? "ps-6 text-muted-foreground" : undefined}>{line.Label}{line.Projects && line.Projects.length > 0 && <PayrollProjects lang={lang} projects={line.Projects} />}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{data.CanManage && data.Run.Status === "draft" && line.Adjustment && line.ID ? <form method="POST" action={`/payroll/${data.Run.ID}/adjustments/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "pay.adjDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
         <tfoot><tr className="border-t font-semibold"><td className="p-2">{t(lang, "pdf.total")}</td><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Hours}</td><td /><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Total}</td></tr></tfoot>
       </Table></div>
       {data.Run.Notes && <p className="whitespace-pre-line text-sm">{data.Run.Notes}</p>}
       <p className="text-xs text-muted-foreground">{t(lang, "pay.footNote")}</p>
     </CardContent></Card>
-    {data.Run.Status === "draft" && members.length > 0 && <div className="no-print">
+    {data.CanManage && data.Run.Status === "draft" && members.length > 0 && <div className="no-print">
       <DisclosureSection id="payroll-adjustment" title={t(lang, "pay.adjTitle")} defaultOpen={false}>
         <form method="POST" action={`/payroll/${data.Run.ID}/adjustments`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[11rem_1fr_9rem_9rem_auto] lg:items-end">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />

@@ -102,10 +102,11 @@ func (s *Server) closedMonthsFor(r *http.Request) []payrollClosedMonth {
 	out := make([]payrollClosedMonth, 0, len(items))
 	for _, item := range items {
 		out = append(out, payrollClosedMonth{
-			Month:    item.Month.Format("2006-01-02"),
-			Label:    monthLabel(lang, item.Month),
-			ClosedOn: item.ClosedOn.In(userLoc(r)).Format("02.01.2006"),
-			ClosedBy: byID[item.ClosedByID],
+			Month:     item.Month.Format("2006-01-02"),
+			Label:     monthLabel(lang, item.Month),
+			ClosedOn:  item.ClosedOn.In(userLoc(r)).Format("02.01.2006"),
+			ClosedBy:  byID[item.ClosedByID],
+			CanReopen: mayReopenMonth(RoleFrom(r.Context()), authenticatedUserID(r), item),
 		})
 	}
 	return out
@@ -118,4 +119,19 @@ type payrollClosedMonth struct {
 	Label    string
 	ClosedOn string
 	ClosedBy string
+	// CanReopen follows the store's rule, so the screen offers reopening only
+	// where the store would allow it.
+	CanReopen bool
+}
+
+// mayReopenMonth mirrors ReopenMonth: the owner reopens any month, whoever
+// closed one reopens it, and an admin the rest but a month an accountant closed.
+func mayReopenMonth(role model.TeamRole, callerID int64, item appmodel.PeriodClose) bool {
+	switch {
+	case role.IsOwner(), item.ClosedByID == callerID && role.CanReadFinance():
+		return true
+	case role == model.TeamRoleAdmin:
+		return item.ClosedByRole != string(model.TeamRoleAccountant)
+	}
+	return false
 }

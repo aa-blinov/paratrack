@@ -200,6 +200,7 @@ All money is **integer cents**. `formatMoney(cents)` → `"123.45"`.
 **Roles**
 
 - The owner changes the currency, the invoice rules (rounding and number prefix), the Stripe keys and the webhooks: listing, creating, testing, rotating the secret and deleting. An admin is refused these at the route and again inside the transaction, so a route that is missed still cannot write (`lockTeamOwner`, ADM-15). An admin keeps the journal, the sections, invitations, members, invoices and payroll
+- An accountant (`memberships.role = 'accountant'`, given by the owner) tracks their own time as a member does and, besides, opens the invoices, the payouts and the reports with their PDFs and exports, records a payment that came in and closes a month. They never create, change, send or delete an invoice or a pay run, approve a week, or touch rates, projects or settings: the routes use the `finance` guard and the store checks the role again in the transaction (`lockTeamFinance` for a payment, `CanReadFinance` for closing). The owner reopens any closed month and whoever closed a month may reopen it; an admin reopens the rest, but not a month an accountant closed. An API token or MCP agent of an accountant has a member's reach.
 
 **Invitations and restore**
 

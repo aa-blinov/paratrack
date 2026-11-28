@@ -137,7 +137,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
   }
   const flash = <InvoiceFlash data={data} />
   return <main className="mx-auto w-full max-w-6xl space-y-5">
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1></div>{data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1></div>{data.CanManage && data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
     {flash}
     {data.RequisitesEmpty && <p role="note" className="rounded-md border border-border bg-muted/40 p-3 text-sm">{t(lang, "inv.requisitesEmpty")} <a href="/settings/money#requisites" className="underline underline-offset-4">{t(lang, "inv.requisitesFill")}</a></p>}
 
@@ -160,12 +160,12 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
             <span className="break-words font-mono tabular-nums">{item.Hours} {t(lang, "inv.hoursShort")} / {item.Amount}</span>
             <span className="text-xs text-muted-foreground">{t(lang, "inv.since")} {item.Since}</span>
           </div>
-          <Button asChild size="sm" variant="outline" className="shrink-0"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>
+          {data.CanManage && <Button asChild size="sm" variant="outline" className="shrink-0"><a href={`/invoices?project=${item.ProjectID}&from=${item.SinceISO}#new`}>{t(lang, "inv.billNow")}</a></Button>}
         </li>)}
       </ul></CardContent>
     </Card>}
 
-    {!!data.Unassigned.length && <Disclosure className="group rounded-lg border bg-card">
+    {data.CanManage && !!data.Unassigned.length && <Disclosure className="group rounded-lg border bg-card">
       <DisclosureTrigger className="flex cursor-pointer list-none items-start gap-3 p-4 text-sm marker:hidden">
         <AlertTriangle aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1"><strong>{t(lang, "inv.unassignedTitle")}</strong><span className="mt-1 block text-muted-foreground">{t(lang, "inv.unassignedHint")}</span></span><ChevronDown aria-hidden="true" className="mt-0.5 size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
@@ -211,7 +211,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     </CardContent></Card> : data.Items.length ? <p className="text-sm text-muted-foreground">{t(lang, "inv.filterEmpty")}</p> : <Card><CardContent className="p-5">
       <EmptyState title={t(lang, "inv.empty")} text={t(lang, "inv.emptyHint")} />
     </CardContent></Card>}
-    <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
+    {data.CanManage && <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2" onSubmit={askAboutUnapprovedWeeks}>
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <input type="hidden" name="project_id" value={project === "__all__" ? "" : project} />
@@ -237,7 +237,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
         <div className="sm:col-span-2"><Button type="submit"><Plus aria-hidden="true" />{t(lang, "inv.create")}</Button></div>
       </form>
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "inv.rateHint")}</p>
-    </DisclosureSection>
+    </DisclosureSection>}
     <AccountantExport lang={lang} clients={Array.from(new Set(data.Items.map(item => item.Client).filter(Boolean)))} />
     <ReconcileCard lang={lang} reconcile={data.Reconcile} />
   </main>
@@ -249,17 +249,17 @@ function InvoiceActions({ data }: { data: InvoiceDetailData }) {
   return <div className="no-print space-y-3">
     <div className="flex flex-wrap items-center gap-2 text-sm"><a href="/invoices" className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">{t(lang, "inv.title")}</a><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono">{inv.Number}</span><InvoiceStatus lang={lang} status={inv.Status} /></div>
     <div className="flex flex-wrap items-center gap-2">
-      {inv.Status === "draft" && <form method="POST" action={`/invoices/${inv.ID}/status`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="status" value="sent" /><Button type="submit" size="sm"><Send aria-hidden="true" />{t(lang, "inv.markSent")}</Button></form>}
-      {inv.Status !== "paid" && <form method="POST" action={`/invoices/${inv.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant={inv.Status === "sent" ? "default" : "ghost"}>{t(lang, "inv.markPaid")}</Button></form>}
+      {data.CanManage && inv.Status === "draft" && <form method="POST" action={`/invoices/${inv.ID}/status`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="status" value="sent" /><Button type="submit" size="sm"><Send aria-hidden="true" />{t(lang, "inv.markSent")}</Button></form>}
+      {data.CanManage && inv.Status !== "paid" && <form method="POST" action={`/invoices/${inv.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant={inv.Status === "sent" ? "default" : "ghost"}>{t(lang, "inv.markPaid")}</Button></form>}
       <Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/pdf`}><Download aria-hidden="true" />PDF</a></Button>
       <Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/act`}>{t(lang, "act.title")}</a></Button>
       <Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/sessions.csv`}><Download aria-hidden="true" />{t(lang, "inv.sessionsCSV")}</a></Button>
       <Button type="button" size="sm" variant="ghost" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
-      {inv.PaymentURL ? <Button asChild size="sm" variant="ghost"><a href={inv.PaymentURL} target="_blank" rel="noopener"><LinkIcon aria-hidden="true" />{t(lang, "inv.payOnline")}</a></Button> : data.StripeReady ? <form method="POST" action={`/invoices/${inv.ID}/pay`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="mode" value="stripe" /><Button type="submit" size="sm" variant="ghost"><LinkIcon aria-hidden="true" />{t(lang, "inv.payLink")}</Button></form> : inv.Status !== "paid" && <span className="text-xs text-muted-foreground">{t(lang, "inv.noOnlineHint")}</span>}
+      {!data.CanManage ? null : inv.PaymentURL ? <Button asChild size="sm" variant="ghost"><a href={inv.PaymentURL} target="_blank" rel="noopener"><LinkIcon aria-hidden="true" />{t(lang, "inv.payOnline")}</a></Button> : data.StripeReady ? <form method="POST" action={`/invoices/${inv.ID}/pay`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="mode" value="stripe" /><Button type="submit" size="sm" variant="ghost"><LinkIcon aria-hidden="true" />{t(lang, "inv.payLink")}</Button></form> : inv.Status !== "paid" && <span className="text-xs text-muted-foreground">{t(lang, "inv.noOnlineHint")}</span>}
       {inv.Status !== "draft" && <p className="ml-auto max-w-sm text-xs text-muted-foreground">{t(lang, "inv.deleteLocked")}</p>}
-      {inv.Status === "draft" && <form method="POST" action={`/invoices/${inv.ID}/delete`} className="ml-auto" data-confirm={t(lang, "inv.confirmDelete", inv.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="icon" variant="ghost" className="text-destructive" aria-label={t(lang, "inv.delete")}><Trash2 aria-hidden="true" /></Button></form>}
+      {data.CanManage && inv.Status === "draft" && <form method="POST" action={`/invoices/${inv.ID}/delete`} className="ml-auto" data-confirm={t(lang, "inv.confirmDelete", inv.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="icon" variant="ghost" className="text-destructive" aria-label={t(lang, "inv.delete")}><Trash2 aria-hidden="true" /></Button></form>}
     </div>
-    <ClientLink invoiceID={inv.ID} csrfToken={data.CSRFToken} lang={lang} />
+    {data.CanManage && <ClientLink invoiceID={inv.ID} csrfToken={data.CSRFToken} lang={lang} />}
   </div>
 }
 
@@ -284,7 +284,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
       <InvoiceLineCards data={data} />
       <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table">
         <TableHeader><TableRow><TableHead>{t(lang, "pdf.work")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "inv.rate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader>
-        <TableBody>{inv.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{inv.Status === "draft" && line.Extra && line.ID ? <form method="POST" action={`/invoices/${inv.ID}/lines/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "inv.lineDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
+        <TableBody>{inv.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{data.CanManage && inv.Status === "draft" && line.Extra && line.ID ? <form method="POST" action={`/invoices/${inv.ID}/lines/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "inv.lineDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
         <TableFooter><TableRow className="border-t font-semibold"><TableCell className="p-2">{t(lang, "pdf.total")}</TableCell><TableCell className="whitespace-nowrap p-2 text-right font-mono">{inv.Hours}</TableCell><TableCell /><TableCell className="whitespace-nowrap p-2 text-right font-mono">{inv.Total}{inv.VATIncluded && <span className="block text-xs font-normal text-muted-foreground">{inv.VATIncluded}</span>}</TableCell></TableRow></TableFooter>
       </Table></div>
       {inv.VATNote && <p className="text-sm">{inv.VATNote}</p>}
@@ -313,7 +313,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
       </form>}
       <p className="text-xs text-muted-foreground">{t(lang, "inv.paymentsHint")}</p>
     </CardContent></Card>
-    <Card className="no-print"><CardHeader><CardTitle className="text-base">{t(lang, "inv.send")}</CardTitle></CardHeader><CardContent className="space-y-5">
+    {data.CanManage && <Card className="no-print"><CardHeader><CardTitle className="text-base">{t(lang, "inv.send")}</CardTitle></CardHeader><CardContent className="space-y-5">
       <div>{data.MailReady ? <><form method="POST" action={`/invoices/${inv.ID}/send`} className="flex flex-wrap gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Label className="sr-only" htmlFor="send-to">{t(lang, "inv.clientEmail")}</Label><Input id="send-to" type="email" name="to" required defaultValue={inv.ClientEmail} placeholder="buh@romashka.ru" className="min-w-56 flex-1" /><Button type="submit" size="sm"><Mail aria-hidden="true" />{t(lang, "inv.send")}</Button></form><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.sendHint")}</p></> : <><div className="flex flex-wrap gap-2"><Button asChild size="sm" variant="ghost"><a href={`/invoices/${inv.ID}/letter.eml`}><Download aria-hidden="true" />{t(lang, "inv.letterFile")}</a></Button><Button asChild size="sm" variant="ghost"><a href={data.MailtoURL}><Mail aria-hidden="true" />{t(lang, "inv.sendMailto")}</a></Button></div><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.mailtoHint")}</p><p className="mt-1 text-xs text-muted-foreground">{t(lang, "inv.letterFileHint")}</p></>}</div>
 
       {inv.DriftMessage && <p role="status" className="rounded-md border p-3 text-sm">{inv.DriftMessage}</p>}
@@ -346,7 +346,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
         <div className="flex gap-2"><Input id="receipt" type="text" name="receipt" defaultValue={inv.Receipt} maxLength={300} placeholder={t(lang, "inv.receiptPh")} className="min-w-0 flex-1" /><Button type="submit" size="sm" variant="ghost">{t(lang, "inv.save")}</Button></div>
         <span className="text-xs text-muted-foreground">{t(lang, "inv.receiptHint")}</span>
       </form>
-    </CardContent></Card>
+    </CardContent></Card>}
   </main>
 }
 

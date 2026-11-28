@@ -148,7 +148,7 @@ func (s *Server) renderPageStatus(w http.ResponseWriter, r *http.Request, status
 		}{Data: data, Shell: reactShellData{
 			Title: wrapper.Title, Active: wrapper.Active, User: shellUser,
 			Team: shellTeam, UserTeams: shellTeams, RequestPath: wrapper.RequestPath,
-			CSRFToken: wrapper.CSRFToken, Lang: wrapper.Lang, CanManage: wrapper.CanManage,
+			CSRFToken: wrapper.CSRFToken, Lang: wrapper.Lang, CanManage: wrapper.CanManage, CanReadFinance: canReadFinance(r),
 			Mods: wrapper.Mods, Tabs: shellTabs, AppVersion: wrapper.AppVersion,
 		}})
 		if err != nil {

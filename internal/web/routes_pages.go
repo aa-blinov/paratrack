@@ -28,8 +28,8 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /api/timesheet/reopen", s.manage(s.handleTimesheetReopen))
 	// Whole-month closures live with the payouts: the accountant closes there,
 	// the guard reads on every write the month touches (FIN-25).
-	pages.HandleFunc("POST /api/period/close", s.manage(s.handlePeriodClose))
-	pages.HandleFunc("POST /api/period/reopen", s.manage(s.handlePeriodReopen))
+	pages.HandleFunc("POST /api/period/close", s.finance(s.handlePeriodClose))
+	pages.HandleFunc("POST /api/period/reopen", s.finance(s.handlePeriodReopen))
 	pages.HandleFunc("POST /api/reports/save", s.handleSavedReportsCreate)
 	pages.HandleFunc("POST /api/reports/{id}/delete", s.handleSavedReportsDelete)
 
@@ -51,18 +51,18 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Project billing rates and invoices.
 	pages.HandleFunc("POST /projects/{slug}/rate", s.manage(s.handleProjectRate))
 	pages.HandleFunc("POST /projects/{slug}/norm", s.manage(s.handleProjectWeeklyNorm))
-	pages.HandleFunc("GET /invoices", s.module("invoices", s.manage(s.handleInvoices)))
+	pages.HandleFunc("GET /invoices", s.module("invoices", s.finance(s.handleInvoices)))
 	pages.HandleFunc("GET /invoices/unapproved", s.module("invoices", s.manage(s.handleInvoiceUnapproved)))
-	pages.HandleFunc("GET /invoices/export.csv", s.module("invoices", s.manage(s.handleInvoicesExportCSV)))
-	pages.HandleFunc("GET /invoices/payments.csv", s.module("invoices", s.manage(s.handlePaymentLedgerCSV)))
+	pages.HandleFunc("GET /invoices/export.csv", s.module("invoices", s.finance(s.handleInvoicesExportCSV)))
+	pages.HandleFunc("GET /invoices/payments.csv", s.module("invoices", s.finance(s.handlePaymentLedgerCSV)))
 	pages.HandleFunc("POST /invoices", s.module("invoices", s.manage(s.handleInvoiceCreate)))
 	pages.HandleFunc("POST /invoices/assign", s.module("invoices", s.manage(s.handleInvoiceAssignActivity)))
-	pages.HandleFunc("GET /invoices/{id}", s.module("invoices", s.manage(s.handleInvoiceDetail)))
+	pages.HandleFunc("GET /invoices/{id}", s.module("invoices", s.finance(s.handleInvoiceDetail)))
 	pages.HandleFunc("POST /invoices/{id}/status", s.module("invoices", s.manage(s.handleInvoiceStatus)))
 	pages.HandleFunc("POST /invoices/{id}/delete", s.module("invoices", s.manage(s.handleInvoiceDelete)))
-	pages.HandleFunc("GET /invoices/{id}/pdf", s.module("invoices", s.manage(s.handleInvoicePDF)))
-	pages.HandleFunc("GET /invoices/{id}/sessions.csv", s.module("invoices", s.manage(s.handleInvoiceSessionsCSV)))
-	pages.HandleFunc("GET /invoices/{id}/act", s.module("invoices", s.manage(s.handleInvoiceAct)))
+	pages.HandleFunc("GET /invoices/{id}/pdf", s.module("invoices", s.finance(s.handleInvoicePDF)))
+	pages.HandleFunc("GET /invoices/{id}/sessions.csv", s.module("invoices", s.finance(s.handleInvoiceSessionsCSV)))
+	pages.HandleFunc("GET /invoices/{id}/act", s.module("invoices", s.finance(s.handleInvoiceAct)))
 	pages.HandleFunc("POST /invoices/{id}/edit", s.module("invoices", s.manage(s.handleInvoiceEdit)))
 	pages.HandleFunc("POST /invoices/{id}/lines", s.module("invoices", s.manage(s.handleInvoiceAddLine)))
 	pages.HandleFunc("POST /invoices/{id}/lines/{lineId}/delete", s.module("invoices", s.manage(s.handleInvoiceDeleteLine)))
@@ -71,17 +71,17 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /invoices/{id}/send", s.module("invoices", s.manage(s.handleInvoiceSend)))
 	pages.HandleFunc("GET /invoices/{id}/letter.eml", s.module("invoices", s.manage(s.handleInvoiceLetter)))
 	pages.HandleFunc("GET /settings/email-preview", s.manage(s.handleEmailPreview))
-	pages.HandleFunc("GET /invoices/{id}/act.pdf", s.module("invoices", s.manage(s.handleInvoiceActPDF)))
+	pages.HandleFunc("GET /invoices/{id}/act.pdf", s.module("invoices", s.finance(s.handleInvoiceActPDF)))
 	pages.HandleFunc("POST /invoices/{id}/pay", s.module("invoices", s.manage(s.handleInvoicePayLink)))
 	pages.HandleFunc("POST /invoices/{id}/paid", s.module("invoices", s.manage(s.handleInvoiceMarkPaid)))
-	pages.HandleFunc("POST /invoices/{id}/payments", s.module("invoices", s.manage(s.handleInvoicePayment)))
+	pages.HandleFunc("POST /invoices/{id}/payments", s.module("invoices", s.finance(s.handleInvoicePayment)))
 	pages.HandleFunc("POST /api/team/stripe", s.owner(s.handleTeamStripe))
 
 	// Payroll and resource scheduling.
-	pages.HandleFunc("GET /payroll", s.module("payroll", s.manage(s.handlePayroll)))
+	pages.HandleFunc("GET /payroll", s.module("payroll", s.finance(s.handlePayroll)))
 	pages.HandleFunc("POST /payroll", s.module("payroll", s.manage(s.handlePayrollCreate)))
-	pages.HandleFunc("GET /payroll/{id}", s.module("payroll", s.manage(s.handlePayrollDetail)))
-	pages.HandleFunc("GET /payroll/{id}/export.csv", s.module("payroll", s.manage(s.handlePayrollExport)))
+	pages.HandleFunc("GET /payroll/{id}", s.module("payroll", s.finance(s.handlePayrollDetail)))
+	pages.HandleFunc("GET /payroll/{id}/export.csv", s.module("payroll", s.finance(s.handlePayrollExport)))
 	pages.HandleFunc("POST /payroll/{id}/paid", s.module("payroll", s.manage(s.handlePayrollPaid)))
 	pages.HandleFunc("POST /payroll/{id}/delete", s.module("payroll", s.manage(s.handlePayrollDelete)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments", s.module("payroll", s.manage(s.handlePayrollAddAdjustment)))
@@ -99,8 +99,8 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 
 	// Integration marketplace and saved report execution.
 	pages.HandleFunc("GET /integrations/marketplace", s.module("integrations", s.handleMarketplace))
-	pages.HandleFunc("GET /reports", s.module("reports", s.manage(s.handleReports)))
-	pages.HandleFunc("GET /reports/run", s.module("reports", s.manage(s.handleReportRun)))
+	pages.HandleFunc("GET /reports", s.module("reports", s.finance(s.handleReports)))
+	pages.HandleFunc("GET /reports/run", s.module("reports", s.finance(s.handleReportRun)))
 
 	// Imports from other trackers.
 	pages.HandleFunc("GET /import", s.module("import", s.handleImport))

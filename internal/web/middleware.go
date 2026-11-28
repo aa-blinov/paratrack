@@ -343,6 +343,31 @@ func RoleFrom(ctx context.Context) model.TeamRole {
 
 func canManage(r *http.Request) bool { return RoleFrom(r.Context()).CanManage() }
 
+// canReadFinance is canManage widened to the accountant, who reads the money.
+func canReadFinance(r *http.Request) bool { return RoleFrom(r.Context()).CanReadFinance() }
+
+// financeSections are the sections an accountant opens without managing.
+var financeSections = map[string]bool{"invoices": true, "payroll": true, "reports": true}
+
+// mayOpen says whether a manager-only nav entry or section is open to the
+// request's role: every one for a manager, the finance ones for an accountant.
+func mayOpen(r *http.Request, key string) bool {
+	return canManage(r) || (financeSections[key] && canReadFinance(r))
+}
+
+// finance guards what an accountant may do besides a manager: read the
+// invoices, payouts and reports, export them, record a payment and close a
+// month. The write rules stay in the database transaction.
+func (s *Server) finance(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if canReadFinance(r) {
+			h(w, r)
+			return
+		}
+		s.manage(h)(w, r)
+	}
+}
+
 // manage guards money and workspace settings: owner and admin only.
 // Denied document GETs keep the app shell so the member can navigate away;
 // APIs and mutations retain their 403 response format.

@@ -59,8 +59,8 @@ func (s *Service) SetRole(ctx context.Context, request appmodel.TeamMemberRoleRe
 	if callerID <= 0 || targetUserID <= 0 || callerID == targetUserID {
 		return ErrForbidden
 	}
-	if role != RoleAdmin && role != RoleMember {
-		return fmt.Errorf("%w: role must be admin or member", ErrValidation)
+	if role != RoleAdmin && role != RoleMember && role != RoleAccountant {
+		return fmt.Errorf("%w: role must be admin, accountant or member", ErrValidation)
 	}
 	updated, err := s.memberships.SetTeamMemberRole(ctx, request)
 	if err != nil {
