@@ -190,6 +190,34 @@ Confirmed by the code:
   transaction; the timesheet offers each year the server has a calendar for.
   Payroll and task reports have an Excel download; the accountant's export
   starts with Excel ticked.
+- A closed month locks the drafts left in it: an invoice over it cannot get
+  or lose lines, be rebuilt, edited or issued, a pay run's adjustments
+  cannot change; the workspace's time zone cannot change while a month is
+  closed. A storno is dated the day of the payment it reverses. A paid pay
+  run can be taken back to a draft with a reason, unless its payout or
+  period is in a closed month.
+- A salaried member's pay follows the month's working days by their own
+  week, holidays and transfers: absences take their share off, and the line
+  says how many days of how many. Shortened pre-holiday days are an hour
+  less in the norm and the schedule; the 2026 calendar fills them. The
+  timesheet summary states the month's norm in days and hours.
+- A member may carry a client rate, which prices a project without a rate
+  of its own (budget, forecast and warnings), line by person; a project with
+  a rate keeps pricing by activity as the invoice does. A project's lead
+  opens that project's report, hours only, from the project page, and hears
+  of overloads on people planned on it.
+- The git hook hands the raw branch to the binary, which decides: pause
+  branches from every git config value, split on spaces, tabs or commas,
+  globs allowed; a ticket found in any case leads the name in capitals; a
+  broken pattern is reported. The script has no exit outside its subshell
+  and also looks in the usual install folders a desktop client's PATH misses.
+- The browser extension shows the running timer's time on its icon (the
+  count when several run) and lists every running timer in the popup. An
+  offline action up to a week old keeps its click time. Limit goals show
+  their colours on the dashboard too.
+- An issued invoice can be sent again through the queue as it went out; an
+  invoice's client links are listed and one can be closed alone. The
+  accountant's export has a 1С format, Excel's with bare codes.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

@@ -2463,5 +2463,20 @@
   "holiday.presetDone": "Holidays added: %d (%d).",
   "holiday.presetMissing": "No calendar for that year yet.",
   "inv.sendNoAct": "Without the act: the client signs it after paying",
-  "push.evGoalLimit": "A limit goal nearly used up or crossed"
+  "push.evGoalLimit": "A limit goal nearly used up or crossed",
+  "pay.unpaid": "Undo the payout mark",
+  "pay.unpaidNeedsReason": "Give a reason for undoing it.",
+  "pay.unpaidNotPaid": "The pay run is not marked paid.",
+  "pay.unpaidDone": "Payout mark removed; the run is a draft again.",
+  "team.err.zoneClosedMonths": "The time zone cannot change while months are closed: their edges would move. Reopen them first.",
+  "ts.monthNorm": "Norm for %s: %d working days, %d h on a five-day week of 8 h",
+  "pay.billRate": "Client rate per hour (when the project has none)",
+  "projects.report": "Project report",
+  "inv.linkItem": "link of %s, valid until %s",
+  "inv.linkRevokeOne": "Revoke this one",
+  "inv.resend": "Send again",
+  "inv.resendIssuedOnly": "Only an issued invoice is sent again.",
+  "inv.resendQueued": "Letter queued; the invoice goes as it was issued.",
+  "inv.exportFormat": "Format",
+  "inv.export1C": "For 1C import"
 }

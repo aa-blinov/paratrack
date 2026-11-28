@@ -191,7 +191,10 @@ async function refresh() {
     return false;
   }
   const items = Array.isArray(active.Items) ? active.Items : [];
-  const current = items.find((x) => !x.Paused) || items[0];
+  // Several timers can run at once; the buttons act on the one picked from
+  // the list, the running one first.
+  const current = items.find((x) => x.ID === pickedID) || items.find((x) => !x.Paused) || items[0];
+  renderOthers(items.filter((x) => current && x.ID !== current.ID));
   if (current && current.ID > 0 && current.ActivityName) {
     $("state").textContent = current.Paused ? t("paused") : t("active");
     $("state").className = "pill " + (current.Paused ? "off" : "on");
@@ -246,6 +249,7 @@ async function startTimer() {
     return;
   }
   await refresh();
+  notifyBadge();
 }
 
 async function stopTimer() {
@@ -259,6 +263,7 @@ async function stopTimer() {
     setStatus(explain(e));
   }
   await refresh();
+  notifyBadge();
 }
 
 async function pauseTimer() {
@@ -271,6 +276,7 @@ async function pauseTimer() {
     setStatus(explain(e));
   }
   await refresh();
+  notifyBadge();
 }
 
 async function resumeTimer() {
@@ -283,6 +289,7 @@ async function resumeTimer() {
     setStatus(explain(e));
   }
   await refresh();
+  notifyBadge();
 }
 
 $("save").addEventListener("click", async () => {
@@ -323,3 +330,35 @@ setInterval(() => { if (lastActive) tick(lastActive); }, 1000);
 
 refresh().catch(() => {});
 setInterval(() => { if (!$("app").classList.contains("hidden")) refresh().catch(() => {}); }, 15000);
+
+// pickedID is the timer the controls act on when several run.
+let pickedID = 0;
+
+// renderOthers lists the other timers under the clock; picking one makes the
+// controls act on it.
+function renderOthers(others) {
+  const list = $("others");
+  list.innerHTML = "";
+  list.classList.toggle("hidden", others.length === 0);
+  others.forEach((x) => {
+    const li = document.createElement("li");
+    const button = document.createElement("button");
+    button.className = "link";
+    const started = new Date(x.ResumeISO || x.StartISO).getTime();
+    const sec = x.Paused ? Number(x.AccumulatedSeconds || 0) : Number(x.AccumulatedSeconds || 0) + (Date.now() - started) / 1000;
+    button.textContent = x.ActivityName + " — " + fmt(sec) + (x.Paused ? " (" + t("paused") + ")" : "");
+    button.addEventListener("click", () => { pickedID = x.ID; refresh(); });
+    li.appendChild(button);
+    list.appendChild(li);
+  });
+}
+
+// notifyBadge asks the background worker to redraw the toolbar badge after
+// a timer changed here.
+function notifyBadge() {
+  try {
+    if (typeof chrome !== "undefined" && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ type: "refresh-badge" }).catch?.(() => {});
+    }
+  } catch (_) {}
+}

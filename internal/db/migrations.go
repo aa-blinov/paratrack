@@ -434,15 +434,32 @@ func (d *DB) migrateAbsencesOutOfDayMarks(ctx context.Context) error {
 }
 
 // migrateInvoiceIssueDays gives every invoice issued before the issue day was
-// kept the day it reads now: its creation day in the workspace's calendar.
+// kept the day it reads now: the day its kept look already states, else its
+// creation day in the workspace's calendar.
 // From then on the register, the document and its QR all read this column,
 // and a later send day never moves an invoice that already went out.
 func (d *DB) migrateInvoiceIssueDays(ctx context.Context) error {
 	_, err := d.runDataMigration(ctx, "invoice issue days", func(tx *Tx) error {
 		return tx.execRawContext(ctx,
-			`UPDATE invoices i SET issued_on = to_char(i.created_at::timestamptz AT TIME ZONE COALESCE(NULLIF(t.timezone, ''), 'UTC'), 'YYYY-MM-DD')
+			`UPDATE invoices i SET issued_on = COALESCE(
+			        NULLIF(CASE WHEN i.issued_snapshot <> '' THEN i.issued_snapshot::jsonb ->> 'issued_on' END, ''),
+			        to_char(i.created_at::timestamptz AT TIME ZONE COALESCE(NULLIF(t.timezone, ''), 'UTC'), 'YYYY-MM-DD'))
 			   FROM teams t
 			  WHERE t.id = i.team_id AND i.status <> 'draft' AND i.issued_on = ''`)
+	})
+	return err
+}
+
+// migrateInvoiceIssueDaysFromSnapshots repairs what the first issue-day
+// migration did to invoices sent while the day lived only in the kept look:
+// it gave them their creation day. The day the document states wins.
+func (d *DB) migrateInvoiceIssueDaysFromSnapshots(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "invoice issue days from kept looks", func(tx *Tx) error {
+		return tx.execRawContext(ctx,
+			`UPDATE invoices SET issued_on = issued_snapshot::jsonb ->> 'issued_on'
+			  WHERE status <> 'draft' AND issued_snapshot <> ''
+			    AND COALESCE(issued_snapshot::jsonb ->> 'issued_on', '') <> ''
+			    AND issued_on <> issued_snapshot::jsonb ->> 'issued_on'`)
 	})
 	return err
 }

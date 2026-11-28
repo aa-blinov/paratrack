@@ -24,7 +24,8 @@ func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
 
 // actionTime is when a timer action happened: the client's click time
 // for actions replayed from the offline queue ("client_ts", unix ms),
-// otherwise now. Only the last 24h is trusted.
+// otherwise now. A week back is trusted: a phone offline over a weekend
+// trip still records when the timer was started, not when it reconnected.
 func actionTime(r *http.Request) time.Time {
 	now := userNow(r)
 	ms, err := strconv.ParseInt(r.FormValue("client_ts"), 10, 64)
@@ -32,7 +33,7 @@ func actionTime(r *http.Request) time.Time {
 		return now
 	}
 	t := time.UnixMilli(ms)
-	if t.After(now) || now.Sub(t) > 24*time.Hour {
+	if t.After(now) || now.Sub(t) > 7*24*time.Hour {
 		return now
 	}
 	return t

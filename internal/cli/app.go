@@ -48,13 +48,16 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 	// The git hook passes the raw branch; the activity name is made here.
 	if (args[0] == "focus" || args[0] == "switch" || args[0] == "sw") && len(args) >= 3 && args[1] == "--branch" {
 		pattern := ""
-		if len(args) >= 5 && args[3] == "--pattern" {
-			pattern = args[4]
+		if values := gitConfigAll("paratrack.ticketPattern"); len(values) > 0 {
+			pattern = values[len(values)-1]
 		}
-		name := branchActivity(args[2], pattern)
-		// A branch with nothing usable in its name ("feat/🔥") must not leave
-		// the timer on the feature that was left.
-		if name == "" {
+		pause, name, warn := branchDecision(args[2], splitConfigList(gitConfigAll("paratrack.pauseBranches")), pattern)
+		if warn != nil {
+			fmt.Fprintln(rt.Err, "paratrack:", warn)
+		}
+		// A pause branch, a detached HEAD, or a name with nothing usable in it
+		// ("feat/🔥") must not leave the timer on the feature that was left.
+		if pause {
 			args = []string{"pause"}
 		} else {
 			// --name: a branch "fix/1234" is an activity called 1234, never

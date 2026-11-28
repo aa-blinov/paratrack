@@ -67,7 +67,7 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if strings.TrimSpace(string(called)) != "focus --branch feat/PT-123-login --pattern" {
+	if strings.TrimSpace(string(called)) != "focus --branch feat/PT-123-login" {
 		t.Fatalf("the hook called %q, want focus on the branch", called)
 	}
 
@@ -83,8 +83,9 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if strings.TrimSpace(string(called)) != "pause" {
-		t.Fatalf("checking out main called %q, want pause", called)
+	// The binary decides that main pauses; the script hands it the branch.
+	if strings.TrimSpace(string(called)) != "focus --branch main" {
+		t.Fatalf("checking out main called %q, want the branch handed over", called)
 	}
 
 	// Someone else's hook is left alone, both ways.
@@ -213,6 +214,7 @@ func TestBranchActivity(t *testing.T) {
 		"PT-123/fix-login":        "PT-123-fix-login",
 		"alice/PT-9-fix":          "PT-9-fix",
 		"feat/🔥":                  "",
+		"pt-123/fix-login":        "PT-123-fix-login",
 	} {
 		if got := branchActivity(branch, ""); got != want {
 			t.Errorf("branchActivity(%q) = %q, want %q", branch, got, want)
@@ -231,20 +233,20 @@ func TestHookPrint(t *testing.T) {
 	}
 }
 
-// A team's own pause branches and a detached HEAD pause the timers, and the
-// printed script for a hook manager names no path from this machine.
-func TestGitHookPausesOnConfiguredBranchesAndDetachedHead(t *testing.T) {
+// The script hands the binary the raw branch, an empty one for a detached
+// HEAD, and the printed form names no path from this machine and never ends
+// the hook it is pasted into.
+func TestGitHookHandsOverTheBranchAndPrintsPortably(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is not installed")
 	}
 	repo := t.TempDir()
 	git(t, repo, "init", "-q", "-b", "main")
 	git(t, repo, "commit", "-q", "--allow-empty", "-m", "start")
-	git(t, repo, "config", "paratrack.pauseBranches", "dev staging")
 	t.Chdir(repo)
 	record := filepath.Join(t.TempDir(), "called")
 	stub := filepath.Join(t.TempDir(), "paratrack-stub")
-	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"$@\" > "+record+"\n"), 0o755); err != nil {
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"[$@]\" > "+record+"\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 	hook := filepath.Join(repo, ".git", "hooks", "post-checkout")
@@ -265,18 +267,46 @@ func TestGitHookPausesOnConfiguredBranchesAndDetachedHead(t *testing.T) {
 		return ""
 	}
 	git(t, repo, "checkout", "-q", "-b", "dev")
-	if got := waitFor(); got != "pause" {
-		t.Fatalf("checking out a configured pause branch called %q", got)
+	if got := waitFor(); got != "[focus --branch dev]" {
+		t.Fatalf("checking out dev called %q", got)
 	}
 	git(t, repo, "checkout", "-q", "--detach")
-	if got := waitFor(); got != "pause" {
+	if got := waitFor(); got != "[focus --branch ]" {
 		t.Fatalf("a detached HEAD called %q", got)
 	}
 	var out bytes.Buffer
 	if err := RunWithRuntime([]string{"hook", "print"}, NewRuntime(nil, &out, &out)); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(out.String(), "bin=$(command -v paratrack) || exit 0") || strings.Contains(out.String(), "bin='") {
-		t.Fatalf("the printed hook names a local path:\n%s", out.String())
+	printed := out.String()
+	if !strings.Contains(printed, "command -v paratrack") || strings.Contains(printed, "bin='") {
+		t.Fatalf("the printed hook names a local path:\n%s", printed)
+	}
+	for _, line := range strings.Split(printed, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "exit") {
+			t.Fatalf("the printed hook ends the hook it is pasted into: %q", line)
+		}
+	}
+}
+
+// The binary pauses on the default and configured branches, globs included,
+// on a detached HEAD and on a name with nothing usable; a broken ticket
+// pattern is reported and the default used.
+func TestBranchDecision(t *testing.T) {
+	pauses := splitConfigList([]string{"dev  staging\tqa", "release/*,hotfix"})
+	for branch, want := range map[string]bool{
+		"main": true, "dev": true, "qa": true, "release/1.2": true, "hotfix": true, "": true, "feat/🔥": true,
+		"feat/PT-1-x": false, "releases": false,
+	} {
+		if pause, _, _ := branchDecision(branch, pauses, ""); pause != want {
+			t.Errorf("branchDecision(%q) pause = %v, want %v", branch, pause, want)
+		}
+	}
+	_, name, warn := branchDecision("feat/ab-12-x", nil, "[A-Z")
+	if warn == nil || name != "AB-12-x" {
+		t.Fatalf("a broken pattern: name %q, warn %v", name, warn)
+	}
+	if hookedBinary(hookScript("/opt/it's/paratrack")) != "/opt/it's/paratrack" {
+		t.Fatal("a path with a quote does not read back")
 	}
 }

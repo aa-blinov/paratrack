@@ -39,6 +39,9 @@ var columnMigrations = []struct {
 	// part-timer on Monday to Wednesday is '123', and the norm, the schedule
 	// and the reminders expect them on those days only.
 	{"memberships", "work_days", "TEXT NOT NULL DEFAULT '12345'"},
+	// What an hour of this member costs the client when the project has no
+	// rate of its own: agencies sell the hours of roles, not of projects.
+	{"memberships", "bill_rate_cents", "BIGINT NOT NULL DEFAULT 0"},
 	{"invoices", "voided_at", "TEXT NOT NULL DEFAULT ''"},
 	// The closer's role when the month was closed: reopening asks who closed
 	// it then, not what that person is now, so removing an accountant from the

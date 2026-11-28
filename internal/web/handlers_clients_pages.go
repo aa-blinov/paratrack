@@ -427,7 +427,8 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 	extras.Budget.CurrencySourceLabel = currencySourceLabel(lang, b.CurrencySource)
 	// A ceiling is measured against a rate; without one the number would be
 	// zero for a reason the person did not cause, so say so explicitly.
-	extras.Budget.HasRate = project.BillableRateCents != nil && *project.BillableRateCents > 0
+	// Members' rates for the client price a project without its own.
+	extras.Budget.HasRate = (project.BillableRateCents != nil && *project.BillableRateCents > 0) || b.SpentCents > 0
 	if canManage(r) && project.BudgetCents != nil && *project.BudgetCents > 0 {
 		extras.Budget.BudgetInput = formatMoneyInput(lang, *project.BudgetCents)
 	}

@@ -26,6 +26,7 @@ type Store interface {
 	ListMemberPayrollLines(context.Context, appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error)
 	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (appmodel.PayrollRunDetails, error)
 	MarkPayrollPaidWithRecipients(context.Context, appmodel.PayrollMutationRequest) (bool, []int64, error)
+	UnmarkPayrollPaid(context.Context, appmodel.PayrollUnpayRequest) error
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
 	AddPayrollAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
 	DeletePayrollAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
@@ -202,6 +203,22 @@ func (s *Service) MarkPaid(ctx context.Context, request appmodel.PayrollMutation
 		return PaidResult{}, fmt.Errorf("mark payroll paid: %w", err)
 	}
 	return PaidResult{Changed: changed, Recipients: recipients}, nil
+}
+
+// Unpay takes a paid run back to a draft. The reason is required: an unmade
+// payout is a correction the books ask about.
+func (s *Service) Unpay(ctx context.Context, request appmodel.PayrollUnpayRequest) error {
+	if request.TeamID <= 0 || request.RunID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidTeam
+	}
+	request.Reason = strings.TrimSpace(request.Reason)
+	if request.Reason == "" {
+		return model.ErrPaymentReason
+	}
+	if err := s.store.UnmarkPayrollPaid(ctx, request); err != nil {
+		return fmt.Errorf("unmark payroll paid: %w", err)
+	}
+	return nil
 }
 
 func (s *Service) DeleteDraft(ctx context.Context, request appmodel.PayrollMutationRequest) error {

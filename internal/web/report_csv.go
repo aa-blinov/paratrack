@@ -152,11 +152,15 @@ var invoicesExportCSVHeader = []string{"invoice", "date", "client", "executor", 
 type csvDialect struct {
 	excel bool
 	lang  i18n.Lang
+	// oneC is the Excel dialect as 1С loads it: codes stay bare digits, the
+	// ="…" that keeps them text in Excel reads as garbage in 1С.
+	oneC bool
 }
 
 func dialectOf(r *http.Request) csvDialect {
 	q := r.URL.Query()
-	return csvDialect{excel: q.Get("format") == "excel" || q.Get("excel") == "1", lang: resolveLang(r)}
+	format := q.Get("format")
+	return csvDialect{excel: format == "excel" || format == "1c" || q.Get("excel") == "1", oneC: format == "1c", lang: resolveLang(r)}
 }
 
 // excelDialect is the dialect of a file meant for a person, whatever the address says.
@@ -194,8 +198,8 @@ func (d csvDialect) date(iso string) string {
 // otherwise drop its leading zeros or print 7,70123E+11. Only digits pass this
 // way, so the formula form cannot carry anything else.
 func (d csvDialect) digits(s string) string {
-	if !d.excel || s == "" {
-		return s
+	if !d.excel || d.oneC || s == "" {
+		return csvNeutralizeCell(s)
 	}
 	for _, r := range s {
 		if r < '0' || r > '9' {

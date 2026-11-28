@@ -163,6 +163,9 @@ type timesheetData struct {
 	Absences []absenceSpanVM
 	// CalendarYears are the years the production calendar can fill.
 	CalendarYears []int
+	// MonthNorm is the month's norm for a Monday-to-Friday week of eight
+	// hours, by the workspace's holidays, transfers and short days.
+	MonthNorm string
 }
 
 // weekPlanByProject sums the schedule's per-project plan for the week the
@@ -356,6 +359,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 	data.Approval = approval
 	data.TeamSummary = s.timesheetTeamSummary(r, weekStart, now, approval)
 	if canManage(r) {
+		data.MonthNorm = s.monthNormLabel(r, weekStart)
 		if hol, err := s.services.Scheduling.TeamHolidays(r.Context(), teamID(r), weekStart.Format("2006-01-02"), weekStart.AddDate(0, 0, 7).Format("2006-01-02")); err == nil {
 			for _, d := range sortedKeys(hol) {
 				day, _ := time.ParseInLocation("2006-01-02", d, userLoc(r))
@@ -686,6 +690,10 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 	if err != nil {
 		return nil
 	}
+	shortDays, err := s.services.Scheduling.TeamShortDays(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil
+	}
 	absences, err := s.services.Scheduling.Absences(r.Context(), teamID(r), from, until)
 	if err != nil {
 		return nil
@@ -712,7 +720,7 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 		perDay := tracked[m.UserID]
 		totalSecs := 0
 		missingDays := 0
-		workDays := 0
+		workDays, shortWorked := 0, 0
 		awayByKind := map[string]int{}
 		for i, d := range days {
 			sec := 0
@@ -733,6 +741,9 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 				continue
 			}
 			workDays++
+			if _, short := shortDays[key]; short {
+				shortWorked++
+			}
 			if !d.After(today) && sec == 0 {
 				missingDays++
 			}
@@ -741,7 +752,8 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 		if capMin <= 0 {
 			capMin = 480
 		}
-		normMin := capMin * workDays
+		// A shortened pre-holiday day is an hour less (Labour Code art. 95).
+		normMin := max(capMin*workDays-60*shortWorked, 0)
 		var awayParts []string
 		for _, kind := range []string{"vacation", "sick", "dayoff"} {
 			if n := awayByKind[kind]; n > 0 {
@@ -922,4 +934,35 @@ func approvalMessage(lang i18n.Lang, err error) string {
 	default:
 		return i18n.T(lang, "err.generic")
 	}
+}
+
+// monthNormLabel names the norm of the month the week starts in, the way a
+// production calendar states it: working days and hours of a five-day week
+// of eight hours, a shortened day an hour less.
+func (s *Server) monthNormLabel(r *http.Request, day time.Time) string {
+	first := time.Date(day.Year(), day.Month(), 1, 0, 0, 0, 0, day.Location())
+	next := first.AddDate(0, 1, 0)
+	from, until := first.Format("2006-01-02"), next.Format("2006-01-02")
+	off, err1 := s.services.Scheduling.TeamHolidays(r.Context(), teamID(r), from, until)
+	work, err2 := s.services.Scheduling.TeamWorkdays(r.Context(), teamID(r), from, until)
+	short, err3 := s.services.Scheduling.TeamShortDays(r.Context(), teamID(r), from, until)
+	if err1 != nil || err2 != nil || err3 != nil {
+		return ""
+	}
+	days, hours := 0, 0
+	for d := first; d.Before(next); d = d.AddDate(0, 0, 1) {
+		key := d.Format("2006-01-02")
+		_, holiday := off[key]
+		_, worked := work[key]
+		if holiday || !(model.WorksOn("", d.Weekday()) || worked) {
+			continue
+		}
+		days++
+		hours += 8
+		if _, isShort := short[key]; isShort {
+			hours--
+		}
+	}
+	lang := resolveLang(r)
+	return fmt.Sprintf(i18n.T(lang, "ts.monthNorm"), monthLabel(lang, first), days, hours)
 }

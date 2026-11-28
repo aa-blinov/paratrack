@@ -17,6 +17,9 @@ type MemberPayrollSettings struct {
 	CapacityMinutes int
 	// WorkDays are the weekdays the member works, ISO digits ("12345").
 	WorkDays string
+	// BillRateCents is an hour of the member for the client when the project
+	// has no rate of its own; 0 when unset.
+	BillRateCents int
 }
 
 // PayrollRun is an immutable snapshot of a team's payable time for a period.

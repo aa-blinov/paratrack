@@ -56,6 +56,7 @@ export interface Goal {
   AchievedLabel: string
   Percent: number
   PeriodRangeLabel: string
+  Kind?: string
 }
 
 export interface UnbilledItem {
@@ -248,6 +249,7 @@ export interface ProjectBudget {
 }
 
 export interface ProjectDetailData {
+  ReportURL?: string
   Title: string
   Active: string
   ReactApp: boolean
@@ -517,6 +519,7 @@ export interface TimesheetData {
   People: Array<{ ID: number; Name: string }>
   Holidays?: string[]
   CalendarYears?: number[]
+  MonthNorm?: string
   Absences?: Array<{ UserID: number; Name: string; Kind: string; Label: string; From: string; To: string }>
   TeamSummary?: Array<{
     UserID: number
@@ -997,7 +1000,7 @@ export interface TeamMembersData {
   User: { ID: number; Email: string; Name: string }
   Members: Array<{ UserID: number; Email: string; Name: string; Role: string }>
   Former: Array<{ UserID: number; Email: string; Name: string; LeftAt: string }>
-  Pay: Record<string, { Rate: string; Capacity: number; Kind?: "hourly" | "monthly"; Monthly?: string; WorkDays?: string }>
+  Pay: Record<string, { Rate: string; Capacity: number; Kind?: "hourly" | "monthly"; Monthly?: string; WorkDays?: string; BillRate?: string }>
   IsOwner: boolean
   Flash: string
   FlashOK: boolean

@@ -58,3 +58,14 @@ func TestExcelDialectIsReadableInRussianExcel(t *testing.T) {
 		t.Fatalf("client report: %q", report.String())
 	}
 }
+
+// The 1С dialect is Excel's but keeps an ИНН as bare digits.
+func TestOneCDialectKeepsCodesBare(t *testing.T) {
+	var ledger bytes.Buffer
+	if err := writePaymentLedgerCSV(&ledger, []appmodel.PaymentLedgerRow{{PaidOn: "2026-11-03", InvoiceNumber: "INV-1", Client: "Ромашка", ClientINN: "012345678901", AmountCents: 150000, Currency: "RUB", Source: "manual"}}, csvDialect{excel: true, oneC: true, lang: "ru"}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(ledger.String(), "03.11.2026;INV-1;Ромашка;012345678901;1500,00") {
+		t.Fatalf("ledger for 1С: %q", ledger.String())
+	}
+}

@@ -182,7 +182,10 @@ export function ProjectDetail({ data }: { data: ProjectDetailData }) {
           <div className="flex flex-wrap items-center gap-2"><h1 className="max-w-full min-w-0 text-2xl font-semibold tracking-tight" title={project.Name}><span className="block truncate">{project.Name}</span></h1>{data.Archived && <Badge variant="secondary">{t(data.Lang, "projects.archivedBadge")}</Badge>}</div>
         </div>
       </div>
-      {!data.Archived && <Button asChild size="sm"><a href={`/?project=${project.ID}`}><Play aria-hidden="true" />{t(data.Lang, "projects.trackTime")}</a></Button>}
+      <div className="flex flex-wrap gap-2">
+        {data.ReportURL && <Button asChild size="sm" variant="outline"><a href={data.ReportURL}>{t(data.Lang, "projects.report")}</a></Button>}
+        {!data.Archived && <Button asChild size="sm"><a href={`/?project=${project.ID}`}><Play aria-hidden="true" />{t(data.Lang, "projects.trackTime")}</a></Button>}
+      </div>
     </header>
 
     <Flash message={data.Flash} ok={data.FlashOK} />

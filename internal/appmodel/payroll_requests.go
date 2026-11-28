@@ -11,6 +11,15 @@ type PayrollRunListQuery struct {
 	TeamID int64
 }
 
+// PayrollUnpayRequest takes a pay run back to a draft: marked paid by mistake
+// or on the wrong day. The reason goes to the journal.
+type PayrollUnpayRequest struct {
+	TeamID   int64
+	RunID    int64
+	CallerID int64
+	Reason   string
+}
+
 type PayrollMutationRequest struct {
 	TeamID   int64
 	RunID    int64
@@ -33,4 +42,6 @@ type PayrollMemberPayRequest struct {
 	MonthlyPayCents *int
 	// WorkDays are the weekdays the member works, ISO digits; nil keeps them.
 	WorkDays *string
+	// BillRateCents is the member's hour for the client; nil keeps it.
+	BillRateCents *int
 }

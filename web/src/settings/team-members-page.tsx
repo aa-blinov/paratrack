@@ -43,7 +43,12 @@ function MemberPayForm({ data, member }: { data: TeamMembersData; member: { User
     <Button type="submit" className="col-span-2 justify-center sm:col-span-1 sm:justify-start">{t(lang, "projects.save")}</Button>
     {/* A part-timer's week: the norm, the schedule and the reminders expect
         them on these days only. */}
-    <fieldset className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-5">
+    {/* The hour of this person for the client when a project has no rate of
+        its own: what an agency sells is a role's hour. */}
+    <div className="col-span-2 grid gap-1 sm:col-span-2"><Label htmlFor={`bill-${member.UserID}`} className="text-xs">{t(lang, "pay.billRate")}</Label>
+      <Input id={`bill-${member.UserID}`} name="bill_rate" inputMode="decimal" autoComplete="off" defaultValue={initial.BillRate} placeholder="0" />
+    </div>
+    <fieldset className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-3">
       <legend className="sr-only">{t(lang, "pay.workDays")}</legend>
       <span className="text-xs text-muted-foreground">{t(lang, "pay.workDays")}</span>
       <input type="hidden" name="work_days_sent" value="1" />

@@ -474,6 +474,69 @@ func (s *Server) handleInvoicePayment(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// handleInvoiceResend sends an issued invoice again, as it went out: the
+// letter was lost or went to an old address. The invoice's status does not
+// move; the letter goes through the same durable queue. Form: to, no_act.
+func (s *Server) handleInvoiceResend(w http.ResponseWriter, r *http.Request) {
+	inv, vm, _, err := s.loadInvoiceVM(r, false)
+	if err != nil {
+		s.invoiceLoadError(w, r, err)
+		return
+	}
+	lang := resolveLang(r)
+	if inv.Status != "sent" && inv.Status != "paid" {
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.resendIssuedOnly"))
+		return
+	}
+	to := strings.TrimSpace(r.FormValue("to"))
+	if _, err := netmail.ParseAddress(to); err != nil {
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.badEmail"))
+		return
+	}
+	if !mailport.Available(s.runtime.Mailer) {
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.mailOff"))
+		return
+	}
+	seller := vm.Seller
+	pdf, err := renderInvoicePDF(vm, seller, lang)
+	if err != nil {
+		s.logInternalError(err)
+		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+		return
+	}
+	number := strings.ReplaceAll(vm.Number, " ", "-")
+	files := []mailport.Attachment{{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf}}
+	if r.FormValue("no_act") == "" {
+		act, err := renderDocPDF(vm, seller, lang, true)
+		if err != nil {
+			s.logInternalError(err)
+			s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+			return
+		}
+		files = append(files, mailport.Attachment{Name: "act-" + number + ".pdf", ContentType: "application/pdf", Data: act})
+	}
+	sessions, err := s.invoiceSessionsCSV(r, inv.ID)
+	if err != nil {
+		s.logInternalError(err)
+		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+		return
+	}
+	files = append(files, mailport.Attachment{Name: number + "-sessions.csv", ContentType: "text/csv; charset=utf-8", Data: sessions})
+	subj, ev := invoiceEmail(lang, vm, seller)
+	msg, err := s.buildEmail(r, to, subj, ev, files...)
+	if err != nil {
+		s.logInternalError(err)
+		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+		return
+	}
+	if err := s.services.MailQueue.EnqueueReminder(operationContext(r), mailport.ReminderQueueRequest{TeamID: teamID(r), Recipient: to, Message: msg}); err != nil {
+		s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+		return
+	}
+	s.audit(r, "invoice.resend", inv.Number, to)
+	s.invoiceBack(w, r, true, i18n.T(lang, "inv.resendQueued"))
+}
+
 // handleInvoiceVoid cancels a sent invoice nothing was paid on. Form: reason.
 func (s *Server) handleInvoiceVoid(w http.ResponseWriter, r *http.Request) {
 	lang := resolveLang(r)

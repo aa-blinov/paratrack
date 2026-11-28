@@ -13,6 +13,7 @@ import (
 )
 
 type fakeStore struct {
+	leads          map[int64]int64
 	goalCandidates []appmodel.GoalLimitCandidate
 	goalClaims     map[string]bool
 	goalProgress   []appmodel.GoalProgress
@@ -49,6 +50,10 @@ func (f *fakeStore) ClaimBudgetNotice(_ context.Context, request appmodel.Budget
 	}
 	f.budgetClaims[key] = true
 	return true, nil
+}
+
+func (f *fakeStore) ProjectLeads(context.Context, int64) (map[int64]int64, error) {
+	return f.leads, nil
 }
 
 func (f *fakeStore) GoalLimitCandidates(context.Context) ([]appmodel.GoalLimitCandidate, error) {
@@ -594,5 +599,25 @@ func TestRunWatchesTimersEveryMinute(t *testing.T) {
 	}
 	if len(rec.sent) != 1 || rec.sent[0].Topic != TopicLongTimer {
 		t.Fatalf("timer pass sent %+v", rec.sent)
+	}
+}
+
+// An overload reaches the lead of a project the person is planned on.
+func TestOverloadReachesTheProjectLead(t *testing.T) {
+	now := time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)
+	store := &fakeStore{managers: []int64{1}, teams: []int64{1}, claimed: map[string]bool{}, leads: map[int64]int64{7: 9}}
+	planner := fakePlanner{snapshot: appmodel.ScheduleSnapshot{Rows: []appmodel.ScheduleViewRow{
+		{ScheduleRow: appmodel.ScheduleRow{UserID: 5, UserName: "Маша", Total: 600, ByProject: map[int64][7]int{7: {600}}}, AvailableMinutes: 480},
+	}}}
+	rec := &recorder{}
+	service, err := New(Dependencies{Store: store, Planner: planner, Sender: rec, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.overloads(context.Background(), now); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.sent) == 0 || !contains(rec.sent[0].UserIDs, 9) || !contains(rec.sent[0].UserIDs, 1) {
+		t.Fatalf("overload went to %+v, want the manager and the lead", rec.sent)
 	}
 }

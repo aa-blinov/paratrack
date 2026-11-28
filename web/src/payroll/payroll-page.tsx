@@ -144,6 +144,9 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
       <div className="flex flex-wrap items-center gap-2">
         {data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`} className="flex flex-wrap items-center gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><DateField name="paid_on" ariaLabel={t(lang, "pay.paidOn")} defaultValue={data.Run.TodayISO} className="w-36" /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
         {data.Run.Status === "paid" && data.Run.PaidOn && <span className="text-sm text-muted-foreground">{t(lang, "pay.paidOnLabel")}: {data.Run.PaidOn}</span>}
+        {/* A payout marked by mistake, or on the wrong day, goes back to a
+            draft with a reason; a payout in a closed month stays. */}
+        {data.Run.Status === "paid" && <details className="text-sm"><summary className="cursor-pointer text-muted-foreground">{t(lang, "pay.unpaid")}</summary><form method="POST" action={`/payroll/${data.Run.ID}/unpaid`} className="mt-2 flex flex-wrap items-center gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Input name="reason" required maxLength={200} placeholder={t(lang, "inv.reverseReasonPh")} aria-label={t(lang, "inv.reverseReasonPh")} className="h-8 min-w-48" /><Button type="submit" size="sm" variant="outline">{t(lang, "pay.unpaid")}</Button></form></details>}
         {/* After a timesheet edit the draft would otherwise pay the old
             hours, and a percent bonus would stay worked out from them. */}
         {data.CanManage && data.Run.Status === "draft" && !data.RecalcPreview && <Button asChild size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}><a href={`/payroll/${data.Run.ID}?preview=recalculate#recalc-preview`}>{t(lang, "pay.recalculate")}</a></Button>}

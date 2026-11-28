@@ -154,8 +154,19 @@ func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request)
 			}
 			issued[id] = snap
 		}
-		if n := position[id]; n < len(snap.Labels) {
-			rows[i].Label = snap.Labels[n]
+		position[id]++
+	}
+	// The kept labels replace the live ones only when the invoice has as many
+	// lines as were kept, as on the document; otherwise the live ones stand.
+	lines := map[int64]int{}
+	for _, row := range rows {
+		lines[row.InvoiceID]++
+	}
+	position = map[int64]int{}
+	for i := range rows {
+		id := rows[i].InvoiceID
+		if snap := issued[id]; len(snap.Labels) == lines[id] {
+			rows[i].Label = snap.Labels[position[id]]
 		}
 		position[id]++
 	}
@@ -474,7 +485,9 @@ func (s *Server) handleInvoiceShareRevoke(w http.ResponseWriter, r *http.Request
 		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
 		return
 	}
-	n, err := s.services.Invoicing.Shares.RevokeShareLinks(r.Context(), appmodel.InvoiceShareRevokeRequest{TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r)})
+	// ?link= closes one link, sent to the wrong person; without it, all.
+	linkID, _ := strconv.ParseInt(r.URL.Query().Get("link"), 10, 64)
+	n, err := s.services.Invoicing.Shares.RevokeShareLinks(r.Context(), appmodel.InvoiceShareRevokeRequest{TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r), LinkID: linkID})
 	if err != nil {
 		switch {
 		case errors.Is(err, model.ErrNotFound):
@@ -521,4 +534,38 @@ func (s *Server) clientCardProjects(r *http.Request, name string) []int64 {
 		}
 	}
 	return ids
+}
+
+// invoiceShareLinksResponse lists an invoice's client links that still open.
+type invoiceShareLinksResponse struct {
+	Links []invoiceShareLinkItem `json:"links"`
+}
+
+type invoiceShareLinkItem struct {
+	ID      int64  `json:"id"`
+	Created string `json:"created"`
+	Expires string `json:"expires"`
+}
+
+func (invoiceShareLinksResponse) isJSONResponse() {}
+
+// handleInvoiceShareList lists the client links of an invoice, so one sent
+// to the wrong person can be closed alone.
+func (s *Server) handleInvoiceShareList(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
+	}
+	links, err := s.services.Invoicing.Shares.ShareLinks(r.Context(), appmodel.InvoiceShareLookupQuery{TeamID: teamID(r), InvoiceID: id, Now: s.config.Now()})
+	if err != nil {
+		s.writeInternalJSONError(w, err)
+		return
+	}
+	lang := resolveLang(r)
+	out := invoiceShareLinksResponse{Links: []invoiceShareLinkItem{}}
+	for _, l := range links {
+		out.Links = append(out.Links, invoiceShareLinkItem{ID: l.ID, Created: fmtDay(lang, l.CreatedAt.In(userLoc(r))), Expires: fmtDay(lang, l.ExpiresAt.In(userLoc(r)))})
+	}
+	s.writeJSON(w, out)
 }

@@ -56,8 +56,8 @@ func paymentQR(inv invoiceVM, sellerName string) (payload string, ok bool) {
 	} else if inv.IssuedLabel != "" {
 		purpose += " от " + inv.IssuedLabel
 	}
-	if inv.VATIncluded != "" {
-		purpose += ". " + inv.VATIncluded
+	if inv.VATIncludedRU != "" {
+		purpose += ". " + inv.VATIncludedRU
 	} else {
 		purpose += ". Без НДС"
 	}

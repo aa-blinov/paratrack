@@ -123,6 +123,9 @@ func (d *DB) RebuildInvoice(ctx context.Context, request appmodel.InvoiceMutatio
 	if err := lockInvoiceSessions(ctx, tx, teamID, id); err != nil {
 		return err
 	}
+	if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
+		return err
+	}
 	start, err := ScanTime(startRaw)
 	if err != nil {
 		return fmt.Errorf("read invoice start: %w", err)
@@ -206,6 +209,9 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 	}
 	defer tx.Rollback()
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+		return err
+	}
+	if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
 		return err
 	}
 	res, err := tx.ExecContext(ctx,
@@ -318,6 +324,9 @@ func (d *DB) MarkInvoiceSentOnce(ctx context.Context, request appmodel.InvoiceMu
 	if err := requireInvoiceIssuableTx(ctx, tx, teamID, id); err != nil {
 		return err
 	}
+	if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
+		return err
+	}
 	result, err := tx.ExecContext(ctx,
 		`UPDATE invoices SET status = 'sent',
 		        hide_names = COALESCE(hide_names, (SELECT hide_executor_names FROM teams WHERE id = ?))
@@ -392,9 +401,16 @@ func (d *DB) AddInvoiceLine(ctx context.Context, request appmodel.InvoiceLineAdd
 	if status != "draft" {
 		return ErrInvoiceNotDraft
 	}
+	if err := lockInvoiceOpenPeriodTx(ctx, tx, request.TeamID, request.InvoiceID); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO invoice_lines (invoice_id, label, detail, seconds, rate_cents, amount_cents) VALUES (?, ?, '', 0, 0, ?)`,
 		request.InvoiceID, request.Label, request.AmountCents); err != nil {
+		return err
+	}
+	// A new line is a new draft: a letter file kept before it is kept again.
+	if _, err := tx.ExecContext(ctx, `UPDATE invoices SET revision = revision + 1 WHERE id = ? AND team_id = ?`, request.InvoiceID, request.TeamID); err != nil {
 		return err
 	}
 	if err := requireInvoiceTotalTx(ctx, tx, request.InvoiceID); err != nil {
@@ -423,6 +439,12 @@ func (d *DB) DeleteInvoiceLine(ctx context.Context, request appmodel.InvoiceLine
 	}
 	if status != "draft" {
 		return ErrInvoiceNotDraft
+	}
+	if err := lockInvoiceOpenPeriodTx(ctx, tx, request.TeamID, request.InvoiceID); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE invoices SET revision = revision + 1 WHERE id = ? AND team_id = ?`, request.InvoiceID, request.TeamID); err != nil {
+		return err
 	}
 	res, err := tx.ExecContext(ctx,
 		`DELETE FROM invoice_lines WHERE id = ? AND invoice_id = ? AND seconds = 0 AND rate_cents = 0`,

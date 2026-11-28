@@ -394,3 +394,19 @@ func isoWeekdayDigit(day time.Time) string {
 	}
 	return strconv.Itoa(iso)
 }
+
+// ProjectLeads maps each of a workspace's projects that has a lead to that lead.
+func (d *DB) ProjectLeads(ctx context.Context, teamID int64) (map[int64]int64, error) {
+	out := map[int64]int64{}
+	err := queryRows(ctx, d.sql, "project leads",
+		`SELECT id, lead_user_id FROM projects WHERE team_id = ? AND COALESCE(lead_user_id, 0) > 0`,
+		func(rows *sql.Rows) error {
+			var projectID, leadID int64
+			if err := rows.Scan(&projectID, &leadID); err != nil {
+				return err
+			}
+			out[projectID] = leadID
+			return nil
+		}, teamID)
+	return out, err
+}

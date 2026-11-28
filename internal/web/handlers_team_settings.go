@@ -214,6 +214,8 @@ func (s *Server) handleTeamStripe(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) teamErrorMessage(r *http.Request, err error) string {
 	switch {
+	case errors.Is(err, model.ErrZoneWithClosedMonths):
+		return i18n.T(resolveLang(r), "team.err.zoneClosedMonths")
 	case errors.Is(err, appmodel.ErrTeamValidation) && strings.Contains(err.Error(), "already a member"):
 		return i18n.T(resolveLang(r), "flash.msg.already a member")
 	case strings.Contains(err.Error(), "invite already used"):

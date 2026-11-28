@@ -64,3 +64,11 @@ func (s *Service) RevokeShareLinks(ctx context.Context, request appmodel.Invoice
 	}
 	return n, nil
 }
+
+// ShareLinks lists an invoice's client links that still open.
+func (s *Service) ShareLinks(ctx context.Context, query appmodel.InvoiceShareLookupQuery) ([]appmodel.InvoiceShareLinkView, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return nil, model.ErrNotFound
+	}
+	return s.reader.ListInvoiceShareLinks(ctx, query)
+}

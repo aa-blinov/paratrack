@@ -29,6 +29,7 @@ type ExportMember struct {
 	AdminMinutes    int64  `json:"admin_minutes"`
 	JoinedAt        string `json:"joined_at"`
 	WorkDays        string `json:"work_days,omitempty"`
+	BillRateCents   int64  `json:"bill_rate_cents,omitempty"`
 }
 
 type ExportClient struct {
@@ -270,6 +271,7 @@ func encodeExportMember(v appmodel.ExportMember) ExportMember {
 	out.AdminMinutes = v.AdminMinutes
 	out.JoinedAt = v.JoinedAt
 	out.WorkDays = v.WorkDays
+	out.BillRateCents = v.BillRateCents
 	return out
 }
 
@@ -283,6 +285,7 @@ func decodeExportMember(v ExportMember) appmodel.ExportMember {
 	out.AdminMinutes = v.AdminMinutes
 	out.JoinedAt = v.JoinedAt
 	out.WorkDays = v.WorkDays
+	out.BillRateCents = v.BillRateCents
 	return out
 }
 

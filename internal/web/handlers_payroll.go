@@ -539,6 +539,33 @@ func (s *Server) handlePayrollPaid(w http.ResponseWriter, r *http.Request) {
 		http.StatusSeeOther)
 }
 
+// handlePayrollUnpaid takes a paid run back to a draft. Form: reason.
+func (s *Server) handlePayrollUnpaid(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
+		return
+	}
+	back := "/payroll/" + strconv.FormatInt(id, 10)
+	reason := strings.TrimSpace(r.PostForm.Get("reason"))
+	err = s.services.Payroll.Unpay(r.Context(), appmodel.PayrollUnpayRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), Reason: reason})
+	switch {
+	case errors.Is(err, model.ErrPaymentReason):
+		http.Redirect(w, r, back+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.unpaidNeedsReason")), http.StatusSeeOther)
+	case errors.Is(err, model.ErrPayrollNotPaid):
+		http.Redirect(w, r, back+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.unpaidNotPaid")), http.StatusSeeOther)
+	case err != nil:
+		http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)
+	default:
+		s.audit(r, "payroll.unpaid", strconv.FormatInt(id, 10), reason)
+		http.Redirect(w, r, back+"?flash="+encodeFlash(true, i18n.T(resolveLang(r), "pay.unpaidDone")), http.StatusSeeOther)
+	}
+}
+
 // handlePayrollDelete removes a draft run.
 func (s *Server) handlePayrollDelete(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -748,6 +775,13 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	// The work days travel as one checkbox per day plus a marker that the
 	// set was on the form, so unticking every box is told apart from an
 	// older form that never had them.
+	var billRate *int
+	if n, has, err := formCents(r, "bill_rate"); err != nil {
+		http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, i18n.T(resolveLang(r), "bill.badRate")), http.StatusSeeOther)
+		return
+	} else if has {
+		billRate = &n
+	}
 	var workDays *string
 	if r.PostForm.Get("work_days_sent") != "" {
 		joined := strings.Join(r.PostForm["work_day"], "")
@@ -757,7 +791,7 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 		}
 		workDays = &joined
 	}
-	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly, WorkDays: workDays}); err != nil {
+	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly, WorkDays: workDays, BillRateCents: billRate}); err != nil {
 		if errors.Is(err, appmodel.ErrForbidden) || errors.Is(err, appmodel.ErrNotFound) {
 			http.Redirect(w, r, "/settings/members?flash=forbidden", http.StatusSeeOther)
 			return

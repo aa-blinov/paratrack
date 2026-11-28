@@ -25,6 +25,8 @@ type TeamHolidayRequest struct {
 	// Keep leaves a day the workspace already marked as it is.
 	Names map[string]string
 	Keep  bool
+	// Kinds, when set, gives each day its own kind ("off", "work", "short").
+	Kinds map[string]string
 }
 
 // AbsenceRequest records a member's absence over days, or clears it with an

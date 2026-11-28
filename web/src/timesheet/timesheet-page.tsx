@@ -392,6 +392,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
           <input type="hidden" name="start" value={data.Approval.StartISO} />
           <Button type="submit" size="sm">{t(lang, "ts.approveOnTrack", data.TeamSummary.filter(m => m.Status === "ok" || m.Status === "away").length)}</Button>
         </form>}
+        {data.MonthNorm && <p className="mb-1 text-xs text-muted-foreground">{data.MonthNorm}</p>}
         {(data.Holidays?.length ?? 0) > 0 && <p className="mb-3 text-xs text-muted-foreground">{t(lang, "holiday.inWeek", (data.Holidays ?? []).join(", "))}</p>}
         <ul className="divide-y divide-border text-sm">
           {data.TeamSummary.map(member => {

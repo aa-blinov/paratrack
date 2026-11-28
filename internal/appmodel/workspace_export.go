@@ -75,6 +75,8 @@ type ExportMember struct {
 	// WorkDays are the weekdays the member works, ISO digits; empty in a
 	// file written before they were kept, which restores as Monday to Friday.
 	WorkDays string
+	// BillRateCents is the member's hour for the client.
+	BillRateCents int64
 }
 
 type ExportClient struct {

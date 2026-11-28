@@ -141,6 +141,9 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 	if status != "draft" {
 		return model.ErrPayrollNotDraft
 	}
+	if err := lockPayrollOpenPeriodTx(ctx, tx, request.TeamID, request.RunID); err != nil {
+		return err
+	}
 	var userName string
 	if err := tx.QueryRowContext(ctx,
 		`SELECT COALESCE(NULLIF(TRIM(u.name), ''), u.email) FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? AND m.user_id = ?`,
@@ -202,6 +205,9 @@ func (d *DB) DeletePayrollAdjustment(ctx context.Context, request appmodel.Payro
 	}
 	if status != "draft" {
 		return model.ErrPayrollNotDraft
+	}
+	if err := lockPayrollOpenPeriodTx(ctx, tx, request.TeamID, request.RunID); err != nil {
+		return err
 	}
 	res, err := tx.ExecContext(ctx,
 		`DELETE FROM payroll_lines WHERE id = ? AND run_id = ? AND kind = ?`,
@@ -452,4 +458,52 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 	}
 	sort.Strings(result.NotInRun)
 	return result, nil
+}
+
+// UnmarkPayrollPaid takes a paid run back to a draft, its payout day cleared.
+// A payout dated into a closed month, or a run over one, stays as it is.
+func (d *DB) UnmarkPayrollPaid(ctx context.Context, request appmodel.PayrollUnpayRequest) error {
+	if request.TeamID <= 0 || request.RunID <= 0 || request.CallerID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockTeamFinance(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var status, paidOn string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status, paid_on FROM payroll_runs WHERE id = ? AND team_id = ? FOR UPDATE`, request.RunID, request.TeamID).Scan(&status, &paidOn); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status != "paid" {
+		return model.ErrPayrollNotPaid
+	}
+	if err := lockPayrollOpenPeriodTx(ctx, tx, request.TeamID, request.RunID); err != nil {
+		return err
+	}
+	if paidOn != "" {
+		loc, err := workspaceZone(ctx, tx, request.TeamID)
+		if err != nil {
+			return err
+		}
+		day, err := time.ParseInLocation("2006-01-02", paidOn, loc)
+		if err != nil {
+			return err
+		}
+		if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, day, day.AddDate(0, 0, 1)); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE payroll_runs SET status = 'draft', paid_on = '' WHERE id = ? AND team_id = ?`, request.RunID, request.TeamID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

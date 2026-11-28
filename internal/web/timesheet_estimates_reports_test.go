@@ -338,8 +338,8 @@ func TestTimesheetCellJSONReturnsUpdatedRowAndTotals(t *testing.T) {
 	}
 }
 
-// Offline-queued timer actions carry the click time; only the last 24h
-// is trusted, anything else falls back to now.
+// Offline-queued timer actions carry the click time; a week back is
+// trusted, anything older or in the future falls back to now.
 func TestActionTime(t *testing.T) {
 	at := func(v string) time.Time {
 		r := httptest.NewRequest("POST", "/", strings.NewReader(url.Values{"client_ts": {v}}.Encode()))
@@ -355,8 +355,12 @@ func TestActionTime(t *testing.T) {
 	if got := at(strconv.FormatInt(past.UnixMilli(), 10)); !got.Equal(past) {
 		t.Errorf("recent client_ts: got %v, want %v", got, past)
 	}
+	twoDays := time.Now().Add(-48 * time.Hour).Truncate(time.Millisecond)
+	if got := at(strconv.FormatInt(twoDays.UnixMilli(), 10)); !got.Equal(twoDays) {
+		t.Errorf("a weekend offline: got %v, want %v", got, twoDays)
+	}
 	for _, bad := range []string{"", "junk",
-		strconv.FormatInt(time.Now().Add(48*time.Hour*-1).UnixMilli(), 10),
+		strconv.FormatInt(time.Now().Add(-8*24*time.Hour).UnixMilli(), 10),
 		strconv.FormatInt(time.Now().Add(time.Hour).UnixMilli(), 10)} {
 		if got := at(bad); time.Since(got) > time.Second {
 			t.Errorf("client_ts %q should fall back to now, got %v", bad, got)

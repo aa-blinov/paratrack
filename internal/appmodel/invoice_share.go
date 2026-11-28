@@ -26,6 +26,15 @@ type InvoiceShareRevokeRequest struct {
 	TeamID    int64
 	InvoiceID int64
 	CallerID  int64
+	// LinkID closes one link; 0 closes every link of the invoice.
+	LinkID int64
+}
+
+// InvoiceShareLinkView is one client link that still opens.
+type InvoiceShareLinkView struct {
+	ID        int64
+	CreatedAt time.Time
+	ExpiresAt time.Time
 }
 
 // InvoiceShareLookupQuery opens a client's link by the hash of its token, while the
@@ -33,6 +42,8 @@ type InvoiceShareRevokeRequest struct {
 type InvoiceShareLookupQuery struct {
 	TokenHash string
 	Now       time.Time
+	// TeamID and InvoiceID list an invoice's links (TokenHash empty).
+	TeamID, InvoiceID int64
 }
 
 // InvoiceShareLookup is what a client's link opens: the workspace and the invoice.

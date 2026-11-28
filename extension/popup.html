@@ -46,7 +46,10 @@
     .pill.off { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
     [role="status"] { min-height: 1.2em; margin-top: 8px; font-size: 12px; color: var(--muted); }
     .hidden { display: none; }
-  </style>
+    .others { list-style: none; margin: 0 0 8px; padding: 0; font-size: 12px; }
+  .others li { margin: 2px 0; }
+  button.link { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; text-align: left; }
+</style>
 </head>
 <body>
   <h1>paratrack <span id="who"></span></h1>
@@ -70,6 +73,7 @@
       <span id="active-name" class="muted" style="margin:0"></span>
     </div>
     <div id="clock" class="timer"></div>
+    <ul id="others" class="others hidden"></ul>
 
     <label for="task" data-i18n="fromTask"></label>
     <select id="task"><option value="" data-i18n="pickTask"></option></select>

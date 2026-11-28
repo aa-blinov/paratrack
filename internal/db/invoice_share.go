@@ -83,7 +83,12 @@ func (d *DB) RevokeInvoiceShareLinks(ctx context.Context, request appmodel.Invoi
 	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
 		return 0, err
 	}
-	res, err := tx.ExecContext(ctx, `DELETE FROM invoice_share_links WHERE team_id = ? AND invoice_id = ?`, request.TeamID, request.InvoiceID)
+	q, args := `DELETE FROM invoice_share_links WHERE team_id = ? AND invoice_id = ?`, []any{request.TeamID, request.InvoiceID}
+	if request.LinkID > 0 {
+		q += ` AND id = ?`
+		args = append(args, request.LinkID)
+	}
+	res, err := tx.ExecContext(ctx, q, args...)
 	if err != nil {
 		return 0, err
 	}
@@ -190,4 +195,30 @@ func (d *DB) InvoiceVoidReason(ctx context.Context, query appmodel.InvoiceLookup
 		return "", ErrNotFound
 	}
 	return reason, err
+}
+
+// ListInvoiceShareLinks lists the client links of an invoice that still
+// open at `now`, newest first.
+func (d *DB) ListInvoiceShareLinks(ctx context.Context, query appmodel.InvoiceShareLookupQuery) ([]appmodel.InvoiceShareLinkView, error) {
+	var out []appmodel.InvoiceShareLinkView
+	err := queryRows(ctx, d.sql, "invoice share links",
+		`SELECT id, created_at, expires_at FROM invoice_share_links
+		  WHERE team_id = ? AND invoice_id = ? AND expires_at > ? ORDER BY id DESC`,
+		func(rows *sql.Rows) error {
+			var v appmodel.InvoiceShareLinkView
+			var created, expires string
+			if err := rows.Scan(&v.ID, &created, &expires); err != nil {
+				return err
+			}
+			var err error
+			if v.CreatedAt, err = ScanTime(created); err != nil {
+				return err
+			}
+			if v.ExpiresAt, err = ScanTime(expires); err != nil {
+				return err
+			}
+			out = append(out, v)
+			return nil
+		}, query.TeamID, query.InvoiceID, FormatTime(query.Now.UTC()))
+	return out, err
 }

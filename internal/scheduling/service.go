@@ -33,6 +33,7 @@ type Store interface {
 	Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error)
 	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	TeamWorkdays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
+	TeamShortDays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
 	GetProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
@@ -97,6 +98,10 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 	if err != nil {
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule workdays: %w", err)
 	}
+	short, err := s.store.TeamShortDays(ctx, query.TeamID, from, until)
+	if err != nil {
+		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule short days: %w", err)
+	}
 	away := map[int64]map[string]string{}
 	for _, a := range absences {
 		if away[a.UserID] == nil {
@@ -112,7 +117,7 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 			return appmodel.ScheduleSnapshot{}, fmt.Errorf("sum weekly schedule minutes: %w", err)
 		}
 		var marks [7]string
-		workDays := 0
+		workDays, shortDays := 0, 0
 		for i := 0; i < 7; i++ {
 			day := query.WeekStart.AddDate(0, 0, i)
 			key := day.Format("2006-01-02")
@@ -126,9 +131,14 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 				marks[i] = "holiday"
 			case weekday:
 				workDays++
+				if hasKey(short, key) {
+					shortDays++
+				}
 			}
 		}
-		row := Row{ScheduleRow: stored, AvailableMinutes: weekAvailableMinutesFor(stored.Capacity, stored.AdminMinutes, workDays), Away: marks}
+		weekLen, _ := model.NormalizeWorkDays(stored.WorkDays)
+		available := weekAvailableMinutesFor(stored.Capacity, stored.AdminMinutes, workDays, len(weekLen)) - shortDays*60
+		row := Row{ScheduleRow: stored, AvailableMinutes: max(available, 0), Away: marks}
 		row.LoadPercent = weekLoadPercent(stored.Total, row.AvailableMinutes)
 		row.TrackedPercent = weekLoadPercent(stored.Tracked, row.AvailableMinutes)
 		rows = append(rows, row)
@@ -143,14 +153,18 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 // weekAvailableMinutes is the capacity of five working days less the admin
 // time the member keeps; never below zero.
 func weekAvailableMinutes(capacityPerDay, adminMinutes int) int {
-	return weekAvailableMinutesFor(capacityPerDay, adminMinutes, 5)
+	return weekAvailableMinutesFor(capacityPerDay, adminMinutes, 5, 5)
 }
 
-// weekAvailableMinutesFor is the capacity of the week's working days less the
-// admin time, which shrinks with the days: a week of two working days keeps
-// two fifths of it. Never below zero.
-func weekAvailableMinutesFor(capacityPerDay, adminMinutes, workDays int) int {
-	return max(capacityPerDay*workDays-adminMinutes*workDays/5, 0)
+// weekAvailableMinutesFor is capacity over the week's working days less the
+// admin time, the admin time scaled to the share of the person's own week
+// that is worked: a part-timer's three days are their whole week, and a
+// holiday in a five-day week keeps four fifths. Never below zero.
+func weekAvailableMinutesFor(capacityPerDay, adminMinutes, workDays, weekLen int) int {
+	if weekLen <= 0 {
+		weekLen = 5
+	}
+	return max(capacityPerDay*workDays-adminMinutes*workDays/weekLen, 0)
 }
 
 func hasKey(m map[string]string, key string) bool {
@@ -229,6 +243,14 @@ func (s *Service) Absences(ctx context.Context, teamID int64, from, until string
 		return nil, ErrInvalidScheduleCell
 	}
 	return s.store.Absences(ctx, teamID, from, until)
+}
+
+// TeamShortDays lists the shortened pre-holiday days over a stretch of days.
+func (s *Service) TeamShortDays(ctx context.Context, teamID int64, from, until string) (map[string]string, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.TeamShortDays(ctx, teamID, from, until)
 }
 
 // TeamWorkdays lists the weekend days the workspace works over a stretch of days.

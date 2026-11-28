@@ -72,6 +72,7 @@ type memberPayView struct {
 	Monthly  string // the monthly salary, currency units, "" when unset
 	Capacity int
 	WorkDays string
+	BillRate string // the member's hour for the client, currency units, "" when unset
 }
 
 type memberView struct {
@@ -222,6 +223,9 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		}
 		if settings.MonthlyPayCents > 0 {
 			view.Monthly = formatMoneyInput(resolveLang(r), settings.MonthlyPayCents)
+		}
+		if settings.BillRateCents > 0 {
+			view.BillRate = formatMoneyInput(resolveLang(r), settings.BillRateCents)
 		}
 		data.Pay[settings.UserID] = view
 	}

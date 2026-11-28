@@ -348,6 +348,14 @@ func TestScheduleCapacitySkipsHolidaysAndAbsences(t *testing.T) {
 	}
 }
 
+func (scheduleStoreStub) TeamShortDays(context.Context, int64, string, string) (map[string]string, error) {
+	return nil, nil
+}
+
+func (scheduleCellStoreStub) TeamShortDays(context.Context, int64, string, string) (map[string]string, error) {
+	return nil, nil
+}
+
 func (scheduleStoreStub) TeamWorkdays(context.Context, int64, string, string) (map[string]string, error) {
 	return nil, nil
 }

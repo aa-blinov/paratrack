@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -319,12 +320,15 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	if leadReport(r) {
+		withoutMoney(&vm)
+	}
 	s.audit(r, "report.run", tpl.ID, vm.From+".."+vm.To)
 
 	if format := r.URL.Query().Get("format"); format == "csv" || format == "excel" {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="`+tpl.ID+`.csv"`)
-		_ = writeReportCSV(w, vm.Rows, dialectOf(r), reportCSV{scope: vm.Scope, noMoney: r.URL.Query().Get("money") == "0"})
+		_ = writeReportCSV(w, vm.Rows, dialectOf(r), reportCSV{scope: vm.Scope, noMoney: r.URL.Query().Get("money") == "0" || leadReport(r)})
 		return
 	}
 	lang := string(resolveLang(r))
@@ -418,4 +422,47 @@ func activityDetail(lang i18n.Lang, row appmodel.ReportAggregateRow) string {
 		parts = append(parts, fmt.Sprintf(i18n.T(lang, "report.activityTask"), row.Task))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// leadReportKey marks a report opened by a project's lead, who sees the
+// project's hours but not the money.
+type leadReportKey struct{}
+
+// reportAccess opens a report to whoever reads the money, and to the lead of
+// the project the report is narrowed to: the person who answers to the
+// client for that project's hours.
+func (s *Server) reportAccess(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if canReadFinance(r) {
+			h(w, r)
+			return
+		}
+		if projectID, err := strconv.ParseInt(r.URL.Query().Get("project_id"), 10, 64); err == nil && projectID > 0 {
+			if list, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: true}); err == nil {
+				for _, p := range list {
+					if p.ID == projectID && p.LeadUserID > 0 && p.LeadUserID == authenticatedUserID(r) {
+						h(w, r.WithContext(context.WithValue(r.Context(), leadReportKey{}, true)))
+						return
+					}
+				}
+			}
+		}
+		s.finance(h)(w, r)
+	}
+}
+
+// leadReport says the report is a lead's: hours without rates or amounts.
+func leadReport(r *http.Request) bool {
+	lead, _ := r.Context().Value(leadReportKey{}).(bool)
+	return lead
+}
+
+// withoutMoney strips the rates and amounts from a report for a lead.
+func withoutMoney(vm *reportVM) {
+	vm.Template.Billable = false
+	vm.TotalAmount, vm.TotalCents = "", 0
+	for i := range vm.Rows {
+		vm.Rows[i].Rate, vm.Rows[i].Amount = "", ""
+		vm.Rows[i].RateCents, vm.Rows[i].AmountCents = 0, 0
+	}
 }

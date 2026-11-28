@@ -81,6 +81,9 @@ func (d *DB) SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRe
 			if request.Work {
 				kind = "work"
 			}
+			if k, ok := request.Kinds[day]; ok {
+				kind = k
+			}
 			name := request.Name
 			if named, ok := request.Names[day]; ok {
 				name = named
@@ -183,6 +186,26 @@ func (d *DB) TeamWorkdays(ctx context.Context, teamID int64, from, until string)
 	out := map[string]string{}
 	err := queryRows(ctx, d.sql, "team workdays",
 		`SELECT day, name FROM team_holidays WHERE team_id = ? AND day >= ? AND day < ? AND kind = 'work' ORDER BY day`,
+		func(rows *sql.Rows) error {
+			var day, name string
+			if err := rows.Scan(&day, &name); err != nil {
+				return err
+			}
+			out[day] = name
+			return nil
+		}, teamID, from, until)
+	return out, err
+}
+
+// TeamShortDays lists the shortened pre-holiday days (an hour less, Labour
+// Code article 95) from `from` up to `until`, as day -> name.
+func (d *DB) TeamShortDays(ctx context.Context, teamID int64, from, until string) (map[string]string, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	out := map[string]string{}
+	err := queryRows(ctx, d.sql, "team short days",
+		`SELECT day, name FROM team_holidays WHERE team_id = ? AND day >= ? AND day < ? AND kind = 'short' ORDER BY day`,
 		func(rows *sql.Rows) error {
 			var day, name string
 			if err := rows.Scan(&day, &name); err != nil {

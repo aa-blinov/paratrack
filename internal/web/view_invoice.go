@@ -50,6 +50,7 @@ type invoiceVM struct {
 	Currency                              string
 	IssuedLabel                           string
 	IssuedISO                             string `json:"-"`
+	VATIncludedRU                         string `json:"-"`
 	SellerDetails, ClientDetails, VATNote string
 	ClientEmail, Receipt                  string
 	// HasClientCard is a draft whose project has a client card the edit form
@@ -264,6 +265,8 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 	}
 	if inv.VATRate > 0 {
 		vm.VATIncluded = fmt.Sprintf(i18n.T(lang, "inv.vatIncluded"), inv.VATRate, moneyL(lang, vatIncludedCents(details.TotalCents, inv.VATRate), inv.Currency))
+		// The QR's purpose is read by a Russian bank whatever the screen's language.
+		vm.VATIncludedRU = fmt.Sprintf(i18n.T(i18n.Lang("ru"), "inv.vatIncluded"), inv.VATRate, moneyL(i18n.Lang("ru"), vatIncludedCents(details.TotalCents, inv.VATRate), inv.Currency))
 	}
 	return inv, vm, snapshot.StripeReady, nil
 }

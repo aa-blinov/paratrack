@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -16,44 +17,46 @@ import (
 const hookMarker = "# paratrack-hook"
 
 // hookScript switches the timer to the branch that was checked out. The
-// branch goes to "focus --branch", which makes the activity name in Go (see
-// branchActivity): a branch name is not trusted text, and the shell's tr
-// cannot tell UTF-8 letters from noise. It runs in the background and never
-// fails the checkout. Quick successive checkouts are settled after a short
-// pause, and only the branch still checked out is sent, so focus calls
-// arriving out of order cannot leave the timer on a branch already left.
-// main, master, develop, trunk, the branches named in git config
-// paratrack.pauseBranches and a detached HEAD pause the timers instead:
-// reviewing there is not the feature's time. git config
-// paratrack.ticketPattern names the ticket to keep from the branch.
+// script only finds the binary and settles quick checkouts; the binary
+// decides the rest from the raw branch (see branchDecision): a branch name is
+// not trusted text, git config is read with every value and separator, and a
+// mistake in the ticket pattern is told, not swallowed. Quick successive
+// checkouts are settled after a short pause, and only the branch still
+// checked out is sent. It runs in the background and never fails the
+// checkout, and it has no "exit" outside its subshell, so pasted into the
+// middle of a hook manager's post-checkout it does not end the commands after
+// it.
 //
-// With an empty binary the script finds paratrack on PATH when it runs: the
-// form for a hook manager's folder, which is committed and shared, where an
-// absolute path from one laptop would fail silently on every other.
+// With an empty binary the script finds paratrack on PATH when it runs, and
+// in the usual install folders a desktop git client leaves off its PATH: the
+// form for a hook manager's folder, committed and shared, where an absolute
+// path from one laptop would fail silently on every other.
 func hookScript(binary string) string {
-	find := `bin=$(command -v paratrack) || exit 0`
+	find := `bin=""`
 	if binary != "" {
 		find = `bin='` + strings.ReplaceAll(binary, `'`, `'\''`) + `'
-[ -x "$bin" ] || bin=$(command -v paratrack) || exit 0`
+  [ -x "$bin" ] || bin=""`
 	}
 	return `#!/bin/sh
 ` + hookMarker + ` — written by "paratrack hook install", removed by "paratrack hook uninstall".
 # Switches the paratrack timer to the branch you check out.
-[ "$3" = "1" ] || exit 0
-` + find + `
-branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=""
-mark=$(git rev-parse --git-path paratrack-focus)
-printf '%s' "${branch:-(detached)}" > "$mark"
-( sleep 1
-  [ "$(cat "$mark" 2>/dev/null)" = "${branch:-(detached)}" ] || exit 0
-  now=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || now=""
-  [ "$now" = "$branch" ] || exit 0
-  [ -n "$branch" ] || { "$bin" pause >/dev/null 2>&1; exit 0; }
-  case " main master develop trunk $(git config --get paratrack.pauseBranches) " in
-    *" $branch "*) "$bin" pause >/dev/null 2>&1 ;;
-    *) "$bin" focus --branch "$branch" --pattern "$(git config --get paratrack.ticketPattern)" >/dev/null 2>&1 ;;
-  esac ) &
-exit 0
+if [ "$3" = "1" ]; then
+  ` + find + `
+  [ -n "$bin" ] || bin=$(command -v paratrack 2>/dev/null) || bin=""
+  for dir in /opt/homebrew/bin /usr/local/bin "$HOME/go/bin" "$HOME/.local/bin"; do
+    [ -n "$bin" ] || { [ -x "$dir/paratrack" ] && bin="$dir/paratrack"; }
+  done
+  if [ -n "$bin" ]; then
+    branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=""
+    mark=$(git rev-parse --git-path paratrack-focus)
+    printf '%s' "${branch:-(detached)}" > "$mark"
+    ( sleep 1
+      [ "$(cat "$mark" 2>/dev/null)" = "${branch:-(detached)}" ] || exit 0
+      now=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || now=""
+      [ "$now" = "$branch" ] || exit 0
+      "$bin" focus --branch "$branch" >/dev/null 2>&1 ) &
+  fi
+fi
 `
 }
 
@@ -158,20 +161,69 @@ func hookBinary() string {
 }
 
 // hookedBinary reads back the binary path an installed hook calls, empty
-// when it finds paratrack on PATH.
+// when it finds paratrack on PATH. A quote in the path is written '\” and
+// read back as one.
 func hookedBinary(script string) string {
 	for _, line := range strings.Split(script, "\n") {
 		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "bin='"); ok {
-			if end := strings.Index(rest, "'"); end >= 0 {
-				return rest[:end]
+			if strings.HasSuffix(rest, "'") {
+				return strings.ReplaceAll(strings.TrimSuffix(rest, "'"), `'\''`, `'`)
 			}
 		}
 	}
 	return ""
 }
 
-// defaultTicketPattern finds a tracker key such as PT-123 anywhere in a branch.
-var defaultTicketPattern = regexp.MustCompile(`[A-Z][A-Z0-9]+-[0-9]+`)
+// defaultTicketPattern finds a tracker key such as PT-123 or pt-123 anywhere
+// in a branch; the name gets it in capitals.
+var defaultTicketPattern = regexp.MustCompile(`(?i)\b[a-z][a-z0-9]+-[0-9]+\b`)
+
+// defaultPauseBranches pause the timers when checked out.
+var defaultPauseBranches = []string{"main", "master", "develop", "trunk"}
+
+// branchDecision says what checking out a branch does: pause (a branch in the
+// pause list, by name or glob such as release/*, a detached HEAD, or a name
+// with nothing usable in it), or focus on the activity named. A ticket
+// pattern that does not compile is reported and the default one used.
+func branchDecision(branch string, pauses []string, pattern string) (pause bool, name string, warn error) {
+	if branch == "" {
+		return true, "", nil
+	}
+	for _, glob := range append(append([]string(nil), defaultPauseBranches...), pauses...) {
+		if ok, err := path.Match(glob, branch); err == nil && ok {
+			return true, "", nil
+		} else if err != nil && warn == nil {
+			warn = fmt.Errorf("paratrack.pauseBranches: %q is not a valid pattern", glob)
+		}
+	}
+	if pattern != "" {
+		if _, err := regexp.Compile(pattern); err != nil {
+			warn = fmt.Errorf("paratrack.ticketPattern %q does not compile: %v", pattern, err)
+			pattern = ""
+		}
+	}
+	name = branchActivity(branch, pattern)
+	return name == "", name, warn
+}
+
+// splitConfigList reads a git config list given as one or more values, each
+// separated by spaces, tabs or commas.
+func splitConfigList(values []string) []string {
+	var out []string
+	for _, value := range values {
+		out = append(out, strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' })...)
+	}
+	return out
+}
+
+// gitConfigAll reads every value of a git config key in the current repository.
+func gitConfigAll(key string) []string {
+	out, err := exec.Command("git", "config", "--get-all", key).Output()
+	if err != nil {
+		return nil
+	}
+	return strings.Split(strings.TrimRight(string(out), "\n"), "\n")
+}
 
 // branchActivity makes an activity name from a git branch: its last part,
 // with letters and digits of any alphabet, dot, dash and underscore kept and
@@ -189,8 +241,12 @@ func branchActivity(branch, pattern string) string {
 	if i := strings.LastIndex(branch, "/"); i >= 0 {
 		last = branch[i+1:]
 	}
-	if found := ticket.FindString(branch); found != "" && !strings.Contains(last, found) {
-		last = found + "-" + last
+	if found := ticket.FindString(branch); found != "" {
+		if i := strings.Index(strings.ToLower(last), strings.ToLower(found)); i >= 0 {
+			last = last[:i] + strings.ToUpper(found) + last[i+len(found):]
+		} else {
+			last = strings.ToUpper(found) + "-" + last
+		}
 	}
 	branch = last
 	var b strings.Builder

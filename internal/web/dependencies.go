@@ -157,6 +157,7 @@ type WebhookWorkflow interface {
 // InvoiceMailQueue enqueues frozen invoice messages for durable delivery.
 type InvoiceMailQueue interface {
 	EnqueueInvoice(context.Context, mailport.InvoiceQueueRequest) error
+	EnqueueReminder(context.Context, mailport.ReminderQueueRequest) error
 }
 
 // InvoiceDocumentBuilding assembles cross-workflow data shared by invoice
@@ -279,6 +280,7 @@ type SchedulingWorkflow interface {
 	Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error)
 	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	TeamWorkdays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
+	TeamShortDays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error)
 	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
@@ -344,6 +346,7 @@ type ProjectPageBuilding interface {
 type PayrollWorkflow interface {
 	CreateRun(context.Context, appmodel.PayrollDraftRequest) (model.PayrollRun, []model.PayrollRun, error)
 	DeleteDraft(context.Context, appmodel.PayrollMutationRequest) error
+	Unpay(context.Context, appmodel.PayrollUnpayRequest) error
 	GetRun(context.Context, int64, int64) (appmodel.PayrollRunDetail, error)
 	ListRuns(context.Context, appmodel.PayrollRunListQuery) ([]appmodel.PayrollRunSummary, error)
 	MemberLines(context.Context, appmodel.MemberPayrollQuery) ([]appmodel.MemberPayrollLine, error)
@@ -378,6 +381,7 @@ type InvoiceShares interface {
 	CreateShareLink(context.Context, appmodel.InvoiceShareRequest) (string, time.Time, error)
 	ResolveShareLink(context.Context, string, time.Time) (appmodel.InvoiceShareLookup, error)
 	RevokeShareLinks(context.Context, appmodel.InvoiceShareRevokeRequest) (int64, error)
+	ShareLinks(context.Context, appmodel.InvoiceShareLookupQuery) ([]appmodel.InvoiceShareLinkView, error)
 }
 
 // InvoiceQueries provides the read capabilities used by invoice pages and

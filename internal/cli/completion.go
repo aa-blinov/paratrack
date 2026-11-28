@@ -134,8 +134,27 @@ func runCompletionActivities(rt *Runtime) error {
 	fmt.Fprint(rt.Out, out.String())
 	if cache != "" {
 		writeFileAtomic(cache, []byte(out.String()))
+		dropStaleActivityCaches(cache, rt.now())
 	}
 	return nil
+}
+
+// dropStaleActivityCaches removes the lists other tokens left more than a day
+// ago, so a token used once does not leave a file behind for good.
+func dropStaleActivityCaches(keep string, now time.Time) {
+	matches, err := filepath.Glob(strings.TrimSuffix(keep, filepath.Ext(keep)) + "*")
+	if err != nil {
+		return
+	}
+	prefix := keep[:strings.LastIndex(keep, ".activities-")+len(".activities-")]
+	for _, path := range matches {
+		if path == keep || !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		if info, err := os.Stat(path); err == nil && now.Sub(info.ModTime()) > 24*time.Hour {
+			_ = os.Remove(path)
+		}
+	}
 }
 
 // completionCacheMaxAge is how long a list of activities answers a TAB.

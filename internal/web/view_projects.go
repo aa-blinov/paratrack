@@ -13,6 +13,9 @@ import (
 
 // projectDetailData is the presentation envelope for /projects/{slug}.
 type projectDetailData struct {
+	// ReportURL opens the project's hours report for a manager or its lead;
+	// empty for anyone else or when the workspace has no reports.
+	ReportURL       string
 	Weeks           []projectWeekRow
 	WeeklyNormLabel string
 	WeeklyNormInput string
@@ -160,6 +163,9 @@ func (s *Server) buildProjectDetailPage(r *http.Request, snapshot appmodel.Proje
 		RateInput: rateInput, EstimatePercent: estimatePercent, Currencies: currencyOptions(),
 	}
 	data.Currency = detail.Currency
+	if s.teamModules(r)["reports"] && (canReadFinance(r) || (p.LeadUserID > 0 && p.LeadUserID == authenticatedUserID(r))) {
+		data.ReportURL = "/reports/run?id=by-day-person&project_id=" + strconv.FormatInt(p.ID, 10)
+	}
 	if canManage(r) && s.teamModules(r)["invoices"] {
 		data.Unbilled = unbilledViewsFrom(snapshot.Unbilled, r)
 	}

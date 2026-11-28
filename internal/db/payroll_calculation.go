@@ -23,12 +23,12 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 	}
 	// members with a pay: hourly rates, or the fixed monthly salary (FIN-26)
 	mrows, err := queryer.QueryContext(ctx,
-		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email, '' AS left_at
+		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email, '' AS left_at, COALESCE(NULLIF(m.work_days, ''), '12345')
 		 FROM memberships m
 		 JOIN users u ON u.id = m.user_id
 		 WHERE m.team_id = ? AND (COALESCE(m.hourly_pay_cents, 0) > 0 OR (COALESCE(m.pay_kind, 'hourly') = 'monthly' AND COALESCE(m.monthly_pay_cents, 0) > 0))
 		 UNION ALL
-		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), COALESCE(f.pay_kind, 'hourly'), COALESCE(f.monthly_pay_cents, 0), u.name, u.email, f.left_at
+		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), COALESCE(f.pay_kind, 'hourly'), COALESCE(f.monthly_pay_cents, 0), u.name, u.email, f.left_at, '12345'
 		 FROM former_members f
 		 JOIN users u ON u.id = f.user_id
 		 WHERE f.team_id = ? AND (COALESCE(f.hourly_pay_cents, 0) > 0 OR (COALESCE(f.pay_kind, 'hourly') = 'monthly' AND COALESCE(f.monthly_pay_cents, 0) > 0))
@@ -45,11 +45,12 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 		name   string
 		email  string
 		left   string
+		days   string
 	}
 	var members []member
 	for mrows.Next() {
 		var m member
-		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email, &m.left); err != nil {
+		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email, &m.left, &m.days); err != nil {
 			mrows.Close()
 			return nil, err
 		}
@@ -140,6 +141,14 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 		return nil, err
 	}
 
+	// The salary follows the month's working days (FIN-26): a month a member
+	// was away for part of pays the share of the days to be worked that they
+	// were not away, by their own week, the holidays and the transfers.
+	calendar, err := loadSalaryCalendar(ctx, queryer, teamID, start, end)
+	if err != nil {
+		return nil, err
+	}
+
 	lines := make([]PayrollLine, 0, len(members))
 	for _, m := range members {
 		label := m.name
@@ -171,9 +180,17 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 			if int64(months) > ((1<<63)-1)/int64(m.salary) {
 				return nil, fmt.Errorf("salary for member %d overflows cents", m.id)
 			}
+			amount := m.salary * months
+			if m.left == "" {
+				prorated, worked, norm := calendar.salary(m.id, m.days, m.salary, start, end)
+				if worked < norm {
+					amount = prorated
+					label = fmt.Sprintf("%s (%d из %d дн.)", label, worked, norm)
+				}
+			}
 			lines = append(lines, PayrollLine{
 				UserID: m.id, Label: label,
-				Seconds: 0, RateCents: 0, AmountCents: m.salary * months,
+				Seconds: 0, RateCents: 0, AmountCents: amount,
 			})
 			continue
 		}
@@ -223,4 +240,86 @@ func monthsPresent(start, end, leftAt time.Time) int {
 		return 0
 	}
 	return (lastMonth.Year()-first.Year())*12 + int(lastMonth.Month()) - int(first.Month()) + 1
+}
+
+// salaryCalendar holds the days that decide a salary over a run: the
+// workspace's holidays and transfers, and who was away when.
+type salaryCalendar struct {
+	off, work map[string]bool
+	away      map[int64]map[string]bool
+}
+
+func loadSalaryCalendar(ctx context.Context, q payrollQueryer, teamID int64, start, end time.Time) (salaryCalendar, error) {
+	cal := salaryCalendar{off: map[string]bool{}, work: map[string]bool{}, away: map[int64]map[string]bool{}}
+	first := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location()).Format("2006-01-02")
+	last := end.Add(-time.Nanosecond)
+	until := time.Date(last.Year(), last.Month(), 1, 0, 0, 0, 0, last.Location()).AddDate(0, 1, 0).Format("2006-01-02")
+	rows, err := q.QueryContext(ctx, `SELECT day, kind FROM team_holidays WHERE team_id = ? AND day >= ? AND day < ?`, teamID, first, until)
+	if err != nil {
+		return cal, err
+	}
+	for rows.Next() {
+		var day, kind string
+		if err := rows.Scan(&day, &kind); err != nil {
+			rows.Close()
+			return cal, err
+		}
+		switch kind {
+		case "off":
+			cal.off[day] = true
+		case "work":
+			cal.work[day] = true
+		}
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return cal, err
+	}
+	rows, err = q.QueryContext(ctx, `SELECT user_id, day FROM member_absences WHERE team_id = ? AND day >= ? AND day < ?`, teamID, first, until)
+	if err != nil {
+		return cal, err
+	}
+	for rows.Next() {
+		var userID int64
+		var day string
+		if err := rows.Scan(&userID, &day); err != nil {
+			rows.Close()
+			return cal, err
+		}
+		if cal.away[userID] == nil {
+			cal.away[userID] = map[string]bool{}
+		}
+		cal.away[userID][day] = true
+	}
+	rows.Close()
+	return cal, rows.Err()
+}
+
+// salary prices a member's salary over the calendar months a run touches:
+// each month pays salary × days worked ÷ days to be worked, rounded to the
+// cent. It answers the amount and the days, summed over the months.
+func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start, end time.Time) (amount, worked, norm int) {
+	month := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
+	last := end.Add(-time.Nanosecond)
+	for !month.After(last) {
+		next := month.AddDate(0, 1, 0)
+		monthNorm, monthWorked := 0, 0
+		for day := month; day.Before(next); day = day.AddDate(0, 0, 1) {
+			key := day.Format("2006-01-02")
+			if c.off[key] || !(model.WorksOn(workDays, day.Weekday()) || c.work[key]) {
+				continue
+			}
+			monthNorm++
+			if !c.away[userID][key] {
+				monthWorked++
+			}
+		}
+		if monthNorm > 0 {
+			amount += int((int64(monthly)*int64(monthWorked) + int64(monthNorm)/2) / int64(monthNorm))
+		}
+		worked += monthWorked
+		norm += monthNorm
+		month = next
+	}
+	return amount, worked, norm
 }

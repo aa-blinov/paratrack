@@ -61,6 +61,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /invoices/{id}", s.module("invoices", s.finance(s.handleInvoiceDetail)))
 	pages.HandleFunc("POST /invoices/{id}/status", s.module("invoices", s.manage(s.handleInvoiceStatus)))
 	pages.HandleFunc("POST /invoices/{id}/void", s.module("invoices", s.manage(s.handleInvoiceVoid)))
+	pages.HandleFunc("POST /invoices/{id}/resend", s.module("invoices", s.manage(s.handleInvoiceResend)))
 	pages.HandleFunc("POST /invoices/{id}/delete", s.module("invoices", s.manage(s.handleInvoiceDelete)))
 	pages.HandleFunc("GET /invoices/{id}/pdf", s.module("invoices", s.finance(s.handleInvoicePDF)))
 	pages.HandleFunc("GET /invoices/{id}/sessions.csv", s.module("invoices", s.finance(s.handleInvoiceSessionsCSV)))
@@ -86,6 +87,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /payroll/{id}", s.module("payroll", s.finance(s.handlePayrollDetail)))
 	pages.HandleFunc("GET /payroll/{id}/export.csv", s.module("payroll", s.finance(s.handlePayrollExport)))
 	pages.HandleFunc("POST /payroll/{id}/paid", s.module("payroll", s.finance(s.handlePayrollPaid)))
+	pages.HandleFunc("POST /payroll/{id}/unpaid", s.module("payroll", s.finance(s.handlePayrollUnpaid)))
 	pages.HandleFunc("POST /payroll/{id}/delete", s.module("payroll", s.manage(s.handlePayrollDelete)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments", s.module("payroll", s.manage(s.handlePayrollAddAdjustment)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments/{line}/delete", s.module("payroll", s.manage(s.handlePayrollDeleteAdjustment)))
@@ -103,7 +105,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	// Integration marketplace and saved report execution.
 	pages.HandleFunc("GET /integrations/marketplace", s.module("integrations", s.handleMarketplace))
 	pages.HandleFunc("GET /reports", s.module("reports", s.finance(s.handleReports)))
-	pages.HandleFunc("GET /reports/run", s.module("reports", s.finance(s.handleReportRun)))
+	pages.HandleFunc("GET /reports/run", s.module("reports", s.reportAccess(s.handleReportRun)))
 
 	// Imports from other trackers.
 	pages.HandleFunc("GET /import", s.module("import", s.handleImport))

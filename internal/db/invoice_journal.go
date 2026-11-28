@@ -252,8 +252,11 @@ func (d *DB) ReverseInvoicePayment(ctx context.Context, request appmodel.Invoice
 	if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, paidOn, paidOn.AddDate(0, 0, 1)); err != nil {
 		return err
 	}
+	// The storno is dated the day of the payment it reverses: the mistake is
+	// taken out of the month it was booked in (open, as checked above), not
+	// moved into this one, so the cash book of that month nets to zero.
 	now := d.currentTime()
-	today := now.In(loc).Format("2006-01-02")
+	today := paidOnText
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO invoice_payments (team_id, invoice_id, paid_on, amount_cents, note, source, created_at, reverses)
 		 VALUES (?, ?, ?, ?, ?, 'reversal', ?, ?)`,

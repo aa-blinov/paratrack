@@ -45,6 +45,7 @@ type Store interface {
 	ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNoticeRequest) (bool, error)
 	ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTimerNoticeRequest) (bool, error)
 	GoalLimitCandidates(ctx context.Context) ([]appmodel.GoalLimitCandidate, error)
+	ProjectLeads(ctx context.Context, teamID int64) (map[int64]int64, error)
 	ClaimGoalLimitNotice(ctx context.Context, request appmodel.GoalLimitNoticeRequest) (bool, error)
 	ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error)
 	TeamLocation(ctx context.Context, teamID int64) (*time.Location, error)
@@ -333,6 +334,10 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 			if err != nil {
 				return err
 			}
+			leads, err := s.store.ProjectLeads(ctx, teamID)
+			if err != nil {
+				return err
+			}
 			for _, row := range snapshot.Rows {
 				// A plan on someone away the whole week (no time available) is
 				// the plainest overload of all, not a row to skip.
@@ -343,17 +348,33 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 				if err != nil {
 					return err
 				}
-				// One claim serves every manager, so it waits until none of
+				// The leads of the projects the person is planned on hear of
+				// it too: they are the ones who move the plan.
+				recipients := append([]int64(nil), managers...)
+				for projectID, minutes := range row.ByProject {
+					total := 0
+					for _, m := range minutes {
+						total += m
+					}
+					if lead := leads[projectID]; total > 0 && lead > 0 && !contains(recipients, lead) {
+						recipients = append(recipients, lead)
+					}
+				}
+				night, err = s.teamNightOnes(ctx, teamID, recipients, now)
+				if err != nil {
+					return err
+				}
+				// One claim serves every recipient, so it waits until none of
 				// them is asleep, as the budget warning does: claimed while
 				// one sleeps, it would never reach them.
 				asleep := false
-				for _, id := range managers {
+				for _, id := range recipients {
 					asleep = asleep || night[id]
 				}
-				if asleep || len(managers) == 0 {
+				if asleep || len(recipients) == 0 {
 					continue
 				}
-				awake := managers
+				awake := recipients
 				claimed, err := s.store.ClaimOverloadNotice(ctx, appmodel.OverloadNoticeRequest{TeamID: teamID, UserID: row.UserID, Week: week.Format("2006-01-02")})
 				if err != nil {
 					return err
@@ -667,12 +688,19 @@ func (s *Service) budgets(ctx context.Context, now time.Time) error {
 			forecast = (p.TrackedSeconds + p.PlannedMinutes*60) * 100 / (p.EstimateMinutes * 60)
 			what = fmt.Sprintf("%d из %d ч оценки", p.TrackedSeconds/3600, p.EstimateMinutes/60)
 		}
-		if p.BudgetCents > 0 && p.RateCents > 0 {
+		// The money counts at the project's rate, or, without one, at the
+		// members' rates for the client that priced what was spent; the plan
+		// ahead is priced at the average hour spent so far.
+		rate := p.RateCents
+		if rate <= 0 && p.TrackedSeconds > 0 {
+			rate = int(int64(p.SpentCents) * 3600 / int64(p.TrackedSeconds))
+		}
+		if p.BudgetCents > 0 && (p.RateCents > 0 || p.SpentCents > 0) {
 			if share := p.SpentCents * 100 / p.BudgetCents; share > used {
 				used = share
 				what = fmt.Sprintf("%d из %d бюджета", p.SpentCents/100, p.BudgetCents/100)
 			}
-			planned := int(int64(p.PlannedMinutes) * int64(p.RateCents) / 60)
+			planned := int(int64(p.PlannedMinutes) * int64(rate) / 60)
 			if share := (p.SpentCents + planned) * 100 / p.BudgetCents; share > forecast {
 				forecast = share
 			}

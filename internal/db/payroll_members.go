@@ -64,6 +64,13 @@ func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPay
 		sets = append(sets, "pay_kind = ?")
 		args = append(args, *kind)
 	}
+	if request.BillRateCents != nil {
+		if *request.BillRateCents < 0 {
+			return fmt.Errorf("rate must be >= 0")
+		}
+		sets = append(sets, "bill_rate_cents = ?")
+		args = append(args, *request.BillRateCents)
+	}
 	if request.WorkDays != nil {
 		days, ok := model.NormalizeWorkDays(*request.WorkDays)
 		if !ok {
@@ -102,7 +109,7 @@ func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPay
 // member in one query for payroll roster views.
 func (d *DB) ListMemberPayrollSettings(ctx context.Context, teamID int64) ([]model.MemberPayrollSettings, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT user_id, COALESCE(pay_kind, 'hourly'), COALESCE(hourly_pay_cents, 0), COALESCE(monthly_pay_cents, 0), COALESCE(capacity_minutes, 0), COALESCE(NULLIF(work_days, ''), '12345')
+		`SELECT user_id, COALESCE(pay_kind, 'hourly'), COALESCE(hourly_pay_cents, 0), COALESCE(monthly_pay_cents, 0), COALESCE(capacity_minutes, 0), COALESCE(NULLIF(work_days, ''), '12345'), COALESCE(bill_rate_cents, 0)
 		 FROM memberships WHERE team_id = ? ORDER BY user_id`, teamID)
 	if err != nil {
 		return nil, err
@@ -111,7 +118,7 @@ func (d *DB) ListMemberPayrollSettings(ctx context.Context, teamID int64) ([]mod
 	var settings []model.MemberPayrollSettings
 	for rows.Next() {
 		var item model.MemberPayrollSettings
-		if err := rows.Scan(&item.UserID, &item.Kind, &item.PayCents, &item.MonthlyPayCents, &item.CapacityMinutes, &item.WorkDays); err != nil {
+		if err := rows.Scan(&item.UserID, &item.Kind, &item.PayCents, &item.MonthlyPayCents, &item.CapacityMinutes, &item.WorkDays, &item.BillRateCents); err != nil {
 			return nil, err
 		}
 		settings = append(settings, item)

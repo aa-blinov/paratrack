@@ -239,7 +239,7 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT p.id, p.budget_cents,
 		        COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), t.currency, 'RUB'),
-		        COALESCE(p.billable_rate_cents, 0), x.total_secs, x.unbilled_secs,
+		        COALESCE(p.billable_rate_cents, 0), x.total_secs, x.unbilled_secs, COALESCE(x.bill_rate, 0), COALESCE(x.aid, 0),
 		        CASE WHEN COALESCE(NULLIF(cl.currency, ''), '') <> '' THEN 'client'
 		             WHEN COALESCE(NULLIF(p.currency, ''), '') <> '' THEN 'project'
 		             ELSE 'team' END
@@ -247,17 +247,19 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 		 JOIN teams t ON t.id = p.team_id
 		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		 LEFT JOIN (
-		     SELECT `+sessionProject+` AS pid,
+		     SELECT `+sessionProject+` AS pid, a.id AS aid,
 		            SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
 		                     ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END) AS total_secs,
 		            SUM(CASE WHEN s.invoice_id IS NULL
 		                     THEN (CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
 		                           ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END)
 		                     ELSE 0 END) AS unbilled_secs
+		            , COALESCE(m.bill_rate_cents, 0) AS bill_rate
 		     FROM sessions s
 		     JOIN activities a ON a.id = s.activity_id
+		     LEFT JOIN memberships m ON m.team_id = s.team_id AND m.user_id = s.user_id
 		     WHERE s.team_id = ? AND s.end_at IS NOT NULL
-		     GROUP BY `+sessionProject+`, a.id
+		     GROUP BY `+sessionProject+`, a.id, s.user_id, m.bill_rate_cents
 		 ) x ON x.pid = p.id
 		 WHERE p.team_id = ?`,
 		query.TeamID, query.TeamID)
@@ -274,6 +276,12 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 	// sum of those lines. Pricing the project's total time instead would round
 	// once for all activities and disagree with the invoice by a rounding step.
 	out := map[int64]appmodel.ProjectBudget{}
+	type activityLine struct {
+		rate            int
+		total, unbilled int64
+	}
+	pending := map[[2]int64]activityLine{}
+	var order [][2]int64
 	for rows.Next() {
 		var (
 			projectID    int64
@@ -283,8 +291,10 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 			rate         int
 			totalSecs    sql.NullInt64
 			unbilledSecs sql.NullInt64
+			billRate     int
+			activityID   int64
 		)
-		if err := rows.Scan(&projectID, &budgetCents, &currency, &rate, &totalSecs, &unbilledSecs, &source); err != nil {
+		if err := rows.Scan(&projectID, &budgetCents, &currency, &rate, &totalSecs, &unbilledSecs, &billRate, &activityID, &source); err != nil {
 			return nil, err
 		}
 		budget, seen := out[projectID]
@@ -295,6 +305,23 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 				budget.BudgetCents = &v
 			}
 		}
+		// With a rate of its own, the project is priced line by activity as
+		// the invoice prices it: the person rows are added up first and
+		// priced once the rows are read. Without one, each member's rate for
+		// the client prices their own line, so the budget still counts.
+		if rate > 0 {
+			key := [2]int64{projectID, activityID}
+			if _, ok := pending[key]; !ok {
+				order = append(order, key)
+			}
+			p := pending[key]
+			p.rate, p.total, p.unbilled = rate, p.total+totalSecs.Int64, p.unbilled+unbilledSecs.Int64
+			pending[key] = p
+			budget.TrackedSeconds += totalSecs.Int64
+			out[projectID] = budget
+			continue
+		}
+		rate = billRate
 		spent, err := priceProjectSeconds(int(totalSecs.Int64), rate, rules)
 		if err != nil {
 			return nil, fmt.Errorf("price project %d budget: %w", projectID, err)
@@ -311,6 +338,25 @@ func (d *DB) ProjectBudgetSummaries(ctx context.Context, query appmodel.ProjectB
 			return nil, err
 		}
 		out[projectID] = budget
+	}
+	for _, key := range order {
+		line := pending[key]
+		budget := out[key[0]]
+		spent, err := priceProjectSeconds(int(line.total), line.rate, rules)
+		if err != nil {
+			return nil, fmt.Errorf("price project %d budget: %w", key[0], err)
+		}
+		unbilled, err := priceProjectSeconds(int(line.unbilled), line.rate, rules)
+		if err != nil {
+			return nil, fmt.Errorf("price project %d unbilled: %w", key[0], err)
+		}
+		if budget.SpentCents, err = money.AddCents(budget.SpentCents, spent); err != nil {
+			return nil, err
+		}
+		if budget.UnbilledCents, err = money.AddCents(budget.UnbilledCents, unbilled); err != nil {
+			return nil, err
+		}
+		out[key[0]] = budget
 	}
 	for projectID, budget := range out {
 		budget.BilledCents = budget.SpentCents - budget.UnbilledCents

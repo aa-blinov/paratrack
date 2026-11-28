@@ -278,3 +278,47 @@ func monthStartIn(at time.Time, loc *time.Location) time.Time {
 	local := at.In(loc)
 	return time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, loc)
 }
+
+// lockInvoiceOpenPeriodTx refuses a change to an invoice whose period
+// overlaps a closed month: a draft left in a month the books handed over
+// cannot be edited, rebuilt or issued there either.
+func lockInvoiceOpenPeriodTx(ctx context.Context, tx *Tx, teamID, invoiceID int64) error {
+	var start, end string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT period_start, period_end FROM invoices WHERE id = ? AND team_id = ?`, invoiceID, teamID).Scan(&start, &end); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	from, err := ScanTime(start)
+	if err != nil {
+		return err
+	}
+	to, err := ScanTime(end)
+	if err != nil {
+		return err
+	}
+	return lockClosedPeriodSpan(ctx, tx, teamID, from, to)
+}
+
+// lockPayrollOpenPeriodTx is lockInvoiceOpenPeriodTx for a pay run.
+func lockPayrollOpenPeriodTx(ctx context.Context, tx *Tx, teamID, runID int64) error {
+	var start, end string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT period_start, period_end FROM payroll_runs WHERE id = ? AND team_id = ?`, runID, teamID).Scan(&start, &end); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	from, err := ScanTime(start)
+	if err != nil {
+		return err
+	}
+	to, err := ScanTime(end)
+	if err != nil {
+		return err
+	}
+	return lockClosedPeriodSpan(ctx, tx, teamID, from, to)
+}

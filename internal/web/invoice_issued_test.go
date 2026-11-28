@@ -138,3 +138,35 @@ func TestRegisterAndLetterUseTheIssueDay(t *testing.T) {
 		t.Fatalf("the register (want %s, today %s): %q", issuedOn, today, csv)
 	}
 }
+
+// An issued invoice is sent again through the queue without moving its
+// status, and a client link can be closed alone.
+func TestResendAndCloseOneLink(t *testing.T) {
+	e, _, _, id := issuedInvoiceEnv(t, "resend@x.test")
+	e.do("POST", "/invoices/"+itoa64(id)+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
+	jsonHeader := map[string]string{"Accept": "application/json"}
+	for i := 0; i < 2; i++ {
+		e.do("POST", "/api/invoices/"+itoa64(id)+"/share", url.Values{}, jsonHeader).Body.Close()
+	}
+	var list struct {
+		Links []struct {
+			ID int64 `json:"id"`
+		} `json:"links"`
+	}
+	if err := json.Unmarshal([]byte(readBody(t, e.do("GET", "/api/invoices/"+itoa64(id)+"/share", nil, jsonHeader))), &list); err != nil || len(list.Links) != 2 {
+		t.Fatalf("links: %+v %v", list, err)
+	}
+	e.do("DELETE", "/api/invoices/"+itoa64(id)+"/share?link="+itoa64(list.Links[0].ID), nil, jsonHeader).Body.Close()
+	var left int
+	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM invoice_share_links WHERE invoice_id = ?`, id).Scan(&left)
+	if left != 1 {
+		t.Fatalf("closing one link left %d", left)
+	}
+	resp := e.do("POST", "/invoices/"+itoa64(id)+"/resend", url.Values{"to": {"buh@romashka.ru"}}, nil)
+	resp.Body.Close()
+	var status string
+	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT status FROM invoices WHERE id = ?`, id).Scan(&status)
+	if status != "sent" {
+		t.Fatalf("the resend moved the status to %q", status)
+	}
+}
