@@ -5,7 +5,7 @@ import { filterInvoices } from "./invoice-filter"
 const all = { status: "all", issuedFrom: "", issuedTo: "", unpaidOnly: false }
 
 function invoice(id: number, status: string, issued: string, overdue = false): InvoiceSummary {
-  return { ID: id, Number: `INV-${id}`, Client: "Acme", Status: status, Total: "", Hours: "", Period: "", Due: "", Overdue: overdue, Issued: issued, Partial: "" }
+  return { ID: id, Number: `INV-${id}`, Client: "Acme", Status: status, Total: "", Hours: "", Period: "", Due: "", Overdue: overdue, Issued: issued, IssuedLabel: issued, Partial: "" }
 }
 
 const items = [

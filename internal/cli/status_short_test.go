@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,16 +21,19 @@ import (
 // falls back to the last answer moved forward by the time since, marks that
 // answer as not fresh, says "offline" when it has nothing, and never fails.
 func TestRemoteStatusShortForPrompts(t *testing.T) {
-	var hang, refuse, forbid bool
+	// The handler runs on its own goroutines, and a hanging answer outlives the
+	// call that started it, so the switches are atomic: writing them plainly is a
+	// data race under `go test -race`, which is how CI runs this package.
+	var hang, refuse, forbid atomic.Bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if hang {
+		if hang.Load() {
 			time.Sleep(2 * time.Second)
 		}
-		if refuse {
+		if refuse.Load() {
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-		if forbid {
+		if forbid.Load() {
 			w.WriteHeader(http.StatusForbidden)
 			return
 		}
@@ -64,7 +68,7 @@ func TestRemoteStatusShortForPrompts(t *testing.T) {
 		t.Fatalf("fresh line = %q", got)
 	}
 
-	hang = true
+	hang.Store(true)
 	now = now.Add(10 * time.Minute)
 	began := time.Now()
 	if got := short(); got != "API work 1h15m ?" {
@@ -90,25 +94,27 @@ func TestRemoteStatusShortForPrompts(t *testing.T) {
 	now = now.Add(20 * time.Minute)
 
 	// A refused token says so instead of hiding behind the cache.
-	hang, refuse = false, true
+	hang.Store(false)
+	refuse.Store(true)
 	if got := short(); got != "auth?" {
 		t.Fatalf("refused token line = %q", got)
 	}
 	if _, err := os.Stat(rt.StatusCachePath); !os.IsNotExist(err) {
 		t.Fatalf("a refused token must drop the cache: %v", err)
 	}
-	refuse, forbid = false, true
+	refuse.Store(false)
+	forbid.Store(true)
 	if got := short(); got != "access?" {
 		t.Fatalf("token without a seat line = %q", got)
 	}
-	forbid = false
+	forbid.Store(false)
 	_ = short()
 
-	hang = false
+	hang.Store(false)
 	if err := RunWithRuntime([]string{"stop", "7"}, rt); err != nil {
 		t.Fatalf("stop: %v", err)
 	}
-	hang = true
+	hang.Store(true)
 	if got := short(); got != "offline" {
 		t.Fatalf("after stop the cache must be gone, got %q", got)
 	}
