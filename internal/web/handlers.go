@@ -213,4 +213,4 @@ func (s *Server) toast(w http.ResponseWriter, msg, kind string) {
 	}
 }
 
-// ---------- JSON / fragments ---------------------------------------
+// ---------- JSON / form endpoints ----------------------------------

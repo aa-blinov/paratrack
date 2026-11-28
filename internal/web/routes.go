@@ -17,7 +17,7 @@ import (
 //   - Auth page — page routes redirect unauthenticated visitors to
 //     /login so the browser can flow through the form normally.
 //   - Auth API — every /api/* call (other than the auth flow itself)
-//     returns a JSON body on auth failure, so HTMX / curl / Playwright
+//     returns a JSON body on auth failure, so fetch / curl / Playwright
 //     all behave sensibly.
 //
 // The middleware sets User and Team on r.Context() before dispatching

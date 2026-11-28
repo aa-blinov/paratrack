@@ -2,8 +2,8 @@
 
 A time tracker whose tracked minutes turn into client invoices and team payouts.
 One Go binary serves the web app and the CLI, and Postgres 17 is the only store.
-The screens are React 19 on shadcn/ui with Go templates and HTMX fragments
-underneath; the styles and the bundle are embedded in the binary.
+The screens are React 19 on shadcn/ui and Tailwind v4 inside a Go `base.html`
+shell; the styles and the bundle are embedded in the binary.
 
 This file is what you need to work on the project without reading all of it.
 

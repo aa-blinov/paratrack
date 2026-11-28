@@ -5,8 +5,8 @@ import "net/http"
 func (s *Server) registerProtectedAPIRoutes(mux *http.ServeMux, apiAuth func(http.Handler) http.Handler) {
 	// JSON API routes are registered directly on the top-level mux. The
 	// apiAuth middleware makes authentication failures return JSON 401.
-	// Form and HTMX submissions under /api paths remain on the pages mux
-	// above, where unauthenticated requests redirect to the login page.
+	// Form submissions under /api paths remain on the pages mux above,
+	// where unauthenticated requests redirect to the login page.
 	api := func(method, path string, h http.HandlerFunc) {
 		if method != http.MethodGet {
 			// Only a write that carries an Idempotency-Key header is affected.

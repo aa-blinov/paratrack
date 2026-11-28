@@ -18,11 +18,11 @@ import (
 //
 // A non-HttpOnly `paratrack_csrf` cookie holds a random token. Every
 // state-changing request (POST/PATCH/DELETE) must echo it either as the
-// `csrf_token` form field or the `X-CSRF-Token` header. HTMX sends the
-// header via hx-headers on <body>; plain forms carry a hidden input.
+// `csrf_token` form field or the `X-CSRF-Token` header. The React client sends
+// the header on fetch; plain forms carry a hidden input.
 //
-// The cookie is deliberately readable by JS so app.js can populate
-// hx-headers without a server round-trip. An attacker on another origin
+// The cookie is deliberately readable by JS so the client can populate
+// X-CSRF-Token without a server round-trip. An attacker on another origin
 // cannot read it (SOP) and cannot make the browser send it on a
 // cross-site form POST that we then accept — the header/field must
 // match, and cross-site pages cannot read the cookie value.
@@ -80,7 +80,7 @@ func issueCSRF(w http.ResponseWriter, r *http.Request) string {
 		Name:     name,
 		Value:    token,
 		Path:     "/",
-		HttpOnly: false, // JS must read it for hx-headers
+		HttpOnly: false, // JS must read it for X-CSRF-Token
 		SameSite: sameSiteFor(r),
 		MaxAge:   int(appmodel.SessionTTL.Seconds()),
 		Secure:   r != nil && isSecureRequest(r),

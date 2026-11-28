@@ -283,8 +283,6 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 // handleTimesheetCell writes one grid cell. Form:
 //
 //	activity_id, date (YYYY-MM-DD), minutes
-//
-// Responds with the re-rendered row so HTMX can swap it.
 func (s *Server) handleTimesheetCell(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)

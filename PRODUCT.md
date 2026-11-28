@@ -85,11 +85,9 @@ Against Toggl, Clockify and Harvest, four things hold together (confirmed):
 
 Confirmed by the code:
 
-- The full-page screens and the shared navigation shell are React 19 on
-  shadcn/ui, and Go renders the typed bootstrap data for them. Go templates
-  remain for utility pages and HTML fragments, and HTMX with Alpine.js handle
-  individual actions and fragment refreshes. Tailwind v4 and DaisyUI v5 style
-  the utility pages and fragments.
+- All screens and the shared navigation shell are React 19 on shadcn/ui and
+  Tailwind v4, and Go renders the `base.html` shell with typed bootstrap data
+  for them (`email.html` formats outgoing emails).
 - Postgres is the only database, and the schema is created and migrated at
   startup.
 - A CLI (`paratrack start|stop|stats...`) works against the same Postgres

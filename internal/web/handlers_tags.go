@@ -74,8 +74,7 @@ func (s *Server) handleTagsDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTagsRename relabels a tag by id, keeping the sessions that carry it.
-// Form: id=N&name=…  HTMX callers get the `tags-list` fragment back so the
-// page list refreshes in place; plain requests keep the JSON shape.
+// Form: id=N&name=…
 func (s *Server) handleTagsRename(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)

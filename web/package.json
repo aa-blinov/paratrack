@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "version": "0.0.0",
-  "description": "paratrack UI source — React and shadcn/ui application with Go-rendered fragments",
+  "description": "paratrack UI source — React 19 and shadcn/ui application",
   "scripts": {
     "build": "npm run build:react",
     "build:react": "vite build && tailwindcss -i ./src/ui.css -o ../internal/web/static/ui/app.css --minify && node ./scripts/scope-react-css.mjs",
