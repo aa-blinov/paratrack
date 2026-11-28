@@ -29,6 +29,7 @@ type Store interface {
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
 	AddPayrollAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
 	DeletePayrollAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
+	RecalculatePayrollDraft(context.Context, appmodel.PayrollRecalculateRequest) error
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	ListMemberPayrollSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
@@ -304,6 +305,23 @@ func (s *Service) DeleteAdjustment(ctx context.Context, request appmodel.Payroll
 		return fmt.Errorf("delete payroll adjustment: %w", err)
 	}
 	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.adjustment_delete", fmt.Sprint(request.RunID), fmt.Sprint(request.LineID))
+	return nil
+}
+
+// RecalculateDraft prices a draft pay run again from the current timesheet,
+// keeping fixed adjustments and re-taking percent ones of the new earnings.
+func (s *Service) RecalculateDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidTeam
+	}
+	if request.RunID <= 0 {
+		return ErrNotFound
+	}
+	request.At = s.now()
+	if err := s.store.RecalculatePayrollDraft(ctx, request); err != nil {
+		return fmt.Errorf("recalculate payroll draft: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.recalculate", fmt.Sprint(request.RunID), "")
 	return nil
 }
 

@@ -590,6 +590,23 @@ func (s *Server) handlePayrollDeleteAdjustment(w http.ResponseWriter, r *http.Re
 	http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(true, "adjustment deleted"), http.StatusSeeOther)
 }
 
+// handlePayrollRecalculate prices a draft run again after the timesheet changed.
+func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	back := "/payroll/" + strconv.FormatInt(id, 10)
+	if err := s.services.Payroll.RecalculateDraft(r.Context(), appmodel.PayrollRecalculateRequest{
+		TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r),
+	}); err != nil {
+		http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, back+"?flash="+encodeFlash(true, "pay recalculated"), http.StatusSeeOther)
+}
+
 // handleMemberPay saves a member's pay rate + daily capacity.
 func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {

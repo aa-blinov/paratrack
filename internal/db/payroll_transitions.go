@@ -142,10 +142,7 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 		if baseCents <= 0 {
 			return model.ErrNoPayableTime
 		}
-		amountCents = (baseCents*request.PercentBps + 5000) / 10000
-		if request.PercentBps < 0 {
-			amountCents = (baseCents*request.PercentBps - 5000) / 10000
-		}
+		amountCents = percentOfCents(baseCents, request.PercentBps)
 		if amountCents == 0 {
 			return model.ErrNoPayableTime
 		}
@@ -157,8 +154,8 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 		}
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents, kind) VALUES (?, ?, ?, 0, 0, ?, ?)`,
-		request.RunID, request.UserID, label, amountCents, model.PayrollLineAdjustment); err != nil {
+		`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents, kind, percent_bps) VALUES (?, ?, ?, 0, 0, ?, ?, ?)`,
+		request.RunID, request.UserID, label, amountCents, model.PayrollLineAdjustment, request.PercentBps); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -197,6 +194,121 @@ func (d *DB) DeletePayrollAdjustment(ctx context.Context, request appmodel.Payro
 	}
 	if n == 0 {
 		return ErrNotFound
+	}
+	return tx.Commit()
+}
+
+// percentOfCents takes bps basis points of base, rounding half away from zero.
+func percentOfCents(base, bps int) int {
+	if bps < 0 {
+		return (base*bps - 5000) / 10000
+	}
+	return (base*bps + 5000) / 10000
+}
+
+// RecalculatePayrollDraft prices a draft run again from the timesheet as it is
+// now, for the people already on it. Hours, rates and salaries are taken
+// afresh; a fixed bonus or deduction stays as it was, and one given as a
+// percent is taken of the new earnings. The same gates as creating a run
+// apply: only approved weeks and no closed month.
+func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	if _, err := lockPayrollWorkspace(ctx, tx, request.TeamID); err != nil {
+		return err
+	}
+	run, err := getPayrollRun(ctx, tx, request.TeamID, request.RunID, true)
+	if err != nil {
+		return err
+	}
+	if run.Status != "draft" {
+		return model.ErrForbidden
+	}
+	if err := requireApprovedPayrollTime(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
+		return err
+	}
+	if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
+		return err
+	}
+	members := map[int64]bool{}
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT user_id FROM payroll_lines WHERE run_id = ?`, run.ID)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			rows.Close()
+			return err
+		}
+		members[id] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+	if err := lockPayrollMembers(ctx, tx, request.TeamID); err != nil {
+		return err
+	}
+	lines, err := buildPayrollLines(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd, true, request.At)
+	if err != nil {
+		return fmt.Errorf("build payroll lines: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM payroll_lines WHERE run_id = ? AND kind <> ?`, run.ID, model.PayrollLineAdjustment); err != nil {
+		return err
+	}
+	base := map[int64]int{}
+	for _, l := range lines {
+		if !members[l.UserID] {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, ?, ?, ?)`,
+			run.ID, l.UserID, l.Label, l.Seconds, l.RateCents, l.AmountCents); err != nil {
+			return err
+		}
+		base[l.UserID] += l.AmountCents
+	}
+	// The percent is applied in Go, like when it was added, so both round the
+	// same way.
+	for userID := range members {
+		adj, err := tx.QueryContext(ctx,
+			`SELECT id, percent_bps FROM payroll_lines WHERE run_id = ? AND user_id = ? AND kind = ? AND percent_bps <> 0`,
+			run.ID, userID, model.PayrollLineAdjustment)
+		if err != nil {
+			return err
+		}
+		updates := map[int64]int{}
+		for adj.Next() {
+			var id int64
+			var bps int
+			if err := adj.Scan(&id, &bps); err != nil {
+				adj.Close()
+				return err
+			}
+			updates[id] = percentOfCents(base[userID], bps)
+		}
+		if err := adj.Err(); err != nil {
+			adj.Close()
+			return err
+		}
+		if err := adj.Close(); err != nil {
+			return err
+		}
+		for id, amount := range updates {
+			if _, err := tx.ExecContext(ctx, `UPDATE payroll_lines SET amount_cents = ? WHERE id = ?`, amount, id); err != nil {
+				return err
+			}
+		}
 	}
 	return tx.Commit()
 }

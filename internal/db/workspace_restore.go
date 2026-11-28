@@ -389,8 +389,8 @@ func (r *restorer) PayrollRun(run appmodel.ExportPayrollRun) error {
 			kind = model.PayrollLineAdjustment
 		}
 		if err := r.exec("payroll line of "+run.Number,
-			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents, kind) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, userID, line.Label, line.Seconds, line.RateCents, line.AmountCents, kind); err != nil {
+			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents, kind, percent_bps) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+			id, userID, line.Label, line.Seconds, line.RateCents, line.AmountCents, kind, line.PercentBps); err != nil {
 			return err
 		}
 	}

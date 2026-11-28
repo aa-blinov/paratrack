@@ -54,6 +54,14 @@ type PayrollAdjustmentRequest struct {
 	PercentBps int
 }
 
+// PayrollRecalculateRequest prices a draft pay run again from the current timesheet.
+type PayrollRecalculateRequest struct {
+	TeamID   int64
+	RunID    int64
+	CallerID int64
+	At       time.Time
+}
+
 // PayrollAdjustmentDeleteRequest removes a one-off adjustment line from a draft pay run.
 type PayrollAdjustmentDeleteRequest struct {
 	TeamID   int64

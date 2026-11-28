@@ -229,6 +229,7 @@ type ExportPayrollLine struct {
 	RateCents   int64
 	AmountCents int64
 	Kind        string
+	PercentBps  int64
 }
 
 type ExportSchedule struct {

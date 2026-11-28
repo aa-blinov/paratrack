@@ -82,6 +82,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /payroll/{id}/delete", s.module("payroll", s.manage(s.handlePayrollDelete)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments", s.module("payroll", s.manage(s.handlePayrollAddAdjustment)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments/{line}/delete", s.module("payroll", s.manage(s.handlePayrollDeleteAdjustment)))
+	pages.HandleFunc("POST /payroll/{id}/recalculate", s.module("payroll", s.manage(s.handlePayrollRecalculate)))
 	pages.HandleFunc("POST /api/member/pay", s.manage(s.handleMemberPay))
 	pages.HandleFunc("GET /schedule", s.module("schedule", s.handleSchedule))
 	// Managers plan any project; a project's lead plans that one. The write

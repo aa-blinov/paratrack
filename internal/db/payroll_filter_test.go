@@ -1,6 +1,7 @@
 package db
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -100,9 +101,41 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if details.Lines[0].Kind != "" || details.Lines[1].Kind != model.PayrollLineAdjustment || details.Lines[2].Kind != model.PayrollLineAdjustment {
 		t.Fatalf("unexpected kinds: %+v", details.Lines)
 	}
+	// The rate changes after the draft was made. Recalculating prices the hour
+	// at the new rate, keeps the fixed bonus and takes the 6% of the new sum.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 300000 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}); err != nil {
+		t.Fatalf("recalculate: %v", err)
+	}
+	after, err := d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	amounts := map[string]int{}
+	for _, l := range after.Lines {
+		switch {
+		case l.Kind == "":
+			amounts["hours"] += l.AmountCents
+		case strings.Contains(l.Label, "%"):
+			amounts["percent"] += l.AmountCents
+		default:
+			amounts["fixed"] += l.AmountCents
+		}
+	}
+	if amounts["hours"] != 300000 || amounts["fixed"] != 50000 || amounts["percent"] != 18000 || len(after.Lines) != 3 {
+		t.Fatalf("after recalculation: %+v (lines %+v)", amounts, after.Lines)
+	}
+	var pricedID int64
+	for _, l := range after.Lines {
+		if l.Kind == "" {
+			pricedID = l.ID
+		}
+	}
 	// Only an adjustment can be deleted; the priced line stays.
 	if err := d.DeletePayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentDeleteRequest{
-		TeamID: teamID, RunID: run2.ID, CallerID: ownerID, LineID: details.Lines[0].ID,
+		TeamID: teamID, RunID: run2.ID, CallerID: ownerID, LineID: pricedID,
 	}); err == nil {
 		t.Fatal("a priced line was deleted as an adjustment")
 	}

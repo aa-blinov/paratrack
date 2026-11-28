@@ -12,6 +12,10 @@ var columnMigrations = []struct {
 	// same shape as a salary line (no hours, no rate), so only this column
 	// tells the two apart: a percent is taken of the salary, never of a bonus.
 	{"payroll_lines", "kind", "TEXT NOT NULL DEFAULT ''"},
+	// An adjustment given as a percent keeps the percent, in basis points, so
+	// recalculating a draft takes it of the new earnings instead of leaving
+	// the amount worked out from hours that have since changed.
+	{"payroll_lines", "percent_bps", "BIGINT NOT NULL DEFAULT 0"},
 	{"sessions", "paused_at", "TEXT"},
 	{"sessions", "accumulated_seconds", "BIGINT NOT NULL DEFAULT 0"},
 	{"sessions", "last_resume_at", "TEXT"},

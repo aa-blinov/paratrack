@@ -142,6 +142,9 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
       <div className="flex flex-wrap items-center gap-2 text-sm"><a href="/payroll" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "pay.title")}</a><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono">{data.Run.Number}</span><Status lang={lang} status={data.Run.Status} /></div>
       <div className="flex flex-wrap items-center gap-2">
         {data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
+        {/* After a timesheet edit the draft would otherwise pay the old
+            hours, and a percent bonus would stay worked out from them. */}
+        {data.Run.Status === "draft" && <form method="POST" action={`/payroll/${data.Run.ID}/recalculate`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}>{t(lang, "pay.recalculate")}</Button></form>}
         <Button type="button" variant="outline" size="sm" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv`} download><Download aria-hidden="true" />{t(lang, "pay.exportCSV")}</a></Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv?by=day`} download><Download aria-hidden="true" />{t(lang, "pay.exportDays")}</a></Button>

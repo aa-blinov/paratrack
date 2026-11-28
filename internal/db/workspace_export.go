@@ -325,12 +325,12 @@ func exportInvoices(ctx context.Context, tx *Tx, teamID int64, sink appmodel.Wor
 func exportPayrollRuns(ctx context.Context, tx *Tx, teamID int64, emails map[int64]string, sink appmodel.WorkspaceSink) error {
 	lines := map[int64][]appmodel.ExportPayrollLine{}
 	err := queryRows(ctx, tx, "export payroll lines",
-		`SELECT run_id, COALESCE(user_id, 0), label, COALESCE(seconds, 0), COALESCE(rate_cents, 0), COALESCE(amount_cents, 0), kind
+		`SELECT run_id, COALESCE(user_id, 0), label, COALESCE(seconds, 0), COALESCE(rate_cents, 0), COALESCE(amount_cents, 0), kind, percent_bps
 		 FROM payroll_lines WHERE run_id IN (SELECT id FROM payroll_runs WHERE team_id = ?) ORDER BY id`,
 		func(rows *sql.Rows) error {
 			var run, user int64
 			var line appmodel.ExportPayrollLine
-			if err := rows.Scan(&run, &user, &line.Label, &line.Seconds, &line.RateCents, &line.AmountCents, &line.Kind); err != nil {
+			if err := rows.Scan(&run, &user, &line.Label, &line.Seconds, &line.RateCents, &line.AmountCents, &line.Kind, &line.PercentBps); err != nil {
 				return err
 			}
 			line.UserEmail = emails[user]
