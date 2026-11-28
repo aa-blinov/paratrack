@@ -382,6 +382,10 @@ func (d *DB) migratePayrollAdjustmentKind(ctx context.Context) error {
 	return err
 }
 
+// exportPayrollLinePay is the kind a workspace file gives priced time and a
+// salary, which the database stores as an empty kind.
+const exportPayrollLinePay = "pay"
+
 // legacyPayrollAdjustment recognises an adjustment in a workspace file written
 // before payroll lines carried a kind, by the same signal the migration uses.
 func legacyPayrollAdjustment(label string, seconds, rateCents int64) bool {

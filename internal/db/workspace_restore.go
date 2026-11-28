@@ -382,7 +382,10 @@ func (r *restorer) PayrollRun(run appmodel.ExportPayrollRun) error {
 			return err
 		}
 		kind := line.Kind
-		if kind == "" && legacyPayrollAdjustment(line.Label, line.Seconds, line.RateCents) {
+		switch {
+		case kind == exportPayrollLinePay:
+			kind = ""
+		case kind == "" && legacyPayrollAdjustment(line.Label, line.Seconds, line.RateCents):
 			kind = model.PayrollLineAdjustment
 		}
 		if err := r.exec("payroll line of "+run.Number,

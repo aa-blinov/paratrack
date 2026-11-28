@@ -95,6 +95,13 @@ func TestRemoteCLITokenFlow(t *testing.T) {
 	if focusedTarget != "API work" {
 		t.Fatalf("focus by id sent %q, want the activity name", focusedTarget)
 	}
+	// A number that is no running session is an activity's name.
+	if err := RunWithRuntime([]string{"focus", "2026"}, rt); err != nil {
+		t.Fatalf("remote focus by numeric name: %v", err)
+	}
+	if focusedTarget != "2026" {
+		t.Fatalf("focus 2026 sent %q, want the name as typed", focusedTarget)
+	}
 
 	out.Reset()
 	if err := RunWithRuntime([]string{"add", "--activity", "API work", "--start", "2 hours ago", "--duration", "1h", "--project", "core"}, rt); err != nil {

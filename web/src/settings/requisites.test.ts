@@ -34,6 +34,25 @@ describe("requisites", () => {
     expect(text).toBe("ООО Ромашка\nИНН 7707083893\nБИК 044525225\nАдрес: Казань")
   })
 
+  it("keeps the text that shares a line with a number", () => {
+    const { fields, rest } = parseRequisites("ИП Иванов И.И., ИНН: 500100732259\nр/с 4070 2810 9380 0000 0001 в ПАО Сбербанк, БИК 044525225")
+    expect(fields.org).toBe("ИП Иванов И.И.")
+    expect(fields.inn).toBe("500100732259")
+    expect(fields.acc).toBe("40702810938000000001")
+    expect(fields.bank).toBe("ПАО Сбербанк")
+    expect(fields.bik).toBe("044525225")
+    expect(rest).toEqual([])
+    const text = buildRequisites(fields, rest)
+    expect(text.match(/БИК/g)).toHaveLength(1)
+    expect(text).toContain("ИП Иванов И.И.")
+  })
+
+  it("never drops a second number of the same kind", () => {
+    const { fields, rest } = parseRequisites("ООО Ромашка\nИНН 7707083893\nИНН 500100732259 (учредитель)")
+    expect(fields.inn).toBe("7707083893")
+    expect(rest).toEqual(["ИНН 500100732259 (учредитель)"])
+  })
+
   it("checks the ИНН and the account control keys", () => {
     expect(invalidRequisites({ ...emptyRf, inn: "7707083893", ...sber })).toEqual([])
     expect(invalidRequisites({ ...emptyRf, inn: "7707083894" })).toEqual(["inn"])

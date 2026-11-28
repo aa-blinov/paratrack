@@ -334,6 +334,11 @@ func exportPayrollRuns(ctx context.Context, tx *Tx, teamID int64, emails map[int
 				return err
 			}
 			line.UserEmail = emails[user]
+			// Every line states its kind, so restoring this file never falls
+			// back to reading a bonus from the " — " in its label.
+			if line.Kind == "" {
+				line.Kind = exportPayrollLinePay
+			}
 			lines[run] = append(lines[run], line)
 			return nil
 		}, teamID)

@@ -19,38 +19,48 @@ export type RfField = keyof RfFields
 
 export const emptyRf: RfFields = { org: "", inn: "", kpp: "", ogrn: "", bank: "", bik: "", corr: "", acc: "", contract: "" }
 
+// A number may follow its label with a colon or "№" and may be typed in
+// groups ("4070 2810 …"); the groups are joined when it is read.
+const num = String.raw`\s*[:№]?\s*(\d(?:[\d ]*\d)?)`
 const numbered: [RfField, RegExp][] = [
-  ["inn", /ИНН\s*(\d+)/i],
-  ["kpp", /КПП\s*(\d+)/i],
-  ["ogrn", /ОГРН(?:ИП)?(?:\s*\/\s*ОГРНИП)?\s*(\d+)/i],
-  ["acc", /р\/с\s*(\d+)/i],
-  ["bik", /БИК\s*(\d+)/i],
-  ["corr", /к\/с\s*(\d+)/i],
+  ["inn", new RegExp(`ИНН${num}`, "i")],
+  ["kpp", new RegExp(`КПП${num}`, "i")],
+  ["ogrn", new RegExp(`ОГРН(?:ИП)?(?:\\s*/\\s*ОГРНИП)?${num}`, "i")],
+  ["acc", new RegExp(`р/с${num}`, "i")],
+  ["bik", new RegExp(`БИК${num}`, "i")],
+  ["corr", new RegExp(`к/с${num}`, "i")],
 ]
 
-/** parseRequisites splits saved text into the builder's fields. Lines it does
- * not recognise come back in `rest`, so writing the text out again keeps them. */
+/** parseRequisites splits saved text into the builder's fields. Each number
+ * found is cut out of its line; whatever text is left on the line (a company
+ * name in front of its ИНН, a note) is kept, so writing the text out again
+ * loses nothing. Lines with no number come back in `rest`. */
 export function parseRequisites(text: string): { fields: RfFields; rest: string[] } {
   const fields = { ...emptyRf }
   const rest: string[] = []
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
   lines.forEach((line, index) => {
-    let matched = false
+    let left = line
     for (const [key, re] of numbered) {
-      const m = line.match(re)
-      if (m && !fields[key]) {
-        fields[key] = m[1]
-        matched = true
+      const m = left.match(re)
+      if (!m || fields[key]) continue
+      fields[key] = m[1].replace(/\s+/g, "")
+      let cut = m[0]
+      if (key === "acc") {
+        // "р/с … в ПАО Сбербанк, БИК …": the bank runs to the next comma.
+        const bank = left.slice((m.index ?? 0) + m[0].length).match(/^\s+в\s+([^,;]+)/i)
+        if (bank) {
+          if (!fields.bank) fields.bank = bank[1].trim()
+          cut += bank[0]
+        }
       }
+      left = left.replace(cut, " ")
     }
-    if (matched) {
-      const bank = line.match(/р\/с\s*\d+\s+в\s+(.+)$/i)
-      if (bank && !fields.bank) fields.bank = bank[1].trim()
-      return
-    }
-    if (/^договор/i.test(line) && !fields.contract) fields.contract = line
-    else if (index === 0 && !fields.org) fields.org = line
-    else rest.push(line)
+    left = left.replace(/^[\s,;]+|[\s,;]+$/g, "").replace(/\s*[,;](\s*[,;])+\s*/g, ", ").replace(/\s{2,}/g, " ")
+    if (!left) return
+    if (/^договор/i.test(left) && !fields.contract) fields.contract = left
+    else if (index === 0 && !fields.org) fields.org = left
+    else rest.push(left)
   })
   return { fields, rest }
 }

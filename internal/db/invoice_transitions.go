@@ -314,21 +314,8 @@ func (d *DB) MarkInvoiceSentOnce(ctx context.Context, request appmodel.InvoiceMu
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
 		return err
 	}
-	// A discount typed with one zero too many would otherwise go out as a
-	// document that asks the client for a negative sum.
-	var total int
-	if err := tx.QueryRowContext(ctx,
-		`SELECT COALESCE(SUM(l.amount_cents), 0) FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id
-		  WHERE i.id = ? AND i.team_id = ? AND i.status = 'draft'`, id, teamID).Scan(&total); err != nil {
+	if err := requireInvoiceTotalTx(ctx, tx, id); err != nil {
 		return err
-	}
-	var isDraft bool
-	if err := tx.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM invoices WHERE id = ? AND team_id = ? AND status = 'draft')`, id, teamID).Scan(&isDraft); err != nil {
-		return err
-	}
-	if isDraft && total < 0 {
-		return ErrInvoiceTotal
 	}
 	result, err := tx.ExecContext(ctx,
 		`UPDATE invoices SET status = 'sent' WHERE id = ? AND team_id = ? AND status = 'draft'`, id, teamID)
@@ -402,19 +389,12 @@ func (d *DB) AddInvoiceLine(ctx context.Context, request appmodel.InvoiceLineAdd
 	if status != "draft" {
 		return ErrInvoiceNotDraft
 	}
-	if request.AmountCents < 0 {
-		var total int
-		if err := tx.QueryRowContext(ctx,
-			`SELECT COALESCE(SUM(amount_cents), 0) FROM invoice_lines WHERE invoice_id = ?`, request.InvoiceID).Scan(&total); err != nil {
-			return err
-		}
-		if total+request.AmountCents < 0 {
-			return ErrInvoiceTotal
-		}
-	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO invoice_lines (invoice_id, label, detail, seconds, rate_cents, amount_cents) VALUES (?, ?, '', 0, 0, ?)`,
 		request.InvoiceID, request.Label, request.AmountCents); err != nil {
+		return err
+	}
+	if err := requireInvoiceTotalTx(ctx, tx, request.InvoiceID); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -454,5 +434,27 @@ func (d *DB) DeleteInvoiceLine(ctx context.Context, request appmodel.InvoiceLine
 	if n == 0 {
 		return ErrNotFound
 	}
+	// Removing a fee can leave a discount larger than what is left.
+	if err := requireInvoiceTotalTx(ctx, tx, request.InvoiceID); err != nil {
+		return err
+	}
 	return tx.Commit()
+}
+
+// requireInvoiceTotalTx refuses an invoice whose lines add up to less than
+// zero. Every path that changes the lines of a draft or lets it go out (marking
+// it sent, queuing the email) checks it inside its own transaction, so a
+// discount typed with one zero too many, or a fee removed from under a
+// discount, never reaches the client as a demand for a negative sum. A total of
+// exactly zero is allowed: a fully discounted invoice is a real document.
+func requireInvoiceTotalTx(ctx context.Context, tx *Tx, invoiceID int64) error {
+	var total int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(amount_cents), 0) FROM invoice_lines WHERE invoice_id = ?`, invoiceID).Scan(&total); err != nil {
+		return err
+	}
+	if total < 0 {
+		return ErrInvoiceTotal
+	}
+	return nil
 }
