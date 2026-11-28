@@ -198,7 +198,8 @@ Deliberately not true, and worth knowing before a change:
   server error page as a server error, an address that does not answer as
   paratrack as such, and "server unreachable" only when nothing answered. A
   token is saved only after the server accepts it; a saved token that stops
-  working brings the setup back with the reason. The popup is Russian first
+  working brings the setup back with the reason, while a network blip keeps
+  the timer screen. The settings show the saved address and a way back. The popup is Russian first
   (`_locales`). Its tests run the popup against its own popup.html
   (`node --test extension/`, part of `make test`).
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.

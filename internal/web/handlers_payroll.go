@@ -25,6 +25,8 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 	switch {
 	case errors.Is(err, model.ErrPayrollNotDraft):
 		return i18n.T(resolveLang(r), "pay.recalcDraftOnly")
+	case errors.Is(err, model.ErrAdjustmentNoBase):
+		return i18n.T(resolveLang(r), "pay.adjNoBase")
 	case errors.Is(err, appmodel.ErrNoPayRates):
 		return "no member has an hourly rate"
 	case errors.Is(err, appmodel.ErrNoPayableTime):

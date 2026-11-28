@@ -298,7 +298,7 @@ func TestPayrollRecalculationSeesMoneyMovingBetweenPeople(t *testing.T) {
 	}
 	// Renaming Boris to a name that sorts first does not reorder a run made
 	// before: the order follows the names written on its lines.
-	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET name = 'Аарон' WHERE id = ?`, borisID); err != nil {
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET name = 'Aaron' WHERE id = ?`, borisID); err != nil {
 		t.Fatal(err)
 	}
 	if details, err = d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run.ID}); err != nil {
@@ -309,7 +309,7 @@ func TestPayrollRecalculationSeesMoneyMovingBetweenPeople(t *testing.T) {
 	}
 	// Someone with no name and only an email, with a bonus alone, sorts by
 	// the email instead of floating to the top with an empty key.
-	zoyaID := seedApprovalUser(t, d, "zoya-pay-shift@test.local")
+	zoyaID := seedApprovalUser(t, d, "zzz-zoya-pay-shift@test.local")
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET name = '' WHERE id = ?`, zoyaID); err != nil {
 		t.Fatal(err)
 	}
@@ -319,10 +319,16 @@ func TestPayrollRecalculationSeesMoneyMovingBetweenPeople(t *testing.T) {
 	if err := d.AddPayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentRequest{TeamID: teamID, RunID: run.ID, CallerID: ownerID, UserID: zoyaID, Label: "Премия", AmountCents: 10000}); err != nil {
 		t.Fatal(err)
 	}
+	// Her email changes afterwards to one that sorts first: the run keeps
+	// the email written on her line, and the line names her.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET email = 'aaa-zoya@test.local' WHERE id = ?`, zoyaID); err != nil {
+		t.Fatal(err)
+	}
 	if details, err = d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run.ID}); err != nil {
 		t.Fatal(err)
 	}
-	if last := details.Lines[len(details.Lines)-1]; last.UserID != zoyaID {
-		t.Fatalf("an unnamed person floated up: %+v", details.Lines)
+	last := details.Lines[len(details.Lines)-1]
+	if last.UserID != zoyaID || last.Label != "zzz-zoya-pay-shift@test.local — Премия" {
+		t.Fatalf("an unnamed person floated up or lost her name: %+v", details.Lines)
 	}
 }

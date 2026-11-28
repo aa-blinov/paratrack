@@ -125,7 +125,7 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 	}
 	var userName string
 	if err := tx.QueryRowContext(ctx,
-		`SELECT u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? AND m.user_id = ?`,
+		`SELECT COALESCE(NULLIF(TRIM(u.name), ''), u.email) FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? AND m.user_id = ?`,
 		request.TeamID, request.UserID).Scan(&userName); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrNotFound
@@ -143,7 +143,7 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 			return err
 		}
 		if baseCents <= 0 {
-			return model.ErrNoPayableTime
+			return model.ErrAdjustmentNoBase
 		}
 		amountCents = percentOfCents(baseCents, request.PercentBps)
 		if amountCents == 0 {

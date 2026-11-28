@@ -18,6 +18,7 @@ var (
 	ErrPayrollChanged          = errors.New("pay run changed since the preview")
 	ErrNoClientCard            = errors.New("the invoice's project has no client card")
 	ErrPayrollNotDraft         = errors.New("pay run is no longer a draft")
+	ErrAdjustmentNoBase        = errors.New("the member has no hours or salary on this run to take a percent of")
 	ErrPaymentAmount           = errors.New("payment must be above zero and not more than what is still owed")
 	ErrPaymentDate             = errors.New("payment day must be a date")
 	ErrTokenInvalid            = errors.New("api token invalid")

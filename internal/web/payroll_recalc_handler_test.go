@@ -118,6 +118,11 @@ func TestPayrollRecalculationThroughTheScreens(t *testing.T) {
 	if !strings.Contains(lateView.Flash, "Ведомость уже не черновик") {
 		t.Fatalf("+6%% on a paid run: %q", lateView.Flash)
 	}
+	for _, l := range lateView.Run.Lines {
+		if strings.Contains(l.Label, "Налог") {
+			t.Fatalf("the refused +6%% was added anyway: %+v", lateView.Run.Lines)
+		}
+	}
 	paid := e.do("POST", runPath+"/recalculate", nil, nil)
 	paid.Body.Close()
 	after := reactData[payrollDetailPage](t, readBody(t, e.do("GET", paid.Header.Get("Location"), nil, nil)))
