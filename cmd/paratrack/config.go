@@ -278,23 +278,20 @@ func readCLIRemoteFile(path string) (string, string) {
 	return "", ""
 }
 
+// loadCLIRemoteConfig finds the server and the token it belongs to. A token is
+// a password: it only ever goes to the address named beside it, so both are
+// read from one source and never assembled from two. A `.paratrack` file sits
+// in the working copy — a file someone can commit — and it used to supply the
+// address while the token came from the user's own config, which sent the
+// token to that address on a plain `git checkout` through the hook.
 func loadCLIRemoteConfig(configPath string) (string, string) {
-	u := strings.TrimSpace(os.Getenv("PARATRACK_URL"))
-	tok := strings.TrimSpace(os.Getenv("PARATRACK_TOKEN"))
-	if u != "" && tok != "" {
+	if u, tok := strings.TrimSpace(os.Getenv("PARATRACK_URL")), strings.TrimSpace(os.Getenv("PARATRACK_TOKEN")); u != "" && tok != "" {
 		return u, tok
 	}
 	for _, candidate := range []string{".paratrack", configPath} {
-		fu, ftok := readCLIRemoteFile(candidate)
-		if u == "" {
-			u = fu
-		}
-		if tok == "" {
-			tok = ftok
-		}
-		if u != "" && tok != "" {
-			break
+		if u, tok := readCLIRemoteFile(candidate); u != "" && tok != "" {
+			return u, tok
 		}
 	}
-	return u, tok
+	return "", ""
 }

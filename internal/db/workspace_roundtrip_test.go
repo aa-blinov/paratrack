@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/workspacefile"
@@ -50,7 +51,14 @@ func summarizeExport(out appmodel.WorkspaceExport) []string {
 
 	var lines []string
 	for _, m := range out.Members {
-		lines = append(lines, "member "+m.Email+" "+m.Role+" rate="+itoa(m.HourlyPayCents)+" cap="+itoa(m.CapacityMinutes)+" admin="+itoa(m.AdminMinutes)+" days="+m.WorkDays)
+		lines = append(lines, "member "+m.Email+" "+m.Role+" rate="+itoa(m.HourlyPayCents)+" cap="+itoa(m.CapacityMinutes)+" admin="+itoa(m.AdminMinutes)+" days="+m.WorkDays+
+			" pay="+m.PayKind+" salary="+itoa(m.MonthlyPayCents)+" from="+m.EmployedFrom)
+	}
+	for _, h := range out.Holidays {
+		lines = append(lines, "holiday "+h.Day+" "+h.Name+" "+h.Kind)
+	}
+	for _, a := range out.Absences {
+		lines = append(lines, "absence "+a.Email+" "+a.Day+" "+a.Kind+" "+a.Note)
 	}
 	for _, c := range out.Clients {
 		lines = append(lines, "client "+c.Name+" "+c.Email+" "+c.Details+" "+c.Currency)
@@ -145,12 +153,35 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET work_days = '123' WHERE team_id = ? AND user_id = ?`, ws.teamID, ws.memberID); err != nil {
 		t.Fatal(err)
 	}
+	// So does the money: a salary, the day the person was hired, the
+	// workspace calendar and a vacation. Without them a restored month pays a
+	// salaried person nothing and counts their vacation as worked days.
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`UPDATE memberships SET pay_kind = 'monthly', monthly_pay_cents = 120000, employed_from = '2026-01-15' WHERE team_id = ? AND user_id = ?`,
+		ws.teamID, ws.memberID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, '2026-02-23', 'День защитника Отечества', 'off'), (?, '2026-04-30', 'Предпраздничный день', 'short')`,
+		ws.teamID, ws.teamID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO member_absences (team_id, user_id, day, kind, note, created_at) VALUES (?, ?, '2026-03-10', 'vacation', 'отпуск', ?)`,
+		ws.teamID, ws.memberID, FormatTime(time.Now().UTC())); err != nil {
+		t.Fatal(err)
+	}
 	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
 	if !bytes.Contains(file, []byte(`"work_days":"123"`)) {
 		t.Fatal("the file does not carry the part-timer's work days")
+	}
+	for _, want := range []string{`"pay_kind":"monthly"`, `"monthly_pay_cents":120000`, `"holidays"`, `"absences"`} {
+		if !bytes.Contains(file, []byte(want)) {
+			t.Fatalf("the file does not carry %s", want)
+		}
 	}
 	before, err := workspacefile.Read(bytes.NewReader(file))
 	if err != nil {
@@ -177,7 +208,7 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 		t.Fatalf("settings changed: before %+v, after %+v", before.Team, after.Team)
 	}
 	a, b := summarizeExport(before), summarizeExport(after)
-	for _, kind := range []string{"member ", "project ", "activity ", "session ", "task ", "invoice ", "payroll ", "schedule ", "approval ", "report ", "goal "} {
+	for _, kind := range []string{"member ", "holiday ", "absence ", "project ", "activity ", "session ", "task ", "invoice ", "payroll ", "schedule ", "approval ", "report ", "goal "} {
 		if !hasLinePrefix(a, kind) {
 			t.Fatalf("the summary holds no %q line, so the comparison would prove nothing", kind)
 		}

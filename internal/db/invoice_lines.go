@@ -169,6 +169,32 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 	return lines, nil
 }
 
+// MemberBillRates is each member's hourly rate for the client, by user id.
+// A project without a rate of its own prices its hours by these, so a report
+// that ignored them showed member-rate projects as worth nothing.
+func (d *DB) MemberBillRates(ctx context.Context, teamID int64) (map[int64]int, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT user_id, COALESCE(bill_rate_cents, 0) FROM memberships
+		  WHERE team_id = ? AND COALESCE(bill_rate_cents, 0) > 0`, teamID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]int{}
+	for rows.Next() {
+		var userID int64
+		var rate int
+		if err := rows.Scan(&userID, &rate); err != nil {
+			return nil, err
+		}
+		out[userID] = rate
+	}
+	return out, rows.Err()
+}
+
 // Unbilled sums, per project, what an invoice for all unbilled time up to
 // now would say: the same lines rule as BuildInvoiceLinesFor.
 func (d *DB) Unbilled(ctx context.Context, query appmodel.UnbilledProjectQuery) ([]UnbilledProject, error) {

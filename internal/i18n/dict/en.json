@@ -2480,5 +2480,8 @@
   "inv.exportFormat": "Format",
   "inv.export1C": "For 1C import",
   "pay.periodDrafts": "The month still has draft invoices or pay runs: issue or delete them, then close the month.",
-  "pay.employedFrom": "Employed from"
+  "pay.employedFrom": "Employed from",
+  "inv.issued": "Issued",
+  "inv.issuedOn": "Issued",
+  "inv.draftNoDay": "not issued yet"
 }

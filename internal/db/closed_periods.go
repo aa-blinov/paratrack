@@ -68,10 +68,11 @@ func (d *DB) CloseMonth(ctx context.Context, request appmodel.PeriodCloseRequest
 		return model.ErrWeekHasRunningTimer
 	}
 	// A draft left in the month could still be issued, edited or deleted
-	// around the close; the month closes once its documents are settled.
+	// around the close, and an invoice whose letter is on its way flips to
+	// sent after it; the month closes once its documents are settled.
 	var drafts int
 	if err := tx.QueryRowContext(ctx,
-		`SELECT (SELECT COUNT(*) FROM invoices WHERE team_id = ? AND status = 'draft' AND period_start < ? AND period_end > ?)
+		`SELECT (SELECT COUNT(*) FROM invoices WHERE team_id = ? AND status IN ('draft', 'sending') AND period_start < ? AND period_end > ?)
 		      + (SELECT COUNT(*) FROM payroll_runs WHERE team_id = ? AND status = 'draft' AND period_start < ? AND period_end > ?)`,
 		request.TeamID, FormatTime(monthEnd), FormatTime(monthStart), request.TeamID, FormatTime(monthEnd), FormatTime(monthStart)).Scan(&drafts); err != nil {
 		return err

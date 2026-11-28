@@ -46,7 +46,8 @@ func (sessionReaderStub) SessionActivity(context.Context, appmodel.SessionLookup
 func (s reportTeamsStub) Members(context.Context, int64) ([]model.TeamMember, error) {
 	return s.members, nil
 }
-func (reportTeamsStub) Currency(context.Context, int64) (string, error) { return "RUB", nil }
+func (reportTeamsStub) Currency(context.Context, int64) (string, error)     { return "RUB", nil }
+func (reportTeamsStub) Rates(context.Context, int64) (map[int64]int, error) { return nil, nil }
 
 // Whole hours, no rounding rule: the report prices what was tracked.
 func (reportTeamsStub) BillingRules(context.Context, int64) (model.BillingRules, error) {

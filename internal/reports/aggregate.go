@@ -19,11 +19,16 @@ type AggregateInput struct {
 	ActivityTasks     map[int64]string
 	ProjectCurrencies map[int64]string
 	UserNames         map[int64]string
-	TeamCurrency      string
-	Uncategorized     string
-	UnassignedUser    string
-	GroupBy           appmodel.ReportGroup
-	Billable          bool
+	// MemberRates is each member's hourly rate for the client, by user id. A
+	// project without a rate of its own is priced by it, line by person, the
+	// same rule BuildInvoiceLines follows: a budget that disagreed with the
+	// document would be arguing with itself.
+	MemberRates    map[int64]int
+	TeamCurrency   string
+	Uncategorized  string
+	UnassignedUser string
+	GroupBy        appmodel.ReportGroup
+	Billable       bool
 	// RoundSeconds applies the workspace rounding rule to one activity's time
 	// before it is priced. Nil means no rounding.
 	RoundSeconds func(seconds int) int
@@ -182,6 +187,12 @@ func Aggregate(input AggregateInput) (AggregateResult, error) {
 			rate := 0
 			if project, ok := input.Projects[session.Activity.ProjectID]; ok && project.Billable && project.BillableRateCents != nil {
 				rate = *project.BillableRateCents
+			}
+			if rate <= 0 {
+				// The project's own rate prices every hour of it; without one
+				// each hour is the person's, so the same activity tracked by
+				// two people is two rates, not one zero.
+				rate = input.MemberRates[session.Session.UserID]
 			}
 			if !current.rateSet {
 				current.rate = rate

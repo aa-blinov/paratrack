@@ -2480,5 +2480,8 @@
   "inv.exportFormat": "Формат",
   "inv.export1C": "Для загрузки в 1С",
   "pay.periodDrafts": "В месяце остались черновики счетов или ведомостей: выставьте или удалите их, потом закройте месяц.",
-  "pay.employedFrom": "Работает с"
+  "pay.employedFrom": "Работает с",
+  "inv.issued": "Выставлен",
+  "inv.issuedOn": "Выставлен",
+  "inv.draftNoDay": "ещё не выставлен"
 }

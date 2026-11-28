@@ -31,6 +31,8 @@ type WorkspaceExport struct {
 	ExportedAt         time.Time
 	Team               ExportTeam
 	Members            []ExportMember
+	Holidays           []ExportHoliday
+	Absences           []ExportAbsence
 	Clients            []ExportClient
 	Projects           []ExportProject
 	Activities         []ExportActivity
@@ -79,6 +81,30 @@ type ExportMember struct {
 	BillRateCents int64
 	// EmployedFrom is the member's employment start, YYYY-MM-DD or empty.
 	EmployedFrom string
+	// PayKind is "hourly" (tracked time by the rate) or "monthly" (a fixed
+	// salary per month); MonthlyPayCents is that salary. An export that lost
+	// them restored a workspace where every salaried member earned nothing.
+	PayKind         string
+	MonthlyPayCents int64
+}
+
+// ExportHoliday is a day the workspace's calendar marks: a day off, a
+// shortened day before a holiday, or a working Saturday. A salary's month
+// norm and a schedule's capacity read them.
+type ExportHoliday struct {
+	Day  string
+	Name string
+	Kind string
+}
+
+// ExportAbsence is a member's vacation, sick leave or day off, by email like
+// every other person in this file.
+type ExportAbsence struct {
+	Email     string
+	Day       string
+	Kind      string
+	Note      string
+	CreatedAt string
 }
 
 type ExportClient struct {
@@ -298,6 +324,8 @@ type WorkspaceSink interface {
 	Header(exportedAt time.Time) error
 	Team(ExportTeam) error
 	Member(ExportMember) error
+	Holiday(ExportHoliday) error
+	Absence(ExportAbsence) error
 	Client(ExportClient) error
 	Project(ExportProject) error
 	Tag(ExportTag) error

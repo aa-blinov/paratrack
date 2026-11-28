@@ -162,13 +162,32 @@ var mcpMoneyTools = []mcpTool{
 			if !mailport.Available(s.runtime.Mailer) {
 				return nil, errMailNotConfigured
 			}
+			// The same letter the page sends: the look frozen on the day it
+			// goes out, the act and the sessions beside the PDF. A client who
+			// got an invoice from here holds the same document as one sent
+			// from the screen.
+			if err := s.freezeIssued(c.req, inv, &vm); err != nil {
+				return nil, err
+			}
 			seller := s.sellerName(c.req)
 			pdf, err := renderInvoicePDF(vm, seller, c.lang)
 			if err != nil {
 				return nil, err
 			}
+			act, err := renderDocPDF(vm, seller, c.lang, true)
+			if err != nil {
+				return nil, err
+			}
+			sessions, err := s.invoiceSessionsCSV(c.req, inv.ID)
+			if err != nil {
+				return nil, err
+			}
 			subject, letter := invoiceEmail(c.lang, vm, seller)
-			msg, err := s.buildEmail(c.req, to, subject, letter, mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
+			number := strings.ReplaceAll(vm.Number, " ", "-")
+			msg, err := s.buildEmail(c.req, to, subject, letter,
+				mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf},
+				mailport.Attachment{Name: "act-" + number + ".pdf", ContentType: "application/pdf", Data: act},
+				mailport.Attachment{Name: number + "-sessions.csv", ContentType: "text/csv; charset=utf-8", Data: sessions})
 			if err != nil {
 				return nil, err
 			}

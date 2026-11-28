@@ -220,18 +220,51 @@ func (r *restorer) Member(m appmodel.ExportMember) error {
 	if userID == r.callerID {
 		r.ownerSet = true
 		return r.exec("owner settings",
-			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents, employed_from)
-			 VALUES (?, ?, 'owner', ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?, ?)`,
-			r.teamID, r.callerID, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0), restoredDay(m.EmployedFrom))
+			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents, employed_from, pay_kind, monthly_pay_cents)
+			 VALUES (?, ?, 'owner', ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?, ?, ?, ?)`,
+			r.teamID, r.callerID, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0), restoredDay(m.EmployedFrom), restoredPayKind(m.PayKind), max(m.MonthlyPayCents, 0))
 	}
 	role := m.Role
 	if role == "owner" {
 		role = "admin"
 	}
 	return r.exec("member "+m.Email,
-		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents, employed_from)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?, ?)`,
-		r.teamID, userID, role, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0), restoredDay(m.EmployedFrom))
+		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents, employed_from, pay_kind, monthly_pay_cents)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?, ?, ?, ?)`,
+		r.teamID, userID, role, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0), restoredDay(m.EmployedFrom), restoredPayKind(m.PayKind), max(m.MonthlyPayCents, 0))
+}
+
+// Holiday writes a day of the workspace calendar back.
+func (r *restorer) Holiday(h appmodel.ExportHoliday) error {
+	if h.Day == "" {
+		return nil
+	}
+	kind := h.Kind
+	if kind != "off" && kind != "short" && kind != "work" {
+		kind = "off"
+	}
+	return r.exec("holiday "+h.Day,
+		`INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name, kind = excluded.kind`,
+		r.teamID, h.Day, h.Name, kind)
+}
+
+// Absence writes one member's vacation, sick leave or day off back. A person
+// the restored workspace does not have is skipped like any other dangling
+// reference in a file.
+func (r *restorer) Absence(a appmodel.ExportAbsence) error {
+	userID := r.users[strings.ToLower(a.Email)]
+	if userID == 0 || a.Day == "" || a.Kind == "" {
+		return nil
+	}
+	created := a.CreatedAt
+	if created == "" {
+		created = r.now
+	}
+	return r.exec("absence "+a.Email+" "+a.Day,
+		`INSERT INTO member_absences (team_id, user_id, day, kind, note, created_at) VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT (team_id, user_id, day) DO UPDATE SET kind = excluded.kind, note = excluded.note`,
+		r.teamID, userID, a.Day, a.Kind, a.Note, created)
 }
 
 func (r *restorer) Client(c appmodel.ExportClient) error {
@@ -561,6 +594,15 @@ func restoredWorkDays(raw string) string {
 		return ""
 	}
 	return days
+}
+
+// restoredPayKind keeps a file's pay kind only when it is one of the two the
+// payroll knows; an older file without the field pays by the hour, as before.
+func restoredPayKind(raw string) string {
+	if raw == "monthly" {
+		return "monthly"
+	}
+	return "hourly"
 }
 
 // restoredDay keeps a file's day only when it reads as one.

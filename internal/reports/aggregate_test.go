@@ -173,3 +173,37 @@ func TestBillableRowsSumTheirLines(t *testing.T) {
 		t.Fatalf("rounded row amount = %d cents, want %d (140 625 RUB)", got, want)
 	}
 }
+
+// A project without a rate of its own is worth its people's rates, line by
+// person: a report that priced it at nothing disagreed with the invoice built
+// from the same hours.
+func TestAggregatePricesMemberRateProjectsByTheirPeople(t *testing.T) {
+	start := time.Date(2026, 9, 1, 9, 0, 0, 0, time.UTC)
+	hour := func(userID int64) appmodel.ActiveSession {
+		return appmodel.ActiveSession{
+			Session:  model.Session{UserID: userID, StartAt: start, EndAt: timePtr(start.Add(time.Hour)), AccumulatedSeconds: 3600},
+			Activity: model.Activity{Name: "design", ProjectID: 1},
+		}
+	}
+	result, err := Aggregate(AggregateInput{
+		Sessions: []appmodel.ActiveSession{hour(7), hour(8)},
+		Projects: map[int64]model.Project{
+			// No rate of its own: the people price it.
+			1: {ID: 1, Billable: true},
+		},
+		MemberRates:       map[int64]int{7: 1200, 8: 2000},
+		ProjectCurrencies: map[int64]string{1: "RUB"},
+		TeamCurrency:      "RUB",
+		GroupBy:           appmodel.ReportGroupActivity,
+		Billable:          true,
+		From:              start.Add(-time.Hour),
+		To:                start.Add(2 * time.Hour),
+		Now:               start.Add(2 * time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("aggregate: %v", err)
+	}
+	if result.TotalCents != 3200 {
+		t.Fatalf("total = %d cents, want 1200 + 2000 from the people's rates", result.TotalCents)
+	}
+}

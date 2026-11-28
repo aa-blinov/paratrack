@@ -29,6 +29,9 @@ type TagReader interface {
 
 type TeamReader interface {
 	Members(context.Context, int64) ([]model.TeamMember, error)
+	// Rates is each member's hourly rate for the client, by user id: a project
+	// without a rate of its own is priced by it, as the invoice does.
+	Rates(context.Context, int64) (map[int64]int, error)
 	Currency(context.Context, int64) (string, error)
 	BillingRules(context.Context, int64) (model.BillingRules, error)
 }
@@ -375,6 +378,13 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report project currencies: %w", err)
 	}
+	memberRates := map[int64]int{}
+	if query.Billable {
+		memberRates, err = b.teams.Rates(ctx, query.TeamID)
+		if err != nil {
+			return AggregateResult{}, fmt.Errorf("load report member rates: %w", err)
+		}
+	}
 	userNames := make(map[int64]string)
 	if query.GroupBy == appmodel.ReportGroupUser || query.GroupBy == appmodel.ReportGroupDayPerson {
 		members, err := b.teams.Members(ctx, query.TeamID)
@@ -413,7 +423,7 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	}
 	result, err := Aggregate(AggregateInput{
 		Sessions: sessions, Projects: projectByID, ProjectCurrencies: projectCurrencies, ActivityTasks: titles,
-		UserNames: userNames, TeamCurrency: teamCurrency,
+		UserNames: userNames, TeamCurrency: teamCurrency, MemberRates: memberRates,
 		Uncategorized: query.Labels.Uncategorized, UnassignedUser: query.Labels.Unassigned,
 		GroupBy: query.GroupBy, Billable: query.Billable, RoundSeconds: roundSeconds,
 		From: query.From, To: query.To, Now: query.Now, Location: query.Location,

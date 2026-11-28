@@ -42,6 +42,14 @@ func (d *DB) SetPaymentURL(ctx context.Context, request appmodel.InvoicePaymentL
 	if revision != expectedRevision {
 		return model.ErrInvoiceChanged
 	}
+	// A live link collects money under this document, so setting one is a
+	// change to it: a closed month keeps its documents as handed over.
+	// Clearing a link stays allowed, it only takes the link away.
+	if strings.TrimSpace(paymentURL) != "" {
+		if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
+			return err
+		}
+	}
 	// A payment link on a draft is the client paying a document that was
 	// never cleared to go out. Clearing a link is always allowed.
 	if status == "draft" && strings.TrimSpace(paymentURL) != "" {
@@ -156,6 +164,11 @@ func (d *DB) MarkInvoicePaidFromStripe(ctx context.Context, request appmodel.Inv
 		}
 		return false, err
 	}
+	// A cancelled document takes no money: whether a checkout session exists
+	// for it does not decide that.
+	if status == "void" {
+		return false, model.ErrInvoiceNotPayable
+	}
 	var sessionTeam, sessionInvoice, active int64
 	if err := tx.QueryRowContext(ctx,
 		`SELECT team_id, invoice_id, active FROM invoice_stripe_sessions WHERE stripe_session_id = ?`, sessionID).
@@ -208,6 +221,17 @@ func (d *DB) SetInvoiceReceipt(ctx context.Context, request appmodel.InvoiceRece
 	defer func() { _ = tx.Rollback() }()
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
 		return err
+	}
+	var status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status FROM invoices WHERE id = ? AND team_id = ? FOR UPDATE`, id, teamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status == "void" {
+		return model.ErrInvoiceNotVoidable
 	}
 	result, err := tx.ExecContext(ctx,
 		`UPDATE invoices SET receipt = ?, revision = revision + 1 WHERE id = ? AND team_id = ?`, receipt, id, teamID)

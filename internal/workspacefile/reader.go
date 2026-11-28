@@ -81,6 +81,10 @@ func (r *reader) field(key string) error {
 		return r.sink.Team(decodeExportTeam(t))
 	case "members":
 		return each(r, func(v ExportMember) error { return r.sink.Member(decodeExportMember(v)) })
+	case "holidays":
+		return each(r, func(v ExportHoliday) error { return r.sink.Holiday(decodeExportHoliday(v)) })
+	case "absences":
+		return each(r, func(v ExportAbsence) error { return r.sink.Absence(decodeExportAbsence(v)) })
 	case "clients":
 		return each(r, func(v ExportClient) error { return r.sink.Client(decodeExportClient(v)) })
 	case "projects":
@@ -220,7 +224,12 @@ func (c *emailCollector) Member(m appmodel.ExportMember) error {
 	c.add(m.Email)
 	return nil
 }
-func (c *emailCollector) Client(appmodel.ExportClient) error     { return nil }
+func (c *emailCollector) Client(appmodel.ExportClient) error   { return nil }
+func (c *emailCollector) Holiday(appmodel.ExportHoliday) error { return nil }
+func (c *emailCollector) Absence(a appmodel.ExportAbsence) error {
+	c.add(a.Email)
+	return nil
+}
 func (c *emailCollector) Tag(appmodel.ExportTag) error           { return nil }
 func (c *emailCollector) Goal(appmodel.ExportGoal) error         { return nil }
 func (c *emailCollector) Activity(appmodel.ExportActivity) error { return nil }
@@ -279,6 +288,14 @@ func (c *collector) Header(exportedAt time.Time) error {
 func (c *collector) Team(t appmodel.ExportTeam) error { c.Export.Team = t; return nil }
 func (c *collector) Member(v appmodel.ExportMember) error {
 	c.Export.Members = append(c.Export.Members, v)
+	return nil
+}
+func (c *collector) Holiday(v appmodel.ExportHoliday) error {
+	c.Export.Holidays = append(c.Export.Holidays, v)
+	return nil
+}
+func (c *collector) Absence(v appmodel.ExportAbsence) error {
+	c.Export.Absences = append(c.Export.Absences, v)
 	return nil
 }
 func (c *collector) Client(v appmodel.ExportClient) error {

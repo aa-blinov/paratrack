@@ -679,6 +679,7 @@ export interface InvoiceSummary {
   Due: string
   Overdue: boolean
   Issued: string
+  IssuedLabel: string
   Partial: string
 }
 

@@ -54,8 +54,11 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 			Period: periodSpan(resolveLang(r), fmtDay(resolveLang(r), inv.PeriodStart.In(userLoc(r))),
 				fmtDay(resolveLang(r), inv.PeriodEnd.In(userLoc(r)).AddDate(0, 0, -1))),
 			Due: invoiceDueLabel(resolveLang(r), inv.DueDate), Overdue: invoiceOverdue(inv.Status, inv.DueDate, today),
-			Issued:  inv.CreatedAt.In(userLoc(r)).Format("2006-01-02"),
-			Partial: partialLabel(resolveLang(r), item),
+			// The day the document was issued, not the day its draft was made:
+			// the register filters on this and a draft has none.
+			Issued:      inv.IssuedOn,
+			IssuedLabel: issuedDayLabel(resolveLang(r), inv.IssuedOn),
+			Partial:     partialLabel(resolveLang(r), item),
 		})
 	}
 	data.Outstanding = moneyByCurrency(resolveLang(r), outstanding)

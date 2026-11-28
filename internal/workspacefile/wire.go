@@ -31,6 +31,22 @@ type ExportMember struct {
 	WorkDays        string `json:"work_days,omitempty"`
 	BillRateCents   int64  `json:"bill_rate_cents,omitempty"`
 	EmployedFrom    string `json:"employed_from,omitempty"`
+	PayKind         string `json:"pay_kind,omitempty"`
+	MonthlyPayCents int64  `json:"monthly_pay_cents,omitempty"`
+}
+
+type ExportHoliday struct {
+	Day  string `json:"day"`
+	Name string `json:"name,omitempty"`
+	Kind string `json:"kind,omitempty"`
+}
+
+type ExportAbsence struct {
+	Email     string `json:"email"`
+	Day       string `json:"day"`
+	Kind      string `json:"kind,omitempty"`
+	Note      string `json:"note,omitempty"`
+	CreatedAt string `json:"created_at,omitempty"`
 }
 
 type ExportClient struct {
@@ -274,6 +290,8 @@ func encodeExportMember(v appmodel.ExportMember) ExportMember {
 	out.WorkDays = v.WorkDays
 	out.BillRateCents = v.BillRateCents
 	out.EmployedFrom = v.EmployedFrom
+	out.PayKind = v.PayKind
+	out.MonthlyPayCents = v.MonthlyPayCents
 	return out
 }
 
@@ -289,7 +307,25 @@ func decodeExportMember(v ExportMember) appmodel.ExportMember {
 	out.WorkDays = v.WorkDays
 	out.BillRateCents = v.BillRateCents
 	out.EmployedFrom = v.EmployedFrom
+	out.PayKind = v.PayKind
+	out.MonthlyPayCents = v.MonthlyPayCents
 	return out
+}
+
+func encodeExportHoliday(v appmodel.ExportHoliday) ExportHoliday {
+	return ExportHoliday{Day: v.Day, Name: v.Name, Kind: v.Kind}
+}
+
+func decodeExportHoliday(v ExportHoliday) appmodel.ExportHoliday {
+	return appmodel.ExportHoliday{Day: v.Day, Name: v.Name, Kind: v.Kind}
+}
+
+func encodeExportAbsence(v appmodel.ExportAbsence) ExportAbsence {
+	return ExportAbsence{Email: v.Email, Day: v.Day, Kind: v.Kind, Note: v.Note, CreatedAt: v.CreatedAt}
+}
+
+func decodeExportAbsence(v ExportAbsence) appmodel.ExportAbsence {
+	return appmodel.ExportAbsence{Email: v.Email, Day: v.Day, Kind: v.Kind, Note: v.Note, CreatedAt: v.CreatedAt}
 }
 
 func encodeExportClient(v appmodel.ExportClient) ExportClient {

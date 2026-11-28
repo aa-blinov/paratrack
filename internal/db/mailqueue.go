@@ -125,7 +125,8 @@ func (d *DB) ClaimInvoiceEmail(ctx context.Context) (mailport.InvoiceEmailJob, b
 
 // CompleteInvoiceEmail records successful delivery and finalizes the
 // invoice's send state atomically. A payment received while email was queued
-// remains paid.
+// remains paid. The delivered payload stays: resending an invoice repeats the
+// very letter it went out in, and that letter is the only copy of its files.
 func (d *DB) CompleteInvoiceEmail(ctx context.Context, job mailport.InvoiceEmailJob) error {
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
@@ -133,7 +134,7 @@ func (d *DB) CompleteInvoiceEmail(ctx context.Context, job mailport.InvoiceEmail
 	}
 	defer func() { _ = tx.Rollback() }()
 	res, err := tx.ExecContext(ctx,
-		`UPDATE invoice_email_outbox SET status = 'delivered', payload = '', locked_at = NULL, last_error = '', completed_at = ?
+		`UPDATE invoice_email_outbox SET status = 'delivered', locked_at = NULL, last_error = '', completed_at = ?
 		 WHERE id = ? AND status = 'processing' AND locked_at = ? AND attempts = ?`, FormatTime(d.currentTime().UTC()), job.ID, job.Lease, job.Attempts)
 	if err != nil {
 		return err
@@ -144,9 +145,15 @@ func (d *DB) CompleteInvoiceEmail(ctx context.Context, job mailport.InvoiceEmail
 		return ErrInvoiceEmailLeaseLost
 	}
 	if job.InvoiceID > 0 {
+		day, err := d.issueDayTx(ctx, tx, job.TeamID, job.InvoiceID)
+		if err != nil {
+			return err
+		}
 		if _, err := tx.ExecContext(ctx,
-			`UPDATE invoices SET status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END
-			 WHERE id = ? AND team_id = ?`, job.InvoiceID, job.TeamID); err != nil {
+			`UPDATE invoices SET
+			        issued_on = CASE WHEN status = 'sending' AND issued_on = '' THEN ? ELSE issued_on END,
+			        status = CASE WHEN status = 'sending' THEN 'sent' ELSE status END
+			 WHERE id = ? AND team_id = ?`, day, job.InvoiceID, job.TeamID); err != nil {
 			return err
 		}
 	}
@@ -200,10 +207,14 @@ func (d *DB) RetryInvoiceEmail(ctx context.Context, request mailport.InvoiceEmai
 
 // LastInvoiceLetter reads the payload of the letter an invoice last went out
 // in, nil when it never went by mail (marked sent by hand, or a letter file).
+// Only a delivered row counts: a pending or failed one never reached the
+// client, and its payload is not the letter that did.
 func (d *DB) LastInvoiceLetter(ctx context.Context, query appmodel.InvoiceLetterQuery) ([]byte, error) {
 	var payload string
 	err := d.sql.QueryRowContext(ctx,
-		`SELECT payload FROM invoice_email_outbox WHERE team_id = ? AND invoice_id = ? ORDER BY id DESC LIMIT 1`,
+		`SELECT payload FROM invoice_email_outbox
+		  WHERE team_id = ? AND invoice_id = ? AND status = 'delivered' AND payload <> ''
+		  ORDER BY id DESC LIMIT 1`,
 		query.TeamID, query.InvoiceID).Scan(&payload)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

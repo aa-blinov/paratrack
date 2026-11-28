@@ -104,6 +104,20 @@ func (s *Service) Currency(ctx context.Context, teamID int64) (string, error) {
 	return currency, nil
 }
 
+// Rates is each member's hourly rate for the client, by user id. A project
+// without a rate of its own is priced by these, so a report and the invoice
+// it stands behind agree on what an hour is worth.
+func (s *Service) Rates(ctx context.Context, teamID int64) (map[int64]int, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	rates, err := s.memberships.MemberBillRates(ctx, teamID)
+	if err != nil {
+		return nil, fmt.Errorf("load member rates: %w", err)
+	}
+	return rates, nil
+}
+
 func (s *Service) BillingRules(ctx context.Context, teamID int64) (model.BillingRules, error) {
 	if teamID <= 0 {
 		return model.BillingRules{}, ErrNotFound

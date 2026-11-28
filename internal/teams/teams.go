@@ -51,6 +51,8 @@ type MembershipStore interface {
 	CountTeamOwners(context.Context, int64) (int, error)
 	RemoveTeamMember(context.Context, appmodel.TeamMemberRemovalRequest) error
 	ListFormerMembers(context.Context, int64) ([]model.FormerMember, error)
+	// MemberBillRates is each member's hourly rate for the client, by user id.
+	MemberBillRates(context.Context, int64) (map[int64]int, error)
 	ReturnTeamMember(context.Context, appmodel.TeamMemberReturnRequest) error
 }
 

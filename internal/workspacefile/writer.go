@@ -59,6 +59,14 @@ func (f *fileWriter) Member(m appmodel.ExportMember) error {
 	return f.item("members", encodeExportMember(m))
 }
 
+func (f *fileWriter) Holiday(h appmodel.ExportHoliday) error {
+	return f.item("holidays", encodeExportHoliday(h))
+}
+
+func (f *fileWriter) Absence(a appmodel.ExportAbsence) error {
+	return f.item("absences", encodeExportAbsence(a))
+}
+
 func (f *fileWriter) Client(c appmodel.ExportClient) error {
 	return f.item("clients", encodeExportClient(c))
 }

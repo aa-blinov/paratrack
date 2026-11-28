@@ -112,8 +112,12 @@ type invoiceSummary struct {
 	Period  string
 	Due     string
 	Overdue bool
-	Issued  string
-	Partial string
+	// Issued is the issue day, YYYY-MM-DD, empty for a draft: the register
+	// filters on it and no other date stands in for it.
+	Issued string
+	// IssuedLabel is that day as the list prints it.
+	IssuedLabel string
+	Partial     string
 }
 
 type invoicesPage struct {
@@ -282,6 +286,16 @@ func invoiceOverdue(status, due, today string) bool {
 func invoiceDueLabel(lang i18n.Lang, due string) string {
 	day, err := time.Parse("2006-01-02", due)
 	if due == "" || err != nil {
+		return ""
+	}
+	return fmtDay(lang, day)
+}
+
+// issuedDayLabel prints the issue day of an invoice, empty for a draft: a
+// draft has no issue day yet, and its creation day is not one.
+func issuedDayLabel(lang i18n.Lang, issued string) string {
+	day, err := time.Parse("2006-01-02", issued)
+	if issued == "" || err != nil {
 		return ""
 	}
 	return fmtDay(lang, day)

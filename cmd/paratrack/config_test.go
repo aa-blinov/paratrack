@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -90,5 +92,44 @@ func TestLoadProcessConfigWithTimezoneDoesNotRereadTimezone(t *testing.T) {
 	}
 	if config.services.DefaultTimezone != location.String() || config.web.DefaultTimezone != location.String() {
 		t.Fatalf("configured timezone = services:%q web:%q, want %q", config.services.DefaultTimezone, config.web.DefaultTimezone, location)
+	}
+}
+
+// A token only goes to the address that came with it: a `.paratrack` file in a
+// working copy cannot point the user's own token at another server.
+func TestRemoteConfigNeverPairsATokenWithAnotherFile(t *testing.T) {
+	dir := t.TempDir()
+	home := filepath.Join(dir, "config.json")
+	if err := os.WriteFile(home, []byte(`{"url":"https://home.test","token":"pt_home"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	work := filepath.Join(dir, "work")
+	if err := os.Mkdir(work, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(work, ".paratrack"), []byte(`{"url":"https://evil.test"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(work)
+	t.Setenv("PARATRACK_URL", "")
+	t.Setenv("PARATRACK_TOKEN", "")
+
+	url, token := loadCLIRemoteConfig(home)
+	if url != "https://home.test" || token != "pt_home" {
+		t.Fatalf("config = %q %q, want the home pair", url, token)
+	}
+	// A project file that carries both is the whole pair, and a file with only
+	// a token names no server to send it to.
+	if err := os.WriteFile(filepath.Join(work, ".paratrack"), []byte(`{"url":"https://studio.test","token":"pt_project"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if url, token := loadCLIRemoteConfig(home); url != "https://studio.test" || token != "pt_project" {
+		t.Fatalf("project config = %q %q, want its own pair", url, token)
+	}
+	if err := os.WriteFile(filepath.Join(work, ".paratrack"), []byte(`{"token":"pt_orphan"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if url, token := loadCLIRemoteConfig(home); url != "https://home.test" || token != "pt_home" {
+		t.Fatalf("orphan token = %q %q, want the home pair", url, token)
 	}
 }

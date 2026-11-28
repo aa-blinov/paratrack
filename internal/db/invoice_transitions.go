@@ -3,8 +3,10 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -309,6 +311,50 @@ func (d *DB) OverlappingInvoices(ctx context.Context, query appmodel.InvoiceOver
 	return out, byActivity.Err()
 }
 
+// issueDayTx is the day the invoice becomes a document: the day its kept look
+// states when a letter was prepared for it, else today in the workspace
+// calendar. One day, one column: the register, the document and the QR all
+// read this value and nothing recomputes it afterwards.
+func (d *DB) issueDayTx(ctx context.Context, tx *Tx, teamID, invoiceID int64) (string, error) {
+	loc, err := workspaceZone(ctx, tx, teamID)
+	if err != nil {
+		return "", err
+	}
+	day := d.currentTime().In(loc).Format("2006-01-02")
+	var kept, snapshot string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT issued_on, issued_snapshot FROM invoices WHERE id = ? AND team_id = ?`,
+		invoiceID, teamID).Scan(&kept, &snapshot); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+	if kept != "" {
+		return kept, nil
+	}
+	return keptIssueDay(snapshot, day), nil
+}
+
+// keptIssueDay reads the day a kept look states, falling back to the send day:
+// a look written before the day was kept says nothing, and a value that is
+// not a plain day is not trusted.
+func keptIssueDay(snapshot, fallback string) string {
+	if snapshot == "" {
+		return fallback
+	}
+	var kept struct {
+		IssuedOn string `json:"issued_on"`
+	}
+	if err := json.Unmarshal([]byte(snapshot), &kept); err != nil || kept.IssuedOn == "" {
+		return fallback
+	}
+	if _, err := time.Parse("2006-01-02", kept.IssuedOn); err != nil {
+		return fallback
+	}
+	return kept.IssuedOn
+}
+
 // ErrMixedCurrency: one document holds one currency; amounts in different
 // currencies are never added up.
 var ErrMixedCurrency = model.ErrMixedCurrency
@@ -332,10 +378,14 @@ func (d *DB) MarkInvoiceSentOnce(ctx context.Context, request appmodel.InvoiceMu
 	if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
 		return err
 	}
+	day, err := d.issueDayTx(ctx, tx, teamID, id)
+	if err != nil {
+		return err
+	}
 	result, err := tx.ExecContext(ctx,
-		`UPDATE invoices SET status = 'sent',
+		`UPDATE invoices SET status = 'sent', issued_on = ?,
 		        hide_names = COALESCE(hide_names, (SELECT hide_executor_names FROM teams WHERE id = ?))
-		  WHERE id = ? AND team_id = ? AND status = 'draft'`, teamID, id, teamID)
+		  WHERE id = ? AND team_id = ? AND status = 'draft'`, day, teamID, id, teamID)
 	if err != nil {
 		return err
 	}

@@ -94,8 +94,10 @@ Confirmed by the code:
   through `PARATRACK_DATABASE_URL`, or remotely over HTTP with `PARATRACK_URL`
   and a bearer `PARATRACK_TOKEN` (`pt_...`). `paratrack auth login` stores the
   address and the token in `~/.config/paratrack/config.json` (mode 0600), a
-  `.paratrack` file in the project directory overrides it, and the environment
-  overrides both. A command the remote mode does not support fails with the list
+  `.paratrack` file in the project directory overrides it only together with
+  its own token, and the environment overrides both as a pair: an address and
+  a token are read from one source, never assembled from two, so a file in a
+  working copy cannot point the user's token at another server. A command the remote mode does not support fails with the list
   of the ones it does, and never falls back to a local Postgres.
   `status --short` is meant for a shell prompt: it answers within 0.4 s, draws
   the line from its last answer (marked `?`) when the server is slow, prints
@@ -129,6 +131,16 @@ Confirmed by the code:
   the session breakdown are kept at send (`invoices.issued_snapshot`); the
   payment state, what is still owed and the QR stay live. A client link is
   made only for a sent invoice.
+- One issue day, one column: `invoices.issued_on` is written by the send
+  itself (`MarkInvoiceSent` or the delivery of the letter) from the day the
+  prepared look states, else today in the workspace's calendar. The register
+  lists and filters that day and prints a draft as not issued yet, and the
+  letter, the act, the PDF and the QR read the same value. Sending from the
+  MCP tool freezes the look and attaches the act and the breakdown like the
+  screen does.
+- The queue keeps the letter it delivered: sending an issued invoice again
+  repeats that letter, its files and its language; a letter that failed never
+  counts as the one the client got.
 - A sent invoice with nothing paid is voided with a reason, never deleted:
   its number stays used, its hours can be billed again, payments are refused,
   the PDF says АННУЛИРОВАН and its client link answers that it was voided.
@@ -185,7 +197,10 @@ Confirmed by the code:
   the plan from tomorrow in the workspace's calendar; budget warnings never
   step back to a lower level for the same figures, go out by mail too, and
   overload and budget notices both wait until no recipient is asleep.
-- A workspace file carries each member's work days. The production calendar
+- A workspace file carries each member's work days, their pay kind and
+  salary, their employment start, the workspace calendar (days off, shortened
+  days, working Saturdays) and the member absences: a restored workspace pays
+  the same salary for the same month, vacations included. The production calendar
   never overwrites a day the manager marked, and fills a year in one
   transaction; the timesheet offers each year the server has a calendar for.
   Payroll and task reports have an Excel download; the accountant's export
@@ -202,8 +217,9 @@ Confirmed by the code:
   less in the norm and the schedule; the 2026 calendar fills them. The
   timesheet summary states the month's norm in days and hours.
 - A member may carry a client rate, which prices a project without a rate
-  of its own (budget, forecast and warnings), line by person; a project with
-  a rate keeps pricing by activity as the invoice does. A project's lead
+  of its own (budget, forecast, warnings and reports), line by person; a
+  project with a rate keeps pricing by activity as the invoice does. A report
+  over a member-rate project is worth what its invoice would be. A project's lead
   opens that project's report, hours only, from the project page, and hears
   of overloads on people planned on it.
 - The git hook hands the raw branch to the binary, which decides: pause
@@ -217,10 +233,13 @@ Confirmed by the code:
   their colours on the dashboard too.
 - An issued invoice can be sent again through the queue as it went out; an
   invoice's client links are listed and one can be closed alone. The
-  accountant's export has a 1С format, Excel's with bare codes.
-- A month does not close while it holds draft invoices or pay runs; a draft
-  of a month closed before that rule cannot be paid straight from the draft
-  or deleted. The zone check runs inside the write's transaction.
+  accountant's export has a 1С format, Excel's with bare codes, and the
+  register prints the issue day beside each invoice.
+- A month does not close while it holds draft invoices, a letter already on
+  its way (a draft becomes sent when it is delivered) or pay runs; a draft of
+  a month closed before that rule cannot be paid straight from the draft or
+  deleted. A cancelled invoice takes no receipt number and no money, whether
+  the payment is typed in or arrives from the provider. The zone check runs inside the write's transaction.
 - A salary is paid for the days of employment in the month: each member has
   an employment start (`memberships.employed_from`, set by a manager; joining
   the workspace is not hiring), and a member who left is paid up to their

@@ -53,6 +53,8 @@ func (d *DB) ExportWorkspace(ctx context.Context, request appmodel.WorkspaceExpo
 	// The order is the order a restore needs: a list only refers to lists before it.
 	steps := []func() error{
 		func() error { return exportMembers(ctx, tx, teamID, sink) },
+		func() error { return exportHolidays(ctx, tx, teamID, sink) },
+		func() error { return exportAbsences(ctx, tx, teamID, emails, sink) },
 		func() error { return exportClients(ctx, tx, teamID, sink) },
 		func() error { return exportProjects(ctx, tx, teamID, emails, sink) },
 		func() error { return exportTags(ctx, tx, teamID, sink) },
@@ -161,14 +163,50 @@ func readTeamSettings(ctx context.Context, tx *Tx, teamID int64) (appmodel.Expor
 func exportMembers(ctx context.Context, tx *Tx, teamID int64, sink appmodel.WorkspaceSink) error {
 	return queryRows(ctx, tx, "export members",
 		`SELECT u.email, u.name, m.role, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.capacity_minutes, 0),
-		        COALESCE(m.admin_minutes, 0), m.joined_at, COALESCE(m.work_days, ''), COALESCE(m.bill_rate_cents, 0), COALESCE(m.employed_from, '')
+		        COALESCE(m.admin_minutes, 0), m.joined_at, COALESCE(m.work_days, ''), COALESCE(m.bill_rate_cents, 0), COALESCE(m.employed_from, ''),
+		        COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0)
 		 FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? ORDER BY u.email`,
 		func(rows *sql.Rows) error {
 			var m appmodel.ExportMember
-			if err := rows.Scan(&m.Email, &m.Name, &m.Role, &m.HourlyPayCents, &m.CapacityMinutes, &m.AdminMinutes, &m.JoinedAt, &m.WorkDays, &m.BillRateCents, &m.EmployedFrom); err != nil {
+			if err := rows.Scan(&m.Email, &m.Name, &m.Role, &m.HourlyPayCents, &m.CapacityMinutes, &m.AdminMinutes, &m.JoinedAt, &m.WorkDays, &m.BillRateCents, &m.EmployedFrom, &m.PayKind, &m.MonthlyPayCents); err != nil {
 				return err
 			}
 			return sink.Member(m)
+		}, teamID)
+}
+
+// exportHolidays keeps the workspace's own calendar: the days off, the
+// shortened days and the working Saturdays a salary's month norm counts.
+func exportHolidays(ctx context.Context, tx *Tx, teamID int64, sink appmodel.WorkspaceSink) error {
+	return queryRows(ctx, tx, "export holidays",
+		`SELECT day, COALESCE(name, ''), COALESCE(kind, 'off') FROM team_holidays WHERE team_id = ? ORDER BY day`,
+		func(rows *sql.Rows) error {
+			var h appmodel.ExportHoliday
+			if err := rows.Scan(&h.Day, &h.Name, &h.Kind); err != nil {
+				return err
+			}
+			return sink.Holiday(h)
+		}, teamID)
+}
+
+// exportAbsences keeps the member absences: without them a restored month
+// pays a vacation as if the person had worked it.
+func exportAbsences(ctx context.Context, tx *Tx, teamID int64, emails map[int64]string, sink appmodel.WorkspaceSink) error {
+	return queryRows(ctx, tx, "export absences",
+		`SELECT user_id, day, COALESCE(kind, ''), COALESCE(note, ''), created_at
+		 FROM member_absences WHERE team_id = ? ORDER BY day, user_id`,
+		func(rows *sql.Rows) error {
+			var a appmodel.ExportAbsence
+			var userID int64
+			if err := rows.Scan(&userID, &a.Day, &a.Kind, &a.Note, &a.CreatedAt); err != nil {
+				return err
+			}
+			a.Email = emails[userID]
+			if a.Email == "" {
+				// A person the file does not name cannot be restored either.
+				return nil
+			}
+			return sink.Absence(a)
 		}, teamID)
 }
 
