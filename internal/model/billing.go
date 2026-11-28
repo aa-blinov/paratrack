@@ -15,6 +15,8 @@ type MemberPayrollSettings struct {
 	PayCents        int
 	MonthlyPayCents int
 	CapacityMinutes int
+	// WorkDays are the weekdays the member works, ISO digits ("12345").
+	WorkDays string
 }
 
 // PayrollRun is an immutable snapshot of a team's payable time for a period.

@@ -284,52 +284,57 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 	if err != nil {
 		return err
 	}
-	week := weekStart(now)
 	var mailErrs []error
-	for _, teamID := range teams {
-		snapshot, err := s.planner.List(ctx, appmodel.ScheduleQuery{TeamID: teamID, WeekStart: week, Now: now})
-		if err != nil {
-			return err
-		}
-		managers, err := s.store.ManagerIDs(ctx, teamID)
-		if err != nil {
-			return err
-		}
-		for _, row := range snapshot.Rows {
-			if row.AvailableMinutes <= 0 || row.Total <= row.AvailableMinutes {
-				continue
-			}
-			night, err := s.teamNightOnes(ctx, teamID, managers, now)
+	// This week and the next: an overload found on Monday morning is already
+	// being lived, the one a week ahead can still be planned away.
+	for _, week := range []time.Time{weekStart(now), weekStart(now).AddDate(0, 0, 7)} {
+		for _, teamID := range teams {
+			snapshot, err := s.planner.List(ctx, appmodel.ScheduleQuery{TeamID: teamID, WeekStart: week, Now: now})
 			if err != nil {
 				return err
 			}
-			awake := without(managers, night)
-			if len(awake) == 0 {
-				// Every manager is asleep: the notice is not claimed, so a
-				// later pass delivers it into an awake workspace.
-				continue
-			}
-			claimed, err := s.store.ClaimOverloadNotice(ctx, appmodel.OverloadNoticeRequest{TeamID: teamID, UserID: row.UserID, Week: week.Format("2006-01-02")})
+			managers, err := s.store.ManagerIDs(ctx, teamID)
 			if err != nil {
 				return err
 			}
-			if !claimed {
-				continue
-			}
-			notification := Notification{
-				TeamID: teamID, UserIDs: awake, Topic: TopicOverload,
-				Title: "Перегрузка на неделе",
-				Body:  fmt.Sprintf("%s: запланировано %d мин из %d доступных", row.UserName, row.Total, row.AvailableMinutes),
-				URL:   "/schedule?date=" + week.Format("2006-01-02"),
-			}
-			if err := s.sender.Send(ctx, notification); err != nil {
-				return err
-			}
-			// Email repeats the same nudge. One failed mailbox must not hold back
-			// the other managers' reminders, so its error is kept, not returned early.
-			if s.mailer != nil {
-				if err := s.mailer.Email(ctx, notification); err != nil {
-					mailErrs = append(mailErrs, err)
+			for _, row := range snapshot.Rows {
+				// A plan on someone away the whole week (no time available) is
+				// the plainest overload of all, not a row to skip.
+				if row.Total <= 0 || row.Total <= row.AvailableMinutes {
+					continue
+				}
+				night, err := s.teamNightOnes(ctx, teamID, managers, now)
+				if err != nil {
+					return err
+				}
+				awake := without(managers, night)
+				if len(awake) == 0 {
+					// Every manager is asleep: the notice is not claimed, so a
+					// later pass delivers it into an awake workspace.
+					continue
+				}
+				claimed, err := s.store.ClaimOverloadNotice(ctx, appmodel.OverloadNoticeRequest{TeamID: teamID, UserID: row.UserID, Week: week.Format("2006-01-02")})
+				if err != nil {
+					return err
+				}
+				if !claimed {
+					continue
+				}
+				notification := Notification{
+					TeamID: teamID, UserIDs: awake, Topic: TopicOverload,
+					Title: "Перегрузка на неделе",
+					Body:  fmt.Sprintf("%s, неделя с %s: запланировано %d мин из %d доступных", row.UserName, week.Format("02.01"), row.Total, row.AvailableMinutes),
+					URL:   "/schedule?date=" + week.Format("2006-01-02"),
+				}
+				if err := s.sender.Send(ctx, notification); err != nil {
+					return err
+				}
+				// Email repeats the same nudge. One failed mailbox must not hold back
+				// the other managers' reminders, so its error is kept, not returned early.
+				if s.mailer != nil {
+					if err := s.mailer.Email(ctx, notification); err != nil {
+						mailErrs = append(mailErrs, err)
+					}
 				}
 			}
 		}
@@ -359,9 +364,8 @@ func (s *Service) dayFill(ctx context.Context, now time.Time) error {
 			return err
 		}
 		local := now.In(loc)
-		if local.Weekday() == time.Saturday || local.Weekday() == time.Sunday {
-			continue
-		}
+		// Whose day it is to work (their own week, a worked Saturday) is the
+		// store's to answer, not the calendar's weekend.
 		if local.Hour() < dayFillFromHour || local.Hour() >= dayFillToHour {
 			continue
 		}
@@ -603,33 +607,44 @@ func (s *Service) goalLimits(ctx context.Context, now time.Time) error {
 }
 
 // budgets warns the managers and the project's lead when a project has used
-// four fifths of its estimate or budget, and again when it has used it all,
-// each once. The estimate is hours; the budget is money, counted at the
-// project's rate. The warning comes before the overrun, not after someone
-// opens the project and sees it.
+// four fifths of its estimate or budget, when what the schedule still plans
+// would take it over, and when it has used it all, each once for the figures
+// it was measured against: raising the budget lets the warnings come again.
+// The estimate is hours; the budget is money, priced as the project screen
+// and the invoice price it. The warning comes before the overrun, not after
+// someone opens the project and sees it.
 func (s *Service) budgets(ctx context.Context, now time.Time) error {
 	projects, err := s.store.BudgetProjects(ctx)
 	if err != nil {
 		return err
 	}
 	for _, p := range projects {
-		used := 0
+		used, forecast := 0, 0
 		what := ""
 		if p.EstimateMinutes > 0 {
 			used = p.TrackedSeconds * 100 / (p.EstimateMinutes * 60)
+			forecast = (p.TrackedSeconds + p.PlannedMinutes*60) * 100 / (p.EstimateMinutes * 60)
 			what = fmt.Sprintf("%d из %d ч оценки", p.TrackedSeconds/3600, p.EstimateMinutes/60)
 		}
 		if p.BudgetCents > 0 && p.RateCents > 0 {
-			spent := int(int64(p.TrackedSeconds) * int64(p.RateCents) / 3600)
-			if share := spent * 100 / p.BudgetCents; share > used {
+			if share := p.SpentCents * 100 / p.BudgetCents; share > used {
 				used = share
-				what = fmt.Sprintf("%d из %d бюджета", spent/100, p.BudgetCents/100)
+				what = fmt.Sprintf("%d из %d бюджета", p.SpentCents/100, p.BudgetCents/100)
+			}
+			planned := int(int64(p.PlannedMinutes) * int64(p.RateCents) / 60)
+			if share := (p.SpentCents + planned) * 100 / p.BudgetCents; share > forecast {
+				forecast = share
 			}
 		}
 		level := 0
 		switch {
 		case used >= 100:
 			level = 100
+		case forecast > 100:
+			// Not over yet, but the plan already is: the one warning that
+			// still leaves time to change the plan.
+			level = 90
+			what += fmt.Sprintf(", по плану будет %d%%", forecast)
 		case used >= 80:
 			level = 80
 		}
@@ -648,11 +663,18 @@ func (s *Service) budgets(ctx context.Context, now time.Time) error {
 		if err != nil {
 			return err
 		}
-		awake := without(recipients, night)
-		if len(awake) == 0 {
+		// One claim serves every recipient, so it waits until none of them is
+		// asleep: claiming now would never tell those at night.
+		asleep := false
+		for _, id := range recipients {
+			asleep = asleep || night[id]
+		}
+		if asleep {
 			continue
 		}
-		claimed, err := s.store.ClaimBudgetNotice(ctx, appmodel.BudgetNoticeRequest{ProjectID: p.ProjectID, Level: level})
+		awake := recipients
+		basis := fmt.Sprintf("%d/%d/%d", p.EstimateMinutes, p.BudgetCents, p.RateCents)
+		claimed, err := s.store.ClaimBudgetNotice(ctx, appmodel.BudgetNoticeRequest{ProjectID: p.ProjectID, Level: level, Basis: basis})
 		if err != nil {
 			return err
 		}
@@ -660,8 +682,11 @@ func (s *Service) budgets(ctx context.Context, now time.Time) error {
 			continue
 		}
 		title := "Проект подходит к пределу"
-		if level == 100 {
+		switch level {
+		case 100:
 			title = "Проект вышел за предел"
+		case 90:
+			title = "По плану проект выйдет за предел"
 		}
 		if err := s.sender.Send(ctx, Notification{
 			TeamID: p.TeamID, UserIDs: awake, Topic: TopicBudget,

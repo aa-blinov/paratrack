@@ -14,6 +14,8 @@ type ScheduleRow struct {
 	Tracked int
 	// AdminMinutes is the non-client time the person keeps each week.
 	AdminMinutes int
+	// WorkDays are the weekdays the person works, ISO digits ("12345").
+	WorkDays string
 }
 
 type ScheduleViewRow struct {

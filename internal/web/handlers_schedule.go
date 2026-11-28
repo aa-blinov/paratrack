@@ -84,6 +84,27 @@ type schedulePage struct {
 	DurationFormat string
 	// EditableProjects are the projects this viewer may add a line for.
 	EditableProjects []projectView
+	// Horizon is the load of each person over this week and the three after
+	// it, so a plan two to four weeks out is read on one screen.
+	Horizon []scheduleHorizonWeek
+}
+
+// scheduleHorizonWeek is one week of the four-week load overview.
+type scheduleHorizonWeek struct {
+	Week  string // Monday, YYYY-MM-DD: the link opens it
+	Label string
+	Cells []scheduleHorizonCell
+}
+
+// scheduleHorizonCell is one person's load in one week.
+type scheduleHorizonCell struct {
+	UserID    int64
+	Name      string
+	Percent   int
+	Planned   string
+	Available string
+	// Over is a plan above what the week can carry, a plan on no time included.
+	Over bool
 }
 
 func (p *schedulePage) setCSRF(t string)   { p.pageData.setCSRF(t) }
@@ -151,6 +172,7 @@ func (s *Server) handleSchedule(w http.ResponseWriter, r *http.Request) {
 		DurationFormat:   durFmtOf(r),
 		EditableProjects: editableProjects(projects, canManage(r), authenticatedUserID(r)),
 	}
+	data.Horizon = s.scheduleHorizon(r, weekStart)
 	s.renderPageForRequest(w, r, "Schedule", "schedule", &data)
 }
 
@@ -489,4 +511,29 @@ func (s *Server) writeScheduleLineError(w http.ResponseWriter, r *http.Request, 
 	default:
 		s.writeInternalJSONError(w, err)
 	}
+}
+
+// scheduleHorizon reads this week and the three after it. A week that fails
+// to load is left out rather than failing the page the person came for.
+func (s *Server) scheduleHorizon(r *http.Request, weekStart time.Time) []scheduleHorizonWeek {
+	lang := resolveLang(r)
+	var out []scheduleHorizonWeek
+	for w := 0; w < 4; w++ {
+		week := weekStart.AddDate(0, 0, 7*w)
+		snapshot, err := s.services.Scheduling.List(r.Context(), appmodel.ScheduleQuery{TeamID: teamID(r), WeekStart: week, Now: userNow(r)})
+		if err != nil {
+			s.logInternalError(err)
+			continue
+		}
+		item := scheduleHorizonWeek{Week: week.Format("2006-01-02"), Label: fmtDay(lang, week)}
+		for _, row := range snapshot.Rows {
+			item.Cells = append(item.Cells, scheduleHorizonCell{
+				UserID: row.UserID, Name: row.UserName, Percent: row.LoadPercent,
+				Planned: fmtDur(r, row.Total*60), Available: fmtDur(r, row.AvailableMinutes*60),
+				Over: row.Total > 0 && row.Total > row.AvailableMinutes,
+			})
+		}
+		out = append(out, item)
+	}
+	return out
 }

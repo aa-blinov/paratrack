@@ -597,6 +597,14 @@ function AbsencesCard({ lang, csrf, week, people, absences }: { lang: string; cs
           <Button type="submit" size="sm" variant="ghost" name="clear" value="1">{t(lang, "holiday.clear")}</Button>
         </div>
       </form>
+      {/* The production calendar fills the year's weekdays off at once,
+          named; anything set by hand stays as it is. */}
+      <form method="post" action="/api/holidays/preset" className="flex flex-wrap items-center gap-2">
+        <input type="hidden" name="csrf_token" value={csrf} />
+        <input type="hidden" name="week" value={week} />
+        <input type="hidden" name="year" value="2026" />
+        <Button type="submit" size="sm" variant="outline">{t(lang, "holiday.presetRu", "2026")}</Button>
+      </form>
     </div>
   </DisclosureSection>
 }

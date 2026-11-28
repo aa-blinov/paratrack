@@ -138,10 +138,11 @@ func (d *DB) ListSchedule(ctx context.Context, query appmodel.ScheduleQuery) ([]
 }
 
 type scheduleUser struct {
-	id    int64
-	name  string
-	cap   int
-	admin int
+	id       int64
+	name     string
+	cap      int
+	admin    int
+	workDays string
 }
 
 type scheduleCellKey struct {
@@ -156,7 +157,7 @@ type scheduleProjectCellKey struct {
 
 func loadScheduleUsers(ctx context.Context, tx *Tx, teamID int64) ([]scheduleUser, error) {
 	rows, err := tx.QueryContext(ctx,
-		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0), COALESCE(m.admin_minutes, 0)
+		`SELECT u.id, u.name, u.email, COALESCE(m.capacity_minutes, 0), COALESCE(m.admin_minutes, 0), COALESCE(NULLIF(m.work_days, ''), '12345')
 		 FROM memberships m JOIN users u ON u.id = m.user_id
 		 WHERE m.team_id = ? ORDER BY u.name`, teamID)
 	if err != nil {
@@ -167,7 +168,7 @@ func loadScheduleUsers(ctx context.Context, tx *Tx, teamID int64) ([]scheduleUse
 	for rows.Next() {
 		var user scheduleUser
 		var email string
-		if err := rows.Scan(&user.id, &user.name, &email, &user.cap, &user.admin); err != nil {
+		if err := rows.Scan(&user.id, &user.name, &email, &user.cap, &user.admin, &user.workDays); err != nil {
 			return nil, err
 		}
 		if user.name == "" {
@@ -302,7 +303,7 @@ func buildScheduleRows(users []scheduleUser, entries map[scheduleCellKey]int, by
 		dayIndex[scheduleDay(weekStart.AddDate(0, 0, i))] = i
 	}
 	for i, user := range users {
-		rows[i] = ScheduleRow{UserID: user.id, UserName: user.name, Capacity: user.cap, AdminMinutes: user.admin, ByProject: make(map[int64][7]int)}
+		rows[i] = ScheduleRow{UserID: user.id, UserName: user.name, Capacity: user.cap, AdminMinutes: user.admin, WorkDays: user.workDays, ByProject: make(map[int64][7]int)}
 		rowByUser[user.id] = i
 	}
 	for cell, minutes := range entries {
@@ -358,9 +359,11 @@ func (d *DB) PlannedMinutesByUser(ctx context.Context, teamID int64, from, to ti
 }
 
 // CopyScheduleWeek repeats every planned cell of the source week in the
-// target week, and in the weeks after it when more than one is asked. Each
-// target week is checked inside the same transaction as the copy, so a cell
-// written meanwhile cannot be overwritten: a week with a plan is skipped.
+// target week, and in the weeks after it when more than one is asked. The
+// target is read inside the same transaction as the copy, so a cell written
+// meanwhile is never overwritten: a person who already has a plan in a week
+// keeps it, and nothing lands on a holiday or a day the person is away. A
+// week where nothing could be written is reported as skipped.
 func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) (appmodel.ScheduleCopyResult, error) {
 	var result appmodel.ScheduleCopyResult
 	teamID := request.TeamID
@@ -389,23 +392,7 @@ func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopy
 		}
 		return result, err
 	}
-	for w := 0; w < weeks; w++ {
-		target := request.To.AddDate(0, 0, 7*w)
-		var targetCells int
-		if err := tx.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
-			teamID, scheduleDay(target), scheduleDay(target.AddDate(0, 0, 7))).Scan(&targetCells); err != nil {
-			return result, err
-		}
-		if targetCells > 0 {
-			result.Skipped = append(result.Skipped, target)
-		} else {
-			result.Filled = append(result.Filled, target)
-		}
-	}
-	if len(result.Filled) == 0 {
-		return result, appmodel.ErrScheduleWeekNotEmpty
-	}
+
 	type cell struct {
 		userID, projectID int64
 		day               string
@@ -427,24 +414,90 @@ func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopy
 	if len(cells) == 0 {
 		return result, appmodel.ErrScheduleNothingToCopy
 	}
+	// Who already has a plan in each target week, and which days are off for
+	// whom: a person's own plan is kept (others still get theirs), and nothing
+	// is planned on a holiday or on a day the person is away.
+	lastDay := scheduleDay(request.To.AddDate(0, 0, 7*weeks))
+	planned := map[string]bool{} // "user:monday"
+	if err := queryRows(ctx, tx, "planned people in the target weeks",
+		`SELECT DISTINCT user_id, day FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
+		func(rows *sql.Rows) error {
+			var userID int64
+			var day string
+			if err := rows.Scan(&userID, &day); err != nil {
+				return err
+			}
+			if at, err := time.Parse("2006-01-02", day); err == nil {
+				weekIndex := int(at.Sub(request.To).Hours()/24) / 7
+				planned[fmt.Sprintf("%d:%d", userID, weekIndex)] = true
+			}
+			return nil
+		}, teamID, scheduleDay(request.To), lastDay); err != nil {
+		return result, err
+	}
+	holidays := map[string]bool{}
+	if err := queryRows(ctx, tx, "holidays in the target weeks",
+		`SELECT day FROM team_holidays WHERE team_id = ? AND kind = 'off' AND day >= ? AND day < ?`,
+		func(rows *sql.Rows) error {
+			var day string
+			if err := rows.Scan(&day); err != nil {
+				return err
+			}
+			holidays[day] = true
+			return nil
+		}, teamID, scheduleDay(request.To), lastDay); err != nil {
+		return result, err
+	}
+	away := map[string]bool{} // "user:day"
+	if err := queryRows(ctx, tx, "absences in the target weeks",
+		`SELECT user_id, day FROM member_absences WHERE team_id = ? AND day >= ? AND day < ?`,
+		func(rows *sql.Rows) error {
+			var userID int64
+			var day string
+			if err := rows.Scan(&userID, &day); err != nil {
+				return err
+			}
+			away[fmt.Sprintf("%d:%s", userID, day)] = true
+			return nil
+		}, teamID, scheduleDay(request.To), lastDay); err != nil {
+		return result, err
+	}
 	now := FormatTime(d.currentTime().UTC())
 	// One statement instead of a round-trip per cell: copying a busy week
 	// held the workspace lock far longer than the write itself needs.
 	var userIDs, projectIDs []int64
 	var days []string
 	var minutes []int
-	for _, target := range result.Filled {
+	for w := 0; w < weeks; w++ {
+		target := request.To.AddDate(0, 0, 7*w)
 		shift := int(target.Sub(request.From).Hours()/24 + 0.5)
+		wrote := false
 		for _, c := range cells {
+			if planned[fmt.Sprintf("%d:%d", c.userID, w)] {
+				continue
+			}
 			day, err := time.Parse("2006-01-02", c.day)
 			if err != nil {
 				return result, fmt.Errorf("parse planned day %q: %w", c.day, err)
 			}
+			to := scheduleDay(day.AddDate(0, 0, shift))
+			if holidays[to] || away[fmt.Sprintf("%d:%s", c.userID, to)] {
+				continue
+			}
 			userIDs = append(userIDs, c.userID)
 			projectIDs = append(projectIDs, c.projectID)
-			days = append(days, scheduleDay(day.AddDate(0, 0, shift)))
+			days = append(days, to)
 			minutes = append(minutes, c.minutes)
+			wrote = true
 		}
+		if wrote {
+			result.Filled = append(result.Filled, target)
+		} else {
+			result.Skipped = append(result.Skipped, target)
+		}
+	}
+	if len(result.Filled) == 0 {
+		return result, appmodel.ErrScheduleWeekNotEmpty
 	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO schedule_entries (team_id, user_id, project_id, day, minutes, note, created_at)

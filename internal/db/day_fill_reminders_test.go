@@ -74,3 +74,34 @@ func TestTeamLocationFallsBackToUTC(t *testing.T) {
 		t.Fatalf("unknown zone = %v, %v; want UTC", loc, err)
 	}
 }
+
+// A member is asked on their own work days only, and everyone on a Saturday
+// the workspace works by transfer.
+func TestDayFillCandidatesFollowWorkDaysAndTransfers(t *testing.T) {
+	d := openTestDB(t)
+	ws := seedRichWorkspace(t, d, "day-fill-week")
+	if _, err := d.TestSQL().ExecContext(t.Context(), `UPDATE memberships SET work_days = '123' WHERE team_id = ? AND user_id = ?`, ws.teamID, ws.memberID); err != nil {
+		t.Fatal(err)
+	}
+	ask := func(day time.Time) []int64 {
+		got, err := d.DayFillCandidates(t.Context(), appmodel.DayFillCandidatesQuery{TeamID: ws.teamID, From: day, To: day.AddDate(0, 0, 1), Day: day.Format("2006-01-02")})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
+	}
+	thursday := time.Date(2031, 3, 6, 0, 0, 0, 0, time.UTC)
+	if got := ask(thursday); slices.Contains(got, ws.memberID) || !slices.Contains(got, ws.ownerID) {
+		t.Fatalf("Thursday asked %v: the Monday-to-Wednesday member is off, the owner is not", got)
+	}
+	saturday := time.Date(2031, 3, 8, 0, 0, 0, 0, time.UTC)
+	if got := ask(saturday); len(got) != 0 {
+		t.Fatalf("an ordinary Saturday asked %v", got)
+	}
+	if _, err := d.TestSQL().ExecContext(t.Context(), `INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, '2031-03-08', 'перенос', 'work')`, ws.teamID); err != nil {
+		t.Fatal(err)
+	}
+	if got := ask(saturday); !slices.Contains(got, ws.ownerID) {
+		t.Fatalf("a worked Saturday asked %v", got)
+	}
+}

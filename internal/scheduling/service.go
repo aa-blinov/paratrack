@@ -116,7 +116,9 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 		for i := 0; i < 7; i++ {
 			day := query.WeekStart.AddDate(0, 0, i)
 			key := day.Format("2006-01-02")
-			weekday := (day.Weekday() != time.Saturday && day.Weekday() != time.Sunday) || hasKey(workdays, key)
+			// The person's own week (a part-timer's Monday to Wednesday), and a
+			// weekend the workspace works by transfer.
+			weekday := model.WorksOn(stored.WorkDays, day.Weekday()) || hasKey(workdays, key)
 			switch {
 			case away[stored.UserID][key] != "":
 				marks[i] = away[stored.UserID][key]

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strings"
 	"time"
 )
 
@@ -89,3 +90,31 @@ func (i TeamInvite) ExpiredAt(at time.Time) bool {
 }
 
 func (i TeamInvite) Used() bool { return !i.AcceptedAt.IsZero() }
+
+// DefaultWorkDays are Monday to Friday, as ISO weekday digits.
+const DefaultWorkDays = "12345"
+
+// WorksOn says whether a member with these work days works on a weekday. An
+// empty set reads as the default week.
+func WorksOn(workDays string, day time.Weekday) bool {
+	if workDays == "" {
+		workDays = DefaultWorkDays
+	}
+	iso := int(day)
+	if iso == 0 {
+		iso = 7
+	}
+	return strings.ContainsRune(workDays, rune('0'+iso))
+}
+
+// NormalizeWorkDays keeps the ISO weekday digits of a set once each, in
+// order, and answers false when nothing is left.
+func NormalizeWorkDays(raw string) (string, bool) {
+	var out []byte
+	for d := byte('1'); d <= '7'; d++ {
+		if strings.IndexByte(raw, d) >= 0 {
+			out = append(out, d)
+		}
+	}
+	return string(out), len(out) > 0
+}

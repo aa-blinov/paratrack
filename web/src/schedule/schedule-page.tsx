@@ -509,8 +509,32 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
         </CardContent>
       </Card>
       <p className="text-sm text-muted-foreground">{t(lang, data.CanManage ? "sch.hint" : "sch.hintMember")}</p>
+      <HorizonCard lang={lang} horizon={data.Horizon ?? []} />
     </> : <Card><CardContent className="p-5">
       <EmptyState title={t(lang, "sch.empty")} text={t(lang, data.CanManage ? "sch.emptyHint" : "sch.emptyMember")} action={data.CanManage ? <Button asChild size="sm"><a href="/projects/new"><Plus aria-hidden="true" />{t(lang, "sch.emptyCta")}</a></Button> : undefined} />
     </CardContent></Card>}
   </main>
+}
+
+// HorizonCard is the load of each person over four weeks from the one on
+// screen: the plan two to four weeks out, read without paging week by week.
+function HorizonCard({ lang, horizon }: { lang: string; horizon: NonNullable<ScheduleData["Horizon"]> }) {
+  const people = new Map<number, string>()
+  for (const week of horizon) for (const cell of week.Cells ?? []) people.set(cell.UserID, cell.Name)
+  if (horizon.length < 2 || people.size === 0) return null
+  return <Card>
+    <CardHeader><CardTitle className="text-base">{t(lang, "sch.horizon")}</CardTitle></CardHeader>
+    <CardContent className="overflow-x-auto">
+      <Table>
+        <TableHeader><TableRow><TableHead>{t(lang, "sch.horizonPerson")}</TableHead>{horizon.map(week => <TableHead key={week.Week} className="text-right"><a className="underline-offset-4 hover:underline" href={`/schedule?date=${week.Week}`}>{week.Label}</a></TableHead>)}</TableRow></TableHeader>
+        <TableBody>{[...people].map(([id, name]) => <TableRow key={id}>
+          <TableCell>{name}</TableCell>
+          {horizon.map(week => {
+            const cell = (week.Cells ?? []).find(c => c.UserID === id)
+            return <TableCell key={week.Week} className={`text-right font-mono tabular-nums${cell?.Over ? " text-destructive" : ""}`} title={cell ? `${cell.Planned} / ${cell.Available}` : undefined}>{!cell ? "—" : cell.Over && cell.Percent === 0 ? cell.Planned : `${cell.Percent}%`}</TableCell>
+          })}
+        </TableRow>)}</TableBody>
+      </Table>
+    </CardContent>
+  </Card>
 }

@@ -2447,5 +2447,19 @@
   "inv.voidedBecause": "Voided",
   "inv.voidConfirm": "Void invoice %s? The number stays used and its hours can be billed again.",
   "inv.linkNotIssued": "A client link is for a sent invoice: a draft can still change.",
-  "push.iosInstall": "On an iPhone, notifications work in the app added to the Home Screen: Share → Add to Home Screen, then turn them on there."
+  "push.iosInstall": "On an iPhone, notifications work in the app added to the Home Screen: Share → Add to Home Screen, then turn them on there.",
+  "sch.horizon": "Load over 4 weeks",
+  "sch.horizonPerson": "Person",
+  "pay.workDays": "Work days",
+  "pay.workDaysNone": "Tick at least one work day.",
+  "wd.1": "Mo",
+  "wd.2": "Tu",
+  "wd.3": "We",
+  "wd.4": "Th",
+  "wd.5": "Fr",
+  "wd.6": "Sa",
+  "wd.7": "Su",
+  "holiday.presetRu": "Russian holidays for %s",
+  "holiday.presetDone": "Holidays added: %d (%d).",
+  "holiday.presetMissing": "No calendar for that year yet."
 }

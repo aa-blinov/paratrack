@@ -31,4 +31,6 @@ type PayrollMemberPayRequest struct {
 	// fixed MonthlyPayCents per calendar month a run covers.
 	Kind            *string
 	MonthlyPayCents *int
+	// WorkDays are the weekdays the member works, ISO digits; nil keeps them.
+	WorkDays *string
 }

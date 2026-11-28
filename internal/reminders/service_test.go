@@ -43,7 +43,7 @@ func (f *fakeStore) ClaimBudgetNotice(_ context.Context, request appmodel.Budget
 	if f.budgetClaims == nil {
 		f.budgetClaims = map[string]bool{}
 	}
-	key := fmt.Sprintf("%d:%d", request.ProjectID, request.Level)
+	key := fmt.Sprintf("%d:%d:%s", request.ProjectID, request.Level, request.Basis)
 	if f.budgetClaims[key] {
 		return false, nil
 	}
@@ -171,8 +171,10 @@ func TestPassSendsEachNudgeOnce(t *testing.T) {
 	if err := service.Pass(context.Background()); err != nil {
 		t.Fatalf("first pass: %v", err)
 	}
-	if len(rec.sent) != 2 {
-		t.Fatalf("first pass sent %d notifications, want 2 (deadline and overload)", len(rec.sent))
+	// The planner answers the same rows for this week and the next, so the
+	// overload is told for each week once.
+	if len(rec.sent) != 3 {
+		t.Fatalf("first pass sent %d notifications, want 3 (deadline and an overload per week)", len(rec.sent))
 	}
 	deadline := rec.sent[0]
 	if deadline.Topic != TopicDeadline || len(deadline.UserIDs) != 2 {
@@ -185,12 +187,17 @@ func TestPassSendsEachNudgeOnce(t *testing.T) {
 	if err := service.Pass(context.Background()); err != nil {
 		t.Fatalf("second pass: %v", err)
 	}
-	if len(rec.sent) != 2 {
-		t.Fatalf("second pass sent again: %d notifications in total, want still 2", len(rec.sent))
+	if len(rec.sent) != 3 {
+		t.Fatalf("second pass sent again: %d notifications in total, want still 3", len(rec.sent))
 	}
 }
 
-func (f *fakeStore) DayFillCandidates(context.Context, appmodel.DayFillCandidatesQuery) ([]int64, error) {
+// DayFillCandidates answers as the store does for the default week: nobody
+// works a Saturday or a Sunday.
+func (f *fakeStore) DayFillCandidates(_ context.Context, query appmodel.DayFillCandidatesQuery) ([]int64, error) {
+	if day := query.From.Weekday(); day == time.Saturday || day == time.Sunday {
+		return nil, nil
+	}
 	return f.members, nil
 }
 
@@ -459,7 +466,7 @@ func TestBudgetReminders(t *testing.T) {
 	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
 	store := &fakeStore{teams: []int64{1}, claimed: map[string]bool{}, managers: []int64{1}, budget: []appmodel.BudgetProject{
 		{TeamID: 1, ProjectID: 10, Name: "Сайт", Slug: "sayt", EstimateMinutes: 600, TrackedSeconds: 8 * 3600},
-		{TeamID: 1, ProjectID: 20, Name: "Лендинг", Slug: "landing", BudgetCents: 1000000, RateCents: 200000, TrackedSeconds: 6 * 3600},
+		{TeamID: 1, ProjectID: 20, Name: "Лендинг", Slug: "landing", BudgetCents: 1000000, RateCents: 200000, TrackedSeconds: 6 * 3600, SpentCents: 1200000},
 		{TeamID: 1, ProjectID: 30, Name: "Тихий", Slug: "quiet", EstimateMinutes: 600, TrackedSeconds: 2 * 3600},
 	}}
 	rec := &recorder{}
@@ -535,5 +542,34 @@ func TestGoalLimitsWarnAtEightyAndWhenCrossed(t *testing.T) {
 	}
 	if strings.Join(titles, "|") != "Лимит почти исчерпан|Лимит превышен" {
 		t.Fatalf("limit pushes: %q", titles)
+	}
+}
+
+// What the schedule still plans counts: a project not over yet, whose plan
+// would take it over, is warned about before it happens; raising the
+// estimate lets the warnings come again for the new figure.
+func TestBudgetForecastAndRaisedEstimate(t *testing.T) {
+	now := time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC)
+	store := &fakeStore{teams: []int64{1}, claimed: map[string]bool{}, managers: []int64{1}, budget: []appmodel.BudgetProject{
+		{TeamID: 1, ProjectID: 10, Name: "Сайт", Slug: "sayt", EstimateMinutes: 600, TrackedSeconds: 5 * 3600, PlannedMinutes: 6 * 60},
+	}}
+	rec := &recorder{}
+	service, err := New(Dependencies{Store: store, Planner: fakePlanner{}, Sender: rec, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.sent) != 1 || !strings.Contains(rec.sent[0].Title, "По плану") || !strings.Contains(rec.sent[0].Body, "110%") {
+		t.Fatalf("forecast warning: %+v", rec.sent)
+	}
+	store.budget[0].EstimateMinutes = 1200
+	store.budget[0].TrackedSeconds = 17 * 3600
+	if err := service.Pass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.sent) != 2 || !strings.Contains(rec.sent[1].Title, "выйдет") {
+		t.Fatalf("after raising the estimate: %+v", rec.sent)
 	}
 }

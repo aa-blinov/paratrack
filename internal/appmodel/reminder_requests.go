@@ -57,12 +57,21 @@ type BudgetProject struct {
 	BudgetCents     int
 	RateCents       int
 	TrackedSeconds  int
+	// SpentCents is the time priced the way an invoice prices it, line by
+	// activity with the workspace's rounding (ProjectBudgetSummaries).
+	SpentCents int
+	// PlannedMinutes is what the schedule still plans on the project from
+	// today on: the forecast is tracked plus planned.
+	PlannedMinutes int
 }
 
 // BudgetNoticeRequest claims one budget warning level of a project.
 type BudgetNoticeRequest struct {
 	ProjectID int64
 	Level     int
+	// Basis is the estimate and budget the level was measured against: when
+	// a manager raises them, the warning may come again for the new figures.
+	Basis string
 }
 
 // LongTimerNoticeRequest claims the one long-timer reminder of a session.

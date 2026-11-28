@@ -30,6 +30,11 @@ var columnMigrations = []struct {
 	// A voided invoice keeps its number and lines, says why it was voided and
 	// when, and gives its hours back to be billed again.
 	{"invoices", "void_reason", "TEXT NOT NULL DEFAULT ''"},
+	{"project_budget_reminders", "basis", "TEXT NOT NULL DEFAULT ''"},
+	// The weekdays a member works, as ISO digits (1 Monday .. 7 Sunday): a
+	// part-timer on Monday to Wednesday is '123', and the norm, the schedule
+	// and the reminders expect them on those days only.
+	{"memberships", "work_days", "TEXT NOT NULL DEFAULT '12345'"},
 	{"invoices", "voided_at", "TEXT NOT NULL DEFAULT ''"},
 	// The closer's role when the month was closed: reopening asks who closed
 	// it then, not what that person is now, so removing an accountant from the

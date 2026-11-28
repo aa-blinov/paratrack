@@ -157,6 +157,20 @@ Confirmed by the code:
   activity, never a session id. Completion asks the server for the caller's
   own sessions (`/api/v1/sessions?mine=1`), keeps the list a minute, loads
   compinit in zsh when missing and completes fish only right after the verb.
+- Budget warnings price the time the way the project screen and the invoice
+  do (a session moved to another project counts there), add a forecast level
+  when tracked plus what the schedule still plans would go over, come again
+  for new figures after a raise, and wait until no recipient is asleep.
+  Overload reminders look at this week and the next, and a plan on someone
+  with no available time is an overload.
+- The schedule shows each person's load over four weeks from the one on
+  screen. A repeated plan skips holidays, absences and the people who already
+  have a plan in that week, instead of skipping the week for everyone.
+- Each member has work days (`memberships.work_days`, ISO digits, Monday to
+  Friday by default): the norm, the schedule's capacity, the team week and
+  the day-fill reminder follow them; a worked Saturday reminds too. The
+  timesheet fills the Russian production calendar's weekdays off for 2026 in
+  one click, each named.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

@@ -41,6 +41,16 @@ function MemberPayForm({ data, member }: { data: TeamMembersData; member: { User
       <Input id={`capacity-${member.UserID}`} type="number" name="capacity_minutes" min="0" step="30" defaultValue={initial.Capacity || ""} placeholder="480" />
     </div>
     <Button type="submit" className="col-span-2 justify-center sm:col-span-1 sm:justify-start">{t(lang, "projects.save")}</Button>
+    {/* A part-timer's week: the norm, the schedule and the reminders expect
+        them on these days only. */}
+    <fieldset className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-5">
+      <legend className="sr-only">{t(lang, "pay.workDays")}</legend>
+      <span className="text-xs text-muted-foreground">{t(lang, "pay.workDays")}</span>
+      <input type="hidden" name="work_days_sent" value="1" />
+      {["1", "2", "3", "4", "5", "6", "7"].map(day => <label key={day} className="inline-flex cursor-pointer items-center gap-1 rounded-md border px-2 py-1 text-xs">
+        <input type="checkbox" name="work_day" value={day} defaultChecked={(initial.WorkDays || "12345").includes(day)} className="accent-primary" />{t(lang, `wd.${day}`)}
+      </label>)}
+    </fieldset>
   </form>
 }
 
@@ -52,7 +62,7 @@ export function TeamMembersPage({ data }: { data: TeamMembersData }) {
     <Flash message={data.Flash} ok={data.FlashOK} />
     <Card><CardHeader><CardTitle>{t(lang, "team.members")} ({data.Members.length})</CardTitle></CardHeader><CardContent className="grid divide-y">
       {data.Members.length ? data.Members.map(member => {
-        const pay = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0, Kind: "hourly", Monthly: "" }
+        const pay = data.Pay[String(member.UserID)] || { Rate: "", Capacity: 0, Kind: "hourly", Monthly: "", WorkDays: "12345" }
         const ownerLocked = member.Role === "owner" && !data.IsOwner
         return <article key={member.UserID} className="grid min-w-0 gap-3 py-3 xl:grid-cols-[minmax(12rem,1.2fr)_minmax(10rem,1fr)_minmax(18rem,1.5fr)_auto] xl:items-center">
           <div className="min-w-0"><p className="flex items-center gap-1.5 font-medium"><UserRound className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" /><span className="truncate">{member.Name}</span>{member.UserID === data.User.ID && <span className="shrink-0 text-xs font-normal text-muted-foreground">{t(lang, "team.you")}</span>}</p><p className="truncate text-sm text-muted-foreground" title={member.Email}>{member.Email}</p></div>

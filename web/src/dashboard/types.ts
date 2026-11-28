@@ -643,6 +643,7 @@ export interface SchedulePerson {
 }
 
 export interface ScheduleData {
+  Horizon?: Array<{ Week: string; Label: string; Cells: Array<{ UserID: number; Name: string; Percent: number; Planned: string; Available: string; Over: boolean }> | null }>
   ReactApp: boolean
   ScheduleReact: boolean
   Lang: string
@@ -995,7 +996,7 @@ export interface TeamMembersData {
   User: { ID: number; Email: string; Name: string }
   Members: Array<{ UserID: number; Email: string; Name: string; Role: string }>
   Former: Array<{ UserID: number; Email: string; Name: string; LeftAt: string }>
-  Pay: Record<string, { Rate: string; Capacity: number; Kind?: "hourly" | "monthly"; Monthly?: string }>
+  Pay: Record<string, { Rate: string; Capacity: number; Kind?: "hourly" | "monthly"; Monthly?: string; WorkDays?: string }>
   IsOwner: boolean
   Flash: string
   FlashOK: boolean

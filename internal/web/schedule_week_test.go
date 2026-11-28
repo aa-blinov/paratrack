@@ -117,3 +117,30 @@ func TestScheduleRepeatFillsEmptyWeeksAheadAndSkipsPlannedOnes(t *testing.T) {
 		t.Fatalf("too many weeks: status %d, want 400", resp.StatusCode)
 	}
 }
+
+// A repeated plan does not land on a day the person is away or on a holiday.
+func TestScheduleRepeatSkipsAbsencesAndHolidays(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("repeat-away@x.test")
+	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Away work"}}, nil))
+	page := reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule", nil, nil)))
+	userID := strconv.FormatInt(page.People[0].UserID, 10)
+	projectID := strconv.FormatInt(page.Projects[0].ID, 10)
+	json := map[string]string{"Accept": "application/json"}
+	monday := startOfWeek(nil, time.Now()).AddDate(0, 0, 14)
+	for d := 0; d < 3; d++ {
+		e.do("POST", "/api/schedule/cell", url.Values{"user_id": {userID}, "project_id": {projectID}, "date": {monday.AddDate(0, 0, d).Format("2006-01-02")}, "minutes": {"60"}}, json).Body.Close()
+	}
+	next := monday.AddDate(0, 0, 7)
+	e.do("POST", "/api/absences", url.Values{"user_id": {userID}, "kind": {"vacation"}, "from": {next.Format("2006-01-02")}, "to": {next.Format("2006-01-02")}}, nil).Body.Close()
+	e.do("POST", "/api/holidays", url.Values{"from": {next.AddDate(0, 0, 1).Format("2006-01-02")}, "to": {next.AddDate(0, 0, 1).Format("2006-01-02")}, "name": {"Праздник"}}, nil).Body.Close()
+	resp := e.do("POST", "/api/schedule/copy", url.Values{"week": {monday.Format("2006-01-02")}, "weeks": {"1"}}, json)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("repeat: %d", resp.StatusCode)
+	}
+	got := reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule?date="+next.Format("2006-01-02"), nil, nil))).GrandMin
+	if got != 60 {
+		t.Fatalf("the repeated week holds %d minutes, want 60 (only the Wednesday)", got)
+	}
+}

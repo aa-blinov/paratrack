@@ -10,6 +10,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // teamWeekView is the team's week on the statistics page (PLAN-04): a row per member,
@@ -81,6 +82,13 @@ func (s *Server) teamWeekOf(r *http.Request, now time.Time) (*teamWeekView, erro
 	}
 	people := s.taskPeople(r)
 	sort.SliceStable(people, func(i, j int) bool { return people[i].Name < people[j].Name })
+	// Each person's own working week: a day they do not work is not a shortfall.
+	workDaysByID := map[int64]string{}
+	if snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r)); err == nil {
+		for _, ps := range snapshot.PaySettings {
+			workDaysByID[ps.UserID] = ps.WorkDays
+		}
+	}
 	for _, person := range people {
 		row := teamWeekRow{Name: person.Name}
 		total := 0
@@ -92,7 +100,7 @@ func (s *Server) teamWeekOf(r *http.Request, now time.Time) (*teamWeekView, erro
 			total += seconds
 			// A weekend with no time is a day off, not a shortfall.
 			_, worked := workdays[day.Format("2006-01-02")]
-			weekend := (day.Weekday() == time.Saturday || day.Weekday() == time.Sunday) && !worked
+			weekend := !model.WorksOn(workDaysByID[person.ID], day.Weekday()) && !worked
 			below := !day.After(today) && seconds < dayNormSeconds && (!weekend || seconds > 0)
 			key := fmt.Sprintf("%d/%s", person.ID, day.Format("2006-01-02"))
 			holiday, isHoliday := holidays[day.Format("2006-01-02")]

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -107,6 +108,8 @@ func (d *DB) DayFillCandidates(ctx context.Context, query appmodel.DayFillCandid
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT m.user_id FROM memberships m
 		  WHERE m.team_id = ?
+		    AND (position(? in COALESCE(NULLIF(m.work_days, ''), '12345')) > 0
+		         OR EXISTS (SELECT 1 FROM team_holidays w WHERE w.team_id = m.team_id AND w.day = ? AND w.kind = 'work'))
 		    AND NOT EXISTS (
 		      SELECT 1 FROM sessions s
 		       WHERE s.team_id = m.team_id AND s.user_id = m.user_id
@@ -115,9 +118,9 @@ func (d *DB) DayFillCandidates(ctx context.Context, query appmodel.DayFillCandid
 		      SELECT 1 FROM member_absences a
 		       WHERE a.team_id = m.team_id AND a.user_id = m.user_id AND a.day = ?)
 		    AND NOT EXISTS (
-		      SELECT 1 FROM team_holidays h WHERE h.team_id = m.team_id AND h.day = ?)
+		      SELECT 1 FROM team_holidays h WHERE h.team_id = m.team_id AND h.day = ? AND h.kind = 'off')
 		  ORDER BY m.user_id`,
-		query.TeamID, FormatTime(query.From), FormatTime(query.To), query.Day, query.Day)
+		query.TeamID, isoWeekdayDigit(query.From), query.Day, FormatTime(query.From), FormatTime(query.To), query.Day, query.Day)
 	if err != nil {
 		return nil, fmt.Errorf("list members without time: %w", err)
 	}
@@ -274,30 +277,52 @@ func (d *DB) ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTime
 // with the time tracked on them so far and their rate, for the budget warnings.
 func (d *DB) BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, error) {
 	var out []appmodel.BudgetProject
+	today := d.currentTime().UTC().Format("2006-01-02")
 	err := queryRows(ctx, d.sql, "budget projects",
 		`SELECT p.team_id, p.id, p.name, p.slug, COALESCE(p.lead_user_id, 0),
 		        COALESCE(p.estimate_minutes, 0), COALESCE(p.budget_cents, 0), COALESCE(p.billable_rate_cents, 0),
-		        COALESCE((SELECT SUM(s.accumulated_seconds) FROM sessions s JOIN activities a ON a.id = s.activity_id
-		                   WHERE a.project_id = p.id AND s.end_at IS NOT NULL), 0)
+		        COALESCE((SELECT SUM(e.minutes) FROM schedule_entries e WHERE e.project_id = p.id AND e.day >= ?), 0)
 		   FROM projects p
 		  WHERE p.archived = 0 AND (COALESCE(p.estimate_minutes, 0) > 0 OR COALESCE(p.budget_cents, 0) > 0)
 		  ORDER BY p.id`,
 		func(rows *sql.Rows) error {
 			var p appmodel.BudgetProject
-			if err := rows.Scan(&p.TeamID, &p.ProjectID, &p.Name, &p.Slug, &p.LeadUserID, &p.EstimateMinutes, &p.BudgetCents, &p.RateCents, &p.TrackedSeconds); err != nil {
+			if err := rows.Scan(&p.TeamID, &p.ProjectID, &p.Name, &p.Slug, &p.LeadUserID, &p.EstimateMinutes, &p.BudgetCents, &p.RateCents, &p.PlannedMinutes); err != nil {
 				return err
 			}
 			out = append(out, p)
 			return nil
-		})
-	return out, err
+		}, today)
+	if err != nil {
+		return nil, err
+	}
+	// The time and the money come from the project screen's own figures, so a
+	// session moved to another project and the invoice's rounding count the
+	// same here as on the screen and on the document.
+	summaries := map[int64]map[int64]appmodel.ProjectBudget{}
+	for i := range out {
+		team := out[i].TeamID
+		if _, ok := summaries[team]; !ok {
+			byProject, err := d.ProjectBudgetSummaries(ctx, appmodel.ProjectBudgetQuery{TeamID: team})
+			if err != nil {
+				return nil, err
+			}
+			summaries[team] = byProject
+		}
+		budget := summaries[team][out[i].ProjectID]
+		out[i].TrackedSeconds = int(budget.TrackedSeconds)
+		out[i].SpentCents = budget.SpentCents
+	}
+	return out, nil
 }
 
 // ClaimBudgetNotice records one warning level of a project, once.
 func (d *DB) ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNoticeRequest) (bool, error) {
 	result, err := d.sql.ExecContext(ctx,
-		`INSERT INTO project_budget_reminders (project_id, level, created_at) VALUES (?, ?, ?) ON CONFLICT (project_id, level) DO NOTHING`,
-		request.ProjectID, request.Level, FormatTime(d.currentTime().UTC()))
+		`INSERT INTO project_budget_reminders (project_id, level, created_at, basis) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (project_id, level) DO UPDATE SET created_at = excluded.created_at, basis = excluded.basis
+		 WHERE project_budget_reminders.basis <> excluded.basis`,
+		request.ProjectID, request.Level, FormatTime(d.currentTime().UTC()), request.Basis)
 	if err != nil {
 		return false, fmt.Errorf("claim budget notice: %w", err)
 	}
@@ -346,4 +371,13 @@ func (d *DB) ClaimGoalLimitNotice(ctx context.Context, request appmodel.GoalLimi
 		return false, err
 	}
 	return n == 1, nil
+}
+
+// isoWeekdayDigit is the ISO weekday of a day as the digit memberships.work_days keeps.
+func isoWeekdayDigit(day time.Time) string {
+	iso := int(day.Weekday())
+	if iso == 0 {
+		iso = 7
+	}
+	return strconv.Itoa(iso)
 }

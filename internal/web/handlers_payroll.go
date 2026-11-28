@@ -745,7 +745,19 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	} else if has {
 		monthly = &n
 	}
-	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly}); err != nil {
+	// The work days travel as one checkbox per day plus a marker that the
+	// set was on the form, so unticking every box is told apart from an
+	// older form that never had them.
+	var workDays *string
+	if r.PostForm.Get("work_days_sent") != "" {
+		joined := strings.Join(r.PostForm["work_day"], "")
+		if _, ok := model.NormalizeWorkDays(joined); !ok {
+			http.Redirect(w, r, "/settings/members?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.workDaysNone")), http.StatusSeeOther)
+			return
+		}
+		workDays = &joined
+	}
+	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly, WorkDays: workDays}); err != nil {
 		if errors.Is(err, appmodel.ErrForbidden) || errors.Is(err, appmodel.ErrNotFound) {
 			http.Redirect(w, r, "/settings/members?flash=forbidden", http.StatusSeeOther)
 			return

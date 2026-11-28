@@ -655,10 +655,12 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 		return nil
 	}
 	capByID := make(map[int64]int, len(snapshot.PaySettings))
+	workDaysByID := make(map[int64]string, len(snapshot.PaySettings))
 	for _, ps := range snapshot.PaySettings {
 		if ps.CapacityMinutes > 0 {
 			capByID[ps.UserID] = ps.CapacityMinutes
 		}
+		workDaysByID[ps.UserID] = ps.WorkDays
 	}
 	days := make([]time.Time, 7)
 	for i := range days {
@@ -719,7 +721,7 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 			// workspace whose weeks start on Sunday has Sunday at index 0.
 			key := d.Format("2006-01-02")
 			_, worked := workdays[key]
-			weekday := (d.Weekday() != time.Saturday && d.Weekday() != time.Sunday) || worked
+			weekday := model.WorksOn(workDaysByID[m.UserID], d.Weekday()) || worked
 			if kind := absent[m.UserID][key]; kind != "" && weekday {
 				awayByKind[kind]++
 				continue
