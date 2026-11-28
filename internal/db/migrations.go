@@ -405,3 +405,13 @@ func (d *DB) migratePayrollPercentFromLabel(ctx context.Context) error {
 	})
 	return err
 }
+
+// migrateProjectCopiesToCards runs the card backfill again: since the first
+// pass, invoices kept writing the client onto projects that had no card. After
+// this the card is the only place a project's client is kept and written.
+func (d *DB) migrateProjectCopiesToCards(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261128_project_client_copies_to_cards", func(tx *Tx) error {
+		return d.backfillClientCards(ctx, tx, clientSeedSources{projects: true})
+	})
+	return err
+}

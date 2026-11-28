@@ -129,6 +129,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"tasks section", func() error { return d.migrateTasksSection(ctx) }},
 		{"payroll adjustment kind", func() error { return d.migratePayrollAdjustmentKind(ctx) }},
 		{"payroll percent from label", func() error { return d.migratePayrollPercentFromLabel(ctx) }},
+		{"project client copies to cards", func() error { return d.migrateProjectCopiesToCards(ctx) }},
 		{"purge idempotency keys", func() error { return d.PurgeStaleIdempotencyKeys(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {

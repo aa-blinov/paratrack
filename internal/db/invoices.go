@@ -285,13 +285,12 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 			if err := updateClientCardTx(ctx, tx, teamID, projectID, clientName, options.ClientEmail, options.ClientDetails, createdAt); err != nil {
 				return Invoice{}, nil, err
 			}
-		case options.UpdateClientCard:
-			return Invoice{}, nil, model.ErrNoClientCard
 		case !hasCard:
-			if _, err := tx.ExecContext(ctx,
-				`UPDATE projects SET client_name = ?, client_details = ?, client_email = ? WHERE id = ? AND team_id = ?`,
-				strings.TrimSpace(clientName), strings.TrimSpace(options.ClientDetails), strings.TrimSpace(options.ClientEmail), projectID, teamID); err != nil {
-				return Invoice{}, nil, fmt.Errorf("remember project client: %w", err)
+			// No card yet: the client gets one, found by name or made, and the
+			// project points at it. The card is the one place a client is
+			// kept; an existing card only has its empty fields filled.
+			if err := linkProjectClientCardTx(ctx, tx, teamID, projectID, clientName, options.ClientEmail, options.ClientDetails, createdAt); err != nil {
+				return Invoice{}, nil, err
 			}
 		}
 	}
@@ -498,4 +497,30 @@ func updateClientCardTx(ctx context.Context, tx *Tx, teamID, projectID int64, cl
 		return err
 	}
 	return &model.ClientCardMismatchError{Card: cardName}
+}
+
+// linkProjectClientCardTx gives a project without a client card the card of
+// the client an invoice named: the existing card of that name, or a new one.
+// It writes only the card's empty fields, so a card serving other projects is
+// never overwritten from here.
+func linkProjectClientCardTx(ctx context.Context, tx *Tx, teamID, projectID int64, clientName, email, details, at string) error {
+	name := strings.TrimSpace(clientName)
+	if name == "" {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO clients (team_id, name, email, details, currency, notes, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, '', '', ?, ?)
+		 ON CONFLICT (team_id, name) DO UPDATE SET
+		   email = CASE WHEN clients.email = '' THEN excluded.email ELSE clients.email END,
+		   details = CASE WHEN clients.details = '' THEN excluded.details ELSE clients.details END`,
+		teamID, name, strings.TrimSpace(email), strings.TrimSpace(details), at, at); err != nil {
+		return fmt.Errorf("find or make the client card: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE projects SET client_id = (SELECT id FROM clients WHERE team_id = ? AND name = ?) WHERE id = ? AND team_id = ? AND client_id IS NULL`,
+		teamID, name, projectID, teamID); err != nil {
+		return fmt.Errorf("link the project to its client card: %w", err)
+	}
+	return nil
 }

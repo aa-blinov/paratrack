@@ -124,6 +124,11 @@ is in the Makefile.
   `schema_compat.go` and run at every startup, which put Tasks back into the
   "Студия: старт" preset after each deploy. A set chosen since then keeps its
   shape. Do not move a data change back into the compatibility statements.
+- **A project's client lives on the client card only.** `projects.client_*`
+  are kept for rollback but no longer written: an invoice links a project
+  without a card to the card of the client it names, and a draft changes a
+  card only through the "update the client card too" box, for the card's own
+  client.
 - **A payroll adjustment is marked by `payroll_lines.kind = 'adjustment'`.**
   A bonus and a salary line have the same shape (no hours, no rate), so the
   kind is the only thing that tells them apart: a percent is taken of what is

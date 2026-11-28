@@ -167,7 +167,11 @@ Deliberately not true, and worth knowing before a change:
   timesheet shows a manager every member's week on one screen: hours against
   the norm, empty weekdays, and approval per person, with "approve everyone
   on track" (80% of the norm, no empty weekday by the calendar) for a
-  finished week; a date inside a week means that whole week. Approved
+  finished week; a date inside a week means that whole week. A manager
+  records a member's vacation, sick leave or day off over a span of days
+  and the workspace's holidays ("Absences and holidays" on the timesheet);
+  those days leave the norm, and a member away the whole week is "away",
+  which the button approves too. The schedule does not show them yet. Approved
   and on track have different marks.
 - A pay run cannot cover the current week, because the week has to end and be
   approved first. A pay run can cover a chosen set of members, or only the
@@ -210,8 +214,11 @@ Deliberately not true, and worth knowing before a change:
   line endings. A new invoice remembers the client's email and details on the
   client card only when "Update the client card too" is ticked and the
   invoice names that card's client (another name is refused), never clearing
-  a filled field or renaming the card; a project without a card keeps its
-  own copy. A project with a card fills the form from the card alone. A
+  a filled field or renaming the card. A project without a card gets the
+  card of the client its invoice names (found by name or made, only empty
+  fields filled). The card is the one place a project's client is kept: a
+  draft edit no longer writes a copy onto the project, and the copies left
+  from before were turned into cards (the columns stay, unwritten). A
   card or a draft saved before the check can still be edited while its
   details stay as they are.
 - A token whose owner has no seat in its workspace any more is answered

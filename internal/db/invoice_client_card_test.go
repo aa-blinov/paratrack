@@ -82,3 +82,31 @@ func TestDraftEditUpdatesClientCardOnlyWhenAsked(t *testing.T) {
 		t.Fatalf("asked, with new details and no email: %q %q", email, details)
 	}
 }
+
+// Projects that kept a client only as their own copy get the client's card on
+// the next start, so the card is the one place a client lives.
+func TestProjectClientCopiesBecomeCards(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Копии", "client-copies")
+	var projectID int64
+	if err := d.TestSQL().QueryRowContext(ctx,
+		`INSERT INTO projects (team_id, name, slug, client_name, client_email, client_details) VALUES (?, 'Лендинг', 'copies-landing', 'Лютик', 'buh@lutik.test', 'ИНН 500100732259') RETURNING id`,
+		teamID).Scan(&projectID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `DELETE FROM paratrack_migrations WHERE name = '20261128_project_client_copies_to_cards'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.migrateProjectCopiesToCards(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var name, email, details string
+	if err := d.TestSQL().QueryRowContext(ctx,
+		`SELECT c.name, c.email, c.details FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ?`, projectID).Scan(&name, &email, &details); err != nil {
+		t.Fatalf("the project has no card: %v", err)
+	}
+	if name != "Лютик" || email != "buh@lutik.test" || details != "ИНН 500100732259" {
+		t.Fatalf("card %q %q %q", name, email, details)
+	}
+}

@@ -39,6 +39,15 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 		t.Fatalf("expected invoice redirect, got %q", invLoc)
 	}
 
+	// The invoice named its client, so the project now has that client's card.
+	var linked int
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM projects p JOIN clients c ON c.id = p.client_id WHERE p.id = ? AND c.name = 'Acme'`, proj.ID).Scan(&linked); err != nil {
+		t.Fatal(err)
+	}
+	if linked != 1 {
+		t.Fatal("the new invoice did not give its project the client's card")
+	}
+
 	// Add a manual extra line (+500).
 	addResp := e.do("POST", invLoc+"/lines", url.Values{"label": {"Server setup"}, "amount": {"500"}}, nil)
 	addResp.Body.Close()
@@ -120,6 +129,11 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 		t.Fatalf("a valid sole trader pair was refused: %q", loc)
 	}
 
+	// The invoice gave the project a client card when it was created; take it
+	// away to see what happens on a project without one.
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE projects SET client_id = NULL WHERE id = ?`, proj.ID); err != nil {
+		t.Fatal(err)
+	}
 	// "Update the client card too" on a project with no card says so and
 	// saves nothing, rather than report a save that skipped the card.
 	noCard := e.do("POST", invLoc+"/edit", url.Values{"client": {"Acme"}, "client_details": {"ООО Новая"}, "update_client_card": {"1"}}, nil)

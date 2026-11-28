@@ -226,27 +226,6 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 		return model.ErrNoClientCard
 	}
 	if projectID > 0 {
-		// The project's copy is what the next invoice falls back to: an old
-		// draft's details that do not check out stay on the draft, not here.
-		projectDetails := details
-		if len(model.RequisiteProblems(details)) > 0 {
-			projectDetails = ""
-		}
-		res, err := tx.ExecContext(ctx,
-			`UPDATE projects SET client_name = ?, client_details = CASE WHEN ? = '' AND ? <> '' THEN client_details ELSE ? END, client_email = ? WHERE id = ? AND team_id = ?`,
-			client, projectDetails, details, projectDetails, email, projectID, teamID)
-		if err != nil {
-			return fmt.Errorf("update project client defaults: %w", err)
-		}
-		if affected, err := res.RowsAffected(); err != nil {
-			return err
-		} else if affected == 0 {
-			return ErrNotFound
-		}
-		// The next invoice reads the client's card before the project's copy,
-		// so a fix meant to last goes to the card, but only when asked: the
-		// card serves every project of that client. An empty field leaves the
-		// card's own value in place.
 		if request.UpdateClientCard {
 			if err := updateClientCardTx(ctx, tx, teamID, projectID, client, email, details, FormatTime(d.currentTime().UTC())); err != nil {
 				return err
