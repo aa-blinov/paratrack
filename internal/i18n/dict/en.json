@@ -2386,5 +2386,11 @@
   "graph.secShort": "s",
   "team.roleAccountant": "accountant",
   "team.role.accountant": "accountant",
-  "role.accountant": "accountant"
+  "role.accountant": "accountant",
+  "sch.repeatDone": "Plan repeated in %d weeks.",
+  "sch.repeatSkipped": "Weeks that had a plan were skipped: %s.",
+  "sch.repeatAllPlanned": "Every one of these weeks already has a plan.",
+  "sch.repeatWeek": "Repeat this week",
+  "sch.repeatWeeksLabel": "weeks ahead",
+  "sch.weeksShort": "wk"
 }

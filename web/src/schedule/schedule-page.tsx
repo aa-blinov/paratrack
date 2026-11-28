@@ -85,6 +85,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
   const [drafts, setDrafts] = React.useState<Record<string, string>>({})
   const [adminDrafts, setAdminDrafts] = React.useState<Record<number, string>>({})
   const [saving, setSaving] = React.useState<string | null>(null)
+  const [repeatWeeks, setRepeatWeeks] = React.useState(4)
   const [error, setError] = React.useState("")
   // A parked write is not an error: it says so here, in the muted voice, while
   // the banner above counts what waits for the connection.
@@ -213,12 +214,12 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
     }
   }
 
-  async function copyWeek() {
+  async function copyWeek(weeks?: number) {
     setSaving("copy")
     setError("")
     setNotice("")
     try {
-      const update = await send("/api/schedule/copy", { week: data.ThisWeek })
+      const update = await send("/api/schedule/copy", weeks ? { week: data.ThisWeek, weeks: String(weeks) } : { week: data.ThisWeek })
       if (!update) return
       applyPlan(update)
     } catch (cause) {
@@ -374,6 +375,16 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
             <Copy aria-hidden="true" />{t(lang, "sch.copyWeek")}
           </Button>
           {copyHint && <span className="text-xs text-muted-foreground">{copyHint}</span>}
+          {/* A plan that holds for a while is set once: the weeks ahead that
+              already have a plan are skipped, and the notice names them. */}
+          {!data.WeekEmpty && <div className="flex items-center gap-1">
+            <Button type="button" variant="outline" size="sm" disabled={saving !== null} onClick={() => void copyWeek(repeatWeeks)}>
+              <Copy aria-hidden="true" />{t(lang, "sch.repeatWeek")}
+            </Button>
+            <select aria-label={t(lang, "sch.repeatWeeksLabel")} value={repeatWeeks} onChange={event => setRepeatWeeks(Number(event.target.value))} className="h-8 rounded-md border bg-background px-2 text-sm">
+              {[1, 2, 3, 4, 6, 8, 12].map(n => <option key={n} value={n}>{`${n} ${t(lang, "sch.weeksShort")}`}</option>)}
+            </select>
+          </div>}
         </div>}
       </div>
     </header>

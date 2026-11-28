@@ -2386,5 +2386,11 @@
   "graph.secShort": " с",
   "team.roleAccountant": "бухгалтер",
   "team.role.accountant": "бухгалтер",
-  "role.accountant": "бухгалтер"
+  "role.accountant": "бухгалтер",
+  "sch.repeatDone": "План повторён на недель: %d.",
+  "sch.repeatSkipped": "Недели с планом пропущены: %s.",
+  "sch.repeatAllPlanned": "Во всех этих неделях уже есть план.",
+  "sch.repeatWeek": "Повторить эту неделю",
+  "sch.repeatWeeksLabel": "на сколько недель вперёд",
+  "sch.weeksShort": "нед."
 }

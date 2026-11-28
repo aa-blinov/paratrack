@@ -3,6 +3,7 @@ package web
 import (
 	"net/url"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -76,5 +77,43 @@ func TestScheduleAdminTimeComesOffAvailableHours(t *testing.T) {
 	after := reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule", nil, nil)))
 	if after.People[0].AdminMin != 600 || after.People[0].AvailableMin != 1800 {
 		t.Fatalf("after admin time: admin=%d available=%d, want 600 and 1800", after.People[0].AdminMin, after.People[0].AvailableMin)
+	}
+}
+
+// Repeating the week on screen forward fills the empty weeks ahead and
+// skips, by name, a week that already has a plan.
+func TestScheduleRepeatFillsEmptyWeeksAheadAndSkipsPlannedOnes(t *testing.T) {
+	e := newAPIEnv(t)
+	e.register("repeat-week@x.test")
+	readBody(t, e.do("POST", "/projects/new", url.Values{"name": {"Repeat work"}}, nil))
+	page := reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule", nil, nil)))
+	userID := strconv.FormatInt(page.People[0].UserID, 10)
+	projectID := strconv.FormatInt(page.Projects[0].ID, 10)
+	json := map[string]string{"Accept": "application/json"}
+	monday := startOfWeek(nil, time.Now()).AddDate(0, 0, 14)
+	cell := func(day time.Time, minutes string) {
+		e.do("POST", "/api/schedule/cell", url.Values{"user_id": {userID}, "project_id": {projectID}, "date": {day.Format("2006-01-02")}, "minutes": {minutes}}, json).Body.Close()
+	}
+	cell(monday.AddDate(0, 0, 1), "240")
+	// The second week ahead already has its own plan.
+	cell(monday.AddDate(0, 0, 14+2), "60")
+	resp := e.do("POST", "/api/schedule/copy", url.Values{"week": {monday.Format("2006-01-02")}, "weeks": {"3"}}, json)
+	resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("repeat: status %d", resp.StatusCode)
+	}
+	if toast, _ := url.PathUnescape(resp.Header.Get("X-Toast")); toast == "" || !strings.Contains(toast, monday.AddDate(0, 0, 14).Format("02.01")) {
+		t.Fatalf("the skipped week is not named: %q", toast)
+	}
+	week := func(offset int) int {
+		return reactData[schedulePage](t, readBody(t, e.do("GET", "/schedule?date="+monday.AddDate(0, 0, offset).Format("2006-01-02"), nil, nil))).GrandMin
+	}
+	if week(7) != 240 || week(14) != 60 || week(21) != 240 {
+		t.Fatalf("weeks ahead: %d, %d, %d; want 240, 60 (kept), 240", week(7), week(14), week(21))
+	}
+	resp = e.do("POST", "/api/schedule/copy", url.Values{"week": {monday.Format("2006-01-02")}, "weeks": {"99"}}, json)
+	resp.Body.Close()
+	if resp.StatusCode != 400 {
+		t.Fatalf("too many weeks: status %d, want 400", resp.StatusCode)
 	}
 }

@@ -322,10 +322,22 @@ func (s *Server) handleScheduleCopy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target := startOfWeek(r, parsed)
-	if err := s.services.Scheduling.CopyScheduleWeek(r.Context(), appmodel.ScheduleCopyRequest{
-		TeamID: teamID(r), ActorID: authenticatedUserID(r), From: target.AddDate(0, 0, -7), To: target,
-	}); err != nil {
+	// "weeks" repeats the week on screen forward; without it the previous
+	// week is repeated in the one on screen.
+	request := appmodel.ScheduleCopyRequest{TeamID: teamID(r), ActorID: authenticatedUserID(r), From: target.AddDate(0, 0, -7), To: target}
+	if raw := strings.TrimSpace(r.PostForm.Get("weeks")); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > appmodel.MaxScheduleRepeatWeeks {
+			s.writeJSONStatus(w, http.StatusBadRequest, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.invalidInput")})
+			return
+		}
+		request = appmodel.ScheduleCopyRequest{TeamID: teamID(r), ActorID: authenticatedUserID(r), From: target, To: target.AddDate(0, 0, 7), Weeks: n}
+	}
+	result, err := s.services.Scheduling.CopyScheduleWeek(r.Context(), request)
+	if err != nil {
 		switch {
+		case errors.Is(err, appmodel.ErrScheduleWeekNotEmpty) && request.Weeks > 0:
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "sch.repeatAllPlanned")})
 		case errors.Is(err, appmodel.ErrScheduleWeekNotEmpty):
 			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "sch.copyNeedEmpty")})
 		case errors.Is(err, appmodel.ErrScheduleNothingToCopy):
@@ -337,7 +349,20 @@ func (s *Server) handleScheduleCopy(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	s.toastL(w, r, "sch.copyDone", "", "success")
+	if request.Weeks > 0 {
+		lang := resolveLang(r)
+		msg := fmt.Sprintf(i18n.T(lang, "sch.repeatDone"), len(result.Filled))
+		if len(result.Skipped) > 0 {
+			days := make([]string, len(result.Skipped))
+			for i, monday := range result.Skipped {
+				days[i] = monday.Format("02.01")
+			}
+			msg += " " + fmt.Sprintf(i18n.T(lang, "sch.repeatSkipped"), strings.Join(days, ", "))
+		}
+		s.toast(w, msg, "success")
+	} else {
+		s.toastL(w, r, "sch.copyDone", "", "success")
+	}
 	s.respondSchedulePlan(w, r, target)
 }
 

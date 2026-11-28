@@ -3,12 +3,25 @@ package appmodel
 import "time"
 
 // ScheduleCopyRequest repeats the plan of the week starting at From in the
-// week starting at To, seven days later. The target week must be empty.
+// week starting at To, seven days later, and with Weeks above one in as many
+// weeks in a row from To. A week that already has a plan is skipped, never
+// merged; with one week it is refused.
 type ScheduleCopyRequest struct {
 	TeamID  int64
 	ActorID int64
 	From    time.Time
 	To      time.Time
+	Weeks   int
+}
+
+// MaxScheduleRepeatWeeks bounds one repeat: about a quarter ahead.
+const MaxScheduleRepeatWeeks = 12
+
+// ScheduleCopyResult names the weeks a copy filled and the weeks it left
+// alone because they already had a plan, each by its Monday.
+type ScheduleCopyResult struct {
+	Filled  []time.Time
+	Skipped []time.Time
 }
 
 // ScheduleAdminRequest sets the admin time a member keeps each week, which

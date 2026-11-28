@@ -121,6 +121,8 @@ Confirmed by the code:
   reports with their exports, recording payments and closing a month, never
   editing a document, a rate or the time. A month an accountant closed is
   reopened only by them or the owner.
+- A manager repeats the week on screen in up to 12 weeks ahead; a week that
+  already has a plan is skipped and named, never merged.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

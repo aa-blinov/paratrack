@@ -30,8 +30,8 @@ func (scheduleCellStoreStub) PlannedMinutesByUser(context.Context, int64, time.T
 	return nil, nil
 }
 
-func (scheduleCellStoreStub) CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error {
-	return nil
+func (scheduleCellStoreStub) CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) (appmodel.ScheduleCopyResult, error) {
+	return appmodel.ScheduleCopyResult{}, nil
 }
 
 func (scheduleCellStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error {
@@ -129,8 +129,8 @@ func (scheduleStoreStub) PlannedMinutesByUser(context.Context, int64, time.Time,
 	return map[int64]int{1: 240}, nil
 }
 
-func (scheduleStoreStub) CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error {
-	return nil
+func (scheduleStoreStub) CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) (appmodel.ScheduleCopyResult, error) {
+	return appmodel.ScheduleCopyResult{}, nil
 }
 
 func (scheduleStoreStub) SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error {

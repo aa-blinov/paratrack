@@ -17,7 +17,7 @@ type Store interface {
 	ListSchedule(context.Context, appmodel.ScheduleQuery) ([]appmodel.ScheduleRow, map[int64]string, error)
 	PlannedMinutesByUser(ctx context.Context, teamID int64, from, to time.Time) (map[int64]int, error)
 	UpsertScheduleEntry(context.Context, appmodel.ScheduleCellRequest) error
-	CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) error
+	CopyScheduleWeek(context.Context, appmodel.ScheduleCopyRequest) (appmodel.ScheduleCopyResult, error)
 	SetScheduleAdminMinutes(context.Context, appmodel.ScheduleAdminRequest) error
 	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
@@ -165,17 +165,19 @@ func weekLoadPercent(minutes, available int) int {
 	return int(int64(minutes) * 100 / int64(available))
 }
 
-// CopyScheduleWeek repeats the plan of the previous week in an empty week.
-// The rule is the store's: a non-empty target is refused, not merged.
-func (s *Service) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) error {
+// CopyScheduleWeek repeats a week's plan in the week after it, or in several
+// weeks in a row. The rule is the store's: a week with a plan is not merged.
+func (s *Service) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) (appmodel.ScheduleCopyResult, error) {
 	if request.TeamID <= 0 || request.ActorID <= 0 || request.From.IsZero() || request.To.IsZero() ||
+		request.Weeks < 0 || request.Weeks > appmodel.MaxScheduleRepeatWeeks ||
 		request.To.Format("2006-01-02") != request.From.AddDate(0, 0, 7).Format("2006-01-02") {
-		return ErrInvalidScheduleCell
+		return appmodel.ScheduleCopyResult{}, ErrInvalidScheduleCell
 	}
-	if err := s.store.CopyScheduleWeek(ctx, request); err != nil {
-		return fmt.Errorf("copy schedule week: %w", err)
+	result, err := s.store.CopyScheduleWeek(ctx, request)
+	if err != nil {
+		return result, fmt.Errorf("copy schedule week: %w", err)
 	}
-	return nil
+	return result, nil
 }
 
 // TrackedSecondsByPersonDay is what each member tracked on each day of a stretch of

@@ -357,43 +357,54 @@ func (d *DB) PlannedMinutesByUser(ctx context.Context, teamID int64, from, to ti
 	return planned, rows.Err()
 }
 
-// CopyScheduleWeek repeats every planned cell of the source week seven days
-// later. The target week is checked inside the same transaction as the copy,
-// so a cell written meanwhile cannot be overwritten.
-func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) error {
+// CopyScheduleWeek repeats every planned cell of the source week in the
+// target week, and in the weeks after it when more than one is asked. Each
+// target week is checked inside the same transaction as the copy, so a cell
+// written meanwhile cannot be overwritten: a week with a plan is skipped.
+func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopyRequest) (appmodel.ScheduleCopyResult, error) {
+	var result appmodel.ScheduleCopyResult
 	teamID := request.TeamID
 	if teamID <= 0 || request.ActorID <= 0 || request.From.IsZero() || request.To.IsZero() {
-		return ErrNotFound
+		return result, ErrNotFound
+	}
+	weeks := request.Weeks
+	if weeks < 1 {
+		weeks = 1
+	}
+	if weeks > appmodel.MaxScheduleRepeatWeeks {
+		weeks = appmodel.MaxScheduleRepeatWeeks
 	}
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return result, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	if _, _, err := lockTeamManager(ctx, tx, teamID, request.ActorID); err != nil {
-		return err
+		return result, err
 	}
 	var lockedID int64
 	if err := tx.QueryRowContext(ctx, `SELECT id FROM teams WHERE id = ? FOR UPDATE`, teamID).Scan(&lockedID); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return ErrNotFound
+			return result, ErrNotFound
 		}
-		return err
+		return result, err
 	}
-	var targetCells int
-	if err := tx.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
-		teamID, scheduleDay(request.To), scheduleDay(request.To.AddDate(0, 0, 7))).Scan(&targetCells); err != nil {
-		return err
+	for w := 0; w < weeks; w++ {
+		target := request.To.AddDate(0, 0, 7*w)
+		var targetCells int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
+			teamID, scheduleDay(target), scheduleDay(target.AddDate(0, 0, 7))).Scan(&targetCells); err != nil {
+			return result, err
+		}
+		if targetCells > 0 {
+			result.Skipped = append(result.Skipped, target)
+		} else {
+			result.Filled = append(result.Filled, target)
+		}
 	}
-	if targetCells > 0 {
-		return appmodel.ErrScheduleWeekNotEmpty
-	}
-	sourceRows, err := tx.QueryContext(ctx,
-		`SELECT user_id, project_id, day, minutes FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
-		teamID, scheduleDay(request.From), scheduleDay(request.From.AddDate(0, 0, 7)))
-	if err != nil {
-		return err
+	if len(result.Filled) == 0 {
+		return result, appmodel.ErrScheduleWeekNotEmpty
 	}
 	type cell struct {
 		userID, projectID int64
@@ -401,40 +412,39 @@ func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopy
 		minutes           int
 	}
 	var cells []cell
-	for sourceRows.Next() {
-		var c cell
-		if err := sourceRows.Scan(&c.userID, &c.projectID, &c.day, &c.minutes); err != nil {
-			_ = sourceRows.Close()
-			return err
-		}
-		cells = append(cells, c)
-	}
-	if err := sourceRows.Err(); err != nil {
-		_ = sourceRows.Close()
-		return err
-	}
-	if err := sourceRows.Close(); err != nil {
-		return err
+	if err := queryRows(ctx, tx, "planned cells to copy",
+		`SELECT user_id, project_id, day, minutes FROM schedule_entries WHERE team_id = ? AND day >= ? AND day < ?`,
+		func(rows *sql.Rows) error {
+			var c cell
+			if err := rows.Scan(&c.userID, &c.projectID, &c.day, &c.minutes); err != nil {
+				return err
+			}
+			cells = append(cells, c)
+			return nil
+		}, teamID, scheduleDay(request.From), scheduleDay(request.From.AddDate(0, 0, 7))); err != nil {
+		return result, err
 	}
 	if len(cells) == 0 {
-		return appmodel.ErrScheduleNothingToCopy
+		return result, appmodel.ErrScheduleNothingToCopy
 	}
 	now := FormatTime(d.currentTime().UTC())
 	// One statement instead of a round-trip per cell: copying a busy week
 	// held the workspace lock far longer than the write itself needs.
-	userIDs := make([]int64, len(cells))
-	projectIDs := make([]int64, len(cells))
-	days := make([]string, len(cells))
-	minutes := make([]int, len(cells))
-	for i, c := range cells {
-		day, err := time.Parse("2006-01-02", c.day)
-		if err != nil {
-			return fmt.Errorf("parse planned day %q: %w", c.day, err)
+	var userIDs, projectIDs []int64
+	var days []string
+	var minutes []int
+	for _, target := range result.Filled {
+		shift := int(target.Sub(request.From).Hours()/24 + 0.5)
+		for _, c := range cells {
+			day, err := time.Parse("2006-01-02", c.day)
+			if err != nil {
+				return result, fmt.Errorf("parse planned day %q: %w", c.day, err)
+			}
+			userIDs = append(userIDs, c.userID)
+			projectIDs = append(projectIDs, c.projectID)
+			days = append(days, scheduleDay(day.AddDate(0, 0, shift)))
+			minutes = append(minutes, c.minutes)
 		}
-		userIDs[i] = c.userID
-		projectIDs[i] = c.projectID
-		days[i] = scheduleDay(day.AddDate(0, 0, 7))
-		minutes[i] = c.minutes
 	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO schedule_entries (team_id, user_id, project_id, day, minutes, note, created_at)
@@ -442,9 +452,9 @@ func (d *DB) CopyScheduleWeek(ctx context.Context, request appmodel.ScheduleCopy
 		 FROM unnest(?::bigint[], ?::bigint[], ?::text[], ?::int[]) AS source(user_id, project_id, day, minutes)
 		 ON CONFLICT (team_id, user_id, project_id, day) DO UPDATE SET minutes = excluded.minutes`,
 		teamID, now, userIDs, projectIDs, days, minutes); err != nil {
-		return fmt.Errorf("copy planned cells: %w", err)
+		return result, fmt.Errorf("copy planned cells: %w", err)
 	}
-	return tx.Commit()
+	return result, tx.Commit()
 }
 
 // SetScheduleAdminMinutes stores a member's weekly admin time.
