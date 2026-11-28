@@ -113,7 +113,8 @@ Confirmed by the code:
   the client's ИНН from the invoice's details, amount, source) for a period
   and optionally one client, plain or in the 1С/Excel dialect.
 - An emailed invoice carries its act and the breakdown by session (CSV)
-  besides the invoice PDF. With the executors' names hidden on invoices, the
+  besides the invoice PDF (the act can be left out for a client who signs it
+  after paying). With the executors' names hidden on invoices, the
   breakdown leaves the person column empty too. Whether the names are hidden
   is frozen on the invoice when it is sent or emailed (`invoices.hide_names`):
   a draft follows the workspace switch, a sent document reads as it went out.

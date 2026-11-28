@@ -2461,5 +2461,6 @@
   "wd.7": "Su",
   "holiday.presetRu": "Russian holidays for %s",
   "holiday.presetDone": "Holidays added: %d (%d).",
-  "holiday.presetMissing": "No calendar for that year yet."
+  "holiday.presetMissing": "No calendar for that year yet.",
+  "inv.sendNoAct": "Without the act: the client signs it after paying"
 }
