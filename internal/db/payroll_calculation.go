@@ -181,10 +181,14 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 					return nil, fmt.Errorf("parse former member departure: %w", err)
 				}
 			}
-			amount, worked, norm := calendar.salary(m.id, m.days, m.salary, start, end, joinedAt, leftAt)
-			if worked <= 0 || amount <= 0 {
+			amount, worked, norm, due := calendar.salary(m.id, m.days, m.salary, start, end, joinedAt, leftAt)
+			if due <= 0 {
+				// Nobody is due a day here: the month is outside their
+				// employment, so they are not on the run at all.
 				continue
 			}
+			// A salaried line carries no hours and no rate, so the days are the
+			// only place the accountant can check a partial sum by hand.
 			if worked < norm {
 				label = fmt.Sprintf("%s (%d из %d дн.)", label, worked, norm)
 			}
@@ -280,8 +284,12 @@ func loadSalaryCalendar(ctx context.Context, q payrollQueryer, teamID int64, sta
 
 // salary prices a member's salary over the calendar months a run touches:
 // each month pays salary × days worked ÷ days to be worked, rounded to the
-// cent. It answers the amount and the days, summed over the months.
-func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start, end, joinedAt, leftAt time.Time) (amount, worked, norm int) {
+// cent. The run picks the months, the month holds the norm; a second run over
+// a month already priced comes back as an overlap to confirm, never as a
+// silent second salary. It answers the amount, the days worked, the days of
+// the month, and the days the member was due to work — the ones outside their
+// employment excluded, so a month abroad pays nothing.
+func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start, end, joinedAt, leftAt time.Time) (amount, worked, norm, due int) {
 	loc := start.Location()
 	firstDay, lastDay := "", ""
 	if !joinedAt.IsZero() {
@@ -294,15 +302,20 @@ func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start
 	last := end.Add(-time.Nanosecond)
 	for !month.After(last) {
 		next := month.AddDate(0, 1, 0)
-		monthNorm, monthWorked := 0, 0
+		monthNorm, monthWorked, monthDue := 0, 0, 0
 		for day := month; day.Before(next); day = day.AddDate(0, 0, 1) {
 			key := day.Format("2006-01-02")
 			if c.off[key] || !(model.WorksOn(workDays, day.Weekday()) || c.work[key]) {
 				continue
 			}
 			monthNorm++
-			member := (firstDay == "" || key >= firstDay) && (lastDay == "" || key <= lastDay)
-			if member && !c.away[userID][key] {
+			// A day before joining or after leaving is not theirs to work, so
+			// it is not a day they owe and not a day they miss.
+			if (firstDay != "" && key < firstDay) || (lastDay != "" && key > lastDay) {
+				continue
+			}
+			monthDue++
+			if !c.away[userID][key] {
 				monthWorked++
 			}
 		}
@@ -311,7 +324,8 @@ func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start
 		}
 		worked += monthWorked
 		norm += monthNorm
+		due += monthDue
 		month = next
 	}
-	return amount, worked, norm
+	return amount, worked, norm, due
 }

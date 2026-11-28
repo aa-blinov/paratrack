@@ -187,8 +187,8 @@ func hookedBinary(script string) string {
 // ("pt-123/fix-login"): "step-2-validation" and "fix/oauth2-1" are words.
 var defaultTicketPattern = regexp.MustCompile(`\b[A-Z][A-Z0-9]+-[0-9]+\b`)
 
-// lowerTicketPart is a branch part that is a key in lower case and nothing else.
-var lowerTicketPart = regexp.MustCompile(`^[a-z][a-z0-9]*-[0-9]+$`)
+// lowerTicketPart is a branch part that is a key in any case and nothing else.
+var lowerTicketPart = regexp.MustCompile(`(?i)^[a-z][a-z0-9]*-[0-9]+$`)
 
 // defaultPauseBranches pause the timers when checked out.
 var defaultPauseBranches = []string{"main", "master", "develop", "trunk"}
@@ -232,11 +232,18 @@ func branchDecision(branch string, pauses []string, pattern string) (pause bool,
 }
 
 // splitConfigList reads a git config list given as one or more values, each
-// separated by spaces, tabs or commas.
+// separated by spaces, tabs, commas or a new line, the way git config writes a
+// multi-value key. A value quoted in the config keeps its quotes otherwise:
+// `paratrack.pauseBranches '"dev" staging'` paused nothing, because the glob
+// was `"dev"` with the quotes in it.
 func splitConfigList(values []string) []string {
 	var out []string
 	for _, value := range values {
-		out = append(out, strings.FieldsFunc(value, func(r rune) bool { return r == ',' || r == ' ' || r == '\t' })...)
+		for _, item := range strings.FieldsFunc(value, func(r rune) bool {
+			return r == ',' || r == ' ' || r == '\t' || r == '\n' || r == '\r'
+		}) {
+			out = append(out, strings.Trim(item, `"'`))
+		}
 	}
 	return out
 }

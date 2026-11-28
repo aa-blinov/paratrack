@@ -594,6 +594,9 @@ type TeamInvitations interface {
 // TeamSettingsManagement exposes workspace configuration reads and writes.
 type TeamSettingsManagement interface {
 	BillingRules(context.Context, int64) (model.BillingRules, error)
+	// Rates is each member's hourly rate for the client, by user id: a
+	// project without a rate of its own is priced by these.
+	Rates(context.Context, int64) (map[int64]int, error)
 	Currency(context.Context, int64) (string, error)
 	SectionModules(context.Context, int64) (map[string]bool, error)
 	SectionsChosen(context.Context, int64) (bool, error)

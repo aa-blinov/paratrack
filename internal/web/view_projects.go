@@ -99,6 +99,14 @@ type budgetView struct {
 	Over                bool
 	OverByLabel         string
 	Currency            string
+	// ForecastLabel is what the budget will be once the plan already on the
+	// schedule is worked and priced at the hour the project has cost so far:
+	// the number that says "over" while there is still time to change the plan.
+	ForecastLabel string
+	// ForecastOver is true when the plan ahead alone takes the project over
+	// its ceiling, and ForecastShare is that forecast as a share of it.
+	ForecastOver  bool
+	ForecastShare int
 }
 
 // projectDetailExtras carries what the detail page needs but the project

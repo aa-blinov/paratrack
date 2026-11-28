@@ -141,9 +141,12 @@ func (s *Service) recurringOne(ctx context.Context, workspace RecurringWorkspace
 	var drafts []DraftSummary
 	var skipped []SkippedDraft
 	for _, project := range projects {
-		if project.Archived || !project.Billable || project.BillableRateCents == nil || *project.BillableRateCents <= 0 {
-			continue // a project without a rate has nothing that can be billed
+		if project.Archived || !project.Billable {
+			continue // a project that is not billable has nothing to bill
 		}
+		// A project without a rate of its own is billed at its people's rates,
+		// as the invoice lines already price it. A period with no price at all
+		// comes back as "nothing to bill" below, so a zero draft never exists.
 		// Unapproved weeks (D-3) hold a draft back until someone approves the
 		// week; the letter names that as the next step instead of letting the
 		// schedule confirm anything in silence.
@@ -163,8 +166,9 @@ func (s *Service) recurringOne(ctx context.Context, workspace RecurringWorkspace
 		invoice, lines, err := s.createDraft(ctx, appmodel.InvoiceDraftRequest{
 			TeamID: workspace.TeamID, CallerID: workspace.OwnerID,
 			Start: start, End: end,
-			Options:         appmodel.InvoiceOptions{ProjectID: project.ID},
-			UnapprovedWeeks: &clean,
+			Options:           appmodel.InvoiceOptions{ProjectID: project.ID},
+			UnapprovedWeeks:   &clean,
+			UnpricedIsNothing: true,
 		})
 		if err != nil {
 			switch {

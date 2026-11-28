@@ -159,7 +159,8 @@ Confirmed by the code:
   every row. The accountant's exports follow the client card, not the spelling.
 - A limit goal warns while the time is being spent: at 80% and when it is
   crossed, once each per period, to whoever is timing the activity, not
-  after the stop. The forgotten-timer reminder is not held for the morning.
+  after the stop. The push repeats by mail, and the letter waits out the
+  night: a push reaches someone who is timing right now. The forgotten-timer reminder is not held for the morning.
   On an iPhone the notifications screen says to add the app to the Home
   Screen. A personal space without invoices or CRM shows no Clients entry.
 - The git hook finds paratrack on PATH in the printed form for hook managers;
@@ -197,6 +198,14 @@ Confirmed by the code:
   the plan from tomorrow in the workspace's calendar; budget warnings never
   step back to a lower level for the same figures, go out by mail too, and
   overload and budget notices both wait until no recipient is asleep.
+- The production calendar of the country fills a workspace's days off in one
+  transaction and never overwrites a day marked by hand: 2026 by decree 1466,
+  2027 by decree 1187 — 2 January to 5 November, 3 January to 31 December,
+  20 February to 22 February — with the working Saturday of 20 February and
+  the three days before a holiday an hour shorter. A working Saturday goes in
+  as a shortened working day, which is what it is. The timesheet offers every
+  year the server has a calendar for; the transfers of a year are published in
+  the autumn before it, so the next year is not invented.
 - A workspace file carries each member's work days, their pay kind and
   salary, their employment start, the workspace calendar (days off, shortened
   days, working Saturdays) and the member absences: a restored workspace pays
@@ -213,28 +222,49 @@ Confirmed by the code:
   period is in a closed month.
 - A salaried member's pay follows the month's working days by their own
   week, holidays and transfers: absences take their share off, and the line
-  says how many days of how many. Shortened pre-holiday days are an hour
+  says how many days of how many. A member away for every working day of the
+  month stays on the run with a line paying nothing, so nobody disappears from
+  a pay run. A run prices each month it touches, and a second run over a month
+  already priced asks for a written confirmation instead of paying twice. Shortened pre-holiday days are an hour
   less in the norm and the schedule; the 2026 calendar fills them. The
   timesheet summary states the month's norm in days and hours.
 - A member may carry a client rate, which prices a project without a rate
   of its own (budget, forecast, warnings and reports), line by person; a
   project with a rate keeps pricing by activity as the invoice does. A report
-  over a member-rate project is worth what its invoice would be. A project's lead
+  over a member-rate project is worth what its invoice would be. A project
+  with priced people counts as priced from its first hour, not only once
+  something was spent on it.
+- The project page shows the money a manager sees elsewhere: what is spent,
+  what is not billed yet, what is left, and the forecast — the spent amount
+  plus the plan already on the schedule, priced at the hour the project has
+  cost so far. The forecast is the one figure that still leaves time to change
+  the plan. A project's lead
   opens that project's report, hours only, from the project page, and hears
   of overloads on people planned on it.
 - The git hook hands the raw branch to the binary, which decides: pause
-  branches from every git config value, split on spaces, tabs or commas,
-  globs allowed; a ticket found in any case leads the name in capitals; a
-  broken pattern is reported. The script has no exit outside its subshell
+  branches from every git config value, split on spaces, tabs, commas or a
+  new line, with quotes around a value taken off, and globs allowed; a ticket
+  written as a whole branch part leads the name in capitals in either case;
+  `--branch` counts anywhere among the arguments, so `focus --name x --branch
+  y` is the same command; a broken pattern is reported. The script has no exit outside its subshell
   and also looks in the usual install folders a desktop client's PATH misses.
 - The browser extension shows the running timer's time on its icon (the
   count when several run) and lists every running timer in the popup. An
   offline action up to a week old keeps its click time. Limit goals show
   their colours on the dashboard too.
+- The monthly schedule drafts every billable project, including one without a
+  rate of its own: its people's rates price it. A period where nothing carries
+  a price makes no draft at all — a document asking for zero in a client's post
+  is worse than none.
+- An act carries the signatures of both sides and a place for each seal: the
+  contractor above one rule, the customer above the other, the names printed
+  with them, because a certificate nobody can sign is a draft.
 - An issued invoice can be sent again through the queue as it went out; an
   invoice's client links are listed and one can be closed alone. The
   accountant's export has a 1С format, Excel's with bare codes, and the
-  register prints the issue day beside each invoice.
+  register prints the issue day beside each invoice. A cancelled invoice is
+  not in the accountant's export: the client never owed it and its hours were
+  billed again.
 - A month does not close while it holds draft invoices, a letter already on
   its way (a draft becomes sent when it is delivered) or pay runs; a draft of
   a month closed before that rule cannot be paid straight from the draft or

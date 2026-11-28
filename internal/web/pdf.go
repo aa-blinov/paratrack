@@ -145,18 +145,29 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 		pdf.Ln(6)
 		pdf.SetFont("Inter", "", 9)
 		pdf.MultiCell(0, 5, T("act.statement"), "", "L", false)
-		pdf.Ln(14)
-		yy := pdf.GetY()
-		for i, who := range []string{T("pdf.from"), T("pdf.billedTo")} {
+		// Two parties, two signatures, two stamps: a certificate of completion
+		// is signed by both, and an act without the lines is a draft nobody can
+		// sign. The names sit above the rules, the captions under them.
+		yy := pdf.GetY() + 12
+		pdf.SetDrawColor(120, 120, 126)
+		for i, side := range []struct{ role, name string }{
+			{T("act.executor"), teamName},
+			{T("act.customer"), inv.ClientName},
+		} {
 			x := 15.0 + float64(i)*95
-			pdf.Line(x, yy, x+80, yy)
-			pdf.SetXY(x, yy+1)
 			pdf.SetFont("Inter", "", 8)
+			ink()
+			pdf.SetXY(x, yy-7)
+			pdf.CellFormat(80, 4, side.role+": "+side.name, "", 0, "L", false, 0, "")
+			pdf.Line(x, yy, x+80, yy)
 			grey()
-			pdf.CellFormat(80, 4, who, "", 0, "L", false, 0, "")
+			pdf.SetXY(x, yy+1.5)
+			pdf.CellFormat(80, 4, T("act.signature"), "", 0, "R", false, 0, "")
+			pdf.SetXY(x, yy+6)
+			pdf.CellFormat(80, 4, T("act.stamp"), "", 0, "L", false, 0, "")
 			ink()
 		}
-		pdf.Ln(8)
+		pdf.SetY(yy + 12)
 	}
 
 	if inv.Notes != "" {

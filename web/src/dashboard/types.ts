@@ -246,6 +246,12 @@ export interface ProjectBudget {
   HasRate: boolean
   /** Which rule chose the currency — client, project or workspace. */
   CurrencySourceLabel?: string
+  /** What the budget will be once the plan ahead is worked; "" without a rate or a plan. */
+  ForecastLabel?: string
+  /** The plan ahead alone takes the project over its ceiling. */
+  ForecastOver?: boolean
+  /** That forecast as a share of the ceiling, for the line under the figure. */
+  ForecastShare?: number
 }
 
 export interface ProjectDetailData {

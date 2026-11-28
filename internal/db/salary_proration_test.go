@@ -72,3 +72,36 @@ func TestSalaryStartsOnTheEmploymentDay(t *testing.T) {
 		t.Fatalf("a month before the hire pays %+v (%v)", lines, err)
 	}
 }
+
+// A salaried member away for the whole month is still on the run: the line
+// says zero days of the month's norm and pays nothing, which is what the
+// accountant looks for. Leaving them off the run hides a person who works
+// there.
+func TestSalaryLineStaysWhenTheWholeMonthIsAbsent(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Отпуск весь месяц", "salary-full-absence")
+	ownerID := teamOwner(t, d, teamID)
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET pay_kind = 'monthly', monthly_pay_cents = 2100000 WHERE team_id = ? AND user_id = ?`, teamID, ownerID); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 1, 0)
+	for day := start; day.Before(end); day = day.AddDate(0, 0, 1) {
+		if day.Weekday() == time.Saturday || day.Weekday() == time.Sunday {
+			continue
+		}
+		if _, err := d.TestSQL().ExecContext(ctx,
+			`INSERT INTO member_absences (team_id, user_id, day, kind, note, created_at) VALUES (?, ?, ?, 'vacation', '', ?)`,
+			teamID, ownerID, day.Format("2006-01-02"), FormatTime(time.Now().UTC())); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines, err := buildPayrollLines(ctx, d.TestSQL(), teamID, start, end, false, end)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lines) != 1 || lines[0].AmountCents != 0 || !strings.Contains(lines[0].Label, "(0 из 22 дн.)") {
+		t.Fatalf("a month wholly away: %+v, want one line paying nothing for 0 of June's 22 weekdays", lines)
+	}
+}

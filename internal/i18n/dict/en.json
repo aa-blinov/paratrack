@@ -2483,5 +2483,11 @@
   "pay.employedFrom": "Employed from",
   "inv.issued": "Issued",
   "inv.issuedOn": "Issued",
-  "inv.draftNoDay": "not issued yet"
+  "inv.draftNoDay": "not issued yet",
+  "budget.forecast": "Forecast",
+  "budget.forecastShare": "%s% of the budget with the plan",
+  "act.executor": "Contractor",
+  "act.customer": "Customer",
+  "act.signature": "signature",
+  "act.stamp": "Seal"
 }

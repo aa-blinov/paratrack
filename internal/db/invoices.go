@@ -222,10 +222,13 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 	if err != nil {
 		return Invoice{}, nil, fmt.Errorf("build invoice lines: %w", err)
 	}
-	if len(lines) == 0 {
+	if len(lines) == 0 || (request.UnpricedIsNothing && linesHaveNoPrice(lines)) {
 		// "Nothing to bill" reads as "wrong dates" when the truth is that
 		// the period was billed already. Name the invoice that holds this
-		// time, so the next step is one click instead of a search.
+		// time, so the next step is one click instead of a search. An
+		// unpriced period is the other reason: neither the project nor its
+		// people carry a rate, so the hours would make a document asking
+		// for nothing.
 		if numbers, err := billedInvoiceNumbersInPeriod(ctx, tx, teamID, start, end, projectID); err == nil && len(numbers) > 0 {
 			return Invoice{}, nil, model.NewAlreadyBilledInPeriodError(numbers)
 		}

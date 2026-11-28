@@ -44,6 +44,8 @@ function BudgetCard({ data }: { data: ProjectDetailData }) {
         {/* Перерасход — предупреждение, поэтому янтарный, а не разрушающий красный. */}
         <div><dt>{t(lang, budget.Over ? "budget.overBy" : "budget.remaining")}</dt><dd className={`mt-1 font-mono text-base font-medium tabular-nums ${budget.Over ? "text-warning-ink" : "text-positive-ink"}`}>{budget.Over ? budget.OverByLabel : budget.RemainingLabel}</dd></div>
         <div><dt>{t(lang, "inv.unbilled")}</dt><dd className="mt-1 font-mono text-base font-medium tabular-nums text-foreground">{budget.UnbilledLabel}</dd></div>
+        {/* Прогноз — единственная цифра, по которой можно что-то изменить: план впереди уже оплачен временем. */}
+        {budget.ForecastLabel && <div><dt>{t(lang, "budget.forecast")}</dt><dd className={`mt-1 font-mono text-base font-medium tabular-nums ${budget.ForecastOver ? "text-warning-ink" : "text-foreground"}`}>{budget.ForecastLabel}</dd>{budget.ForecastShare ? <p className="mt-0.5 font-normal text-muted-foreground">{t(lang, "budget.forecastShare", String(budget.ForecastShare))}</p> : null}</div>}
       </dl> : <p className="text-sm text-muted-foreground">{t(lang, "budget.unset")}</p>}
       {!budget.HasRate && <p className="text-sm text-muted-foreground">{t(lang, "budget.noRate")}</p>}
       {budget.Over && <p role="status" className="rounded-md border border-warning/40 bg-warning/5 p-3 text-sm text-warning-ink">{t(lang, "budget.over")}</p>}

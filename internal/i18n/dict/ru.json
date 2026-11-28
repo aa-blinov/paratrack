@@ -2483,5 +2483,11 @@
   "pay.employedFrom": "Работает с",
   "inv.issued": "Выставлен",
   "inv.issuedOn": "Выставлен",
-  "inv.draftNoDay": "ещё не выставлен"
+  "inv.draftNoDay": "ещё не выставлен",
+  "budget.forecast": "Прогноз",
+  "budget.forecastShare": "по плану %s% бюджета",
+  "act.executor": "Исполнитель",
+  "act.customer": "Заказчик",
+  "act.signature": "подпись",
+  "act.stamp": "М.П."
 }

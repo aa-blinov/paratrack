@@ -427,8 +427,14 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 	extras.Budget.CurrencySourceLabel = currencySourceLabel(lang, b.CurrencySource)
 	// A ceiling is measured against a rate; without one the number would be
 	// zero for a reason the person did not cause, so say so explicitly.
-	// Members' rates for the client price a project without its own.
-	extras.Budget.HasRate = (project.BillableRateCents != nil && *project.BillableRateCents > 0) || b.SpentCents > 0
+	// Members' rates for the client price a project without its own, so a
+	// fresh project with priced people is priced from its first hour, not
+	// only once something was spent on it.
+	memberRates, err := s.services.Teams.Settings.Rates(r.Context(), team)
+	if err != nil {
+		return extras, err
+	}
+	extras.Budget.HasRate = (project.BillableRateCents != nil && *project.BillableRateCents > 0) || len(memberRates) > 0
 	if canManage(r) && project.BudgetCents != nil && *project.BudgetCents > 0 {
 		extras.Budget.BudgetInput = formatMoneyInput(lang, *project.BudgetCents)
 	}
@@ -451,6 +457,31 @@ func (s *Server) buildProjectExtras(r *http.Request, project model.Project) (pro
 		return extras, nil
 	}
 	extras.Budget.RemainingLabel = moneyL(lang, *project.BudgetCents-b.SpentCents, b.Currency)
+	// The forecast: what the project costs once the plan already on the
+	// schedule is done. The plan ahead is priced at the average hour spent so
+	// far, the same rule the budget warning follows, so the screen and the
+	// letter never disagree about how bad it looks.
+	rate := 0
+	if project.BillableRateCents != nil {
+		rate = *project.BillableRateCents
+	}
+	if rate <= 0 && b.TrackedSeconds > 0 {
+		rate = int(int64(b.SpentCents) * 3600 / b.TrackedSeconds)
+	}
+	if rate <= 0 {
+		return extras, nil
+	}
+	ahead, err := s.services.Scheduling.PlannedAhead(r.Context(), team, project.ID, startOfDay(userNow(r)))
+	if err != nil {
+		return extras, err
+	}
+	if ahead <= 0 {
+		return extras, nil
+	}
+	forecast := b.SpentCents + int(int64(ahead)*int64(rate)/60)
+	extras.Budget.ForecastLabel = moneyL(lang, forecast, b.Currency)
+	extras.Budget.ForecastShare = forecast * 100 / *project.BudgetCents
+	extras.Budget.ForecastOver = forecast > *project.BudgetCents
 	return extras, nil
 }
 

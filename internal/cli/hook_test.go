@@ -312,3 +312,67 @@ func TestBranchDecision(t *testing.T) {
 		t.Fatal("a path with a quote does not read back")
 	}
 }
+
+// The config is written by people and by git: a value in quotes, a value with
+// a new line and several values of the same key all mean the same list.
+func TestPauseListReadsQuotesAndNewLines(t *testing.T) {
+	got := splitConfigList([]string{`"dev" staging`, "release/*\nhotfix", "qa, «нет»"})
+	want := []string{"dev", "staging", "release/*", "hotfix", "qa", "«нет»"}
+	if len(got) != len(want) {
+		t.Fatalf("list = %q, want %q", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("list = %q, want %q", got, want)
+		}
+	}
+	if pause, _, _ := branchDecision("dev", got, ""); !pause {
+		t.Fatal("a quoted branch name did not pause")
+	}
+}
+
+// A ticket is a ticket in any case: the activity one person reaches from
+// "feat/pt-123/fix-login" is the activity another reaches from
+// "feat/PT-123/fix-login".
+func TestTicketCaseLeadsTheSameName(t *testing.T) {
+	for _, branch := range []string{"feat/pt-123/fix-login", "feat/PT-123/fix-login", "feat/pt-123-login"} {
+		_, name, warn := branchDecision(branch, nil, "")
+		if warn != nil {
+			t.Fatalf("%s: %v", branch, warn)
+		}
+		if want := "PT-123-fix-login"; branch == "feat/pt-123-login" {
+			want = "pt-123-login"
+		} else if name != want {
+			t.Fatalf("%s gave %q, want %q", branch, name, want)
+		}
+	}
+	// A word with a number in it is not a key: the name is left as it reads.
+	for _, branch := range []string{"fix/oauth2-1", "step-2-validation"} {
+		want := branch[strings.LastIndex(branch, "/")+1:]
+		if _, name, _ := branchDecision(branch, nil, ""); name != want {
+			t.Fatalf("%s became %q, want the plain name %q", branch, name, want)
+		}
+	}
+}
+
+// The branch flag is a flag, not a first argument: `focus --name x --branch y`
+// runs the branch's activity, and the flags beside it stay.
+func TestBranchFlagIsFoundAnywhere(t *testing.T) {
+	got, warn := branchCommand([]string{"focus", "--name", "old", "--branch", "feat/PT-42-login", "--note", "from hook"})
+	if warn != nil {
+		t.Fatalf("warn: %v", warn)
+	}
+	want := []string{"focus", "--name", "PT-42-login", "--note", "from hook"}
+	if len(got) != len(want) || got[0] != want[0] || got[1] != want[1] || got[2] != want[2] || got[3] != want[3] || got[4] != want[4] {
+		t.Fatalf("command = %q, want %q", got, want)
+	}
+	// A pause branch drops the other flags with the activity.
+	if got, _ := branchCommand([]string{"focus", "--note", "x", "--branch", "main"}); len(got) != 1 || got[0] != "pause" {
+		t.Fatalf("a pause branch ran %q, want pause", got)
+	}
+	// No branch at all: the command is untouched.
+	plain := []string{"focus", "--name", "design"}
+	if got, _ := branchCommand(plain); len(got) != 3 || got[1] != "--name" || got[2] != "design" {
+		t.Fatalf("a command without a branch became %q", got)
+	}
+}

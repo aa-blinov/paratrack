@@ -69,6 +69,9 @@ func TestRecurringPassCreatesPreviousMonthDrafts(t *testing.T) {
 	writer := &draftWriterStub{
 		invoice: model.Invoice{Number: "INV-2026-012", Currency: "RUB"},
 		lines:   []model.InvoiceLine{{AmountCents: 100_000, Currency: "RUB"}},
+		// The portal's period holds no price: no rate of its own and nobody
+		// on it priced.
+		unpriced: map[int64]bool{9: true},
 	}
 	notifier := &recurringNotifierStub{}
 	service, err := NewService(Dependencies{
@@ -89,7 +92,12 @@ func TestRecurringPassCreatesPreviousMonthDrafts(t *testing.T) {
 		t.Fatalf("pass: %v", err)
 	}
 	if len(writer.drafted) != 1 {
-		t.Fatalf("pass drafted %d invoices, want one (the only billable project)", len(writer.drafted))
+		t.Fatalf("pass drafted %d invoices, want one (the only project that priced)", len(writer.drafted))
+	}
+	// The project without a rate of its own was tried, not read off a column:
+	// its people may price it, and the store is the one that knows.
+	if len(writer.attempted) != 2 {
+		t.Fatalf("pass tried %v, want the two billable projects", writer.attempted)
 	}
 	draft := writer.drafted[0]
 	if draft.TeamID != 1 || draft.CallerID != 9 {

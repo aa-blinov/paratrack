@@ -72,7 +72,12 @@ func (s *draftReaderStub) ListUnapprovedTimeWeeks(context.Context, int64, int64,
 
 type draftWriterStub struct {
 	Writer
-	drafted    []appmodel.InvoiceDraftRequest
+	drafted   []appmodel.InvoiceDraftRequest
+	attempted []int64
+	// unpriced names the projects whose period holds no price at all: the
+	// store answers "nothing to bill", as it does when neither the project
+	// nor its people carry a rate.
+	unpriced   map[int64]bool
 	invoice    model.Invoice
 	lines      []model.InvoiceLine
 	createErr  error
@@ -198,6 +203,10 @@ func (s *recordingAudit) Record(_ context.Context, record model.AuditRecord) err
 }
 
 func (s *draftWriterStub) CreateInvoiceDraft(_ context.Context, request appmodel.InvoiceDraftRequest) (model.Invoice, []model.InvoiceLine, error) {
+	s.attempted = append(s.attempted, request.Options.ProjectID)
+	if s.unpriced[request.Options.ProjectID] {
+		return model.Invoice{}, nil, model.ErrNoBillableTime
+	}
 	s.drafted = append(s.drafted, request)
 	return s.invoice, s.lines, s.createErr
 }

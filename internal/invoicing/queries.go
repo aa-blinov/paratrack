@@ -25,7 +25,10 @@ func (s *Service) ExportLines(ctx context.Context, query appmodel.InvoiceExportQ
 	var out []appmodel.InvoiceExportLine
 	for _, item := range items {
 		inv := item.Invoice
-		if inv.Status == "draft" || !clientMatches(inv, query) {
+		// A cancelled document is not a document: the client never owed it,
+		// its hours were billed again, and its amounts would double the
+		// accountant's figures.
+		if inv.Status == "draft" || inv.Status == "void" || !clientMatches(inv, query) {
 			continue
 		}
 		// The period is the documents' own dates: the day each was issued.

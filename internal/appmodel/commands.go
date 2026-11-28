@@ -117,6 +117,11 @@ type InvoiceDraftRequest struct {
 	// UnapprovedWeeks is set by the service: the weeks in the period with unapproved
 	// time at the moment of the draft. Nil leaves the invoice without the record.
 	UnapprovedWeeks *int
+	// UnpricedIsNothing makes a draft with no price in it a draft with nothing
+	// to bill. The monthly schedule sets it: nobody asked for that document,
+	// and a zero invoice in the post is worse than none. A manager who opened
+	// the form gets an empty draft and can price it himself.
+	UnpricedIsNothing bool
 }
 
 // InvoiceCreateRequest carries a prepared invoice and its lines through the

@@ -21,10 +21,15 @@ type ruHoliday struct {
 
 // ruProductionCalendar holds the weekdays off of the Russian production
 // calendar by year: the holidays of the Labour Code (article 112) and the
-// transfers the government decree sets for that year (2026: Saturday 3
-// January to Friday 9 January, Sunday 4 January to Thursday 31 December).
-// Weekends need no entry: they are days off already. A year that is not here
-// is not offered; a transferred working Saturday would go in as kind 'work'.
+// transfers the government decree sets for that year. Weekends need no entry:
+// they are days off already. Kind 'short' is a working day an hour shorter,
+// which is also how a working Saturday goes in: 20 February 2027 is a working
+// day that ends an hour early, and marking it 'short' says exactly that.
+// 2026: decree 1466 of 24.09.2025. 2027: decree 1187 of 17.09.2026 — 2 January
+// to 5 November, 3 January to 31 December, 20 February to 22 February — and
+// the government's own calendar, which also shortens the working Saturday, 30
+// April, 11 June and 3 November. A year that is not here is not offered: the
+// transfers of a year are published in the autumn before it.
 var ruProductionCalendar = map[int][]ruHoliday{
 	2026: {
 		{"2026-01-01", "Новогодние каникулы", "off"}, {"2026-01-02", "Новогодние каникулы", "off"},
@@ -42,6 +47,28 @@ var ruProductionCalendar = map[int][]ruHoliday{
 		{"2026-05-08", "Предпраздничный день", "short"},
 		{"2026-06-11", "Предпраздничный день", "short"},
 		{"2026-11-03", "Предпраздничный день", "short"},
+	},
+	2027: {
+		{"2027-01-01", "Новогодние каникулы", "off"}, {"2027-01-02", "Новогодние каникулы", "off"},
+		{"2027-01-03", "Новогодние каникулы", "off"}, {"2027-01-04", "Новогодние каникулы", "off"},
+		{"2027-01-05", "Новогодние каникулы", "off"}, {"2027-01-06", "Новогодние каникулы", "off"},
+		{"2027-01-07", "Рождество Христово", "off"}, {"2027-01-08", "Новогодние каникулы", "off"},
+		{"2027-02-22", "Перенос выходного с 20 февраля", "off"},
+		{"2027-02-23", "День защитника Отечества", "off"},
+		{"2027-03-08", "Международный женский день", "off"},
+		{"2027-05-01", "Праздник Весны и Труда", "off"},
+		{"2027-05-03", "Перенос выходного с 1 мая", "off"},
+		{"2027-05-09", "День Победы", "off"},
+		{"2027-05-10", "Перенос выходного с 9 мая", "off"},
+		{"2027-06-12", "День России", "off"},
+		{"2027-06-14", "Перенос выходного с 12 июня", "off"},
+		{"2027-11-04", "День народного единства", "off"},
+		{"2027-11-05", "Перенос выходного с 2 января", "off"},
+		{"2027-12-31", "Перенос выходного с 3 января", "off"},
+		{"2027-02-20", "Рабочая суббота", "short"},
+		{"2027-04-30", "Предпраздничный день", "short"},
+		{"2027-06-11", "Предпраздничный день", "short"},
+		{"2027-11-03", "Предпраздничный день", "short"},
 	},
 }
 

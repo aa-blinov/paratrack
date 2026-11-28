@@ -616,6 +616,7 @@ func (s *Service) goalLimits(ctx context.Context, now time.Time) error {
 		}
 		byTeam[c.TeamID] = append(byTeam[c.TeamID], c)
 	}
+	var mailErrs []error
 	for _, teamID := range teams {
 		progress, err := s.store.ProgressForGoals(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
 		if err != nil {
@@ -655,17 +656,45 @@ func (s *Service) goalLimits(ctx context.Context, now time.Time) error {
 			if level == 100 {
 				title = "Лимит превышен"
 			}
-			if err := s.sender.Send(ctx, Notification{
+			notification := Notification{
 				TeamID: teamID, UserIDs: users, Topic: appmodel.NotificationTopicGoalLimit,
 				Title: title,
 				Body:  fmt.Sprintf("«%s»: %d из %d мин", p.ActivityName, p.AchievedMinutes, p.Goal.TargetMinutes),
 				URL:   "/goals",
-			}); err != nil {
+			}
+			if err := s.sender.Send(ctx, notification); err != nil {
 				return err
+			}
+			// The letter repeats the push for whoever has no device at hand. It
+			// waits out the night: a push reaches someone who is timing right
+			// now, a letter would be read in the morning anyway.
+			if s.mailer == nil {
+				continue
+			}
+			loc, err := s.store.TeamLocation(ctx, teamID)
+			if err != nil {
+				return err
+			}
+			night, err := s.nightOnes(ctx, loc, users, now)
+			if err != nil {
+				return err
+			}
+			var awake []int64
+			for _, userID := range users {
+				if !night[userID] {
+					awake = append(awake, userID)
+				}
+			}
+			if len(awake) == 0 {
+				continue
+			}
+			notification.UserIDs = awake
+			if err := s.mailer.Email(ctx, notification); err != nil {
+				mailErrs = append(mailErrs, err)
 			}
 		}
 	}
-	return nil
+	return errors.Join(mailErrs...)
 }
 
 // budgets warns the managers and the project's lead when a project has used

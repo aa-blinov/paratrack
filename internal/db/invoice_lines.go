@@ -169,6 +169,20 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 	return lines, nil
 }
 
+// linesHaveNoPrice reports a draft nothing can be charged for: every line
+// carries a zero amount, so the document would ask the client for nothing.
+func linesHaveNoPrice(lines []InvoiceLine) bool {
+	if len(lines) == 0 {
+		return true
+	}
+	for _, line := range lines {
+		if line.AmountCents != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 // MemberBillRates is each member's hourly rate for the client, by user id.
 // A project without a rate of its own prices its hours by these, so a report
 // that ignored them showed member-rate projects as worth nothing.

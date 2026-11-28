@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"time"
 )
 
@@ -45,24 +46,15 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 		}
 		return runStatus(rt, nil)
 	}
-	// The git hook passes the raw branch; the activity name is made here.
-	if (args[0] == "focus" || args[0] == "switch" || args[0] == "sw") && len(args) >= 3 && args[1] == "--branch" {
-		pattern := ""
-		if values := gitConfigAll("paratrack.ticketPattern"); len(values) > 0 {
-			pattern = values[len(values)-1]
-		}
-		pause, name, warn := branchDecision(args[2], splitConfigList(gitConfigAll("paratrack.pauseBranches")), pattern)
+	// The git hook passes the raw branch; the activity name is made here. The
+	// flag is looked for anywhere in the arguments: the hook writes it first,
+	// a person may write `focus --name x --branch y`, and a branch that only
+	// counts in the first position would be silently ignored.
+	if args[0] == "focus" || args[0] == "switch" || args[0] == "sw" {
+		rewritten, warn := branchCommand(args)
+		args = rewritten
 		if warn != nil {
 			fmt.Fprintln(rt.Err, "paratrack:", warn)
-		}
-		// A pause branch, a detached HEAD, or a name with nothing usable in it
-		// ("feat/🔥") must not leave the timer on the feature that was left.
-		if pause {
-			args = []string{"pause"}
-		} else {
-			// --name: a branch "fix/1234" is an activity called 1234, never
-			// the running session that happens to have that id.
-			args = []string{args[0], "--name", name}
 		}
 	}
 	// Hooks and completion work on files and the shell, in either mode.
@@ -166,4 +158,44 @@ Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
   paratrack auth logout                             remove saved remote config
   paratrack hook install|uninstall|show|print       git post-checkout: focus the timer on the branch
   paratrack completion bash|zsh|fish                print a shell completion script`)
+}
+
+// dropFlag removes a flag and the value after it from a command's arguments,
+// so a branch that names the activity is not fighting another --name.
+func dropFlag(args []string, flag string) []string {
+	out := make([]string, 0, len(args))
+	for i := 0; i < len(args); i++ {
+		if args[i] == flag {
+			i++ // skip the value too, whether or not it looks like a flag
+			continue
+		}
+		out = append(out, args[i])
+	}
+	return out
+}
+
+// branchCommand turns `focus --branch x` into what actually runs. The flag is
+// looked for anywhere in the arguments: the hook writes it first, a person may
+// write `focus --name x --branch y`, and a branch that counted only in the
+// first position was silently ignored. A pause branch, a detached HEAD or a
+// name with nothing usable in it ("feat/🔥") becomes `pause`, so the timer
+// never stays on the feature that was left; anything else names the activity,
+// because a branch "fix/1234" is an activity called 1234 and never the running
+// session that happens to have that id.
+func branchCommand(args []string) ([]string, error) {
+	at := slices.Index(args, "--branch")
+	if at < 0 || at+1 >= len(args) {
+		return args, nil
+	}
+	branch := args[at+1]
+	pattern := ""
+	if values := gitConfigAll("paratrack.ticketPattern"); len(values) > 0 {
+		pattern = values[len(values)-1]
+	}
+	pause, name, warn := branchDecision(branch, splitConfigList(gitConfigAll("paratrack.pauseBranches")), pattern)
+	if pause {
+		return []string{"pause"}, warn
+	}
+	rest := dropFlag(append(append([]string{}, args[1:at]...), args[at+2:]...), "--name")
+	return append([]string{args[0], "--name", name}, rest...), warn
 }
