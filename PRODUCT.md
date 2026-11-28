@@ -102,7 +102,14 @@ Confirmed by the code:
   `offline` when it has nothing, `?` alone when its last answer is older than
   15 minutes, `auth?` when the token is refused, `access?` when it no longer has a
   seat in the workspace, and never exits with an error. The cached line
-  belongs to one server and token and is not shown for another. It is a real
+  belongs to one server and token and is not shown for another. Locally,
+  without a server, `--short` keeps the same contract.
+- `paratrack hook install` writes a git post-checkout hook that focuses the
+  timer on the checked-out branch's last name part, in the background,
+  skipping main/master/develop/trunk, and never touches a hook it did not
+  write. `paratrack completion bash|zsh|fish` completes commands and, after
+  start and focus, recent activities from the server. "Only this" (and the
+  remote `focus`) starts an activity the workspace has not seen yet. It is a real
   feature rather than a development tool. `stats` counts a running timer the way the web stats do,
   so the CLI and the screen agree on today.
 - An agent reaches the workspace through `POST /mcp` with an API token and the token owner's rights. Deleting an

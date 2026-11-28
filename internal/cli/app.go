@@ -43,7 +43,16 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 			_, err := runRemote(rt, "status", nil)
 			return err
 		}
-		return runStatus(rt)
+		return runStatus(rt, nil)
+	}
+	// Hooks and completion work on files and the shell, in either mode.
+	switch args[0] {
+	case "hook":
+		return runHook(rt, args[1:])
+	case "completion":
+		return runCompletion(rt, args[1:])
+	case "__activities":
+		return runCompletionActivities(rt)
 	}
 	if len(args) > 0 && args[0] == "auth" {
 		// Another account or server: the cached prompt line belongs to the old one.
@@ -67,7 +76,7 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 	}
 	switch args[0] {
 	case "status", "st":
-		return runStatus(rt)
+		return runStatus(rt, args[1:])
 	case "start":
 		return runStart(rt, args[1:])
 	case "stop", "s":
@@ -134,5 +143,7 @@ Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
   paratrack project unarchive <slug|id>             unarchive
   paratrack auth login --url <url> --token <token>  save remote CLI config
   paratrack auth status                             show remote CLI config
-  paratrack auth logout                             remove saved remote config`)
+  paratrack auth logout                             remove saved remote config
+  paratrack hook install|uninstall|show             git post-checkout: focus the timer on the branch
+  paratrack completion bash|zsh|fish                print a shell completion script`)
 }

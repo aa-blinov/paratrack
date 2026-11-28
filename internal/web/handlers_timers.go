@@ -362,8 +362,10 @@ func (s *Server) handleFocus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, i18n.T(resolveLang(r), "err.nameRequired"), 400)
 		return
 	}
-	act, _, err := s.services.TrackingOps.FocusActivity(operationContext(r), appmodel.TimerFocusByNameRequest{
-		TeamID: teamID(r), ActivityName: name, At: actionTime(r),
+	// "Only this" on a name the workspace has not seen starts it, the same
+	// as the local CLI: a git hook switching to a new branch must not 404.
+	act, _, err := s.services.TrackingOps.FocusActivityForMember(operationContext(r), appmodel.TimerFocusForMemberRequest{
+		TeamID: teamID(r), CallerID: authenticatedUserID(r), ActivityName: name, At: actionTime(r),
 	})
 	if err != nil {
 		if errors.Is(err, model.ErrNotFound) {

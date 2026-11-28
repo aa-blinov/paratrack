@@ -2,6 +2,8 @@ package cli
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/aa-blinov/paratrack/internal/cliport"
 )
 
 // `status --short` lives in a shell prompt: it answers within its timeout,
@@ -107,5 +111,21 @@ func TestRemoteStatusShortForPrompts(t *testing.T) {
 	hang = true
 	if got := short(); got != "offline" {
 		t.Fatalf("after stop the cache must be gone, got %q", got)
+	}
+}
+
+// Without a server, --short reads the local database and keeps the prompt
+// contract: one line, and "offline" instead of an error when it cannot.
+func TestLocalStatusShortKeepsThePromptContract(t *testing.T) {
+	var out bytes.Buffer
+	rt := NewRuntime(nil, &out, &out)
+	rt.ServiceLoader = func(context.Context) (*cliport.Services, io.Closer, error) {
+		return nil, nil, errors.New("database is down")
+	}
+	if err := RunWithRuntime([]string{"status", "--short"}, rt); err != nil {
+		t.Fatalf("local --short failed: %v", err)
+	}
+	if got := strings.TrimSpace(out.String()); got != "offline" {
+		t.Fatalf("local --short with no database = %q", got)
 	}
 }

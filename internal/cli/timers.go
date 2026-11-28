@@ -12,16 +12,36 @@ import (
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
-func runStatus(rt *Runtime) error {
+func runStatus(rt *Runtime, args []string) error {
+	short := false
+	for _, a := range args {
+		if a == "--short" || a == "-short" {
+			short = true
+		}
+	}
 	services, ctx, err := applicationForCommand(rt)
-	if err != nil {
-		return err
+	var rows []appmodel.ActiveSession
+	if err == nil {
+		var teamID int64
+		if teamID, ctx, err = defaultTeamForCommand(services, ctx); err == nil {
+			rows, err = services.TimerQueries.ActiveSessions(ctx, teamID)
+		}
 	}
-	teamID, ctx, err := defaultTeamForCommand(services, ctx)
-	if err != nil {
-		return err
+	// --short is the prompt line, local as well as remote: one line, and
+	// "offline" instead of an error when the database cannot be reached.
+	if short {
+		if err != nil {
+			fmt.Fprintln(rt.Out, "offline")
+			return nil
+		}
+		now := rt.now()
+		items := make([]statusCacheItem, 0, len(rows))
+		for _, as := range rows {
+			items = append(items, statusCacheItem{Activity: as.Activity.Name, Seconds: int(as.Session.DurationSeconds(now)), Paused: as.Session.Paused})
+		}
+		fmt.Fprintln(rt.Out, formatStatusShort(items, 0, false))
+		return nil
 	}
-	rows, err := services.TimerQueries.ActiveSessions(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list active: %w", err)
 	}
