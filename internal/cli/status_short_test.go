@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -71,10 +72,22 @@ func TestRemoteStatusShortForPrompts(t *testing.T) {
 		t.Fatalf("stale cache line = %q", got)
 	}
 
+	// Another account (direnv switched the token): the cached line is not its.
+	now = now.Add(-20 * time.Minute)
+	rt.RemoteToken = "pt_other"
+	if got := short(); got != "offline" {
+		t.Fatalf("another account read the cache: %q", got)
+	}
+	rt.RemoteToken = "pt_x"
+	now = now.Add(20 * time.Minute)
+
 	// A refused token says so instead of hiding behind the cache.
 	hang, refuse = false, true
 	if got := short(); got != "auth?" {
 		t.Fatalf("refused token line = %q", got)
+	}
+	if _, err := os.Stat(rt.StatusCachePath); !os.IsNotExist(err) {
+		t.Fatalf("a refused token must drop the cache: %v", err)
 	}
 	refuse = false
 	_ = short()

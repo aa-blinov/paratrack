@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -25,6 +27,10 @@ const statusCacheMaxAge = 15 * time.Minute
 // the server cannot be reached in time, the line is drawn from it, with the
 // running timers moved forward by the time since, and marked as not fresh.
 type statusCache struct {
+	// Owner ties the line to the server and token it came from, so switching
+	// PARATRACK_URL or PARATRACK_TOKEN (direnv, a second account) never shows
+	// someone else's timers.
+	Owner     string            `json:"owner"`
 	FetchedAt int64             `json:"fetched_at"`
 	Items     []statusCacheItem `json:"items"`
 }
@@ -45,15 +51,21 @@ func (rt *Runtime) remoteStatusShort() error {
 	code, body, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/active", nil)
 	// A refused token is not a network problem: the cache would hide it
 	// forever behind "?", so the line asks for a new login instead.
+	// 403 is a token that works but has no seat in the workspace any more:
+	// logging in again will not help, so it gets its own word.
 	if code == http.StatusUnauthorized || code == http.StatusForbidden {
 		rt.dropStatusCache()
-		fmt.Fprintln(rt.Out, "auth?")
+		if code == http.StatusForbidden {
+			fmt.Fprintln(rt.Out, "access?")
+		} else {
+			fmt.Fprintln(rt.Out, "auth?")
+		}
 		return nil
 	}
 	if err == nil {
 		var res remoteActiveResponse
 		if err := json.Unmarshal(body, &res); err == nil {
-			cache := statusCache{FetchedAt: now.Unix()}
+			cache := statusCache{Owner: rt.statusCacheOwner(), FetchedAt: now.Unix()}
 			for _, item := range res.Items {
 				cache.Items = append(cache.Items, statusCacheItem{Activity: item.ActivityName, Seconds: item.DurationSecs, Paused: item.Paused})
 			}
@@ -68,10 +80,9 @@ func (rt *Runtime) remoteStatusShort() error {
 		return nil
 	}
 	elapsed := int(now.Unix() - cache.FetchedAt)
-	if elapsed < 0 {
-		elapsed = 0
-	}
-	if time.Duration(elapsed)*time.Second > statusCacheMaxAge {
+	// A line from the future means the clock moved: its age is unknown, so
+	// it is treated as stale rather than fresh forever.
+	if elapsed < 0 || time.Duration(elapsed)*time.Second > statusCacheMaxAge {
 		fmt.Fprintln(rt.Out, "?")
 		return nil
 	}
@@ -121,10 +132,17 @@ func (rt *Runtime) readStatusCache() (statusCache, bool) {
 		return cache, false
 	}
 	data, err := os.ReadFile(rt.StatusCachePath)
-	if err != nil || json.Unmarshal(data, &cache) != nil || cache.FetchedAt == 0 {
+	if err != nil || json.Unmarshal(data, &cache) != nil || cache.FetchedAt == 0 || cache.Owner != rt.statusCacheOwner() {
 		return statusCache{}, false
 	}
 	return cache, true
+}
+
+// statusCacheOwner names the server and token a cached line belongs to. The
+// token is hashed: the cache file is not a second place it is kept.
+func (rt *Runtime) statusCacheOwner() string {
+	sum := sha256.Sum256([]byte(strings.TrimRight(strings.TrimSpace(rt.RemoteURL), "/") + "\n" + strings.TrimSpace(rt.RemoteToken)))
+	return hex.EncodeToString(sum[:8])
 }
 
 // writeStatusCache is best effort: a prompt line never fails because the
