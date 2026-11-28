@@ -11,6 +11,7 @@ import { requestConfirmation } from "@/components/confirmation-dialog"
 import { askPlanMove } from "./plan-move"
 import { Flash } from "@/components/flash"
 import { EmptyState } from "@/components/empty-state"
+import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import type { TaskItem, TasksData } from "@/dashboard/types"
 import { TaskReport } from "@/tasks/task-report"
@@ -308,11 +309,7 @@ export function TasksPage({ data }: { data: TasksData }) {
       </div>
     </>}
 
-    {data.CanImport && !archivedView && !reportView && <Card><CardContent className="grid gap-3 p-4">
-      <div className="grid gap-1">
-        <h2 className="font-medium">{t(lang, "tasks.githubTitle")}</h2>
-        <p className="text-sm text-muted-foreground">{t(lang, "tasks.githubBlurb")}</p>
-      </div>
+    {data.CanImport && !archivedView && !reportView && <DisclosureSection id="github-import" title={t(lang, "tasks.githubTitle")} description={t(lang, "tasks.githubBlurb")} defaultOpen={false}>
       {data.Projects.length === 0 ? <p className="text-sm text-muted-foreground">{t(lang, "tasks.githubNoProject")}</p> : <form method="post" action="/api/tasks/import/github" className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1.2fr)_auto] lg:items-end" aria-label={t(lang, "tasks.githubTitle")}>
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <input type="hidden" name="project_id" value={importProject} />
@@ -334,7 +331,7 @@ export function TasksPage({ data }: { data: TasksData }) {
         <Button type="submit" disabled={!importProject}>{t(lang, "tasks.githubRun")}</Button>
         <p className="text-xs text-muted-foreground lg:col-span-4">{t(lang, "tasks.githubTokenHint")}</p>
       </form>}
-    </CardContent></Card>}
+    </DisclosureSection>}
 
     {!archivedView && !reportView && <p className="text-sm text-muted-foreground">{t(lang, "tasks.hint")}</p>}
   </main>

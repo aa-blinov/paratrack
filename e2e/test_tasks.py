@@ -112,6 +112,7 @@ def main() -> int:
         page.goto(f"{BASE}/tasks", wait_until="networkidle")
         check("empty board says so", page.get_by_text("Задач пока нет").count() > 0)
         check("the owner is offered the GitHub import", page.get_by_text("Перенести доску из GitHub Projects").count() > 0)
+        page.locator('#github-import button[aria-expanded="false"]').first.click()
         page.fill("#github-url", "https://example.com/not-a-board")
         page.fill("#github-token", "ghp_qa_not_a_real_token")
         page.locator('form[aria-label="Перенести доску из GitHub Projects"] button[type="submit"]').click()
