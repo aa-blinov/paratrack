@@ -543,6 +543,7 @@
   "tokens.create": "Create token",
   "tokens.name": "Name",
   "tokens.once": "Copy this token now, it is shown only once.",
+  "tokens.cliHint": "Use with the CLI without direct database access:",
   "tokens.empty": "No tokens yet.",
   "int.title": "Integrations",
   "int.blurb": "Connect GitHub or Trello and start timers straight from imported issues and cards.",

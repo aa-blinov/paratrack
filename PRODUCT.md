@@ -91,7 +91,8 @@ Confirmed by the code:
 - Postgres is the only database, and the schema is created and migrated at
   startup.
 - A CLI (`paratrack start|stop|stats...`) works against the same Postgres
-  through `PARATRACK_DATABASE_URL`. It is a real feature rather than a
+  through `PARATRACK_DATABASE_URL`, or remotely over HTTP with `PARATRACK_URL`
+  and a bearer `PARATRACK_TOKEN` (`pt_...`). It is a real feature rather than a
   development tool. `stats` counts a running timer the way the web stats do,
   so the CLI and the screen agree on today.
 - An agent reaches the workspace through `POST /mcp` with an API token and the token owner's rights. Deleting an
@@ -139,10 +140,10 @@ Deliberately not true, and worth knowing before a change:
   off with `PARATRACK_REQUIRE_EMAIL_VERIFICATION=0`, which is how the browser
   suite and self-hosts without SMTP run it. The confirmation link lives 48
   hours, and password reset confirms the address too.
-- Approval is per workspace week, so one approval covers every member's time in
-  that week. There is no per-member approval.
+- Approval works per workspace week or per member within a week.
 - A pay run cannot cover the current week, because the week has to end and be
-  approved first.
+  approved first. Draft pay runs can include one-off bonus or deduction
+  adjustments per member.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.
