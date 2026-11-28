@@ -1,7 +1,9 @@
 package db
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -90,6 +92,8 @@ func TestLegacyPayrollAdjustmentsAreMarkedOnce(t *testing.T) {
 		{"Анна", 3600, 150000, 150000},
 		{"Борис", 0, 0, 9000000},
 		{"Анна — Премия", 0, 0, 500000},
+		{"Анна — Налог самозанятого (+6%)", 0, 0, 9000},
+		{"Анна — Удержание (-1.50%)", 0, 0, -2250},
 	} {
 		if _, err := d.TestSQL().ExecContext(ctx,
 			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -108,7 +112,28 @@ func TestLegacyPayrollAdjustmentsAreMarkedOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer rows.Close()
-	want := map[string]string{"Анна": "", "Борис": "", "Анна — Премия": model.PayrollLineAdjustment}
+	if _, err := d.TestSQL().ExecContext(ctx, `DELETE FROM paratrack_migrations WHERE name = 'payroll percent from label'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.migratePayrollPercentFromLabel(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var bps []int
+	if err := queryRows(ctx, d.sql, "percent", `SELECT percent_bps FROM payroll_lines WHERE run_id = ? ORDER BY id`, func(r *sql.Rows) error {
+		var v int
+		if err := r.Scan(&v); err != nil {
+			return err
+		}
+		bps = append(bps, v)
+		return nil
+	}, runID); err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(bps) != "[0 0 0 600 -150]" {
+		t.Fatalf("percent from label = %v", bps)
+	}
+	want := map[string]string{"Анна": "", "Борис": "", "Анна — Премия": model.PayrollLineAdjustment,
+		"Анна — Налог самозанятого (+6%)": model.PayrollLineAdjustment, "Анна — Удержание (-1.50%)": model.PayrollLineAdjustment}
 	for rows.Next() {
 		var label, kind string
 		if err := rows.Scan(&label, &kind); err != nil {
@@ -124,8 +149,8 @@ func TestLegacyPayrollAdjustmentsAreMarkedOnce(t *testing.T) {
 }
 
 // An invoice whose seller or client numbers do not check out cannot go out.
-// The seller's details are a copy made with the draft; fixing them in the
-// workspace and rebuilding the draft takes the new copy and unblocks it.
+// A draft carries the workspace's current details, so fixing them in the
+// settings unblocks it without a rebuild.
 func TestInvoiceWithBadDetailsCannotGoOut(t *testing.T) {
 	ctx := t.Context()
 	d := openTestDB(t)
@@ -152,11 +177,36 @@ func TestInvoiceWithBadDetailsCannotGoOut(t *testing.T) {
 	if err := send(); !errors.As(err, &bad) || bad.Client || len(bad.Fields) != 1 || bad.Fields[0] != model.RequisiteINN {
 		t.Fatalf("bad seller ИНН: err = %v", err)
 	}
-	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE teams SET requisites = 'ИП Иванов, ИНН 7707083893' WHERE id = ?`, teamID); err != nil {
+	// Every other door a client could see the draft through is shut too:
+	// paying it straight from the draft, a payment link and a client link.
+	if _, _, err := d.MarkInvoicePaidOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); !errors.As(err, &bad) {
+		t.Fatalf("paid from draft: err = %v", err)
+	}
+	var revision int64
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT revision FROM invoices WHERE id = ?`, inv.ID).Scan(&revision); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.RebuildInvoice(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); err != nil {
-		t.Fatalf("rebuild: %v", err)
+	if err := d.SetPaymentURL(ctx, appmodel.InvoicePaymentLinkSaveRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, ExpectedRevision: revision, PaymentURL: "https://pay.example/x"}); !errors.As(err, &bad) {
+		t.Fatalf("payment link on draft: err = %v", err)
+	}
+	if err := d.CreateInvoiceShareLink(ctx, appmodel.InvoiceShareRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, TokenHash: "h", Now: start, ExpiresAt: start.AddDate(0, 0, 30)}); !errors.As(err, &bad) {
+		t.Fatalf("client link to draft: err = %v", err)
+	}
+	// Fixing the number in the settings fixes the draft: no rebuild, so the
+	// manual lines stay.
+	if err := d.AddInvoiceLine(ctx, appmodel.InvoiceLineAddRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, Label: "Сервер", AmountCents: 50000}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.SetTeamRequisites(ctx, appmodel.TeamRequisitesRequest{TeamID: teamID, CallerID: ownerID, Requisites: "ИП Иванов, ИНН 7707083893"}); err != nil {
+		t.Fatalf("save requisites: %v", err)
+	}
+	var seller string
+	var manual int
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT seller_details, (SELECT COUNT(*) FROM invoice_lines WHERE invoice_id = invoices.id) FROM invoices WHERE id = ?`, inv.ID).Scan(&seller, &manual); err != nil {
+		t.Fatal(err)
+	}
+	if seller != "ИП Иванов, ИНН 7707083893" || manual != 1 {
+		t.Fatalf("draft after fixing the settings: seller %q, %d lines", seller, manual)
 	}
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE invoices SET client_details = 'БИК 044525225, к/с 30101810400000000226' WHERE id = ?`, inv.ID); err != nil {
 		t.Fatal(err)

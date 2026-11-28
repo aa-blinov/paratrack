@@ -128,6 +128,7 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"canonical timestamps", func() error { return d.migrateCanonicalTimestamps(ctx) }},
 		{"tasks section", func() error { return d.migrateTasksSection(ctx) }},
 		{"payroll adjustment kind", func() error { return d.migratePayrollAdjustmentKind(ctx) }},
+		{"payroll percent from label", func() error { return d.migratePayrollPercentFromLabel(ctx) }},
 		{"purge idempotency keys", func() error { return d.PurgeStaleIdempotencyKeys(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {

@@ -598,13 +598,25 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 		return
 	}
 	back := "/payroll/" + strconv.FormatInt(id, 10)
-	if err := s.services.Payroll.RecalculateDraft(r.Context(), appmodel.PayrollRecalculateRequest{
+	result, err := s.services.Payroll.RecalculateDraft(r.Context(), appmodel.PayrollRecalculateRequest{
 		TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r),
-	}); err != nil {
+	})
+	if err != nil {
 		http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, back+"?flash="+encodeFlash(true, "pay recalculated"), http.StatusSeeOther)
+	// The flash says what moved: the total before and after, and who has no
+	// earnings left, since their percent bonus silently became zero.
+	lang := resolveLang(r)
+	currency := ""
+	if detail, err := s.services.Payroll.GetRun(r.Context(), teamID(r), id); err == nil {
+		currency = detail.Run.Currency
+	}
+	msg := fmt.Sprintf(i18n.T(lang, "pay.recalculated"), moneyL(lang, result.BeforeCents, currency), moneyL(lang, result.AfterCents, currency))
+	if len(result.NoEarnings) > 0 {
+		msg += " " + fmt.Sprintf(i18n.T(lang, "pay.recalculatedNoEarnings"), strings.Join(result.NoEarnings, ", "))
+	}
+	http.Redirect(w, r, back+"?flash="+encodeFlash(true, msg), http.StatusSeeOther)
 }
 
 // handleMemberPay saves a member's pay rate + daily capacity.

@@ -391,3 +391,17 @@ const exportPayrollLinePay = "pay"
 func legacyPayrollAdjustment(label string, seconds, rateCents int64) bool {
 	return seconds == 0 && rateCents == 0 && strings.Contains(label, " — ")
 }
+
+// migratePayrollPercentFromLabel gives the percent adjustments added before
+// the percent was stored their percent back, from the "(+6%)" their label was
+// written with, so recalculating a draft takes it of the new earnings instead
+// of keeping an amount worked out from old hours. Labels always carry a sign.
+func (d *DB) migratePayrollPercentFromLabel(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "payroll percent from label", func(tx *Tx) error {
+		return tx.execRawContext(ctx,
+			`UPDATE payroll_lines
+			    SET percent_bps = ROUND((substring(label from '\(([+-][0-9]+(\.[0-9]+)*)%\)$'))::numeric * 100)::bigint
+			  WHERE kind = 'adjustment' AND percent_bps = 0 AND label ~ '\([+-][0-9]+(\.[0-9]+)*%\)$'`)
+	})
+	return err
+}

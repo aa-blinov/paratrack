@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -207,64 +208,67 @@ func percentOfCents(base, bps int) int {
 }
 
 // RecalculatePayrollDraft prices a draft run again from the timesheet as it is
-// now, for the people already on it. Hours, rates and salaries are taken
-// afresh; a fixed bonus or deduction stays as it was, and one given as a
-// percent is taken of the new earnings. The same gates as creating a run
-// apply: only approved weeks and no closed month.
-func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) error {
+// now, for the people on it. Hours, rates and salaries are taken afresh; a
+// fixed bonus or deduction stays as it was, and one given as a percent is taken
+// of the new earnings. The same gates as creating a run apply: only approved
+// weeks and no closed month. The result carries both totals and the people left
+// with no earnings, whose percent adjustments came to zero, so the screen and
+// the audit can say what changed.
+func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error) {
+	var result appmodel.PayrollRecalculateResult
 	tx, err := d.sql.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return result, err
 	}
 	defer func() { _ = tx.Rollback() }()
 	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
-		return err
+		return result, err
 	}
 	if _, err := lockPayrollWorkspace(ctx, tx, request.TeamID); err != nil {
-		return err
+		return result, err
 	}
 	run, err := getPayrollRun(ctx, tx, request.TeamID, request.RunID, true)
 	if err != nil {
-		return err
+		return result, err
 	}
 	if run.Status != "draft" {
-		return model.ErrForbidden
+		return result, model.ErrForbidden
 	}
 	if err := requireApprovedPayrollTime(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
-		return err
+		return result, err
 	}
 	if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
-		return err
+		return result, err
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payroll_lines WHERE run_id = ?`, run.ID).Scan(&result.BeforeCents); err != nil {
+		return result, err
+	}
+	// A run made before the member list existed has only its lines to say
+	// who it is for; they join the list here, once.
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO payroll_run_members (run_id, user_id) SELECT DISTINCT run_id, user_id FROM payroll_lines WHERE run_id = ? ON CONFLICT DO NOTHING`, run.ID); err != nil {
+		return result, err
 	}
 	members := map[int64]bool{}
-	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT user_id FROM payroll_lines WHERE run_id = ?`, run.ID)
-	if err != nil {
-		return err
-	}
-	for rows.Next() {
+	if err := queryRows(ctx, tx, "payroll run members", `SELECT user_id FROM payroll_run_members WHERE run_id = ?`, func(rows *sql.Rows) error {
 		var id int64
 		if err := rows.Scan(&id); err != nil {
-			rows.Close()
 			return err
 		}
 		members[id] = true
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return err
-	}
-	if err := rows.Close(); err != nil {
-		return err
+		return nil
+	}, run.ID); err != nil {
+		return result, err
 	}
 	if err := lockPayrollMembers(ctx, tx, request.TeamID); err != nil {
-		return err
+		return result, err
 	}
 	lines, err := buildPayrollLines(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd, true, request.At)
 	if err != nil {
-		return fmt.Errorf("build payroll lines: %w", err)
+		return result, fmt.Errorf("build payroll lines: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM payroll_lines WHERE run_id = ? AND kind <> ?`, run.ID, model.PayrollLineAdjustment); err != nil {
-		return err
+		return result, err
 	}
 	base := map[int64]int{}
 	for _, l := range lines {
@@ -274,41 +278,48 @@ func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.Payro
 		if _, err := tx.ExecContext(ctx,
 			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, ?, ?, ?)`,
 			run.ID, l.UserID, l.Label, l.Seconds, l.RateCents, l.AmountCents); err != nil {
-			return err
+			return result, err
 		}
 		base[l.UserID] += l.AmountCents
 	}
 	// The percent is applied in Go, like when it was added, so both round the
 	// same way.
-	for userID := range members {
-		adj, err := tx.QueryContext(ctx,
-			`SELECT id, percent_bps FROM payroll_lines WHERE run_id = ? AND user_id = ? AND kind = ? AND percent_bps <> 0`,
-			run.ID, userID, model.PayrollLineAdjustment)
-		if err != nil {
-			return err
-		}
-		updates := map[int64]int{}
-		for adj.Next() {
-			var id int64
-			var bps int
-			if err := adj.Scan(&id, &bps); err != nil {
-				adj.Close()
+	type percentLine struct {
+		id, user int64
+		bps      int
+	}
+	var percents []percentLine
+	if err := queryRows(ctx, tx, "percent adjustments",
+		`SELECT id, user_id, percent_bps FROM payroll_lines WHERE run_id = ? AND kind = ? AND percent_bps <> 0 ORDER BY id`,
+		func(rows *sql.Rows) error {
+			var p percentLine
+			if err := rows.Scan(&p.id, &p.user, &p.bps); err != nil {
 				return err
 			}
-			updates[id] = percentOfCents(base[userID], bps)
+			percents = append(percents, p)
+			return nil
+		}, run.ID, model.PayrollLineAdjustment); err != nil {
+		return result, err
+	}
+	zeroed := map[int64]bool{}
+	for _, p := range percents {
+		if base[p.user] <= 0 {
+			zeroed[p.user] = true
 		}
-		if err := adj.Err(); err != nil {
-			adj.Close()
-			return err
-		}
-		if err := adj.Close(); err != nil {
-			return err
-		}
-		for id, amount := range updates {
-			if _, err := tx.ExecContext(ctx, `UPDATE payroll_lines SET amount_cents = ? WHERE id = ?`, amount, id); err != nil {
-				return err
-			}
+		if _, err := tx.ExecContext(ctx, `UPDATE payroll_lines SET amount_cents = ? WHERE id = ?`, percentOfCents(base[p.user], p.bps), p.id); err != nil {
+			return result, err
 		}
 	}
-	return tx.Commit()
+	for user := range zeroed {
+		var name string
+		if err := tx.QueryRowContext(ctx, `SELECT name FROM users WHERE id = ?`, user).Scan(&name); err != nil {
+			return result, err
+		}
+		result.NoEarnings = append(result.NoEarnings, name)
+	}
+	sort.Strings(result.NoEarnings)
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payroll_lines WHERE run_id = ?`, run.ID).Scan(&result.AfterCents); err != nil {
+		return result, err
+	}
+	return result, tx.Commit()
 }

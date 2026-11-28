@@ -29,7 +29,7 @@ type Store interface {
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
 	AddPayrollAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
 	DeletePayrollAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
-	RecalculatePayrollDraft(context.Context, appmodel.PayrollRecalculateRequest) error
+	RecalculatePayrollDraft(context.Context, appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error)
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	ListMemberPayrollSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
@@ -310,19 +310,23 @@ func (s *Service) DeleteAdjustment(ctx context.Context, request appmodel.Payroll
 
 // RecalculateDraft prices a draft pay run again from the current timesheet,
 // keeping fixed adjustments and re-taking percent ones of the new earnings.
-func (s *Service) RecalculateDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) error {
+func (s *Service) RecalculateDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error) {
 	if request.TeamID <= 0 || request.CallerID <= 0 {
-		return ErrInvalidTeam
+		return appmodel.PayrollRecalculateResult{}, ErrInvalidTeam
 	}
 	if request.RunID <= 0 {
-		return ErrNotFound
+		return appmodel.PayrollRecalculateResult{}, ErrNotFound
 	}
 	request.At = s.now()
-	if err := s.store.RecalculatePayrollDraft(ctx, request); err != nil {
-		return fmt.Errorf("recalculate payroll draft: %w", err)
+	result, err := s.store.RecalculatePayrollDraft(ctx, request)
+	if err != nil {
+		return result, fmt.Errorf("recalculate payroll draft: %w", err)
 	}
-	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.recalculate", fmt.Sprint(request.RunID), "")
-	return nil
+	// The journal keeps both totals, so a changed payout can be traced to
+	// the recalculation that changed it.
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.recalculate", fmt.Sprint(request.RunID),
+		fmt.Sprintf("%d -> %d", result.BeforeCents, result.AfterCents))
+	return result, nil
 }
 
 func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action, target, meta string) {

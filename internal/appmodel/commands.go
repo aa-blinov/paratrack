@@ -62,6 +62,15 @@ type PayrollRecalculateRequest struct {
 	At       time.Time
 }
 
+// PayrollRecalculateResult says what a recalculation changed: the run's total
+// before and after, and the people left with no earnings, whose percent
+// adjustments came to zero.
+type PayrollRecalculateResult struct {
+	BeforeCents int
+	AfterCents  int
+	NoEarnings  []string
+}
+
 // PayrollAdjustmentDeleteRequest removes a one-off adjustment line from a draft pay run.
 type PayrollAdjustmentDeleteRequest struct {
 	TeamID   int64

@@ -348,7 +348,7 @@ type PayrollWorkflow interface {
 	UpdateMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	AddAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
 	DeleteAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
-	RecalculateDraft(context.Context, appmodel.PayrollRecalculateRequest) error
+	RecalculateDraft(context.Context, appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error)
 }
 
 // PayrollPaymentWorkflow includes payment-transition side effects used by the

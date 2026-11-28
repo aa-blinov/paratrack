@@ -146,6 +146,18 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	if err != nil {
 		return PayrollRun{}, nil, err
 	}
+	// The people chosen for the run, or everyone it priced when nobody was
+	// chosen. Someone chosen with no hours yet is on it all the same.
+	members := map[int64]bool{}
+	for id := range userFilter {
+		members[id] = true
+	}
+	for _, l := range lines {
+		members[l.UserID] = true
+	}
+	if err := addPayrollRunMembersTx(ctx, tx, runID, members); err != nil {
+		return PayrollRun{}, nil, err
+	}
 	run, err := getPayrollRun(ctx, tx, teamID, runID, true)
 	if err != nil {
 		return PayrollRun{}, nil, err
@@ -367,4 +379,14 @@ func insertPayrollRunTx(ctx context.Context, tx *Tx, teamID int64, number, notes
 		}
 	}
 	return runID, nil
+}
+
+func addPayrollRunMembersTx(ctx context.Context, tx *Tx, runID int64, members map[int64]bool) error {
+	for id := range members {
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO payroll_run_members (run_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING`, runID, id); err != nil {
+			return err
+		}
+	}
+	return nil
 }

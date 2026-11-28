@@ -106,7 +106,7 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 300000 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}); err != nil {
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}); err != nil {
 		t.Fatalf("recalculate: %v", err)
 	}
 	after, err := d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
@@ -127,6 +127,33 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if amounts["hours"] != 300000 || amounts["fixed"] != 50000 || amounts["percent"] != 18000 || len(after.Lines) != 3 {
 		t.Fatalf("after recalculation: %+v (lines %+v)", amounts, after.Lines)
 	}
+	if after.Lines[0].Kind != "" {
+		t.Fatalf("the priced line must come before the adjustments after a recalculation: %+v", after.Lines)
+	}
+
+	// All of dev2's pay goes away (rate zeroed): the percent comes to zero and
+	// the result names them. When the rate comes back, so does dev2.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 0 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
+		t.Fatal(err)
+	}
+	res, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.NoEarnings) != 1 || res.BeforeCents != 368000 || res.AfterCents != 50000 {
+		t.Fatalf("zeroed recalculation result: %+v", res)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 300000 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
+		t.Fatal(err)
+	}
+	if res, err = d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}); err != nil || res.AfterCents != 368000 || len(res.NoEarnings) != 0 {
+		t.Fatalf("dev2 did not come back: %+v err=%v", res, err)
+	}
+	after, err = d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	var pricedID int64
 	for _, l := range after.Lines {
 		if l.Kind == "" {
