@@ -76,8 +76,8 @@ func TestStatsNamesRunningTimers(t *testing.T) {
 }
 
 // A page that does not exist is still a screen of the app: /invoices/new used
-// to answer a bare "404 page not found" with no menu and no way back. JSON and
-// HTMX callers keep the plain status.
+// to answer a bare "404 page not found" with no menu and no way back. JSON
+// callers keep the plain status.
 func TestPageNotFoundRendersInsideApp(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("not-found@x.test")
@@ -93,8 +93,8 @@ func TestPageNotFoundRendersInsideApp(t *testing.T) {
 			t.Fatalf("%s: the app's 404 screen is missing: %+v", path, data)
 		}
 	}
-	resp := e.do("GET", "/invoices/new", nil, map[string]string{"Accept": "text/html", "HX-Request": "true"})
+	resp := e.do("GET", "/invoices/new", nil, map[string]string{"Accept": "application/json"})
 	if body := readBody(t, resp); resp.StatusCode != http.StatusNotFound || strings.Contains(body, "<html") {
-		t.Errorf("an HTMX swap keeps the plain 404, got %d", resp.StatusCode)
+		t.Errorf("a non-HTML caller keeps the plain 404, got %d", resp.StatusCode)
 	}
 }

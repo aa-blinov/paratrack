@@ -73,10 +73,10 @@ func (s *Server) renderUnknownPage(w http.ResponseWriter, r *http.Request) {
 // shellNotFound turns the plain-text 404 a page handler writes (http.NotFound,
 // http.Error, or no route at all) into the app's own screen, so /invoices/new
 // is not a bare "404 page not found" outside the menu. Only a browser asking
-// for a page gets it: HTMX swaps and JSON callers keep the status as it was.
+// for a page gets it: JSON callers keep the status as it was.
 func (s *Server) shellNotFound(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet || r.Header.Get("HX-Request") != "" || !strings.Contains(r.Header.Get("Accept"), "text/html") {
+		if r.Method != http.MethodGet || !strings.Contains(r.Header.Get("Accept"), "text/html") {
 			next.ServeHTTP(w, r)
 			return
 		}
