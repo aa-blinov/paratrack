@@ -57,6 +57,9 @@ type invoiceVM struct {
 	// The payment journal (FIN-08): what is paid, what is still owed, and the entries.
 	PaidLabel, RemainingLabel string
 	Remaining, PartialPaid    bool
+	// RemainingCents is what is still owed: the payment QR asks for this,
+	// not the total, once part of the invoice is paid.
+	RemainingCents int
 	TodayISO                  string
 	Payments                  []paymentVM
 }
@@ -220,6 +223,7 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 	paid, owed := journalTotals(inv.Status, details.TotalCents, details.PaidCents)
 	vm.PaidLabel = moneyL(lang, paid, inv.Currency)
 	vm.RemainingLabel = moneyL(lang, owed, inv.Currency)
+	vm.RemainingCents = owed
 	vm.Remaining = inv.Status == "sent" && owed > 0
 	vm.PartialPaid = details.PaidCents > 0 && owed > 0
 	vm.TodayISO = userNow(r).Format("2006-01-02")

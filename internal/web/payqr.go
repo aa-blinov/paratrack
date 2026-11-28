@@ -13,8 +13,10 @@ import (
 // "ST00012": the 2 says UTF-8). It is printed only when the invoice is in
 // roubles, owes money, and its seller details name an account, a БИК and a
 // bank that check out: a code that pays the wrong account is worse than none.
+// It asks for what is still owed, so a half-paid invoice does not ask for the
+// whole sum again, and a paid one carries no code at all.
 func paymentQR(inv invoiceVM, sellerName string) (payload string, ok bool) {
-	if strings.ToUpper(inv.Currency) != "RUB" || inv.TotalCents <= 0 {
+	if strings.ToUpper(inv.Currency) != "RUB" || inv.Status == "paid" || inv.RemainingCents <= 0 {
 		return "", false
 	}
 	f := model.ParseRequisites(inv.SellerDetails)
@@ -43,9 +45,20 @@ func paymentQR(inv invoiceVM, sellerName string) (payload string, ok bool) {
 	if f.KPP != "" {
 		parts = append(parts, "KPP="+f.KPP)
 	}
+	// The client's accountant reads the purpose: the invoice's date and how
+	// VAT stands, so the payment needs no follow-up question.
+	purpose := "Оплата по счёту № " + inv.Number
+	if inv.IssuedLabel != "" {
+		purpose += " от " + inv.IssuedLabel
+	}
+	if inv.VATIncluded != "" {
+		purpose += ". " + inv.VATIncluded
+	} else {
+		purpose += ". Без НДС"
+	}
 	parts = append(parts,
-		fmt.Sprintf("Sum=%d", inv.TotalCents),
-		"Purpose="+clean("Оплата по счёту № "+inv.Number),
+		fmt.Sprintf("Sum=%d", inv.RemainingCents),
+		"Purpose="+clean(truncateRunes(purpose, 210)),
 	)
 	return strings.Join(parts, "|"), true
 }

@@ -165,6 +165,11 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 			pdf.RegisterImageOptionsReader("payqr", opt, bytes.NewReader(png))
 			if pdf.Ok() {
 				pdf.Ln(4)
+				// An image does not break the page by itself: start a new
+				// one when the code would run past the bottom margin.
+				if _, pageH := pdf.GetPageSize(); pdf.GetY()+36 > pageH-18 {
+					pdf.AddPage()
+				}
 				y := pdf.GetY()
 				pdf.ImageOptions("payqr", 15, y, 32, 32, false, opt, 0, "")
 				pdf.SetXY(50, y+10)
