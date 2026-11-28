@@ -1,6 +1,6 @@
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { DisclosureSection } from "@/components/disclosure-section"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -61,10 +61,8 @@ export function StageEditor({ lang, csrf, stages, onChanged }: Props) {
     if (added) setName("")
   }
 
-  return <Card>
-    <CardHeader><CardTitle>{t(lang, "crm.stagesTitle")}</CardTitle></CardHeader>
-    <CardContent className="grid gap-5">
-      <p className="text-sm text-muted-foreground">{t(lang, "crm.stagesHint")}</p>
+  return <DisclosureSection id="crm-stages" title={t(lang, "crm.stagesTitle")} description={t(lang, "crm.stagesHint")} defaultOpen={false}>
+    <div className="grid gap-5">
       <FormIssue issue={issue} />
       <ol className="grid gap-3">
         {stages.map((stage, index) => <StageRow key={`${stage.stage}-${stage.name}-${stage.kind}-${index}`} stage={stage} index={index} count={stages.length} lang={lang} csrf={csrf} busy={busy} act={act} />)}
@@ -83,8 +81,8 @@ export function StageEditor({ lang, csrf, stages, onChanged }: Props) {
         </div>
         <Button type="submit" disabled={busy || name.trim() === ""}>{t(lang, "crm.stageAdd")}</Button>
       </form>
-    </CardContent>
-  </Card>
+    </div>
+  </DisclosureSection>
 }
 
 function StageRow({ stage, index, count, lang, csrf, busy, act }: {
