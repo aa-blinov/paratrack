@@ -631,6 +631,8 @@
   "inv.exportClient": "Client",
   "inv.exportAllClients": "All clients",
   "inv.exportDownload": "Download CSV",
+  "inv.exportPayments": "Payments received",
+  "inv.exportExcel": "For Excel",
   "inv.linkTitle": "Link for the client",
   "inv.linkMake": "Client link, PDF without sign-in",
   "inv.linkExpires": "Works until %s. Anyone with the link can open the invoice.",

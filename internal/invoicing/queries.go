@@ -3,6 +3,7 @@ package invoicing
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -253,4 +254,49 @@ func (s *Service) PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, t
 		return 0, "", fmt.Errorf("sum paid invoices for month: %w", err)
 	}
 	return total, currency, nil
+}
+
+// PaymentLedger lists the payments received on the workspace's invoices, by
+// the day they were paid, within the query's period (From inclusive, To
+// exclusive; zero means open) and for one client when named. This is what an
+// accountant sets against the bank statement: date, counterparty, ИНН, sum.
+func (s *Service) PaymentLedger(ctx context.Context, query appmodel.InvoiceExportQuery) ([]appmodel.PaymentLedgerRow, error) {
+	if query.TeamID <= 0 {
+		return nil, ErrInvalidTeam
+	}
+	items, err := s.reader.ListInvoiceDetails(ctx, query.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("list invoices for the payment ledger: %w", err)
+	}
+	from, to := "", ""
+	if !query.From.IsZero() {
+		from = query.From.Format("2006-01-02")
+	}
+	if !query.To.IsZero() {
+		to = query.To.Format("2006-01-02")
+	}
+	var out []appmodel.PaymentLedgerRow
+	for _, item := range items {
+		inv := item.Invoice
+		if query.Client != "" && inv.ClientName != query.Client {
+			continue
+		}
+		inn := model.ParseRequisites(inv.ClientDetails).INN
+		for _, p := range item.Payments {
+			if (from != "" && p.PaidOn < from) || (to != "" && p.PaidOn >= to) {
+				continue
+			}
+			out = append(out, appmodel.PaymentLedgerRow{
+				PaidOn: p.PaidOn, InvoiceNumber: inv.Number, Client: inv.ClientName, ClientINN: inn,
+				AmountCents: p.AmountCents, Currency: inv.Currency, Source: p.Source, Note: p.Note,
+			})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].PaidOn != out[j].PaidOn {
+			return out[i].PaidOn < out[j].PaidOn
+		}
+		return out[i].InvoiceNumber < out[j].InvoiceNumber
+	})
+	return out, nil
 }

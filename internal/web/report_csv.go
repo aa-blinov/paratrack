@@ -186,3 +186,28 @@ func formatHoursDecimal(seconds int) string {
 	hundredths := money.HoursHundredths(seconds)
 	return fmt.Sprintf("%d.%02d", hundredths/100, hundredths%100)
 }
+
+// paymentLedgerCSVHeader is the column order of the received-payments ledger.
+var paymentLedgerCSVHeader = []string{"paid_on", "invoice", "client", "client_inn", "amount", "currency", "source", "note"}
+
+// writePaymentLedgerCSV writes one row per received payment, amounts decimal
+// in the invoice's currency.
+func writePaymentLedgerCSV(w io.Writer, rows []appmodel.PaymentLedgerRow, d csvDialect) error {
+	out, err := d.writer(w)
+	if err != nil {
+		return err
+	}
+	if err := out.Write(paymentLedgerCSVHeader); err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if err := out.Write([]string{
+			row.PaidOn, row.InvoiceNumber, csvNeutralizeCell(row.Client), row.ClientINN,
+			d.number(money.FormatCents(row.AmountCents)), row.Currency, row.Source, csvNeutralizeCell(row.Note),
+		}); err != nil {
+			return err
+		}
+	}
+	out.Flush()
+	return out.Error()
+}

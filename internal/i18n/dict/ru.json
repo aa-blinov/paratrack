@@ -631,6 +631,8 @@
   "inv.exportClient": "Клиент",
   "inv.exportAllClients": "Все клиенты",
   "inv.exportDownload": "Скачать CSV",
+  "inv.exportPayments": "Журнал оплат",
+  "inv.exportExcel": "Для 1С и Excel",
   "inv.linkTitle": "Ссылка для клиента",
   "inv.linkMake": "Ссылка для клиента, PDF без входа",
   "inv.linkExpires": "Действует до %s. Кто её знает, тот откроет счёт.",

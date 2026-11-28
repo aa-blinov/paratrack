@@ -387,6 +387,7 @@ type InvoiceQueries interface {
 	Sessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
 	Reconcile(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	ExportLines(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.InvoiceExportLine, error)
+	PaymentLedger(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.PaymentLedgerRow, error)
 	StripeReady(context.Context, int64) (bool, error)
 	UnbilledProjectTime(context.Context, appmodel.UnbilledProjectQuery) ([]appmodel.UnbilledProject, error)
 }

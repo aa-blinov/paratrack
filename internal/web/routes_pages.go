@@ -54,6 +54,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("GET /invoices", s.module("invoices", s.manage(s.handleInvoices)))
 	pages.HandleFunc("GET /invoices/unapproved", s.module("invoices", s.manage(s.handleInvoiceUnapproved)))
 	pages.HandleFunc("GET /invoices/export.csv", s.module("invoices", s.manage(s.handleInvoicesExportCSV)))
+	pages.HandleFunc("GET /invoices/payments.csv", s.module("invoices", s.manage(s.handlePaymentLedgerCSV)))
 	pages.HandleFunc("POST /invoices", s.module("invoices", s.manage(s.handleInvoiceCreate)))
 	pages.HandleFunc("POST /invoices/assign", s.module("invoices", s.manage(s.handleInvoiceAssignActivity)))
 	pages.HandleFunc("GET /invoices/{id}", s.module("invoices", s.manage(s.handleInvoiceDetail)))

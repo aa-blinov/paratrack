@@ -108,6 +108,10 @@ Confirmed by the code:
   the scope is printed under its title and carried into the CSV, and the
   plan column is left out of a scoped report. An id that is not the
   workspace's own is ignored.
+- The accountant's export downloads either the invoice lines or the ledger
+  of received payments (`/invoices/payments.csv`: date paid, invoice, client,
+  the client's ИНН from the invoice's details, amount, source) for a period
+  and optionally one client, plain or in the 1С/Excel dialect.
 - An emailed invoice carries its act and the breakdown by session (CSV)
   besides the invoice PDF. With the executors' names hidden on invoices, the
   breakdown leaves the person column empty too.

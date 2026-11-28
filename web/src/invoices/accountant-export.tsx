@@ -27,7 +27,11 @@ export function AccountantExport({ lang, clients }: { lang: string; clients: str
           <Input id="export-client" name="export_client" list="export-clients" placeholder={t(lang, "inv.exportAllClients")} className="min-w-0 sm:w-64" />
           <datalist id="export-clients">{clients.map(name => <option key={name} value={name} />)}</datalist>
         </div>
+        <label className="flex min-h-9 items-center gap-2 text-sm"><input type="checkbox" name="format" value="excel" className="accent-primary" />{t(lang, "inv.exportExcel")}</label>
         <Button type="submit" variant="outline" size="sm"><Download aria-hidden="true" />{t(lang, "inv.exportDownload")}</Button>
+        {/* The same period and client, the payments received instead of the
+            lines invoiced: what is set against the bank statement. */}
+        <Button type="submit" variant="outline" size="sm" formAction="/invoices/payments.csv"><Download aria-hidden="true" />{t(lang, "inv.exportPayments")}</Button>
       </form>
     </CardContent>
   </Card>

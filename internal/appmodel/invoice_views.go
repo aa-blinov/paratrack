@@ -117,6 +117,18 @@ type InvoiceSessionRow struct {
 // InvoiceExportQuery selects the invoice lines an accountant downloads: the issued
 // invoices of one workspace, optionally for one client and a period of invoice dates
 // (FIN-05). A zero From or To leaves that side open; To is exclusive.
+// PaymentLedgerRow is one received payment for the accountant's ledger.
+type PaymentLedgerRow struct {
+	PaidOn        string
+	InvoiceNumber string
+	Client        string
+	ClientINN     string
+	AmountCents   int
+	Currency      string
+	Source        string
+	Note          string
+}
+
 type InvoiceExportQuery struct {
 	TeamID int64
 	Client string
