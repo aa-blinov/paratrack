@@ -363,3 +363,69 @@ func invoiceCurrency(ctx context.Context, tx *Tx, teamID int64, lines []InvoiceL
 	}
 	return cur, nil
 }
+
+// AddInvoiceLine appends a manual one-off fee or discount line to a draft invoice.
+func (d *DB) AddInvoiceLine(ctx context.Context, request appmodel.InvoiceLineAddRequest) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status FROM invoices WHERE id = ? AND team_id = ? FOR UPDATE`, request.InvoiceID, request.TeamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status != "draft" {
+		return ErrInvoiceNotDraft
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO invoice_lines (invoice_id, label, detail, seconds, rate_cents, amount_cents) VALUES (?, ?, '', 0, 0, ?)`,
+		request.InvoiceID, request.Label, request.AmountCents); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeleteInvoiceLine removes a manual one-off line (seconds=0, rate_cents=0) from a draft invoice.
+func (d *DB) DeleteInvoiceLine(ctx context.Context, request appmodel.InvoiceLineDeleteRequest) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status FROM invoices WHERE id = ? AND team_id = ? FOR UPDATE`, request.InvoiceID, request.TeamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status != "draft" {
+		return ErrInvoiceNotDraft
+	}
+	res, err := tx.ExecContext(ctx,
+		`DELETE FROM invoice_lines WHERE id = ? AND invoice_id = ? AND seconds = 0 AND rate_cents = 0`,
+		request.LineID, request.InvoiceID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return tx.Commit()
+}

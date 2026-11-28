@@ -83,7 +83,8 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	}
 	// Serialize period checks with every other payroll draft creation. The
 	// workspace lock makes confirmation meaningful even under concurrent posts.
-	overlaps, err := payrollOverlapsTx(ctx, tx, teamID, start, end)
+	userFilter := makeUserFilter(request.UserIDs)
+	overlaps, err := payrollOverlapsTx(ctx, tx, teamID, start, end, userFilter)
 	if err != nil {
 		return PayrollRun{}, nil, err
 	}
@@ -93,7 +94,7 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	// touch any month the new run covers, so paying a month twice is a
 	// confirmed choice with a written reason, the same as re-paying hours
 	// (FIN-22).
-	salaried, err := salaryOverlapsTx(ctx, tx, teamID, start, end)
+	salaried, err := salaryOverlapsTx(ctx, tx, teamID, start, end, userFilter)
 	if err != nil {
 		return PayrollRun{}, nil, err
 	}
@@ -116,6 +117,15 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	lines, err := buildPayrollLines(ctx, tx, teamID, start, end, true, at)
 	if err != nil {
 		return PayrollRun{}, nil, fmt.Errorf("build payroll lines: %w", err)
+	}
+	if len(userFilter) > 0 {
+		filtered := make([]PayrollLine, 0, len(lines))
+		for _, l := range lines {
+			if userFilter[l.UserID] {
+				filtered = append(filtered, l)
+			}
+		}
+		lines = filtered
 	}
 	if len(lines) == 0 {
 		// Say which of the two it is: nobody has a pay, or nobody tracked
@@ -146,7 +156,44 @@ func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDra
 	return run, nil, nil
 }
 
-func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time) ([]PayrollRun, error) {
+func makeUserFilter(ids []int64) map[int64]bool {
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make(map[int64]bool, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			out[id] = true
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func runTouchesFilteredUsers(ctx context.Context, tx *Tx, runID int64, userFilter map[int64]bool) (bool, error) {
+	if len(userFilter) == 0 {
+		return true, nil
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT DISTINCT user_id FROM payroll_lines WHERE run_id = ?`, runID)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var uid int64
+		if err := rows.Scan(&uid); err != nil {
+			return false, err
+		}
+		if userFilter[uid] {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time, userFilter map[int64]bool) ([]PayrollRun, error) {
 	rows, err := tx.QueryContext(ctx,
 		`SELECT id, team_id, number, period_start, period_end, status, notes,
 		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
@@ -156,15 +203,31 @@ func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end tim
 		return nil, err
 	}
 	defer rows.Close()
-	var out []PayrollRun
+	var candidates []PayrollRun
 	for rows.Next() {
 		run, err := scanPayrollRun(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, run)
+		candidates = append(candidates, run)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(userFilter) == 0 {
+		return candidates, nil
+	}
+	var out []PayrollRun
+	for _, run := range candidates {
+		ok, err := runTouchesFilteredUsers(ctx, tx, run.ID, userFilter)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, run)
+		}
+	}
+	return out, nil
 }
 
 // salaryOverlapsTx lists the runs that already paid a salary line to a member
@@ -172,7 +235,7 @@ func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end tim
 // calendar month the new run covers. A salary line is the one with no hours
 // and no rate: hourly lines always carry a positive rate, so the shape is
 // unambiguous.
-func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time) ([]PayrollRun, error) {
+func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time, userFilter map[int64]bool) ([]PayrollRun, error) {
 	first := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
 	last := end.Add(-time.Nanosecond)
 	monthEnd := time.Date(last.Year(), last.Month(), 1, 0, 0, 0, 0, last.Location()).AddDate(0, 1, 0)
@@ -200,15 +263,31 @@ func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time
 		return nil, err
 	}
 	defer rows.Close()
-	var out []PayrollRun
+	var candidates []PayrollRun
 	for rows.Next() {
 		run, err := scanPayrollRun(rows)
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, run)
+		candidates = append(candidates, run)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(userFilter) == 0 {
+		return candidates, nil
+	}
+	var out []PayrollRun
+	for _, run := range candidates {
+		ok, err := runTouchesFilteredUsers(ctx, tx, run.ID, userFilter)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out = append(out, run)
+		}
+	}
+	return out, nil
 }
 
 func lockPayrollWorkspace(ctx context.Context, tx *Tx, teamID int64) (string, error) {

@@ -27,7 +27,7 @@ func TestSectionsOnboardingAndSettings(t *testing.T) {
 	} else {
 		wait.Body.Close()
 	}
-	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !reactData[sectionsPage](t, w).Welcome || len(reactData[sectionsPage](t, w).Presets) != 3 {
+	if w := readBody(t, e.do("GET", "/welcome", nil, nil)); !reactData[sectionsPage](t, w).Welcome || len(reactData[sectionsPage](t, w).Presets) != len(presets) {
 		t.Fatal("welcome has no presets")
 	}
 

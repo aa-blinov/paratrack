@@ -13,6 +13,10 @@ import (
 )
 
 func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
+	if bulk := strings.TrimSpace(r.FormValue("emails")); bulk != "" {
+		s.handleAPIInviteBulk(w, r, bulk)
+		return
+	}
 	team, _ := TeamFrom(r.Context())
 	user, _ := UserFrom(r.Context())
 	lang := resolveLang(r)
@@ -60,6 +64,50 @@ func (s *Server) handleAPIInviteCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWithFreshInvite(w, r, i18n.T(lang, "flash.inviteMailed")+" "+to+".", link)
+}
+
+func (s *Server) handleAPIInviteBulk(w http.ResponseWriter, r *http.Request, raw string) {
+	team, _ := TeamFrom(r.Context())
+	user, _ := UserFrom(r.Context())
+	lang := resolveLang(r)
+	parts := strings.FieldsFunc(raw, func(c rune) bool {
+		return c == '\n' || c == '\r' || c == ',' || c == ';'
+	})
+	var created, mailed, skipped int
+	seen := map[string]bool{}
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			continue
+		}
+		addr, err := netmail.ParseAddress(trimmed)
+		if err != nil {
+			skipped++
+			continue
+		}
+		email := strings.ToLower(strings.TrimSpace(addr.Address))
+		if seen[email] {
+			continue
+		}
+		seen[email] = true
+		inv, err := s.services.Teams.Invitations.NewInvite(r.Context(), appmodel.TeamInviteCreateRequest{
+			TeamID: team.ID, CallerID: user.ID, Email: email,
+		})
+		if err != nil {
+			skipped++
+			continue
+		}
+		created++
+		if mailport.Available(s.runtime.Mailer) {
+			link := s.publicBaseURL(r) + "/invites/" + inv.Token
+			subj, ev := inviteEmail(lang, user.Name, team.Name, link)
+			if msg, err := s.buildEmail(r, email, subj, ev); err == nil && s.deliverPostcommit(r.Context(), msg) == nil {
+				mailed++
+			}
+		}
+	}
+	msg := fmt.Sprintf(i18n.T(lang, "team.bulkSummary"), created, mailed, skipped)
+	http.Redirect(w, r, "/settings/invites?flash="+encodeFlash(created > 0, msg), http.StatusSeeOther)
 }
 
 // redirectWithFreshInvite sends the owner back to the invitations page with

@@ -15,6 +15,8 @@ import (
 )
 
 type invoiceLineVM struct {
+	ID          int64
+	Extra       bool
 	Label       string
 	Hours       string
 	Rate        string
@@ -175,9 +177,17 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 	vms := make([]invoiceLineVM, 0, len(lines))
 	lang := resolveLang(r)
 	for _, line := range lines {
+		extra := line.Seconds == 0 && line.RateCents == 0
+		hours := fmtHoursL(lang, money.HoursHundredths(line.Seconds))
+		rate := moneyL(lang, line.RateCents, inv.Currency)
+		if extra {
+			hours = "—"
+			rate = "—"
+		}
 		vms = append(vms, invoiceLineVM{
-			Label: withoutExecutor(line.Label, names), Hours: fmtHoursL(lang, money.HoursHundredths(line.Seconds)),
-			Rate: moneyL(lang, line.RateCents, inv.Currency), Amount: moneyL(lang, line.AmountCents, inv.Currency),
+			ID: line.ID, Extra: extra,
+			Label: withoutExecutor(line.Label, names), Hours: hours,
+			Rate: rate, Amount: moneyL(lang, line.AmountCents, inv.Currency),
 			RateCents: line.RateCents, AmountCents: line.AmountCents, Seconds: line.Seconds,
 		})
 	}

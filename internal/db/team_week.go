@@ -63,6 +63,66 @@ func (d *DB) TrackedSecondsByPersonDay(ctx context.Context, query appmodel.Perso
 	return out, rows.Err()
 }
 
+// TrackedSecondsByPersonProject sums what each member tracked on each project
+// over the days of the query (open timers included). Project ID 0 holds
+// uncategorized time.
+func (d *DB) TrackedSecondsByPersonProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]map[int64]int, error) {
+	if query.TeamID <= 0 || len(query.Days) == 0 {
+		return nil, ErrNotFound
+	}
+	from := query.Days[0]
+	until := query.Days[len(query.Days)-1].AddDate(0, 0, 1)
+	rows, err := d.sql.QueryContext(ctx,
+		`SELECT s.user_id, `+sessionProject+`, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
+		   FROM sessions s JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
+		  WHERE `+windowedSessionsClosed(true)+`
+		  UNION ALL
+		  SELECT s.user_id, `+sessionProject+`, s.start_at, s.end_at, s.accumulated_seconds, s.paused, s.last_resume_at
+		   FROM sessions s JOIN activities a ON a.id = s.activity_id AND a.team_id = s.team_id
+		  WHERE `+windowedSessionsOpen(),
+		query.TeamID, FormatTime(from), FormatTime(until), query.TeamID, FormatTime(until))
+	if err != nil {
+		return nil, fmt.Errorf("read sessions by person and project: %w", err)
+	}
+	defer rows.Close()
+	out := make(map[int64]map[int64]int)
+	for rows.Next() {
+		var (
+			userID, projectID   sql.NullInt64
+			startAt             string
+			endAt, lastResumeAt sql.NullString
+			accumulated, paused int
+		)
+		if err := rows.Scan(&userID, &projectID, &startAt, &endAt, &accumulated, &paused, &lastResumeAt); err != nil {
+			return nil, err
+		}
+		if !userID.Valid {
+			continue
+		}
+		session, err := scheduleSession(startAt, endAt, lastResumeAt, accumulated, paused)
+		if err != nil {
+			return nil, err
+		}
+		sec := session.TrackedSecondsInWindow(from, until, query.Now)
+		if sec <= 0 {
+			continue
+		}
+		pid := int64(0)
+		if projectID.Valid {
+			pid = projectID.Int64
+		}
+		if out[userID.Int64] == nil {
+			out[userID.Int64] = make(map[int64]int)
+		}
+		total, err := money.AddInt(out[userID.Int64][pid], sec)
+		if err != nil {
+			return nil, fmt.Errorf("sum person project time: %w", err)
+		}
+		out[userID.Int64][pid] = total
+	}
+	return out, rows.Err()
+}
+
 // TrackedSecondsByProject sums what the workspace tracked on each project over the days of
 // the query (PLAN-05): a session counts for the part of the window it covers, and sits on
 // its own project or, failing that, on its activity's project.

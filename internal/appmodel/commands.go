@@ -35,16 +35,23 @@ type PayrollDraftRequest struct {
 	Start          time.Time
 	End            time.Time
 	ConfirmOverlap bool
+	// UserIDs optionally restricts the draft to a subset of members (e.g. hourly
+	// contractors paid weekly vs salaried staff paid monthly). Empty means all.
+	UserIDs []int64
 }
 
 // PayrollAdjustmentRequest adds a one-off bonus or deduction line to a draft pay run.
 type PayrollAdjustmentRequest struct {
-	TeamID      int64
-	RunID       int64
-	CallerID    int64
-	UserID      int64
-	Label       string
+	TeamID   int64
+	RunID    int64
+	CallerID int64
+	UserID   int64
+	Label    string
+	// AmountCents sets an explicit fixed adjustment when PercentBps == 0.
 	AmountCents int
+	// PercentBps computes the adjustment as basis points (100 = 1%) of the
+	// member's non-adjustment earnings in the run.
+	PercentBps int
 }
 
 // PayrollAdjustmentDeleteRequest removes a one-off adjustment line from a draft pay run.
@@ -97,6 +104,23 @@ type InvoiceDraftUpdateRequest struct {
 	Email     string
 	Notes     string
 	DueDate   string
+}
+
+// InvoiceLineAddRequest appends a manual one-off fee or discount line to a draft invoice.
+type InvoiceLineAddRequest struct {
+	TeamID      int64
+	InvoiceID   int64
+	CallerID    int64
+	Label       string
+	AmountCents int
+}
+
+// InvoiceLineDeleteRequest removes a manual one-off line from a draft invoice.
+type InvoiceLineDeleteRequest struct {
+	TeamID    int64
+	InvoiceID int64
+	LineID    int64
+	CallerID  int64
 }
 
 // ScheduleCellRequest describes one planned user/project cell mutation.

@@ -24,10 +24,18 @@ function Status({ lang, status }: { lang: string; status: string }) {
 
 export function PayrollPage({ data }: { data: PayrollData }) {
   const lang = data.Lang
+  const members = data.Members ?? []
+  const initialSelected = React.useMemo(() => {
+    if (data.DefUserIDs && data.DefUserIDs.length > 0) return data.DefUserIDs
+    return members.map(m => m.ID)
+  }, [data.DefUserIDs, members])
+  const [selectedIds, setSelectedIds] = React.useState<number[]>(initialSelected)
+  const toggleMember = (id: number) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const allSelected = members.length > 0 && selectedIds.length === members.length
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
-    {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
+    {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} userIds={data.DefUserIDs} />}
 
 
 
@@ -54,7 +62,25 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />
         <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><DateField id="pay-start" name="start" required defaultValue={data.DefStart} /></div>
         <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><DateField id="pay-end" name="end" required defaultValue={data.DefEnd} /></div>
-        <div className="flex min-w-0 items-center gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
+        <div className="flex min-w-0 items-center gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0" disabled={members.length > 0 && selectedIds.length === 0}>{t(lang, "pay.create")}</Button></div>
+        {members.length > 1 && <div className="space-y-2 sm:col-span-2 lg:col-span-4 border-t pt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-muted-foreground">{t(lang, "pay.filterMembers")}</span>
+            <Button type="button" size="sm" variant={allSelected ? "secondary" : "ghost"} className="h-6 px-2 text-xs" onClick={() => setSelectedIds(members.map(m => m.ID))}>{t(lang, "pay.filterAll")}</Button>
+            {members.some(m => m.PayKind === "hourly") && <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setSelectedIds(members.filter(m => m.PayKind === "hourly").map(m => m.ID))}>{t(lang, "pay.filterHourly")}</Button>}
+            {members.some(m => m.PayKind === "monthly") && <Button type="button" size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setSelectedIds(members.filter(m => m.PayKind === "monthly").map(m => m.ID))}>{t(lang, "pay.filterMonthly")}</Button>}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {members.map(m => {
+              const checked = selectedIds.includes(m.ID)
+              return <label key={m.ID} className={`inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs transition-colors ${checked ? "border-primary/50 bg-primary/5 font-medium" : "border-border text-muted-foreground"}`}>
+                <input type="checkbox" checked={checked} onChange={() => toggleMember(m.ID)} className="accent-primary" />
+                {!allSelected && checked && <input type="hidden" name="user_id" value={String(m.ID)} />}
+                <span>{m.Name}</span>
+              </label>
+            })}
+          </div>
+        </div>}
       </form>
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
     </DisclosureSection>
@@ -109,6 +135,7 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
   const lang = data.Lang
   const members = data.Members ?? []
   const [adjUser, setAdjUser] = React.useState(members[0] ? String(members[0].ID) : "")
+  const [adjUnit, setAdjUnit] = React.useState<"amount" | "percent">("amount")
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
     <div className="no-print space-y-3">
@@ -126,10 +153,10 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
 
     <Card className="print:border-0 print:shadow-none"><CardContent className="space-y-5 p-5 sm:p-7">
       <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.run")} <span className="font-mono">{data.Run.Number}</span></h1><p className="mt-1 font-mono text-sm text-muted-foreground">{data.Run.PeriodLabel}</p>{data.Run.WeeksLabel && <p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.weeksOf", data.Run.WeeksLabel)}</p>}</header>
-      <div className="grid gap-3 sm:hidden print:hidden">{data.Run.Lines.map((line, index) => <article key={`${line.Label}:${index}`} className="grid gap-3 border-b pb-3 last:border-0 last:pb-0"><h2 className="break-words font-medium">{line.Label}</h2>{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{line.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "pay.payRate")}</dt><dd className="font-mono tabular-nums">{line.Rate}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono font-medium tabular-nums">{line.Amount}</dd></div></dl></article>)}<dl className="grid grid-cols-2 gap-x-4 border-t pt-3 text-sm font-semibold"><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.hours")}</span>{data.Run.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.amount")}</span>{data.Run.Total}</dd></div></dl></div>
+      <div className="grid gap-3 sm:hidden print:hidden">{data.Run.Lines.map((line, index) => <article key={`${line.Label}:${index}`} className="grid gap-3 border-b pb-3 last:border-0 last:pb-0"><h2 className="break-words font-medium">{line.Label}</h2>{line.Projects && line.Projects.length > 0 && <PayrollProjects lang={lang} projects={line.Projects} />}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{line.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "pay.payRate")}</dt><dd className="font-mono tabular-nums">{line.Rate}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono font-medium tabular-nums">{line.Amount}</dd></div></dl></article>)}<dl className="grid grid-cols-2 gap-x-4 border-t pt-3 text-sm font-semibold"><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.hours")}</span>{data.Run.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.amount")}</span>{data.Run.Total}</dd></div></dl></div>
       <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table">
         <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "pay.payRate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader>
-        <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{data.Run.Status === "draft" && line.Adjustment && line.ID ? <form method="POST" action={`/payroll/${data.Run.ID}/adjustments/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "pay.adjDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
+        <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}{line.Projects && line.Projects.length > 0 && <PayrollProjects lang={lang} projects={line.Projects} />}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{data.Run.Status === "draft" && line.Adjustment && line.ID ? <form method="POST" action={`/payroll/${data.Run.ID}/adjustments/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "pay.adjDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
         <tfoot><tr className="border-t font-semibold"><td className="p-2">{t(lang, "pdf.total")}</td><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Hours}</td><td /><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Total}</td></tr></tfoot>
       </Table></div>
       {data.Run.Notes && <p className="whitespace-pre-line text-sm">{data.Run.Notes}</p>}
@@ -137,9 +164,10 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
     </CardContent></Card>
     {data.Run.Status === "draft" && members.length > 0 && <div className="no-print">
       <DisclosureSection id="payroll-adjustment" title={t(lang, "pay.adjTitle")} defaultOpen={false}>
-        <form method="POST" action={`/payroll/${data.Run.ID}/adjustments`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[12rem_1fr_10rem_auto] lg:items-end">
+        <form method="POST" action={`/payroll/${data.Run.ID}/adjustments`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[11rem_1fr_9rem_9rem_auto] lg:items-end">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
           <input type="hidden" name="user_id" value={adjUser} />
+          <input type="hidden" name="unit" value={adjUnit} />
           <div className="space-y-1.5">
             <Label htmlFor="adj-user">{t(lang, "pay.adjMember")}</Label>
             <Select value={adjUser} onValueChange={setAdjUser}><SelectTrigger id="adj-user" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{members.map(m => <SelectItem key={m.ID} value={String(m.ID)}>{m.Name}</SelectItem>)}</SelectContent></Select>
@@ -149,8 +177,12 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
             <Input id="adj-label" name="label" required maxLength={160} placeholder={t(lang, "pay.adjLabelPh")} style={{ fontSize: 16 }} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="adj-amount">{t(lang, "pay.adjAmount")}</Label>
-            <Input id="adj-amount" name="amount" required inputMode="decimal" placeholder={t(lang, "pay.adjAmountPh")} style={{ fontSize: 16 }} />
+            <Label htmlFor="adj-unit">{t(lang, "pay.adjUnit")}</Label>
+            <Select value={adjUnit} onValueChange={value => setAdjUnit(value === "percent" ? "percent" : "amount")}><SelectTrigger id="adj-unit" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="amount">{t(lang, "pay.adjUnitAmount")}</SelectItem><SelectItem value="percent">{t(lang, "pay.adjUnitPercent")}</SelectItem></SelectContent></Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="adj-amount">{adjUnit === "percent" ? "%" : t(lang, "pay.adjAmount")}</Label>
+            <Input id="adj-amount" name="amount" required inputMode="decimal" placeholder={adjUnit === "percent" ? "6 или -13" : t(lang, "pay.adjAmountPh")} style={{ fontSize: 16 }} />
           </div>
           <Button type="submit" variant="outline"><Plus aria-hidden="true" />{t(lang, "pay.adjAdd")}</Button>
         </form>
@@ -162,4 +194,8 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
 // PayrollDays is the day-by-day hours behind one line, closed until someone asks for them (FIN-18).
 function PayrollDays({ lang, days }: { lang: string; days: Array<{ Day: string; Hours: string }> }) {
   return <details className="mt-1 text-xs font-normal text-muted-foreground"><summary className="cursor-pointer">{t(lang, "pay.byDay")}</summary><ul className="mt-1 grid gap-0.5">{days.map(day => <li key={day.Day} className="flex justify-between gap-3"><span>{day.Day}</span><span className="font-mono tabular-nums">{day.Hours}</span></li>)}</ul></details>
+}
+
+function PayrollProjects({ lang, projects }: { lang: string; projects: Array<{ Project: string; Hours: string }> }) {
+  return <details className="mt-1 text-xs font-normal text-muted-foreground"><summary className="cursor-pointer">{t(lang, "pay.byProject")}</summary><ul className="mt-1 grid gap-0.5">{projects.map(p => <li key={p.Project} className="flex justify-between gap-3"><span>{p.Project}</span><span className="font-mono tabular-nums">{p.Hours}</span></li>)}</ul></details>
 }

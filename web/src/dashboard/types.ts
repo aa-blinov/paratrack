@@ -71,7 +71,7 @@ export interface UnbilledItem {
 export interface DashboardData {
   Workday?: { Started: string; Ended: string }
   OpenTasks?: Array<{ ID: number; Title: string; ProjectID: number; ProjectName: string }>
-  Mode?: "solo" | "freelance" | "studio" | "custom"
+  Mode?: "solo" | "freelance" | "studio" | "studio-core" | "custom"
   SectionsOpen?: number
   SectionsTotal?: number
   SectionsPersonal?: boolean
@@ -514,6 +514,16 @@ export interface TimesheetData {
   // viewer's own (member). People fills the manager's selector (TIME-24).
   Person: number
   People: Array<{ ID: number; Name: string }>
+  TeamSummary?: Array<{
+    UserID: number
+    Name: string
+    TrackedLabel: string
+    NormLabel: string
+    Percent: number
+    MissingDays: number
+    Approved: boolean
+    Status: "approved" | "ok" | "warn" | "empty"
+  }>
   // This week's scheduled minutes by project: the row answers "how much of
   // the plan did this time cover". Absent key = no plan for the project.
   PlannedByProject?: Record<string, number>
@@ -538,9 +548,11 @@ export interface PayrollData {
   Lang: string
   CSRFToken: string
   Items: PayrollSummary[]
+  Members?: Array<{ ID: number; Name: string; PayKind: string }>
   DefStart: string
   DefEnd: string
   DefNotes: string
+  DefUserIDs?: number[]
   Overlap: string
   ClosedMonths?: Array<{ Month: string; Label: string; ClosedOn: string; ClosedBy: string }>
   UnapprovedWeeks?: Array<{ Date: string; Last: string; Label: string; Count: number }>
@@ -565,7 +577,7 @@ export interface PayrollDetailData {
     Status: string
     Notes: string
     PeriodLabel: string
-    Lines: Array<{ ID?: number; Adjustment?: boolean; Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
+    Lines: Array<{ ID?: number; Adjustment?: boolean; Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }>; Projects?: Array<{ Project: string; Hours: string }> }>
     Total: string
     TotalCents: number
     Hours: string
@@ -704,7 +716,7 @@ export interface InvoiceDetailData {
     PeriodISO: string
     Status: string
     Notes: string
-    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
+    Lines: Array<{ ID?: number; Extra?: boolean; Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
     Total: string
     VATIncluded: string
     Hours: string

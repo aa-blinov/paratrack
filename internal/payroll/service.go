@@ -282,8 +282,8 @@ func (s *Service) AddAdjustment(ctx context.Context, request appmodel.PayrollAdj
 		return ErrNotFound
 	}
 	request.Label = strings.TrimSpace(request.Label)
-	if request.Label == "" || request.AmountCents == 0 {
-		return fmt.Errorf("adjustment label and non-zero amount are required")
+	if request.Label == "" || (request.AmountCents == 0 && request.PercentBps == 0) {
+		return fmt.Errorf("adjustment label and non-zero amount or percent are required")
 	}
 	if err := s.store.AddPayrollAdjustment(ctx, request); err != nil {
 		return fmt.Errorf("add payroll adjustment: %w", err)

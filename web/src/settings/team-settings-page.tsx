@@ -26,6 +26,36 @@ export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
   // A money form returns to its own card (#currency, #billing, …); the answer
   // is shown there, not at the top the page has scrolled away from.
   const savedCard = money && data.Flash ? location.hash.slice(1) : ""
+  const [reqText, setReqText] = useState(data.Requisites ?? "")
+  const [rfOrg, setRfOrg] = useState("")
+  const [rfINN, setRfINN] = useState("")
+  const [rfKPP, setRfKPP] = useState("")
+  const [rfOGRN, setRfOGRN] = useState("")
+  const [rfBank, setRfBank] = useState("")
+  const [rfBIK, setRfBIK] = useState("")
+  const [rfCorr, setRfCorr] = useState("")
+  const [rfAcc, setRfAcc] = useState("")
+  const [rfContract, setRfContract] = useState("")
+  const applyRfTemplate = () => {
+    const lines: string[] = []
+    if (rfOrg.trim()) lines.push(rfOrg.trim())
+    const ids = [
+      rfINN.trim() ? `ИНН ${rfINN.trim()}` : "",
+      rfKPP.trim() ? `КПП ${rfKPP.trim()}` : "",
+      rfOGRN.trim() ? `ОГРН/ОГРНИП ${rfOGRN.trim()}` : "",
+    ].filter(Boolean)
+    if (ids.length) lines.push(ids.join(", "))
+    if (rfAcc.trim() || rfBank.trim()) {
+      lines.push([rfAcc.trim() ? `р/с ${rfAcc.trim()}` : "", rfBank.trim() ? `в ${rfBank.trim()}` : ""].filter(Boolean).join(" "))
+    }
+    const bankIds = [
+      rfBIK.trim() ? `БИК ${rfBIK.trim()}` : "",
+      rfCorr.trim() ? `к/с ${rfCorr.trim()}` : "",
+    ].filter(Boolean)
+    if (bankIds.length) lines.push(bankIds.join(", "))
+    if (rfContract.trim()) lines.push(rfContract.trim())
+    if (lines.length) setReqText(lines.join("\n"))
+  }
   // The page is drawn by the client after the redirect, so the browser never
   // scrolled to #stripe: the answer sat 1000px below an empty top.
   useEffect(() => {
@@ -44,7 +74,23 @@ export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
       {data.IsOwner && <Card id="billing" className="scroll-mt-20"><CardHeader><CardTitle>{t(lang, "bill.title")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "settings.billingHint")}</p>{cardFlash("billing")}</CardHeader><CardContent>
         <form method="post" action="/api/team/billing" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><p className="text-xs text-muted-foreground">{t(lang, "bill.roundingNewOnly")}</p><div className="grid gap-3 sm:grid-cols-2"><div className="grid gap-1.5"><Label htmlFor="round-minutes">{t(lang, "bill.round")}</Label><Select name="round_minutes" defaultValue={String(data.Billing.RoundMinutes)}><SelectTrigger id="round-minutes"><SelectValue /></SelectTrigger><SelectContent>{data.RoundOpts.map(minutes => <SelectItem key={minutes} value={String(minutes)}>{minutes === 0 ? t(lang, "bill.roundOff") : t(lang, "bill.roundTo", minutes)}</SelectItem>)}</SelectContent></Select></div><div className="grid gap-1.5"><Label htmlFor="round-mode">{t(lang, "bill.mode")}</Label><Select name="round_mode" defaultValue={data.Billing.RoundMode === "up" ? "up" : "nearest"}><SelectTrigger id="round-mode"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="nearest">{t(lang, "bill.nearest")}</SelectItem><SelectItem value="up">{t(lang, "bill.up")}</SelectItem></SelectContent></Select></div></div><p className="text-xs text-muted-foreground">{t(lang, "bill.roundHint")}</p><div className="grid gap-1.5"><Label htmlFor="invoice-prefix">{t(lang, "bill.prefix")}</Label><Input id="invoice-prefix" name="invoice_prefix" required maxLength={12} pattern="(?:\p{L}|\p{N}|-)+" defaultValue={data.Billing.InvoicePrefix} onInvalid={event => event.currentTarget.setCustomValidity(t(lang, "bill.prefixInvalid"))} onInput={event => event.currentTarget.setCustomValidity("")} className="font-mono" /><p className="text-xs text-muted-foreground">{t(lang, "bill.prefixHint", data.Billing.InvoicePrefix)}</p></div><label className="flex cursor-pointer items-start gap-2 text-sm"><Checkbox name="recurring_invoices" value="1st" defaultChecked={data.Billing.Recurring === "1st"} className="mt-0.5" /><span>{t(lang, "bill.recurring")}<span className="mt-1 block text-xs text-muted-foreground">{t(lang, "bill.recurringHint")}</span></span></label><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></form>
       </CardContent></Card>}
-      <Card id="requisites" className="scroll-mt-20 lg:col-span-2"><CardHeader><CardTitle>{t(lang, "team.reqTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.reqHint")}</p>{cardFlash("requisites")}</CardHeader><CardContent><div className="grid gap-4"><form method="post" action="/api/team/requisites" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><div className="grid gap-1.5"><Label htmlFor="requisites-text">{t(lang, "team.reqLabel")}</Label><Textarea id="requisites-text" name="requisites" rows={6} maxLength={2000} className="font-mono text-sm" placeholder={t(lang, "team.reqPh")} defaultValue={data.Requisites} /></div><div className="grid gap-1.5"><Label htmlFor="vat-rate">{t(lang, "team.vatRateLabel")}</Label><Input id="vat-rate" name="vat_rate" type="number" min={0} max={100} step={1} defaultValue={data.VATRate} className="w-32" /><p className="text-xs text-muted-foreground">{t(lang, "team.vatRateHint")}</p></div><div className="grid gap-1.5"><Label htmlFor="vat-note">{t(lang, "team.vatLabel")}</Label><Input id="vat-note" name="vat_note" maxLength={200} defaultValue={data.VATNote} placeholder={t(lang, "team.vatPh")} /></div><label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm"><Checkbox name="hide_executor" value="1" defaultChecked={data.HideExecutorNames} className="mt-0.5" /><span className="grid gap-0.5"><span>{t(lang, "team.hideExecutorLabel")}</span><span className="text-xs text-muted-foreground">{t(lang, "team.hideExecutorHint")}</span></span></label><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></form></div></CardContent></Card>
+      <Card id="requisites" className="scroll-mt-20 lg:col-span-2"><CardHeader><CardTitle>{t(lang, "team.reqTitle")}</CardTitle><p className="text-sm text-muted-foreground">{t(lang, "team.reqHint")}</p>{cardFlash("requisites")}</CardHeader><CardContent><div className="grid gap-4">
+        <details className="rounded-md border border-border p-3 text-sm">
+          <summary className="cursor-pointer font-medium">{t(lang, "team.reqBuilderTitle")}</summary>
+          <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            <Input placeholder={t(lang, "team.rfOrgPh")} value={rfOrg} onChange={e => setRfOrg(e.target.value)} />
+            <Input placeholder="ИНН" value={rfINN} onChange={e => setRfINN(e.target.value)} />
+            <Input placeholder="КПП (для ООО)" value={rfKPP} onChange={e => setRfKPP(e.target.value)} />
+            <Input placeholder="ОГРН / ОГРНИП" value={rfOGRN} onChange={e => setRfOGRN(e.target.value)} />
+            <Input placeholder="Банк" value={rfBank} onChange={e => setRfBank(e.target.value)} />
+            <Input placeholder="БИК" value={rfBIK} onChange={e => setRfBIK(e.target.value)} />
+            <Input placeholder="Корр. счёт (к/с)" value={rfCorr} onChange={e => setRfCorr(e.target.value)} />
+            <Input placeholder="Расчётный счёт (р/с)" value={rfAcc} onChange={e => setRfAcc(e.target.value)} />
+            <Input placeholder={t(lang, "team.rfContractPh")} value={rfContract} onChange={e => setRfContract(e.target.value)} />
+          </div>
+          <Button type="button" size="sm" variant="outline" className="mt-3" onClick={applyRfTemplate}>{t(lang, "team.reqBuilderApply")}</Button>
+        </details>
+        <form method="post" action="/api/team/requisites" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><div className="grid gap-1.5"><Label htmlFor="requisites-text">{t(lang, "team.reqLabel")}</Label><Textarea id="requisites-text" name="requisites" rows={6} maxLength={2000} className="font-mono text-sm" placeholder={t(lang, "team.reqPh")} value={reqText} onChange={e => setReqText(e.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="vat-rate">{t(lang, "team.vatRateLabel")}</Label><Input id="vat-rate" name="vat_rate" type="number" min={0} max={100} step={1} defaultValue={data.VATRate} className="w-32" /><p className="text-xs text-muted-foreground">{t(lang, "team.vatRateHint")}</p></div><div className="grid gap-1.5"><Label htmlFor="vat-note">{t(lang, "team.vatLabel")}</Label><Input id="vat-note" name="vat_note" maxLength={200} defaultValue={data.VATNote} placeholder={t(lang, "team.vatPh")} /></div><label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm"><Checkbox name="hide_executor" value="1" defaultChecked={data.HideExecutorNames} className="mt-0.5" /><span className="grid gap-0.5"><span>{t(lang, "team.hideExecutorLabel")}</span><span className="text-xs text-muted-foreground">{t(lang, "team.hideExecutorHint")}</span></span></label><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></form></div></CardContent></Card>
       <Card id="logo" className="scroll-mt-20"><CardHeader><CardTitle>{t(lang, "bill.logo")}</CardTitle>{cardFlash("logo")}</CardHeader><CardContent>
         <div className="grid gap-2">{data.Billing.HasLogo && <img src={data.LogoURL} alt={t(lang, "bill.logo")} className="max-h-14 max-w-48 rounded border bg-white p-1 object-contain" />}<form method="post" action="/api/team/logo" encType="multipart/form-data" className="flex flex-wrap items-center gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><LogoFile lang={lang} /><Button type="submit"><Upload aria-hidden="true" />{t(lang, "bill.upload")}</Button></form>{data.Billing.HasLogo && <form method="post" action="/api/team/logo"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="remove" value="1" /><Button type="submit" size="sm" variant="ghost">{t(lang, "bill.removeLogo")}</Button></form>}<p className="text-xs text-muted-foreground">{t(lang, "bill.logoHint")}</p></div>
       </CardContent></Card>

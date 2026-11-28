@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DisclosureSection } from "@/components/disclosure-section"
 import { requestConfirmation } from "@/components/confirmation-dialog"
 import { translate as t } from "@/i18n"
 import type { TimesheetData, TimesheetRow } from "@/dashboard/types"
@@ -380,6 +381,40 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </span>
       )}
     </div>
+    {data.TeamSummary && data.TeamSummary.length > 0 && (() => {
+      const attention = data.TeamSummary.filter(m => m.Status === "empty" || m.Status === "warn").length
+      const summaryDesc = attention > 0 ? t(lang, "ts.teamAttention", attention, data.TeamSummary.length) : t(lang, "ts.teamAllGood", data.TeamSummary.length)
+      return <DisclosureSection id="ts-team-summary" title={t(lang, "ts.teamSummary")} description={summaryDesc} defaultOpen={attention > 0 && data.Person === 0}>
+        <ul className="divide-y divide-border text-sm">
+          {data.TeamSummary.map(member => {
+            const dotClass = member.Status === "approved" || member.Status === "ok"
+              ? "bg-emerald-500"
+              : member.Status === "warn"
+              ? "bg-amber-500"
+              : "bg-destructive"
+            return <li key={member.UserID} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${dotClass}`} />
+                <a href={`/timesheet?date=${data.DateISO}&person=${member.UserID}`} className={`truncate underline-offset-4 hover:underline ${data.Person === member.UserID ? "font-semibold" : "font-medium"}`}>{member.Name}</a>
+                {member.MissingDays > 0 && <span className="text-xs text-muted-foreground">{t(lang, "ts.missingDays", member.MissingDays)}</span>}
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">{member.TrackedLabel} / {member.NormLabel} ({member.Percent}%)</span>
+                {member.Approved
+                  ? <span className="text-xs text-emerald-700 dark:text-emerald-400">{t(lang, "ts.approvedBadge")}</span>
+                  : data.Approval.Finished && <form method="post" action="/api/timesheet/approve" className="inline">
+                      <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+                      <input type="hidden" name="start" value={data.Approval.StartISO} />
+                      <input type="hidden" name="end" value={data.Approval.EndISO} />
+                      <input type="hidden" name="user_id" value={String(member.UserID)} />
+                      <Button type="submit" size="sm" variant="outline" className="h-7 px-2 text-xs">{t(lang, "ts.approvePerson")}</Button>
+                    </form>}
+              </div>
+            </li>
+          })}
+        </ul>
+      </DisclosureSection>
+    })()}
     <div className="flex flex-wrap items-center gap-2">
       <StatusLine text={saving.size > 0 ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}

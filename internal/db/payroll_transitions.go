@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -129,9 +130,36 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 		return err
 	}
 	label := strings.TrimSpace(userName) + " — " + strings.TrimSpace(request.Label)
+	amountCents := request.AmountCents
+	if request.PercentBps != 0 {
+		var baseCents int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COALESCE(SUM(amount_cents), 0) FROM payroll_lines
+			  WHERE run_id = ? AND user_id = ?
+			    AND (seconds > 0 OR rate_cents > 0 OR (amount_cents > 0 AND label NOT LIKE '% — %'))`,
+			request.RunID, request.UserID).Scan(&baseCents); err != nil {
+			return err
+		}
+		if baseCents <= 0 {
+			return model.ErrNoPayableTime
+		}
+		amountCents = (baseCents*request.PercentBps + 5000) / 10000
+		if request.PercentBps < 0 {
+			amountCents = (baseCents*request.PercentBps - 5000) / 10000
+		}
+		if amountCents == 0 {
+			return model.ErrNoPayableTime
+		}
+		pct := float64(request.PercentBps) / 100.0
+		if request.PercentBps%100 == 0 {
+			label = fmt.Sprintf("%s (%+d%%)", label, request.PercentBps/100)
+		} else {
+			label = fmt.Sprintf("%s (%+.2f%%)", label, pct)
+		}
+	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, 0, 0, ?)`,
-		request.RunID, request.UserID, label, request.AmountCents); err != nil {
+		request.RunID, request.UserID, label, amountCents); err != nil {
 		return err
 	}
 	return tx.Commit()

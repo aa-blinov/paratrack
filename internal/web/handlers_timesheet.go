@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/money"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
 )
@@ -48,6 +50,17 @@ type timesheetRow struct {
 
 func (timesheetRow) isTemplateData() {}
 
+type timesheetTeamMemberStatus struct {
+	UserID       int64
+	Name         string
+	TrackedLabel string
+	NormLabel    string
+	Percent      int
+	MissingDays  int
+	Approved     bool
+	Status       string // "approved" | "ok" | "warn" | "empty"
+}
+
 type timesheetData struct {
 	pageData
 	TimesheetReact bool
@@ -77,9 +90,10 @@ type timesheetData struct {
 	// Person is the member whose sheet is on screen (0 = the whole workspace
 	// for a manager, or the viewer's own for a member). People fills the
 	// manager's selector (TIME-24).
-	Person   int64
-	People   []personOption
-	Approval timesheetApproval
+	Person      int64
+	People      []personOption
+	TeamSummary []timesheetTeamMemberStatus
+	Approval    timesheetApproval
 	// AutoLockNotice names the first open day when the workspace closes past
 	// days for edits; empty when it does not.
 	AutoLockNotice string
@@ -277,6 +291,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
 	data.Approval = approval
+	data.TeamSummary = s.timesheetTeamSummary(r, weekStart, now, approval)
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", &data)
 }
 
@@ -549,6 +564,95 @@ func (s *Server) timesheetApprovalFor(r *http.Request, weekStart, now time.Time)
 		})
 	}
 	return view, nil
+}
+
+func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time, approval timesheetApproval) []timesheetTeamMemberStatus {
+	if !canManage(r) {
+		return nil
+	}
+	snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r))
+	if err != nil || len(snapshot.Members) <= 1 {
+		return nil
+	}
+	capByID := make(map[int64]int, len(snapshot.PaySettings))
+	for _, ps := range snapshot.PaySettings {
+		if ps.CapacityMinutes > 0 {
+			capByID[ps.UserID] = ps.CapacityMinutes
+		}
+	}
+	days := make([]time.Time, 7)
+	for i := range days {
+		days[i] = weekStart.AddDate(0, 0, i)
+	}
+	tracked, err := s.services.Scheduling.TrackedSecondsByPersonDay(r.Context(), appmodel.PersonDayQuery{
+		TeamID: teamID(r), Days: days, Now: now,
+	})
+	if err != nil {
+		return nil
+	}
+	approvedByID := make(map[int64]bool, len(approval.MemberApprovals))
+	for _, ma := range approval.MemberApprovals {
+		approvedByID[ma.UserID] = true
+	}
+	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	lang := resolveLang(r)
+	out := make([]timesheetTeamMemberStatus, 0, len(snapshot.Members))
+	for _, m := range snapshot.Members {
+		name := m.Name
+		if name == "" {
+			name = m.Email
+		}
+		perDay := tracked[m.UserID]
+		totalSecs := 0
+		missingDays := 0
+		for i, d := range days {
+			sec := 0
+			if i < len(perDay) {
+				sec = perDay[i]
+			}
+			totalSecs += sec
+			if i < 5 && !d.After(today) && sec == 0 {
+				missingDays++
+			}
+		}
+		capMin := capByID[m.UserID]
+		if capMin <= 0 {
+			capMin = 480
+		}
+		normMin := capMin * 5
+		pct := 0
+		if normMin > 0 {
+			pct = (totalSecs / 60) * 100 / normMin
+		}
+		isApproved := approval.Approved || approvedByID[m.UserID]
+		status := "warn"
+		switch {
+		case isApproved:
+			status = "approved"
+		case totalSecs == 0:
+			status = "empty"
+		case pct >= 80 && missingDays == 0:
+			status = "ok"
+		}
+		out = append(out, timesheetTeamMemberStatus{
+			UserID:       m.UserID,
+			Name:         name,
+			TrackedLabel: fmtDur(r, totalSecs),
+			NormLabel:    fmtHoursL(lang, money.HoursHundredths(normMin*60)),
+			Percent:      pct,
+			MissingDays:  missingDays,
+			Approved:     isApproved,
+			Status:       status,
+		})
+	}
+	rank := map[string]int{"empty": 0, "warn": 1, "ok": 2, "approved": 3}
+	sort.Slice(out, func(i, j int) bool {
+		if rank[out[i].Status] != rank[out[j].Status] {
+			return rank[out[i].Status] < rank[out[j].Status]
+		}
+		return out[i].Name < out[j].Name
+	})
+	return out
 }
 
 // handleTimesheetApprove closes the week shown on the timesheet. The form sends

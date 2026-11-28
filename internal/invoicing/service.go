@@ -50,6 +50,8 @@ type Writer interface {
 	SetPaymentURL(context.Context, appmodel.InvoicePaymentLinkSaveRequest) error
 	AssignUnassignedActivityForBilling(context.Context, appmodel.AssignActivityProjectRequest) error
 	SetInvoiceReceipt(context.Context, appmodel.InvoiceReceiptRequest) error
+	AddInvoiceLine(context.Context, appmodel.InvoiceLineAddRequest) error
+	DeleteInvoiceLine(context.Context, appmodel.InvoiceLineDeleteRequest) error
 }
 
 // StripeCredentials reads workspace credentials without exposing them to

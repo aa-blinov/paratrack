@@ -268,6 +268,7 @@ type SchedulingWorkflow interface {
 	ProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
 	PlannedFromDayForUser(ctx context.Context, teamID, projectID, userID int64, from time.Time) (int, error)
 	TrackedSecondsByPersonDay(ctx context.Context, query appmodel.PersonDayQuery) (map[int64][]int, error)
+	TrackedSecondsByPersonProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]map[int64]int, error)
 	SetDayMark(ctx context.Context, request appmodel.DayMarkRequest) error
 	MarkWorkday(ctx context.Context, request appmodel.WorkdayRequest) error
 	TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error)
@@ -394,6 +395,8 @@ type InvoiceDrafts interface {
 	RebuildDraft(context.Context, appmodel.InvoiceMutationRequest) error
 	SetReceipt(context.Context, appmodel.InvoiceReceiptRequest) error
 	UpdateDraftDetails(context.Context, appmodel.InvoiceDraftUpdateRequest) error
+	AddDraftLine(context.Context, appmodel.InvoiceLineAddRequest) error
+	DeleteDraftLine(context.Context, appmodel.InvoiceLineDeleteRequest) error
 }
 
 // InvoicePaymentLinks contains the provider and manual payment-link actions.

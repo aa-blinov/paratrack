@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -80,6 +81,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 	if q := r.URL.Query(); q.Get("overlap") != "" {
 		data.Overlap = q.Get("overlap")
 		data.DefStart, data.DefEnd, data.DefNotes = q.Get("start"), q.Get("end"), q.Get("notes")
+		data.DefUserIDs = parseIDsParam(q.Get("user_ids"))
 	}
 	if q := r.URL.Query(); q.Get("overlap") == "" {
 		if _, err := time.Parse("2006-01-02", q.Get("start")); err == nil {
@@ -89,6 +91,7 @@ func (s *Server) handlePayroll(w http.ResponseWriter, r *http.Request) {
 			data.DefEnd = q.Get("end")
 		}
 	}
+	data.Members = s.payrollMemberOptions(r)
 	if flash := r.URL.Query().Get("flash"); flash != "" {
 		data.Flash, data.FlashOK = decodeFlash(flash, resolveLang(r))
 	}
@@ -176,13 +179,21 @@ type payrollSummary struct {
 	DuplicateOf string
 }
 
+type payrollMemberOption struct {
+	ID      int64
+	Name    string
+	PayKind string
+}
+
 type payrollPage struct {
 	pageData
 	PayrollReact bool
 	Items        []payrollSummary
+	Members      []payrollMemberOption
 	DefStart     string
 	DefEnd       string
 	DefNotes     string
+	DefUserIDs   []int64
 	Overlap      string // runs whose period this one overlaps, "PAY-…, PAY-…"
 	Flash        string
 	FlashOK      bool
@@ -235,9 +246,11 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// The overlap warning and draft creation share the store transaction, so
 	// concurrent requests cannot both pass a stale preflight check.
+	userIDs := parsePostFormIDs(r.PostForm["user_id"])
 	run, overlaps, err := s.services.Payroll.CreateRun(operationContext(r), appmodel.PayrollDraftRequest{
 		TeamID: teamID(r), CallerID: authenticatedUserID(r), Notes: notes,
 		Start: start, End: end, ConfirmOverlap: r.PostForm.Get("confirm") != "",
+		UserIDs: userIDs,
 	})
 	if err == nil && len(overlaps) > 0 {
 		clash := make([]string, 0, len(overlaps))
@@ -245,6 +258,9 @@ func (s *Server) handlePayrollCreate(w http.ResponseWriter, r *http.Request) {
 			clash = append(clash, overlap.Number)
 		}
 		q := url.Values{"overlap": {strings.Join(clash, ", ")}, "start": {startStr}, "end": {endStr}, "notes": {notes}}
+		if len(userIDs) > 0 {
+			q.Set("user_ids", joinIDs(userIDs))
+		}
 		http.Redirect(w, r, "/payroll?"+q.Encode(), http.StatusSeeOther)
 		return
 	}
@@ -280,11 +296,24 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	loc := userLoc(r)
 	days := runDays(run.PeriodStart.In(loc), run.PeriodEnd.In(loc))
 	var tracked map[int64][]int
+	var byProject map[int64]map[int64]int
+	projectNames := map[int64]string{}
 	if len(days) > 0 {
-		tracked, err = s.services.Scheduling.TrackedSecondsByPersonDay(r.Context(), appmodel.PersonDayQuery{TeamID: teamID(r), Days: days, Now: userNow(r)})
+		q := appmodel.PersonDayQuery{TeamID: teamID(r), Days: days, Now: userNow(r)}
+		tracked, err = s.services.Scheduling.TrackedSecondsByPersonDay(r.Context(), q)
 		if err != nil {
 			s.writeInternalError(w, err)
 			return
+		}
+		byProject, err = s.services.Scheduling.TrackedSecondsByPersonProject(r.Context(), q)
+		if err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
+		if projList, projErr := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: true}); projErr == nil {
+			for _, p := range projList {
+				projectNames[p.ID] = p.Name
+			}
 		}
 	}
 	vms := make([]payrollLineVM, 0, len(lines))
@@ -293,16 +322,18 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		hours := fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds))
 		rate := moneyL(resolveLang(r), l.RateCents, run.Currency)
 		var lineDays []payrollDayVM
+		var lineProjects []payrollProjectVM
 		if isAdj {
 			hours = "—"
 			rate = "—"
 		} else {
 			lineDays = payrollDays(resolveLang(r), days, tracked[l.UserID])
+			lineProjects = payrollProjects(resolveLang(r), byProject[l.UserID], projectNames)
 		}
 		vms = append(vms, payrollLineVM{
 			ID: l.ID, Adjustment: isAdj, Label: l.Label, Hours: hours, Rate: rate,
 			Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
-			Days:   lineDays,
+			Days:   lineDays, Projects: lineProjects,
 		})
 	}
 	var members []memberOption
@@ -338,13 +369,19 @@ type payrollLineVM struct {
 	Rate       string
 	Amount     string
 	// Days is what the person logged on each day of the run, days with no time left out (FIN-18).
-	Days []payrollDayVM
+	Days     []payrollDayVM
+	Projects []payrollProjectVM
 }
 
 // payrollDayVM is one day of a payroll line's breakdown.
 type payrollDayVM struct {
 	Day   string
 	Hours string
+}
+
+type payrollProjectVM struct {
+	Project string
+	Hours   string
 }
 
 // maxPayrollBreakdownDays keeps the per-day query bounded: a run longer than this shows
@@ -497,19 +534,33 @@ func (s *Server) handlePayrollAddAdjustment(w http.ResponseWriter, r *http.Reque
 		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
 		return
 	}
-	cents, err := parseSignedCents(r.PostForm.Get("amount"))
-	if err != nil {
-		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
-		return
+	rawAmount := strings.TrimSpace(r.PostForm.Get("amount"))
+	isPercent := r.PostForm.Get("unit") == "percent" || strings.HasSuffix(rawAmount, "%")
+	req := appmodel.PayrollAdjustmentRequest{
+		TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), UserID: uid,
+	}
+	if isPercent {
+		bps, err := parseSignedPercentBps(rawAmount)
+		if err != nil {
+			http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
+			return
+		}
+		req.PercentBps = bps
+	} else {
+		cents, err := parseSignedCents(rawAmount)
+		if err != nil {
+			http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
+			return
+		}
+		req.AmountCents = cents
 	}
 	label := strings.TrimSpace(r.PostForm.Get("label"))
 	if label == "" {
 		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
 		return
 	}
-	if err := s.services.Payroll.AddAdjustment(r.Context(), appmodel.PayrollAdjustmentRequest{
-		TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), UserID: uid, Label: label, AmountCents: cents,
-	}); err != nil {
+	req.Label = label
+	if err := s.services.Payroll.AddAdjustment(r.Context(), req); err != nil {
 		msg := s.payrollErrorMessage(r, err)
 		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return
@@ -614,4 +665,111 @@ func markPeriodDuplicates(items []payrollSummary) {
 		}
 		firstByPeriod[item.Period] = item.Number
 	}
+}
+
+func (s *Server) payrollMemberOptions(r *http.Request) []payrollMemberOption {
+	snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r))
+	if err != nil {
+		return nil
+	}
+	kindByID := make(map[int64]string, len(snapshot.PaySettings))
+	for _, ps := range snapshot.PaySettings {
+		if ps.Kind != "" {
+			kindByID[ps.UserID] = ps.Kind
+		}
+	}
+	out := make([]payrollMemberOption, 0, len(snapshot.Members))
+	for _, member := range snapshot.Members {
+		name := member.Name
+		if name == "" {
+			name = member.Email
+		}
+		kind := kindByID[member.UserID]
+		if kind == "" {
+			kind = "hourly"
+		}
+		out = append(out, payrollMemberOption{ID: member.UserID, Name: name, PayKind: kind})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+func parsePostFormIDs(raw []string) []int64 {
+	var out []int64
+	seen := map[int64]bool{}
+	for _, item := range raw {
+		for _, part := range strings.Split(item, ",") {
+			if id, err := strconv.ParseInt(strings.TrimSpace(part), 10, 64); err == nil && id > 0 && !seen[id] {
+				out = append(out, id)
+				seen[id] = true
+			}
+		}
+	}
+	return out
+}
+
+func parseIDsParam(raw string) []int64 {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	return parsePostFormIDs([]string{raw})
+}
+
+func joinIDs(ids []int64) string {
+	parts := make([]string, len(ids))
+	for i, id := range ids {
+		parts[i] = strconv.FormatInt(id, 10)
+	}
+	return strings.Join(parts, ",")
+}
+
+func parseSignedPercentBps(raw string) (int, error) {
+	v := strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "", "%", "", ",", ".").Replace(strings.TrimSpace(raw))
+	if v == "" {
+		return 0, errors.New("empty percent")
+	}
+	sign := 1
+	if strings.HasPrefix(v, "-") {
+		sign = -1
+		v = v[1:]
+	} else if strings.HasPrefix(v, "+") {
+		v = v[1:]
+	}
+	cents, err := money.ParseCents(v)
+	if err != nil || cents == 0 {
+		return 0, errors.New("bad percent")
+	}
+	return sign * cents, nil
+}
+
+func payrollProjects(lang i18n.Lang, byProj map[int64]int, names map[int64]string) []payrollProjectVM {
+	if len(byProj) == 0 {
+		return nil
+	}
+	type pair struct {
+		name string
+		secs int
+	}
+	var pairs []pair
+	for pid, secs := range byProj {
+		if secs <= 0 {
+			continue
+		}
+		name := names[pid]
+		if name == "" {
+			name = i18n.T(lang, "stats.uncategorized")
+		}
+		pairs = append(pairs, pair{name: name, secs: secs})
+	}
+	sort.Slice(pairs, func(i, j int) bool {
+		if pairs[i].secs != pairs[j].secs {
+			return pairs[i].secs > pairs[j].secs
+		}
+		return pairs[i].name < pairs[j].name
+	})
+	out := make([]payrollProjectVM, len(pairs))
+	for i, p := range pairs {
+		out[i] = payrollProjectVM{Project: p.name, Hours: fmtHoursL(lang, money.HoursHundredths(p.secs))}
+	}
+	return out
 }

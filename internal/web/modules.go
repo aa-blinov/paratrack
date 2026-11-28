@@ -67,6 +67,7 @@ var presets = []struct {
 }{
 	{"solo", "preset.solo", "preset.soloBlurb", "user", []string{"graph", "goals", "tags"}},
 	{"freelance", "preset.freelance", "preset.freelanceBlurb", "zap", []string{"graph", "goals", "tags", "invoices", "reports"}},
+	{"studio-core", "preset.studioCore", "preset.studioCoreBlurb", "users", []string{"graph", "tags", "invoices", "reports", "payroll", "schedule"}},
 	{"studio", "preset.studio", "preset.studioBlurb", "users", []string{"tasks", "graph", "goals", "tags", "invoices", "reports", "payroll", "schedule", "crm", "calendar", "integrations", "import"}},
 }
 

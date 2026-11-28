@@ -60,6 +60,10 @@ func (scheduleCellStoreStub) TrackedSecondsByPersonDay(context.Context, appmodel
 	return nil, nil
 }
 
+func (scheduleCellStoreStub) TrackedSecondsByPersonProject(context.Context, appmodel.PersonDayQuery) (map[int64]map[int64]int, error) {
+	return nil, nil
+}
+
 func (scheduleCellStoreStub) TrackedMinutesForProject(context.Context, int64, int64, time.Time) (map[int64]int, error) {
 	return nil, nil
 }
@@ -152,6 +156,10 @@ func (scheduleStoreStub) DayMarks(context.Context, int64, string, string) ([]app
 }
 
 func (scheduleStoreStub) TrackedSecondsByPersonDay(context.Context, appmodel.PersonDayQuery) (map[int64][]int, error) {
+	return nil, nil
+}
+
+func (scheduleStoreStub) TrackedSecondsByPersonProject(context.Context, appmodel.PersonDayQuery) (map[int64]map[int64]int, error) {
 	return nil, nil
 }
 

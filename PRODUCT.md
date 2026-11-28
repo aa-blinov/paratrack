@@ -92,16 +92,21 @@ Confirmed by the code:
   startup.
 - A CLI (`paratrack start|stop|stats...`) works against the same Postgres
   through `PARATRACK_DATABASE_URL`, or remotely over HTTP with `PARATRACK_URL`
-  and a bearer `PARATRACK_TOKEN` (`pt_...`). It is a real feature rather than a
-  development tool. `stats` counts a running timer the way the web stats do,
+  and a bearer `PARATRACK_TOKEN` (`pt_...`). `paratrack auth login` stores the
+  address and the token in `~/.config/paratrack/config.json` (mode 0600), a
+  `.paratrack` file in the project directory overrides it, and the environment
+  overrides both. A command the remote mode does not support fails with the list
+  of the ones it does, and never falls back to a local Postgres. It is a real
+  feature rather than a development tool. `stats` counts a running timer the way the web stats do,
   so the CLI and the screen agree on today.
 - An agent reaches the workspace through `POST /mcp` with an API token and the token owner's rights. Deleting an
   invoice or a pay run, reopening an approved week and deleting the workspace are only requested. A person confirms
   each request in the app, under Settings, Confirmations.
 - A workspace picks its sections. The core ledger, the dashboard, statistics,
   the timesheet and the projects are always there; twelve more can be switched on
-  at registration or later. Three presets ship: "For myself", "Freelancer" and
-  "Studio". Each preset names the sections it leaves off; "For myself" adds a hint to pick
+  at registration or later. Four presets ship: "For myself", "Freelancer",
+  "Studio: start" (payroll and schedule without CRM, tasks, goals and calendar)
+  and "Studio". Each preset names the sections it leaves off; "For myself" adds a hint to pick
   "Studio or team" when the workspace has a team (ADM-16).
 - The Russian terminology of the interface: Обзор, Статистика, Табель, Проекты,
   По часам, Цели, Теги, Счета, Выплаты, Расписание, Отчёты, and «Идут сейчас»
@@ -140,10 +145,16 @@ Deliberately not true, and worth knowing before a change:
   off with `PARATRACK_REQUIRE_EMAIL_VERIFICATION=0`, which is how the browser
   suite and self-hosts without SMTP run it. The confirmation link lives 48
   hours, and password reset confirms the address too.
-- Approval works per workspace week or per member within a week.
+- Approval works per workspace week or per member within a week. The
+  timesheet shows a manager every member's week on one screen: hours against
+  the norm, empty weekdays, and approval per person.
 - A pay run cannot cover the current week, because the week has to end and be
-  approved first. Draft pay runs can include one-off bonus or deduction
-  adjustments per member.
+  approved first. A pay run can cover a chosen set of members, or only the
+  hourly or only the salaried ones, and the overlap check compares only the
+  same members. Draft pay runs can include one-off bonus or deduction
+  adjustments per member, as an amount or as a percent of what the member
+  earned in the run. A draft invoice takes manual one-off lines and discounts
+  without touching the sessions.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.

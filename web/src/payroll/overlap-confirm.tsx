@@ -6,7 +6,7 @@ import { translate as t } from "@/i18n"
 
 // The question a run that pays hours already paid must answer (FIN-22). The reason is
 // required, and the server keeps it in the audit trail; the confirm button waits for it.
-export function OverlapConfirm({ lang, csrfToken, overlap, start, end, notes }: { lang: string; csrfToken: string; overlap: string; start: string; end: string; notes: string }) {
+export function OverlapConfirm({ lang, csrfToken, overlap, start, end, notes, userIds }: { lang: string; csrfToken: string; overlap: string; start: string; end: string; notes: string; userIds?: number[] }) {
   const [reason, setReason] = React.useState("")
   return <div role="alert" className="flex flex-wrap items-start gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm">
     <span className="min-w-0 flex-1">{t(lang, "pay.overlap", overlap)}</span>
@@ -15,6 +15,7 @@ export function OverlapConfirm({ lang, csrfToken, overlap, start, end, notes }: 
       <input type="hidden" name="start" value={start} />
       <input type="hidden" name="end" value={end} />
       <input type="hidden" name="notes" value={notes} />
+      {(userIds ?? []).map(id => <input key={id} type="hidden" name="user_id" value={String(id)} />)}
       <input type="hidden" name="confirm" value="1" />
       <div className="grid min-w-0 flex-1 gap-1.5">
         <Label htmlFor="overlap-reason" className="text-xs">{t(lang, "pay.overlapReason")}</Label>

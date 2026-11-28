@@ -22,6 +22,7 @@ type Store interface {
 	PlannedMinutesForProject(ctx context.Context, teamID, projectID int64) (map[int64]int, error)
 	TrackedMinutesForProject(ctx context.Context, teamID, projectID int64, now time.Time) (map[int64]int, error)
 	TrackedSecondsByPersonDay(ctx context.Context, query appmodel.PersonDayQuery) (map[int64][]int, error)
+	TrackedSecondsByPersonProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]map[int64]int, error)
 	SetDayMark(ctx context.Context, request appmodel.DayMarkRequest) error
 	MarkWorkday(ctx context.Context, request appmodel.WorkdayRequest) error
 	TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error)
@@ -129,6 +130,14 @@ func (s *Service) TrackedSecondsByPersonDay(ctx context.Context, query appmodel.
 		return nil, ErrInvalidScheduleCell
 	}
 	return s.store.TrackedSecondsByPersonDay(ctx, query)
+}
+
+// TrackedSecondsByPersonProject sums what each member tracked per project over query.Days.
+func (s *Service) TrackedSecondsByPersonProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]map[int64]int, error) {
+	if query.TeamID <= 0 || len(query.Days) == 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.TrackedSecondsByPersonProject(ctx, query)
 }
 
 // SetDayMark records or clears a member's own mark on a day (TIME-13).

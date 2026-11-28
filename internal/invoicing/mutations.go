@@ -256,3 +256,31 @@ func (s *Service) BookPayment(ctx context.Context, request appmodel.InvoicePayme
 	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.payment", strconv.FormatInt(request.InvoiceID, 10), strconv.Itoa(request.AmountCents))
 	return settled, nil
 }
+
+// AddDraftLine appends a manual one-off fee or discount line to a draft invoice.
+func (s *Service) AddDraftLine(ctx context.Context, request appmodel.InvoiceLineAddRequest) error {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidInvoice
+	}
+	request.Label = strings.TrimSpace(request.Label)
+	if request.Label == "" || request.AmountCents == 0 {
+		return fmt.Errorf("line label and non-zero amount are required")
+	}
+	if err := s.writer.AddInvoiceLine(ctx, request); err != nil {
+		return fmt.Errorf("add invoice line: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.line_add", strconv.FormatInt(request.InvoiceID, 10), request.Label)
+	return nil
+}
+
+// DeleteDraftLine removes a manual one-off line from a draft invoice.
+func (s *Service) DeleteDraftLine(ctx context.Context, request appmodel.InvoiceLineDeleteRequest) error {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.LineID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidInvoice
+	}
+	if err := s.writer.DeleteInvoiceLine(ctx, request); err != nil {
+		return fmt.Errorf("delete invoice line: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.line_delete", strconv.FormatInt(request.InvoiceID, 10), strconv.FormatInt(request.LineID, 10))
+	return nil
+}

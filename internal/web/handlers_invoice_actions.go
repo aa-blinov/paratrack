@@ -412,3 +412,48 @@ func (s *Server) handleInvoicePayment(w http.ResponseWriter, r *http.Request) {
 func moneyTyped(value string) string {
 	return strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "", ",", ".").Replace(value)
 }
+
+func (s *Server) handleInvoiceAddLine(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		s.invoiceBack(w, r, false, i18n.T(resolveLang(r), "flash.msg.invalid form"))
+		return
+	}
+	label := strings.TrimSpace(r.PostForm.Get("label"))
+	cents, err := parseSignedCents(r.PostForm.Get("amount"))
+	if err != nil || label == "" {
+		s.invoiceBack(w, r, false, i18n.T(resolveLang(r), "inv.lineBad"))
+		return
+	}
+	if err := s.services.Invoicing.Drafts.AddDraftLine(r.Context(), appmodel.InvoiceLineAddRequest{
+		TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r), Label: label, AmountCents: cents,
+	}); err != nil {
+		s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+		return
+	}
+	http.Redirect(w, r, "/invoices/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(true, i18n.T(resolveLang(r), "inv.lineAdded")), http.StatusSeeOther)
+}
+
+func (s *Server) handleInvoiceDeleteLine(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	lineID, err := strconv.ParseInt(r.PathValue("lineId"), 10, 64)
+	if err != nil || lineID <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.services.Invoicing.Drafts.DeleteDraftLine(r.Context(), appmodel.InvoiceLineDeleteRequest{
+		TeamID: teamID(r), InvoiceID: id, LineID: lineID, CallerID: authenticatedUserID(r),
+	}); err != nil {
+		s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+		return
+	}
+	http.Redirect(w, r, "/invoices/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(true, i18n.T(resolveLang(r), "inv.lineDeleted")), http.StatusSeeOther)
+}
