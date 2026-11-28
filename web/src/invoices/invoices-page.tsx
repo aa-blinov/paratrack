@@ -325,6 +325,10 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
           <div className="space-y-2"><Label htmlFor="edit-due">{t(lang, "inv.due")}</Label><DateField id="edit-due" name="due" defaultValue={inv.DueISO} /><p className="text-xs text-muted-foreground">{t(lang, "inv.dueHint")}</p></div>
           <div className="space-y-2 sm:col-span-2"><Label htmlFor="edit-details">{t(lang, "inv.clientDetails")}</Label><Textarea id="edit-details" name="client_details" rows={3} maxLength={2000} defaultValue={inv.ClientDetails} /></div>
           <div className="space-y-2 sm:col-span-2"><Label htmlFor="edit-notes">{t(lang, "stats.note")}</Label><Input id="edit-notes" type="text" name="notes" defaultValue={inv.Notes} /></div>
+          {/* The next invoice takes the client from the card, so a fix that
+              should last goes there; the card serves every project of the
+              client, hence a choice and not a side effect. */}
+          <label className="flex cursor-pointer items-start gap-2 text-sm sm:col-span-2"><Checkbox name="update_client_card" value="1" className="mt-0.5" /><span>{t(lang, "inv.updateClientCard")}<span className="mt-1 block text-xs text-muted-foreground">{t(lang, "inv.updateClientCardHint")}</span></span></label>
           <div className="sm:col-span-2"><Button type="submit" size="sm">{t(lang, "inv.save")}</Button></div>
         </form>
         <form method="POST" action={`/invoices/${inv.ID}/lines`} className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">

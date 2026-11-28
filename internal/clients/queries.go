@@ -52,8 +52,13 @@ func (s *Service) Update(ctx context.Context, request appmodel.ClientUpdateReque
 	}
 	// The card is where the next invoice takes the client's details from,
 	// so a number that does not check out is stopped here, not at sending.
+	// Details left as they were do not block changing the email of a card
+	// saved before the check existed.
 	if bad := model.RequisiteProblems(request.Update.Details); len(bad) > 0 {
-		return model.Client{}, &model.RequisitesError{Client: true, Fields: bad}
+		current, err := s.directory.GetClientInTeam(ctx, appmodel.ClientScopeQuery{TeamID: request.TeamID, ClientID: request.ClientID})
+		if err != nil || current.Details != request.Update.Details {
+			return model.Client{}, &model.RequisitesError{Client: true, Fields: bad}
+		}
 	}
 	return s.writes.UpdateClient(ctx, request)
 }

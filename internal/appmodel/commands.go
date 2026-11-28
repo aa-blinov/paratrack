@@ -86,10 +86,12 @@ type PayrollRecalculateResult struct {
 
 // PayrollRecalculatePerson is one person's pay before and after a recalculation.
 type PayrollRecalculatePerson struct {
-	UserID      int64
-	Name        string
-	BeforeCents int
-	AfterCents  int
+	UserID        int64
+	Name          string
+	BeforeCents   int
+	AfterCents    int
+	BeforeSeconds int
+	AfterSeconds  int
 }
 
 // PayrollAdjustmentDeleteRequest removes a one-off adjustment line from a draft pay run.
@@ -142,6 +144,11 @@ type InvoiceDraftUpdateRequest struct {
 	Email     string
 	Notes     string
 	DueDate   string
+	// UpdateClientCard copies the client's name, email and details to the
+	// client card behind the project, which the next invoice reads first.
+	// Only when the manager ticks it, and an empty field never overwrites a
+	// filled one on the card.
+	UpdateClientCard bool
 }
 
 // InvoiceLineAddRequest appends a manual one-off fee or discount line to a draft invoice.

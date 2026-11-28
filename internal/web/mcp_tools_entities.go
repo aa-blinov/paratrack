@@ -591,6 +591,9 @@ func mcpClientWriteError(err error) error {
 	if errors.Is(err, model.ErrAlreadyExists) {
 		return appmodel.FieldError{Field: "name"}
 	}
+	if errors.As(err, new(*model.RequisitesError)) {
+		return appmodel.FieldError{Field: "details"}
+	}
 	return err
 }
 

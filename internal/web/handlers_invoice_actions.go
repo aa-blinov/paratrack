@@ -173,6 +173,7 @@ func (s *Server) handleInvoiceEdit(w http.ResponseWriter, r *http.Request) {
 	err = s.services.Invoicing.Drafts.UpdateDraftDetails(r.Context(), appmodel.InvoiceDraftUpdateRequest{
 		TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r),
 		Client: f("client"), Details: f("client_details"), Email: f("client_email"), Notes: f("notes"), DueDate: f("due"),
+		UpdateClientCard: r.FormValue("update_client_card") != "",
 	})
 	if errors.Is(err, appmodel.ErrInvalidClient) {
 		s.invoiceBack(w, r, false, i18n.T(resolveLang(r), "inv.clientRequired"))

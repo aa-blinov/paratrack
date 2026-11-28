@@ -232,13 +232,21 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 		} else if affected == 0 {
 			return ErrNotFound
 		}
-		// The next invoice takes the details from the client's card before
-		// the project's copy, so a number fixed here goes to the card too;
-		// otherwise the old one would come back with the next invoice.
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE clients SET details = ? WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?)`,
-			details, teamID, projectID, teamID); err != nil {
-			return fmt.Errorf("update client card details: %w", err)
+		// The next invoice reads the client's card before the project's copy,
+		// so a fix meant to last goes to the card, but only when asked: the
+		// card serves every project of that client. An empty field leaves the
+		// card's own value in place.
+		if request.UpdateClientCard {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE clients SET name = COALESCE(NULLIF(?, ''), name), email = COALESCE(NULLIF(?, ''), email),
+				        details = COALESCE(NULLIF(?, ''), details), updated_at = ?
+				  WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?)`,
+				client, email, details, FormatTime(d.currentTime().UTC()), teamID, projectID, teamID); err != nil {
+				if isUniqueViolation(err) {
+					return ErrDuplicate
+				}
+				return fmt.Errorf("update client card: %w", err)
+			}
 		}
 	}
 	return tx.Commit()
