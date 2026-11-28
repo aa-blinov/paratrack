@@ -81,6 +81,10 @@ jobs:
         working-directory: web
         run: npm ci
 
+      - name: Build UI bundle
+        working-directory: web
+        run: npm run build
+
       - name: Verify static, security, architecture and frontend checks
         run: make verify
 

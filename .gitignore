@@ -1,6 +1,8 @@
 # build artefacts
 /paratrack
 /paratrack-web
+/internal/web/static/ui/
+/.venv/
 
 # macOS noise
 .DS_Store

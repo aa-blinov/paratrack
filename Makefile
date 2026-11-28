@@ -51,6 +51,7 @@ web: build
 	$(BIN) web --addr $(ADDR)
 
 test:
+	@[ -s internal/web/static/ui/app.js ] || $(MAKE) ui
 	scripts/test.sh
 
 cover:
@@ -68,6 +69,7 @@ architecture:
 	scripts/check-architecture.sh
 
 verify:
+	@[ -s internal/web/static/ui/app.js ] || $(MAKE) ui
 	$(GO) mod tidy -diff
 	$(GO) vet $(GO_PACKAGES)
 	$(GO) run $(GOVULNCHECK) $(GO_PACKAGES)

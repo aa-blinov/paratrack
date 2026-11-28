@@ -1,1 +1,0 @@
-var e=[{key:`N`,label:`kbd.new`},{key:`D`,label:`kbd.overview`},{key:`S`,label:`kbd.stats`},{key:`G`,label:`kbd.graph`},{key:`P`,label:`kbd.pause`},{key:`T`,label:`kbd.theme`},{key:`Ctrl/Cmd + B`,label:`kbd.sidebar`}];export{e as t};

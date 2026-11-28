@@ -1,1 +1,0 @@
-import{n as e}from"./json-api-BsgByDns.js";async function t(){return(await e(`/api/v1/clients`,`GET`,``)).clients}async function n(){return(await e(`/api/v1/members`,`GET`,``)).members}function r(e){return e.name||e.email}export{n,r,t};
