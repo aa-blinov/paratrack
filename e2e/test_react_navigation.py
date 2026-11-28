@@ -190,7 +190,9 @@ async def check_member_menu(browser):
         if path.startswith("/static/"):
             await route.fulfill(path=str(STATIC / path.removeprefix("/static/")))
         else:
-            html = document(path).replace('"canManage": true', '"canManage": false').replace('"mods": null', '"mods": {"schedule": true}')
+            # A space that neither bills nor sells has no clients to list, so the
+            # member menu is measured on one that does: invoices on, the rest off.
+            html = document(path).replace('"canManage": true', '"canManage": false').replace('"mods": null', '"mods": {"schedule": true, "invoices": true}')
             await route.fulfill(content_type="text/html", body=html)
     await context.route("**/*", respond)
     await page.goto("http://paratrack.test/")

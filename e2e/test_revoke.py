@@ -45,7 +45,9 @@ def main() -> int:
         print("\n== 1. A live invitation link works until it is revoked")
         page.goto(f"{BASE}/settings/invites", wait_until="networkidle")
         page.fill("#invite-email", guest)
-        page.locator('form[action="/api/team/invites"] button[type="submit"]').click()
+        # Two forms post to /api/team/invites: one invitation and a bulk textarea.
+        # The single invitation is the one that owns the email field.
+        page.locator('form[action="/api/team/invites"]:has(#invite-email) button[type="submit"]').click()
         page.wait_for_load_state("networkidle")
         link = page.locator('article a[href^="/invites/"]').first
         check("a live invitation is listed", link.count() == 1)

@@ -430,7 +430,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </ul>
       </DisclosureSection>
     })()}
-    {data.Approval.CanManage && data.People.length > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} absences={data.Absences ?? []} years={data.CalendarYears ?? []} />}
+    {data.Approval.CanManage && (data.People?.length ?? 0) > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} absences={data.Absences ?? []} years={data.CalendarYears ?? []} />}
     <div className="flex flex-wrap items-center gap-2">
       <StatusLine text={saving.size > 0 ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
