@@ -145,6 +145,11 @@ func (s *Service) NewlyAchievedAfterSessions(ctx context.Context, teamID int64, 
 	for i := range progress {
 		candidate := &progress[i]
 		stoppedActivitySeconds, stopped := stoppedSeconds[candidate.Goal.ActivityID]
+		// A limit is warned about by the reminders while it is being used up,
+		// at 80% and when crossed; the stop does not tell it a second time.
+		if candidate.Goal.Kind == "max" {
+			continue
+		}
 		if !stopped || candidate.PercentComplete < 100 ||
 			candidate.AchievedMinutes-stoppedActivitySeconds/60 >= candidate.Goal.TargetMinutes {
 			continue

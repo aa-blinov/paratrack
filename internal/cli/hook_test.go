@@ -67,7 +67,7 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if strings.TrimSpace(string(called)) != "focus --branch feat/PT-123-login" {
+	if strings.TrimSpace(string(called)) != "focus --branch feat/PT-123-login --pattern" {
 		t.Fatalf("the hook called %q, want focus on the branch", called)
 	}
 
@@ -176,7 +176,14 @@ func TestCompletion(t *testing.T) {
 			_, _ = io.WriteString(w, `{"email":"anton@studio.test"}`)
 			return
 		}
-		// A manager's token sees the studio; only the caller's own count.
+		// A manager's token sees the studio; the completion asks for its own.
+		if r.URL.Query().Get("mine") == "1" {
+			_, _ = io.WriteString(w, `{"sessions":[
+			{"activity":"Ревью","start":"2026-11-27T10:00:00Z"},
+			{"activity":"API","start":"2026-11-28T09:00:00Z"},
+			{"activity":"Ревью","start":"2026-11-26T10:00:00Z"}]}`)
+			return
+		}
 		_, _ = io.WriteString(w, `{"sessions":[
 			{"activity":"Ревью","start":"2026-11-27T10:00:00Z","user_email":"anton@studio.test"},
 			{"activity":"API","start":"2026-11-28T09:00:00Z","user_email":"anton@studio.test"},
@@ -203,8 +210,11 @@ func TestBranchActivity(t *testing.T) {
 		"feat/x$(touch_PWN)":      "x--touch_PWN",
 		"PT-1;rm -rf":             "PT-1-rm--rf",
 		"fix/Задача-12_правка.v2": "Задача-12_правка.v2",
+		"PT-123/fix-login":        "PT-123-fix-login",
+		"alice/PT-9-fix":          "PT-9-fix",
+		"feat/🔥":                  "",
 	} {
-		if got := branchActivity(branch); got != want {
+		if got := branchActivity(branch, ""); got != want {
 			t.Errorf("branchActivity(%q) = %q, want %q", branch, got, want)
 		}
 	}
@@ -218,5 +228,55 @@ func TestHookPrint(t *testing.T) {
 	}
 	if !strings.Contains(out.String(), hookMarker) || !strings.Contains(out.String(), "focus --branch") {
 		t.Fatalf("hook print:\n%s", out.String())
+	}
+}
+
+// A team's own pause branches and a detached HEAD pause the timers, and the
+// printed script for a hook manager names no path from this machine.
+func TestGitHookPausesOnConfiguredBranchesAndDetachedHead(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is not installed")
+	}
+	repo := t.TempDir()
+	git(t, repo, "init", "-q", "-b", "main")
+	git(t, repo, "commit", "-q", "--allow-empty", "-m", "start")
+	git(t, repo, "config", "paratrack.pauseBranches", "dev staging")
+	t.Chdir(repo)
+	record := filepath.Join(t.TempDir(), "called")
+	stub := filepath.Join(t.TempDir(), "paratrack-stub")
+	if err := os.WriteFile(stub, []byte("#!/bin/sh\necho \"$@\" > "+record+"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	hook := filepath.Join(repo, ".git", "hooks", "post-checkout")
+	if err := os.MkdirAll(filepath.Dir(hook), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(hook, []byte(hookScript(stub)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	waitFor := func() string {
+		for i := 0; i < 400; i++ {
+			if called, err := os.ReadFile(record); err == nil && len(called) > 0 {
+				_ = os.Remove(record)
+				return strings.TrimSpace(string(called))
+			}
+			time.Sleep(20 * time.Millisecond)
+		}
+		return ""
+	}
+	git(t, repo, "checkout", "-q", "-b", "dev")
+	if got := waitFor(); got != "pause" {
+		t.Fatalf("checking out a configured pause branch called %q", got)
+	}
+	git(t, repo, "checkout", "-q", "--detach")
+	if got := waitFor(); got != "pause" {
+		t.Fatalf("a detached HEAD called %q", got)
+	}
+	var out bytes.Buffer
+	if err := RunWithRuntime([]string{"hook", "print"}, NewRuntime(nil, &out, &out)); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "bin=$(command -v paratrack) || exit 0") || strings.Contains(out.String(), "bin='") {
+		t.Fatalf("the printed hook names a local path:\n%s", out.String())
 	}
 }

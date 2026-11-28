@@ -85,6 +85,9 @@ const financeKeys = new Set(["invoices", "payroll", "reports"])
 
 export function available(item: ShellNavItem, shell: AppSidebarShell) {
   const open = !item.manage || shell.canManage || (shell.canReadFinance === true && financeKeys.has(item.key))
+  // Clients matter to a space that bills or sells; a personal one without
+  // invoices or CRM has nobody to call a client.
+  if (item.key === "clients" && shell.mods !== null && !shell.mods.invoices && !shell.mods.crm) return false
   return (!item.module || shell.mods === null || shell.mods[item.module] === true) && open
 }
 

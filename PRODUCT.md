@@ -144,6 +144,19 @@ Confirmed by the code:
   session breakdown that goes to the client is always in it. Reports also
   export for Excel and for the client (no rates), and name their scope on
   every row. The accountant's exports follow the client card, not the spelling.
+- A limit goal warns while the time is being spent: at 80% and when it is
+  crossed, once each per period, to whoever is timing the activity, not
+  after the stop. The forgotten-timer reminder is not held for the morning.
+  On an iPhone the notifications screen says to add the app to the Home
+  Screen. A personal space without invoices or CRM shows no Clients entry.
+- The git hook finds paratrack on PATH in the printed form for hook managers;
+  a ticket earlier in the branch leads the activity name (PT-123/fix-login →
+  PT-123-fix-login, the pattern set by git config paratrack.ticketPattern);
+  paratrack.pauseBranches adds branches that pause, as does a detached HEAD
+  or a branch with nothing usable in its name; a numeric branch is an
+  activity, never a session id. Completion asks the server for the caller's
+  own sessions (`/api/v1/sessions?mine=1`), keeps the list a minute, loads
+  compinit in zsh when missing and completes fish only right after the verb.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

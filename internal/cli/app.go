@@ -47,11 +47,20 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 	}
 	// The git hook passes the raw branch; the activity name is made here.
 	if (args[0] == "focus" || args[0] == "switch" || args[0] == "sw") && len(args) >= 3 && args[1] == "--branch" {
-		name := branchActivity(args[2])
-		if name == "" {
-			return nil
+		pattern := ""
+		if len(args) >= 5 && args[3] == "--pattern" {
+			pattern = args[4]
 		}
-		args = []string{args[0], name}
+		name := branchActivity(args[2], pattern)
+		// A branch with nothing usable in its name ("feat/🔥") must not leave
+		// the timer on the feature that was left.
+		if name == "" {
+			args = []string{"pause"}
+		} else {
+			// --name: a branch "fix/1234" is an activity called 1234, never
+			// the running session that happens to have that id.
+			args = []string{args[0], "--name", name}
+		}
 	}
 	// Hooks and completion work on files and the shell, in either mode.
 	switch args[0] {

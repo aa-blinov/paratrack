@@ -440,8 +440,12 @@ func runRemote(rt *Runtime, cmd string, args []string) (handled bool, err error)
 			return true, &ExitError{Code: 2, Err: errors.New("usage: paratrack focus <activity|id>")}
 		}
 		target := args[0]
+		literal := false
+		if target == "--name" && len(args) >= 2 {
+			target, literal = args[1], true
+		}
 		focusTarget := target
-		if _, err := strconv.ParseInt(target, 10, 64); err == nil {
+		if _, err := strconv.ParseInt(target, 10, 64); err == nil && !literal {
 			items, err := rt.remoteActive()
 			if err != nil {
 				return true, err

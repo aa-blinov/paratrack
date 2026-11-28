@@ -307,3 +307,43 @@ func (d *DB) ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNotic
 	}
 	return n == 1, nil
 }
+
+// GoalLimitCandidates lists who is timing an activity a limit goal watches:
+// a running timer, or one stopped in the last ten minutes, so a limit crossed
+// right before the stop is still told.
+func (d *DB) GoalLimitCandidates(ctx context.Context) ([]appmodel.GoalLimitCandidate, error) {
+	var out []appmodel.GoalLimitCandidate
+	since := FormatTime(d.currentTime().UTC().Add(-10 * time.Minute))
+	err := queryRows(ctx, d.sql, "goal limit candidates",
+		`SELECT DISTINCT g.team_id, s.user_id, g.activity_id
+		   FROM goals g
+		   JOIN sessions s ON s.team_id = g.team_id AND s.activity_id = g.activity_id
+		  WHERE g.kind = 'max' AND (s.end_at IS NULL OR s.end_at >= ?)
+		  ORDER BY g.team_id, s.user_id, g.activity_id`,
+		func(rows *sql.Rows) error {
+			var c appmodel.GoalLimitCandidate
+			if err := rows.Scan(&c.TeamID, &c.UserID, &c.ActivityID); err != nil {
+				return err
+			}
+			out = append(out, c)
+			return nil
+		}, since)
+	return out, err
+}
+
+// ClaimGoalLimitNotice records that a limit push for this goal, period and
+// level went out, so it goes out once.
+func (d *DB) ClaimGoalLimitNotice(ctx context.Context, request appmodel.GoalLimitNoticeRequest) (bool, error) {
+	result, err := d.sql.ExecContext(ctx,
+		`INSERT INTO goal_limit_reminders (goal_id, period_start, level, created_at) VALUES (?, ?, ?, ?)
+		 ON CONFLICT (goal_id, period_start, level) DO NOTHING`,
+		request.GoalID, FormatTime(request.PeriodStart.UTC()), request.Level, FormatTime(d.currentTime().UTC()))
+	if err != nil {
+		return false, fmt.Errorf("claim goal limit notice: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}

@@ -9,9 +9,13 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 type fakeStore struct {
+	goalCandidates []appmodel.GoalLimitCandidate
+	goalClaims     map[string]bool
+	goalProgress   []appmodel.GoalProgress
 	due            []appmodel.DueProject
 	reminded       []string
 	claimed        map[string]bool
@@ -45,6 +49,26 @@ func (f *fakeStore) ClaimBudgetNotice(_ context.Context, request appmodel.Budget
 	}
 	f.budgetClaims[key] = true
 	return true, nil
+}
+
+func (f *fakeStore) GoalLimitCandidates(context.Context) ([]appmodel.GoalLimitCandidate, error) {
+	return f.goalCandidates, nil
+}
+
+func (f *fakeStore) ClaimGoalLimitNotice(_ context.Context, request appmodel.GoalLimitNoticeRequest) (bool, error) {
+	if f.goalClaims == nil {
+		f.goalClaims = map[string]bool{}
+	}
+	key := fmt.Sprintf("%d:%s:%d", request.GoalID, request.PeriodStart.Format(time.RFC3339), request.Level)
+	if f.goalClaims[key] {
+		return false, nil
+	}
+	f.goalClaims[key] = true
+	return true, nil
+}
+
+func (f *fakeStore) ProgressForGoals(context.Context, appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error) {
+	return f.goalProgress, nil
 }
 
 func (f *fakeStore) RunningSessions(context.Context) ([]appmodel.RunningSession, error) {
@@ -384,8 +408,7 @@ func TestNightGateKeepsPushUntilTheRecipientsMorning(t *testing.T) {
 }
 
 // A timer running past its owner's threshold gets one reminder; under the
-// threshold, or with the reminder turned off (0), it gets none; at night the
-// reminder waits for the morning.
+// threshold, or with the reminder turned off (0), it gets none.
 func TestLongTimerReminder(t *testing.T) {
 	now := time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC) // Wed 15:00, workspace zone UTC
 	at := func(hoursAgo int) *time.Time { v := now.Add(-time.Duration(hoursAgo) * time.Hour); return &v }
@@ -473,5 +496,44 @@ func TestBudgetReminders(t *testing.T) {
 	}
 	if got := budget(); len(got) != 3 || !strings.Contains(got[2].Title, "вышел") {
 		t.Fatalf("used up after four fifths: %+v", got)
+	}
+}
+
+// A limit goal warns while it is used up: at 80% once and when crossed once,
+// to whoever is timing the activity; a target goal is not warned about here.
+func TestGoalLimitsWarnAtEightyAndWhenCrossed(t *testing.T) {
+	sender := &recorder{}
+	store := &fakeStore{
+		goalCandidates: []appmodel.GoalLimitCandidate{{TeamID: 1, UserID: 7, ActivityID: 3}},
+	}
+	now := time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)
+	svc, err := New(Dependencies{Store: store, Planner: fakePlanner{}, Sender: sender, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	period := time.Date(2026, 11, 28, 0, 0, 0, 0, time.UTC)
+	limit := model.Goal{ID: 9, ActivityID: 3, Period: "daily", TargetMinutes: 60, Kind: "max"}
+	store.goalProgress = []appmodel.GoalProgress{
+		{Goal: limit, ActivityName: "Соцсети", AchievedMinutes: 50, PercentComplete: 83, PeriodStart: period},
+		{Goal: model.Goal{ID: 10, ActivityID: 3, Period: "daily", TargetMinutes: 30, Kind: "min"}, AchievedMinutes: 50, PercentComplete: 166, PeriodStart: period},
+	}
+	for i := 0; i < 2; i++ {
+		if err := svc.goalLimits(t.Context(), now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store.goalProgress[0].AchievedMinutes, store.goalProgress[0].PercentComplete = 61, 101
+	if err := svc.goalLimits(t.Context(), now); err != nil {
+		t.Fatal(err)
+	}
+	var titles []string
+	for _, n := range sender.sent {
+		titles = append(titles, n.Title)
+		if len(n.UserIDs) != 1 || n.UserIDs[0] != 7 {
+			t.Fatalf("sent to %v, want the person timing it", n.UserIDs)
+		}
+	}
+	if strings.Join(titles, "|") != "Лимит почти исчерпан|Лимит превышен" {
+		t.Fatalf("limit pushes: %q", titles)
 	}
 }

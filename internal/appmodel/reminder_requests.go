@@ -71,6 +71,21 @@ type LongTimerNoticeRequest struct {
 }
 
 // RunningSession is a timer still running, with its owner's reminder threshold.
+// GoalLimitCandidate is a person timing an activity a limit goal watches,
+// now or in the last few minutes.
+type GoalLimitCandidate struct {
+	TeamID     int64
+	UserID     int64
+	ActivityID int64
+}
+
+// GoalLimitNoticeRequest claims one limit push for a goal's period and level.
+type GoalLimitNoticeRequest struct {
+	GoalID      int64
+	PeriodStart time.Time
+	Level       int
+}
+
 type RunningSession struct {
 	TeamID         int64
 	UserID         int64

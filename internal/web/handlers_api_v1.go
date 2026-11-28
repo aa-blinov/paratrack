@@ -22,6 +22,12 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 		// Pages of ?limit= (default 100, max 500), newest first; pass the
 		// returned next_cursor as ?cursor= for the next page.
 		limit := 100
+		// ?mine=1 is the caller's own sessions, whatever else they may read:
+		// the shell's completion offers only what the person themselves did.
+		var mine int64
+		if r.URL.Query().Get("mine") == "1" {
+			mine = authenticatedUserID(r)
+		}
 		if v, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && v > 0 {
 			limit = min(v, 500)
 		}
@@ -33,7 +39,7 @@ func (s *Server) handleAPIv1Sessions(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		page, err := s.services.Tracking.Queries.SessionHistoryPage(r.Context(), appmodel.SessionHistoryPageQuery{TeamID: teamID(r), From: from, To: to, After: after, Limit: limit})
+		page, err := s.services.Tracking.Queries.SessionHistoryPage(r.Context(), appmodel.SessionHistoryPageQuery{TeamID: teamID(r), From: from, To: to, After: after, Limit: limit, UserID: mine})
 		if err != nil {
 			s.writeInternalJSONError(w, err)
 			return

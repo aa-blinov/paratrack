@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"unicode"
 )
@@ -15,30 +16,42 @@ import (
 const hookMarker = "# paratrack-hook"
 
 // hookScript switches the timer to the branch that was checked out. The
-// branch goes to "focus --branch", which makes the activity name in Go: the
-// last part of the branch ("feat/PT-123-login" becomes "PT-123-login"), with
-// letters of any alphabet kept and anything else turned into a dash. A
-// branch name is not trusted text, and the shell's tr cannot tell UTF-8
-// letters from noise. It runs
-// in the background and never fails the checkout. Quick successive checkouts
-// are settled after a short pause, and only the branch still checked out is
-// sent, so focus calls arriving out of order cannot leave the timer on a
-// branch that was already left. Checking out main, master, develop or trunk
-// pauses the timers instead: reviewing there is not the feature's time.
+// branch goes to "focus --branch", which makes the activity name in Go (see
+// branchActivity): a branch name is not trusted text, and the shell's tr
+// cannot tell UTF-8 letters from noise. It runs in the background and never
+// fails the checkout. Quick successive checkouts are settled after a short
+// pause, and only the branch still checked out is sent, so focus calls
+// arriving out of order cannot leave the timer on a branch already left.
+// main, master, develop, trunk, the branches named in git config
+// paratrack.pauseBranches and a detached HEAD pause the timers instead:
+// reviewing there is not the feature's time. git config
+// paratrack.ticketPattern names the ticket to keep from the branch.
+//
+// With an empty binary the script finds paratrack on PATH when it runs: the
+// form for a hook manager's folder, which is committed and shared, where an
+// absolute path from one laptop would fail silently on every other.
 func hookScript(binary string) string {
+	find := `bin=$(command -v paratrack) || exit 0`
+	if binary != "" {
+		find = `bin='` + strings.ReplaceAll(binary, `'`, `'\''`) + `'
+[ -x "$bin" ] || bin=$(command -v paratrack) || exit 0`
+	}
 	return `#!/bin/sh
 ` + hookMarker + ` — written by "paratrack hook install", removed by "paratrack hook uninstall".
 # Switches the paratrack timer to the branch you check out.
 [ "$3" = "1" ] || exit 0
-branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
+` + find + `
+branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || branch=""
 mark=$(git rev-parse --git-path paratrack-focus)
-printf '%s' "$branch" > "$mark"
+printf '%s' "${branch:-(detached)}" > "$mark"
 ( sleep 1
-  [ "$(cat "$mark" 2>/dev/null)" = "$branch" ] || exit 0
-  [ "$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" = "$branch" ] || exit 0
-  case "$branch" in
-    main|master|develop|trunk) "` + binary + `" pause >/dev/null 2>&1 ;;
-    *) "` + binary + `" focus --branch "$branch" >/dev/null 2>&1 ;;
+  [ "$(cat "$mark" 2>/dev/null)" = "${branch:-(detached)}" ] || exit 0
+  now=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || now=""
+  [ "$now" = "$branch" ] || exit 0
+  [ -n "$branch" ] || { "$bin" pause >/dev/null 2>&1; exit 0; }
+  case " main master develop trunk $(git config --get paratrack.pauseBranches) " in
+    *" $branch "*) "$bin" pause >/dev/null 2>&1 ;;
+    *) "$bin" focus --branch "$branch" --pattern "$(git config --get paratrack.ticketPattern)" >/dev/null 2>&1 ;;
   esac ) &
 exit 0
 `
@@ -51,7 +64,7 @@ func runHook(rt *Runtime, args []string) error {
 	// print gives the same script to paste into a hook manager's
 	// post-checkout (husky, lefthook), which owns the hooks folder.
 	if args[0] == "print" {
-		fmt.Fprint(rt.Out, hookScript(hookBinary()))
+		fmt.Fprint(rt.Out, hookScript(""))
 		return nil
 	}
 	dir, err := gitHooksDir()
@@ -107,6 +120,7 @@ func runHook(rt *Runtime, args []string) error {
 	}
 	fmt.Fprintln(rt.Out, "✓ installed", path)
 	fmt.Fprintln(rt.Out, "  checking out a branch now focuses the timer on its last name part (feat/PT-123-login → PT-123-login)")
+	fmt.Fprintln(rt.Out, "  git config paratrack.pauseBranches \"dev staging\" adds branches that pause; paratrack.ticketPattern keeps a ticket")
 	return nil
 }
 
@@ -143,26 +157,42 @@ func hookBinary() string {
 	return "paratrack"
 }
 
-// hookedBinary reads back the binary path an installed hook calls.
+// hookedBinary reads back the binary path an installed hook calls, empty
+// when it finds paratrack on PATH.
 func hookedBinary(script string) string {
 	for _, line := range strings.Split(script, "\n") {
-		line = strings.TrimSpace(line)
-		if i := strings.Index(line, "\" focus "); i > 0 {
-			if start := strings.LastIndex(line[:i], "\""); start >= 0 {
-				return line[start+1 : i]
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "bin='"); ok {
+			if end := strings.Index(rest, "'"); end >= 0 {
+				return rest[:end]
 			}
 		}
 	}
 	return ""
 }
 
+// defaultTicketPattern finds a tracker key such as PT-123 anywhere in a branch.
+var defaultTicketPattern = regexp.MustCompile(`[A-Z][A-Z0-9]+-[0-9]+`)
+
 // branchActivity makes an activity name from a git branch: its last part,
 // with letters and digits of any alphabet, dot, dash and underscore kept and
 // anything else (quotes, $, spaces, control characters) turned into a dash.
-func branchActivity(branch string) string {
-	if i := strings.LastIndex(branch, "/"); i >= 0 {
-		branch = branch[i+1:]
+// A ticket found earlier in the branch ("PT-123/fix-login") leads the name,
+// so it is not lost; pattern, when given, is the team's own ticket form.
+func branchActivity(branch, pattern string) string {
+	ticket := defaultTicketPattern
+	if pattern != "" {
+		if custom, err := regexp.Compile(pattern); err == nil {
+			ticket = custom
+		}
 	}
+	last := branch
+	if i := strings.LastIndex(branch, "/"); i >= 0 {
+		last = branch[i+1:]
+	}
+	if found := ticket.FindString(branch); found != "" && !strings.Contains(last, found) {
+		last = found + "-" + last
+	}
+	branch = last
 	var b strings.Builder
 	for _, r := range branch {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '.' || r == '-' || r == '_' {

@@ -238,13 +238,17 @@ func runResume(rt *Runtime, args []string) error {
 func runFocus(rt *Runtime, args []string) error {
 	fs := flag.NewFlagSet("focus", flag.ContinueOnError)
 	fs.SetOutput(io.Discard)
+	nameFlag := fs.String("name", "", "activity name taken as it is")
 	if err := fs.Parse(args); err != nil {
 		return &ExitError{Code: 2, Err: err}
 	}
-	if fs.NArg() < 1 {
-		return &ExitError{Code: 2, Err: errors.New("usage: paratrack focus <activity>")}
+	target := *nameFlag
+	if target == "" {
+		if fs.NArg() < 1 {
+			return &ExitError{Code: 2, Err: errors.New("usage: paratrack focus <activity>")}
+		}
+		target = fs.Arg(0)
 	}
-	target := fs.Arg(0)
 	services, ctx, err := applicationForCommand(rt)
 	if err != nil {
 		return err

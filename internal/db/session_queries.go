@@ -231,6 +231,10 @@ func (d *DB) ListSessionsPage(ctx context.Context, query appmodel.SessionHistory
 		q += ` AND (s.start_at COLLATE "C" < ? OR (s.start_at = ? AND s.id < ?))`
 		args = append(args, query.After.Start, query.After.Start, query.After.ID)
 	}
+	if query.UserID > 0 {
+		q += ` AND s.user_id = ?`
+		args = append(args, query.UserID)
+	}
 	sc, args := scopeSQL(ctx, "s.user_id", args)
 	q += sc + ` ORDER BY s.start_at COLLATE "C" DESC, s.id DESC LIMIT ?`
 	args = append(args, query.Limit+1)

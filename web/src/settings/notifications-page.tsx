@@ -46,6 +46,10 @@ export function NotificationsPage({ data }: { data: NotificationsData }) {
   async function enable() {
     setBusy(true)
     try {
+      // Safari on an iPhone offers push only to the app added to the home
+      // screen; in the browser tab there is no PushManager at all, and
+      // "try again" would never work, so the screen says what will.
+      if (!("PushManager" in window) && /iPhone|iPad|iPod/.test(navigator.userAgent)) { setStatus(t(lang, "push.iosInstall")); return }
       if (!("Notification" in window) || !("serviceWorker" in navigator) || !("PushManager" in window)) throw new Error("push unavailable")
       const permission = await Notification.requestPermission()
       if (permission !== "granted") { setStatus(t(lang, "push.denied")); return }

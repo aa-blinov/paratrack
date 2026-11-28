@@ -44,6 +44,9 @@ type Store interface {
 	BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, error)
 	ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNoticeRequest) (bool, error)
 	ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTimerNoticeRequest) (bool, error)
+	GoalLimitCandidates(ctx context.Context) ([]appmodel.GoalLimitCandidate, error)
+	ClaimGoalLimitNotice(ctx context.Context, request appmodel.GoalLimitNoticeRequest) (bool, error)
+	ProgressForGoals(ctx context.Context, query appmodel.GoalProgressQuery) ([]appmodel.GoalProgress, error)
 	TeamLocation(ctx context.Context, teamID int64) (*time.Location, error)
 	// UserTimeZones reads the hand-set zone of each named member ("tz" of their
 	// preferences, empty when they never chose). The night gate needs it for
@@ -218,6 +221,7 @@ func (s *Service) Pass(ctx context.Context) error {
 		{"crm next step reminders", s.crmSteps},
 		{"day fill reminders", s.dayFill},
 		{"long timer reminders", s.longTimers},
+		{"goal limit reminders", s.goalLimits},
 		{"budget reminders", s.budgets},
 	}
 	var errs []error
@@ -490,7 +494,10 @@ func contains(ids []int64, id int64) bool {
 // longTimers tells a person, once per session, that a timer has been running
 // longer than they set (four hours unless they chose otherwise): a timer left
 // on overnight otherwise turns into hours nobody worked, found the next day.
-// At night it waits, unclaimed, for the person's morning.
+// It is not held for the morning like the other reminders: a timer started at
+// seven in the evening crosses four hours at night, and the morning is
+// exactly when the reminder would be too late. The person set the threshold,
+// and 0 turns it off.
 func (s *Service) longTimers(ctx context.Context, now time.Time) error {
 	sessions, err := s.store.RunningSessions(ctx)
 	if err != nil {
@@ -505,17 +512,6 @@ func (s *Service) longTimers(ctx context.Context, now time.Time) error {
 			seconds += int(now.Sub(*r.LastResumeAt) / time.Second)
 		}
 		if seconds < r.ThresholdHours*3600 {
-			continue
-		}
-		loc, err := s.store.TeamLocation(ctx, r.TeamID)
-		if err != nil {
-			return err
-		}
-		night, err := s.nightOnes(ctx, loc, []int64{r.UserID}, now)
-		if err != nil {
-			return err
-		}
-		if night[r.UserID] {
 			continue
 		}
 		claimed, err := s.store.ClaimLongTimerNotice(ctx, appmodel.LongTimerNoticeRequest{SessionID: r.SessionID})
@@ -533,6 +529,74 @@ func (s *Service) longTimers(ctx context.Context, now time.Time) error {
 			URL:   "/",
 		}); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// goalLimits warns while the time is being spent, not after the stop: at
+// four fifths of a limit goal ("at most an hour of social media a day") and
+// when it is crossed, once each per period, to whoever is timing it.
+func (s *Service) goalLimits(ctx context.Context, now time.Time) error {
+	candidates, err := s.store.GoalLimitCandidates(ctx)
+	if err != nil {
+		return err
+	}
+	byTeam := map[int64][]appmodel.GoalLimitCandidate{}
+	var teams []int64
+	for _, c := range candidates {
+		if _, seen := byTeam[c.TeamID]; !seen {
+			teams = append(teams, c.TeamID)
+		}
+		byTeam[c.TeamID] = append(byTeam[c.TeamID], c)
+	}
+	for _, teamID := range teams {
+		progress, err := s.store.ProgressForGoals(ctx, appmodel.GoalProgressQuery{TeamID: teamID, Now: now})
+		if err != nil {
+			return err
+		}
+		for _, p := range progress {
+			if p.Goal.Kind != "max" {
+				continue
+			}
+			level := 0
+			switch {
+			case p.PercentComplete > 100:
+				level = 100
+			case p.PercentComplete >= 80:
+				level = 80
+			}
+			if level == 0 {
+				continue
+			}
+			var users []int64
+			for _, c := range byTeam[teamID] {
+				if c.ActivityID == p.Goal.ActivityID {
+					users = append(users, c.UserID)
+				}
+			}
+			if len(users) == 0 {
+				continue
+			}
+			claimed, err := s.store.ClaimGoalLimitNotice(ctx, appmodel.GoalLimitNoticeRequest{GoalID: p.Goal.ID, PeriodStart: p.PeriodStart, Level: level})
+			if err != nil {
+				return err
+			}
+			if !claimed {
+				continue
+			}
+			title := "Лимит почти исчерпан"
+			if level == 100 {
+				title = "Лимит превышен"
+			}
+			if err := s.sender.Send(ctx, Notification{
+				TeamID: teamID, UserIDs: users, Topic: appmodel.NotificationTopicGoalAchieved,
+				Title: title,
+				Body:  fmt.Sprintf("«%s»: %d из %d мин", p.ActivityName, p.AchievedMinutes, p.Goal.TargetMinutes),
+				URL:   "/goals",
+			}); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

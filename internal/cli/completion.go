@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -47,13 +49,16 @@ complete -F _paratrack paratrack
 	case "zsh":
 		fmt.Fprintf(rt.Out, `#compdef paratrack
 # paratrack completion for zsh: eval "$(paratrack completion zsh)"
+# compdef comes from compinit, which a bare .zshrc has not loaded yet.
+(( $+functions[compdef] )) || { autoload -Uz compinit && compinit; }
 _paratrack() {
   if (( CURRENT == 2 )); then
     compadd -- %s
   elif (( CURRENT == 3 )) && [[ $words[2] == (start|focus) ]]; then
     local -a acts
-    acts=("${(@f)$(paratrack __activities 2>/dev/null)}")
-    compadd -- $acts
+    # (f) splits on lines and drops the empty ones, so no answer offers nothing.
+    acts=(${(f)"$(paratrack __activities 2>/dev/null)"})
+    (( ${#acts} )) && compadd -- $acts
   fi
 }
 compdef _paratrack paratrack
@@ -61,7 +66,7 @@ compdef _paratrack paratrack
 	case "fish":
 		fmt.Fprintf(rt.Out, `# paratrack completion for fish: paratrack completion fish | source
 complete -c paratrack -f -n "__fish_use_subcommand" -a "%s"
-complete -c paratrack -f -n "__fish_seen_subcommand_from start focus" -a "(paratrack __activities 2>/dev/null)"
+complete -c paratrack -f -n "__fish_seen_subcommand_from start focus; and test (count (commandline -opc)) -eq 2" -a "(paratrack __activities 2>/dev/null)"
 `, words)
 	default:
 		return &ExitError{Code: 2, Err: fmt.Errorf("unknown shell %q (bash, zsh or fish)", args[0])}
@@ -81,27 +86,28 @@ func runCompletionActivities(rt *Runtime) error {
 	if !rt.remoteEnabled() {
 		return nil
 	}
+	// A TAB pressed again within a minute answers from the last list.
+	cache := rt.completionCachePath()
+	if cache != "" {
+		if info, err := os.Stat(cache); err == nil && rt.now().Sub(info.ModTime()) < completionCacheMaxAge {
+			if body, err := os.ReadFile(cache); err == nil {
+				_, _ = rt.Out.Write(body)
+				return nil
+			}
+		}
+	}
 	ctx, cancel := context.WithTimeout(rt.Context, completionTimeout)
 	defer cancel()
-	_, meBody, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/v1/me", nil)
-	if err != nil {
-		return nil
-	}
-	var me struct {
-		Email string `json:"email"`
-	}
-	if json.Unmarshal(meBody, &me) != nil || me.Email == "" {
-		return nil
-	}
-	_, body, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/v1/sessions?limit=200", nil)
+	// mine=1: the caller's own sessions only, so a manager's token is not
+	// filled up by the studio's recent days.
+	_, body, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/v1/sessions?mine=1&limit=300", nil)
 	if err != nil {
 		return nil
 	}
 	var res struct {
 		Sessions []struct {
-			Activity  string `json:"activity"`
-			Start     string `json:"start"`
-			UserEmail string `json:"user_email"`
+			Activity string `json:"activity"`
+			Start    string `json:"start"`
 		} `json:"sessions"`
 	}
 	if json.Unmarshal(body, &res) != nil {
@@ -109,7 +115,7 @@ func runCompletionActivities(rt *Runtime) error {
 	}
 	latest := map[string]string{}
 	for _, s := range res.Sessions {
-		if s.Activity != "" && strings.EqualFold(s.UserEmail, me.Email) && s.Start > latest[s.Activity] {
+		if s.Activity != "" && s.Start > latest[s.Activity] {
 			latest[s.Activity] = s.Start
 		}
 	}
@@ -121,8 +127,42 @@ func runCompletionActivities(rt *Runtime) error {
 	if len(names) > 50 {
 		names = names[:50]
 	}
+	var out strings.Builder
 	for _, name := range names {
-		fmt.Fprintln(rt.Out, name)
+		out.WriteString(name + "\n")
+	}
+	fmt.Fprint(rt.Out, out.String())
+	if cache != "" {
+		writeFileAtomic(cache, []byte(out.String()))
 	}
 	return nil
+}
+
+// completionCacheMaxAge is how long a list of activities answers a TAB.
+const completionCacheMaxAge = time.Minute
+
+// completionCachePath sits next to the prompt line's cache and, like it, is
+// keyed by the server and token, so another account never sees this list.
+func (rt *Runtime) completionCachePath() string {
+	if strings.TrimSpace(rt.StatusCachePath) == "" {
+		return ""
+	}
+	return rt.StatusCachePath + ".activities-" + rt.statusCacheOwner()
+}
+
+// writeFileAtomic writes aside and renames into place, best effort: a TAB in
+// another terminal never reads half a list.
+func writeFileAtomic(path string, data []byte) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return
+	}
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".activities-*")
+	if err != nil {
+		return
+	}
+	_, werr := tmp.Write(data)
+	cerr := tmp.Close()
+	if werr != nil || cerr != nil || os.Chmod(tmp.Name(), 0o600) != nil || os.Rename(tmp.Name(), path) != nil {
+		_ = os.Remove(tmp.Name())
+	}
 }

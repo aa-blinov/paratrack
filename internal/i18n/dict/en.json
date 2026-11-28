@@ -2446,5 +2446,6 @@
   "pdf.void": "VOID",
   "inv.voidedBecause": "Voided",
   "inv.voidConfirm": "Void invoice %s? The number stays used and its hours can be billed again.",
-  "inv.linkNotIssued": "A client link is for a sent invoice: a draft can still change."
+  "inv.linkNotIssued": "A client link is for a sent invoice: a draft can still change.",
+  "push.iosInstall": "On an iPhone, notifications work in the app added to the Home Screen: Share → Add to Home Screen, then turn them on there."
 }

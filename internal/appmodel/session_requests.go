@@ -27,6 +27,9 @@ type SessionHistoryPageQuery struct {
 	To     time.Time
 	After  *SessionCursor
 	Limit  int
+	// UserID narrows the page to one person's sessions; 0 is everyone the
+	// caller may see.
+	UserID int64
 }
 
 type AuthSessionCreateRequest struct {

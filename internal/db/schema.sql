@@ -293,6 +293,17 @@ CREATE TABLE IF NOT EXISTS project_budget_reminders (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
+-- The "limit nearly used" (80) and "limit crossed" (100) pushes a goal of
+-- kind max sends, once per level and period.
+CREATE TABLE IF NOT EXISTS goal_limit_reminders (
+    goal_id BIGINT NOT NULL,
+    period_start TEXT NOT NULL,
+    level INT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (goal_id, period_start, level),
+    FOREIGN KEY (goal_id) REFERENCES goals(id) ON DELETE CASCADE
+);
+
 -- The one "your timer is still running" reminder a session gets.
 CREATE TABLE IF NOT EXISTS long_timer_reminders (
     session_id BIGINT PRIMARY KEY,

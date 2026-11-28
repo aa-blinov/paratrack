@@ -118,7 +118,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
           <div className="flex min-w-0 flex-wrap items-center gap-x-2"><strong className="inline-flex items-start gap-2"><ColorMark color={goal.Color} />{goal.ActivityName}</strong><span className="text-muted-foreground">{goal.PeriodRangeLabel} ({goal.PeriodStartLabel} – {goal.PeriodEndLabel})</span></div>
           <div className="flex items-center gap-2"><span className={`whitespace-nowrap font-mono tabular-nums${goal.Kind === "max" && goal.Percent > 100 ? " text-destructive" : ""}`}>{goal.AchievedLabel}<span className="text-muted-foreground"> / {goal.Kind === "max" ? t(lang, "goals.limitOf", goal.TargetLabel) : goal.TargetLabel}</span></span>{data.CanManage && <Button variant="ghost" size="icon" disabled={busy} title={t(lang, "goals.delete")} aria-label={t(lang, "goals.delete")} onClick={() => void remove(goal)}><Trash2 aria-hidden="true" /></Button>}</div>
         </div>
-        <Progress value={Math.min(goal.Percent, 100)} aria-label={`${goal.ActivityName}: ${goal.AchievedLabel} / ${goal.TargetLabel}`} />
+        <Progress value={Math.min(goal.Percent, 100)} className={goal.Kind === "max" && goal.Percent >= 100 ? "[&>*]:bg-destructive" : goal.Kind === "max" && goal.Percent >= 80 ? "[&>*]:bg-amber-500" : undefined} aria-label={`${goal.ActivityName}: ${goal.AchievedLabel} / ${goal.TargetLabel}`} />
       </div>)}
     </CardContent></Card> : <div className="py-8 text-center text-sm text-muted-foreground"><p className="font-medium">{t(lang, "goals.noGoals")}</p><p>{data.CanManage ? t(lang, "goals.noGoalsHint") : t(lang, "goals.noGoalsMember")}</p></div>}
   </main>

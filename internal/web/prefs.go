@@ -97,6 +97,10 @@ var defaultTabs = []string{"dashboard", "timesheet", "stats", "graph"}
 // off stays off and a short list stays short.
 func (s *Server) tabsFor(r *http.Request, mods map[string]bool) []navItem {
 	avail := func(n navItem) bool {
+		// Clients matter to a space that bills or sells, as in the side panel.
+		if n.Key == "clients" && !mods["invoices"] && !mods["crm"] {
+			return false
+		}
 		return (n.Module == "" || mods[n.Module]) && (!n.Manage || mayOpen(r, n.Key))
 	}
 	picks := prefsOf(r).Tabs
