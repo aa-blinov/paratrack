@@ -705,6 +705,58 @@ func (s *Server) changeWeekApproval(w http.ResponseWriter, r *http.Request, appr
 	http.Redirect(w, r, back+"&flash="+encodeFlash(true, i18n.T(lang, okKey)), http.StatusSeeOther)
 }
 
+// handleTimesheetApproveOnTrack approves, one by one, everyone the team
+// summary shows on track for the week (80% of their norm and no empty
+// weekday). The summary is worked out again here rather than taken from the
+// form, so a week that changed since the page loaded is judged as it is now;
+// the flash names who was approved and who was not.
+func (s *Server) handleTimesheetApproveOnTrack(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
+		return
+	}
+	lang := resolveLang(r)
+	loc := userLoc(r)
+	weekStart, err := time.ParseInLocation("2006-01-02", r.PostForm.Get("start"), loc)
+	if err != nil {
+		http.Redirect(w, r, "/timesheet?flash="+encodeFlash(false, i18n.T(lang, "err.invalidInput")), http.StatusSeeOther)
+		return
+	}
+	back := "/timesheet?date=" + weekStart.Format("2006-01-02")
+	now := userNow(r)
+	approval, err := s.timesheetApprovalFor(r, weekStart, now)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	if !approval.Finished {
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "ts.notFinished")), http.StatusSeeOther)
+		return
+	}
+	var approved, failed []string
+	for _, member := range s.timesheetTeamSummary(r, weekStart, now, approval) {
+		if member.Status != "ok" {
+			continue
+		}
+		request := appmodel.TimesheetApprovalRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Start: weekStart, End: weekStart.AddDate(0, 0, 7), UserID: member.UserID}
+		if err := s.services.Tracking.Commands.ApproveWeek(r.Context(), request); err != nil {
+			failed = append(failed, member.Name+": "+approvalMessage(lang, err))
+			continue
+		}
+		approved = append(approved, member.Name)
+		s.audit(r, "timesheet.approve", weekStart.Format("2006-01-02")+".."+weekStart.AddDate(0, 0, 6).Format("2006-01-02"), member.Name)
+	}
+	switch {
+	case len(approved) == 0 && len(failed) == 0:
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "ts.onTrackNone")), http.StatusSeeOther)
+	case len(failed) == 0:
+		http.Redirect(w, r, back+"&flash="+encodeFlash(true, fmt.Sprintf(i18n.T(lang, "ts.onTrackDone"), strings.Join(approved, ", "))), http.StatusSeeOther)
+	default:
+		msg := fmt.Sprintf(i18n.T(lang, "ts.onTrackPartial"), strings.Join(approved, ", "), strings.Join(failed, "; "))
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, msg), http.StatusSeeOther)
+	}
+}
+
 // weekLockedMessage names the approved week and says who can reopen it. The
 // store keeps the end of the span exclusive, so the last day shown is the one
 // before it; the dates follow the person's timezone, not the server's.

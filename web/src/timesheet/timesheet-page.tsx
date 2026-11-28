@@ -385,10 +385,18 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       const attention = data.TeamSummary.filter(m => m.Status === "empty" || m.Status === "warn").length
       const summaryDesc = attention > 0 ? t(lang, "ts.teamAttention", attention, data.TeamSummary.length) : t(lang, "ts.teamAllGood", data.TeamSummary.length)
       return <DisclosureSection id="ts-team-summary" title={t(lang, "ts.teamSummary")} description={summaryDesc} defaultOpen={attention > 0 && data.Person === 0}>
+        {data.Approval.Finished && data.TeamSummary.some(m => m.Status === "ok") && <form method="post" action="/api/timesheet/approve-on-track" className="mb-3">
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <input type="hidden" name="start" value={data.Approval.StartISO} />
+          <Button type="submit" size="sm">{t(lang, "ts.approveOnTrack", data.TeamSummary.filter(m => m.Status === "ok").length)}</Button>
+        </form>}
         <ul className="divide-y divide-border text-sm">
           {data.TeamSummary.map(member => {
-            const dotClass = member.Status === "approved" || member.Status === "ok"
-              ? "bg-emerald-500"
+            // Approved and merely on track used to share one green dot.
+            const dotClass = member.Status === "approved"
+              ? "bg-emerald-700 ring-2 ring-emerald-700/30"
+              : member.Status === "ok"
+              ? "bg-emerald-400"
               : member.Status === "warn"
               ? "bg-amber-500"
               : "bg-destructive"

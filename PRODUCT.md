@@ -160,7 +160,9 @@ Deliberately not true, and worth knowing before a change:
   hours, and password reset confirms the address too.
 - Approval works per workspace week or per member within a week. The
   timesheet shows a manager every member's week on one screen: hours against
-  the norm, empty weekdays, and approval per person.
+  the norm, empty weekdays, and approval per person, with "approve everyone
+  on track" (80% of the norm, no empty weekday) for a finished week. Approved
+  and on track have different marks.
 - A pay run cannot cover the current week, because the week has to end and be
   approved first. A pay run can cover a chosen set of members, or only the
   hourly or only the salaried ones, and the overlap check compares only the
