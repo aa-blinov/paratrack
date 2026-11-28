@@ -45,6 +45,14 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 		}
 		return runStatus(rt, nil)
 	}
+	// The git hook passes the raw branch; the activity name is made here.
+	if (args[0] == "focus" || args[0] == "switch" || args[0] == "sw") && len(args) >= 3 && args[1] == "--branch" {
+		name := branchActivity(args[2])
+		if name == "" {
+			return nil
+		}
+		args = []string{args[0], name}
+	}
 	// Hooks and completion work on files and the shell, in either mode.
 	switch args[0] {
 	case "hook":
@@ -144,6 +152,6 @@ Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
   paratrack auth login --url <url> --token <token>  save remote CLI config
   paratrack auth status                             show remote CLI config
   paratrack auth logout                             remove saved remote config
-  paratrack hook install|uninstall|show             git post-checkout: focus the timer on the branch
+  paratrack hook install|uninstall|show|print       git post-checkout: focus the timer on the branch
   paratrack completion bash|zsh|fish                print a shell completion script`)
 }

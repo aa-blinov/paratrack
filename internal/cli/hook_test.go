@@ -57,7 +57,7 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 	}
 	// A branch name is not trusted text: anything but letters, digits, dot,
 	// dash and underscore becomes a dash before it reaches the server.
-	git(t, repo, "checkout", "-q", "-b", "feat/PT-123;login")
+	git(t, repo, "checkout", "-q", "-b", "feat/PT-123-login")
 	var called []byte
 	// The hook runs the binary in the background; the shell creates the file
 	// before it writes to it, so wait for the content, not just the file.
@@ -67,7 +67,7 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	if strings.TrimSpace(string(called)) != "focus PT-123-login" {
+	if strings.TrimSpace(string(called)) != "focus --branch feat/PT-123-login" {
 		t.Fatalf("the hook called %q, want focus on the branch", called)
 	}
 
@@ -191,5 +191,32 @@ func TestCompletion(t *testing.T) {
 	}
 	if got := strings.TrimSpace(out.String()); got != "API\nРевью" {
 		t.Fatalf("activities offered: %q", got)
+	}
+}
+
+// The activity name from a branch keeps letters of any alphabet and turns
+// everything else into dashes.
+func TestBranchActivity(t *testing.T) {
+	for branch, want := range map[string]string{
+		"feat/PT-123-login":       "PT-123-login",
+		"feat/рус-ветка":          "рус-ветка",
+		"feat/x$(touch_PWN)":      "x--touch_PWN",
+		"PT-1;rm -rf":             "PT-1-rm--rf",
+		"fix/Задача-12_правка.v2": "Задача-12_правка.v2",
+	} {
+		if got := branchActivity(branch); got != want {
+			t.Errorf("branchActivity(%q) = %q, want %q", branch, got, want)
+		}
+	}
+}
+
+// "hook print" is the script to paste into a hook manager's post-checkout.
+func TestHookPrint(t *testing.T) {
+	var out bytes.Buffer
+	if err := RunWithRuntime([]string{"hook", "print"}, NewRuntime(nil, &out, &out)); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), hookMarker) || !strings.Contains(out.String(), "focus --branch") {
+		t.Fatalf("hook print:\n%s", out.String())
 	}
 }
