@@ -674,7 +674,6 @@ export interface InvoiceProjectOption {
   Rate: string
   ClientName: string
   ClientDetails: string
-  HasClientCard?: boolean
   ClientEmail: string
   Selected: boolean
   Eligible: boolean

@@ -39,6 +39,7 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return DraftCreation{}, ErrInvalidTeam
 	}
+	request.Options.ClientDetails = model.NormalizeDetails(request.Options.ClientDetails)
 	if bad := model.RequisiteProblems(request.Options.ClientDetails); len(bad) > 0 {
 		return DraftCreation{}, &model.RequisitesError{Client: true, Fields: bad}
 	}
@@ -160,9 +161,9 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	// saved before the check existed, but they never travel on to the
 	// client card, which refuses them. Line endings are compared as text:
 	// a textarea sends CRLF where the database keeps LF.
-	request.Details = strings.ReplaceAll(request.Details, "\r\n", "\n")
+	request.Details = model.NormalizeDetails(request.Details)
 	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 &&
-		(request.UpdateClientCard || request.Details != strings.ReplaceAll(current.Invoice.ClientDetails, "\r\n", "\n")) {
+		(request.UpdateClientCard || request.Details != model.NormalizeDetails(current.Invoice.ClientDetails)) {
 		return &model.RequisitesError{Client: true, Fields: bad}
 	}
 	request.ProjectID = current.Invoice.ProjectID

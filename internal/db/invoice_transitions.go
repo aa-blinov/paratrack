@@ -226,9 +226,15 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 		return model.ErrNoClientCard
 	}
 	if projectID > 0 {
+		// The project's copy is what the next invoice falls back to: an old
+		// draft's details that do not check out stay on the draft, not here.
+		projectDetails := details
+		if len(model.RequisiteProblems(details)) > 0 {
+			projectDetails = ""
+		}
 		res, err := tx.ExecContext(ctx,
-			`UPDATE projects SET client_name = ?, client_details = ?, client_email = ? WHERE id = ? AND team_id = ?`,
-			client, details, email, projectID, teamID)
+			`UPDATE projects SET client_name = ?, client_details = CASE WHEN ? = '' AND ? <> '' THEN client_details ELSE ? END, client_email = ? WHERE id = ? AND team_id = ?`,
+			client, projectDetails, details, projectDetails, email, projectID, teamID)
 		if err != nil {
 			return fmt.Errorf("update project client defaults: %w", err)
 		}

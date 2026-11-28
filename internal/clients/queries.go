@@ -39,6 +39,7 @@ func (s *Service) Create(ctx context.Context, request appmodel.ClientCreateReque
 	if request.TeamID <= 0 {
 		return model.Client{}, appmodel.ErrInvalidClientTeam
 	}
+	request.Details = model.NormalizeDetails(request.Details)
 	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 {
 		return model.Client{}, &model.RequisitesError{Client: true, Fields: bad}
 	}
@@ -54,9 +55,10 @@ func (s *Service) Update(ctx context.Context, request appmodel.ClientUpdateReque
 	// so a number that does not check out is stopped here, not at sending.
 	// Details left as they were do not block changing the email of a card
 	// saved before the check existed.
+	request.Update.Details = model.NormalizeDetails(request.Update.Details)
 	if bad := model.RequisiteProblems(request.Update.Details); len(bad) > 0 {
 		current, err := s.directory.GetClientInTeam(ctx, appmodel.ClientScopeQuery{TeamID: request.TeamID, ClientID: request.ClientID})
-		if err != nil || current.Details != request.Update.Details {
+		if err != nil || model.NormalizeDetails(current.Details) != request.Update.Details {
 			return model.Client{}, &model.RequisitesError{Client: true, Fields: bad}
 		}
 	}

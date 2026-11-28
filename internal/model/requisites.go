@@ -139,6 +139,13 @@ func accountKeyValid(prefix, account string) bool {
 	return sum%10 == 0
 }
 
+// NormalizeDetails is how details are stored: LF line endings, no trailing
+// space. A textarea sends CRLF, and comparing or storing both forms made the
+// same details look changed.
+func NormalizeDetails(text string) string {
+	return strings.TrimSpace(strings.ReplaceAll(text, "\r\n", "\n"))
+}
+
 // RequisitesError names the numbers that do not check out, on the seller's
 // side (the workspace) or the client's.
 type RequisitesError struct {

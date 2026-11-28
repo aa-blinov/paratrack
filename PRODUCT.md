@@ -187,14 +187,19 @@ Deliberately not true, and worth knowing before a change:
   "Update the client card too" is ticked, and an empty field never clears the
   card; on a project without a card, or an invoice over every project, the
   edit is refused with that reason, and the box is offered only when a card
-  exists. Details that do not check out never travel to the card. A
+  exists. Details that do not check out never travel to the card or to the
+  project's copy the next invoice falls back to. Details are stored with LF
+  line endings. A
   card or a draft saved before the check can still be edited while its
   details stay as they are.
 - A token whose owner has no seat in its workspace any more is answered
   403, an unknown or revoked one 401. The browser extension shows the
-  server's reason for either on every action, a server error page as a
-  server error, and "server unreachable" only when nothing answered; its
-  settings screen says "connected" only when the token was accepted
+  server's reason for either on every action, in the section on screen, a
+  server error page as a server error, an address that does not answer as
+  paratrack as such, and "server unreachable" only when nothing answered. A
+  token is saved only after the server accepts it; a saved token that stops
+  working brings the setup back with the reason. The popup is Russian first
+  (`_locales`). Its tests run the popup against its own popup.html
   (`node --test extension/`, part of `make test`).
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.

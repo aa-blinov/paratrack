@@ -50,6 +50,19 @@ func TestDraftEditUpdatesClientCardOnlyWhenAsked(t *testing.T) {
 		}
 	}
 
+	// Details that do not check out (an old draft) never reach the project's
+	// copy, which the next invoice falls back to.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE projects SET client_details = 'ИНН 7707083893' WHERE id = ?`, projectID); err != nil {
+		t.Fatal(err)
+	}
+	edit("old@romashka.test", "ИНН 7707083894", false)
+	var projectCopy string
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT client_details FROM projects WHERE id = ?`, projectID).Scan(&projectCopy); err != nil {
+		t.Fatal(err)
+	}
+	if projectCopy != "ИНН 7707083893" {
+		t.Fatalf("a wrong number reached the project's copy: %q", projectCopy)
+	}
 	edit("new@romashka.test", "ИНН 500100732259", false)
 	if _, email, details := card(); email != "old@romashka.test" || details != "ИНН 7707083893, договор №12" {
 		t.Fatalf("the card changed without being asked: %q %q", email, details)
