@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -134,7 +135,7 @@ func (s *Server) handleInvoiceSessionsCSV(w http.ResponseWriter, r *http.Request
 		s.invoiceLoadError(w, r, err)
 		return
 	}
-	rows, err := s.services.Invoicing.Queries.Sessions(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: inv.ID})
+	body, err := s.invoiceSessionsCSV(r, inv.ID)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -142,9 +143,25 @@ func (s *Server) handleInvoiceSessionsCSV(w http.ResponseWriter, r *http.Request
 	s.audit(r, "invoice.sessions", inv.Number, "")
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="invoice-%d-sessions.csv"`, inv.ID))
-	if err := writeInvoiceSessionsCSV(w, rows, userLoc(r)); err != nil {
-		s.logInternalError(err)
+	_, _ = w.Write(body)
+}
+
+// invoiceSessionsCSV is the invoice's appendix as a file: one row per billed
+// session, people's names left out when the workspace hides them on invoices.
+func (s *Server) invoiceSessionsCSV(r *http.Request, invoiceID int64) ([]byte, error) {
+	rows, err := s.services.Invoicing.Queries.Sessions(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: invoiceID})
+	if err != nil {
+		return nil, err
 	}
+	settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r))
+	if err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := writeInvoiceSessionsCSV(&buf, rows, userLoc(r), settings.HideExecutorNames); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {

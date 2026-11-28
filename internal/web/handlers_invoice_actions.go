@@ -265,8 +265,27 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
 		return
 	}
+	// The client gets what they need to agree the invoice in one letter: the
+	// invoice, the act for the same lines, and the sessions behind the hours.
+	act, err := renderDocPDF(vm, seller, lang, true)
+	if err != nil {
+		s.logInternalError(err)
+		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+		return
+	}
+	sessions, err := s.invoiceSessionsCSV(r, inv.ID)
+	if err != nil {
+		s.logInternalError(err)
+		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+		return
+	}
 	subj, ev := invoiceEmail(lang, vm, seller)
-	msg, err := s.buildEmail(r, to, subj, ev, mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
+	number := strings.ReplaceAll(vm.Number, " ", "-")
+	msg, err := s.buildEmail(r, to, subj, ev,
+		mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf},
+		mailport.Attachment{Name: "act-" + number + ".pdf", ContentType: "application/pdf", Data: act},
+		mailport.Attachment{Name: number + "-sessions.csv", ContentType: "text/csv; charset=utf-8", Data: sessions},
+	)
 	if err != nil {
 		s.logInternalError(err)
 		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))

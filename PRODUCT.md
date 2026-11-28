@@ -104,6 +104,13 @@ Confirmed by the code:
   seat in the workspace, and never exits with an error. The cached line
   belongs to one server and token and is not shown for another. Locally,
   without a server, `--short` keeps the same contract.
+- A report can be narrowed to one project or to one client card's projects;
+  the scope is printed under its title and carried into the CSV, and the
+  plan column is left out of a scoped report. An id that is not the
+  workspace's own is ignored.
+- An emailed invoice carries its act and the breakdown by session (CSV)
+  besides the invoice PDF. With the executors' names hidden on invoices, the
+  breakdown leaves the person column empty too.
 - A timer running longer than its owner set (4 hours unless they chose
   otherwise in the preferences, 0 turns it off) gets one push per session
   ("timer.long", mutable like the others); at night it waits for the

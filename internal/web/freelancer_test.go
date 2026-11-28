@@ -99,8 +99,15 @@ func TestFreelancerBillingLoop(t *testing.T) {
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	if to != "buh@romashka.ru" || len(files) != 1 || !strings.HasPrefix(string(files[0].Data), "%PDF") {
-		t.Fatalf("mail not sent with the PDF: to %q files %d", to, len(files))
+	// The invoice, its act and the breakdown by session, in one letter.
+	if to != "buh@romashka.ru" || len(files) != 3 || !strings.HasPrefix(string(files[0].Data), "%PDF") ||
+		!strings.HasPrefix(files[1].Name, "act-") || !strings.HasPrefix(string(files[1].Data), "%PDF") ||
+		!strings.HasSuffix(files[2].Name, "-sessions.csv") || !strings.HasPrefix(string(files[2].Data), "date,start,end,person") {
+		names := []string{}
+		for _, f := range files {
+			names = append(names, f.Name)
+		}
+		t.Fatalf("mail not sent with the invoice, act and breakdown: to %q files %v", to, names)
 	}
 	if !strings.Contains(letter, "К оплате") || !strings.Contains(letter, "9\u00a0000,00") && !strings.Contains(letter, "6\u00a0000,00") {
 		t.Errorf("HTML letter lacks the amount block")

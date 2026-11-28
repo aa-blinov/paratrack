@@ -88,16 +88,22 @@ var invoiceSessionsCSVHeader = []string{"date", "start", "end", "person", "proje
 
 // writeInvoiceSessionsCSV writes the billed sessions, one row each, in the zone the
 // viewer reads the time in. Hours use a decimal point, as in the other exports.
-func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc *time.Location) error {
+func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc *time.Location, hidePeople bool) error {
 	out := csv.NewWriter(w)
 	if err := out.Write(invoiceSessionsCSVHeader); err != nil {
 		return err
 	}
 	for _, row := range rows {
 		start, end := row.Start.In(loc), row.End.In(loc)
+		// "Hide the executors' names" covers the appendix too: the invoice
+		// leaving names out while its breakdown listed them hid nothing.
+		person := row.Person
+		if hidePeople {
+			person = ""
+		}
 		if err := out.Write([]string{
 			start.Format("2006-01-02"), start.Format("15:04"), end.Format("15:04"),
-			csvNeutralizeCell(row.Person), csvNeutralizeCell(row.Project), csvNeutralizeCell(row.Activity),
+			csvNeutralizeCell(person), csvNeutralizeCell(row.Project), csvNeutralizeCell(row.Activity),
 			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds),
 		}); err != nil {
 			return err
