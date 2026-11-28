@@ -15,6 +15,8 @@ func TestRequisiteProblems(t *testing.T) {
 		{"ИП Иванов, ИНН: 500100732259", nil},
 		{"ООО Ромашка, ИНН/КПП 7707083893/770701001", nil},
 		{"ИНН/КПП 7707083894/770701001", []string{RequisiteINN}},
+		{"ИП Иванов, ИНН/КПП 500100732259/", nil},
+		{"ИП Иванов, ИНН/КПП 500100732259 / -", nil},
 		{"ИНН 7707083894", []string{RequisiteINN}},
 		{"БИК 044525225, к/с 30101810400000000226", []string{RequisiteCorr}},
 		{"КПП 12345\nБИК 1234", []string{RequisiteKPP, RequisiteBIK}},

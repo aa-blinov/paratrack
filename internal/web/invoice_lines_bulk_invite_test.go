@@ -99,6 +99,21 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 		t.Fatalf("an invoice with a negative total was sent: status %q", status)
 	}
 
+	// A client number that does not check out never gets into a draft, so a
+	// client link made earlier cannot show it.
+	editResp := e.do("POST", invLoc+"/edit", url.Values{"client": {"Acme"}, "client_details": {"ООО Acme, ИНН 7707083894"}}, nil)
+	editResp.Body.Close()
+	if loc := editResp.Header.Get("Location"); !strings.Contains(loc, "flash=") || strings.Contains(loc, "flash=updated") {
+		t.Fatalf("a wrong client ИНН was saved: redirect %q", loc)
+	}
+	var clientDetails string
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT client_details FROM invoices WHERE id = ?`, invID).Scan(&clientDetails); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(clientDetails, "7707083894") {
+		t.Fatalf("client details saved: %q", clientDetails)
+	}
+
 	// Details typed by hand are checked on the server too: a wrong ИНН is
 	// not saved, whatever the browser let through.
 	reqResp := e.do("POST", "/api/team/requisites", url.Values{"requisites": {"ИП Иванов\nИНН 7707083894"}}, nil)

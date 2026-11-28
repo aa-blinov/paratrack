@@ -143,6 +143,12 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	if request.Client == "" {
 		return ErrInvalidClient
 	}
+	// A draft can already have a client link or a payment link, which were
+	// checked when they were made. Client numbers that do not check out are
+	// refused here, so an edit can never put them in front of the client.
+	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 {
+		return &model.RequisitesError{Client: true, Fields: bad}
+	}
 	current, err := s.reader.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: request.TeamID, InvoiceID: request.InvoiceID})
 	if err != nil {
 		return fmt.Errorf("load invoice for edit: %w", err)

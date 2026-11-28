@@ -56,6 +56,15 @@ describe("requisites", () => {
     expect(invalidRequisites(fields)).toEqual([])
   })
 
+  it("reads a sole trader's pair with no КПП", () => {
+    for (const text of ["ИП Иванов, ИНН/КПП 500100732259/", "ИП Иванов, ИНН/КПП 500100732259 / -"]) {
+      const { fields } = parseRequisites(text)
+      expect(fields.inn).toBe("500100732259")
+      expect(fields.kpp).toBe("")
+      expect(invalidRequisites(fields)).toEqual([])
+    }
+  })
+
   it("never drops a second number of the same kind", () => {
     const { fields, rest } = parseRequisites("ООО Ромашка\nИНН 7707083893\nИНН 500100732259 (учредитель)")
     expect(fields.inn).toBe("7707083893")

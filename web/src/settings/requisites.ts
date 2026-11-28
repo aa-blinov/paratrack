@@ -43,10 +43,11 @@ export function parseRequisites(text: string): { fields: RfFields; rest: string[
     let left = line
     // "ИНН/КПП 7707083893/770701001", as 1C prints it: read field by field,
     // the КПП label would take the ИНН.
-    const pair = left.match(/ИНН\s*\/\s*КПП\s*[:№]?\s*(\d+)\s*\/\s*(\d+)/i)
+    // A sole trader has no КПП: 1C leaves it empty or prints a dash.
+    const pair = left.match(/ИНН\s*\/\s*КПП\s*[:№]?\s*(\d+)\s*\/\s*(\d+|-)?/i)
     if (pair) {
       if (!fields.inn) fields.inn = pair[1]
-      if (!fields.kpp) fields.kpp = pair[2]
+      if (!fields.kpp && pair[2] && pair[2] !== "-") fields.kpp = pair[2]
       left = left.replace(pair[0], " ")
     }
     for (const [key, re] of numbered) {

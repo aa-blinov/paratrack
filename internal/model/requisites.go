@@ -38,7 +38,9 @@ var requisitePatterns = []struct {
 
 // requisiteINNKPP reads the "ИНН/КПП 7707083893/770701001" pair 1C prints on
 // every invoice; read field by field, the КПП label would take the ИНН.
-var requisiteINNKPP = regexp.MustCompile(`(?i)ИНН\s*/\s*КПП\s*[:№]?\s*(\d+)\s*/\s*(\d+)`)
+// A sole trader has no КПП, and 1C leaves it empty or prints a dash:
+// "ИНН/КПП 500100732259/" or "ИНН/КПП 500100732259 / -".
+var requisiteINNKPP = regexp.MustCompile(`(?i)ИНН\s*/\s*КПП\s*[:№]?\s*(\d+)\s*/\s*(\d+|-)?`)
 
 // RequisiteProblems lists the labelled numbers in text that fail their
 // length or control-digit check, in a fixed order.
@@ -49,9 +51,11 @@ func RequisiteProblems(text string) []string {
 			if _, ok := found[RequisiteINN]; !ok {
 				found[RequisiteINN] = m[1]
 			}
-			if _, ok := found[RequisiteKPP]; !ok {
+			if _, ok := found[RequisiteKPP]; !ok && m[2] != "" && m[2] != "-" {
 				found[RequisiteKPP] = m[2]
 			}
+			// Cut out, or the КПП label would read the ИНН as a КПП.
+			line = strings.Replace(line, m[0], " ", 1)
 		}
 		for _, p := range requisitePatterns {
 			if _, ok := found[p.field]; ok {
