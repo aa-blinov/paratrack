@@ -8,6 +8,10 @@ var columnMigrations = []struct {
 	decl   string
 }{
 	{"sessions", "paused", "BIGINT NOT NULL DEFAULT 0"},
+	// A bonus or deduction a manager adds by hand ("adjustment"). It has the
+	// same shape as a salary line (no hours, no rate), so only this column
+	// tells the two apart: a percent is taken of the salary, never of a bonus.
+	{"payroll_lines", "kind", "TEXT NOT NULL DEFAULT ''"},
 	{"sessions", "paused_at", "TEXT"},
 	{"sessions", "accumulated_seconds", "BIGINT NOT NULL DEFAULT 0"},
 	{"sessions", "last_resume_at", "TEXT"},
@@ -573,10 +577,6 @@ var compatibilityStatements = []string{
 	    FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_task_comments_task ON task_comments(team_id, task_id)`,
-	// The task section is on for every workspace that chose its sections. A
-	// workspace that switched every section off keeps that choice ("none"), and
-	// one that never chose (empty) already sees everything.
-	`UPDATE teams SET modules = modules || ',tasks' WHERE modules <> '' AND modules <> 'none' AND modules NOT LIKE '%tasks%'`,
 	// A person's project line on the schedule. Hours live in schedule_entries by
 	// week; the line itself stays until someone takes it off, so a project a
 	// person is on with no hours yet does not vanish on reload.

@@ -14,6 +14,7 @@ var (
 	ErrSessionInvoiceLocked    = errors.New("session belongs to a sent or paid invoice")
 	ErrInvoiceNotDraft         = errors.New("invoice is no longer a draft")
 	ErrInvoiceNotPayable       = errors.New("invoice is not waiting for payment")
+	ErrInvoiceTotal            = errors.New("invoice total cannot be negative")
 	ErrPaymentAmount           = errors.New("payment must be above zero and not more than what is still owed")
 	ErrPaymentDate             = errors.New("payment day must be a date")
 	ErrTokenInvalid            = errors.New("api token invalid")

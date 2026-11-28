@@ -457,12 +457,14 @@ func runRemote(rt *Runtime, cmd string, args []string) (handled bool, err error)
 			if err != nil {
 				return true, err
 			}
-			focusTarget = strconv.FormatInt(item.ID, 10)
+			// The server focuses by activity name; a session id in the path
+			// would be read as an activity called "7" and answer 404.
+			focusTarget = item.ActivityName
 		}
 		if _, _, err := rt.remoteDo(http.MethodPost, "/api/focus/"+url.PathEscape(focusTarget), nil); err != nil {
 			return true, fmt.Errorf("focus session: %w", err)
 		}
-		fmt.Fprintf(rt.Out, "✓ focused on %q\n", target)
+		fmt.Fprintf(rt.Out, "✓ focused on %q\n", focusTarget)
 		return true, nil
 
 	case "add", "a":

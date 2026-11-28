@@ -117,11 +117,17 @@ is in the Makefile.
   decisions stacked on top of each other. Note that the shadcn `Card` paints
   with a ring and not a border, so a detector that looks for `border-width`
   finds no cards at all and reports a clean sweep.
-- **The `tasks` section is appended to any workspace with an explicit set.**
-  `internal/db/schema_compat.go` runs
+- **The `tasks` section was appended once, not on every start.**
+  `migrateTasksSection` in `internal/db/migrations.go` runs
   `UPDATE teams SET modules = modules || ',tasks' WHERE modules <> '' AND modules <> 'none' AND modules NOT LIKE '%tasks%'`
-  at startup. A workspace that never chose, or that chose `none`, keeps what it
-  had.
+  through `runDataMigration`, so it applies one time. It used to sit in
+  `schema_compat.go` and run at every startup, which put Tasks back into the
+  "Студия: старт" preset after each deploy. A set chosen since then keeps its
+  shape. Do not move a data change back into the compatibility statements.
+- **A payroll adjustment is marked by `payroll_lines.kind = 'adjustment'`.**
+  A bonus and a salary line have the same shape (no hours, no rate), so the
+  kind is the only thing that tells them apart: a percent is taken of what is
+  not an adjustment, and only an adjustment can be deleted.
 - **The architecture check rejects history in names.** A Go file named
   `wave<N>`, an e2e file named `wave<N>`, or a test called `TestXxxWaveN` fails
   the build. The same check rejects gofmt-unformatted files, inline event

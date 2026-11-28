@@ -39,7 +39,13 @@ type PayrollLine struct {
 	Seconds     int
 	RateCents   int
 	AmountCents int
+	// Kind is PayrollLineAdjustment for a hand-added bonus or deduction and
+	// empty for priced time or a salary.
+	Kind string
 }
+
+// PayrollLineAdjustment marks a bonus or deduction a manager added to a draft run.
+const PayrollLineAdjustment = "adjustment"
 
 // Invoice is an issued billing document and its creation-time snapshots.
 // InvoicePayment is one entry of an invoice's payment journal (FIN-08). Entries

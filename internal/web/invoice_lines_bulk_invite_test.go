@@ -69,6 +69,36 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 		}
 	}
 
+	// A discount larger than the invoice is refused: two hours at 1000 make
+	// 2000, and a -5000 typed with one zero too many would go out negative.
+	tooBig := e.do("POST", invLoc+"/lines", url.Values{"label": {"Скидка"}, "amount": {"-5000"}}, nil)
+	tooBig.Body.Close()
+	if loc := tooBig.Header.Get("Location"); !strings.Contains(loc, "flash=") {
+		t.Fatalf("oversized discount: expected a flash redirect, got %q", loc)
+	}
+	detail = reactData[invoiceDetailPage](t, readBody(t, e.do("GET", invLoc, nil, nil)))
+	for _, l := range detail.Inv.Lines {
+		if l.Label == "Скидка" {
+			t.Fatalf("oversized discount was added: %+v", detail.Inv.Lines)
+		}
+	}
+
+	// A draft with a negative total cannot be sent, however its lines got
+	// there.
+	invID := strings.TrimPrefix(invLoc, "/invoices/")
+	if _, err := e.db.TestSQL().ExecContext(t.Context(),
+		`INSERT INTO invoice_lines (invoice_id, label, detail, seconds, rate_cents, amount_cents) VALUES (?, 'Скидка', '', 0, 0, -1000000)`, invID); err != nil {
+		t.Fatal(err)
+	}
+	e.do("POST", invLoc+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
+	var status string
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT status FROM invoices WHERE id = ?`, invID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "draft" {
+		t.Fatalf("an invoice with a negative total was sent: status %q", status)
+	}
+
 	// Bulk invites.
 	bulkResp := e.do("POST", "/api/team/invites", url.Values{"emails": {"a@studio.test\nb@studio.test, invalid-email"}}, nil)
 	bulkResp.Body.Close()

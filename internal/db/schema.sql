@@ -275,6 +275,7 @@ CREATE TABLE IF NOT EXISTS payroll_lines (
     seconds BIGINT NOT NULL DEFAULT 0,
     rate_cents BIGINT NOT NULL DEFAULT 0,
     amount_cents BIGINT NOT NULL DEFAULT 0,
+    kind TEXT NOT NULL DEFAULT '',
     FOREIGN KEY (run_id) REFERENCES payroll_runs(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

@@ -99,6 +99,7 @@ var (
 	ErrAlreadyBilled               = model.ErrAlreadyBilled
 	ErrMixedCurrency               = model.ErrMixedCurrency
 	ErrInvoiceNotDraft             = model.ErrInvoiceNotDraft
+	ErrInvoiceTotal                = model.ErrInvoiceTotal
 	ErrStripeSessionMismatch       = model.ErrStripeSessionMismatch
 	ErrStripeSessionPending        = model.ErrStripeSessionPending
 	ErrInvalidInvoice              = errors.New("invalid invoice transition request")

@@ -233,8 +233,8 @@ func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end tim
 // salaryOverlapsTx lists the runs that already paid a salary line to a member
 // who is still salaried (or left with a salary) and whose period touches any
 // calendar month the new run covers. A salary line is the one with no hours
-// and no rate: hourly lines always carry a positive rate, so the shape is
-// unambiguous.
+// and no rate that is not a hand-added adjustment: hourly lines always carry
+// a positive rate, and a bonus carries kind = 'adjustment'.
 func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time, userFilter map[int64]bool) ([]PayrollRun, error) {
 	first := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
 	last := end.Add(-time.Nanosecond)
@@ -246,7 +246,7 @@ func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time
 		 WHERE team_id = ? AND period_start < ? AND ? < period_end
 		   AND id IN (
 		       SELECT DISTINCT l.run_id FROM payroll_lines l
-		        WHERE l.seconds = 0 AND l.rate_cents = 0 AND l.amount_cents > 0
+		        WHERE l.seconds = 0 AND l.rate_cents = 0 AND l.amount_cents > 0 AND l.kind <> 'adjustment'
 		          AND EXISTS (
 		              SELECT 1 FROM memberships m
 		               WHERE m.team_id = payroll_runs.team_id AND m.user_id = l.user_id

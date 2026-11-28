@@ -41,7 +41,7 @@ func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRu
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT r.id, r.team_id, r.number, r.period_start, r.period_end, r.status, r.notes,
 		        COALESCE(NULLIF(r.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = r.team_id), 'RUB'), r.created_at,
-		        l.id, l.run_id, l.user_id, l.label, l.seconds, l.rate_cents, l.amount_cents
+		        l.id, l.run_id, l.user_id, l.label, l.seconds, l.rate_cents, l.amount_cents, l.kind
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ?
@@ -60,10 +60,10 @@ func scanPayrollRunDetails(rows *sql.Rows) ([]appmodel.PayrollRunDetails, error)
 		var run model.PayrollRun
 		var periodStart, periodEnd, createdAt string
 		var lineID, lineRunID, userID, seconds, rate, amount sql.NullInt64
-		var label sql.NullString
+		var label, kind sql.NullString
 		if err := rows.Scan(&run.ID, &run.TeamID, &run.Number, &periodStart, &periodEnd, &run.Status,
 			&run.Notes, &run.Currency, &createdAt, &lineID, &lineRunID, &userID, &label,
-			&seconds, &rate, &amount); err != nil {
+			&seconds, &rate, &amount, &kind); err != nil {
 			return nil, err
 		}
 		if _, ok := byID[run.ID]; !ok {
@@ -85,6 +85,7 @@ func scanPayrollRunDetails(rows *sql.Rows) ([]appmodel.PayrollRunDetails, error)
 			out[item].Lines = append(out[item].Lines, model.PayrollLine{
 				ID: lineID.Int64, RunID: lineRunID.Int64, UserID: userID.Int64,
 				Label: label.String, Seconds: int(seconds.Int64), RateCents: int(rate.Int64), AmountCents: int(amount.Int64),
+				Kind: kind.String,
 			})
 		}
 	}
@@ -99,7 +100,7 @@ func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRun
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT r.id, r.team_id, r.number, r.period_start, r.period_end, r.status, r.notes,
 	        COALESCE(NULLIF(r.currency, ''), (SELECT t.currency FROM teams t WHERE t.id = r.team_id), 'RUB'), r.created_at,
-	        l.id, l.run_id, l.user_id, l.label, l.seconds, l.rate_cents, l.amount_cents
+	        l.id, l.run_id, l.user_id, l.label, l.seconds, l.rate_cents, l.amount_cents, l.kind
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ? AND r.id = ?

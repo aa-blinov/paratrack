@@ -154,7 +154,8 @@ Deliberately not true, and worth knowing before a change:
   same members. Draft pay runs can include one-off bonus or deduction
   adjustments per member, as an amount or as a percent of what the member
   earned in the run. A draft invoice takes manual one-off lines and discounts
-  without touching the sessions.
+  without touching the sessions; a discount cannot take the total below
+  zero, and an invoice with a negative total cannot be sent.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.

@@ -375,7 +375,7 @@ func (s *Server) mcpMoneyErrorText(c mcpCall, err error) (string, bool) {
 		return i18n.T(c.lang, "flash.msg.no billable time in that period"), true
 	case errors.Is(err, model.ErrMixedCurrency):
 		return i18n.T(c.lang, "flash.msg.mixed currency"), true
-	case errors.Is(err, model.ErrAlreadyBilled), errors.Is(err, model.ErrInvoiceNotDraft), errors.Is(err, model.ErrInvoiceChanged):
+	case errors.Is(err, model.ErrAlreadyBilled), errors.Is(err, model.ErrInvoiceNotDraft), errors.Is(err, model.ErrInvoiceChanged), errors.Is(err, model.ErrInvoiceTotal):
 		return s.invoiceErrorMessage(c.req, err), true
 	case errors.Is(err, model.ErrPaymentAmount):
 		return i18n.T(c.lang, "inv.paymentTooMuch"), true

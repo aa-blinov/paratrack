@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
@@ -72,6 +73,13 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 		t.Fatalf("expected overlap with run1, got err=%v overlaps=%+v", err, overlaps)
 	}
 
+	// A fixed bonus first: the percent below must not be taken of it.
+	if err := d.AddPayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentRequest{
+		TeamID: teamID, RunID: run2.ID, CallerID: ownerID, UserID: dev2ID,
+		Label: "Премия", AmountCents: 50000,
+	}); err != nil {
+		t.Fatalf("fixed adjustment: %v", err)
+	}
 	// Percent adjustment (+6% on 1h * 2000 RUB = 2000 RUB -> +120 RUB = 12000 cents).
 	if err := d.AddPayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentRequest{
 		TeamID: teamID, RunID: run2.ID, CallerID: ownerID, UserID: dev2ID,
@@ -83,10 +91,19 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(details.Lines) != 2 {
-		t.Fatalf("expected 2 lines, got %d", len(details.Lines))
+	if len(details.Lines) != 3 {
+		t.Fatalf("expected 3 lines, got %d", len(details.Lines))
 	}
-	if details.Lines[1].AmountCents != 12000 {
-		t.Fatalf("expected 12000 cents (+6%%), got %d", details.Lines[1].AmountCents)
+	if details.Lines[2].AmountCents != 12000 {
+		t.Fatalf("expected 12000 cents (+6%% of the hours, not of the bonus), got %d", details.Lines[2].AmountCents)
+	}
+	if details.Lines[0].Kind != "" || details.Lines[1].Kind != model.PayrollLineAdjustment || details.Lines[2].Kind != model.PayrollLineAdjustment {
+		t.Fatalf("unexpected kinds: %+v", details.Lines)
+	}
+	// Only an adjustment can be deleted; the priced line stays.
+	if err := d.DeletePayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentDeleteRequest{
+		TeamID: teamID, RunID: run2.ID, CallerID: ownerID, LineID: details.Lines[0].ID,
+	}); err == nil {
+		t.Fatal("a priced line was deleted as an adjustment")
 	}
 }

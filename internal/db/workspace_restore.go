@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
 )
 
 // ResolveWorkspaceEmails maps each email to the account that has it, ignoring
@@ -380,9 +381,13 @@ func (r *restorer) PayrollRun(run appmodel.ExportPayrollRun) error {
 		if err != nil {
 			return err
 		}
+		kind := line.Kind
+		if kind == "" && legacyPayrollAdjustment(line.Label, line.Seconds, line.RateCents) {
+			kind = model.PayrollLineAdjustment
+		}
 		if err := r.exec("payroll line of "+run.Number,
-			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, ?, ?, ?)`,
-			id, userID, line.Label, line.Seconds, line.RateCents, line.AmountCents); err != nil {
+			`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents, kind) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			id, userID, line.Label, line.Seconds, line.RateCents, line.AmountCents, kind); err != nil {
 			return err
 		}
 	}

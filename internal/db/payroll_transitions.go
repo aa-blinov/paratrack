@@ -135,9 +135,8 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 		var baseCents int
 		if err := tx.QueryRowContext(ctx,
 			`SELECT COALESCE(SUM(amount_cents), 0) FROM payroll_lines
-			  WHERE run_id = ? AND user_id = ?
-			    AND (seconds > 0 OR rate_cents > 0 OR (amount_cents > 0 AND label NOT LIKE '% — %'))`,
-			request.RunID, request.UserID).Scan(&baseCents); err != nil {
+			  WHERE run_id = ? AND user_id = ? AND kind <> ?`,
+			request.RunID, request.UserID, model.PayrollLineAdjustment).Scan(&baseCents); err != nil {
 			return err
 		}
 		if baseCents <= 0 {
@@ -158,8 +157,8 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 		}
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, 0, 0, ?)`,
-		request.RunID, request.UserID, label, amountCents); err != nil {
+		`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents, kind) VALUES (?, ?, ?, 0, 0, ?, ?)`,
+		request.RunID, request.UserID, label, amountCents, model.PayrollLineAdjustment); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -187,8 +186,8 @@ func (d *DB) DeletePayrollAdjustment(ctx context.Context, request appmodel.Payro
 		return model.ErrForbidden
 	}
 	res, err := tx.ExecContext(ctx,
-		`DELETE FROM payroll_lines WHERE id = ? AND run_id = ? AND seconds = 0 AND rate_cents = 0`,
-		request.LineID, request.RunID)
+		`DELETE FROM payroll_lines WHERE id = ? AND run_id = ? AND kind = ?`,
+		request.LineID, request.RunID, model.PayrollLineAdjustment)
 	if err != nil {
 		return err
 	}

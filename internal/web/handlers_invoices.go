@@ -125,6 +125,8 @@ func (s *Server) invoiceErrorMessage(r *http.Request, err error) string {
 		return "some time was already billed; reload and try again"
 	case errors.Is(err, appmodel.ErrInvoiceNotDraft):
 		return i18n.T(resolveLang(r), "inv.onlyDraft")
+	case errors.Is(err, appmodel.ErrInvoiceTotal):
+		return i18n.T(resolveLang(r), "inv.totalNotPositive")
 	case errors.Is(err, appmodel.ErrInvalidClient), errors.Is(err, appmodel.ErrInvalidPaymentLink),
 		errors.Is(err, appmodel.ErrInvalidReceipt), errors.Is(err, appmodel.ErrInvalidInvoice),
 		errors.Is(err, appmodel.ErrHistoryConfirmationRequired):

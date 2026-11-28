@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
 import { SettingsNav, settingsTitle } from "@/settings/settings-nav"
+import { buildRequisites, invalidRequisites, parseRequisites, type RfField, type RfFields } from "@/settings/requisites"
 import type { TeamSettingsData } from "@/dashboard/types"
 
 export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
@@ -27,35 +28,12 @@ export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
   // is shown there, not at the top the page has scrolled away from.
   const savedCard = money && data.Flash ? location.hash.slice(1) : ""
   const [reqText, setReqText] = useState(data.Requisites ?? "")
-  const [rfOrg, setRfOrg] = useState("")
-  const [rfINN, setRfINN] = useState("")
-  const [rfKPP, setRfKPP] = useState("")
-  const [rfOGRN, setRfOGRN] = useState("")
-  const [rfBank, setRfBank] = useState("")
-  const [rfBIK, setRfBIK] = useState("")
-  const [rfCorr, setRfCorr] = useState("")
-  const [rfAcc, setRfAcc] = useState("")
-  const [rfContract, setRfContract] = useState("")
-  const applyRfTemplate = () => {
-    const lines: string[] = []
-    if (rfOrg.trim()) lines.push(rfOrg.trim())
-    const ids = [
-      rfINN.trim() ? `ИНН ${rfINN.trim()}` : "",
-      rfKPP.trim() ? `КПП ${rfKPP.trim()}` : "",
-      rfOGRN.trim() ? `ОГРН/ОГРНИП ${rfOGRN.trim()}` : "",
-    ].filter(Boolean)
-    if (ids.length) lines.push(ids.join(", "))
-    if (rfAcc.trim() || rfBank.trim()) {
-      lines.push([rfAcc.trim() ? `р/с ${rfAcc.trim()}` : "", rfBank.trim() ? `в ${rfBank.trim()}` : ""].filter(Boolean).join(" "))
-    }
-    const bankIds = [
-      rfBIK.trim() ? `БИК ${rfBIK.trim()}` : "",
-      rfCorr.trim() ? `к/с ${rfCorr.trim()}` : "",
-    ].filter(Boolean)
-    if (bankIds.length) lines.push(bankIds.join(", "))
-    if (rfContract.trim()) lines.push(rfContract.trim())
-    if (lines.length) setReqText(lines.join("\n"))
-  }
+  const [rf, setRf] = useState<RfFields>(() => parseRequisites(data.Requisites ?? "").fields)
+  const rfBad = invalidRequisites(rf)
+  const rfInput = (key: RfField, placeholder: string) => <div className="grid gap-1"><Input placeholder={placeholder} aria-label={placeholder} aria-invalid={rfBad.includes(key) || undefined} value={rf[key]} onChange={e => setRf(prev => ({ ...prev, [key]: e.target.value }))} />{rfBad.includes(key) && <p className="text-xs text-destructive">{t(lang, "team.rfInvalid")}</p>}</div>
+  // The text is re-read at the moment of applying, so a line typed into the
+  // textarea by hand (an address, a phone) survives the builder.
+  const applyRfTemplate = () => setReqText(buildRequisites(rf, parseRequisites(reqText).rest))
   // The page is drawn by the client after the redirect, so the browser never
   // scrolled to #stripe: the answer sat 1000px below an empty top.
   useEffect(() => {
@@ -78,17 +56,17 @@ export function TeamSettingsPage({ data }: { data: TeamSettingsData }) {
         <details className="rounded-md border border-border p-3 text-sm">
           <summary className="cursor-pointer font-medium">{t(lang, "team.reqBuilderTitle")}</summary>
           <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-            <Input placeholder={t(lang, "team.rfOrgPh")} value={rfOrg} onChange={e => setRfOrg(e.target.value)} />
-            <Input placeholder="ИНН" value={rfINN} onChange={e => setRfINN(e.target.value)} />
-            <Input placeholder="КПП (для ООО)" value={rfKPP} onChange={e => setRfKPP(e.target.value)} />
-            <Input placeholder="ОГРН / ОГРНИП" value={rfOGRN} onChange={e => setRfOGRN(e.target.value)} />
-            <Input placeholder="Банк" value={rfBank} onChange={e => setRfBank(e.target.value)} />
-            <Input placeholder="БИК" value={rfBIK} onChange={e => setRfBIK(e.target.value)} />
-            <Input placeholder="Корр. счёт (к/с)" value={rfCorr} onChange={e => setRfCorr(e.target.value)} />
-            <Input placeholder="Расчётный счёт (р/с)" value={rfAcc} onChange={e => setRfAcc(e.target.value)} />
-            <Input placeholder={t(lang, "team.rfContractPh")} value={rfContract} onChange={e => setRfContract(e.target.value)} />
+            {rfInput("org", t(lang, "team.rfOrgPh"))}
+            {rfInput("inn", t(lang, "team.rfInn"))}
+            {rfInput("kpp", t(lang, "team.rfKpp"))}
+            {rfInput("ogrn", t(lang, "team.rfOgrn"))}
+            {rfInput("bank", t(lang, "team.rfBank"))}
+            {rfInput("bik", t(lang, "team.rfBik"))}
+            {rfInput("corr", t(lang, "team.rfCorr"))}
+            {rfInput("acc", t(lang, "team.rfAcc"))}
+            {rfInput("contract", t(lang, "team.rfContractPh"))}
           </div>
-          <Button type="button" size="sm" variant="outline" className="mt-3" onClick={applyRfTemplate}>{t(lang, "team.reqBuilderApply")}</Button>
+          <Button type="button" size="sm" variant="outline" className="mt-3" onClick={applyRfTemplate} disabled={rfBad.length > 0}>{t(lang, "team.reqBuilderApply")}</Button>
         </details>
         <form method="post" action="/api/team/requisites" className="grid gap-3"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><div className="grid gap-1.5"><Label htmlFor="requisites-text">{t(lang, "team.reqLabel")}</Label><Textarea id="requisites-text" name="requisites" rows={6} maxLength={2000} className="font-mono text-sm" placeholder={t(lang, "team.reqPh")} value={reqText} onChange={e => setReqText(e.target.value)} /></div><div className="grid gap-1.5"><Label htmlFor="vat-rate">{t(lang, "team.vatRateLabel")}</Label><Input id="vat-rate" name="vat_rate" type="number" min={0} max={100} step={1} defaultValue={data.VATRate} className="w-32" /><p className="text-xs text-muted-foreground">{t(lang, "team.vatRateHint")}</p></div><div className="grid gap-1.5"><Label htmlFor="vat-note">{t(lang, "team.vatLabel")}</Label><Input id="vat-note" name="vat_note" maxLength={200} defaultValue={data.VATNote} placeholder={t(lang, "team.vatPh")} /></div><label className="flex min-h-11 cursor-pointer items-start gap-2 text-sm"><Checkbox name="hide_executor" value="1" defaultChecked={data.HideExecutorNames} className="mt-0.5" /><span className="grid gap-0.5"><span>{t(lang, "team.hideExecutorLabel")}</span><span className="text-xs text-muted-foreground">{t(lang, "team.hideExecutorHint")}</span></span></label><Button type="submit" className="w-fit">{t(lang, "profile.save")}</Button></form></div></CardContent></Card>
       <Card id="logo" className="scroll-mt-20"><CardHeader><CardTitle>{t(lang, "bill.logo")}</CardTitle>{cardFlash("logo")}</CardHeader><CardContent>

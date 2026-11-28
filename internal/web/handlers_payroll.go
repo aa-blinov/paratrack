@@ -318,7 +318,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	vms := make([]payrollLineVM, 0, len(lines))
 	for _, l := range lines {
-		isAdj := l.Seconds == 0 && l.RateCents == 0
+		isAdj := l.Kind == model.PayrollLineAdjustment
 		hours := fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds))
 		rate := moneyL(resolveLang(r), l.RateCents, run.Currency)
 		var lineDays []payrollDayVM

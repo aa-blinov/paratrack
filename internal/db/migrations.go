@@ -353,3 +353,37 @@ func (d *DB) migratePersonalTeamNames(ctx context.Context) error {
 	})
 	return err
 }
+
+// migrateTasksSection turns the tasks section on, once, for every workspace
+// that had already picked its sections when the section shipped. It used to
+// run on every start, so a workspace that later chose a set without tasks
+// (the "Studio: start" preset) had it switched back on by the next deploy.
+// A workspace that switched every section off ("none") or never chose (empty,
+// which already shows everything) is left alone.
+func (d *DB) migrateTasksSection(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "tasks section for chosen sets", func(tx *Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE teams SET modules = modules || ',tasks' WHERE modules <> '' AND modules <> 'none' AND modules NOT LIKE '%tasks%'`)
+		return err
+	})
+	return err
+}
+
+// migratePayrollAdjustmentKind marks the bonuses and deductions added before
+// payroll lines carried a kind. They were told apart from a salary line only
+// by the " — " their label is built with, which is the one signal there is.
+func (d *DB) migratePayrollAdjustmentKind(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "payroll adjustment kind", func(tx *Tx) error {
+		_, err := tx.ExecContext(ctx,
+			`UPDATE payroll_lines SET kind = ? WHERE kind = '' AND seconds = 0 AND rate_cents = 0 AND label LIKE '% — %'`,
+			model.PayrollLineAdjustment)
+		return err
+	})
+	return err
+}
+
+// legacyPayrollAdjustment recognises an adjustment in a workspace file written
+// before payroll lines carried a kind, by the same signal the migration uses.
+func legacyPayrollAdjustment(label string, seconds, rateCents int64) bool {
+	return seconds == 0 && rateCents == 0 && strings.Contains(label, " — ")
+}

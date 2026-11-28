@@ -126,6 +126,8 @@ func openContext(ctx context.Context, url, secretKey string, logger *log.Logger,
 		{"lead first responses", func() error { return d.migrateLeadFirstResponses(ctx) }},
 		{"crm stage times", func() error { return d.migrateCRMStageTimes(ctx) }},
 		{"canonical timestamps", func() error { return d.migrateCanonicalTimestamps(ctx) }},
+		{"tasks section", func() error { return d.migrateTasksSection(ctx) }},
+		{"payroll adjustment kind", func() error { return d.migratePayrollAdjustmentKind(ctx) }},
 		{"purge idempotency keys", func() error { return d.PurgeStaleIdempotencyKeys(ctx) }},
 	}
 	closeAfterStartupFailure := func(primary error) error {

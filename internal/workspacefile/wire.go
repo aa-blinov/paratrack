@@ -179,6 +179,7 @@ type ExportPayrollLine struct {
 	Seconds     int64  `json:"seconds"`
 	RateCents   int64  `json:"rate_cents"`
 	AmountCents int64  `json:"amount_cents"`
+	Kind        string `json:"kind,omitempty"`
 }
 
 type ExportSchedule struct {
@@ -619,6 +620,7 @@ func encodeExportPayrollLine(v appmodel.ExportPayrollLine) ExportPayrollLine {
 	out.Seconds = v.Seconds
 	out.RateCents = v.RateCents
 	out.AmountCents = v.AmountCents
+	out.Kind = v.Kind
 	return out
 }
 
@@ -629,6 +631,7 @@ func decodeExportPayrollLine(v ExportPayrollLine) appmodel.ExportPayrollLine {
 	out.Seconds = v.Seconds
 	out.RateCents = v.RateCents
 	out.AmountCents = v.AmountCents
+	out.Kind = v.Kind
 	return out
 }
 
