@@ -15,4 +15,7 @@ type UserPreferences struct {
 	// Language is the UI language the person last used in a browser session, so
 	// a letter the app sends them is written in it. "" means not known yet.
 	Language string
+	// LongTimerHours is when a running timer is worth a reminder that it may
+	// have been forgotten: nil is the default (4 hours), 0 turns it off.
+	LongTimerHours *int
 }

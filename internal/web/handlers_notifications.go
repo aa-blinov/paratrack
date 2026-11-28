@@ -57,6 +57,7 @@ var selectableNotificationTopics = []struct {
 	{appmodel.NotificationTopicTaskWatch, "push.evWatch"},
 	{appmodel.NotificationTopicCRMNextStep, "push.ev8"},
 	{appmodel.NotificationTopicDayFill, "push.evDayFill"},
+	{appmodel.NotificationTopicLongTimer, "push.evLongTimer"},
 }
 
 // notificationTopicViews applies the caller's selection to the selectable

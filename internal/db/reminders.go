@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -215,4 +216,56 @@ func prefsZone(raw string) string {
 		return ""
 	}
 	return prefs.TZ
+}
+
+// RunningSessions lists the timers running now, each with its owner's
+// long-timer threshold in hours (4 unless they chose otherwise, 0 is off).
+func (d *DB) RunningSessions(ctx context.Context) ([]appmodel.RunningSession, error) {
+	var out []appmodel.RunningSession
+	err := queryRows(ctx, d.sql, "running sessions",
+		`SELECT s.team_id, s.user_id, s.id, a.name, s.start_at, COALESCE(s.last_resume_at, ''), COALESCE(s.accumulated_seconds, 0),
+		        COALESCE((NULLIF(u.prefs, '')::jsonb ->> 'long_timer_hours')::int, 4)
+		   FROM sessions s
+		   JOIN activities a ON a.id = s.activity_id
+		   JOIN users u ON u.id = s.user_id
+		  WHERE s.end_at IS NULL AND s.paused = 0
+		    AND NOT EXISTS (SELECT 1 FROM long_timer_reminders r WHERE r.session_id = s.id)
+		  ORDER BY s.id`,
+		func(rows *sql.Rows) error {
+			var r appmodel.RunningSession
+			var start, resume string
+			if err := rows.Scan(&r.TeamID, &r.UserID, &r.SessionID, &r.Activity, &start, &resume, &r.Accumulated, &r.ThresholdHours); err != nil {
+				return err
+			}
+			var err error
+			if r.StartAt, err = ScanTime(start); err != nil {
+				return err
+			}
+			if resume != "" {
+				at, err := ScanTime(resume)
+				if err != nil {
+					return err
+				}
+				r.LastResumeAt = &at
+			}
+			out = append(out, r)
+			return nil
+		})
+	return out, err
+}
+
+// ClaimLongTimerNotice records the one long-timer reminder a session gets.
+func (d *DB) ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTimerNoticeRequest) (bool, error) {
+	sessionID := request.SessionID
+	result, err := d.sql.ExecContext(ctx,
+		`INSERT INTO long_timer_reminders (session_id, created_at) VALUES (?, ?) ON CONFLICT (session_id) DO NOTHING`,
+		sessionID, FormatTime(d.currentTime().UTC()))
+	if err != nil {
+		return false, fmt.Errorf("claim long timer notice: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
 }

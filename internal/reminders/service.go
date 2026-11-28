@@ -16,10 +16,11 @@ import (
 
 // Topic keys: a person who switched a topic off is skipped by the sender.
 const (
-	TopicDeadline = "project.deadline"
-	TopicOverload = "schedule.overload"
-	TopicTaskDue  = "task.due"
-	TopicDayFill  = appmodel.NotificationTopicDayFill
+	TopicDeadline  = "project.deadline"
+	TopicOverload  = "schedule.overload"
+	TopicTaskDue   = "task.due"
+	TopicDayFill   = appmodel.NotificationTopicDayFill
+	TopicLongTimer = appmodel.NotificationTopicLongTimer
 	// TopicCRMNextStep is the topic a person switches off for next-step reminders.
 	TopicCRMNextStep = appmodel.NotificationTopicCRMNextStep
 )
@@ -38,6 +39,8 @@ type Store interface {
 	ClaimCRMReminder(ctx context.Context, claim appmodel.CRMReminderClaimRequest) (bool, error)
 	DayFillCandidates(ctx context.Context, query appmodel.DayFillCandidatesQuery) ([]int64, error)
 	ClaimDayFillNotice(ctx context.Context, request appmodel.DayFillNoticeRequest) (bool, error)
+	RunningSessions(ctx context.Context) ([]appmodel.RunningSession, error)
+	ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTimerNoticeRequest) (bool, error)
 	TeamLocation(ctx context.Context, teamID int64) (*time.Location, error)
 	// UserTimeZones reads the hand-set zone of each named member ("tz" of their
 	// preferences, empty when they never chose). The night gate needs it for
@@ -211,6 +214,7 @@ func (s *Service) Pass(ctx context.Context) error {
 		{"overload reminders", s.overloads},
 		{"crm next step reminders", s.crmSteps},
 		{"day fill reminders", s.dayFill},
+		{"long timer reminders", s.longTimers},
 	}
 	var errs []error
 	for _, section := range sections {
@@ -477,4 +481,55 @@ func contains(ids []int64, id int64) bool {
 		}
 	}
 	return false
+}
+
+// longTimers tells a person, once per session, that a timer has been running
+// longer than they set (four hours unless they chose otherwise): a timer left
+// on overnight otherwise turns into hours nobody worked, found the next day.
+// At night it waits, unclaimed, for the person's morning.
+func (s *Service) longTimers(ctx context.Context, now time.Time) error {
+	sessions, err := s.store.RunningSessions(ctx)
+	if err != nil {
+		return err
+	}
+	for _, r := range sessions {
+		if r.ThresholdHours <= 0 {
+			continue
+		}
+		seconds := r.Accumulated
+		if r.LastResumeAt != nil && now.After(*r.LastResumeAt) {
+			seconds += int(now.Sub(*r.LastResumeAt) / time.Second)
+		}
+		if seconds < r.ThresholdHours*3600 {
+			continue
+		}
+		loc, err := s.store.TeamLocation(ctx, r.TeamID)
+		if err != nil {
+			return err
+		}
+		night, err := s.nightOnes(ctx, loc, []int64{r.UserID}, now)
+		if err != nil {
+			return err
+		}
+		if night[r.UserID] {
+			continue
+		}
+		claimed, err := s.store.ClaimLongTimerNotice(ctx, appmodel.LongTimerNoticeRequest{SessionID: r.SessionID})
+		if err != nil {
+			return err
+		}
+		if !claimed {
+			continue
+		}
+		hours := seconds / 3600
+		if err := s.sender.Send(ctx, Notification{
+			TeamID: r.TeamID, UserIDs: []int64{r.UserID}, Topic: TopicLongTimer,
+			Title: fmt.Sprintf("Таймер идёт уже %d ч", hours),
+			Body:  fmt.Sprintf("«%s» всё ещё идёт. Если вы его забыли, остановите и поправьте время.", r.Activity),
+			URL:   "/",
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }

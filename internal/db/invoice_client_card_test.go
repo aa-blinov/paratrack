@@ -159,3 +159,54 @@ func TestDayFillSkipsAbsencesAndHolidays(t *testing.T) {
 		t.Fatalf("after the move: %d marks, %d absences", marks, absences)
 	}
 }
+
+// Running timers come with their owner's threshold: 4 hours by default, the
+// person's own when set, and a reminded session is not listed again.
+func TestRunningSessionsCarryTheThreshold(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Таймеры", "long-timers")
+	ownerID := teamOwner(t, d, teamID)
+	setID := seedApprovalUser(t, d, "long-set@test.local")
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET prefs = '{"long_timer_hours":2,"duration":"hm"}' WHERE id = ?`, setID); err != nil {
+		t.Fatal(err)
+	}
+	var actID int64
+	if err := d.TestSQL().QueryRowContext(ctx, `INSERT INTO activities (name, team_id) VALUES ('Код', ?) RETURNING id`, teamID).Scan(&actID); err != nil {
+		t.Fatal(err)
+	}
+	ids := map[int64]int64{}
+	for _, uid := range []int64{ownerID, setID} {
+		var id int64
+		if err := d.TestSQL().QueryRowContext(ctx,
+			`INSERT INTO sessions (activity_id, team_id, user_id, start_at, last_resume_at) VALUES (?, ?, ?, '2026-11-11T08:00:00Z', '2026-11-11T08:00:00Z') RETURNING id`,
+			actID, teamID, uid).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ids[uid] = id
+	}
+	running, err := d.RunningSessions(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	threshold := map[int64]int{}
+	for _, r := range running {
+		if r.TeamID == teamID {
+			threshold[r.UserID] = r.ThresholdHours
+		}
+	}
+	if threshold[ownerID] != 4 || threshold[setID] != 2 {
+		t.Fatalf("thresholds: %v", threshold)
+	}
+	if ok, err := d.ClaimLongTimerNotice(ctx, appmodel.LongTimerNoticeRequest{SessionID: ids[setID]}); err != nil || !ok {
+		t.Fatalf("claim: %v %v", ok, err)
+	}
+	if running, err = d.RunningSessions(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range running {
+		if r.SessionID == ids[setID] {
+			t.Fatal("a reminded session is listed again")
+		}
+	}
+}

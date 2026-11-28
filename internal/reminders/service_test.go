@@ -24,6 +24,31 @@ type fakeStore struct {
 	zone      *time.Location
 	// userZones holds the hand-set zone of each member; empty means they never chose.
 	userZones map[int64]string
+	// running are the timers running now; longClaims keys the sessions reminded.
+	running    []appmodel.RunningSession
+	longClaims map[int64]bool
+}
+
+func (f *fakeStore) RunningSessions(context.Context) ([]appmodel.RunningSession, error) {
+	var out []appmodel.RunningSession
+	for _, r := range f.running {
+		if !f.longClaims[r.SessionID] {
+			out = append(out, r)
+		}
+	}
+	return out, nil
+}
+
+func (f *fakeStore) ClaimLongTimerNotice(_ context.Context, request appmodel.LongTimerNoticeRequest) (bool, error) {
+	sessionID := request.SessionID
+	if f.longClaims == nil {
+		f.longClaims = map[int64]bool{}
+	}
+	if f.longClaims[sessionID] {
+		return false, nil
+	}
+	f.longClaims[sessionID] = true
+	return true, nil
 }
 
 func (f *fakeStore) ProjectsDueBetween(_ context.Context, _, _ string) ([]appmodel.DueProject, error) {
@@ -337,5 +362,52 @@ func TestNightGateKeepsPushUntilTheRecipientsMorning(t *testing.T) {
 	}
 	if len(store.reminded) != 2 {
 		t.Fatalf("both deadlines reminded: %v", store.reminded)
+	}
+}
+
+// A timer running past its owner's threshold gets one reminder; under the
+// threshold, or with the reminder turned off (0), it gets none; at night the
+// reminder waits for the morning.
+func TestLongTimerReminder(t *testing.T) {
+	now := time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC) // Wed 15:00, workspace zone UTC
+	at := func(hoursAgo int) *time.Time { v := now.Add(-time.Duration(hoursAgo) * time.Hour); return &v }
+	store := &fakeStore{teams: []int64{1}, claimed: map[string]bool{}, running: []appmodel.RunningSession{
+		{TeamID: 1, UserID: 5, SessionID: 51, Activity: "Вёрстка", LastResumeAt: at(5), ThresholdHours: 4},
+		{TeamID: 1, UserID: 6, SessionID: 61, Activity: "Созвон", LastResumeAt: at(3), ThresholdHours: 4},
+		{TeamID: 1, UserID: 7, SessionID: 71, Activity: "Чтение", LastResumeAt: at(9), ThresholdHours: 0},
+		{TeamID: 1, UserID: 8, SessionID: 81, Activity: "Пауза", LastResumeAt: at(1), Accumulated: 5 * 3600, ThresholdHours: 4},
+	}}
+	rec := &recorder{}
+	service, err := New(Dependencies{Store: store, Planner: fakePlanner{}, Sender: rec, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := service.Pass(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var long []Notification
+	for _, n := range rec.sent {
+		if n.Topic == TopicLongTimer {
+			long = append(long, n)
+		}
+	}
+	if len(long) != 2 || long[0].UserIDs[0] != 5 || long[1].UserIDs[0] != 8 {
+		t.Fatalf("long timer reminders: %+v, want members 5 and 8", long)
+	}
+	if !strings.Contains(long[0].Title, "5 ч") || !strings.Contains(long[0].Body, "Вёрстка") {
+		t.Fatalf("reminder text: %+v", long[0])
+	}
+	if err := service.Pass(ctx); err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, n := range rec.sent {
+		if n.Topic == TopicLongTimer {
+			count++
+		}
+	}
+	if count != 2 {
+		t.Fatalf("a second pass reminded again: %d", count)
 	}
 }

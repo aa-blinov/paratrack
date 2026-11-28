@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/i18n"
@@ -236,6 +237,12 @@ func (s *Server) handleAPIPreferences(w http.ResponseWriter, r *http.Request) {
 	for _, k := range widgetKeys {
 		if !has(f["widgets"], k) {
 			p.HiddenWidgets = append(p.HiddenWidgets, k)
+		}
+	}
+	p.LongTimerHours = nil
+	if raw := strings.TrimSpace(f.Get("long_timer_hours")); raw != "" {
+		if hours, err := strconv.Atoi(raw); err == nil && hours >= 0 && hours <= 24 {
+			p.LongTimerHours = &hours
 		}
 	}
 	tid := strconv.FormatInt(teamID(r), 10)

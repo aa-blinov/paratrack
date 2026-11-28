@@ -919,7 +919,7 @@ export interface PreferencesData {
   Sections: Array<{ Key: string; Icon: string; Label: string; On: boolean }>
   TabOpts: Array<{ Key: string; Icon: string; Label: string; On: boolean }>
   Widgets: Array<{ Key: string; Icon: string; Label: string; On: boolean }>
-  P: { Duration: string; WeekStart: string; TZ: string }
+  P: { Duration: string; WeekStart: string; TZ: string; LongTimerHours?: number | null }
   Zones: string[]
   Projects: Array<{ ID: number; Name: string }>
   DefProj: number

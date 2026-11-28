@@ -104,6 +104,10 @@ Confirmed by the code:
   seat in the workspace, and never exits with an error. The cached line
   belongs to one server and token and is not shown for another. Locally,
   without a server, `--short` keeps the same contract.
+- A timer running longer than its owner set (4 hours unless they chose
+  otherwise in the preferences, 0 turns it off) gets one push per session
+  ("timer.long", mutable like the others); at night it waits for the
+  person's morning.
 - `paratrack hook install` writes a git post-checkout hook that focuses the
   timer on the checked-out branch's last name part (letters of any alphabet,
   digits, dot, dash and underscore kept, anything else a dash; the name is

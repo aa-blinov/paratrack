@@ -6,6 +6,7 @@ import { useSaveStatus } from "@/lib/auto-save"
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { translate as t } from "@/i18n"
@@ -33,6 +34,7 @@ export function PreferencesPage({ data }: { data: PreferencesData }) {
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         <Card><CardHeader><CardTitle>{t(lang, "prefs.formats")}</CardTitle></CardHeader><CardContent className="grid gap-3">
           <div className="grid gap-1.5"><Label htmlFor="duration">{t(lang, "prefs.duration")}</Label><Select name="duration" defaultValue={data.P.Duration || "hm"}><SelectTrigger id="duration"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="hm">{t(lang, "prefs.dur.hm")}</SelectItem><SelectItem value="decimal">{t(lang, "prefs.dur.decimal")}</SelectItem><SelectItem value="clock">{t(lang, "prefs.dur.clock")}</SelectItem></SelectContent></Select></div>
+          <div className="grid gap-1.5"><Label htmlFor="long-timer">{t(lang, "prefs.longTimer")}</Label><Input id="long-timer" name="long_timer_hours" type="number" min={0} max={24} step={1} defaultValue={data.P.LongTimerHours ?? 4} className="w-24" /><p className="text-xs text-muted-foreground">{t(lang, "prefs.longTimerHint")}</p></div>
           <div className="grid gap-1.5"><Label htmlFor="week-start">{t(lang, "prefs.weekStart")}</Label><Select name="week_start" defaultValue={data.P.WeekStart === "sun" ? "sun" : "mon"}><SelectTrigger id="week-start"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="mon">{t(lang, "prefs.mon")}</SelectItem><SelectItem value="sun">{t(lang, "prefs.sun")}</SelectItem></SelectContent></Select></div>
           <div className="grid gap-1.5"><Label htmlFor="timezone">{t(lang, "prefs.tz")}</Label><Select name="tz" defaultValue={data.P.TZ || "auto"}><SelectTrigger id="timezone"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="auto">{t(lang, "prefs.tzAuto")}</SelectItem>{data.Zones.map(zone => <SelectItem key={zone} value={zone}>{zone}</SelectItem>)}</SelectContent></Select><p className="text-xs text-muted-foreground">{t(lang, "prefs.tzHint")}</p></div>
         </CardContent></Card>

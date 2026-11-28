@@ -46,6 +46,23 @@ type OverloadNoticeRequest struct {
 }
 
 // DayFillCandidatesQuery asks for the members who started no session in [From, To).
+// LongTimerNoticeRequest claims the one long-timer reminder of a session.
+type LongTimerNoticeRequest struct {
+	SessionID int64
+}
+
+// RunningSession is a timer still running, with its owner's reminder threshold.
+type RunningSession struct {
+	TeamID         int64
+	UserID         int64
+	SessionID      int64
+	Activity       string
+	StartAt        time.Time
+	LastResumeAt   *time.Time
+	Accumulated    int
+	ThresholdHours int
+}
+
 type DayFillCandidatesQuery struct {
 	TeamID int64
 	From   time.Time

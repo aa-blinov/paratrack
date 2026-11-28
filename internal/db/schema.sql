@@ -282,6 +282,13 @@ CREATE TABLE IF NOT EXISTS payroll_lines (
 );
 CREATE INDEX IF NOT EXISTS idx_payroll_lines_run ON payroll_lines(run_id);
 
+-- The one "your timer is still running" reminder a session gets.
+CREATE TABLE IF NOT EXISTS long_timer_reminders (
+    session_id BIGINT PRIMARY KEY,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+);
+
 -- A member's vacation, sick leave or day off, recorded by a manager. Kept
 -- apart from the member's own day marks (overload, idle) so that neither can
 -- overwrite or clear the other.
