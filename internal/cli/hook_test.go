@@ -55,11 +55,13 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 	if err := os.WriteFile(hook, []byte(hookScript(stub)), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	git(t, repo, "checkout", "-q", "-b", "feat/PT-123-login")
+	// A branch name is not trusted text: anything but letters, digits, dot,
+	// dash and underscore becomes a dash before it reaches the server.
+	git(t, repo, "checkout", "-q", "-b", "feat/PT-123;login")
 	var called []byte
 	// The hook runs the binary in the background; the shell creates the file
 	// before it writes to it, so wait for the content, not just the file.
-	for i := 0; i < 250; i++ {
+	for i := 0; i < 400; i++ {
 		if called, err = os.ReadFile(record); err == nil && len(called) > 0 {
 			break
 		}
@@ -88,6 +90,50 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 	if _, err := os.Stat(hook); !os.IsNotExist(err) {
 		t.Fatal("the hook is still there")
 	}
+
+	// A hook manager owns core.hooksPath: the command explains instead of
+	// writing a file into a folder that is committed or overwritten.
+	git(t, repo, "config", "core.hooksPath", ".husky")
+	if err := RunWithRuntime([]string{"hook", "install"}, rt); err == nil || !strings.Contains(err.Error(), "core.hooksPath") {
+		t.Fatalf("installed under a hook manager: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".husky", "post-checkout")); !os.IsNotExist(err) {
+		t.Fatal("a hook was written into the hook manager's folder")
+	}
+}
+
+// The bash completion offers server-supplied names as plain text: a name
+// holding $(...) is quoted, never run, and a name with a space stays one word.
+func TestBashCompletionDoesNotRunActivityNames(t *testing.T) {
+	bash, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("bash is not installed")
+	}
+	work := t.TempDir()
+	bin := t.TempDir()
+	stub := "#!/bin/sh\nif [ \"$1\" = __activities ]; then printf '%s\\n' '$(touch PWNED)' 'Code review'; fi\n"
+	if err := os.WriteFile(filepath.Join(bin, "paratrack"), []byte(stub), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	var script bytes.Buffer
+	if err := RunWithRuntime([]string{"completion", "bash"}, NewRuntime(nil, &script, &script)); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(bash, "-c", script.String()+`
+COMP_WORDS=(paratrack start ""); COMP_CWORD=2; _paratrack; printf '%s\n' "${COMPREPLY[@]}"`)
+	cmd.Dir = work
+	cmd.Env = append(os.Environ(), "PATH="+bin+":"+os.Getenv("PATH"))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("completion: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(filepath.Join(work, "PWNED")); !os.IsNotExist(err) {
+		t.Fatal("an activity name ran as a command")
+	}
+	got := strings.Split(strings.TrimSpace(string(out)), "\n")
+	if len(got) != 2 || got[0] != `\$\(touch\ PWNED\)` || got[1] != `Code\ review` {
+		t.Fatalf("offered %q", got)
+	}
 }
 
 // The completion scripts load in each shell's own syntax, and the activities
@@ -110,10 +156,16 @@ func TestCompletion(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/me" {
+			_, _ = io.WriteString(w, `{"email":"anton@studio.test"}`)
+			return
+		}
+		// A manager's token sees the studio; only the caller's own count.
 		_, _ = io.WriteString(w, `{"sessions":[
-			{"activity":"Ревью","start":"2026-11-27T10:00:00Z"},
-			{"activity":"API","start":"2026-11-28T09:00:00Z"},
-			{"activity":"Ревью","start":"2026-11-26T10:00:00Z"}]}`)
+			{"activity":"Ревью","start":"2026-11-27T10:00:00Z","user_email":"anton@studio.test"},
+			{"activity":"API","start":"2026-11-28T09:00:00Z","user_email":"anton@studio.test"},
+			{"activity":"Бухгалтерия","start":"2026-11-28T11:00:00Z","user_email":"olga@studio.test"},
+			{"activity":"Ревью","start":"2026-11-26T10:00:00Z","user_email":"anton@studio.test"}]}`)
 	}))
 	defer srv.Close()
 	rt.RemoteURL, rt.RemoteToken, rt.HTTPClient = srv.URL, "pt_x", srv.Client()

@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"sort"
 	"strings"
+	"time"
 )
 
 // completionCommands are the words the shell completes after "paratrack".
@@ -31,8 +33,13 @@ _paratrack() {
   if [ "$COMP_CWORD" -eq 1 ]; then
     COMPREPLY=($(compgen -W "%s" -- "$cur"))
   elif [ "$COMP_CWORD" -eq 2 ] && { [ "${COMP_WORDS[1]}" = start ] || [ "${COMP_WORDS[1]}" = focus ]; }; then
-    local IFS=$'\n'
-    COMPREPLY=($(compgen -W "$(paratrack __activities 2>/dev/null)" -- "$cur"))
+    # Activity names come from the server and are matched as plain text,
+    # never through compgen -W, which would expand $(...) inside a name.
+    COMPREPLY=()
+    local line
+    while IFS= read -r line; do
+      [[ $line == "$cur"* ]] && COMPREPLY+=("$(printf '%%q' "$line")")
+    done < <(paratrack __activities 2>/dev/null)
   fi
 }
 complete -F _paratrack paratrack
@@ -62,21 +69,39 @@ complete -c paratrack -f -n "__fish_seen_subcommand_from start focus" -a "(parat
 	return nil
 }
 
-// runCompletionActivities prints recent activity names, newest first, one per
-// line, for the shell to offer. Without a remote server it prints nothing:
-// completion must never block or fail a prompt.
+// completionTimeout bounds one TAB: the shell waits for this command.
+const completionTimeout = 400 * time.Millisecond
+
+// runCompletionActivities prints the caller's own recent activity names,
+// newest first, one per line, for the shell to offer. A manager's token reads
+// the whole studio's sessions, so they are filtered to the token owner. It
+// gives up after completionTimeout and prints nothing rather than block or
+// fail a prompt; without a remote server it prints nothing.
 func runCompletionActivities(rt *Runtime) error {
 	if !rt.remoteEnabled() {
 		return nil
 	}
-	_, body, err := rt.remoteDo(http.MethodGet, "/api/v1/sessions", nil)
+	ctx, cancel := context.WithTimeout(rt.Context, completionTimeout)
+	defer cancel()
+	_, meBody, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/v1/me", nil)
+	if err != nil {
+		return nil
+	}
+	var me struct {
+		Email string `json:"email"`
+	}
+	if json.Unmarshal(meBody, &me) != nil || me.Email == "" {
+		return nil
+	}
+	_, body, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/v1/sessions?limit=200", nil)
 	if err != nil {
 		return nil
 	}
 	var res struct {
 		Sessions []struct {
-			Activity string `json:"activity"`
-			Start    string `json:"start"`
+			Activity  string `json:"activity"`
+			Start     string `json:"start"`
+			UserEmail string `json:"user_email"`
 		} `json:"sessions"`
 	}
 	if json.Unmarshal(body, &res) != nil {
@@ -84,7 +109,7 @@ func runCompletionActivities(rt *Runtime) error {
 	}
 	latest := map[string]string{}
 	for _, s := range res.Sessions {
-		if s.Activity != "" && s.Start > latest[s.Activity] {
+		if s.Activity != "" && strings.EqualFold(s.UserEmail, me.Email) && s.Start > latest[s.Activity] {
 			latest[s.Activity] = s.Start
 		}
 	}
