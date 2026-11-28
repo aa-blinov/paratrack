@@ -30,8 +30,17 @@ func TestTokenWithoutMembershipIsForbiddenNotUnauthorized(t *testing.T) {
 	}
 	resp := member.do("GET", "/api/active", nil, auth)
 	body := readBody(t, resp)
-	if resp.StatusCode != http.StatusForbidden || !strings.Contains(body, "workspace membership required") {
+	if resp.StatusCode != http.StatusForbidden || !strings.Contains(body, `"error"`) {
 		t.Fatalf("a token whose owner left the workspace: %d %s, want 403", resp.StatusCode, body)
+	}
+	// Their personal workspace is still theirs.
+	var left int
+	if err := owner.db.TestSQL().QueryRowContext(t.Context(),
+		`SELECT COUNT(*) FROM memberships WHERE user_id = (SELECT id FROM users WHERE email = 'token-seat-member@x.test')`).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
+	if left != 1 {
+		t.Fatalf("the member should keep exactly their personal workspace, has %d memberships", left)
 	}
 	bogus := member.do("GET", "/api/active", nil, map[string]string{"Authorization": "Bearer pt_not_a_token"})
 	bogus.Body.Close()

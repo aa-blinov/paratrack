@@ -171,7 +171,7 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 					// The token is genuine; its owner just has no seat in
 					// that workspace any more. 403 says so: answering 401
 					// would send them to log in again, which cannot help.
-					s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "workspace membership required"})
+					s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.noWorkspaceSeat")})
 					return
 				}
 				team, role = membership.Team, membership.Role

@@ -29,15 +29,37 @@ async function api(path, opts = {}) {
     },
     credentials: "omit",
   });
-  if (res.status === 401) throw new Error("unauthorized");
-  // A token that works but has no seat in its workspace any more: say so,
-  // instead of reading the error body as "no timer running".
-  if (res.status === 403) {
-    let text = "";
-    try { text = (await res.json()).error || ""; } catch (_) {}
-    throw new Error("forbidden: " + (text || "no access to this workspace"));
+  // A refused token (401) or one with no seat in its workspace or no right
+  // to write (403) is not "server unreachable" and not "no timer": every
+  // caller shows the server's own words, through explain().
+  if (res.status === 401 || res.status === 403) {
+    throw new ApiError(res.status, await refusalText(res));
   }
   return res;
+}
+
+class ApiError extends Error {
+  constructor(status, message) {
+    super(message);
+    this.status = status;
+  }
+}
+
+// The server answers a refusal as JSON {"error": …} or as plain text.
+async function refusalText(res) {
+  let text = "";
+  try { text = (await res.text()).trim(); } catch (_) {}
+  try { const parsed = JSON.parse(text); if (parsed && parsed.error) text = parsed.error; } catch (_) {}
+  if (text) return text;
+  return res.status === 401 ? "the token is not accepted" : "no access";
+}
+
+// explain turns what a call threw into the status line: the server's reason
+// for a refusal, and "server unreachable" only when nothing answered.
+function explain(e) {
+  if (e instanceof ApiError) return e.message;
+  if (e && e.message === "no token") return "token required";
+  return "server unreachable";
 }
 
 function setStatus(msg, el) {
@@ -96,7 +118,8 @@ async function refresh() {
     $("who").textContent = (me.user && me.user.name) || "";
   } catch (e) {
     $("who").textContent = "";
-    setStatus("bad token or server unreachable");
+    clearTimer();
+    setStatus(explain(e));
     return;
   }
 
@@ -109,7 +132,7 @@ async function refresh() {
   try {
     active = await (await api("/api/active")).json();
   } catch (e) {
-    setStatus(String(e.message || "").startsWith("forbidden") ? e.message.replace(/^forbidden: /, "") : "server unreachable");
+    setStatus(explain(e));
     return;
   }
   const items = Array.isArray(active.Items) ? active.Items : [];
@@ -157,7 +180,7 @@ async function startTimer() {
     setStatus("started " + name);
     $("activity").value = "";
   } catch (e) {
-    setStatus("server unreachable");
+    setStatus(explain(e));
     return;
   }
   await refresh();
@@ -171,7 +194,7 @@ async function stopTimer() {
     if (!r.ok) { await reportApiError(r, "stop failed"); }
     else setStatus("stopped");
   } catch (e) {
-    setStatus("server unreachable");
+    setStatus(explain(e));
   }
   await refresh();
 }
@@ -183,7 +206,7 @@ async function pauseTimer() {
     const r = await api("/api/sessions/" + id + "/pause", { method: "POST" });
     if (!r.ok) await reportApiError(r, "pause failed");
   } catch (e) {
-    setStatus("server unreachable");
+    setStatus(explain(e));
   }
   await refresh();
 }
@@ -195,7 +218,7 @@ async function resumeTimer() {
     const r = await api("/api/sessions/" + id + "/resume", { method: "POST" });
     if (!r.ok) await reportApiError(r, "resume failed");
   } catch (e) {
-    setStatus("server unreachable");
+    setStatus(explain(e));
   }
   await refresh();
 }
