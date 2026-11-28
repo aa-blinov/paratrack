@@ -150,20 +150,20 @@ func TestBackfillCreatesClosedSession(t *testing.T) {
 	}
 }
 
-func TestBackfillValidationKeepsFormAndEscapesError(t *testing.T) {
+func TestBackfillValidationKeepsFormAndReturnsPlainError(t *testing.T) {
 	e := newAPIEnv(t)
 	e.register("backfill-error@x.test")
 	resp := e.do("POST", "/api/sessions/backfill", url.Values{
 		"activity": {"draft that must survive"},
 		"start":    {"<script>alert(1)</script>"},
 		"end":      {"yesterday 11:00"},
-	}, map[string]string{"HX-Request": "true"})
+	}, nil)
 	body := readBody(t, resp)
 	if resp.StatusCode != 200 || resp.Header.Get("X-Backfill-Field") != "start" || resp.Header.Get("X-Backfill-Saved") != "" {
 		t.Fatalf("invalid start should keep the form: %d headers=%v", resp.StatusCode, resp.Header)
 	}
-	if !strings.Contains(body, `id="b-start-error" hx-swap-oob="innerHTML"`) || strings.Contains(body, "<script>") || !strings.Contains(body, "&lt;script&gt;") {
-		t.Fatalf("missing or unescaped inline error: %s", body)
+	if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") || strings.Contains(body, "hx-swap-oob") || !strings.Contains(body, "<script>alert(1)</script>") {
+		t.Fatalf("expected plain text error without html/htmx markup: ct=%q body=%q", resp.Header.Get("Content-Type"), body)
 	}
 	var count int
 	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT count(*) FROM sessions`).Scan(&count); err != nil || count != 0 {

@@ -3,7 +3,6 @@ package web
 import (
 	"errors"
 	"fmt"
-	"html"
 	"net/http"
 	"strconv"
 	"strings"
@@ -19,10 +18,9 @@ import (
 const longSessionLimit = 10 * time.Hour
 
 func (s *Server) backfillError(w http.ResponseWriter, r *http.Request, field, message string) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Backfill-Field", field)
-	fmt.Fprintf(w, `<span id="b-%s-error" hx-swap-oob="innerHTML">%s</span>`, field, html.EscapeString(message))
-	s.respondActiveList(w, r)
+	_, _ = fmt.Fprint(w, message)
 }
 
 // handleBackfill creates a finished session from the dashboard form.
