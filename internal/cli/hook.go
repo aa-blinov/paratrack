@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 )
@@ -43,7 +44,7 @@ func hookScript(binary string) string {
 if [ "$3" = "1" ]; then
   ` + find + `
   [ -n "$bin" ] || bin=$(command -v paratrack 2>/dev/null) || bin=""
-  for dir in /opt/homebrew/bin /usr/local/bin "$HOME/go/bin" "$HOME/.local/bin"; do
+  for dir in /opt/homebrew/bin /usr/local/bin "$HOME/go/bin" "$HOME/.local/bin" "$HOME/.local/share/mise/shims" "$HOME/.asdf/shims"; do
     [ -n "$bin" ] || { [ -x "$dir/paratrack" ] && bin="$dir/paratrack"; }
   done
   if [ -n "$bin" ]; then
@@ -54,7 +55,7 @@ if [ "$3" = "1" ]; then
       [ "$(cat "$mark" 2>/dev/null)" = "${branch:-(detached)}" ] || exit 0
       now=$(git symbolic-ref --quiet --short HEAD 2>/dev/null) || now=""
       [ "$now" = "$branch" ] || exit 0
-      "$bin" focus --branch "$branch" >/dev/null 2>&1 ) &
+      "$bin" focus --branch "$branch" >/dev/null 2>"$(git rev-parse --git-path paratrack-hook.log)" ) &
   fi
 fi
 `
@@ -84,6 +85,13 @@ func runHook(rt *Runtime, args []string) error {
 			return nil
 		}
 		fmt.Fprint(rt.Out, string(current))
+		// The hook runs in the background with its output away from the
+		// terminal; what the binary had to say last time is kept for here.
+		if out, err := exec.Command("git", "rev-parse", "--git-path", "paratrack-hook.log").Output(); err == nil {
+			if log, err := os.ReadFile(strings.TrimSpace(string(out))); err == nil && len(strings.TrimSpace(string(log))) > 0 {
+				fmt.Fprintf(rt.Out, "\nlast checkout said:\n%s", log)
+			}
+		}
 		if ours {
 			if bin := hookedBinary(string(current)); bin != "" {
 				if _, err := os.Stat(bin); err != nil {
@@ -174,9 +182,13 @@ func hookedBinary(script string) string {
 	return ""
 }
 
-// defaultTicketPattern finds a tracker key such as PT-123 or pt-123 anywhere
-// in a branch; the name gets it in capitals.
-var defaultTicketPattern = regexp.MustCompile(`(?i)\b[a-z][a-z0-9]+-[0-9]+\b`)
+// defaultTicketPattern finds a tracker key in capitals (PT-123) anywhere in
+// a branch. A key in lower case counts only as a whole part before the last
+// ("pt-123/fix-login"): "step-2-validation" and "fix/oauth2-1" are words.
+var defaultTicketPattern = regexp.MustCompile(`\b[A-Z][A-Z0-9]+-[0-9]+\b`)
+
+// lowerTicketPart is a branch part that is a key in lower case and nothing else.
+var lowerTicketPart = regexp.MustCompile(`^[a-z][a-z0-9]*-[0-9]+$`)
 
 // defaultPauseBranches pause the timers when checked out.
 var defaultPauseBranches = []string{"main", "master", "develop", "trunk"}
@@ -189,7 +201,20 @@ func branchDecision(branch string, pauses []string, pattern string) (pause bool,
 	if branch == "" {
 		return true, "", nil
 	}
-	for _, glob := range append(append([]string(nil), defaultPauseBranches...), pauses...) {
+	// "-main" in the list takes a default back out ("-develop" for a team
+	// that works on develop); "release/*" matches every depth below release/.
+	list := append([]string(nil), defaultPauseBranches...)
+	for _, glob := range pauses {
+		if removed, ok := strings.CutPrefix(glob, "-"); ok {
+			list = slices.DeleteFunc(list, func(g string) bool { return g == removed })
+			continue
+		}
+		list = append(list, glob)
+	}
+	for _, glob := range list {
+		if prefix, ok := strings.CutSuffix(glob, "/*"); ok && strings.HasPrefix(branch, prefix+"/") {
+			return true, "", nil
+		}
 		if ok, err := path.Match(glob, branch); err == nil && ok {
 			return true, "", nil
 		} else if err != nil && warn == nil {
@@ -241,7 +266,17 @@ func branchActivity(branch, pattern string) string {
 	if i := strings.LastIndex(branch, "/"); i >= 0 {
 		last = branch[i+1:]
 	}
-	if found := ticket.FindString(branch); found != "" {
+	found := ticket.FindString(branch)
+	if found == "" && pattern == "" {
+		parts := strings.Split(branch, "/")
+		for _, part := range parts[:len(parts)-1] {
+			if lowerTicketPart.MatchString(part) {
+				found = part
+				break
+			}
+		}
+	}
+	if found != "" {
 		if i := strings.Index(strings.ToLower(last), strings.ToLower(found)); i >= 0 {
 			last = last[:i] + strings.ToUpper(found) + last[i+len(found):]
 		} else {

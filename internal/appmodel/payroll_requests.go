@@ -44,4 +44,6 @@ type PayrollMemberPayRequest struct {
 	WorkDays *string
 	// BillRateCents is the member's hour for the client; nil keeps it.
 	BillRateCents *int
+	// EmployedFrom is the employment start, YYYY-MM-DD or empty; nil keeps it.
+	EmployedFrom *string
 }

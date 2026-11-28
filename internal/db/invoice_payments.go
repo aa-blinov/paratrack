@@ -98,6 +98,13 @@ func (d *DB) MarkInvoicePaidOnce(ctx context.Context, request appmodel.InvoiceMu
 	if status == "void" {
 		return number, false, model.ErrInvoiceNotPayable
 	}
+	// Paid straight from a draft is issuing it: a draft of a closed month is
+	// not issued that way either.
+	if status == "draft" {
+		if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
+			return "", false, err
+		}
+	}
 	// Paid straight from a draft skips "sent", and with it the check.
 	if status == "draft" {
 		if err := requireInvoiceIssuableTx(ctx, tx, teamID, id); err != nil {

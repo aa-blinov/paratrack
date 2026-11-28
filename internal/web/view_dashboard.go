@@ -38,6 +38,10 @@ type sessionView struct {
 	DurationInput      string // user-editable representation ("1h 30m")
 	AccumulatedSeconds int
 	Paused             bool
+	// LimitPercent is how much of a limit goal on the activity is used, the
+	// fullest of its periods; 0 when the activity has no limit. The browser
+	// extension colours its badge by it.
+	LimitPercent int
 	// Locked: the session's week is approved, so it cannot change; LockNote says why (UI-05).
 	Locked   bool
 	LockNote string

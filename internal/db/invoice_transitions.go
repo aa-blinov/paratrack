@@ -40,6 +40,11 @@ func (d *DB) DeleteInvoice(ctx context.Context, request appmodel.InvoiceMutation
 	if status != "draft" {
 		return ErrInvoiceNotDraft
 	}
+	// Deleting a draft of a closed month would hand its hours back to be
+	// billed in a month the books already handed over.
+	if err := lockInvoiceOpenPeriodTx(ctx, tx, teamID, id); err != nil {
+		return err
+	}
 	// Its sessions become billable again only if the invoice deletion commits.
 	if _, err := tx.ExecContext(ctx, `UPDATE sessions SET invoice_id = NULL WHERE invoice_id = ? AND team_id = ?`, id, teamID); err != nil {
 		return err

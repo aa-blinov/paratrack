@@ -25,6 +25,7 @@ var (
 	ErrInvoiceNotIssued        = errors.New("a client link is for a sent invoice")
 	ErrZoneWithClosedMonths    = errors.New("the time zone cannot change while a month is closed")
 	ErrPayrollNotPaid          = errors.New("only a paid pay run can be unmarked")
+	ErrMonthHasDrafts          = errors.New("the month has draft invoices or pay runs")
 	ErrPaymentDate             = errors.New("payment day must be a date")
 	ErrTokenInvalid            = errors.New("api token invalid")
 	ErrNoBillableTime          = errors.New("no billable time in that period")

@@ -97,6 +97,9 @@ func (d *DB) DeletePayrollDraft(ctx context.Context, request appmodel.PayrollMut
 	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
 		return err
 	}
+	if err := lockPayrollOpenPeriodTx(ctx, tx, teamID, id); err != nil {
+		return err
+	}
 	res, err := tx.ExecContext(ctx,
 		`DELETE FROM payroll_runs WHERE id = ? AND team_id = ? AND status = 'draft'`, id, teamID)
 	if err != nil {

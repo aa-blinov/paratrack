@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -64,6 +65,15 @@ func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPay
 		sets = append(sets, "pay_kind = ?")
 		args = append(args, *kind)
 	}
+	if request.EmployedFrom != nil {
+		if *request.EmployedFrom != "" {
+			if _, err := time.Parse("2006-01-02", *request.EmployedFrom); err != nil {
+				return fmt.Errorf("employment start must be a day")
+			}
+		}
+		sets = append(sets, "employed_from = ?")
+		args = append(args, *request.EmployedFrom)
+	}
 	if request.BillRateCents != nil {
 		if *request.BillRateCents < 0 {
 			return fmt.Errorf("rate must be >= 0")
@@ -109,7 +119,7 @@ func (d *DB) SetMemberPay(ctx context.Context, request appmodel.PayrollMemberPay
 // member in one query for payroll roster views.
 func (d *DB) ListMemberPayrollSettings(ctx context.Context, teamID int64) ([]model.MemberPayrollSettings, error) {
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT user_id, COALESCE(pay_kind, 'hourly'), COALESCE(hourly_pay_cents, 0), COALESCE(monthly_pay_cents, 0), COALESCE(capacity_minutes, 0), COALESCE(NULLIF(work_days, ''), '12345'), COALESCE(bill_rate_cents, 0)
+		`SELECT user_id, COALESCE(pay_kind, 'hourly'), COALESCE(hourly_pay_cents, 0), COALESCE(monthly_pay_cents, 0), COALESCE(capacity_minutes, 0), COALESCE(NULLIF(work_days, ''), '12345'), COALESCE(bill_rate_cents, 0), COALESCE(employed_from, '')
 		 FROM memberships WHERE team_id = ? ORDER BY user_id`, teamID)
 	if err != nil {
 		return nil, err
@@ -118,7 +128,7 @@ func (d *DB) ListMemberPayrollSettings(ctx context.Context, teamID int64) ([]mod
 	var settings []model.MemberPayrollSettings
 	for rows.Next() {
 		var item model.MemberPayrollSettings
-		if err := rows.Scan(&item.UserID, &item.Kind, &item.PayCents, &item.MonthlyPayCents, &item.CapacityMinutes, &item.WorkDays, &item.BillRateCents); err != nil {
+		if err := rows.Scan(&item.UserID, &item.Kind, &item.PayCents, &item.MonthlyPayCents, &item.CapacityMinutes, &item.WorkDays, &item.BillRateCents, &item.EmployedFrom); err != nil {
 			return nil, err
 		}
 		settings = append(settings, item)

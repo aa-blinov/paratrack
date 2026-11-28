@@ -7,6 +7,7 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"io"
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,11 +17,12 @@ import (
 )
 
 type retryStore struct {
-	job      mailport.InvoiceEmailJob
-	claimed  bool
-	retryAt  time.Time
-	maxTries int
-	payload  []byte
+	lastLetter []byte
+	job        mailport.InvoiceEmailJob
+	claimed    bool
+	retryAt    time.Time
+	maxTries   int
+	payload    []byte
 }
 
 type auditSpy struct {
@@ -42,6 +44,10 @@ func (noopAudit) Record(context.Context, model.AuditRecord) error {
 func (s *retryStore) EnqueueInvoiceEmail(_ context.Context, request appmodel.InvoiceEmailEnqueueRequest) error {
 	s.payload = append([]byte(nil), request.Payload...)
 	return nil
+}
+
+func (s *retryStore) LastInvoiceLetter(context.Context, appmodel.InvoiceLetterQuery) ([]byte, error) {
+	return s.lastLetter, nil
 }
 
 func (s *retryStore) EnqueueReminderEmail(_ context.Context, request appmodel.ReminderEmailEnqueueRequest) error {
@@ -145,5 +151,27 @@ func TestMailReminderLetterIsQueuedAsTheMessageItWas(t *testing.T) {
 	}
 	if got.To != message.To || got.Subject != message.Subject || got.Text != message.Text {
 		t.Fatalf("delivered message = %+v, want %+v", got, message)
+	}
+}
+
+// A resend queues the letter the invoice went out in, to the new address;
+// an invoice that never went by mail is left to the caller.
+func TestResendInvoiceReplaysTheSentLetter(t *testing.T) {
+	store := &retryStore{}
+	svc, err := New(store, time.Now, log.New(io.Discard, "", 0), noopAudit{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ok, err := svc.ResendInvoice(t.Context(), mailport.InvoiceResendRequest{TeamID: 1, InvoiceID: 2, Recipient: "new@x.test"})
+	if err != nil || ok {
+		t.Fatalf("an invoice that never went by mail: %v %v", ok, err)
+	}
+	store.lastLetter = []byte(`{"version":1,"To":"old@x.test","Subject":"Счёт INV-1","Text":"Добрый день"}`)
+	ok, err = svc.ResendInvoice(t.Context(), mailport.InvoiceResendRequest{TeamID: 1, InvoiceID: 2, Recipient: "new@x.test"})
+	if err != nil || !ok {
+		t.Fatalf("resend: %v %v", ok, err)
+	}
+	if !strings.Contains(string(store.payload), "Счёт INV-1") || strings.Contains(string(store.payload), "old@x.test") || !strings.Contains(string(store.payload), "new@x.test") {
+		t.Fatalf("queued: %s", store.payload)
 	}
 }

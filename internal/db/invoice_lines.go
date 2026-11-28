@@ -53,11 +53,12 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 		SELECT s.id, p.id, a.name, COALESCE(p.name, ''), s.start_at, s.end_at, s.accumulated_seconds,
 		       COALESCE(p.billable_rate_cents, 0), COALESCE(p.billable, 1),
 		       COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), ''),
-		       COALESCE(NULLIF(u.name, ''), u.email, '')
+		       COALESCE(NULLIF(u.name, ''), u.email, ''), COALESCE(m.bill_rate_cents, 0)
 		FROM sessions s
 		JOIN activities a ON a.id = s.activity_id
 		JOIN projects p ON p.id = ` + sessionProject + `
 		LEFT JOIN users u ON u.id = s.user_id
+		LEFT JOIN memberships m ON m.team_id = s.team_id AND m.user_id = s.user_id
 		LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		WHERE s.start_at >= ? AND s.start_at < ? AND s.end_at IS NOT NULL
 		  AND (s.invoice_id IS NULL OR s.invoice_id = ?)`
@@ -97,8 +98,9 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 			startAt, endAt        string
 			accum, rate, billable int
 			currency, person      string
+			memberRate            int
 		)
-		if err := rows.Scan(&id, &projID, &actName, &projName, &startAt, &endAt, &accum, &rate, &billable, &currency, &person); err != nil {
+		if err := rows.Scan(&id, &projID, &actName, &projName, &startAt, &endAt, &accum, &rate, &billable, &currency, &person, &memberRate); err != nil {
 			return nil, err
 		}
 		if billable == 0 {
@@ -117,6 +119,13 @@ func buildInvoiceLines(ctx context.Context, queryer invoiceQueryer, rules Billin
 			continue
 		}
 		k := key{projID: projID, act: actName, proj: projName}
+		// A project without a rate of its own bills each member's hour at
+		// their rate for the client, so the line is the person's: one line
+		// cannot carry two rates.
+		if rate <= 0 && memberRate > 0 {
+			rate = memberRate
+			k.person = person
+		}
 		if options.byPerson {
 			k.person = person
 		}
@@ -174,24 +183,32 @@ func (d *DB) Unbilled(ctx context.Context, query appmodel.UnbilledProjectQuery) 
 	// ISO strings), then per line.
 	q := `SELECT p.id, p.name, p.slug,
 		         COALESCE(NULLIF(cl.currency, ''), NULLIF(p.currency, ''), t.currency, 'RUB'),
-		       COALESCE(p.billable_rate_cents, 0), MIN(x.since), SUM(x.secs)::bigint
-		FROM (SELECT s.activity_id, s.project_id, MIN(s.start_at COLLATE "C") AS since,
+		       CASE WHEN COALESCE(p.billable_rate_cents, 0) > 0 THEN p.billable_rate_cents ELSE COALESCE(m.bill_rate_cents, 0) END,
+		       MIN(x.since), SUM(x.secs)::bigint
+		FROM (SELECT s.activity_id, s.project_id, s.user_id, MIN(s.start_at COLLATE "C") AS since,
 		             SUM(CASE WHEN s.accumulated_seconds > 0 THEN s.accumulated_seconds
 		                      ELSE GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (s.end_at::timestamp - s.start_at::timestamp)))) END) AS secs
 		      FROM sessions s
 		      WHERE s.team_id = ? AND s.end_at IS NOT NULL AND s.invoice_id IS NULL AND s.start_at < ?
-		      GROUP BY s.activity_id, s.project_id) x
+		      GROUP BY s.activity_id, s.project_id, s.user_id) x
 		JOIN activities a ON a.id = x.activity_id AND a.team_id = ?
 		JOIN projects p ON p.id = COALESCE(x.project_id, a.project_id) AND p.team_id = ?
 		JOIN teams t ON t.id = p.team_id
 		LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
-		WHERE COALESCE(p.billable, 1) = 1 AND COALESCE(p.billable_rate_cents, 0) > 0 AND p.archived = 0`
+		LEFT JOIN memberships m ON m.team_id = p.team_id AND m.user_id = x.user_id
+		WHERE COALESCE(p.billable, 1) = 1 AND p.archived = 0
+		  AND (COALESCE(p.billable_rate_cents, 0) > 0 OR COALESCE(m.bill_rate_cents, 0) > 0)`
 	args := []any{query.TeamID, FormatTime(d.currentTime().Add(time.Hour)), query.TeamID, query.TeamID}
 	if query.ProjectID != nil {
 		q += ` AND p.id = ?`
 		args = append(args, *query.ProjectID)
 	}
-	q += ` GROUP BY p.id, p.name, p.slug, p.currency, t.currency, cl.currency, p.billable_rate_cents, a.name ORDER BY p.name`
+	// A line per activity, as the invoice has it; with no project rate a
+	// line per activity and person, each at their rate for the client.
+	q += ` GROUP BY p.id, p.name, p.slug, p.currency, t.currency, cl.currency, p.billable_rate_cents, a.name,
+	         CASE WHEN COALESCE(p.billable_rate_cents, 0) > 0 THEN 0 ELSE x.user_id END,
+	         CASE WHEN COALESCE(p.billable_rate_cents, 0) > 0 THEN p.billable_rate_cents ELSE COALESCE(m.bill_rate_cents, 0) END
+	   ORDER BY p.name`
 	rows, err := d.sql.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err

@@ -45,7 +45,17 @@ func TestClosedMonthLocksDraftsAndBooksHold(t *testing.T) {
 		t.Fatalf("the storno is dated %q, want the payment's day", reversedOn)
 	}
 
+	// A month with a draft left in it does not close.
 	e.do("POST", "/api/period/close", url.Values{"month": {"2026-06-15"}}, nil).Body.Close()
+	var closedCount int
+	sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM closed_periods WHERE team_id = ?`, teamID).Scan(&closedCount)
+	if closedCount != 0 {
+		t.Fatal("a month with a draft in it closed")
+	}
+	// A month closed before that rule, with a draft in it, still locks it.
+	if _, err := sql.ExecContext(t.Context(), `INSERT INTO closed_periods (team_id, month, closed_at, closed_by, closed_by_role) VALUES (?, '2026-06-01', ?, ?, 'owner')`, teamID, time.Now().UTC().Format(time.RFC3339), ownerID); err != nil {
+		t.Fatal(err)
+	}
 	lines := func() int {
 		var n int
 		sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM invoice_lines WHERE invoice_id = ?`, draft).Scan(&n)
@@ -56,10 +66,12 @@ func TestClosedMonthLocksDraftsAndBooksHold(t *testing.T) {
 		t.Fatal("a line was added to a draft in a closed month")
 	}
 	e.do("POST", "/invoices/"+itoa64(draft)+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
+	e.do("POST", "/invoices/"+itoa64(draft)+"/paid", nil, nil).Body.Close()
+	e.do("POST", "/invoices/"+itoa64(draft)+"/delete", nil, nil).Body.Close()
 	var status string
 	sql.QueryRowContext(t.Context(), `SELECT status FROM invoices WHERE id = ?`, draft).Scan(&status)
 	if status != "draft" {
-		t.Fatalf("a draft in a closed month was issued: %s", status)
+		t.Fatalf("a draft in a closed month was issued, paid or deleted: %q", status)
 	}
 	e.do("POST", "/api/team/calendar", url.Values{"timezone": {"Asia/Yekaterinburg"}, "week_start": {"1"}}, nil).Body.Close()
 	var zone string

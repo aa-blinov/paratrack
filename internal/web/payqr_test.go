@@ -76,3 +76,14 @@ func TestPaymentQROnTheInvoicePDF(t *testing.T) {
 		t.Fatal("a payment code was drawn without an account")
 	}
 }
+
+// On an English screen the QR's purpose is still Russian: the date as
+// ДД.ММ.ГГГГ and VAT in the bank's words.
+func TestPaymentQRPurposeIsRussianOnAnEnglishScreen(t *testing.T) {
+	inv := invoiceVM{Number: "INV-1", Status: "sent", Currency: "RUB", TotalCents: 120000, RemainingCents: 120000,
+		IssuedLabel: "Nov 28, 2026", IssuedISO: "2026-11-28", VATIncluded: "VAT 20% included: 200.00", VATIncludedRU: "В т.ч. НДС 20%: 200,00", SellerDetails: qrSeller}
+	got, ok := paymentQR(inv, "Studio")
+	if !ok || !strings.Contains(got, "от 28.11.2026. В т.ч. НДС 20%") || strings.Contains(got, "Nov") || strings.Contains(got, "VAT") {
+		t.Fatalf("purpose on an English screen: %q", got)
+	}
+}

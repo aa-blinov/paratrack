@@ -14,6 +14,12 @@ type InvoiceShareRequest struct {
 }
 
 // InvoiceShareRevokeRequest closes every client link to one invoice.
+// InvoiceLetterQuery finds the letter an invoice went out in.
+type InvoiceLetterQuery struct {
+	TeamID    int64
+	InvoiceID int64
+}
+
 // InvoiceVoidRequest voids a sent invoice that nothing was paid on.
 type InvoiceVoidRequest struct {
 	TeamID    int64

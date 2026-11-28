@@ -156,9 +156,22 @@ func (d *DB) SetTeamCalendar(ctx context.Context, request appmodel.TeamCalendarR
 	// A closed month is bounded by the workspace's zone: moving the zone would
 	// move its edges and let the hours at a month's end out of it. While a
 	// month is closed, the zone stays as it is.
+	// Checked in the same transaction as the write, under the workspace lock
+	// that closing a month takes too, so a close cannot slip in between.
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
 	var zone string
 	var closed bool
-	if err := d.sql.QueryRowContext(ctx,
+	if err := tx.QueryRowContext(ctx,
 		`SELECT COALESCE(timezone, ''), EXISTS(SELECT 1 FROM closed_periods WHERE team_id = teams.id) FROM teams WHERE id = ?`,
 		request.TeamID).Scan(&zone, &closed); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -169,9 +182,12 @@ func (d *DB) SetTeamCalendar(ctx context.Context, request appmodel.TeamCalendarR
 	if closed && zone != request.TimeZone {
 		return model.ErrZoneWithClosedMonths
 	}
-	return d.execManagerTeamUpdate(ctx, request.TeamID, request.CallerID,
+	if err := execRequireRows(ctx, tx,
 		`UPDATE teams SET timezone = ?, week_start = ?, autolock_days = ? WHERE id = ?`,
-		request.TimeZone, request.WeekStart, request.AutoLockDays, request.TeamID)
+		request.TimeZone, request.WeekStart, request.AutoLockDays, request.TeamID); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 func (d *DB) CountTeamMembers(ctx context.Context, teamID int64) (int, error) {

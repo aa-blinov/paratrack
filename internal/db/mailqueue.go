@@ -197,3 +197,19 @@ func (d *DB) RetryInvoiceEmail(ctx context.Context, request mailport.InvoiceEmai
 	}
 	return tx.Commit()
 }
+
+// LastInvoiceLetter reads the payload of the letter an invoice last went out
+// in, nil when it never went by mail (marked sent by hand, or a letter file).
+func (d *DB) LastInvoiceLetter(ctx context.Context, query appmodel.InvoiceLetterQuery) ([]byte, error) {
+	var payload string
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT payload FROM invoice_email_outbox WHERE team_id = ? AND invoice_id = ? ORDER BY id DESC LIMIT 1`,
+		query.TeamID, query.InvoiceID).Scan(&payload)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []byte(payload), nil
+}

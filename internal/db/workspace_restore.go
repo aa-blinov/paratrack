@@ -220,18 +220,18 @@ func (r *restorer) Member(m appmodel.ExportMember) error {
 	if userID == r.callerID {
 		r.ownerSet = true
 		return r.exec("owner settings",
-			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents)
-			 VALUES (?, ?, 'owner', ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?)`,
-			r.teamID, r.callerID, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0))
+			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents, employed_from)
+			 VALUES (?, ?, 'owner', ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?, ?)`,
+			r.teamID, r.callerID, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0), restoredDay(m.EmployedFrom))
 	}
 	role := m.Role
 	if role == "owner" {
 		role = "admin"
 	}
 	return r.exec("member "+m.Email,
-		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?)`,
-		r.teamID, userID, role, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0))
+		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days, bill_rate_cents, employed_from)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'), ?, ?)`,
+		r.teamID, userID, role, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays), max(m.BillRateCents, 0), restoredDay(m.EmployedFrom))
 }
 
 func (r *restorer) Client(c appmodel.ExportClient) error {
@@ -561,4 +561,12 @@ func restoredWorkDays(raw string) string {
 		return ""
 	}
 	return days
+}
+
+// restoredDay keeps a file's day only when it reads as one.
+func restoredDay(raw string) string {
+	if _, err := time.Parse("2006-01-02", raw); err != nil {
+		return ""
+	}
+	return raw
 }

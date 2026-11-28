@@ -170,3 +170,19 @@ func TestResendAndCloseOneLink(t *testing.T) {
 		t.Fatalf("the resend moved the status to %q", status)
 	}
 }
+
+// An invoice issued before the look was kept gets it when the studio opens
+// its invoices, not on a client's later first view.
+func TestStudioListKeepsOldInvoicesLook(t *testing.T) {
+	e, _, _, id := issuedInvoiceEnv(t, "old-look@x.test")
+	e.do("POST", "/invoices/"+itoa64(id)+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE invoices SET issued_snapshot = '' WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	readBody(t, e.do("GET", "/invoices", nil, nil))
+	var raw string
+	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT issued_snapshot FROM invoices WHERE id = ?`, id).Scan(&raw)
+	if raw == "" {
+		t.Fatal("opening the invoices left an old invoice without its look")
+	}
+}

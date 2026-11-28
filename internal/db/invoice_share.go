@@ -222,3 +222,20 @@ func (d *DB) ListInvoiceShareLinks(ctx context.Context, query appmodel.InvoiceSh
 		}, query.TeamID, query.InvoiceID, FormatTime(query.Now.UTC()))
 	return out, err
 }
+
+// InvoicesWithoutSnapshot lists the issued invoices of a workspace whose
+// look was never kept: those sent before it was.
+func (d *DB) InvoicesWithoutSnapshot(ctx context.Context, teamID int64) ([]int64, error) {
+	var ids []int64
+	err := queryRows(ctx, d.sql, "invoices without a kept look",
+		`SELECT id FROM invoices WHERE team_id = ? AND status NOT IN ('draft', 'sending') AND issued_snapshot = '' ORDER BY id`,
+		func(rows *sql.Rows) error {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+			return nil
+		}, teamID)
+	return ids, err
+}

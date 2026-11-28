@@ -117,8 +117,8 @@ func TestFormerMemberSalaryCoversOnlyMonthsPresent(t *testing.T) {
 		}
 	}
 
-	// The departure lands mid-October: October is a month of presence,
-	// November is not.
+	// The departure lands mid-October: October pays its share up to the
+	// day, November pays nothing.
 	leftAt := time.Date(2026, 10, 20, 12, 0, 0, 0, time.UTC)
 	if err := d.RemoveTeamMember(ctx, appmodel.TeamMemberRemovalRequest{TeamID: teamID, TargetUserID: faceID, CallerID: ownerID, LeftAt: leftAt}); err != nil {
 		t.Fatalf("remove the salaried member: %v", err)
@@ -134,8 +134,10 @@ func TestFormerMemberSalaryCoversOnlyMonthsPresent(t *testing.T) {
 	for _, l := range payrollLines(t, d, ctx, octoberRun.ID) {
 		if l.UserID == faceID {
 			paid = true
-			if l.AmountCents != 90000 {
-				t.Fatalf("the month of presence pays %d, want the salary", l.AmountCents)
+			// October 2026 has 22 weekdays; through the 20th, 14 of them
+			// were the member's: their share of the month.
+			if want := (90000*14 + 11) / 22; l.AmountCents != want {
+				t.Fatalf("the month of the departure pays %d (%q), want %d", l.AmountCents, l.Label, want)
 			}
 		}
 	}

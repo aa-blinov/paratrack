@@ -2478,5 +2478,7 @@
   "inv.resendIssuedOnly": "Only an issued invoice is sent again.",
   "inv.resendQueued": "Letter queued; the invoice goes as it was issued.",
   "inv.exportFormat": "Format",
-  "inv.export1C": "For 1C import"
+  "inv.export1C": "For 1C import",
+  "pay.periodDrafts": "The month still has draft invoices or pay runs: issue or delete them, then close the month.",
+  "pay.employedFrom": "Employed from"
 }

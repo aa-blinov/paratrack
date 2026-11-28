@@ -497,6 +497,20 @@ func (s *Server) handleInvoiceResend(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, false, i18n.T(lang, "inv.mailOff"))
 		return
 	}
+	// The letter it went out in, as it was: the same words, files and
+	// language. Only an invoice that never went by mail gets a new one.
+	if r.FormValue("no_act") == "" {
+		sent, err := s.services.MailQueue.ResendInvoice(operationContext(r), mailport.InvoiceResendRequest{TeamID: teamID(r), InvoiceID: inv.ID, Recipient: to})
+		if err != nil {
+			s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+			return
+		}
+		if sent {
+			s.audit(r, "invoice.resend", inv.Number, to)
+			s.invoiceBack(w, r, true, i18n.T(lang, "inv.resendQueued"))
+			return
+		}
+	}
 	seller := vm.Seller
 	pdf, err := renderInvoicePDF(vm, seller, lang)
 	if err != nil {

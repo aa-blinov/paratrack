@@ -218,6 +218,24 @@ Confirmed by the code:
 - An issued invoice can be sent again through the queue as it went out; an
   invoice's client links are listed and one can be closed alone. The
   accountant's export has a 1С format, Excel's with bare codes.
+- A month does not close while it holds draft invoices or pay runs; a draft
+  of a month closed before that rule cannot be paid straight from the draft
+  or deleted. The zone check runs inside the write's transaction.
+- A salary is paid for the days of employment in the month: each member has
+  an employment start (`memberships.employed_from`, set by a manager; joining
+  the workspace is not hiring), and a member who left is paid up to their
+  last day by the week they worked.
+- The hook's warnings go to `paratrack-hook.log` in the git folder and show
+  in `paratrack hook show`; a lower-case key counts as a ticket only as a
+  whole part before the last ("pt-123/fix"), "-develop" in the pause list
+  takes a default back out, "release/*" matches every depth, and mise and
+  asdf shims are looked in.
+- Issued invoices sent before their look was kept get it when the studio
+  opens its invoices. Sending an invoice again replays the very letter it
+  went out in, when it went by mail.
+- A project without a rate of its own is invoiced at each member's client
+  rate, a line per person, and is listed as unbilled.
+- The extension's badge turns amber near a limit goal and red past it.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

@@ -42,6 +42,15 @@ var columnMigrations = []struct {
 	// What an hour of this member costs the client when the project has no
 	// rate of its own: agencies sell the hours of roles, not of projects.
 	{"memberships", "bill_rate_cents", "BIGINT NOT NULL DEFAULT 0"},
+	// The day a member's employment began (YYYY-MM-DD), set by a manager:
+	// joining the workspace is not hiring, a studio adds people who have
+	// worked for years. Empty is "before any run". The salary of the month
+	// it falls in is the share from that day.
+	{"memberships", "employed_from", "TEXT NOT NULL DEFAULT ''"},
+	// A former member keeps the week they worked and their start, so a
+	// salary of the month they left is their own share of it.
+	{"former_members", "work_days", "TEXT NOT NULL DEFAULT '12345'"},
+	{"former_members", "employed_from", "TEXT NOT NULL DEFAULT ''"},
 	{"invoices", "voided_at", "TEXT NOT NULL DEFAULT ''"},
 	// The closer's role when the month was closed: reopening asks who closed
 	// it then, not what that person is now, so removing an accountant from the

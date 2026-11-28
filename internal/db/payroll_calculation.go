@@ -23,12 +23,12 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 	}
 	// members with a pay: hourly rates, or the fixed monthly salary (FIN-26)
 	mrows, err := queryer.QueryContext(ctx,
-		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email, '' AS left_at, COALESCE(NULLIF(m.work_days, ''), '12345')
+		`SELECT m.user_id, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.pay_kind, 'hourly'), COALESCE(m.monthly_pay_cents, 0), u.name, u.email, '' AS left_at, COALESCE(NULLIF(m.work_days, ''), '12345'), COALESCE(m.employed_from, '')
 		 FROM memberships m
 		 JOIN users u ON u.id = m.user_id
 		 WHERE m.team_id = ? AND (COALESCE(m.hourly_pay_cents, 0) > 0 OR (COALESCE(m.pay_kind, 'hourly') = 'monthly' AND COALESCE(m.monthly_pay_cents, 0) > 0))
 		 UNION ALL
-		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), COALESCE(f.pay_kind, 'hourly'), COALESCE(f.monthly_pay_cents, 0), u.name, u.email, f.left_at, '12345'
+		 SELECT f.user_id, COALESCE(f.hourly_pay_cents, 0), COALESCE(f.pay_kind, 'hourly'), COALESCE(f.monthly_pay_cents, 0), u.name, u.email, f.left_at, COALESCE(NULLIF(f.work_days, ''), '12345'), COALESCE(f.employed_from, '')
 		 FROM former_members f
 		 JOIN users u ON u.id = f.user_id
 		 WHERE f.team_id = ? AND (COALESCE(f.hourly_pay_cents, 0) > 0 OR (COALESCE(f.pay_kind, 'hourly') = 'monthly' AND COALESCE(f.monthly_pay_cents, 0) > 0))
@@ -46,11 +46,12 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 		email  string
 		left   string
 		days   string
+		joined string
 	}
 	var members []member
 	for mrows.Next() {
 		var m member
-		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email, &m.left, &m.days); err != nil {
+		if err := mrows.Scan(&m.id, &m.rate, &m.kind, &m.salary, &m.name, &m.email, &m.left, &m.days, &m.joined); err != nil {
 			mrows.Close()
 			return nil, err
 		}
@@ -161,32 +162,31 @@ func buildPayrollLines(ctx context.Context, queryer payrollQueryer, teamID int64
 			if m.salary <= 0 || salary <= 0 {
 				continue
 			}
-			months := salary
-			if m.left != "" {
-				// A former member prices only the months they were present
-				// for: the departure row keeps the pay they left with, and a
-				// month entirely after the departure is not theirs.
-				leftAt, err := ParseTime(m.left)
-				if err != nil {
-					return nil, fmt.Errorf("parse former member departure: %w", err)
-				}
-				months = monthsPresent(start, end, leftAt)
-				if months <= 0 {
-					continue
-				}
-			}
 			// The only money multiplication in the payroll path: the guard
 			// lives with it, like money.AddInt guards the additions.
-			if int64(months) > ((1<<63)-1)/int64(m.salary) {
+			if int64(salary) > ((1<<63)-1)/int64(m.salary) {
 				return nil, fmt.Errorf("salary for member %d overflows cents", m.id)
 			}
-			amount := m.salary * months
-			if m.left == "" {
-				prorated, worked, norm := calendar.salary(m.id, m.days, m.salary, start, end)
-				if worked < norm {
-					amount = prorated
-					label = fmt.Sprintf("%s (%d из %d дн.)", label, worked, norm)
+			// The days before joining and after leaving are not theirs: a
+			// member who joined or left in the month is paid their share of
+			// it, by the week they worked; a month wholly outside is not paid.
+			var joinedAt, leftAt time.Time
+			if m.joined != "" {
+				if joinedAt, err = time.ParseInLocation("2006-01-02", m.joined, start.Location()); err != nil {
+					return nil, fmt.Errorf("parse member employment start: %w", err)
 				}
+			}
+			if m.left != "" {
+				if leftAt, err = ParseTime(m.left); err != nil {
+					return nil, fmt.Errorf("parse former member departure: %w", err)
+				}
+			}
+			amount, worked, norm := calendar.salary(m.id, m.days, m.salary, start, end, joinedAt, leftAt)
+			if worked <= 0 || amount <= 0 {
+				continue
+			}
+			if worked < norm {
+				label = fmt.Sprintf("%s (%d из %d дн.)", label, worked, norm)
 			}
 			lines = append(lines, PayrollLine{
 				UserID: m.id, Label: label,
@@ -223,23 +223,6 @@ func salaryForMonths(start, end time.Time) (int, error) {
 		return 0, ErrInvalidPayrollQuery
 	}
 	return months, nil
-}
-
-// monthsPresent counts the calendar months of the period that begin at or
-// before the departure instant. A former member's salary prices the months
-// they were a member for at least in part; a run that starts after the
-// departure prices none.
-func monthsPresent(start, end, leftAt time.Time) int {
-	first := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
-	last := end.Add(-time.Nanosecond)
-	lastMonth := time.Date(last.Year(), last.Month(), 1, 0, 0, 0, 0, last.Location())
-	if leftMonth := time.Date(leftAt.Year(), leftAt.Month(), 1, 0, 0, 0, 0, leftAt.Location()); lastMonth.After(leftMonth) {
-		lastMonth = leftMonth
-	}
-	if lastMonth.Before(first) {
-		return 0
-	}
-	return (lastMonth.Year()-first.Year())*12 + int(lastMonth.Month()) - int(first.Month()) + 1
 }
 
 // salaryCalendar holds the days that decide a salary over a run: the
@@ -298,7 +281,15 @@ func loadSalaryCalendar(ctx context.Context, q payrollQueryer, teamID int64, sta
 // salary prices a member's salary over the calendar months a run touches:
 // each month pays salary × days worked ÷ days to be worked, rounded to the
 // cent. It answers the amount and the days, summed over the months.
-func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start, end time.Time) (amount, worked, norm int) {
+func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start, end, joinedAt, leftAt time.Time) (amount, worked, norm int) {
+	loc := start.Location()
+	firstDay, lastDay := "", ""
+	if !joinedAt.IsZero() {
+		firstDay = joinedAt.In(loc).Format("2006-01-02")
+	}
+	if !leftAt.IsZero() {
+		lastDay = leftAt.In(loc).Format("2006-01-02")
+	}
 	month := time.Date(start.Year(), start.Month(), 1, 0, 0, 0, 0, start.Location())
 	last := end.Add(-time.Nanosecond)
 	for !month.After(last) {
@@ -310,7 +301,8 @@ func (c salaryCalendar) salary(userID int64, workDays string, monthly int, start
 				continue
 			}
 			monthNorm++
-			if !c.away[userID][key] {
+			member := (firstDay == "" || key >= firstDay) && (lastDay == "" || key <= lastDay)
+			if member && !c.away[userID][key] {
 				monthWorked++
 			}
 		}

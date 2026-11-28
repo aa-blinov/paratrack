@@ -62,6 +62,8 @@ func periodCloseMessage(lang i18n.Lang, err error) string {
 		return i18n.T(lang, "pay.periodNotOver")
 	case errors.Is(err, model.ErrWeekHasRunningTimer):
 		return i18n.T(lang, "pay.periodRunning")
+	case errors.Is(err, model.ErrMonthHasDrafts):
+		return i18n.T(lang, "pay.periodDrafts")
 	case errors.Is(err, model.ErrForbidden):
 		return i18n.T(lang, "err.forbidden")
 	default:

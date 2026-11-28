@@ -87,6 +87,10 @@ func TestAccountantReadsTheMoneyAndClosesTheMonthButEditsNothing(t *testing.T) {
 		sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM closed_periods WHERE team_id = ? AND month = '2026-06-01'`, teamID).Scan(&n)
 		return n == 1
 	}
+	// The draft goes first: a month closes once its documents are settled.
+	if err := owner.db.DeleteInvoice(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: draft, CallerID: ownerID}); err != nil {
+		t.Fatal(err)
+	}
 	acc.do("POST", "/api/period/close", url.Values{"month": {"2026-06-15"}}, nil).Body.Close()
 	if !closed() {
 		t.Fatal("the accountant could not close the month")

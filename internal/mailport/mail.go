@@ -70,3 +70,10 @@ func Available(sender Sender) bool {
 	}
 	return true
 }
+
+// InvoiceResendRequest sends an issued invoice's letter again to Recipient.
+type InvoiceResendRequest struct {
+	TeamID    int64
+	InvoiceID int64
+	Recipient string
+}

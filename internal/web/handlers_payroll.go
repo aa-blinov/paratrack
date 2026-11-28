@@ -782,6 +782,11 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 	} else if has {
 		billRate = &n
 	}
+	var employedFrom *string
+	if raw, ok := r.PostForm["employed_from"]; ok && len(raw) > 0 {
+		day := strings.TrimSpace(raw[0])
+		employedFrom = &day
+	}
 	var workDays *string
 	if r.PostForm.Get("work_days_sent") != "" {
 		joined := strings.Join(r.PostForm["work_day"], "")
@@ -791,7 +796,7 @@ func (s *Server) handleMemberPay(w http.ResponseWriter, r *http.Request) {
 		}
 		workDays = &joined
 	}
-	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly, WorkDays: workDays, BillRateCents: billRate}); err != nil {
+	if err := s.services.Payroll.UpdateMemberPay(operationContext(r), appmodel.PayrollMemberPayRequest{TeamID: teamID(r), UserID: uid, CallerID: caller.ID, PayCents: pay, CapacityMinutes: cap, Kind: kind, MonthlyPayCents: monthly, WorkDays: workDays, BillRateCents: billRate, EmployedFrom: employedFrom}); err != nil {
 		if errors.Is(err, appmodel.ErrForbidden) || errors.Is(err, appmodel.ErrNotFound) {
 			http.Redirect(w, r, "/settings/members?flash=forbidden", http.StatusSeeOther)
 			return

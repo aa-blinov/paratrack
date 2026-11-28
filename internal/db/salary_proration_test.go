@@ -44,3 +44,31 @@ func TestSalaryFollowsTheMonthsWorkingDays(t *testing.T) {
 		t.Fatalf("a month with five vacation days: %+v, want %d", lines, want)
 	}
 }
+
+// Someone hired mid-month is paid from their start day: June 2026 from the
+// 15th leaves 12 of its 21 working days (12 June being a holiday).
+func TestSalaryStartsOnTheEmploymentDay(t *testing.T) {
+	d := openTestDB(t)
+	ctx := t.Context()
+	teamID := seedTeam(t, d, "Приход", "salary-start")
+	ownerID := teamOwner(t, d, teamID)
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET pay_kind = 'monthly', monthly_pay_cents = 2100000, employed_from = '2026-06-15' WHERE team_id = ? AND user_id = ?`, teamID, ownerID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, '2026-06-12', 'День России', 'off')`, teamID); err != nil {
+		t.Fatal(err)
+	}
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	lines, err := buildPayrollLines(ctx, d.TestSQL(), teamID, start, start.AddDate(0, 1, 0), false, start.AddDate(0, 1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := (2100000*12 + 21/2) / 21
+	if len(lines) != 1 || lines[0].AmountCents != want || !strings.Contains(lines[0].Label, "12 из 21 дн.") {
+		t.Fatalf("a hire on 15 June: %+v, want %d", lines, want)
+	}
+	may := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	if lines, err := buildPayrollLines(ctx, d.TestSQL(), teamID, may, may.AddDate(0, 1, 0), false, may.AddDate(0, 1, 0)); err != nil || len(lines) != 0 {
+		t.Fatalf("a month before the hire pays %+v (%v)", lines, err)
+	}
+}

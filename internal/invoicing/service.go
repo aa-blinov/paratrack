@@ -19,6 +19,7 @@ type Reader interface {
 	InvoiceHideNames(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error)
 	InvoiceIssuedSnapshot(context.Context, appmodel.InvoiceLookupQuery) (string, error)
 	InvoiceVoidReason(context.Context, appmodel.InvoiceLookupQuery) (string, error)
+	InvoicesWithoutSnapshot(context.Context, int64) ([]int64, error)
 	ListInvoiceShareLinks(context.Context, appmodel.InvoiceShareLookupQuery) ([]appmodel.InvoiceShareLinkView, error)
 	SaveInvoiceIssuedSnapshot(context.Context, appmodel.InvoiceSnapshotSaveRequest) error
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)

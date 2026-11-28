@@ -32,6 +32,7 @@ type invoiceEmailPayload struct {
 type Store interface {
 	EnqueueInvoiceEmail(context.Context, appmodel.InvoiceEmailEnqueueRequest) error
 	EnqueueReminderEmail(context.Context, appmodel.ReminderEmailEnqueueRequest) error
+	LastInvoiceLetter(context.Context, appmodel.InvoiceLetterQuery) ([]byte, error)
 	ClaimInvoiceEmail(context.Context) (mailport.InvoiceEmailJob, bool, error)
 	CompleteInvoiceEmail(context.Context, mailport.InvoiceEmailJob) error
 	RetryInvoiceEmail(context.Context, mailport.InvoiceEmailRetryRequest) error
@@ -197,4 +198,23 @@ func decodeInvoiceEmailPayload(payload []byte) (mailport.Message, error) {
 		return mailport.Message{}, errors.New("invalid invoice email payload")
 	}
 	return envelope.Message, nil
+}
+
+// ResendInvoice queues again the very letter an invoice went out in, to the
+// address given: the same words, files and language. It answers false when
+// the invoice never went by mail, so the caller renders a letter instead.
+func (s *Service) ResendInvoice(ctx context.Context, request mailport.InvoiceResendRequest) (bool, error) {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.Recipient == "" {
+		return false, fmt.Errorf("invalid invoice resend request")
+	}
+	raw, err := s.store.LastInvoiceLetter(ctx, appmodel.InvoiceLetterQuery{TeamID: request.TeamID, InvoiceID: request.InvoiceID})
+	if err != nil || raw == nil {
+		return false, err
+	}
+	var payload invoiceEmailPayload
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return false, fmt.Errorf("read the sent letter: %w", err)
+	}
+	payload.Message.To = request.Recipient
+	return true, s.EnqueueReminder(ctx, mailport.ReminderQueueRequest{TeamID: request.TeamID, Recipient: request.Recipient, Message: payload.Message})
 }

@@ -215,6 +215,8 @@ func TestBranchActivity(t *testing.T) {
 		"alice/PT-9-fix":          "PT-9-fix",
 		"feat/🔥":                  "",
 		"pt-123/fix-login":        "PT-123-fix-login",
+		"feat/step-2-validation":  "step-2-validation",
+		"fix/oauth2-1":            "oauth2-1",
 	} {
 		if got := branchActivity(branch, ""); got != want {
 			t.Errorf("branchActivity(%q) = %q, want %q", branch, got, want)
@@ -293,16 +295,16 @@ func TestGitHookHandsOverTheBranchAndPrintsPortably(t *testing.T) {
 // on a detached HEAD and on a name with nothing usable; a broken ticket
 // pattern is reported and the default used.
 func TestBranchDecision(t *testing.T) {
-	pauses := splitConfigList([]string{"dev  staging\tqa", "release/*,hotfix"})
+	pauses := splitConfigList([]string{"dev  staging\tqa", "release/*,hotfix", "-develop"})
 	for branch, want := range map[string]bool{
-		"main": true, "dev": true, "qa": true, "release/1.2": true, "hotfix": true, "": true, "feat/🔥": true,
-		"feat/PT-1-x": false, "releases": false,
+		"main": true, "dev": true, "qa": true, "release/1.2": true, "release/1.2/hotfix": true, "hotfix": true, "": true, "feat/🔥": true,
+		"feat/PT-1-x": false, "releases": false, "develop": false,
 	} {
 		if pause, _, _ := branchDecision(branch, pauses, ""); pause != want {
 			t.Errorf("branchDecision(%q) pause = %v, want %v", branch, pause, want)
 		}
 	}
-	_, name, warn := branchDecision("feat/ab-12-x", nil, "[A-Z")
+	_, name, warn := branchDecision("feat/AB-12-x", nil, "[A-Z")
 	if warn == nil || name != "AB-12-x" {
 		t.Fatalf("a broken pattern: name %q, warn %v", name, warn)
 	}

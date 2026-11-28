@@ -19,6 +19,19 @@ func (s *Server) handleAPIActive(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalJSONError(w, err)
 		return
 	}
+	if s.userModules(r)["goals"] && len(vm.Items) > 0 {
+		if progress, err := s.services.Goals.Progress(r.Context(), appmodel.GoalProgressQuery{TeamID: teamID(r), Now: userNow(r)}); err == nil {
+			limit := map[int64]int{}
+			for _, p := range progress {
+				if p.Goal.Kind == "max" && p.PercentComplete > limit[p.Goal.ActivityID] {
+					limit[p.Goal.ActivityID] = p.PercentComplete
+				}
+			}
+			for i := range vm.Items {
+				vm.Items[i].LimitPercent = limit[vm.Items[i].ActivityID]
+			}
+		}
+	}
 	s.writeJSON(w, vm)
 }
 

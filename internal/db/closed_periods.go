@@ -57,7 +57,8 @@ func (d *DB) CloseMonth(ctx context.Context, request appmodel.PeriodCloseRequest
 	// A timer still running from inside the month could not be stopped once the
 	// month is closed, so the close names it instead of swallowing it.
 	var running int64
-	monthEnd := time.Date(key.year, time.Month(key.month), 1, 0, 0, 0, 0, loc).AddDate(0, 1, 0)
+	monthStart := time.Date(key.year, time.Month(key.month), 1, 0, 0, 0, 0, loc)
+	monthEnd := monthStart.AddDate(0, 1, 0)
 	if err := tx.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM sessions WHERE team_id = ? AND end_at IS NULL AND start_at < ?`,
 		request.TeamID, FormatTime(monthEnd)).Scan(&running); err != nil {
@@ -65,6 +66,18 @@ func (d *DB) CloseMonth(ctx context.Context, request appmodel.PeriodCloseRequest
 	}
 	if running > 0 {
 		return model.ErrWeekHasRunningTimer
+	}
+	// A draft left in the month could still be issued, edited or deleted
+	// around the close; the month closes once its documents are settled.
+	var drafts int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT (SELECT COUNT(*) FROM invoices WHERE team_id = ? AND status = 'draft' AND period_start < ? AND period_end > ?)
+		      + (SELECT COUNT(*) FROM payroll_runs WHERE team_id = ? AND status = 'draft' AND period_start < ? AND period_end > ?)`,
+		request.TeamID, FormatTime(monthEnd), FormatTime(monthStart), request.TeamID, FormatTime(monthEnd), FormatTime(monthStart)).Scan(&drafts); err != nil {
+		return err
+	}
+	if drafts > 0 {
+		return model.ErrMonthHasDrafts
 	}
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO closed_periods (team_id, month, closed_at, closed_by, closed_by_role)

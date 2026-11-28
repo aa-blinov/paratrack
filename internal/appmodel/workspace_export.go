@@ -77,6 +77,8 @@ type ExportMember struct {
 	WorkDays string
 	// BillRateCents is the member's hour for the client.
 	BillRateCents int64
+	// EmployedFrom is the member's employment start, YYYY-MM-DD or empty.
+	EmployedFrom string
 }
 
 type ExportClient struct {

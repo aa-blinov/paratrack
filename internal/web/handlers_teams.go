@@ -73,6 +73,8 @@ type memberPayView struct {
 	Capacity int
 	WorkDays string
 	BillRate string // the member's hour for the client, currency units, "" when unset
+	// EmployedFrom is the employment start, YYYY-MM-DD, "" when unset.
+	EmployedFrom string
 }
 
 type memberView struct {
@@ -214,7 +216,7 @@ func (s *Server) handleTeamMembers(w http.ResponseWriter, r *http.Request) {
 		Pay:          map[int64]memberPayView{},
 	}
 	for _, settings := range snapshot.PaySettings {
-		view := memberPayView{Capacity: settings.CapacityMinutes, Kind: settings.Kind, WorkDays: settings.WorkDays}
+		view := memberPayView{Capacity: settings.CapacityMinutes, Kind: settings.Kind, WorkDays: settings.WorkDays, EmployedFrom: settings.EmployedFrom}
 		if view.Kind == "" {
 			view.Kind = "hourly"
 		}

@@ -31,15 +31,27 @@ export function badgeText(items, now = Date.now()) {
   return Math.floor(m / 60) + ":" + String(m % 60).padStart(2, "0")
 }
 
+// badgeColor follows the fullest limit goal among the running timers: amber
+// from four fifths, red once it is used up, green otherwise.
+export function badgeColor(items) {
+  const used = Math.max(0, ...items.filter((x) => !x.Paused).map((x) => Number(x.LimitPercent || 0)))
+  if (used >= 100) return "#b91c1c"
+  if (used >= 80) return "#b45309"
+  return "#15803d"
+}
+
 async function refreshBadge() {
   let text = ""
+  let color = "#15803d"
   try {
-    text = badgeText(await activeTimers())
+    const items = await activeTimers()
+    text = badgeText(items)
+    color = badgeColor(items)
   } catch (_) {
     text = ""
   }
   await chrome.action.setBadgeText({ text })
-  await chrome.action.setBadgeBackgroundColor({ color: "#15803d" })
+  await chrome.action.setBadgeBackgroundColor({ color })
 }
 
 if (typeof chrome !== "undefined" && chrome.alarms) {

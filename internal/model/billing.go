@@ -20,6 +20,9 @@ type MemberPayrollSettings struct {
 	// BillRateCents is an hour of the member for the client when the project
 	// has no rate of its own; 0 when unset.
 	BillRateCents int
+	// EmployedFrom is the day the member's employment began, YYYY-MM-DD; empty
+	// when not set.
+	EmployedFrom string
 }
 
 // PayrollRun is an immutable snapshot of a team's payable time for a period.
