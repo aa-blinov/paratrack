@@ -504,14 +504,13 @@ async def check_the_week_never_scrolls_sideways(browser):
 
 
 async def check_the_mode_says_what_it_opens(browser):
-    """«Для себя» named a mode and said nothing about its cost. The dashboard
-    line now carries the count: 5 of 9 sections. It only says so: the mode is
-    changed in settings, so the overview has no link to the sections."""
+    """The mode is changed in settings, so the overview carries neither the
+    section-count noise nor a link to the sections."""
     context, page, errors = await open_html(browser, phone_document('/'), '/', 1440)
     await page.locator('#main h1').wait_for()
     await page.wait_for_timeout(400)
     text = await page.locator('#main header').first.inner_text()
-    assert 'открыто 5 из 9' in text, f'the mode line must say what it opens: {text}'
+    assert 'открыто' not in text, f'the overview header must stay clean: {text}'
     assert await page.locator('main a[href="/settings/sections"]').count() == 0, \
         'the overview must not carry a link that changes the mode'
     assert not errors, errors

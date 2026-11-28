@@ -276,12 +276,6 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   const projects = data.Projects ?? []
   const active = data.ActiveSessions ?? []
   const mode = data.Mode || "custom"
-  const modeTitle = mode === "custom" ? t(lang, "dash.mode.custom") : t(lang, `preset.${mode}`)
-  // The mode name alone says nothing about what it costs you. Say how many
-  // sections it opens: that is the consequence the person feels.
-  const modeLine = data.SectionsTotal
-    ? t(lang, data.SectionsPersonal ? "dash.modeCountsPerson" : "dash.modeCounts", modeTitle, data.SectionsOpen ?? 0, data.SectionsTotal)
-    : t(lang, "dash.mode", modeTitle)
   const recent = data.Recent ?? []
   // Note and tag columns only exist when some session on the list has one: an
   // empty column squeezes the others on a tablet.
@@ -346,8 +340,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
   return <main className="mx-auto grid w-full max-w-6xl gap-4" aria-busy={busy}>
     {/* «Сколько сегодня» — первое, за чем открывают обзор, поэтому итог
         стоит в шапке, а не четвёртой цифрой в ряду под таймерами. */}
-    {/* Режим меняют в настройках, на обзоре он только говорит, что сейчас открыто. */}
-    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1><div className="mt-1 text-xs text-muted-foreground/75">{modeLine}</div></div>
+    <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1></div>
       <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span><span className="text-xs text-muted-foreground">{t(lang, "dash.dayNorm", data.DayNormLabel)}</span>{data.Earned && <span className="text-xs text-muted-foreground" data-earned>{t(lang, "dash.earnedMonth", data.Earned)}</span>}{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
     <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />
     {undoWidget}
