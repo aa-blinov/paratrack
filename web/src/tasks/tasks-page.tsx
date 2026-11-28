@@ -122,7 +122,6 @@ export function TasksPage({ data }: { data: TasksData }) {
     <header className="flex flex-wrap items-end justify-between gap-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">{t(lang, "tasks.title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t(lang, "tasks.blurb")}</p>
       </div>
       <nav className="flex items-center gap-1" aria-label={t(lang, "tasks.title")}>
         <Button asChild variant={data.View === "table" ? "secondary" : "ghost"} size="sm"><a href={viewHref("table")} aria-current={data.View === "table" ? "page" : undefined}>{t(lang, "tasks.table")}</a></Button>

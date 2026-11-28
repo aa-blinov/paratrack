@@ -194,7 +194,7 @@ export function ClientsPage({ data }: { data: ClientsPageData }) {
       </div>
     </CardContent></Card> : <Card>
       <CardContent className="p-5">
-        <EmptyState icon={Users} title={t(lang, "clients.empty")} text={t(lang, "clients.emptyHint")} action={data.CanManage ? <Button asChild size="sm"><a href="#client-new"><Plus aria-hidden="true" />{t(lang, "clients.new")}</a></Button> : undefined} />
+        <EmptyState icon={Users} title={t(lang, "clients.empty")} text={t(lang, "clients.emptyHint")} />
       </CardContent>
     </Card>}
   </main>

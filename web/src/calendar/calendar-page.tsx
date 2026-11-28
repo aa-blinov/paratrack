@@ -182,7 +182,7 @@ export function CalendarPage({ data, viewerID }: { data: CalendarData; viewerID:
   const pickedTitle = capitalize(dayName(locale, selectedDay, { weekday: "long", day: "numeric", month: "long" }))
 
   return <main className="mx-auto w-full max-w-3xl space-y-5">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.calendar")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "cal.blurb")}</p><p className="mt-1 text-sm text-muted-foreground">{t(lang, "cal.zoneLabel")}: {data.Zone}</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.calendar")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "cal.zoneLabel")}: {data.Zone}</p></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     <DisclosureSection title={t(lang, "cal.newEvent")}>
       <EventForm lang={lang} csrf={data.CSRFToken} canManage={data.CanManage} members={members} startAt={defaultStart} syncProviders={data.SyncProviders} userID={data.UserID} onSaved={() => void load(first, last)} />

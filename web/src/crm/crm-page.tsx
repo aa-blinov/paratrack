@@ -79,7 +79,7 @@ export function CRMPage({ data, viewerID }: { data: CRMData; viewerID: number })
   const emptyText = loaded && deals.length === 0 ? (stage || overdueOnly ? t(lang, "crm.emptyFiltered") : t(lang, "crm.empty")) : ""
 
   return <main className="mx-auto w-full max-w-5xl space-y-5">
-    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.crm")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "crm.blurb")}</p></header>
+    <header><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "nav.crm")}</h1></header>
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     <ClientSearch lang={lang} />
     <div role="group" aria-label={t(lang, "crm.tabsLabel")} className="flex flex-wrap gap-2">

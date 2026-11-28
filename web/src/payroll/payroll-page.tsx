@@ -24,7 +24,7 @@ export function PayrollPage({ data }: { data: PayrollData }) {
   const lang = data.Lang
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
     {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
 
 

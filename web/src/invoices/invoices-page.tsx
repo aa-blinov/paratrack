@@ -137,7 +137,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
   }
   const flash = <InvoiceFlash data={data} />
   return <main className="mx-auto w-full max-w-6xl space-y-5">
-    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "inv.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
+    <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.title")}</h1></div>{data.Items.length > 0 && <Button asChild size="sm" className="hidden sm:inline-flex"><a href="#new" onClick={() => openDisclosure("new")}><Plus aria-hidden="true" />{t(lang, "inv.generate")}</a></Button>}</header>
     {flash}
     {data.RequisitesEmpty && <p role="note" className="rounded-md border border-border bg-muted/40 p-3 text-sm">{t(lang, "inv.requisitesEmpty")} <a href="/settings/money#requisites" className="underline underline-offset-4">{t(lang, "inv.requisitesFill")}</a></p>}
 
@@ -209,7 +209,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
       </Table>
       </div>
     </CardContent></Card> : data.Items.length ? <p className="text-sm text-muted-foreground">{t(lang, "inv.filterEmpty")}</p> : <Card><CardContent className="p-5">
-      <EmptyState title={t(lang, "inv.empty")} text={t(lang, "inv.emptyHint")} action={<Button asChild size="sm"><a href="#new">{t(lang, "inv.generate")}</a></Button>} />
+      <EmptyState title={t(lang, "inv.empty")} text={t(lang, "inv.emptyHint")} />
     </CardContent></Card>}
     <DisclosureSection id="new" title={t(lang, "inv.generate")} description={t(lang, "inv.newHint")} defaultOpen={!data.Items.length || project !== "__all__" || location.hash === "#new" || !data.FlashOK && Boolean(data.Flash)}>
       <form method="POST" action="/invoices" className="grid gap-4 sm:grid-cols-2" onSubmit={askAboutUnapprovedWeeks}>

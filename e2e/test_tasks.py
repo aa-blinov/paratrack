@@ -101,6 +101,8 @@ def main() -> int:
         context = browser.new_context(viewport={"width": 1280, "height": 900})
         page = context.new_page()
         register(page, context, "Тест задач", email, "tasks-qa-pass-2026")
+        token = next((c["value"] for c in context.cookies() if c["name"] in ("__Host-paratrack_csrf", "paratrack_csrf")), "")
+        page.request.post(f"{BASE}/api/team/modules", form={"preset": "studio"}, headers={"X-CSRF-Token": token})
 
         print("\n== 1. A project to hang tasks on")
         page.goto(f"{BASE}/projects/new", wait_until="networkidle")
