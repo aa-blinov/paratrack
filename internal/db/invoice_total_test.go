@@ -221,3 +221,33 @@ func TestInvoiceWithBadDetailsCannotGoOut(t *testing.T) {
 		t.Fatalf("after fixing both sides: %v", err)
 	}
 }
+
+// A payment dated into a closed month is refused: the month is handed over.
+func TestPaymentIntoAClosedMonthIsRefused(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Закрыт", "payment-closed")
+	ownerID := teamOwner(t, d, teamID)
+	ctx = requestctx.WithActor(ctx, ownerID)
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	inv, err := d.CreateInvoice(ctx, appmodel.InvoiceCreateRequest{TeamID: teamID, CallerID: ownerID, Number: "INV-2026-980", Client: "Client", Start: start, End: start.AddDate(0, 1, 0)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := d.AddInvoiceLine(ctx, appmodel.InvoiceLineAddRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, Label: "Работа", AmountCents: 100000}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.MarkInvoiceSentOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.CloseMonth(ctx, appmodel.PeriodCloseRequest{TeamID: teamID, CallerID: ownerID, Month: "2026-06-01"}); err != nil {
+		t.Fatalf("close June: %v", err)
+	}
+	var closed *model.PeriodClosedError
+	if _, err := d.RecordInvoicePayment(ctx, appmodel.InvoicePaymentRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, PaidOn: "2026-06-15", AmountCents: 50000}); !errors.As(err, &closed) {
+		t.Fatalf("a payment into closed June: err = %v", err)
+	}
+	if _, err := d.RecordInvoicePayment(ctx, appmodel.InvoicePaymentRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, PaidOn: "2026-07-02", AmountCents: 50000}); err != nil {
+		t.Fatalf("a payment into open July: %v", err)
+	}
+}

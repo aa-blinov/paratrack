@@ -121,6 +121,10 @@ func (s *Server) invoiceErrorMessage(r *http.Request, err error) string {
 	if errors.As(err, &details) {
 		return requisitesMessage(resolveLang(r), details)
 	}
+	var closedMonth *model.PeriodClosedError
+	if errors.As(err, &closedMonth) {
+		return monthClosedMessage(resolveLang(r), closedMonth)
+	}
 	var mismatch *model.ClientCardMismatchError
 	if errors.As(err, &mismatch) {
 		return fmt.Sprintf(i18n.T(resolveLang(r), "inv.clientCardMismatch"), mismatch.Card)

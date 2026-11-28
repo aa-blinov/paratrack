@@ -81,6 +81,19 @@ func (d *DB) RecordInvoicePayment(ctx context.Context, request appmodel.InvoiceP
 	if status != "sent" {
 		return false, model.ErrInvoiceNotPayable
 	}
+	// A payment dated into a closed month would change a month the
+	// bookkeeping has already handed over: the same gate as time and pay.
+	loc, err := workspaceZone(ctx, tx, teamID)
+	if err != nil {
+		return false, err
+	}
+	paidOn, err := time.ParseInLocation("2006-01-02", request.PaidOn, loc)
+	if err != nil {
+		return false, model.ErrPaymentDate
+	}
+	if err := lockClosedPeriodSpan(ctx, tx, teamID, paidOn, paidOn.AddDate(0, 0, 1)); err != nil {
+		return false, err
+	}
 	total, err := invoiceTotalCents(ctx, tx, id)
 	if err != nil {
 		return false, err
