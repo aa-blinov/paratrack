@@ -129,6 +129,13 @@ type PaymentLedgerRow struct {
 	Note          string
 }
 
+// InvoiceSnapshotSaveRequest stores what an invoice looked like when it was issued.
+type InvoiceSnapshotSaveRequest struct {
+	TeamID    int64
+	InvoiceID int64
+	Data      string
+}
+
 // InvoiceHideNames is whether a sent invoice was frozen with the executors'
 // names hidden; Frozen is false for a draft, which follows the workspace.
 type InvoiceHideNames struct {
@@ -139,8 +146,12 @@ type InvoiceHideNames struct {
 type InvoiceExportQuery struct {
 	TeamID int64
 	Client string
-	From   time.Time
-	To     time.Time
+	// ClientProjects are the projects of the client card named Client: an
+	// invoice over one of them is that client's even if it spells the name
+	// differently.
+	ClientProjects []int64
+	From           time.Time
+	To             time.Time
 }
 
 // InvoiceExportLine is one line of an issued invoice, as the accountant's export lists it.

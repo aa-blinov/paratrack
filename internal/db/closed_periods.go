@@ -67,10 +67,10 @@ func (d *DB) CloseMonth(ctx context.Context, request appmodel.PeriodCloseRequest
 		return model.ErrWeekHasRunningTimer
 	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO closed_periods (team_id, month, closed_at, closed_by)
-		 VALUES (?, ?, ?, ?)
+		`INSERT INTO closed_periods (team_id, month, closed_at, closed_by, closed_by_role)
+		 VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT (team_id, month) DO NOTHING`,
-		request.TeamID, key.day, FormatTime(d.currentTime().UTC()), request.CallerID); err != nil {
+		request.TeamID, key.day, FormatTime(d.currentTime().UTC()), request.CallerID, string(role)); err != nil {
 		return fmt.Errorf("close month for team %d: %w", request.TeamID, err)
 	}
 	return tx.Commit()
@@ -106,7 +106,7 @@ func (d *DB) ReopenMonth(ctx context.Context, request appmodel.PeriodCloseReques
 		var closedBy int64
 		var closerRole sql.NullString
 		err := tx.QueryRowContext(ctx,
-			`SELECT c.closed_by, m.role FROM closed_periods c
+			`SELECT c.closed_by, COALESCE(NULLIF(c.closed_by_role, ''), m.role) FROM closed_periods c
 			   LEFT JOIN memberships m ON m.team_id = c.team_id AND m.user_id = c.closed_by
 			  WHERE c.team_id = ? AND c.month = ?`, request.TeamID, key.day).Scan(&closedBy, &closerRole)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -137,7 +137,7 @@ func (d *DB) ListClosedMonths(ctx context.Context, teamID int64) ([]appmodel.Per
 		return nil, err
 	}
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT c.month, c.closed_at, c.closed_by, COALESCE(m.role, '') FROM closed_periods c
+		`SELECT c.month, c.closed_at, c.closed_by, COALESCE(NULLIF(c.closed_by_role, ''), m.role, '') FROM closed_periods c
 		   LEFT JOIN memberships m ON m.team_id = c.team_id AND m.user_id = c.closed_by
 		  WHERE c.team_id = ? ORDER BY c.month DESC`,
 		teamID)

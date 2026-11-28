@@ -578,6 +578,8 @@ export interface PayrollDetailData {
   Lang: string
   CSRFToken: string
   Run: {
+    PaidOn: string
+    TodayISO: string
     ID: number
     Number: string
     Status: string
@@ -758,8 +760,9 @@ export interface InvoiceDetailData {
     RemainingLabel: string
     Remaining: boolean
     PartialPaid: boolean
+    VoidReason: string
     TodayISO: string
-    Payments: Array<{ Date: string; Amount: string; Note: string; Source: string }>
+    Payments: Array<{ Date: string; Amount: string; Note: string; Source: string; ID: number; CanReverse: boolean }>
     Logo: string
   }
   Seller: string

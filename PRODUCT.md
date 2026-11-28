@@ -123,6 +123,27 @@ Confirmed by the code:
   reopened only by them or the owner.
 - A manager repeats the week on screen in up to 12 weeks ahead; a week that
   already has a plan is skipped and named, never merged.
+- A sent invoice reads as it went out: the seller, the logo, the line labels,
+  the issue day (the day it was sent, not the day the draft was made) and
+  the session breakdown are kept at send (`invoices.issued_snapshot`); the
+  payment state, what is still owed and the QR stay live. A client link is
+  made only for a sent invoice.
+- A sent invoice with nothing paid is voided with a reason, never deleted:
+  its number stays used, its hours can be billed again, payments are refused,
+  the PDF says АННУЛИРОВАН and its client link answers that it was voided.
+- A payment entered by mistake is reversed with a reason: a negative entry in
+  the journal, never a deletion; a paid invoice goes back to sent. A payment
+  cannot be dated in the future or into a closed month.
+- A pay run is marked paid on a payout day (`payroll_runs.paid_on`), refused
+  in a closed month; the accountant may do it.
+- A closed month keeps the closer's role (`closed_periods.closed_by_role`), so
+  removing an accountant does not let an admin reopen their month. An import
+  is refused whole when an entry starts in a closed month.
+- Every CSV has an Excel dialect for a person: headers in the reader's
+  language, ';', a decimal comma, ДД.ММ.ГГГГ and an ИНН kept as text. The
+  session breakdown that goes to the client is always in it. Reports also
+  export for Excel and for the client (no rates), and name their scope on
+  every row. The accountant's exports follow the client card, not the spelling.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

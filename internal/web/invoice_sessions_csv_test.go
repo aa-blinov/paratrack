@@ -49,10 +49,11 @@ func TestInvoiceSessionsAppendixDownloadsAsCSV(t *testing.T) {
 	if response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/csv") {
 		t.Fatalf("the appendix answered %d as %q", response.StatusCode, response.Header.Get("Content-Type"))
 	}
-	if !strings.HasPrefix(body, "date,start,end,person,project,activity,hours,seconds\n") {
+	// The appendix is for the client's accountant: Russian Excel's dialect.
+	if !strings.HasPrefix(body, "\ufeffДата;Начало;Конец;Исполнитель;Проект;Работа;Часы;Секунды\n") {
 		t.Fatalf("the appendix header is wrong: %q", body)
 	}
-	if !strings.Contains(body, "2026-10-20,09:00,10:30,") || !strings.Contains(body, ",Appendix work,1.50,5400") {
+	if !strings.Contains(body, "20.10.2026;09:00;10:30;") || !strings.Contains(body, ";Appendix work;1,50;5400") {
 		t.Fatalf("the appendix row is missing the session: %q", body)
 	}
 }

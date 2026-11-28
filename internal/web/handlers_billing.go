@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -46,6 +47,10 @@ func (s *Server) handleInvoiceShare(w http.ResponseWriter, r *http.Request) {
 			s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
 		case errors.Is(err, model.ErrForbidden):
 			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
+		case errors.Is(err, model.ErrInvoiceNotIssued):
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: i18n.T(resolveLang(r), "inv.linkNotIssued")})
+		case errors.As(err, new(*model.RequisitesError)):
+			s.writeJSONStatus(w, http.StatusConflict, apiErrorResponse{Error: s.invoiceErrorMessage(r, err)})
 		default:
 			s.writeInternalJSONError(w, err)
 		}
@@ -83,7 +88,20 @@ func (s *Server) handleSharedInvoicePDF(w http.ResponseWriter, r *http.Request) 
 		s.invoiceLoadError(w, r, err)
 		return
 	}
-	pdf, err := renderInvoicePDF(vm, s.sellerName(r), resolveLang(r))
+	// A voided invoice says so to the client instead of a bare "not found",
+	// so nobody pays a cancelled number.
+	if vm.Status == "void" {
+		w.Header().Set("Cache-Control", "no-store")
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusGone)
+		msg := fmt.Sprintf(i18n.T(resolveLang(r), "inv.voidShared"), vm.Number)
+		if vm.VoidReason != "" {
+			msg += " " + vm.VoidReason
+		}
+		_, _ = w.Write([]byte(msg))
+		return
+	}
+	pdf, err := renderInvoicePDF(vm, vm.Seller, resolveLang(r))
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -100,6 +118,7 @@ func (s *Server) handleSharedInvoicePDF(w http.ResponseWriter, r *http.Request) 
 func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request) {
 	loc := userLoc(r)
 	query := appmodel.InvoiceExportQuery{TeamID: teamID(r), Client: strings.TrimSpace(r.URL.Query().Get("export_client"))}
+	query.ClientProjects = s.clientCardProjects(r, query.Client)
 	valid := true
 	if value := r.URL.Query().Get("export_from"); value != "" {
 		day, err := time.ParseInLocation("2006-01-02", value, loc)
@@ -149,6 +168,29 @@ func (s *Server) handleInvoiceSessionsCSV(w http.ResponseWriter, r *http.Request
 // invoiceSessionsCSV is the invoice's appendix as a file: one row per billed
 // session, people's names left out when the workspace hides them on invoices.
 func (s *Server) invoiceSessionsCSV(r *http.Request, invoiceID int64) ([]byte, error) {
+	rows, err := s.liveInvoiceSessions(r, invoiceID)
+	if err != nil {
+		return nil, err
+	}
+	// An issued invoice's appendix is the one the client was given.
+	if raw, err := s.services.Invoicing.Queries.IssuedSnapshot(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: invoiceID}); err == nil && raw != "" {
+		var issued invoiceIssued
+		if json.Unmarshal([]byte(raw), &issued) == nil && issued.Sessions != nil {
+			rows = issued.Sessions
+		}
+	}
+	var buf bytes.Buffer
+	// The appendix goes to the client's accountant: the dialect a person opens.
+	// Names are already left out of the rows when the invoice hides them.
+	if err := writeInvoiceSessionsCSV(&buf, rows, userLoc(r), false, excelDialect(r)); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+// liveInvoiceSessions reads the billed sessions as they are now, with the
+// people's names left out when the invoice hides them.
+func (s *Server) liveInvoiceSessions(r *http.Request, invoiceID int64) ([]appmodel.InvoiceSessionRow, error) {
 	rows, err := s.services.Invoicing.Queries.Sessions(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: invoiceID})
 	if err != nil {
 		return nil, err
@@ -157,11 +199,12 @@ func (s *Server) invoiceSessionsCSV(r *http.Request, invoiceID int64) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	var buf bytes.Buffer
-	if err := writeInvoiceSessionsCSV(&buf, rows, userLoc(r), hide); err != nil {
-		return nil, err
+	if hide {
+		for i := range rows {
+			rows[i].Person = ""
+		}
 	}
-	return buf.Bytes(), nil
+	return rows, nil
 }
 
 func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
@@ -170,8 +213,7 @@ func (s *Server) handleInvoicePDF(w http.ResponseWriter, r *http.Request) {
 		s.invoiceLoadError(w, r, err)
 		return
 	}
-	teamName := s.sellerName(r)
-	pdf, err := renderInvoicePDF(vm, teamName, resolveLang(r))
+	pdf, err := renderInvoicePDF(vm, vm.Seller, resolveLang(r))
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -190,7 +232,7 @@ func (s *Server) handleInvoiceAct(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data := invoiceDetailPage{pageData: pageData{Title: inv.Number, Active: "invoices", Lang: string(resolveLang(r))}, InvoiceActReact: true, Inv: vm}
-	data.Seller = s.sellerName(r)
+	data.Seller = vm.Seller
 	s.renderPageForRequest(w, r, inv.Number, "invoices", &data)
 }
 
@@ -200,8 +242,7 @@ func (s *Server) handleInvoiceActPDF(w http.ResponseWriter, r *http.Request) {
 		s.invoiceLoadError(w, r, err)
 		return
 	}
-	teamName := s.sellerName(r)
-	pdf, err := renderDocPDF(vm, teamName, resolveLang(r), true)
+	pdf, err := renderDocPDF(vm, vm.Seller, resolveLang(r), true)
 	if err != nil {
 		s.writeInternalError(w, err)
 		return
@@ -337,6 +378,11 @@ func (s *Server) handleInvoiceMarkPaid(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
+	if inv, vm, _, err := s.invoiceVMFor(r, id, false); err == nil && inv.Status == "draft" {
+		if err := s.freezeIssued(r, inv, &vm); err != nil {
+			s.logInternalError(err)
+		}
+	}
 	if err := s.services.Billing.RecordManualPayment(r.Context(), appmodel.ManualPaymentRequest{
 		TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r), ClientIP: clientIP(r),
 	}); err != nil {
@@ -362,6 +408,7 @@ func (s *Server) invoiceLoadError(w http.ResponseWriter, r *http.Request, err er
 func (s *Server) handlePaymentLedgerCSV(w http.ResponseWriter, r *http.Request) {
 	loc := userLoc(r)
 	query := appmodel.InvoiceExportQuery{TeamID: teamID(r), Client: strings.TrimSpace(r.URL.Query().Get("export_client"))}
+	query.ClientProjects = s.clientCardProjects(r, query.Client)
 	valid := true
 	if value := r.URL.Query().Get("export_from"); value != "" {
 		day, err := time.ParseInLocation("2006-01-02", value, loc)
@@ -416,4 +463,37 @@ func (s *Server) handleInvoiceShareRevoke(w http.ResponseWriter, r *http.Request
 	}
 	s.audit(r, "invoice.share_revoke", strconv.FormatInt(id, 10), strconv.FormatInt(n, 10))
 	s.writeJSON(w, invoiceShareRevokeResponse{Revoked: n})
+}
+
+// clientCardProjects lists the projects of the client card with this name,
+// so an export for a client follows the card, as the reports do.
+func (s *Server) clientCardProjects(r *http.Request, name string) []int64 {
+	if name == "" {
+		return nil
+	}
+	cards, err := s.services.Clients.List(r.Context(), appmodel.ClientCatalogQuery{TeamID: teamID(r), IncludeArchived: true})
+	if err != nil {
+		return nil
+	}
+	var cardID int64
+	for _, c := range cards {
+		if strings.EqualFold(strings.TrimSpace(c.Name), name) {
+			cardID = c.ID
+			break
+		}
+	}
+	if cardID == 0 {
+		return nil
+	}
+	projects, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: true})
+	if err != nil {
+		return nil
+	}
+	var ids []int64
+	for _, p := range projects {
+		if p.ClientID == cardID {
+			ids = append(ids, p.ID)
+		}
+	}
+	return ids
 }

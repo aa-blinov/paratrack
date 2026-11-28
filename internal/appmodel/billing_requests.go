@@ -24,6 +24,15 @@ type InvoicePaymentRequest struct {
 	Note        string
 }
 
+// InvoicePaymentReverseRequest reverses one journal entry entered by mistake.
+type InvoicePaymentReverseRequest struct {
+	TeamID    int64
+	InvoiceID int64
+	PaymentID int64
+	CallerID  int64
+	Note      string
+}
+
 type ManualPaymentRequest struct {
 	TeamID    int64
 	InvoiceID int64

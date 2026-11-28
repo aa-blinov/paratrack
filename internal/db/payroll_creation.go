@@ -208,7 +208,7 @@ func runTouchesFilteredUsers(ctx context.Context, tx *Tx, runID int64, userFilte
 func payrollOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time.Time, userFilter map[int64]bool) ([]PayrollRun, error) {
 	rows, err := tx.QueryContext(ctx,
 		`SELECT id, team_id, number, period_start, period_end, status, notes,
-		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
+		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at, paid_on
 		 FROM payroll_runs WHERE team_id = ? AND period_start < ? AND ? < period_end
 		 ORDER BY period_start, id FOR UPDATE`, teamID, FormatTime(end), FormatTime(start))
 	if err != nil {
@@ -253,7 +253,7 @@ func salaryOverlapsTx(ctx context.Context, tx *Tx, teamID int64, start, end time
 	monthEnd := time.Date(last.Year(), last.Month(), 1, 0, 0, 0, 0, last.Location()).AddDate(0, 1, 0)
 	rows, err := tx.QueryContext(ctx,
 		`SELECT id, team_id, number, period_start, period_end, status, notes,
-		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
+		        COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at, paid_on
 		 FROM payroll_runs
 		 WHERE team_id = ? AND period_start < ? AND ? < period_end
 		   AND id IN (

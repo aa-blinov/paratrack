@@ -16,7 +16,7 @@ func TestBillableReportCSVReadsBackAsAFlatTable(t *testing.T) {
 		{Key: `Кавычка "А"`, Secs: 3600, RateVaries: true, AmountCents: 6150000, Currency: "RUB", Share: 37.5},
 	}
 	var buf bytes.Buffer
-	if err := writeReportCSV(&buf, rows); err != nil {
+	if err := writeReportCSV(&buf, rows, csvDialect{}, reportCSV{}); err != nil {
 		t.Fatalf("write the report: %v", err)
 	}
 	records, err := csv.NewReader(&buf).ReadAll()

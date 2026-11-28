@@ -88,7 +88,7 @@ func (d *DB) RecordInvoicePayment(ctx context.Context, request appmodel.InvoiceP
 		return false, err
 	}
 	paidOn, err := time.ParseInLocation("2006-01-02", request.PaidOn, loc)
-	if err != nil {
+	if err != nil || paidOn.After(d.currentTime().In(loc)) {
 		return false, model.ErrPaymentDate
 	}
 	if err := lockClosedPeriodSpan(ctx, tx, teamID, paidOn, paidOn.AddDate(0, 0, 1)); err != nil {
@@ -137,7 +137,7 @@ func (d *DB) ListInvoicePayments(ctx context.Context, teamID, invoiceID int64) (
 	if teamID <= 0 {
 		return nil, ErrNotFound
 	}
-	q := `SELECT id, team_id, invoice_id, paid_on, amount_cents, note, source, created_at FROM invoice_payments WHERE team_id = ?`
+	q := `SELECT id, team_id, invoice_id, paid_on, amount_cents, note, source, created_at, reverses FROM invoice_payments WHERE team_id = ?`
 	args := []any{teamID}
 	if invoiceID > 0 {
 		q += ` AND invoice_id = ?`
@@ -153,7 +153,7 @@ func (d *DB) ListInvoicePayments(ctx context.Context, teamID, invoiceID int64) (
 	for rows.Next() {
 		var p model.InvoicePayment
 		var created string
-		if err := rows.Scan(&p.ID, &p.TeamID, &p.InvoiceID, &p.PaidOn, &p.AmountCents, &p.Note, &p.Source, &created); err != nil {
+		if err := rows.Scan(&p.ID, &p.TeamID, &p.InvoiceID, &p.PaidOn, &p.AmountCents, &p.Note, &p.Source, &created, &p.Reverses); err != nil {
 			return nil, err
 		}
 		if p.CreatedAt, err = ScanTime(created); err != nil {
@@ -197,4 +197,74 @@ func (d *DB) PaidCentsInMonth(ctx context.Context, teamID int64, fromDay, toDay 
 		return 0, "", fmt.Errorf("sum invoice payments for team %d: %w", teamID, err)
 	}
 	return total, currency, nil
+}
+
+// ReverseInvoicePayment books a storno of a payment entered by mistake: a
+// negative entry of the same amount, dated today, with the reason as its note.
+// The journal only grows, so the mistake stays visible. A payment dated into
+// a closed month is not reversed, and a paid invoice goes back to sent.
+func (d *DB) ReverseInvoicePayment(ctx context.Context, request appmodel.InvoicePaymentReverseRequest) error {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.PaymentID <= 0 || request.CallerID <= 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := lockTeamFinance(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status FROM invoices WHERE id = ? AND team_id = ? FOR UPDATE`, request.InvoiceID, request.TeamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	var paidOnText, source string
+	var amount int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT paid_on, amount_cents, source FROM invoice_payments WHERE id = ? AND invoice_id = ? AND team_id = ?`,
+		request.PaymentID, request.InvoiceID, request.TeamID).Scan(&paidOnText, &amount, &source); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	var reversed int
+	if err := tx.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM invoice_payments WHERE team_id = ? AND reverses = ?`, request.TeamID, request.PaymentID).Scan(&reversed); err != nil {
+		return err
+	}
+	if amount <= 0 || source == "reversal" || reversed > 0 {
+		return model.ErrPaymentAmount
+	}
+	loc, err := workspaceZone(ctx, tx, request.TeamID)
+	if err != nil {
+		return err
+	}
+	paidOn, err := time.ParseInLocation("2006-01-02", paidOnText, loc)
+	if err != nil {
+		return fmt.Errorf("parse payment day %q: %w", paidOnText, err)
+	}
+	if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, paidOn, paidOn.AddDate(0, 0, 1)); err != nil {
+		return err
+	}
+	now := d.currentTime()
+	today := now.In(loc).Format("2006-01-02")
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO invoice_payments (team_id, invoice_id, paid_on, amount_cents, note, source, created_at, reverses)
+		 VALUES (?, ?, ?, ?, ?, 'reversal', ?, ?)`,
+		request.TeamID, request.InvoiceID, today, -amount, request.Note, FormatTime(now.UTC()), request.PaymentID); err != nil {
+		return err
+	}
+	if status == "paid" {
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE invoices SET status = 'sent', paid_at = NULL WHERE id = ? AND team_id = ?`, request.InvoiceID, request.TeamID); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }

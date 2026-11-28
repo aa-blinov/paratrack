@@ -36,7 +36,7 @@ func (d *DB) SetPaymentURL(ctx context.Context, request appmodel.InvoicePaymentL
 		}
 		return err
 	}
-	if status == "paid" || status == "sending" {
+	if status == "paid" || status == "sending" || status == "void" {
 		return ErrInvoiceNotDraft
 	}
 	if revision != expectedRevision {
@@ -94,6 +94,9 @@ func (d *DB) MarkInvoicePaidOnce(ctx context.Context, request appmodel.InvoiceMu
 	}
 	if status == "paid" {
 		return number, false, nil
+	}
+	if status == "void" {
+		return number, false, model.ErrInvoiceNotPayable
 	}
 	// Paid straight from a draft skips "sent", and with it the check.
 	if status == "draft" {

@@ -388,6 +388,9 @@ type InvoiceQueries interface {
 	Get(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error)
 	Sessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
 	HideNames(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error)
+	IssuedSnapshot(context.Context, appmodel.InvoiceLookupQuery) (string, error)
+	VoidReason(context.Context, appmodel.InvoiceLookupQuery) (string, error)
+	SaveIssuedSnapshot(context.Context, appmodel.InvoiceSnapshotSaveRequest) error
 	Reconcile(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	ExportLines(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.InvoiceExportLine, error)
 	PaymentLedger(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.PaymentLedgerRow, error)
@@ -402,6 +405,8 @@ type InvoiceDrafts interface {
 	DeleteDraft(context.Context, appmodel.InvoiceMutationRequest) error
 	MarkSent(context.Context, appmodel.InvoiceMutationRequest) error
 	BookPayment(context.Context, appmodel.InvoicePaymentRequest) (bool, error)
+	ReversePayment(context.Context, appmodel.InvoicePaymentReverseRequest) error
+	Void(context.Context, appmodel.InvoiceVoidRequest) error
 	RebuildDraft(context.Context, appmodel.InvoiceMutationRequest) error
 	SetReceipt(context.Context, appmodel.InvoiceReceiptRequest) error
 	UpdateDraftDetails(context.Context, appmodel.InvoiceDraftUpdateRequest) error

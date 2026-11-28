@@ -59,6 +59,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /invoices/assign", s.module("invoices", s.manage(s.handleInvoiceAssignActivity)))
 	pages.HandleFunc("GET /invoices/{id}", s.module("invoices", s.finance(s.handleInvoiceDetail)))
 	pages.HandleFunc("POST /invoices/{id}/status", s.module("invoices", s.manage(s.handleInvoiceStatus)))
+	pages.HandleFunc("POST /invoices/{id}/void", s.module("invoices", s.manage(s.handleInvoiceVoid)))
 	pages.HandleFunc("POST /invoices/{id}/delete", s.module("invoices", s.manage(s.handleInvoiceDelete)))
 	pages.HandleFunc("GET /invoices/{id}/pdf", s.module("invoices", s.finance(s.handleInvoicePDF)))
 	pages.HandleFunc("GET /invoices/{id}/sessions.csv", s.module("invoices", s.finance(s.handleInvoiceSessionsCSV)))
@@ -75,6 +76,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /invoices/{id}/pay", s.module("invoices", s.manage(s.handleInvoicePayLink)))
 	pages.HandleFunc("POST /invoices/{id}/paid", s.module("invoices", s.manage(s.handleInvoiceMarkPaid)))
 	pages.HandleFunc("POST /invoices/{id}/payments", s.module("invoices", s.finance(s.handleInvoicePayment)))
+	pages.HandleFunc("POST /invoices/{id}/payments/{payment}/reverse", s.module("invoices", s.finance(s.handleInvoicePaymentReverse)))
 	pages.HandleFunc("POST /api/team/stripe", s.owner(s.handleTeamStripe))
 
 	// Payroll and resource scheduling.
@@ -82,7 +84,7 @@ func (s *Server) registerPageRoutes(pages *http.ServeMux) {
 	pages.HandleFunc("POST /payroll", s.module("payroll", s.manage(s.handlePayrollCreate)))
 	pages.HandleFunc("GET /payroll/{id}", s.module("payroll", s.finance(s.handlePayrollDetail)))
 	pages.HandleFunc("GET /payroll/{id}/export.csv", s.module("payroll", s.finance(s.handlePayrollExport)))
-	pages.HandleFunc("POST /payroll/{id}/paid", s.module("payroll", s.manage(s.handlePayrollPaid)))
+	pages.HandleFunc("POST /payroll/{id}/paid", s.module("payroll", s.finance(s.handlePayrollPaid)))
 	pages.HandleFunc("POST /payroll/{id}/delete", s.module("payroll", s.manage(s.handlePayrollDelete)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments", s.module("payroll", s.manage(s.handlePayrollAddAdjustment)))
 	pages.HandleFunc("POST /payroll/{id}/adjustments/{line}/delete", s.module("payroll", s.manage(s.handlePayrollDeleteAdjustment)))

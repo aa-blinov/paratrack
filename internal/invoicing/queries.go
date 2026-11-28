@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -23,7 +24,7 @@ func (s *Service) ExportLines(ctx context.Context, query appmodel.InvoiceExportQ
 	var out []appmodel.InvoiceExportLine
 	for _, item := range items {
 		inv := item.Invoice
-		if inv.Status == "draft" || (query.Client != "" && inv.ClientName != query.Client) {
+		if inv.Status == "draft" || !clientMatches(inv, query) {
 			continue
 		}
 		if !query.From.IsZero() && inv.CreatedAt.Before(query.From) {
@@ -278,7 +279,7 @@ func (s *Service) PaymentLedger(ctx context.Context, query appmodel.InvoiceExpor
 	var out []appmodel.PaymentLedgerRow
 	for _, item := range items {
 		inv := item.Invoice
-		if query.Client != "" && inv.ClientName != query.Client {
+		if !clientMatches(inv, query) {
 			continue
 		}
 		inn := model.ParseRequisites(inv.ClientDetails).INN
@@ -308,4 +309,43 @@ func (s *Service) HideNames(ctx context.Context, query appmodel.InvoiceLookupQue
 		return appmodel.InvoiceHideNames{}, ErrInvalidInvoice
 	}
 	return s.reader.InvoiceHideNames(ctx, query)
+}
+
+// clientMatches says whether an invoice belongs to the export's client: by
+// the client card of its project, or by the name it carries, regardless of
+// case and surrounding spaces.
+func clientMatches(inv model.Invoice, query appmodel.InvoiceExportQuery) bool {
+	if query.Client == "" {
+		return true
+	}
+	for _, id := range query.ClientProjects {
+		if inv.ProjectID == id && id > 0 {
+			return true
+		}
+	}
+	return strings.EqualFold(strings.TrimSpace(inv.ClientName), strings.TrimSpace(query.Client))
+}
+
+// IssuedSnapshot reads what an invoice looked like when it was issued.
+func (s *Service) IssuedSnapshot(ctx context.Context, query appmodel.InvoiceLookupQuery) (string, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return "", ErrInvalidInvoice
+	}
+	return s.reader.InvoiceIssuedSnapshot(ctx, query)
+}
+
+// SaveIssuedSnapshot keeps what an invoice looks like as it is issued.
+func (s *Service) SaveIssuedSnapshot(ctx context.Context, request appmodel.InvoiceSnapshotSaveRequest) error {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.Data == "" {
+		return ErrInvalidInvoice
+	}
+	return s.reader.SaveInvoiceIssuedSnapshot(ctx, request)
+}
+
+// VoidReason reads why an invoice was voided.
+func (s *Service) VoidReason(ctx context.Context, query appmodel.InvoiceLookupQuery) (string, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return "", ErrInvalidInvoice
+	}
+	return s.reader.InvoiceVoidReason(ctx, query)
 }

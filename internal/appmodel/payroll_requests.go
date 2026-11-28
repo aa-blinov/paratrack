@@ -15,6 +15,9 @@ type PayrollMutationRequest struct {
 	TeamID   int64
 	RunID    int64
 	CallerID int64
+	// PaidOn is the payout day for marking a run paid, YYYY-MM-DD; empty
+	// means today in the workspace zone.
+	PaidOn string
 }
 
 type PayrollMemberPayRequest struct {

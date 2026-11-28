@@ -16,7 +16,7 @@ import (
 // It asks for what is still owed, so a half-paid invoice does not ask for the
 // whole sum again, and a paid one carries no code at all.
 func paymentQR(inv invoiceVM, sellerName string) (payload string, ok bool) {
-	if strings.ToUpper(inv.Currency) != "RUB" || inv.Status == "paid" || inv.RemainingCents <= 0 {
+	if strings.ToUpper(inv.Currency) != "RUB" || inv.Status == "paid" || inv.Status == "void" || inv.RemainingCents <= 0 {
 		return "", false
 	}
 	f := model.ParseRequisites(inv.SellerDetails)

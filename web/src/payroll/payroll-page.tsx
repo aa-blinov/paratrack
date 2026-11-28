@@ -142,7 +142,8 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
     <div className="no-print space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm"><a href="/payroll" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "pay.title")}</a><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono">{data.Run.Number}</span><Status lang={lang} status={data.Run.Status} /></div>
       <div className="flex flex-wrap items-center gap-2">
-        {data.CanManage && data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
+        {data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`} className="flex flex-wrap items-center gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><DateField name="paid_on" ariaLabel={t(lang, "pay.paidOn")} defaultValue={data.Run.TodayISO} className="w-36" /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
+        {data.Run.Status === "paid" && data.Run.PaidOn && <span className="text-sm text-muted-foreground">{t(lang, "pay.paidOnLabel")}: {data.Run.PaidOn}</span>}
         {/* After a timesheet edit the draft would otherwise pay the old
             hours, and a percent bonus would stay worked out from them. */}
         {data.CanManage && data.Run.Status === "draft" && !data.RecalcPreview && <Button asChild size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}><a href={`/payroll/${data.Run.ID}?preview=recalculate#recalc-preview`}>{t(lang, "pay.recalculate")}</a></Button>}

@@ -10,12 +10,9 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/i18n"
 	"github.com/aa-blinov/paratrack/internal/money"
 )
-
-// reportCSVHeader is the column order of a report's CSV. Amounts and rates are in
-// the currency of their row, with two digits and no minor units in the column name.
-var reportCSVHeader = []string{"key", "hours", "seconds", "rate", "amount", "currency", "share"}
 
 // csvNeutralizeCell stops a spreadsheet from reading a cell as a formula. A
 // leading =, +, -, @ or tab is how Excel and 1С decide a cell computes; an
@@ -32,23 +29,47 @@ func csvNeutralizeCell(s string) string {
 	return s
 }
 
-// writeReportCSV writes a report as RFC 4180 CSV. Hours use a decimal point in any
-// language, so a spreadsheet and an accountant read the same number. A rate that
-// varies inside a row is left empty, as it is on screen.
-func writeReportCSV(w io.Writer, rows []reportRow) error {
-	out := csv.NewWriter(w)
-	if err := out.Write(reportCSVHeader); err != nil {
+// reportCSV says how a report's file is cut: the scope it was narrowed to, a
+// column on every row so the file names its project or client on its own, and
+// whether the internal rates and amounts stay in (a file for the client
+// leaves them out).
+type reportCSV struct {
+	scope   string
+	noMoney bool
+}
+
+// writeReportCSV writes a report as CSV in the dialect. A rate that varies
+// inside a row is left empty, as it is on screen.
+func writeReportCSV(w io.Writer, rows []reportRow, d csvDialect, cut reportCSV) error {
+	out, err := d.writer(w)
+	if err != nil {
+		return err
+	}
+	header := []string{"key", "hours", "seconds"}
+	if !cut.noMoney {
+		header = append(header, "rate", "amount", "currency")
+	}
+	header = append(header, "share")
+	if cut.scope != "" {
+		header = append(header, "scope")
+	}
+	if err := out.Write(d.header(header)); err != nil {
 		return err
 	}
 	for _, row := range rows {
-		rate := ""
-		if !row.RateVaries {
-			rate = money.FormatCents(row.RateCents)
+		cells := []string{csvNeutralizeCell(row.Key), d.number(formatHoursDecimal(row.Secs)), strconv.Itoa(row.Secs)}
+		if !cut.noMoney {
+			rate := ""
+			if !row.RateVaries {
+				rate = d.number(money.FormatCents(row.RateCents))
+			}
+			cells = append(cells, rate, d.number(money.FormatCents(row.AmountCents)), row.Currency)
 		}
-		if err := out.Write([]string{
-			csvNeutralizeCell(row.Key), formatHoursDecimal(row.Secs), strconv.Itoa(row.Secs), rate,
-			money.FormatCents(row.AmountCents), row.Currency, fmt.Sprintf("%.1f", row.Share),
-		}); err != nil {
+		cells = append(cells, d.number(fmt.Sprintf("%.1f", row.Share)))
+		if cut.scope != "" {
+			cells = append(cells, csvNeutralizeCell(cut.scope))
+		}
+		if err := out.Write(cells); err != nil {
 			return err
 		}
 	}
@@ -62,19 +83,22 @@ var taskReportCSVHeader = []string{"task", "project", "assignee", "status", "est
 
 // writeTaskReportCSV writes the task report as RFC 4180 CSV, hours with a decimal
 // point as in writeReportCSV. An empty estimate stays empty, not 0.00.
-func writeTaskReportCSV(w io.Writer, rows []taskReportRow) error {
-	out := csv.NewWriter(w)
-	if err := out.Write(taskReportCSVHeader); err != nil {
+func writeTaskReportCSV(w io.Writer, rows []taskReportRow, d csvDialect) error {
+	out, err := d.writer(w)
+	if err != nil {
+		return err
+	}
+	if err := out.Write(d.header(taskReportCSVHeader)); err != nil {
 		return err
 	}
 	for _, row := range rows {
 		estimate := ""
 		if row.EstimateMin > 0 {
-			estimate = formatHoursDecimal(row.EstimateMin * 60)
+			estimate = d.number(formatHoursDecimal(row.EstimateMin * 60))
 		}
 		if err := out.Write([]string{
 			csvNeutralizeCell(row.Title), csvNeutralizeCell(row.ProjectName), csvNeutralizeCell(row.AssigneeName), row.Status, estimate,
-			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds), row.Due,
+			d.number(formatHoursDecimal(row.Seconds)), strconv.Itoa(row.Seconds), d.date(row.Due),
 		}); err != nil {
 			return err
 		}
@@ -87,10 +111,13 @@ func writeTaskReportCSV(w io.Writer, rows []taskReportRow) error {
 var invoiceSessionsCSVHeader = []string{"date", "start", "end", "person", "project", "activity", "hours", "seconds"}
 
 // writeInvoiceSessionsCSV writes the billed sessions, one row each, in the zone the
-// viewer reads the time in. Hours use a decimal point, as in the other exports.
-func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc *time.Location, hidePeople bool) error {
-	out := csv.NewWriter(w)
-	if err := out.Write(invoiceSessionsCSVHeader); err != nil {
+// viewer reads the time in, in the dialect.
+func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc *time.Location, hidePeople bool, d csvDialect) error {
+	out, err := d.writer(w)
+	if err != nil {
+		return err
+	}
+	if err := out.Write(d.header(invoiceSessionsCSVHeader)); err != nil {
 		return err
 	}
 	for _, row := range rows {
@@ -102,9 +129,9 @@ func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc
 			person = ""
 		}
 		if err := out.Write([]string{
-			start.Format("2006-01-02"), start.Format("15:04"), end.Format("15:04"),
+			d.date(start.Format("2006-01-02")), start.Format("15:04"), end.Format("15:04"),
 			csvNeutralizeCell(person), csvNeutralizeCell(row.Project), csvNeutralizeCell(row.Activity),
-			formatHoursDecimal(row.Seconds), strconv.Itoa(row.Seconds),
+			d.number(formatHoursDecimal(row.Seconds)), strconv.Itoa(row.Seconds),
 		}); err != nil {
 			return err
 		}
@@ -116,14 +143,66 @@ func writeInvoiceSessionsCSV(w io.Writer, rows []appmodel.InvoiceSessionRow, loc
 // invoicesExportCSVHeader is the column order of the accountant's invoice export (FIN-05).
 var invoicesExportCSVHeader = []string{"invoice", "date", "client", "executor", "position", "hours", "rate", "amount", "currency", "status", "unapproved_weeks"}
 
-// csvDialect is how an accountant's export writes its file. The default is RFC 4180:
-// a comma between columns and a decimal point in numbers. The Excel dialect
-// (?format=excel) starts with a byte order mark, puts ';' between columns and writes a
-// decimal comma, which Russian Excel and 1С read as one column per field.
-type csvDialect struct{ excel bool }
+// csvDialect is how an export writes its file. The default is RFC 4180: a
+// comma between columns, a decimal point, ISO dates and the column codes as
+// headers, for a program to read. The Excel dialect (?format=excel or
+// ?excel=1) is for a person in Russian Excel or 1С: a byte order mark, ';'
+// between columns, a decimal comma, dates as ДД.ММ.ГГГГ, headers in the
+// reader's language, and numbers like an ИНН kept as text.
+type csvDialect struct {
+	excel bool
+	lang  i18n.Lang
+}
 
 func dialectOf(r *http.Request) csvDialect {
-	return csvDialect{excel: r.URL.Query().Get("format") == "excel"}
+	q := r.URL.Query()
+	return csvDialect{excel: q.Get("format") == "excel" || q.Get("excel") == "1", lang: resolveLang(r)}
+}
+
+// excelDialect is the dialect of a file meant for a person, whatever the address says.
+func excelDialect(r *http.Request) csvDialect { return csvDialect{excel: true, lang: resolveLang(r)} }
+
+// header names the columns: codes for a program, words for a person.
+func (d csvDialect) header(codes []string) []string {
+	if !d.excel {
+		return codes
+	}
+	out := make([]string, len(codes))
+	for i, code := range codes {
+		key := "csv." + code
+		if name := i18n.T(d.lang, key); name != key {
+			out[i] = name
+		} else {
+			out[i] = code
+		}
+	}
+	return out
+}
+
+// date writes an ISO day as the person reads it in the Excel dialect.
+func (d csvDialect) date(iso string) string {
+	if !d.excel {
+		return iso
+	}
+	if day, err := time.Parse("2006-01-02", iso); err == nil {
+		return day.Format("02.01.2006")
+	}
+	return iso
+}
+
+// digits keeps a code made of digits (ИНН, КПП) as text in Excel, which would
+// otherwise drop its leading zeros or print 7,70123E+11. Only digits pass this
+// way, so the formula form cannot carry anything else.
+func (d csvDialect) digits(s string) string {
+	if !d.excel || s == "" {
+		return s
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return csvNeutralizeCell(s)
+		}
+	}
+	return `="` + s + `"`
 }
 
 // writer starts a CSV file in the dialect. The byte order mark goes before the header.
@@ -155,12 +234,12 @@ func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, exec
 	if err != nil {
 		return err
 	}
-	if err := out.Write(invoicesExportCSVHeader); err != nil {
+	if err := out.Write(d.header(invoicesExportCSVHeader)); err != nil {
 		return err
 	}
 	for _, row := range rows {
 		if err := out.Write([]string{
-			row.InvoiceNumber, row.IssuedAt.In(loc).Format("2006-01-02"), csvNeutralizeCell(row.Client), csvNeutralizeCell(executor), csvNeutralizeCell(row.Label),
+			row.InvoiceNumber, d.date(row.IssuedAt.In(loc).Format("2006-01-02")), csvNeutralizeCell(row.Client), csvNeutralizeCell(executor), csvNeutralizeCell(row.Label),
 			d.number(formatHoursDecimal(row.Seconds)), d.number(money.FormatCents(row.RateCents)), d.number(money.FormatCents(row.AmountCents)),
 			row.Currency, row.Status, unapprovedWeeksCell(row.UnapprovedWeeks),
 		}); err != nil {
@@ -197,17 +276,25 @@ func writePaymentLedgerCSV(w io.Writer, rows []appmodel.PaymentLedgerRow, d csvD
 	if err != nil {
 		return err
 	}
-	if err := out.Write(paymentLedgerCSVHeader); err != nil {
+	if err := out.Write(d.header(paymentLedgerCSVHeader)); err != nil {
 		return err
 	}
 	for _, row := range rows {
 		if err := out.Write([]string{
-			row.PaidOn, row.InvoiceNumber, csvNeutralizeCell(row.Client), row.ClientINN,
-			d.number(money.FormatCents(row.AmountCents)), row.Currency, row.Source, csvNeutralizeCell(row.Note),
+			d.date(row.PaidOn), row.InvoiceNumber, csvNeutralizeCell(row.Client), d.digits(row.ClientINN),
+			d.number(money.FormatCents(row.AmountCents)), row.Currency, d.source(row.Source), csvNeutralizeCell(row.Note),
 		}); err != nil {
 			return err
 		}
 	}
 	out.Flush()
 	return out.Error()
+}
+
+// source names how a payment came in: the code for a program, a word for a person.
+func (d csvDialect) source(code string) string {
+	if !d.excel {
+		return code
+	}
+	return paymentSource(d.lang, code)
 }

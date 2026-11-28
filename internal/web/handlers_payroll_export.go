@@ -73,7 +73,7 @@ func (s *Server) writePayrollDayCSV(w http.ResponseWriter, r *http.Request, deta
 		s.logInternalError(err)
 		return
 	}
-	if err := out.Write(payrollDayCSVHeader); err != nil {
+	if err := out.Write(dialectOf(r).header(payrollDayCSVHeader)); err != nil {
 		s.logInternalError(err)
 		return
 	}
@@ -84,7 +84,7 @@ func (s *Server) writePayrollDayCSV(w http.ResponseWriter, r *http.Request, deta
 				continue
 			}
 			if err := out.Write([]string{
-				run.Number, csvNeutralizeCell(line.Label), weekStartOn(sunday, day).Format("2006-01-02"), day.Format("2006-01-02"),
+				run.Number, csvNeutralizeCell(line.Label), dialectOf(r).date(weekStartOn(sunday, day).Format("2006-01-02")), dialectOf(r).date(day.Format("2006-01-02")),
 				dialectOf(r).number(formatHoursDecimal(seconds[i])), strconv.Itoa(seconds[i]),
 			}); err != nil {
 				s.logInternalError(err)
@@ -105,7 +105,7 @@ func writePayrollRunCSV(w io.Writer, number, currency string, lines []model.Payr
 	if err != nil {
 		return err
 	}
-	if err := out.Write(payrollRunCSVHeader); err != nil {
+	if err := out.Write(d.header(payrollRunCSVHeader)); err != nil {
 		return err
 	}
 	for _, line := range lines {

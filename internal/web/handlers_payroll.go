@@ -22,7 +22,13 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 		loc := userLoc(r)
 		return fmt.Sprintf(i18n.T(resolveLang(r), "pay.notApproved"), notApproved.Count, notApproved.First.In(loc).Format("02.01.2006"), notApproved.Last.In(loc).Format("02.01.2006"))
 	}
+	var closedMonth *model.PeriodClosedError
+	if errors.As(err, &closedMonth) {
+		return monthClosedMessage(resolveLang(r), closedMonth)
+	}
 	switch {
+	case errors.Is(err, model.ErrPaymentDate):
+		return i18n.T(resolveLang(r), "inv.paymentDateBad")
 	case errors.Is(err, model.ErrPayrollNotDraft):
 		return i18n.T(resolveLang(r), "pay.recalcDraftOnly")
 	case errors.Is(err, model.ErrAdjustmentNoBase):
@@ -384,6 +390,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		Members: members, RecalcPreview: preview,
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
+			PaidOn: paymentDay(resolveLang(r), run.PaidOn), TodayISO: userNow(r).Format("2006-01-02"),
 			PeriodLabel: periodSpan(resolveLang(r), fmtDate(resolveLang(r), run.PeriodStart.In(loc)), fmtDate(resolveLang(r), run.PeriodEnd.In(loc).AddDate(0, 0, -1))),
 			Lines:       vms, Total: moneyL(resolveLang(r), details.TotalCents, run.Currency), TotalCents: details.TotalCents,
 			Hours: fmtHoursL(resolveLang(r), details.TotalHoursHundredths),
@@ -484,6 +491,8 @@ type payrollVM struct {
 	ID          int64
 	Number      string
 	Status      string
+	PaidOn      string // the payout day as the reader writes dates, empty when unknown
+	TodayISO    string
 	Notes       string
 	PeriodLabel string
 	Lines       []payrollLineVM
@@ -516,7 +525,12 @@ func (s *Server) handlePayrollPaid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := operationContext(r)
-	if err := s.services.PayrollPaid.MarkPaid(ctx, appmodel.PayrollMutationRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r)}); err != nil {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(resolveLang(r), "err.invalidInput"), http.StatusBadRequest)
+		return
+	}
+	request := appmodel.PayrollMutationRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), PaidOn: strings.TrimSpace(r.PostForm.Get("paid_on"))}
+	if err := s.services.PayrollPaid.MarkPaid(ctx, request); err != nil {
 		msg := s.payrollErrorMessage(r, err)
 		http.Redirect(w, r, "/payroll?flash="+encodeFlash(false, msg), http.StatusSeeOther)
 		return

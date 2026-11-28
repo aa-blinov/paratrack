@@ -14,6 +14,14 @@ type InvoiceShareRequest struct {
 }
 
 // InvoiceShareRevokeRequest closes every client link to one invoice.
+// InvoiceVoidRequest voids a sent invoice that nothing was paid on.
+type InvoiceVoidRequest struct {
+	TeamID    int64
+	InvoiceID int64
+	CallerID  int64
+	Reason    string
+}
+
 type InvoiceShareRevokeRequest struct {
 	TeamID    int64
 	InvoiceID int64

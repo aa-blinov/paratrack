@@ -43,7 +43,7 @@ func (s *Server) handleInvoiceDetail(w http.ResponseWriter, r *http.Request) {
 		InvoiceDetail: true,
 		Inv:           vm,
 	}
-	data.Seller = s.sellerName(r)
+	data.Seller = vm.Seller
 	data.StripeReady = stripeReady
 	data.MailReady = mailport.Available(s.runtime.Mailer)
 	subj, body := invoiceMailText(resolveLang(r), vm, data.Seller)

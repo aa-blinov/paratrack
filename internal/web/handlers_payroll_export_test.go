@@ -75,10 +75,10 @@ func TestUnapprovedWindowTakesTheAskedPeriodOrFallsBack(t *testing.T) {
 func TestPayrollRunCSVExcelDialect(t *testing.T) {
 	var out bytes.Buffer
 	lines := []model.PayrollLine{{UserID: 5, Label: "Маша", Seconds: 5400, RateCents: 250000, AmountCents: 375000}}
-	if err := writePayrollRunCSV(&out, "PAY-7", "RUB", lines, csvDialect{excel: true}); err != nil {
+	if err := writePayrollRunCSV(&out, "PAY-7", "RUB", lines, csvDialect{excel: true, lang: "en"}); err != nil {
 		t.Fatal(err)
 	}
-	want := "\xEF\xBB\xBFrun;person;hours;seconds;rate;amount;currency\nPAY-7;Маша;1,50;5400;2500,00;3750,00;RUB\n"
+	want := "\xEF\xBB\xBFPay run;Person;Hours;Seconds;Rate;Amount;Currency\nPAY-7;Маша;1,50;5400;2500,00;3750,00;RUB\n"
 	if out.String() != want {
 		t.Fatalf("Excel run CSV =\n%q\nwant\n%q", out.String(), want)
 	}
@@ -92,11 +92,11 @@ func TestInvoicesExportExcelDialectKeepsAnEmptyCountEmpty(t *testing.T) {
 		{InvoiceNumber: "INV-1", IssuedAt: issued, Client: "Ромашка", Label: "Сайт", Seconds: 5400, RateCents: 250000, AmountCents: 375000, Currency: "RUB", Status: "sent", UnapprovedWeeks: &count},
 		{InvoiceNumber: "INV-0", IssuedAt: issued, Client: "Ромашка", Label: "Старый", Seconds: 3600, RateCents: 250000, AmountCents: 250000, Currency: "RUB", Status: "paid"},
 	}
-	if err := writeInvoicesExportCSV(&out, rows, "ИП Иванов", time.UTC, csvDialect{excel: true}); err != nil {
+	if err := writeInvoicesExportCSV(&out, rows, "ИП Иванов", time.UTC, csvDialect{excel: true, lang: "en"}); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
-	if !strings.HasPrefix(lines[0], "\xEF\xBB\xBFinvoice;") {
+	if !strings.HasPrefix(lines[0], "\xEF\xBB\xBFInvoice;") {
 		t.Fatalf("the Excel export must start with the byte order mark: %q", lines[0])
 	}
 	if !strings.HasSuffix(lines[1], ";sent;2") || !strings.HasSuffix(lines[2], ";paid;") {

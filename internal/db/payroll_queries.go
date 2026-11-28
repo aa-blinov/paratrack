@@ -16,7 +16,7 @@ func (d *DB) ListPayrollRuns(ctx context.Context, query appmodel.PayrollRunListQ
 		return nil, ErrNotFound
 	}
 	rows, err := d.sql.QueryContext(ctx,
-		`SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
+		`SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at, paid_on
 		 FROM payroll_runs WHERE team_id = ? ORDER BY created_at DESC`, query.TeamID)
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (d *DB) GetPayrollRun(ctx context.Context, query appmodel.PayrollRunLookupQ
 }
 
 func getPayrollRun(ctx context.Context, queryer queryRower, teamID, id int64, lock bool) (PayrollRun, error) {
-	query := `SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at
+	query := `SELECT id, team_id, number, period_start, period_end, status, notes, COALESCE(NULLIF(currency, ''), (SELECT t.currency FROM teams t WHERE t.id = payroll_runs.team_id), 'RUB'), created_at, paid_on
 		 FROM payroll_runs WHERE id = ? AND team_id = ?`
 	if lock {
 		query += ` FOR UPDATE`
@@ -146,7 +146,7 @@ func scanPayrollRun(r interface{ Scan(...any) error }) (PayrollRun, error) {
 		run            PayrollRun
 		start, end, ct string
 	)
-	if err := r.Scan(&run.ID, &run.TeamID, &run.Number, &start, &end, &run.Status, &run.Notes, &run.Currency, &ct); err != nil {
+	if err := r.Scan(&run.ID, &run.TeamID, &run.Number, &start, &end, &run.Status, &run.Notes, &run.Currency, &ct, &run.PaidOn); err != nil {
 		return PayrollRun{}, err
 	}
 	var err error

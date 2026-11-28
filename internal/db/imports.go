@@ -57,6 +57,13 @@ func (d *DB) importEntries(ctx context.Context, teamID, callerID int64, provider
 		}
 		accepted = append(accepted, entry)
 	}
+	// An import is a write of time like any other: a closed month refuses it,
+	// and the whole file with it, so nothing lands half-way.
+	for _, entry := range accepted {
+		if err := lockClosedMonth(ctx, tx, teamID, entry.Start); err != nil {
+			return result, err
+		}
+	}
 	if len(accepted) > 0 {
 		activityIDs, err := d.ensureImportActivities(ctx, tx, teamID, accepted, now)
 		if err != nil {

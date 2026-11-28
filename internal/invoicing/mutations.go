@@ -273,6 +273,46 @@ func (s *Service) BookPayment(ctx context.Context, request appmodel.InvoicePayme
 	return settled, nil
 }
 
+// ReversePayment books a storno of a payment entered by mistake. The reason
+// is required: a reversal without one is a hole in the books.
+func (s *Service) ReversePayment(ctx context.Context, request appmodel.InvoicePaymentReverseRequest) error {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.PaymentID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidInvoice
+	}
+	request.Note = strings.TrimSpace(request.Note)
+	if runes := []rune(request.Note); len(runes) > 200 {
+		request.Note = string(runes[:200])
+	}
+	if request.Note == "" {
+		return model.ErrPaymentReason
+	}
+	if err := s.writer.ReverseInvoicePayment(ctx, request); err != nil {
+		return fmt.Errorf("reverse invoice payment: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.payment.reverse", strconv.FormatInt(request.InvoiceID, 10), strconv.FormatInt(request.PaymentID, 10))
+	return nil
+}
+
+// Void cancels a sent invoice nothing was paid on. The reason is required:
+// the client and the accountant both ask why a number was cancelled.
+func (s *Service) Void(ctx context.Context, request appmodel.InvoiceVoidRequest) error {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidInvoice
+	}
+	request.Reason = strings.TrimSpace(request.Reason)
+	if runes := []rune(request.Reason); len(runes) > 300 {
+		request.Reason = string(runes[:300])
+	}
+	if request.Reason == "" {
+		return model.ErrPaymentReason
+	}
+	if err := s.writer.VoidInvoice(ctx, request); err != nil {
+		return fmt.Errorf("void invoice: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "invoice.void", strconv.FormatInt(request.InvoiceID, 10), request.Reason)
+	return nil
+}
+
 // AddDraftLine appends a manual one-off fee or discount line to a draft invoice.
 func (s *Service) AddDraftLine(ctx context.Context, request appmodel.InvoiceLineAddRequest) error {
 	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.CallerID <= 0 {

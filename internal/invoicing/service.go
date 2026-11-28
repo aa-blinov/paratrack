@@ -17,6 +17,9 @@ import (
 type Reader interface {
 	ListInvoiceDetails(context.Context, int64) ([]appmodel.InvoiceDetails, error)
 	InvoiceHideNames(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error)
+	InvoiceIssuedSnapshot(context.Context, appmodel.InvoiceLookupQuery) (string, error)
+	InvoiceVoidReason(context.Context, appmodel.InvoiceLookupQuery) (string, error)
+	SaveInvoiceIssuedSnapshot(context.Context, appmodel.InvoiceSnapshotSaveRequest) error
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
 	FindInvoiceShareLink(context.Context, appmodel.InvoiceShareLookupQuery) (appmodel.InvoiceShareLookup, error)
 	ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
@@ -49,6 +52,8 @@ type Writer interface {
 	DeleteInvoice(context.Context, appmodel.InvoiceMutationRequest) error
 	UpdateInvoiceMetaAndProjectClient(context.Context, appmodel.InvoiceDraftUpdateRequest) error
 	RecordInvoicePayment(context.Context, appmodel.InvoicePaymentRequest) (bool, error)
+	ReverseInvoicePayment(context.Context, appmodel.InvoicePaymentReverseRequest) error
+	VoidInvoice(context.Context, appmodel.InvoiceVoidRequest) error
 	SetPaymentURL(context.Context, appmodel.InvoicePaymentLinkSaveRequest) error
 	AssignUnassignedActivityForBilling(context.Context, appmodel.AssignActivityProjectRequest) error
 	SetInvoiceReceipt(context.Context, appmodel.InvoiceReceiptRequest) error

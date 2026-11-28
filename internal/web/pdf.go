@@ -62,6 +62,12 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 	pdf.SetFont("Inter", "", 9)
 	grey()
 	pdf.CellFormat(0, 9, T("pdf.issued")+" "+inv.IssuedLabel, "", 1, "R", false, 0, "")
+	if inv.Status == "void" {
+		pdf.SetFont("Inter", "B", 12)
+		pdf.SetTextColor(185, 28, 28)
+		pdf.CellFormat(0, 7, T("pdf.void")+voidReasonSuffix(inv.VoidReason), "", 1, "L", false, 0, "")
+		grey()
+	}
 	pdf.Ln(4)
 
 	// Seller | client, then the period.
@@ -224,4 +230,12 @@ func logoBytes(v string) ([]byte, string) {
 		}
 	}
 	return nil, ""
+}
+
+// voidReasonSuffix appends the reason to the void mark when there is one.
+func voidReasonSuffix(reason string) string {
+	if reason == "" {
+		return ""
+	}
+	return ": " + reason
 }

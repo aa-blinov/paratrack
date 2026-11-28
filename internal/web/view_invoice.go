@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -27,6 +28,9 @@ type invoiceLineVM struct {
 }
 
 type invoiceVM struct {
+	// Seller is the issuer's name on the document: as issued once it was sent.
+	Seller      string `json:"-"`
+	VoidReason  string
 	ID          int64
 	Number      string
 	ClientName  string
@@ -67,6 +71,9 @@ type invoiceVM struct {
 // paymentVM is one entry of the payment journal on the invoice page.
 type paymentVM struct {
 	Date, Amount, Note, Source string
+	ID                         int64
+	// CanReverse is an ordinary entry no storno has reversed yet.
+	CanReverse bool
 }
 
 type invoiceProjectOpt struct {
@@ -228,13 +235,31 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 	vm.PartialPaid = details.PaidCents > 0 && owed > 0
 	vm.TodayISO = userNow(r).Format("2006-01-02")
 	vm.Payments = make([]paymentVM, 0, len(details.Payments))
+	reversed := map[int64]bool{}
+	for _, p := range details.Payments {
+		if p.Reverses > 0 {
+			reversed[p.Reverses] = true
+		}
+	}
 	for _, p := range details.Payments {
 		vm.Payments = append(vm.Payments, paymentVM{
 			Date: paymentDay(lang, p.PaidOn), Amount: moneyL(lang, p.AmountCents, inv.Currency),
-			Note: p.Note, Source: paymentSource(lang, p.Source),
+			Note: p.Note, Source: paymentSource(lang, p.Source), ID: p.ID,
+			CanReverse: p.AmountCents > 0 && p.Source != "reversal" && !reversed[p.ID],
 		})
 	}
 	vm.Logo = logoURL(snapshot.BillingRules.Logo)
+	vm.Seller = s.sellerName(r)
+	if inv.Status == "void" {
+		if reason, err := s.services.Invoicing.Queries.VoidReason(r.Context(), appmodel.InvoiceLookupQuery{TeamID: inv.TeamID, InvoiceID: inv.ID}); err == nil {
+			vm.VoidReason = reason
+		}
+	}
+	if inv.Status != "draft" {
+		if err := s.applyIssuedSnapshot(r, inv, &vm); err != nil {
+			return model.Invoice{}, invoiceVM{}, false, err
+		}
+	}
 	if inv.VATRate > 0 {
 		vm.VATIncluded = fmt.Sprintf(i18n.T(lang, "inv.vatIncluded"), inv.VATRate, moneyL(lang, vatIncludedCents(details.TotalCents, inv.VATRate), inv.Currency))
 	}
@@ -244,7 +269,7 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 // invoiceOverdue marks a sent invoice that is still unpaid past its due day
 // (FIN-07). A draft is not overdue: nothing has been asked of the client yet.
 func invoiceOverdue(status, due, today string) bool {
-	return due != "" && due < today && status != "draft" && status != "paid"
+	return due != "" && due < today && status != "draft" && status != "paid" && status != "void"
 }
 
 // invoiceDueLabel prints the due day the way the document prints its dates,
@@ -317,6 +342,9 @@ func paymentDay(lang i18n.Lang, iso string) string {
 func paymentSource(lang i18n.Lang, source string) string {
 	if source == "stripe" {
 		return i18n.T(lang, "inv.paySourceStripe")
+	}
+	if source == "reversal" {
+		return i18n.T(lang, "inv.paySourceReversal")
 	}
 	return i18n.T(lang, "inv.paySourceManual")
 }
@@ -393,4 +421,83 @@ func (s *Server) invoiceHidesNames(r *http.Request, inv model.Invoice) (bool, er
 		return false, fmt.Errorf("load invoice settings: %w", err)
 	}
 	return settings.HideExecutorNames, nil
+}
+
+// invoiceIssued is what the client was given: kept when the invoice is sent
+// and used for every later copy, so the document reads as it went out. The
+// payment state (paid, what is still owed, the QR) stays live.
+type invoiceIssued struct {
+	Seller   string                       `json:"seller"`
+	Logo     string                       `json:"logo"`
+	IssuedOn string                       `json:"issued_on"`
+	Labels   []string                     `json:"labels"`
+	Sessions []appmodel.InvoiceSessionRow `json:"sessions"`
+}
+
+// issuedFrom captures an invoice as it reads now, issued on the given day.
+func (s *Server) issuedFrom(r *http.Request, inv model.Invoice, vm invoiceVM, issuedOn time.Time) (invoiceIssued, error) {
+	issued := invoiceIssued{Seller: vm.Seller, Logo: string(vm.Logo), IssuedOn: issuedOn.Format("2006-01-02")}
+	for _, line := range vm.Lines {
+		issued.Labels = append(issued.Labels, line.Label)
+	}
+	rows, err := s.liveInvoiceSessions(r, inv.ID)
+	if err != nil {
+		return issued, err
+	}
+	issued.Sessions = rows
+	return issued, nil
+}
+
+// freezeIssued keeps the invoice's look as it is being issued today and
+// shows the issue day on the copy at hand. It runs before the send, while the
+// invoice is a draft, so the letter and every later copy agree.
+func (s *Server) freezeIssued(r *http.Request, inv model.Invoice, vm *invoiceVM) error {
+	today := userNow(r)
+	issued, err := s.issuedFrom(r, inv, *vm, today)
+	if err != nil {
+		return err
+	}
+	data, err := json.Marshal(issued)
+	if err != nil {
+		return err
+	}
+	if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: teamID(r), InvoiceID: inv.ID, Data: string(data)}); err != nil {
+		return err
+	}
+	vm.IssuedLabel = fmtDate(resolveLang(r), today)
+	return nil
+}
+
+// applyIssuedSnapshot reads an issued invoice as it went out. An invoice
+// issued before the look was kept gets it now, dated by its creation, so its
+// copies stop following later changes from here on.
+func (s *Server) applyIssuedSnapshot(r *http.Request, inv model.Invoice, vm *invoiceVM) error {
+	raw, err := s.services.Invoicing.Queries.IssuedSnapshot(r.Context(), appmodel.InvoiceLookupQuery{TeamID: inv.TeamID, InvoiceID: inv.ID})
+	if err != nil {
+		return fmt.Errorf("load the issued invoice: %w", err)
+	}
+	var issued invoiceIssued
+	if raw == "" {
+		issued, err = s.issuedFrom(r, inv, *vm, inv.CreatedAt.In(userLoc(r)))
+		if err != nil {
+			return err
+		}
+		if data, err := json.Marshal(issued); err == nil {
+			if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: inv.TeamID, InvoiceID: inv.ID, Data: string(data)}); err != nil {
+				s.logInternalError(err)
+			}
+		}
+	} else if err := json.Unmarshal([]byte(raw), &issued); err != nil {
+		return fmt.Errorf("read the issued invoice: %w", err)
+	}
+	vm.Seller, vm.Logo = issued.Seller, logoURL(issued.Logo)
+	if day, err := time.Parse("2006-01-02", issued.IssuedOn); err == nil {
+		vm.IssuedLabel = fmtDate(resolveLang(r), day)
+	}
+	if len(issued.Labels) == len(vm.Lines) {
+		for i := range vm.Lines {
+			vm.Lines[i].Label = issued.Labels[i]
+		}
+	}
+	return nil
 }

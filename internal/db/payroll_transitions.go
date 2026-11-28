@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -23,7 +24,8 @@ func (d *DB) MarkPayrollPaidWithRecipients(ctx context.Context, request appmodel
 		return false, nil, err
 	}
 	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
+	// Paying a run out is bookkeeping, which the accountant does too.
+	if err := lockTeamFinance(ctx, tx, teamID, callerID); err != nil {
 		return false, nil, err
 	}
 	var status string
@@ -36,7 +38,23 @@ func (d *DB) MarkPayrollPaidWithRecipients(ctx context.Context, request appmodel
 	}
 	changed := status != "paid"
 	if changed {
-		if _, err := tx.ExecContext(ctx, `UPDATE payroll_runs SET status = 'paid' WHERE id = ? AND team_id = ?`, id, teamID); err != nil {
+		loc, err := workspaceZone(ctx, tx, teamID)
+		if err != nil {
+			return false, nil, err
+		}
+		today := d.currentTime().In(loc)
+		paidOn := time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, loc)
+		if request.PaidOn != "" {
+			if paidOn, err = time.ParseInLocation("2006-01-02", request.PaidOn, loc); err != nil || paidOn.After(today) {
+				return false, nil, model.ErrPaymentDate
+			}
+		}
+		// The payout day is the expense side's date: a closed month keeps it out.
+		if err := lockClosedPeriodSpan(ctx, tx, teamID, paidOn, paidOn.AddDate(0, 0, 1)); err != nil {
+			return false, nil, err
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE payroll_runs SET status = 'paid', paid_on = ? WHERE id = ? AND team_id = ?`,
+			paidOn.Format("2006-01-02"), id, teamID); err != nil {
 			return false, nil, err
 		}
 	}

@@ -22,6 +22,23 @@ var columnMigrations = []struct {
 	// NULL while a draft follows the workspace switch, set when it is sent,
 	// so turning the switch later does not rewrite a document already issued.
 	{"invoices", "hide_names", "BIGINT"},
+	// What the client was given, as JSON: the seller, the logo, the line
+	// labels, the issue day and the session breakdown. Written while a draft is
+	// sent, read for every later copy, so a renamed member or project or a new
+	// logo does not change a document already issued.
+	{"invoices", "issued_snapshot", "TEXT NOT NULL DEFAULT ''"},
+	// A voided invoice keeps its number and lines, says why it was voided and
+	// when, and gives its hours back to be billed again.
+	{"invoices", "void_reason", "TEXT NOT NULL DEFAULT ''"},
+	{"invoices", "voided_at", "TEXT NOT NULL DEFAULT ''"},
+	// The closer's role when the month was closed: reopening asks who closed
+	// it then, not what that person is now, so removing an accountant from the
+	// team does not let an admin reopen the accountant's month.
+	{"closed_periods", "closed_by_role", "TEXT NOT NULL DEFAULT ''"},
+	// The day a pay run was paid out (YYYY-MM-DD), the expense side's date.
+	{"payroll_runs", "paid_on", "TEXT NOT NULL DEFAULT ''"},
+	// A storno entry names the payment it reverses; 0 on an ordinary payment.
+	{"invoice_payments", "reverses", "BIGINT NOT NULL DEFAULT 0"},
 	// An adjustment given as a percent keeps the percent, in basis points, so
 	// recalculating a draft takes it of the new earnings instead of leaving
 	// the amount worked out from hours that have since changed.

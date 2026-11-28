@@ -417,6 +417,11 @@
   background: var(--pending-wash);
   color: var(--pending-ink);
 }
+#paratrack-react-root .doc-status.is-void {
+  background: var(--draft-wash);
+  color: var(--draft-ink);
+  text-decoration: line-through;
+}
 #paratrack-react-root .doc-status.is-draft {
   background: var(--draft-wash);
   color: var(--draft-ink);

@@ -102,7 +102,7 @@ func TestFreelancerBillingLoop(t *testing.T) {
 	// The invoice, its act and the breakdown by session, in one letter.
 	if to != "buh@romashka.ru" || len(files) != 3 || !strings.HasPrefix(string(files[0].Data), "%PDF") ||
 		!strings.HasPrefix(files[1].Name, "act-") || !strings.HasPrefix(string(files[1].Data), "%PDF") ||
-		!strings.HasSuffix(files[2].Name, "-sessions.csv") || !strings.HasPrefix(string(files[2].Data), "date,start,end,person") {
+		!strings.HasSuffix(files[2].Name, "-sessions.csv") || !strings.HasPrefix(string(files[2].Data), "\ufeffДата;Начало;Конец;Исполнитель") {
 		names := []string{}
 		for _, f := range files {
 			names = append(names, f.Name)

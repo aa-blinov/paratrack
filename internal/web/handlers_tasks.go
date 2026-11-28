@@ -373,7 +373,7 @@ func (s *Server) handleTaskReportCSV(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="tasks-%s-%s.csv"`,
 		from.Format("2006-01-02"), to.Format("2006-01-02")))
-	if err := writeTaskReportCSV(w, rows); err != nil {
+	if err := writeTaskReportCSV(w, rows, dialectOf(r)); err != nil {
 		s.logInternalError(err)
 	}
 }

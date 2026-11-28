@@ -28,6 +28,9 @@ type PayrollRun struct {
 	Notes       string
 	Currency    string
 	CreatedAt   time.Time
+	// PaidOn is the day the run was paid out, YYYY-MM-DD; empty while a draft
+	// or for a run paid before the day was recorded.
+	PaidOn string
 }
 
 // PayrollLine is one person's priced time within a payroll run.
@@ -58,8 +61,10 @@ type InvoicePayment struct {
 	PaidOn      string // YYYY-MM-DD
 	AmountCents int
 	Note        string
-	Source      string // "manual" or "stripe"
+	Source      string // "manual", "stripe" or "reversal"
 	CreatedAt   time.Time
+	// Reverses is the entry a storno reverses, 0 on an ordinary payment.
+	Reverses int64
 }
 
 type Invoice struct {

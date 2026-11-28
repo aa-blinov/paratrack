@@ -88,7 +88,7 @@ func (d *DB) ReconcileClients(ctx context.Context, query appmodel.ReconcileQuery
 	billedRows, err := d.sql.QueryContext(ctx,
 		`SELECT i.client_name, COALESCE(SUM(l.seconds), 0)
 		   FROM invoice_lines l JOIN invoices i ON i.id = l.invoice_id
-		  WHERE i.team_id = ? AND i.status <> 'draft' AND i.period_start < ? AND i.period_end > ?
+		  WHERE i.team_id = ? AND i.status NOT IN ('draft', 'void') AND i.period_start < ? AND i.period_end > ?
 		  GROUP BY i.client_name`,
 		query.TeamID, FormatTime(query.Until), FormatTime(query.From))
 	if err != nil {

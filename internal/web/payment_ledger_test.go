@@ -17,11 +17,11 @@ func TestPaymentLedgerCSV(t *testing.T) {
 		{PaidOn: "2026-11-03", InvoiceNumber: "INV-2026-007", Client: "ООО «Ромашка»", ClientINN: "7707083893", AmountCents: 500050, Currency: "RUB", Source: "manual", Note: "аванс"},
 	}
 	var excel strings.Builder
-	if err := writePaymentLedgerCSV(&excel, rows, csvDialect{excel: true}); err != nil {
+	if err := writePaymentLedgerCSV(&excel, rows, csvDialect{excel: true, lang: "ru"}); err != nil {
 		t.Fatal(err)
 	}
 	got := strings.TrimPrefix(excel.String(), "\\ufeff")
-	if !strings.Contains(got, "paid_on;invoice;client;client_inn;amount") || !strings.Contains(got, "2026-11-03;INV-2026-007;ООО «Ромашка»;7707083893;5000,50;RUB;manual;аванс") {
+	if !strings.Contains(got, "Дата оплаты;Счёт;Клиент;ИНН клиента;Сумма") || !strings.Contains(got, `03.11.2026;INV-2026-007;ООО «Ромашка»;"=""7707083893""";5000,50;RUB;`) {
 		t.Fatalf("ledger:\\n%s", got)
 	}
 }

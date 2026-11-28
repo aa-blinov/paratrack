@@ -190,7 +190,7 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     {data.Items.length ? <div className="flex flex-wrap items-end gap-3">
       <div className="grid min-w-40 gap-2"><Label htmlFor="inv-filter-status">{t(lang, "inv.filterStatus")}</Label>
         <Select value={statusFilter} onValueChange={setStatusFilter}><SelectTrigger id="inv-filter-status" className="w-full"><SelectValue /></SelectTrigger><SelectContent>
-          <SelectItem value="all">{t(lang, "inv.filterAll")}</SelectItem><SelectItem value="draft">{t(lang, "status.draft")}</SelectItem><SelectItem value="sent">{t(lang, "status.sent")}</SelectItem><SelectItem value="paid">{t(lang, "status.paid")}</SelectItem><SelectItem value="overdue">{t(lang, "inv.overdue")}</SelectItem>
+          <SelectItem value="all">{t(lang, "inv.filterAll")}</SelectItem><SelectItem value="draft">{t(lang, "status.draft")}</SelectItem><SelectItem value="sent">{t(lang, "status.sent")}</SelectItem><SelectItem value="void">{t(lang, "status.void")}</SelectItem><SelectItem value="paid">{t(lang, "status.paid")}</SelectItem><SelectItem value="overdue">{t(lang, "inv.overdue")}</SelectItem>
         </SelectContent></Select></div>
       <div className="grid gap-2"><Label htmlFor="inv-filter-from">{t(lang, "inv.filterFrom")}</Label><DateField id="inv-filter-from" onValueChange={setIssuedFrom} /></div>
       <div className="grid gap-2"><Label htmlFor="inv-filter-to">{t(lang, "inv.filterTo")}</Label><DateField id="inv-filter-to" onValueChange={setIssuedTo} /></div>
@@ -257,9 +257,12 @@ function InvoiceActions({ data }: { data: InvoiceDetailData }) {
       <Button type="button" size="sm" variant="ghost" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
       {!data.CanManage ? null : inv.PaymentURL ? <Button asChild size="sm" variant="ghost"><a href={inv.PaymentURL} target="_blank" rel="noopener"><LinkIcon aria-hidden="true" />{t(lang, "inv.payOnline")}</a></Button> : data.StripeReady ? <form method="POST" action={`/invoices/${inv.ID}/pay`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><input type="hidden" name="mode" value="stripe" /><Button type="submit" size="sm" variant="ghost"><LinkIcon aria-hidden="true" />{t(lang, "inv.payLink")}</Button></form> : inv.Status !== "paid" && <span className="text-xs text-muted-foreground">{t(lang, "inv.noOnlineHint")}</span>}
       {inv.Status !== "draft" && <p className="ml-auto max-w-sm text-xs text-muted-foreground">{t(lang, "inv.deleteLocked")}</p>}
+      {/* A sent invoice is not deleted: it is voided with a reason, keeps its
+          number, and gives its hours back. Payments are reversed first. */}
+      {data.CanManage && inv.Status === "sent" && !inv.PartialPaid && <details className="w-full sm:w-auto"><summary className="cursor-pointer text-sm text-muted-foreground">{t(lang, "inv.void")}</summary><form method="POST" action={`/invoices/${inv.ID}/void`} className="mt-2 flex flex-wrap items-center gap-2" data-confirm={t(lang, "inv.voidConfirm", inv.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Input name="reason" required maxLength={300} placeholder={t(lang, "inv.voidReasonPh")} aria-label={t(lang, "inv.voidReasonPh")} className="h-8 min-w-48" /><Button type="submit" size="sm" variant="outline" className="text-destructive">{t(lang, "inv.void")}</Button></form></details>}
       {data.CanManage && inv.Status === "draft" && <form method="POST" action={`/invoices/${inv.ID}/delete`} className="ml-auto" data-confirm={t(lang, "inv.confirmDelete", inv.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="icon" variant="ghost" className="text-destructive" aria-label={t(lang, "inv.delete")}><Trash2 aria-hidden="true" /></Button></form>}
     </div>
-    {data.CanManage && <ClientLink invoiceID={inv.ID} csrfToken={data.CSRFToken} lang={lang} />}
+    {data.CanManage && (inv.Status === "sent" || inv.Status === "paid") && <ClientLink invoiceID={inv.ID} csrfToken={data.CSRFToken} lang={lang} />}
   </div>
 }
 
@@ -270,6 +273,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
     <InvoiceFlash data={data} />
     <InvoiceActions data={data} />
 
+    {inv.Status === "void" && <p role="status" className="rounded-md border border-destructive/40 p-3 text-sm">{t(lang, "inv.voidedBecause")}{inv.VoidReason ? `: ${inv.VoidReason}` : ""}</p>}
     <Card className="print:border-0"><CardContent className="space-y-5 p-5 sm:p-7">
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>{inv.Logo && <img src={inv.Logo} alt="" width={192} height={48} className="mb-3 h-12 w-48 object-contain" />}<h1 className="text-2xl font-semibold tracking-tight">{t(lang, "inv.invoice")} <span className="font-mono">{inv.Number}</span></h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pdf.issued")} {inv.IssuedLabel}</p></div>
@@ -303,6 +307,8 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
         <span className="font-mono">{payment.Date}</span>
         <span className="min-w-0 flex-1 text-xs text-muted-foreground [overflow-wrap:anywhere]">{payment.Note || payment.Source}</span>
         <span className="font-mono tabular-nums">{payment.Amount}</span>
+        {/* A storno is a new entry, not a deletion: the mistake stays in the journal. */}
+        {payment.CanReverse && <details className="w-full text-end"><summary className="cursor-pointer text-xs text-muted-foreground">{t(lang, "inv.reverse")}</summary><form method="POST" action={`/invoices/${inv.ID}/payments/${payment.ID}/reverse`} className="mt-2 flex items-center justify-end gap-2"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Input name="note" required maxLength={200} placeholder={t(lang, "inv.reverseReasonPh")} aria-label={t(lang, "inv.reverseReasonPh")} className="h-8 max-w-56" /><Button type="submit" size="sm" variant="outline">{t(lang, "inv.reverse")}</Button></form></details>}
       </li>)}</ul> : null}
       {inv.Remaining && <form method="POST" action={`/invoices/${inv.ID}/payments`} className="grid gap-3 border-t pt-4 sm:grid-cols-[1fr_1fr_2fr_auto] sm:items-end">
         <input type="hidden" name="csrf_token" value={data.CSRFToken} />

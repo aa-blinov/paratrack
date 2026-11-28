@@ -321,10 +321,10 @@ func (s *Server) handleReportRun(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit(r, "report.run", tpl.ID, vm.From+".."+vm.To)
 
-	if r.URL.Query().Get("format") == "csv" {
+	if format := r.URL.Query().Get("format"); format == "csv" || format == "excel" {
 		w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 		w.Header().Set("Content-Disposition", `attachment; filename="`+tpl.ID+`.csv"`)
-		_ = writeReportCSV(w, vm.Rows)
+		_ = writeReportCSV(w, vm.Rows, dialectOf(r), reportCSV{scope: vm.Scope, noMoney: r.URL.Query().Get("money") == "0"})
 		return
 	}
 	lang := string(resolveLang(r))

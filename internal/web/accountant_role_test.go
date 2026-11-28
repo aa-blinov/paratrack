@@ -105,3 +105,91 @@ func TestAccountantReadsTheMoneyAndClosesTheMonthButEditsNothing(t *testing.T) {
 		t.Fatal("the owner could not reopen a month")
 	}
 }
+
+// Removing the accountant from the team does not let an admin reopen the
+// month the accountant closed: the closer's role is kept with the close.
+func TestAdminCannotReopenAnAccountantsMonthByRemovingThem(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("own@acct2.test")
+	acc := newAPIEnvSharedDB(t, owner)
+	acc.register("acc@acct2.test")
+	adm := newAPIEnvSharedDB(t, owner)
+	adm.register("adm@acct2.test")
+	ids := joinStudio(t, owner, map[string]*apiEnv{"acc@acct2.test": acc, "adm@acct2.test": adm}, "acc@acct2.test", "adm@acct2.test")
+	owner.do("POST", "/api/team/members/"+ids[0]+"/role", url.Values{"role": {"accountant"}}, nil).Body.Close()
+	owner.do("POST", "/api/team/members/"+ids[1]+"/role", url.Values{"role": {"admin"}}, nil).Body.Close()
+	sql := owner.db.TestSQL()
+	acc.do("POST", "/api/period/close", url.Values{"month": {"2026-06-15"}}, nil).Body.Close()
+	var teamID int64
+	if err := sql.QueryRowContext(t.Context(), `SELECT team_id FROM closed_periods WHERE month = '2026-06-01' AND closed_by = ?`, ids[0]).Scan(&teamID); err != nil {
+		t.Fatalf("the accountant could not close the month: %v", err)
+	}
+	adm.do("POST", "/api/team/members/"+ids[0]+"/remove", nil, nil).Body.Close()
+	var still int
+	sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM memberships WHERE team_id = ? AND user_id = ?`, teamID, ids[0]).Scan(&still)
+	if still != 0 {
+		t.Skip("an admin cannot remove the accountant here; nothing to bypass")
+	}
+	adm.do("POST", "/api/period/reopen", url.Values{"month": {"2026-06-01"}}, nil).Body.Close()
+	var closed int
+	sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM closed_periods WHERE team_id = ? AND month = '2026-06-01'`, teamID).Scan(&closed)
+	if closed != 1 {
+		t.Fatal("the admin reopened the accountant's month after removing them")
+	}
+}
+
+// A storno is a new negative entry with a reason; a paid invoice goes back
+// to sent, and the same entry cannot be reversed twice. A pay run keeps the
+// payout day it was marked paid on.
+func TestAccountantReversesAPaymentAndDatesAPayout(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("own@storno.test")
+	sql := owner.db.TestSQL()
+	var teamID, ownerID int64
+	if err := sql.QueryRowContext(t.Context(), `SELECT team_id, user_id FROM memberships WHERE role = 'owner' ORDER BY team_id DESC LIMIT 1`).Scan(&teamID, &ownerID); err != nil {
+		t.Fatal(err)
+	}
+	ctx := requestctx.WithActor(t.Context(), ownerID)
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	inv, err := owner.db.CreateInvoice(ctx, appmodel.InvoiceCreateRequest{TeamID: teamID, CallerID: ownerID, Number: "INV-2026-801", Client: "Ромашка", Start: start, End: start.AddDate(0, 1, 0),
+		Lines: []model.InvoiceLine{{Label: "Работа", Seconds: 3600, RateCents: 100000, AmountCents: 100000}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := owner.db.MarkInvoiceSentOnce(ctx, appmodel.InvoiceMutationRequest{TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID}); err != nil {
+		t.Fatal(err)
+	}
+	owner.do("POST", "/invoices/"+itoa64(inv.ID)+"/payments", url.Values{"amount": {"1000"}, "paid_on": {"2026-07-03"}}, nil).Body.Close()
+	status := func() string {
+		var s string
+		sql.QueryRowContext(t.Context(), `SELECT status FROM invoices WHERE id = ?`, inv.ID).Scan(&s)
+		return s
+	}
+	if status() != "paid" {
+		t.Fatalf("the payment did not settle the invoice: %s", status())
+	}
+	var paymentID int64
+	sql.QueryRowContext(t.Context(), `SELECT id FROM invoice_payments WHERE invoice_id = ?`, inv.ID).Scan(&paymentID)
+	path := "/invoices/" + itoa64(inv.ID) + "/payments/" + itoa64(paymentID) + "/reverse"
+	owner.do("POST", path, url.Values{}, nil).Body.Close()
+	if status() != "paid" {
+		t.Fatal("a reversal without a reason went through")
+	}
+	owner.do("POST", path, url.Values{"note": {"ошибся счётом"}}, nil).Body.Close()
+	var sum, rows int64
+	sql.QueryRowContext(t.Context(), `SELECT COALESCE(SUM(amount_cents), 0), COUNT(*) FROM invoice_payments WHERE invoice_id = ?`, inv.ID).Scan(&sum, &rows)
+	if sum != 0 || rows != 2 || status() != "sent" {
+		t.Fatalf("after the storno: sum %d, rows %d, status %s; want 0, 2, sent", sum, rows, status())
+	}
+	owner.do("POST", path, url.Values{"note": {"ещё раз"}}, nil).Body.Close()
+	sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM invoice_payments WHERE invoice_id = ?`, inv.ID).Scan(&rows)
+	if rows != 2 {
+		t.Fatal("the same payment was reversed twice")
+	}
+	future := time.Now().AddDate(0, 0, 5).Format("2006-01-02")
+	owner.do("POST", "/invoices/"+itoa64(inv.ID)+"/payments", url.Values{"amount": {"10"}, "paid_on": {future}}, nil).Body.Close()
+	sql.QueryRowContext(t.Context(), `SELECT COUNT(*) FROM invoice_payments WHERE invoice_id = ?`, inv.ID).Scan(&rows)
+	if rows != 2 {
+		t.Fatal("a payment dated in the future was booked")
+	}
+}

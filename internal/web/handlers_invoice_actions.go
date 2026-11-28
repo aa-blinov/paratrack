@@ -136,6 +136,12 @@ func (s *Server) handleInvoiceStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, i18n.T(resolveLang(r), "err.invoiceStatusTransition"), http.StatusBadRequest)
 		return
 	}
+	// The look the client gets is kept before the invoice leaves the draft.
+	if inv, vm, _, err := s.invoiceVMFor(r, id, false); err == nil && inv.Status == "draft" {
+		if err := s.freezeIssued(r, inv, &vm); err != nil {
+			s.logInternalError(err)
+		}
+	}
 	if err := s.services.Invoicing.Drafts.MarkSent(r.Context(), appmodel.InvoiceMutationRequest{TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r)}); err != nil {
 		http.Redirect(w, r, "/invoices/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, s.invoiceErrorMessage(r, err)),
 			http.StatusSeeOther)
@@ -258,7 +264,12 @@ func (s *Server) handleInvoiceSend(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, false, i18n.T(lang, "inv.mailOff"))
 		return
 	}
-	seller := s.sellerName(r)
+	if err := s.freezeIssued(r, inv, &vm); err != nil {
+		s.logInternalError(err)
+		s.invoiceBack(w, r, false, i18n.T(lang, "err.internal"))
+		return
+	}
+	seller := vm.Seller
 	pdf, err := renderInvoicePDF(vm, seller, lang)
 	if err != nil {
 		s.logInternalError(err)
@@ -365,7 +376,7 @@ func (s *Server) handleInvoiceLetter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := resolveLang(r)
-	seller := s.sellerName(r)
+	seller := vm.Seller
 	pdf, err := renderInvoicePDF(vm, seller, lang)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -431,6 +442,67 @@ func (s *Server) handleInvoicePayment(w http.ResponseWriter, r *http.Request) {
 		s.invoiceBack(w, r, true, i18n.T(lang, "inv.paymentSettled"))
 	default:
 		s.invoiceBack(w, r, true, i18n.T(lang, "inv.paymentSaved"))
+	}
+}
+
+// handleInvoiceVoid cancels a sent invoice nothing was paid on. Form: reason.
+func (s *Server) handleInvoiceVoid(w http.ResponseWriter, r *http.Request) {
+	lang := resolveLang(r)
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(lang, "err.invalidInput"), http.StatusBadRequest)
+		return
+	}
+	err = s.services.Invoicing.Drafts.Void(r.Context(), appmodel.InvoiceVoidRequest{
+		TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r), Reason: r.PostForm.Get("reason"),
+	})
+	var closedMonth *model.PeriodClosedError
+	switch {
+	case errors.Is(err, model.ErrPaymentReason):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.voidNeedsReason"))
+	case errors.Is(err, model.ErrInvoiceNotVoidable):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.voidNotAllowed"))
+	case errors.As(err, &closedMonth):
+		s.invoiceBack(w, r, false, monthClosedMessage(lang, closedMonth))
+	case err != nil:
+		s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+	default:
+		s.invoiceBack(w, r, true, i18n.T(lang, "inv.voidDone"))
+	}
+}
+
+// handleInvoicePaymentReverse books a storno of one journal entry. Form: note.
+func (s *Server) handleInvoicePaymentReverse(w http.ResponseWriter, r *http.Request) {
+	lang := resolveLang(r)
+	id, err1 := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	paymentID, err2 := strconv.ParseInt(r.PathValue("payment"), 10, 64)
+	if err1 != nil || err2 != nil || id <= 0 || paymentID <= 0 {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, i18n.T(lang, "err.invalidInput"), http.StatusBadRequest)
+		return
+	}
+	err := s.services.Invoicing.Drafts.ReversePayment(r.Context(), appmodel.InvoicePaymentReverseRequest{
+		TeamID: teamID(r), InvoiceID: id, PaymentID: paymentID, CallerID: authenticatedUserID(r), Note: r.PostForm.Get("note"),
+	})
+	var closedMonth *model.PeriodClosedError
+	switch {
+	case errors.Is(err, model.ErrPaymentReason):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.reverseNeedsReason"))
+	case errors.Is(err, model.ErrPaymentAmount):
+		s.invoiceBack(w, r, false, i18n.T(lang, "inv.reverseNotAllowed"))
+	case errors.As(err, &closedMonth):
+		s.invoiceBack(w, r, false, monthClosedMessage(lang, closedMonth))
+	case err != nil:
+		s.invoiceBack(w, r, false, s.invoiceErrorMessage(r, err))
+	default:
+		s.invoiceBack(w, r, true, i18n.T(lang, "inv.reverseDone"))
 	}
 }
 
