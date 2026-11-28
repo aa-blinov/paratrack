@@ -149,7 +149,7 @@ func (s *Server) requireAuth(onFailure func(w http.ResponseWriter, r *http.Reque
 					}
 					onFailure(w, r)
 				} else if errors.Is(err, errReadOnlyCredential) {
-					s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "this API token is read-only"})
+					s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: i18n.T(resolveLang(r), "err.readOnlyToken")})
 				} else {
 					s.writeInternalError(w, err)
 				}

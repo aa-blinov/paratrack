@@ -35,6 +35,10 @@ async function api(path, opts = {}) {
   if (res.status === 401 || res.status === 403) {
     throw new ApiError(res.status, await refusalText(res));
   }
+  // The server answered, but with an error page: that is not "unreachable".
+  if (res.status >= 500) {
+    throw new ApiError(res.status, "server error (" + res.status + ")");
+  }
   return res;
 }
 
@@ -69,9 +73,11 @@ function setStatus(msg, el) {
 
 // The server explains a refusal in the body (localized), so the status line
 // should say what actually happened rather than guess at the status code.
+// The same parser as api()'s refusals: JSON {"error": …} or plain text.
 async function reportApiError(res, fallback) {
   let text = "";
   try { text = (await res.text()).trim(); } catch (_) {}
+  try { const parsed = JSON.parse(text); if (parsed && parsed.error) text = parsed.error; } catch (_) {}
   setStatus(text || fallback + " (" + res.status + ")");
 }
 
@@ -103,12 +109,14 @@ function clearTimer() {
   delete $("resume").dataset.id;
 }
 
+// refresh redraws the popup and says whether the server accepted the token,
+// so the settings screen never prints "connected" over a refusal.
 async function refresh() {
   const { token } = await loadCfg();
   if (!token) {
     $("setup").classList.remove("hidden");
     $("app").classList.add("hidden");
-    return;
+    return false;
   }
   $("setup").classList.add("hidden");
   $("app").classList.remove("hidden");
@@ -120,7 +128,7 @@ async function refresh() {
     $("who").textContent = "";
     clearTimer();
     setStatus(explain(e));
-    return;
+    return false;
   }
 
   // /api/active answers JSON: one item per running session, the fields the
@@ -133,7 +141,7 @@ async function refresh() {
     active = await (await api("/api/active")).json();
   } catch (e) {
     setStatus(explain(e));
-    return;
+    return false;
   }
   const items = Array.isArray(active.Items) ? active.Items : [];
   const current = items.find((x) => !x.Paused) || items[0];
@@ -166,6 +174,7 @@ async function refresh() {
       sel.appendChild(o);
     });
   } catch (_) {}
+  return true;
 }
 
 async function startTimer() {
@@ -236,8 +245,7 @@ $("save").addEventListener("click", async () => {
   if (!granted) { setStatus("access to " + origin + " was not granted"); return; }
   await chrome.storage.local.set({ base, token });
   try {
-    await refresh();
-    setStatus("connected");
+    if (await refresh()) setStatus("connected");
   } catch (e) {
     setStatus("failed: " + e.message);
   }

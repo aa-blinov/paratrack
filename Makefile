@@ -53,6 +53,7 @@ web: build
 test:
 	@[ -s internal/web/static/ui/app.js ] || $(MAKE) ui
 	scripts/test.sh
+	node --test extension/
 
 cover:
 	scripts/test.sh -cover ./internal/db ./internal/web ./internal/timeparse

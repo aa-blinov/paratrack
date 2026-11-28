@@ -12,7 +12,7 @@ This file is what you need to work on the project without reading all of it.
 ```bash
 make ui            # npm ci, the Tailwind CSS build and the React bundle
 make build         # ./paratrack, and `make ui` runs first
-make test          # scripts/test.sh: go test on a throwaway Postgres in docker
+make test          # scripts/test.sh: go test on a throwaway Postgres in docker, then node --test extension/
 make vet           # go vet
 make verify        # tidy -diff, vet, govulncheck, build, the architecture check
 make architecture  # scripts/check-architecture.sh
