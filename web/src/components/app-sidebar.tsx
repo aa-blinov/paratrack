@@ -144,9 +144,11 @@ function useTallScreen() {
 
 function readRemembered(group: NavGroup): boolean {
   try {
-    return localStorage.getItem(rememberKey(group)) !== "0"
+    const saved = localStorage.getItem(rememberKey(group))
+    if (group === "data") return saved === "1"
+    return saved !== "0"
   } catch {
-    return true
+    return group !== "data"
   }
 }
 
