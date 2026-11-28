@@ -389,7 +389,10 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 		if err != nil {
 			return result, err
 		}
-		result.People = append(result.People, appmodel.PayrollRecalculatePerson{UserID: id, Name: name, BeforeCents: before[id], AfterCents: after[id]})
+		result.People = append(result.People, appmodel.PayrollRecalculatePerson{
+			UserID: id, Name: name, BeforeCents: before[id], AfterCents: after[id],
+			BeforeSeconds: beforeSecs[id], AfterSeconds: afterSecs[id],
+		})
 		result.BeforeCents += before[id]
 		result.AfterCents += after[id]
 		// Hours count as a change even when the money rounds the same: the
@@ -410,7 +413,7 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 	// Before and after both: a confirmation stands for the screen the
 	// manager saw, so the journal's "before" is the one they read.
 	for _, p := range byID {
-		fmt.Fprintf(fp, "%d:%d:%d:%d:%d;", p.UserID, p.BeforeCents, beforeSecs[p.UserID], p.AfterCents, afterSecs[p.UserID])
+		fmt.Fprintf(fp, "%d:%d:%d:%d:%d;", p.UserID, p.BeforeCents, p.BeforeSeconds, p.AfterCents, p.AfterSeconds)
 	}
 	result.Fingerprint = hex.EncodeToString(fp.Sum(nil)[:12])
 	// Who the period would pay but the run is not for: someone who joined

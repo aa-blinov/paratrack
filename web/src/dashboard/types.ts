@@ -577,7 +577,7 @@ export interface PayrollDetailData {
     Status: string
     Notes: string
     PeriodLabel: string
-    Lines: Array<{ ID?: number; Adjustment?: boolean; Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }>; Projects?: Array<{ Project: string; Hours: string }> }>
+    Lines: Array<{ ID?: number; Adjustment?: boolean; Under?: boolean; Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }>; Projects?: Array<{ Project: string; Hours: string }> }>
     Total: string
     TotalCents: number
     Hours: string
@@ -594,7 +594,7 @@ export interface PayrollRecalcPreview {
   After: string
   Expect: string
   Changed: boolean
-  People?: Array<{ UserID: number; Name: string; Before: string; After: string; Delta: string; Changed: boolean }>
+  People?: Array<{ UserID: number; Name: string; Before: string; After: string; Delta: string; Changed: boolean; HoursBefore: string; HoursAfter: string }>
   NoEarnings?: string[]
   NotInRun?: string[]
 }

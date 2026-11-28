@@ -169,8 +169,9 @@ Deliberately not true, and worth knowing before a change:
   amount of anyone on the run moved since the preview (money moving between
   two people with the total unchanged counts). A recalculation without a
   confirmed preview is refused. The audit log keeps both totals and every
-  person whose amount moved, with their id. A run shows each person's
-  adjustments under their own lines. A draft invoice takes manual one-off lines and discounts
+  person whose amount or hours moved, with their id. A run lists people by
+  name, each person's adjustments indented under their own line; an
+  adjustment of someone with no hours or salary stands on its own row. A draft invoice takes manual one-off lines and discounts
   without touching the sessions; a discount cannot take the total below
   zero, and an invoice with a negative total cannot be sent. The labelled
   numbers in Russian details (ИНН, КПП, ОГРН, БИК, р/с, к/с) are checked by
@@ -182,7 +183,10 @@ Deliberately not true, and worth knowing before a change:
   The "ИНН/КПП 7707083893/770701001" pair is read as 1C prints it, also
   with no КПП for a sole trader ("…/" or "…/ -"). Client numbers that do not
   check out are refused wherever they are written: the client card, a new
-  invoice and a draft edit; a number fixed in a draft goes back to the card.
+  invoice and a draft edit. A draft edit updates the client card only when
+  "Update the client card too" is ticked, and an empty field never clears the
+  card. A card saved before the check can still be edited while its details
+  stay as they are.
 - A token whose owner has no seat in its workspace any more is answered
   403, an unknown or revoked one 401.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.

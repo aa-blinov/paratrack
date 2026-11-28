@@ -45,7 +45,7 @@ func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRu
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ?
-		 ORDER BY r.created_at DESC, r.id DESC, l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID)
+		 ORDER BY r.created_at DESC, r.id DESC, (SELECT u.name FROM users u WHERE u.id = l.user_id), l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRun
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ? AND r.id = ?
-		 ORDER BY l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID, query.RunID)
+		 ORDER BY (SELECT u.name FROM users u WHERE u.id = l.user_id), l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID, query.RunID)
 	if err != nil {
 		return appmodel.PayrollRunDetails{}, err
 	}

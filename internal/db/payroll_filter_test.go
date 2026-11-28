@@ -270,4 +270,30 @@ func TestPayrollRecalculationSeesMoneyMovingBetweenPeople(t *testing.T) {
 	if _, err := d.RecalculatePayrollDraft(ownerCtx, req); err != nil {
 		t.Fatal(err)
 	}
+
+	// Boris loses his hours and keeps a fixed bonus. Lines come by name, so
+	// Anna's line is first and Boris's bonus follows it as his own row; the
+	// screen indents an adjustment only under its own person's line.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 0 WHERE team_id = ? AND user_id = ?`, teamID, borisID); err != nil {
+		t.Fatal(err)
+	}
+	req.Expect = ""
+	p, err := d.PreviewPayrollRecalculation(ownerCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Expect = p.Fingerprint
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, req); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.AddPayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentRequest{TeamID: teamID, RunID: run.ID, CallerID: ownerID, UserID: borisID, Label: "Премия", AmountCents: 30000}); err != nil {
+		t.Fatal(err)
+	}
+	details, err := d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(details.Lines) != 2 || details.Lines[0].UserID != annaID || details.Lines[1].UserID != borisID || details.Lines[1].Kind != model.PayrollLineAdjustment {
+		t.Fatalf("lines by name, Boris's bonus on its own: %+v", details.Lines)
+	}
 }

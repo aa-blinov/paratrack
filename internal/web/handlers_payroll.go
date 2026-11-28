@@ -317,8 +317,12 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	vms := make([]payrollLineVM, 0, len(lines))
-	for _, l := range lines {
+	for i, l := range lines {
 		isAdj := l.Kind == model.PayrollLineAdjustment
+		// An adjustment sits indented under its person's line; one whose
+		// person has no hours or salary line stands on its own, or it would
+		// read as belonging to whoever came before.
+		under := isAdj && i > 0 && lines[i-1].UserID == l.UserID
 		hours := fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds))
 		rate := moneyL(resolveLang(r), l.RateCents, run.Currency)
 		var lineDays []payrollDayVM
@@ -331,7 +335,7 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 			lineProjects = payrollProjects(resolveLang(r), byProject[l.UserID], projectNames)
 		}
 		vms = append(vms, payrollLineVM{
-			ID: l.ID, Adjustment: isAdj, Label: l.Label, Hours: hours, Rate: rate,
+			ID: l.ID, Adjustment: isAdj, Under: under, Label: l.Label, Hours: hours, Rate: rate,
 			Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
 			Days:   lineDays, Projects: lineProjects,
 		})
@@ -359,7 +363,10 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		for _, p := range res.People {
 			preview.People = append(preview.People, payrollRecalcPersonVM{
 				UserID: p.UserID, Name: p.Name, Before: moneyL(lang, p.BeforeCents, run.Currency), After: moneyL(lang, p.AfterCents, run.Currency),
-				Delta: signedMoneyL(lang, p.AfterCents-p.BeforeCents, run.Currency), Changed: p.BeforeCents != p.AfterCents,
+				Delta:       signedMoneyL(lang, p.AfterCents-p.BeforeCents, run.Currency),
+				Changed:     p.BeforeCents != p.AfterCents || p.BeforeSeconds != p.AfterSeconds,
+				HoursBefore: fmtHoursL(lang, money.HoursHundredths(p.BeforeSeconds)),
+				HoursAfter:  fmtHoursL(lang, money.HoursHundredths(p.AfterSeconds)),
 			})
 		}
 	}
@@ -387,10 +394,12 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 type payrollLineVM struct {
 	ID         int64
 	Adjustment bool
-	Label      string
-	Hours      string
-	Rate       string
-	Amount     string
+	// Under is an adjustment shown indented beneath its person's own line.
+	Under  bool
+	Label  string
+	Hours  string
+	Rate   string
+	Amount string
 	// Days is what the person logged on each day of the run, days with no time left out (FIN-18).
 	Days     []payrollDayVM
 	Projects []payrollProjectVM
@@ -626,6 +635,12 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 	// a script) the request is answered with a fresh preview.
 	req := appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), Expect: strings.TrimSpace(r.FormValue("expect"))}
 	if req.Expect == "" {
+		// Only a draft has a preview; for anything else the plain error
+		// below says it is not a draft.
+		if detail, err := s.services.Payroll.GetRun(r.Context(), teamID(r), id); err == nil && detail.Run.Status != "draft" {
+			http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, model.ErrForbidden)), http.StatusSeeOther)
+			return
+		}
 		http.Redirect(w, r, back+"?preview=recalculate&flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcConfirm")), http.StatusSeeOther)
 		return
 	}
@@ -850,12 +865,14 @@ type payrollRecalcPreviewVM struct {
 }
 
 type payrollRecalcPersonVM struct {
-	UserID  int64
-	Name    string
-	Before  string
-	After   string
-	Delta   string
-	Changed bool
+	UserID      int64
+	HoursBefore string
+	HoursAfter  string
+	Name        string
+	Before      string
+	After       string
+	Delta       string
+	Changed     bool
 }
 
 // signedMoneyL writes a difference with its sign, "+1 200,00 ₽" or "−300,00 ₽".
