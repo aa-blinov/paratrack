@@ -60,8 +60,8 @@ type invoiceVM struct {
 	// RemainingCents is what is still owed: the payment QR asks for this,
 	// not the total, once part of the invoice is paid.
 	RemainingCents int
-	TodayISO                  string
-	Payments                  []paymentVM
+	TodayISO       string
+	Payments       []paymentVM
 }
 
 // paymentVM is one entry of the payment journal on the invoice page.
