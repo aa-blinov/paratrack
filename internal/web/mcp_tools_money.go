@@ -114,6 +114,16 @@ var mcpMoneyTools = []mcpTool{
 			if in.InvoiceID <= 0 {
 				return nil, model.ErrNotFound
 			}
+			// The look is kept here too: a client holding a document from the
+			// tool holds the same one the screen would have sent, and the day
+			// it was issued comes from that look.
+			inv, vm, _, err := s.invoiceVMFor(c.req, in.InvoiceID, false)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.freezeIssuedUnlessKept(c.req, inv, &vm); err != nil {
+				return nil, err
+			}
 			if err := s.services.Invoicing.Drafts.MarkSent(c.ctx, appmodel.InvoiceMutationRequest{
 				TeamID: c.teamID, InvoiceID: in.InvoiceID, CallerID: c.userID,
 			}); err != nil {

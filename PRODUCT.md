@@ -131,6 +131,9 @@ Confirmed by the code:
   the session breakdown are kept at send (`invoices.issued_snapshot`); the
   payment state, what is still owed and the QR stay live. A client link is
   made only for a sent invoice.
+- A view never writes: the kept look is written when the invoice is issued,
+  by the screen, the letter or the tool, and every later copy reads it. An
+  invoice without one reads as the live document.
 - One issue day, one column: `invoices.issued_on` is written by the send
   itself (`MarkInvoiceSent` or the delivery of the letter) from the day the
   prepared look states, else today in the workspace's calendar. The register

@@ -21,7 +21,6 @@ import (
 
 // handleInvoices lists invoices and offers a generator form.
 func (s *Server) handleInvoices(w http.ResponseWriter, r *http.Request) {
-	s.keepUnkeptInvoices(r)
 	data, err := s.buildInvoicesPage(r)
 	if err != nil {
 		s.writeInternalError(w, err)
@@ -174,22 +173,4 @@ func requisitesMessage(lang i18n.Lang, err *model.RequisitesError) string {
 		key = "inv.clientDetailsBad"
 	}
 	return fmt.Sprintf(i18n.T(lang, key), strings.Join(names, ", "))
-}
-
-// keepUnkeptInvoices keeps the look of every issued invoice sent before the
-// look was kept, the first time the studio opens its invoices: by then the
-// studio's own view stands, not whichever later visit came first, such as a
-// client opening an old link after a rename. Best effort: a failure leaves the
-// lazy keeping on first view in place.
-func (s *Server) keepUnkeptInvoices(r *http.Request) {
-	ids, err := s.services.Invoicing.Queries.UnkeptInvoices(r.Context(), teamID(r))
-	if err != nil {
-		s.logInternalError(err)
-		return
-	}
-	for _, id := range ids {
-		if _, _, _, err := s.invoiceVMFor(r, id, false); err != nil {
-			s.logInternalError(err)
-		}
-	}
 }

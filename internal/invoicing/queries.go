@@ -365,11 +365,3 @@ func (s *Service) VoidReason(ctx context.Context, query appmodel.InvoiceLookupQu
 	}
 	return s.reader.InvoiceVoidReason(ctx, query)
 }
-
-// UnkeptInvoices lists the issued invoices whose look was never kept.
-func (s *Service) UnkeptInvoices(ctx context.Context, teamID int64) ([]int64, error) {
-	if teamID <= 0 {
-		return nil, ErrInvalidTeam
-	}
-	return s.reader.InvoicesWithoutSnapshot(ctx, teamID)
-}

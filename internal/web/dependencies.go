@@ -395,7 +395,6 @@ type InvoiceQueries interface {
 	HideNames(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error)
 	IssuedSnapshot(context.Context, appmodel.InvoiceLookupQuery) (string, error)
 	VoidReason(context.Context, appmodel.InvoiceLookupQuery) (string, error)
-	UnkeptInvoices(context.Context, int64) ([]int64, error)
 	SaveIssuedSnapshot(context.Context, appmodel.InvoiceSnapshotSaveRequest) error
 	Reconcile(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	ExportLines(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.InvoiceExportLine, error)

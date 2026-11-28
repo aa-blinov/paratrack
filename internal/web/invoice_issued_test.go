@@ -173,16 +173,30 @@ func TestResendAndCloseOneLink(t *testing.T) {
 
 // An invoice issued before the look was kept gets it when the studio opens
 // its invoices, not on a client's later first view.
-func TestStudioListKeepsOldInvoicesLook(t *testing.T) {
-	e, _, _, id := issuedInvoiceEnv(t, "old-look@x.test")
+// A read writes nothing: the look is kept when the invoice is issued, and the
+// register only reads it back. There is no lazy keeping on the first visit,
+// because a visit is not an issue and a client opening a link afterwards must
+// not decide what the studio's own document says.
+func TestReadingInvoicesWritesNothing(t *testing.T) {
+	e, _, _, id := issuedInvoiceEnv(t, "read-writes@x.test")
 	e.do("POST", "/invoices/"+itoa64(id)+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
+	var kept string
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT issued_snapshot FROM invoices WHERE id = ?`, id).Scan(&kept); err != nil {
+		t.Fatal(err)
+	}
+	if kept == "" {
+		t.Fatal("marking an invoice sent kept no look, so nothing else has to")
+	}
 	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE invoices SET issued_snapshot = '' WHERE id = ?`, id); err != nil {
 		t.Fatal(err)
 	}
 	readBody(t, e.do("GET", "/invoices", nil, nil))
-	var raw string
-	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT issued_snapshot FROM invoices WHERE id = ?`, id).Scan(&raw)
-	if raw == "" {
-		t.Fatal("opening the invoices left an old invoice without its look")
+	readBody(t, e.do("GET", "/invoices/"+itoa64(id), nil, nil))
+	var after string
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT issued_snapshot FROM invoices WHERE id = ?`, id).Scan(&after); err != nil {
+		t.Fatal(err)
+	}
+	if after != "" {
+		t.Fatalf("reading the register wrote a look of its own: %q", after)
 	}
 }

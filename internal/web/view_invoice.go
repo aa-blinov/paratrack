@@ -499,24 +499,14 @@ func (s *Server) applyIssuedSnapshot(r *http.Request, inv model.Invoice, vm *inv
 	if err != nil {
 		return fmt.Errorf("load the issued invoice: %w", err)
 	}
+	// A view never writes: the look is kept when the invoice is issued, by
+	// the screen, the letter or the tool. An invoice without one reads as the
+	// live document, which for a sent invoice is frozen by its own sessions.
 	var issued invoiceIssued
 	if raw == "" {
-		// An invoice issued before the look was kept: its kept day if the
-		// migration set one, else its creation day.
-		day := inv.CreatedAt.In(userLoc(r))
-		if kept, err := time.ParseInLocation("2006-01-02", inv.IssuedOn, userLoc(r)); err == nil {
-			day = kept
-		}
-		issued, err = s.issuedFrom(r, inv, *vm, day)
-		if err != nil {
-			return err
-		}
-		if data, err := json.Marshal(issued); err == nil {
-			if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: inv.TeamID, InvoiceID: inv.ID, Data: string(data), IssuedOn: issued.IssuedOn}); err != nil {
-				s.logInternalError(err)
-			}
-		}
-	} else if err := json.Unmarshal([]byte(raw), &issued); err != nil {
+		return nil
+	}
+	if err := json.Unmarshal([]byte(raw), &issued); err != nil {
 		return fmt.Errorf("read the issued invoice: %w", err)
 	}
 	vm.Seller, vm.Logo = issued.Seller, logoURL(issued.Logo)
