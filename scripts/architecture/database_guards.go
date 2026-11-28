@@ -253,7 +253,6 @@ func checkTransactionalSnapshots(fset *token.FileSet, parsed map[string]*ast.Fil
 		source, method, reader, after string
 		minimum                       int
 	}{
-		{"internal/db/sessions.go", "createLegacySession", "getSessionTx", "QueryRowContext", 1},
 		{"internal/db/sessions.go", "StartSession", "getSessionTx", "recordWebhookEventTx", 1},
 		{"internal/db/sessions.go", "CreateClosedSession", "getSessionTx", "insertClosedSessionTx", 1},
 		{"internal/db/session_transitions.go", "UpdateSessionEnd", "getSessionTx", "recordWebhookEventTx", 2},
@@ -263,7 +262,6 @@ func checkTransactionalSnapshots(fset *token.FileSet, parsed map[string]*ast.Fil
 		{"internal/db/invoices.go", "CreateInvoice", "getInvoice", "insertLines", 1},
 		{"internal/db/invoices.go", "CreateInvoiceDraft", "getInvoice", "recordWebhookEventTx", 1},
 		{"internal/db/invoices.go", "CreateInvoiceDraft", "listInvoiceLines", "recordWebhookEventTx", 1},
-		{"internal/db/payroll_creation.go", "createPayrollRun", "getPayrollRun", "insertPayrollRunTx", 1},
 		{"internal/db/payroll_creation.go", "CreatePayrollDraft", "getPayrollRun", "insertPayrollRunTx", 1},
 		{"internal/db/saved_reports.go", "CreateSavedReport", "getSavedReport", "QueryRowContext", 1},
 	}

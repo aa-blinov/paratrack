@@ -460,7 +460,8 @@ func TestDeliveryResultLoggingSurvivesRequestCancellation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.deliverWithBackoff(requestCtx, webhookport.Webhook{ID: 1, URL: "https://example.test/hook"}, "session.started", []byte(`{}`), nil)
+	// The attempt itself fails on the canceled request; the log must survive it.
+	_, _, _ = service.deliverAttempt(requestCtx, webhookport.Webhook{ID: 1, URL: "https://example.test/hook"}, "session.started", []byte(`{}`))
 	if err := <-store.logged; err != nil {
 		t.Fatalf("delivery log context was canceled: %v", err)
 	}
@@ -475,9 +476,11 @@ func TestDeliverySignatureTimestampUsesInjectedClock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	service.deliverWithBackoff(context.Background(), webhookport.Webhook{
+	if _, _, err := service.deliverAttempt(context.Background(), webhookport.Webhook{
 		ID: 1, URL: "https://example.test/hook", Secret: "secret",
-	}, "session.started", []byte(`{}`), nil)
+	}, "session.started", []byte(`{}`)); err != nil {
+		t.Fatalf("deliver attempt: %v", err)
+	}
 	if got, want := doer.request.Timestamp, "1743833228"; got != want {
 		t.Fatalf("signature timestamp = %q, want %q", got, want)
 	}

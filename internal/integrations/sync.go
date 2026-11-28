@@ -276,13 +276,9 @@ func (s *Service) TasksForTeam(ctx context.Context, teamID int64) ([]appmodel.Ex
 	return tasks, nil
 }
 
-// Sync validates provider output before asking the store to replace the
-// integration's open-task snapshot. Invalid output must never close local
-// tasks that could not be represented by a valid external ID.
-func (s *Service) syncTasks(ctx context.Context, teamID, integrationID, callerID int64, tasks []integrationport.ProviderTask) (int, error) {
-	return s.syncTasksGeneration(ctx, teamID, integrationID, callerID, 0, tasks)
-}
-
+// syncTasksGeneration validates provider output before asking the store to
+// replace the integration's open-task snapshot. Invalid output must never close
+// local tasks that could not be represented by a valid external ID.
 func (s *Service) syncTasksGeneration(ctx context.Context, teamID, integrationID, callerID, generation int64, tasks []integrationport.ProviderTask) (int, error) {
 	if teamID <= 0 || integrationID <= 0 || callerID <= 0 {
 		return 0, fmt.Errorf("%w: integration ID must be positive", ErrInvalidTask)

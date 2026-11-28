@@ -36,6 +36,92 @@ func (s stubStore) ResolveWorkspaceEmails(context.Context, []string) (map[string
 	return nil, nil, nil
 }
 
+// memorySink keeps a whole export in memory, so a test can compare a file with
+// the workspace it was written from.
+type memorySink struct {
+	export appmodel.WorkspaceExport
+}
+
+func (s *memorySink) Header(at time.Time) error {
+	s.export.Format = appmodel.WorkspaceExportFormat
+	s.export.Version = appmodel.WorkspaceExportVersion
+	s.export.ExportedAt = at
+	return nil
+}
+func (s *memorySink) Team(v appmodel.ExportTeam) error { s.export.Team = v; return nil }
+func (s *memorySink) Member(v appmodel.ExportMember) error {
+	s.export.Members = append(s.export.Members, v)
+	return nil
+}
+func (s *memorySink) Holiday(v appmodel.ExportHoliday) error {
+	s.export.Holidays = append(s.export.Holidays, v)
+	return nil
+}
+func (s *memorySink) Absence(v appmodel.ExportAbsence) error {
+	s.export.Absences = append(s.export.Absences, v)
+	return nil
+}
+func (s *memorySink) Client(v appmodel.ExportClient) error {
+	s.export.Clients = append(s.export.Clients, v)
+	return nil
+}
+func (s *memorySink) Project(v appmodel.ExportProject) error {
+	s.export.Projects = append(s.export.Projects, v)
+	return nil
+}
+func (s *memorySink) Tag(v appmodel.ExportTag) error {
+	s.export.Tags = append(s.export.Tags, v)
+	return nil
+}
+func (s *memorySink) Task(v appmodel.ExportTask) error {
+	s.export.Tasks = append(s.export.Tasks, v)
+	return nil
+}
+func (s *memorySink) Activity(v appmodel.ExportActivity) error {
+	s.export.Activities = append(s.export.Activities, v)
+	return nil
+}
+func (s *memorySink) Goal(v appmodel.ExportGoal) error {
+	s.export.Goals = append(s.export.Goals, v)
+	return nil
+}
+func (s *memorySink) Invoice(v appmodel.ExportInvoice) error {
+	s.export.Invoices = append(s.export.Invoices, v)
+	return nil
+}
+func (s *memorySink) PayrollRun(v appmodel.ExportPayrollRun) error {
+	s.export.PayrollRuns = append(s.export.PayrollRuns, v)
+	return nil
+}
+func (s *memorySink) Session(v appmodel.ExportSession) error {
+	s.export.Sessions = append(s.export.Sessions, v)
+	return nil
+}
+func (s *memorySink) Schedule(v appmodel.ExportSchedule) error {
+	s.export.ScheduleEntries = append(s.export.ScheduleEntries, v)
+	return nil
+}
+func (s *memorySink) ScheduleRow(v appmodel.ExportScheduleRow) error {
+	s.export.ScheduleLines = append(s.export.ScheduleLines, v)
+	return nil
+}
+func (s *memorySink) Approval(v appmodel.ExportApproval) error {
+	s.export.TimesheetApprovals = append(s.export.TimesheetApprovals, v)
+	return nil
+}
+func (s *memorySink) Report(v appmodel.ExportReport) error {
+	s.export.SavedReports = append(s.export.SavedReports, v)
+	return nil
+}
+func (s *memorySink) Webhook(v appmodel.ExportWebhook) error {
+	s.export.Webhooks = append(s.export.Webhooks, v)
+	return nil
+}
+func (s *memorySink) Integration(v appmodel.ExportIntegration) error {
+	s.export.Integrations = append(s.export.Integrations, v)
+	return nil
+}
+
 func (s stubStore) RestoreWorkspace(context.Context, appmodel.WorkspaceRestoreRequest) (appmodel.WorkspaceRestoreResult, error) {
 	return appmodel.WorkspaceRestoreResult{}, errors.New("not used here")
 }
@@ -63,12 +149,12 @@ func TestExportWritesAFileThatReadsBack(t *testing.T) {
 	if slug != "studio" || !when.Equal(time.Date(2026, 10, 20, 9, 0, 0, 0, time.UTC)) {
 		t.Fatalf("the download learned %q at %v", slug, when)
 	}
-	back, err := Read(&body)
-	if err != nil {
+	var back memorySink
+	if err := Decode(&body, &back); err != nil {
 		t.Fatalf("read back: %v", err)
 	}
-	if back.Format != appmodel.WorkspaceExportFormat || back.Team.Slug != "studio" || len(back.Projects) != 1 || back.Projects[0].Name != "Сайт" {
-		t.Fatalf("the file reads back as %+v", back)
+	if back.export.Format != appmodel.WorkspaceExportFormat || back.export.Team.Slug != "studio" || len(back.export.Projects) != 1 || back.export.Projects[0].Name != "Сайт" {
+		t.Fatalf("the file reads back as %+v", back.export)
 	}
 }
 
@@ -100,8 +186,12 @@ func TestReadRefusesOtherFiles(t *testing.T) {
 		"no header":       `{"team":{"slug":"x"}}`,
 		"header late":     `{"team":{"slug":"x"},"format":"paratrack-workspace","version":1}`,
 	} {
-		if _, err := Read(strings.NewReader(content)); !errors.Is(err, ErrUnsupportedFile) {
+		var sink memorySink
+		if err := Decode(strings.NewReader(content), &sink); !errors.Is(err, ErrUnsupportedFile) {
 			t.Fatalf("%s: %v, want ErrUnsupportedFile", name, err)
+		}
+		if len(sink.export.Projects) != 0 || sink.export.Team.Slug != "" {
+			t.Fatalf("%s: the file reached the sink before it was refused", name)
 		}
 	}
 }

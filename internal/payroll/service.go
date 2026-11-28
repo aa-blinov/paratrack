@@ -79,8 +79,6 @@ var (
 	ErrNotFound      = appmodel.ErrNotFound
 )
 
-type RunDetails = appmodel.PayrollRunDetails
-
 type PaidResult = appmodel.PayrollPaidResult
 
 // UnapprovedPayrollTime reports the closed time in [from, to) that is not in an

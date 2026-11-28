@@ -20,16 +20,6 @@ func Decode(r io.Reader, sink appmodel.WorkspaceSink) error {
 	return rd.file()
 }
 
-// Read collects a whole export in memory. The server streams files and never
-// needs this; tests use it to compare one export with another.
-func Read(r io.Reader) (appmodel.WorkspaceExport, error) {
-	var c collector
-	if err := Decode(r, &c); err != nil {
-		return appmodel.WorkspaceExport{}, err
-	}
-	return c.Export, nil
-}
-
 type reader struct {
 	dec        *json.Decoder
 	sink       appmodel.WorkspaceSink
@@ -271,90 +261,5 @@ func (c *emailCollector) Approval(a appmodel.ExportApproval) error {
 }
 func (c *emailCollector) Report(rep appmodel.ExportReport) error {
 	c.add(rep.CreatedByEmail)
-	return nil
-}
-
-// collector keeps a whole export in memory, for Read.
-type collector struct {
-	Export appmodel.WorkspaceExport
-}
-
-func (c *collector) Header(exportedAt time.Time) error {
-	c.Export.Format = appmodel.WorkspaceExportFormat
-	c.Export.Version = appmodel.WorkspaceExportVersion
-	c.Export.ExportedAt = exportedAt
-	return nil
-}
-func (c *collector) Team(t appmodel.ExportTeam) error { c.Export.Team = t; return nil }
-func (c *collector) Member(v appmodel.ExportMember) error {
-	c.Export.Members = append(c.Export.Members, v)
-	return nil
-}
-func (c *collector) Holiday(v appmodel.ExportHoliday) error {
-	c.Export.Holidays = append(c.Export.Holidays, v)
-	return nil
-}
-func (c *collector) Absence(v appmodel.ExportAbsence) error {
-	c.Export.Absences = append(c.Export.Absences, v)
-	return nil
-}
-func (c *collector) Client(v appmodel.ExportClient) error {
-	c.Export.Clients = append(c.Export.Clients, v)
-	return nil
-}
-func (c *collector) Project(v appmodel.ExportProject) error {
-	c.Export.Projects = append(c.Export.Projects, v)
-	return nil
-}
-func (c *collector) Tag(v appmodel.ExportTag) error {
-	c.Export.Tags = append(c.Export.Tags, v)
-	return nil
-}
-func (c *collector) Task(v appmodel.ExportTask) error {
-	c.Export.Tasks = append(c.Export.Tasks, v)
-	return nil
-}
-func (c *collector) Activity(v appmodel.ExportActivity) error {
-	c.Export.Activities = append(c.Export.Activities, v)
-	return nil
-}
-func (c *collector) Goal(v appmodel.ExportGoal) error {
-	c.Export.Goals = append(c.Export.Goals, v)
-	return nil
-}
-func (c *collector) Invoice(v appmodel.ExportInvoice) error {
-	c.Export.Invoices = append(c.Export.Invoices, v)
-	return nil
-}
-func (c *collector) PayrollRun(v appmodel.ExportPayrollRun) error {
-	c.Export.PayrollRuns = append(c.Export.PayrollRuns, v)
-	return nil
-}
-func (c *collector) Session(v appmodel.ExportSession) error {
-	c.Export.Sessions = append(c.Export.Sessions, v)
-	return nil
-}
-func (c *collector) Schedule(v appmodel.ExportSchedule) error {
-	c.Export.ScheduleEntries = append(c.Export.ScheduleEntries, v)
-	return nil
-}
-func (c *collector) ScheduleRow(v appmodel.ExportScheduleRow) error {
-	c.Export.ScheduleLines = append(c.Export.ScheduleLines, v)
-	return nil
-}
-func (c *collector) Approval(v appmodel.ExportApproval) error {
-	c.Export.TimesheetApprovals = append(c.Export.TimesheetApprovals, v)
-	return nil
-}
-func (c *collector) Report(v appmodel.ExportReport) error {
-	c.Export.SavedReports = append(c.Export.SavedReports, v)
-	return nil
-}
-func (c *collector) Webhook(v appmodel.ExportWebhook) error {
-	c.Export.Webhooks = append(c.Export.Webhooks, v)
-	return nil
-}
-func (c *collector) Integration(v appmodel.ExportIntegration) error {
-	c.Export.Integrations = append(c.Export.Integrations, v)
 	return nil
 }

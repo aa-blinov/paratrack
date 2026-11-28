@@ -13,9 +13,9 @@ func TestChangeEmailNeedsTheCurrentCredential(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := requestctx.WithActor(context.Background(), 1)
-	userID, _, err := svc.createUser(context.Background(), "email-change@example.com", "current-password", "Email Change")
+	userID, _, err := svc.createUserForTest(context.Background(), "email-change@example.com", "current-password", "Email Change")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	ctx = requestctx.WithActor(ctx, userID)
 
@@ -34,9 +34,9 @@ func TestChangeEmailMovesTheLoginAddress(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "before@example.com", "current-password", "Email Move")
+	userID, _, err := svc.createUserForTest(ctx, "before@example.com", "current-password", "Email Move")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	ctx = requestctx.WithActor(ctx, userID)
 
@@ -71,11 +71,11 @@ func TestChangeEmailRejectsAnAddressAnotherAccountOwns(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	firstID, _, err := svc.createUser(ctx, "first@example.com", "current-password", "First")
+	firstID, _, err := svc.createUserForTest(ctx, "first@example.com", "current-password", "First")
 	if err != nil {
 		t.Fatalf("create first user: %v", err)
 	}
-	if _, _, err := svc.createUser(ctx, "second@example.com", "current-password", "Second"); err != nil {
+	if _, _, err := svc.createUserForTest(ctx, "second@example.com", "current-password", "Second"); err != nil {
 		t.Fatalf("create second user: %v", err)
 	}
 	ctx = requestctx.WithActor(ctx, firstID)
@@ -95,11 +95,11 @@ func TestChangeEmailRejectsMalformedAddressesAndStrangers(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "shape@example.com", "current-password", "Shape")
+	userID, _, err := svc.createUserForTest(ctx, "shape@example.com", "current-password", "Shape")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
-	otherID, _, err := svc.createUser(ctx, "other@example.com", "current-password", "Other")
+	otherID, _, err := svc.createUserForTest(ctx, "other@example.com", "current-password", "Other")
 	if err != nil {
 		t.Fatalf("create other user: %v", err)
 	}
@@ -121,9 +121,9 @@ func TestChangeEmailToTheSameAddressIsANoOp(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "same@example.com", "current-password", "Same")
+	userID, _, err := svc.createUserForTest(ctx, "same@example.com", "current-password", "Same")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	ctx = requestctx.WithActor(ctx, userID)
 

@@ -25,7 +25,7 @@ func fetchProviderTest(client *http.Client, provider, secret, target string) ([]
 }
 
 func fetchProviderTestWithWaits(client *http.Client, waits []time.Duration, provider, secret, target string) ([]extItem, error) {
-	providerClient, err := providers.NewWithRetryWaits(client, waits)
+	providerClient, err := providers.NewWithConfigAndRetryWaits(client, waits, providers.Config{})
 	if err != nil {
 		return nil, err
 	}

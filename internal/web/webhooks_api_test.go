@@ -10,6 +10,7 @@ import (
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/webhookport"
 	"github.com/aa-blinov/paratrack/internal/webhooks"
 )
 
@@ -51,7 +52,7 @@ func TestAuditAndWebhooks(t *testing.T) {
 	if got := webhooks.SignPayload("topsecret", body); got != want {
 		t.Fatalf("sig=%s want %s", got, want)
 	}
-	if !webhooks.Subscribes(h.Events, "session.stopped") || webhooks.Subscribes(h.Events, "invoice.created") {
+	if !webhookport.Subscribes(h.Events, webhookport.EventName("session.stopped")) || webhookport.Subscribes(h.Events, webhookport.EventName("invoice.created")) {
 		t.Fatalf("events filter broken: %s", h.Events)
 	}
 	if err := d.DeleteWebhook(ctx, appmodel.WebhookDeleteRequest{TeamID: 1, CallerID: 1, WebhookID: h.ID}); err != nil {

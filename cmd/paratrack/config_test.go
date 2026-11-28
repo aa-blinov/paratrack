@@ -17,10 +17,10 @@ func TestLoadProcessConfigReadsEachEnvironmentSettingOnce(t *testing.T) {
 		"PARATRACK_TRUSTED_PROXIES": "127.0.0.1/32",
 	}
 	reads := make(map[string]int)
-	config, err := loadProcessConfigWith(func(key string) string {
+	config, err := loadProcessConfigWithTimezone(func(key string) string {
 		reads[key]++
 		return values[key]
-	})
+	}, nil)
 	if err != nil {
 		t.Fatalf("load process config: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestLoadProcessConfigReadsEachEnvironmentSettingOnce(t *testing.T) {
 }
 
 func TestLoadProcessConfigRejectsInvalidTimezone(t *testing.T) {
-	_, err := loadProcessConfigWith(func(key string) string {
+	_, err := loadProcessConfigWithTimezone(func(key string) string {
 		if key == "PARATRACK_ENV" {
 			return "test"
 		}
@@ -49,9 +49,9 @@ func TestLoadProcessConfigRejectsInvalidTimezone(t *testing.T) {
 			return "Not/A_Real_Zone"
 		}
 		return ""
-	})
+	}, nil)
 	if err == nil {
-		t.Fatal("loadProcessConfigWith accepted an invalid timezone")
+		t.Fatal("load process config accepted an invalid timezone")
 	}
 }
 

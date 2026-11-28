@@ -11,49 +11,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-type preparedPayrollRunRequest struct {
-	TeamID   int64
-	CallerID int64
-	Number   string
-	Notes    string
-	Start    time.Time
-	End      time.Time
-	Lines    []model.PayrollLine
-}
-
-// createPayrollRun stores a prepared payroll snapshot for persistence tests.
-// Production creation uses CreatePayrollDraft so calculation and writes share
-// one locked transaction.
-func (d *DB) createPayrollRun(ctx context.Context, request preparedPayrollRunRequest) (PayrollRun, error) {
-	teamID, callerID := request.TeamID, request.CallerID
-	number, notes, start, end, lines := request.Number, request.Notes, request.Start, request.End, request.Lines
-	tx, err := d.sql.BeginTx(ctx, nil)
-	if err != nil {
-		return PayrollRun{}, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
-		return PayrollRun{}, err
-	}
-	currency, err := lockPayrollWorkspace(ctx, tx, teamID)
-	if err != nil {
-		return PayrollRun{}, err
-	}
-	at := d.currentTime().UTC()
-	runID, err := insertPayrollRunTx(ctx, tx, teamID, number, notes, start, end, currency, lines, at)
-	if err != nil {
-		return PayrollRun{}, err
-	}
-	run, err := getPayrollRun(ctx, tx, teamID, runID, true)
-	if err != nil {
-		return PayrollRun{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return PayrollRun{}, err
-	}
-	return run, nil
-}
-
 // CreatePayrollDraft uses one caller-supplied instant for live-session
 // pricing, the run number's year, and the run creation timestamp.
 func (d *DB) CreatePayrollDraft(ctx context.Context, request appmodel.PayrollDraftRequest) (PayrollRun, []PayrollRun, error) {

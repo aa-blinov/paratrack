@@ -10,39 +10,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
-func TestLegacyTagWritesRejectWorkspaceScope(t *testing.T) {
-	d := openTestDB(t)
-	ctx := t.Context()
-	teamID := seedTeam(t, d, "Tag write boundary", "tag-write-boundary")
-	if _, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: teamID, Name: "blocked"}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("legacy workspace tag create = %v, want forbidden", err)
-	}
-	if err := d.deleteTag(ctx, legacyTagDeleteRequest{TeamID: teamID, TagID: 1}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("legacy workspace tag delete = %v, want forbidden", err)
-	}
-	if err := d.attachTag(ctx, legacySessionTagRequest{TeamID: teamID, SessionID: 1, Name: "blocked"}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("legacy workspace tag attach = %v, want forbidden", err)
-	}
-	if err := d.detachTag(ctx, legacySessionTagRequest{TeamID: teamID, SessionID: 1, Name: "blocked"}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("legacy workspace tag detach = %v, want forbidden", err)
-	}
-	if err := d.setTagsForSession(ctx, legacySessionTagsRequest{TeamID: teamID, SessionID: 1, Names: []string{"blocked"}}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("legacy workspace tag replacement = %v, want forbidden", err)
-	}
-	ownerID := teamOwner(t, d, teamID)
-	workspaceTag, err := d.CreateTagForMember(ctx, appmodel.TagCreateRequest{TeamID: teamID, CallerID: ownerID, Name: "shared-name"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	legacyTag, err := d.createTag(ctx, legacyTagCreateRequest{TeamID: 0, Name: "shared-name"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if legacyTag.ID == workspaceTag.ID || legacyTag.TeamID != 0 {
-		t.Fatalf("legacy tag resolved a workspace tag: workspace=%+v legacy=%+v", workspaceTag, legacyTag)
-	}
-}
-
 func TestSessionTags_RequireCurrentWorkspaceMembership(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()

@@ -1,14 +1,12 @@
 package db
 
 import (
-	"bytes"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
-	"github.com/aa-blinov/paratrack/internal/workspacefile"
 )
 
 // A manager's export holds the whole workspace: people by email, clients,
@@ -28,7 +26,7 @@ func TestWorkspaceExportHoldsTheWorkButNoSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("export: %v", err)
 	}
-	out, err := workspacefile.Read(bytes.NewReader(file))
+	out, err := readExport(file)
 	if err != nil {
 		t.Fatalf("read the file back: %v", err)
 	}

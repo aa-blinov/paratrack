@@ -289,24 +289,6 @@ func (s *Service) Shutdown(ctx context.Context) error {
 	}
 }
 
-// deliverWithBackoff sends a signed delivery and retries transient failures.
-func (s *Service) deliverWithBackoff(ctx context.Context, hook webhookport.Webhook, event string, body []byte, backoff []time.Duration) {
-	for attempt := 0; ; attempt++ {
-		status, _, err := s.deliverAttempt(ctx, hook, event, body)
-		retry := !errors.Is(err, ErrPrivateTarget) && (err != nil || status == 429 || status >= 500)
-		if !retry || attempt >= len(backoff) {
-			return
-		}
-		timer := time.NewTimer(backoff[attempt])
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return
-		case <-timer.C:
-		}
-	}
-}
-
 // deliverAttempt signs and sends one request, then records what came back. The
 // same path serves queued deliveries and the manager's test run, so an
 // integrator verifies the signature and payload production actually sends.
@@ -360,10 +342,6 @@ func (s *Service) logDelivery(ctx context.Context, webhookID int64, event string
 	}); err != nil {
 		s.logger.Printf("webhooks: log delivery for endpoint %d event %s: %v", webhookID, event, err)
 	}
-}
-
-func Subscribes(events, event string) bool {
-	return webhookport.Subscribes(events, webhookport.EventName(event))
 }
 
 func SignPayload(secret string, body []byte) string {

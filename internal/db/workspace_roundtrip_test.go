@@ -141,6 +141,100 @@ func btoa(b bool) string {
 	return "0"
 }
 
+// exportSink keeps a whole export in memory, so a test can compare two files.
+type exportSink struct {
+	export appmodel.WorkspaceExport
+}
+
+func (s *exportSink) Header(at time.Time) error {
+	s.export.Format = appmodel.WorkspaceExportFormat
+	s.export.Version = appmodel.WorkspaceExportVersion
+	s.export.ExportedAt = at
+	return nil
+}
+func (s *exportSink) Team(v appmodel.ExportTeam) error { s.export.Team = v; return nil }
+func (s *exportSink) Member(v appmodel.ExportMember) error {
+	s.export.Members = append(s.export.Members, v)
+	return nil
+}
+func (s *exportSink) Holiday(v appmodel.ExportHoliday) error {
+	s.export.Holidays = append(s.export.Holidays, v)
+	return nil
+}
+func (s *exportSink) Absence(v appmodel.ExportAbsence) error {
+	s.export.Absences = append(s.export.Absences, v)
+	return nil
+}
+func (s *exportSink) Client(v appmodel.ExportClient) error {
+	s.export.Clients = append(s.export.Clients, v)
+	return nil
+}
+func (s *exportSink) Project(v appmodel.ExportProject) error {
+	s.export.Projects = append(s.export.Projects, v)
+	return nil
+}
+func (s *exportSink) Tag(v appmodel.ExportTag) error {
+	s.export.Tags = append(s.export.Tags, v)
+	return nil
+}
+func (s *exportSink) Task(v appmodel.ExportTask) error {
+	s.export.Tasks = append(s.export.Tasks, v)
+	return nil
+}
+func (s *exportSink) Activity(v appmodel.ExportActivity) error {
+	s.export.Activities = append(s.export.Activities, v)
+	return nil
+}
+func (s *exportSink) Goal(v appmodel.ExportGoal) error {
+	s.export.Goals = append(s.export.Goals, v)
+	return nil
+}
+func (s *exportSink) Invoice(v appmodel.ExportInvoice) error {
+	s.export.Invoices = append(s.export.Invoices, v)
+	return nil
+}
+func (s *exportSink) PayrollRun(v appmodel.ExportPayrollRun) error {
+	s.export.PayrollRuns = append(s.export.PayrollRuns, v)
+	return nil
+}
+func (s *exportSink) Session(v appmodel.ExportSession) error {
+	s.export.Sessions = append(s.export.Sessions, v)
+	return nil
+}
+func (s *exportSink) Schedule(v appmodel.ExportSchedule) error {
+	s.export.ScheduleEntries = append(s.export.ScheduleEntries, v)
+	return nil
+}
+func (s *exportSink) ScheduleRow(v appmodel.ExportScheduleRow) error {
+	s.export.ScheduleLines = append(s.export.ScheduleLines, v)
+	return nil
+}
+func (s *exportSink) Approval(v appmodel.ExportApproval) error {
+	s.export.TimesheetApprovals = append(s.export.TimesheetApprovals, v)
+	return nil
+}
+func (s *exportSink) Report(v appmodel.ExportReport) error {
+	s.export.SavedReports = append(s.export.SavedReports, v)
+	return nil
+}
+func (s *exportSink) Webhook(v appmodel.ExportWebhook) error {
+	s.export.Webhooks = append(s.export.Webhooks, v)
+	return nil
+}
+func (s *exportSink) Integration(v appmodel.ExportIntegration) error {
+	s.export.Integrations = append(s.export.Integrations, v)
+	return nil
+}
+
+// readExport decodes a file into the whole export it holds.
+func readExport(file []byte) (appmodel.WorkspaceExport, error) {
+	var sink exportSink
+	if err := workspacefile.Decode(bytes.NewReader(file), &sink); err != nil {
+		return appmodel.WorkspaceExport{}, err
+	}
+	return sink.export, nil
+}
+
 // A workspace exported and restored holds the same work: the same people with the
 // same roles and rates, the same clients and projects, tasks linked to their
 // activities, finished time with tags and invoices, payroll, the schedule,
@@ -183,7 +277,7 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 			t.Fatalf("the file does not carry %s", want)
 		}
 	}
-	before, err := workspacefile.Read(bytes.NewReader(file))
+	before, err := readExport(file)
 	if err != nil {
 		t.Fatalf("read the export: %v", err)
 	}
@@ -199,7 +293,7 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("export the restored workspace: %v", err)
 	}
-	after, err := workspacefile.Read(bytes.NewReader(again))
+	after, err := readExport(again)
 	if err != nil {
 		t.Fatalf("read the restored export: %v", err)
 	}

@@ -32,12 +32,6 @@ const Default = Ru
 
 var supportedLanguages = [...]Lang{En, Ru}
 
-// SupportedLanguages returns the language switcher options in menu order.
-// The returned slice is independent so callers cannot mutate package state.
-func SupportedLanguages() []Lang {
-	return append([]Lang(nil), supportedLanguages[:]...)
-}
-
 var (
 	once    sync.Once
 	dict    map[Lang]map[string]string

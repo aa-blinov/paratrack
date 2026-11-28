@@ -150,12 +150,6 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 	return appmodel.ScheduleSnapshot{Rows: rows, ProjectNames: names, Projects: projects, TotalMinutes: totalMinutes}, nil
 }
 
-// weekAvailableMinutes is the capacity of five working days less the admin
-// time the member keeps; never below zero.
-func weekAvailableMinutes(capacityPerDay, adminMinutes int) int {
-	return weekAvailableMinutesFor(capacityPerDay, adminMinutes, 5, 5)
-}
-
 // weekAvailableMinutesFor is capacity over the week's working days less the
 // admin time, the admin time scaled to the share of the person's own week
 // that is worked: a part-timer's three days are their whole week, and a

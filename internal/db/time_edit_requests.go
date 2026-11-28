@@ -167,16 +167,3 @@ func (d *DB) DecideTimeEditRequest(ctx context.Context, decision appmodel.TimeEd
 	}
 	return tx.Commit()
 }
-
-// checkManagerOf reads the caller's role in the workspace and refuses anyone who is not a manager.
-func (d *DB) checkManagerOf(ctx context.Context, teamID, callerID int64) error {
-	tx, err := d.sql.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if _, _, err := lockTeamManager(ctx, tx, teamID, callerID); err != nil {
-		return err
-	}
-	return tx.Commit()
-}

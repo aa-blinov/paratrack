@@ -1,7 +1,6 @@
 package db
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -10,22 +9,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
 )
-
-func TestLegacyActivityWritesRejectWorkspaceScope(t *testing.T) {
-	d := openTestDB(t)
-	ctx := t.Context()
-	teamID := seedTeam(t, d, "Activity actor", "activity-actor")
-	ownerID := teamOwner(t, d, teamID)
-	if _, err := d.createActivity(ctx, legacyActivityRequest{TeamID: teamID, Name: "blocked"}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("activity create without actor = %v, want forbidden", err)
-	}
-	if _, err := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: teamID, Name: "blocked"}); !errors.Is(err, model.ErrForbidden) {
-		t.Fatalf("activity resolution without actor = %v, want forbidden", err)
-	}
-	if _, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "allowed"}); err != nil {
-		t.Fatalf("activity create with current owner = %v", err)
-	}
-}
 
 func TestActivityKeyBackfillProcessesMultipleBatches(t *testing.T) {
 	d := openTestDB(t)
@@ -46,11 +29,13 @@ func TestActivityKeyBackfillProcessesMultipleBatches(t *testing.T) {
 	}
 }
 
-func TestGetOrCreateActivity_CaseInsensitive(t *testing.T) {
+func TestGetOrCreateActivityForMember_CaseInsensitive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
+	teamID := seedTeam(t, d, "Activity case", "activity-case")
+	ownerID := teamOwner(t, d, teamID)
 
-	a, err := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "work"})
+	a, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,11 +43,11 @@ func TestGetOrCreateActivity_CaseInsensitive(t *testing.T) {
 		t.Errorf("expected normalised name 'work', got %q", a.Name)
 	}
 
-	// Different case → same id, canonical lowercase name.
+	// Different case → same id, the name the first caller typed.
 	for _, variant := range []string{"WORK", "Work", "wOrK"} {
-		got, err := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: variant})
+		got, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: variant})
 		if err != nil {
-			t.Errorf("getOrCreateActivity(%q): %v", variant, err)
+			t.Errorf("GetOrCreateActivityForMember(%q): %v", variant, err)
 			continue
 		}
 		if got.ID != a.ID || got.Name != "work" {
@@ -110,14 +95,16 @@ func TestGetOrCreateActivityForMember_ReusesActivityMissingNameKey(t *testing.T)
 func TestGetActivityByName_CaseInsensitive(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "Reading"})
+	teamID := seedTeam(t, d, "Activity lookup", "activity-lookup")
+	ownerID := teamOwner(t, d, teamID)
+	a, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "Reading"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if a.Name != "Reading" {
 		t.Errorf("the name keeps the case it was typed in, got %q", a.Name)
 	}
-	b, err := d.getActivityByName(ctx, 0, "READING")
+	b, err := d.getActivityByName(ctx, teamID, "READING")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,10 +113,12 @@ func TestGetActivityByName_CaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestCreateActivity_TrimsAndKeepsCase(t *testing.T) {
+func TestGetOrCreateActivityForMember_TrimsAndKeepsCase(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()
-	a, err := d.createActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "  Writing  "})
+	teamID := seedTeam(t, d, "Activity trim", "activity-trim")
+	ownerID := teamOwner(t, d, teamID)
+	a, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "  Writing  "})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,8 +126,8 @@ func TestCreateActivity_TrimsAndKeepsCase(t *testing.T) {
 		t.Errorf("expected trimmed 'Writing', got %q", a.Name)
 	}
 	// Cyrillic folds too: "Вёрстка" and "вёрстка" are one activity.
-	x, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "Вёрстка"})
-	y, _ := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "вёрстка"})
+	x, _ := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "Вёрстка"})
+	y, _ := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "вёрстка"})
 	if x.ID != y.ID || y.Name != "Вёрстка" {
 		t.Errorf("Cyrillic case: %d/%q vs %d/%q", x.ID, x.Name, y.ID, y.Name)
 	}

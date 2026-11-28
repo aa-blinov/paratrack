@@ -40,26 +40,6 @@ func Prompt(r io.Reader, w io.Writer, label, def string) (string, error) {
 	return line, nil
 }
 
-// Confirm asks y/n; y/Y/yes returns true, anything else false (default defaultYes).
-func Confirm(r io.Reader, w io.Writer, label string, defaultYes bool) (bool, error) {
-	hint := "y/N"
-	if defaultYes {
-		hint = "Y/n"
-	}
-	fmt.Fprintf(w, "%s [%s]: ", label, hint)
-	scanner := bufio.NewScanner(r)
-	if !scanner.Scan() {
-		return defaultYes, nil
-	}
-	switch strings.ToLower(strings.TrimSpace(scanner.Text())) {
-	case "y", "yes":
-		return true, nil
-	case "n", "no":
-		return false, nil
-	}
-	return defaultYes, nil
-}
-
 // Choose prints label and a numbered menu; returns the index picked.
 func Choose(r io.Reader, w io.Writer, label string, options []string, def int) (int, error) {
 	fmt.Fprintf(w, "%s\n", label)

@@ -42,7 +42,6 @@ type ReminderWorker interface {
 type OIDCProvider = oidcport.Provider
 type OIDCAuthorizationRequest = oidcport.AuthorizationRequest
 type OIDCAuthenticationRequest = oidcport.AuthenticationRequest
-type OIDCIdentity = oidcport.Identity
 
 // InvoiceMailWorker is a process lifecycle capability used by the HTTP
 // adapter. Queue mutation stays on the workflow-facing InvoiceMailQueue port.

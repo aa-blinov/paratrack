@@ -16,7 +16,7 @@ import (
 	webhookhttp "github.com/aa-blinov/paratrack/internal/webhooks/httpdelivery"
 )
 
-func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
+func TestQueuedDeliverySignsTimestampAndRetriesTransientFailure(t *testing.T) {
 	calls := 0
 	var signatureValid bool
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +24,7 @@ func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		timestamp := r.Header.Get("X-Paratrack-Timestamp")
 		signatureValid = r.Header.Get("X-Paratrack-Signature-V2") == SignPayload("s3cret", append([]byte(timestamp+"."), body...))
-		if calls < 3 {
+		if calls == 1 {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
@@ -52,10 +52,6 @@ func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	hook, err := database.GetWebhook(ctx, appmodel.WebhookLookupQuery{TeamID: 1, WebhookID: hookSummary.ID})
-	if err != nil {
-		t.Fatal(err)
-	}
 	auditService, err := audit.New(database)
 	if err != nil {
 		t.Fatal(err)
@@ -68,15 +64,51 @@ func TestWebhookRetriesAndSignsTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.deliverWithBackoff(ctx, hook, "session.stopped", []byte(`{"x":1}`), []time.Duration{0, 0, 0})
-	if calls != 3 || !signatureValid {
-		t.Fatalf("calls %d signatureValid %v, want 3 attempts and a valid V2 signature", calls, signatureValid)
+	if err := database.EnqueueWebhookDeliveries(ctx, appmodel.WebhookDeliveryBatchRequest{
+		TeamID: 1, WebhookIDs: []int64{hookSummary.ID}, Event: "session.stopped", Payload: []byte(`{"x":1}`),
+	}); err != nil {
+		t.Fatal(err)
 	}
-	deliveries, err := database.ListWebhookDeliveries(ctx, 1, hook.ID)
+	job, ok, err := database.ClaimWebhookDelivery(ctx)
+	if err != nil || !ok {
+		t.Fatalf("claim delivery: ok=%v err=%v", ok, err)
+	}
+	service.deliverQueued(ctx, job)
+	if calls != 1 || !signatureValid {
+		t.Fatalf("calls %d signatureValid %v, want one attempt with a valid V2 signature", calls, signatureValid)
+	}
+	// A transient failure goes back to the store instead of being retried in
+	// place: the row keeps its attempt count with the lease released.
+	var rescheduled bool
+	if err := database.TestSQL().QueryRowContext(ctx,
+		`SELECT attempts = 1 AND locked_at IS NULL FROM webhook_delivery_queue WHERE id = $1`, job.ID).Scan(&rescheduled); err != nil {
+		t.Fatalf("read rescheduled delivery: %v", err)
+	}
+	if !rescheduled {
+		t.Fatal("transient failure did not hand the delivery back to the store")
+	}
+	if _, err := database.TestSQL().ExecContext(ctx,
+		`UPDATE webhook_delivery_queue SET available_at = $1 WHERE id = $2`,
+		time.Now().UTC().Add(-time.Minute).Format(appmodel.CanonicalTimestampLayout), job.ID); err != nil {
+		t.Fatal(err)
+	}
+	job, ok, err = database.ClaimWebhookDelivery(ctx)
+	if err != nil || !ok {
+		t.Fatalf("claim retry: ok=%v err=%v", ok, err)
+	}
+	service.deliverQueued(ctx, job)
+	if calls != 2 || !signatureValid {
+		t.Fatalf("calls %d signatureValid %v, want the retry to sign and deliver", calls, signatureValid)
+	}
+	deliveries, err := database.ListWebhookDeliveries(ctx, 1, hookSummary.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(deliveries) != 3 || deliveries[0].Status != http.StatusOK {
-		t.Errorf("delivery log %+v", deliveries)
+	statuses := make(map[int]int, len(deliveries))
+	for _, delivery := range deliveries {
+		statuses[delivery.Status]++
+	}
+	if statuses[http.StatusServiceUnavailable] != 1 || statuses[http.StatusOK] != 1 {
+		t.Fatalf("delivery log statuses = %v, want one 503 and one 200", statuses)
 	}
 }

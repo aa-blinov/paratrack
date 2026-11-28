@@ -90,12 +90,15 @@ func (s *integrationStoreStub) SyncExternalTasks(_ context.Context, request appm
 	return nil
 }
 
-type providerStub struct{ err error }
+type providerStub struct {
+	err   error
+	tasks []integrationport.ProviderTask
+}
 
 func (s providerStub) CheckToken(context.Context, ProviderInput) error { return nil }
 
 func (s providerStub) FetchTasks(context.Context, ProviderInput) ([]integrationport.ProviderTask, error) {
-	return nil, s.err
+	return s.tasks, s.err
 }
 
 type nilProviderStub struct{}
@@ -223,24 +226,24 @@ func TestCredentialLifecycleAuditOmitsSecretAndRequiresSuccessfulWrite(t *testin
 	}
 }
 
-func TestSyncTasksRejectsBoundarySnapshotBeforePersistence(t *testing.T) {
-	store := &integrationStoreStub{}
-	service, err := New(Dependencies{
-		Manager: store, Catalog: store, Tasks: store, SyncStarter: store,
-		Audit: &integrationAuditStub{}, Logger: integrationLoggerStub{},
-	}, providerStub{})
-	if err != nil {
-		t.Fatal(err)
-	}
+func TestSyncProviderRejectsBoundarySnapshotBeforePersistence(t *testing.T) {
 	tasks := make([]integrationport.ProviderTask, MaxSyncTasks)
 	for i := range tasks {
 		tasks[i] = integrationport.ProviderTask{
 			ExternalID: fmt.Sprintf("task-%d", i), Title: "Task", Status: "open",
 		}
 	}
-	count, err := service.syncTasks(context.Background(), 5, 17, 8, tasks)
+	store := &integrationStoreStub{credential: appmodel.IntegrationSyncCredentials{ID: 17, TeamID: 5, Provider: "github"}}
+	service, err := New(Dependencies{
+		Manager: store, Catalog: store, Tasks: store, SyncStarter: store,
+		Audit: &integrationAuditStub{}, Logger: integrationLoggerStub{},
+	}, providerStub{tasks: tasks})
+	if err != nil {
+		t.Fatal(err)
+	}
+	count, err := service.SyncProvider(context.Background(), appmodel.IntegrationMutationRequest{TeamID: 5, IntegrationID: 17, CallerID: 8})
 	if !errors.Is(err, ErrIncompleteSnapshot) {
-		t.Fatalf("syncTasks error = %v, want incomplete snapshot", err)
+		t.Fatalf("SyncProvider error = %v, want incomplete snapshot", err)
 	}
 	if count != 0 || store.syncCalls != 0 {
 		t.Fatalf("boundary snapshot reached persistence: count=%d calls=%d", count, store.syncCalls)

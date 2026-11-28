@@ -18,43 +18,6 @@ var ErrSessionNotActive = model.ErrSessionNotActive
 // SessionUpdate is kept as an adapter alias for callers that used the db type.
 type SessionUpdate = appmodel.SessionUpdate
 
-// createLegacySession inserts an unscoped active session for legacy data.
-// Workspace sessions must use StartSession, which enforces membership and
-// the one-active-session rule in the same transaction.
-func (d *DB) createLegacySession(ctx context.Context, request legacySessionCreateRequest) (model.Session, error) {
-	const teamID int64 = 0
-	activityID, startAt, note := request.ActivityID, request.At, request.Note
-	tx, err := d.sql.BeginTx(ctx, nil)
-	if err != nil {
-		return model.Session{}, err
-	}
-	defer func() { _ = tx.Rollback() }()
-	if err := lockActivityForSession(ctx, tx, teamID, activityID); err != nil {
-		return model.Session{}, err
-	}
-	if err := requireActivityOpenForTime(ctx, tx, activityID); err != nil {
-		return model.Session{}, err
-	}
-	startStr := FormatTime(startAt)
-	var id int64
-	err = tx.QueryRowContext(ctx,
-		`INSERT INTO sessions (activity_id, team_id, start_at, note, paused, accumulated_seconds, last_resume_at, user_id)
-		 VALUES (?, ?, ?, ?, 0, 0, ?, ?) RETURNING id`,
-		activityID, nullableInt64(teamID), startStr, nullableString(note), startStr, actorOf(ctx),
-	).Scan(&id)
-	if err != nil {
-		return model.Session{}, err
-	}
-	session, err := getSessionTx(ctx, tx, teamID, id)
-	if err != nil {
-		return model.Session{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return model.Session{}, err
-	}
-	return session, nil
-}
-
 // StartSession atomically enforces one open session per activity. It locks the
 // actor while composing start/focus operations, then the activity to protect
 // the per-activity uniqueness rule.

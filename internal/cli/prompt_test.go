@@ -45,42 +45,6 @@ func TestPromptCancelsOnDot(t *testing.T) {
 	}
 }
 
-func TestConfirmYes(t *testing.T) {
-	r := strings.NewReader("y\n")
-	var w strings.Builder
-	got, err := Confirm(r, &w, "Really?", false)
-	if err != nil {
-		t.Fatalf("Confirm: %v", err)
-	}
-	if !got {
-		t.Fatal("expected yes")
-	}
-}
-
-func TestConfirmNo(t *testing.T) {
-	r := strings.NewReader("n\n")
-	var w strings.Builder
-	got, err := Confirm(r, &w, "Really?", true)
-	if err != nil {
-		t.Fatalf("Confirm: %v", err)
-	}
-	if got {
-		t.Fatal("expected no")
-	}
-}
-
-func TestConfirmDefault(t *testing.T) {
-	r := strings.NewReader("\n")
-	var w strings.Builder
-	got, err := Confirm(r, &w, "Delete?", true)
-	if err != nil {
-		t.Fatalf("Confirm: %v", err)
-	}
-	if !got {
-		t.Fatal("empty reply should accept default-yes")
-	}
-}
-
 func TestChooseDefault(t *testing.T) {
 	r := strings.NewReader("\n")
 	var w strings.Builder

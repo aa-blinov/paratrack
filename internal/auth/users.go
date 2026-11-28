@@ -180,18 +180,6 @@ func Validate(email, password, name string) error {
 	return nil
 }
 
-// createUser inserts a user, hashes the password, and (in one tx) creates
-// their personal team + owner row so the new account can immediately
-// log in and have an empty workspace. Returns the new id and the
-// personal team id (so the caller can set it as the current team).
-func (s *Service) createUser(ctx context.Context, email, password, name string) (userID, teamID int64, err error) {
-	// A new personal workspace is named for what it is, not for its owner (ADM-22).
-	return s.createUserWithTeamName(ctx, appmodel.RegistrationRequest{
-		Email: email, Password: password, Name: name,
-		TeamName: "Личное пространство",
-	})
-}
-
 // createUserWithTeamName creates the account, its personal workspace with the
 // caller-selected display name, and owner membership as one store operation.
 func (s *Service) createUserWithTeamName(ctx context.Context, request appmodel.RegistrationRequest) (userID, teamID int64, err error) {

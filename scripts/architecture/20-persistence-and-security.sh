@@ -61,15 +61,9 @@ done
 # Close call for each QueryContext result, pairs each BeginTx result with its
 # own deferred Rollback, and rejects contextless database operations.
 
-# Legacy tag deletion may only address the legacy unscoped catalog; passing
-# teamID zero must never delete a workspace-owned tag by numeric ID.
+# Unscoped compatibility operations, if any reappear, must stay package-private.
 if grep -R -q --include='*.go' --exclude='*_test.go' -E '^func \(d \*DB\) (CreateLegacySession|CreateActivity|GetOrCreateActivity|GetActivityByName|CreateTag|DeleteTag|AttachTag|DetachTag|SetTagsForSession|ListTagsForSession)\(' internal/db; then
 	echo "architecture check: unscoped compatibility operations must stay package-private" >&2
-	exit 1
-fi
-legacy_tag_delete=$(sed -n '/^func (d \*DB) deleteTag(/,/^}/p' internal/db/tags.go)
-if ! printf '%s\n' "$legacy_tag_delete" | grep -Fq 'team_id IS NULL'; then
-	echo "architecture check: legacy tag deletion must restrict writes to unscoped tags" >&2
 	exit 1
 fi
 
@@ -193,12 +187,9 @@ if grep -R -q --include='*.go' --exclude='*_test.go' -E '\.CreateSession\(' inte
 	echo "architecture check: production session creation must use the explicit tracking workflow operations" >&2
 	exit 1
 fi
-legacy_session_create=$(sed -n '/^func (d \*DB) createLegacySession(/,/^}/p' internal/db/sessions.go)
 activity_lock=$(sed -n '/^func lockActivityForSession(/,/^}/p' internal/db/sessions.go)
-if ! printf '%s\n' "$legacy_session_create" | grep -Fq 'lockActivityForSession(ctx, tx, teamID, activityID)' ||
-	! printf '%s\n' "$legacy_session_create" | grep -Fq 'const teamID int64 = 0' ||
-	! printf '%s\n' "$activity_lock" | grep -Fq 'team_id IS NULL'; then
-	echo "architecture check: legacy session creation must lock only an unscoped activity" >&2
+if ! printf '%s\n' "$activity_lock" | grep -Fq 'team_id IS NULL'; then
+	echo "architecture check: session activity lock must refuse an unscoped activity" >&2
 	exit 1
 fi
 

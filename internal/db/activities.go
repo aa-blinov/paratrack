@@ -11,38 +11,6 @@ import (
 	"github.com/aa-blinov/paratrack/internal/model"
 )
 
-// createActivity inserts an activity in the legacy unscoped catalog. Team
-// writes must use GetOrCreateActivityForMember with an explicit caller ID.
-
-func (d *DB) createActivity(ctx context.Context, request legacyActivityRequest) (model.Activity, error) {
-	teamID, name := request.TeamID, request.Name
-	if teamID != 0 {
-		return model.Activity{}, model.ErrForbidden
-	}
-	// The name keeps the case it was typed in (it shows on invoices);
-	// matching goes through name_key, lowercased in Go so Cyrillic folds
-	// too.
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
-	}
-	now := FormatTime(d.currentTime().UTC())
-	// teamID == 0 → legacy single-user path; no UNIQUE constraint to
-	// collide on, just ON CONFLICT DO NOTHING.
-	// Insert-if-missing then read back is enough
-	// (nothing is returned when the insert was ignored).
-	if _, err := d.sql.ExecContext(ctx,
-		`INSERT INTO activities (name, name_key, created_at, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-		name, strings.ToLower(name), now, now,
-	); err != nil {
-		return model.Activity{}, err
-	}
-	return scanActivity(d.sql.QueryRowContext(ctx,
-		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at
-		 FROM activities WHERE (name_key = ? OR (name_key IS NULL AND name = ?)) AND team_id IS NULL
-		 ORDER BY id LIMIT 1`, strings.ToLower(name), name))
-}
-
 // GetActivity fetches one activity from the requested workspace.
 func (d *DB) GetActivity(ctx context.Context, query appmodel.ActivityLookupQuery) (model.Activity, error) {
 	if query.TeamID <= 0 || query.ActivityID <= 0 {
@@ -81,35 +49,6 @@ func (d *DB) FindActivityByName(ctx context.Context, query appmodel.ActivityName
 		return model.Activity{}, ErrNotFound
 	}
 	return d.getActivityByName(ctx, query.TeamID, query.Name)
-}
-
-// getOrCreateActivity resolves or creates an activity in the legacy unscoped
-// catalog. Team writes must use GetOrCreateActivityForMember with an explicit
-// caller ID.
-
-func (d *DB) getOrCreateActivity(ctx context.Context, request legacyActivityRequest) (model.Activity, error) {
-	teamID, name := request.TeamID, request.Name
-	if teamID != 0 {
-		return model.Activity{}, model.ErrForbidden
-	}
-	name = strings.TrimSpace(name)
-	if name == "" {
-		return model.Activity{}, fmt.Errorf("activity name cannot be empty")
-	}
-	row := d.sql.QueryRowContext(ctx,
-		`SELECT id, name, color, team_id, project_id, archived, created_at, updated_at
-		 FROM activities WHERE (name_key = ? OR (name_key IS NULL AND name = ?)) AND team_id IS NULL
-		 ORDER BY id LIMIT 1`, strings.ToLower(name), name)
-	if a, err := scanActivity(row); err == nil {
-		if _, err := d.sql.ExecContext(ctx,
-			`UPDATE activities SET name_key = ? WHERE id = ? AND name_key IS NULL`, strings.ToLower(name), a.ID); err != nil {
-			return model.Activity{}, err
-		}
-		return a, nil
-	} else if !errors.Is(err, ErrNotFound) {
-		return model.Activity{}, err
-	}
-	return d.createActivity(ctx, request)
 }
 
 // GetOrCreateActivityForMember resolves or creates an activity while holding

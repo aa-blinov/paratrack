@@ -88,10 +88,6 @@ func parseProcessTimezone(raw string) (*time.Location, error) {
 	return location, nil
 }
 
-func loadProcessConfigWith(getenv func(string) string) (processConfig, error) {
-	return loadProcessConfigWithTimezone(getenv, nil)
-}
-
 func loadProcessConfigWithTimezone(getenv func(string) string, timezone *time.Location) (processConfig, error) {
 	if getenv == nil {
 		return processConfig{}, fmt.Errorf("process environment lookup is nil")

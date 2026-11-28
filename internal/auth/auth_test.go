@@ -53,6 +53,14 @@ func newTestAuthServiceWithMailCheck(t *testing.T, d *dbpkg.DB, requireMail bool
 	return service
 }
 
+// createUserForTest registers the account the way the signup path does, with the
+// default personal workspace name.
+func (s *Service) createUserForTest(ctx context.Context, email, password, name string) (int64, int64, error) {
+	return s.createUserWithTeamName(ctx, appmodel.RegistrationRequest{
+		Email: email, Password: password, Name: name, TeamName: "Личное пространство",
+	})
+}
+
 func TestValidate(t *testing.T) {
 	for _, ok := range []struct{ email, pw, name string }{
 		{"alice@example.com", "longenough", "Alice"},
@@ -77,14 +85,14 @@ func TestValidate(t *testing.T) {
 	}
 }
 
-func TestCreateUser_HashesPasswordAndCreatesPersonalTeam(t *testing.T) {
+func TestCreateUserWithTeamNameHashesPasswordAndCreatesPersonalTeam(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
 
-	uid, teamID, err := svc.createUser(ctx, "alice@example.com", "longenough", "Alice")
+	uid, teamID, err := svc.createUserForTest(ctx, "alice@example.com", "longenough", "Alice")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	if uid == 0 || teamID == 0 {
 		t.Fatalf("ids should be set: uid=%d team=%d", uid, teamID)
@@ -109,16 +117,16 @@ func TestCreateUser_HashesPasswordAndCreatesPersonalTeam(t *testing.T) {
 	}
 }
 
-func TestCreateUser_DuplicateEmailRejected(t *testing.T) {
+func TestCreateUserWithTeamNameRejectsDuplicateEmail(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
 
-	if _, _, err := svc.createUser(ctx, "dup@example.com", "longenough", "Dup"); err != nil {
-		t.Fatalf("first createUser: %v", err)
+	if _, _, err := svc.createUserForTest(ctx, "dup@example.com", "longenough", "Dup"); err != nil {
+		t.Fatalf("first createUserForTest: %v", err)
 	}
-	if _, _, err := svc.createUser(ctx, "dup@example.com", "longenough", "Dup"); err == nil {
-		t.Fatalf("second createUser should fail")
+	if _, _, err := svc.createUserForTest(ctx, "dup@example.com", "longenough", "Dup"); err == nil {
+		t.Fatalf("second createUserForTest should fail")
 	}
 }
 
@@ -126,9 +134,9 @@ func TestChangePasswordUsesCurrentCredentialAndConditionalUpdate(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "password-change@example.com", "old-password", "Password Change")
+	userID, _, err := svc.createUserForTest(ctx, "password-change@example.com", "old-password", "Password Change")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	ctx = requestctx.WithActor(ctx, userID)
 
@@ -262,7 +270,7 @@ func TestSessions(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	uid, _, err := svc.createUser(ctx, "bob@example.com", "longenough", "Bob")
+	uid, _, err := svc.createUserForTest(ctx, "bob@example.com", "longenough", "Bob")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,9 +321,9 @@ func TestFindByTokenExpiresAtExactBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create auth service: %v", err)
 	}
-	userID, _, err := svc.createUser(context.Background(), "boundary@example.com", "longenough", "Boundary")
+	userID, _, err := svc.createUserForTest(context.Background(), "boundary@example.com", "longenough", "Boundary")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	session, err := svc.newSession(context.Background(), userID)
 	if err != nil {
@@ -331,7 +339,7 @@ func TestAPITokenMutationsAreAuditedWithoutExposingRawToken(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, teamID, err := svc.createUser(ctx, "token-audit@example.com", "longenough", "Token Audit")
+	userID, teamID, err := svc.createUserForTest(ctx, "token-audit@example.com", "longenough", "Token Audit")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,9 +393,9 @@ func TestPasswordResetWorkflowIssuesFreshSessionAndRevokesOldOne(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "reset-flow@example.com", "oldpassword", "Reset User")
+	userID, _, err := svc.createUserForTest(ctx, "reset-flow@example.com", "oldpassword", "Reset User")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	oldSession, err := svc.newSession(ctx, userID)
 	if err != nil {
@@ -441,9 +449,9 @@ func TestPasswordResetConsumesLegacyPlaintextToken(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "legacy-reset@example.com", "oldpassword", "Legacy User")
+	userID, _, err := svc.createUserForTest(ctx, "legacy-reset@example.com", "oldpassword", "Legacy User")
 	if err != nil {
-		t.Fatalf("createUser: %v", err)
+		t.Fatalf("createUserForTest: %v", err)
 	}
 	legacyToken := "legacy-reset-token"
 	now := time.Now().UTC()
@@ -470,7 +478,7 @@ func TestSessionExpiredIsRejected(t *testing.T) {
 	d := openTestDB(t)
 	svc := newTestAuthService(t, d)
 	ctx := context.Background()
-	uid, _, err := svc.createUser(ctx, "carol@example.com", "longenough", "Carol")
+	uid, _, err := svc.createUserForTest(ctx, "carol@example.com", "longenough", "Carol")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -519,7 +527,7 @@ func TestAuthenticateSessionTokenTouchesOncePerMinute(t *testing.T) {
 		t.Fatal(err)
 	}
 	ctx := context.Background()
-	userID, _, err := svc.createUser(ctx, "touch@example.com", "longenough", "Touch")
+	userID, _, err := svc.createUserForTest(ctx, "touch@example.com", "longenough", "Touch")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -114,35 +114,6 @@ func TestCreateSession_RequiresCurrentWorkspaceMembership(t *testing.T) {
 	}
 }
 
-func TestLegacySessionCreationCannotTargetWorkspaceActivity(t *testing.T) {
-	d := openTestDB(t)
-	ctx := t.Context()
-	teamID := seedTeam(t, d, "Legacy create", "legacy-session-create")
-	ownerID := teamOwner(t, d, teamID)
-	workspaceActivity, err := d.GetOrCreateActivityForMember(ctx, appmodel.ActivityResolveRequest{TeamID: teamID, CallerID: ownerID, Name: "workspace work"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: workspaceActivity.ID, At: time.Now().UTC(), Note: "cross-scope"}); !errors.Is(err, ErrNotFound) {
-		t.Fatalf("legacy session for workspace activity = %v, want not found", err)
-	}
-	var count int
-	if err := d.TestSQL().QueryRowContext(ctx, `SELECT COUNT(*) FROM sessions WHERE team_id = ?`, teamID).Scan(&count); err != nil {
-		t.Fatal(err)
-	}
-	if count != 0 {
-		t.Fatalf("legacy session creation inserted %d workspace sessions", count)
-	}
-
-	legacyActivity, err := d.getOrCreateActivity(ctx, legacyActivityRequest{TeamID: 0, Name: "legacy work"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := d.createLegacySession(ctx, legacySessionCreateRequest{ActivityID: legacyActivity.ID, At: time.Now().UTC(), Note: "legacy"}); err != nil {
-		t.Fatalf("legacy session for unscoped activity: %v", err)
-	}
-}
-
 func TestSessionTransitionsRejectUnscopedWorkspace(t *testing.T) {
 	d := openTestDB(t)
 	ctx := t.Context()

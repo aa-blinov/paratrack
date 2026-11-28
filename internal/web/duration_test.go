@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/model"
+	"github.com/aa-blinov/paratrack/internal/reportstats"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 	"github.com/aa-blinov/paratrack/internal/testutil"
 	"github.com/aa-blinov/paratrack/internal/timeparse"
@@ -73,7 +74,18 @@ func TestToSessionViewDurationSecsMatchesLabel(t *testing.T) {
 	}
 }
 
-func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
+// testChart builds the chart the way the stats and graph pages do: the hourly
+// distribution of the sessions, then the view-model the template renders.
+func testChart(t *testing.T, sessions []appmodel.ActiveSession, period timeparse.Period, now time.Time) ChartData {
+	t.Helper()
+	graph, err := reportstats.HourlyGraph(sessions, period.Start, period.End, now)
+	if err != nil {
+		t.Fatalf("hourly graph: %v", err)
+	}
+	return chartDataFromGraph(graph, period, i18n.En, nil)
+}
+
+func TestChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 	// 90 minutes of work must render as "1h 30m", not fmtDuration(90)="1m".
 	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	end := start.Add(90 * time.Minute)
@@ -82,10 +94,7 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 		Activity: model.Activity{Name: "work"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart, err := buildChartData(sessions, period, end, i18n.En, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	chart := testChart(t, sessions, period, end)
 	if !chart.HasData {
 		t.Fatal("expected chart data")
 	}
@@ -94,7 +103,7 @@ func TestBuildChartDataTotalLabelUsesHoursNotMinutes(t *testing.T) {
 	}
 }
 
-func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
+func TestChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	end := start
 	sessions := []appmodel.ActiveSession{{
@@ -102,10 +111,7 @@ func TestBuildChartDataKeepsTrackedTimeWhenWallIntervalCollapses(t *testing.T) {
 		Activity: model.Activity{Name: "imported"},
 	}}
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: start.Add(time.Hour), Label: "today"}
-	chart, err := buildChartData(sessions, period, end, i18n.En, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	chart := testChart(t, sessions, period, end)
 	if !chart.HasData || chart.Series[0].Data[start.Hour()] == 0 {
 		t.Fatalf("collapsed interval hid tracked time: %+v", chart)
 	}
@@ -116,13 +122,10 @@ func TestChartUsesTrackedTimeAndLocalHourBuckets(t *testing.T) {
 	start := time.Date(2026, 9, 22, 10, 30, 0, 0, loc)
 	end := start.Add(2 * time.Hour)
 	period := timeparse.Period{Start: start.Add(-time.Hour), End: end.Add(time.Hour), Label: "today"}
-	chart, err := buildChartData([]appmodel.ActiveSession{{
+	chart := testChart(t, []appmodel.ActiveSession{{
 		Session:  model.Session{StartAt: start.UTC(), EndAt: &end, AccumulatedSeconds: 3600},
 		Activity: model.Activity{Name: "paused-work"},
-	}}, period, end, i18n.En, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	}}, period, end)
 	if chart.TotalLabel != "1h" || !chart.HasData {
 		t.Fatalf("chart counts wall time instead of tracked time: %+v", chart)
 	}

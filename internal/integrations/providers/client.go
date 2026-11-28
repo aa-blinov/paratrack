@@ -67,11 +67,6 @@ func NewConfigured(client *http.Client, config Config) (*Client, error) {
 	return NewWithConfigAndRetryWaits(client, []time.Duration{2 * time.Second, 5 * time.Second, 15 * time.Second}, config)
 }
 
-// NewWithRetryWaits allows adapters to supply a shorter retry schedule.
-func NewWithRetryWaits(client *http.Client, waits []time.Duration) (*Client, error) {
-	return NewWithConfigAndRetryWaits(client, waits, Config{})
-}
-
 // NewWithConfigAndRetryWaits allows adapters to supply site defaults and a
 // controlled retry schedule.
 func NewWithConfigAndRetryWaits(client *http.Client, waits []time.Duration, config Config) (*Client, error) {
