@@ -99,7 +99,14 @@ function setStatus(msg) {
   node.textContent = msg;
 }
 
-function showSetup() {
+// showSetup opens the settings with what is saved filled in, and a way back
+// to the timer while the saved token still works.
+async function showSetup() {
+  const { base, token } = await loadCfg();
+  $("base").value = base;
+  $("token").value = "";
+  $("token").placeholder = token ? t("tokenSaved") : "pt_…";
+  $("back").classList.toggle("hidden", !token);
   $("setup").classList.remove("hidden");
   $("app").classList.add("hidden");
 }
@@ -117,13 +124,13 @@ async function reportApiError(res) {
 function fmt(sec) {
   sec = Math.max(0, Math.floor(sec));
   const m = Math.floor(sec / 60), s = sec % 60, h = Math.floor(m / 60);
-  if (h > 0) return h + "h " + (m % 60) + "m";
-  if (m > 0) return m + "m " + s + "s";
-  return s + "s";
+  if (h > 0) return t("clockHM", h, m % 60);
+  if (m > 0) return t("clockMS", m, s);
+  return t("clockS", s);
 }
 
 function tick(active) {
-  if (!active) { $("clock").textContent = "0m"; return; }
+  if (!active) { $("clock").textContent = t("clockM0"); return; }
   const started = new Date(active.startISO).getTime();
   const acc = active.accumulated || 0;
   const now = Date.now();
@@ -156,10 +163,14 @@ async function refresh() {
     $("who").textContent = (me.user && me.user.name) || "";
   } catch (e) {
     // The saved token stopped working (revoked, removed from the workspace):
-    // back to the setup with the reason, not an empty timer screen.
-    $("who").textContent = "";
+    // back to the setup with the reason, not an empty timer screen. A network
+    // blip is not that: the timer screen stays and says the server is not
+    // answering, and the next automatic refresh tries again.
     clearTimer();
-    showSetup();
+    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+      $("who").textContent = "";
+      showSetup();
+    }
     setStatus(explain(e));
     return false;
   }
@@ -198,16 +209,18 @@ async function refresh() {
     clearTimer();
   }
 
-  // tasks dropdown
+  // Tasks from the connected trackers. Not having any is normal (no
+  // integration), so a failure here leaves the blank choice and says nothing;
+  // the list is replaced only once a new one has arrived.
   try {
-    const t = await (await api("/api/external-tasks")).json();
+    const taskList = await readJSON(await api("/api/external-tasks"));
     const sel = $("task");
     sel.innerHTML = "";
     const blank = document.createElement("option");
     blank.value = "";
     blank.textContent = t("pickTask");
     sel.appendChild(blank);
-    (t.tasks || []).forEach((x) => {
+    (taskList.tasks || []).forEach((x) => {
       const o = document.createElement("option");
       o.value = x.title;
       o.textContent = x.title;
@@ -300,6 +313,7 @@ $("pause").addEventListener("click", pauseTimer);
 $("resume").addEventListener("click", resumeTimer);
 $("refresh").addEventListener("click", refresh);
 $("settings").addEventListener("click", showSetup);
+$("back").addEventListener("click", () => { $("setup").classList.add("hidden"); $("app").classList.remove("hidden"); refresh(); });
 
 localize();
 

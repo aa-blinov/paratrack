@@ -20,6 +20,20 @@ function getMessage(key, subs = []) {
   return subs.reduce((text, sub, i) => text.replaceAll("$" + (i + 1), sub), m.message)
 }
 
+function makeElement(tag, attrs = "", classes = new Set(), dataset = {}, listeners = {}) {
+  const el = {
+    tag, dataset, textContent: "", value: "", placeholder: "", attrs, children: [], listeners,
+    classList: {
+      add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c),
+      toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)),
+    },
+    addEventListener: (type, fn) => { listeners[type] = fn },
+    appendChild: (child) => { el.children.push(child) },
+  }
+  Object.defineProperty(el, "innerHTML", { set: () => { el.children = [] }, get: () => "" })
+  return el
+}
+
 // fakeDOM builds one element per tag in popup.html's body with its id,
 // classes and data attributes.
 function fakeDOM() {
@@ -35,13 +49,8 @@ function fakeDOM() {
     for (const d of attrs.matchAll(/\sdata-([a-z0-9-]+)="([^"]*)"/g)) {
       dataset[d[1].replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = d[2]
     }
-    const el = {
-      tag, id: attr("id"), dataset, textContent: "", value: "", placeholder: "", innerHTML: "", attrs,
-      classList: { add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c) },
-      addEventListener: (type, fn) => { listeners[type] = fn },
-      appendChild() {},
-      listeners,
-    }
+    const el = makeElement(tag, attrs, classes, dataset, listeners)
+    el.id = attr("id")
     if (el.id) {
       assert.ok(!byId[el.id], `popup.html has two elements with id="${el.id}"`)
       byId[el.id] = el
@@ -56,7 +65,7 @@ function fakeDOM() {
         const name = sel.match(/^\[([a-z0-9-]+)\]$/)[1]
         return all.filter((el) => new RegExp(`\\s${name}="`).test(el.attrs))
       },
-      createElement: (tag) => ({ tag, value: "", textContent: "" }),
+      createElement: (tag) => makeElement(tag),
     },
   }
 }
@@ -148,4 +157,32 @@ test("an accepted token is saved and says connected on the timer screen", async 
   await el.save.listeners.click()
   assert.equal(store.token, "pt_good")
   assert.deepEqual(visible(), { section: "app", status: "Подключено" })
+})
+
+test("tasks from the trackers fill the list after the blank choice", async () => {
+  const { el } = load((path) => path === "/api/external-tasks"
+    ? json(200, { tasks: [{ title: "PT-12 Логин" }, { title: "PT-13 Оплата" }] }) : ok(path))
+  await settle()
+  await settle()
+  assert.deepEqual(el.task.children.map((o) => o.textContent), ["— выберите задачу —", "PT-12 Логин", "PT-13 Оплата"])
+})
+
+test("a network blip keeps the timer screen and says the server is not answering", async () => {
+  let down = false
+  const { ctx, visible } = load((path) => { if (down) throw new TypeError("offline"); return ok(path) })
+  await settle()
+  assert.equal(await ctx.refresh(), true)
+  down = true
+  assert.equal(await ctx.refresh(), false)
+  assert.deepEqual(visible(), { section: "app", status: "Сервер не отвечает" })
+})
+
+test("the settings show the saved address and a way back to the timer", async () => {
+  const { ctx, el } = load(ok)
+  await settle()
+  await ctx.showSetup()
+  assert.equal(el.base.value, "https://pt.example")
+  assert.equal(el.token.value, "")
+  assert.match(el.token.placeholder, /сохранён/)
+  assert.equal(el.back.classList.contains("hidden"), false)
 })

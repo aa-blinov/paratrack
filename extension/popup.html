@@ -44,7 +44,7 @@
     }
     .pill.on { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
     .pill.off { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
-    #status { min-height: 1.2em; margin-top: 8px; font-size: 12px; color: var(--muted); }
+    [role="status"] { min-height: 1.2em; margin-top: 8px; font-size: 12px; color: var(--muted); }
     .hidden { display: none; }
   </style>
 </head>
@@ -59,6 +59,7 @@
     <label for="token" data-i18n="apiToken"></label>
     <input id="token" type="password" placeholder="pt_…" />
     <button id="save" data-i18n="saveConnect"></button>
+    <button id="back" class="ghost hidden" data-i18n="back"></button>
     <div id="setup-status" role="status"></div>
   </section>
 
@@ -68,7 +69,7 @@
       <span id="state" class="pill off" data-i18n="idle"></span>
       <span id="active-name" class="muted" style="margin:0"></span>
     </div>
-    <div id="clock" class="timer">0m</div>
+    <div id="clock" class="timer"></div>
 
     <label for="task" data-i18n="fromTask"></label>
     <select id="task"><option value="" data-i18n="pickTask"></option></select>

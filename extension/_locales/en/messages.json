@@ -113,5 +113,47 @@
         "content": "$1"
       }
     }
+  },
+  "tokenSaved": {
+    "message": "saved; paste a new one to replace it"
+  },
+  "back": {
+    "message": "Back to the timer"
+  },
+  "clockHM": {
+    "message": "$1h $2m",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "clockMS": {
+    "message": "$1m $2s",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "clockS": {
+    "message": "$1s",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clockM0": {
+    "message": "0m"
+  },
+  "extDescription": {
+    "message": "Start and stop paratrack timers from any tab."
   }
 }

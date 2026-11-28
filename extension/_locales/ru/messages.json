@@ -113,5 +113,47 @@
         "content": "$1"
       }
     }
+  },
+  "tokenSaved": {
+    "message": "сохранён; вставьте новый, чтобы заменить"
+  },
+  "back": {
+    "message": "Назад к таймеру"
+  },
+  "clockHM": {
+    "message": "$1 ч $2 мин",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "clockMS": {
+    "message": "$1 мин $2 с",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      },
+      "2": {
+        "content": "$2"
+      }
+    }
+  },
+  "clockS": {
+    "message": "$1 с",
+    "placeholders": {
+      "1": {
+        "content": "$1"
+      }
+    }
+  },
+  "clockM0": {
+    "message": "0 мин"
+  },
+  "extDescription": {
+    "message": "Запускайте и останавливайте таймеры paratrack из любой вкладки."
   }
 }
