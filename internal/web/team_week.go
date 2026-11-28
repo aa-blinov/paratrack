@@ -109,13 +109,20 @@ func (s *Server) dayMarksOf(r *http.Request, days []time.Time) (map[string]appmo
 	return out, nil
 }
 
-// dayMarkLabel names an overload or idle mark for the page.
+// dayMarkLabel names a mark for the page: a member's own overload or idle
+// day, or an absence a manager recorded.
 func dayMarkLabel(lang i18n.Lang, kind string) string {
-	if kind == "overload" {
+	switch kind {
+	case "overload":
 		return i18n.T(lang, "stats.markOverload")
+	case "vacation", "sick", "dayoff":
+		return i18n.T(lang, "absence."+kind)
 	}
 	return i18n.T(lang, "stats.markIdle")
 }
+
+// absenceKinds are the marks that take a day out of a member's norm.
+var absenceKinds = map[string]bool{"vacation": true, "sick": true, "dayoff": true}
 
 // markWeekView is the viewer's own side of the week (TIME-13): the days they can mark,
 // and the marks they have set on them.

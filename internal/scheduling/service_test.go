@@ -284,3 +284,19 @@ func TestSetCellWithoutProjectsReturnsApplicationOutcome(t *testing.T) {
 		t.Fatalf("SetCell() error = %v, want %v", err, appmodel.ErrNoScheduleProjects)
 	}
 }
+
+func (scheduleStoreStub) SetTeamHoliday(context.Context, appmodel.TeamHolidayRequest) error {
+	return nil
+}
+
+func (scheduleStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {
+	return nil, nil
+}
+
+func (scheduleCellStoreStub) SetTeamHoliday(context.Context, appmodel.TeamHolidayRequest) error {
+	return nil
+}
+
+func (scheduleCellStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {
+	return nil, nil
+}

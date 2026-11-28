@@ -282,6 +282,16 @@ CREATE TABLE IF NOT EXISTS payroll_lines (
 );
 CREATE INDEX IF NOT EXISTS idx_payroll_lines_run ON payroll_lines(run_id);
 
+-- The workspace's days off (public holidays): no one is expected to work, so
+-- they are not in anyone's norm.
+CREATE TABLE IF NOT EXISTS team_holidays (
+    team_id BIGINT NOT NULL,
+    day TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (team_id, day),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
+);
+
 -- Who a pay run is for, kept apart from its lines: a person whose hours were
 -- all taken off stays on the run, so recalculating after the hours come back
 -- pays them again.

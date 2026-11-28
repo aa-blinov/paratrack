@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/empty-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { requestConfirmation } from "@/components/confirmation-dialog"
@@ -17,6 +18,7 @@ import { activityColor } from "@/lib/activity-color"
 import { SegmentedControl } from "@/components/segmented"
 import { isNetworkError, responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
+import { DateField } from "@/components/date-field"
 
 type CellResponse = {
   activityId: number; activityName: string; color: string
@@ -385,11 +387,12 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
       const attention = data.TeamSummary.filter(m => m.Status === "empty" || m.Status === "warn").length
       const summaryDesc = attention > 0 ? t(lang, "ts.teamAttention", attention, data.TeamSummary.length) : t(lang, "ts.teamAllGood", data.TeamSummary.length)
       return <DisclosureSection id="ts-team-summary" title={t(lang, "ts.teamSummary")} description={summaryDesc} defaultOpen={attention > 0 && data.Person === 0}>
-        {data.Approval.Finished && data.TeamSummary.some(m => m.Status === "ok") && <form method="post" action="/api/timesheet/approve-on-track" className="mb-3">
+        {data.Approval.Finished && data.TeamSummary.some(m => m.Status === "ok" || m.Status === "away") && <form method="post" action="/api/timesheet/approve-on-track" className="mb-3">
           <input type="hidden" name="csrf_token" value={data.CSRFToken} />
           <input type="hidden" name="start" value={data.Approval.StartISO} />
-          <Button type="submit" size="sm">{t(lang, "ts.approveOnTrack", data.TeamSummary.filter(m => m.Status === "ok").length)}</Button>
+          <Button type="submit" size="sm">{t(lang, "ts.approveOnTrack", data.TeamSummary.filter(m => m.Status === "ok" || m.Status === "away").length)}</Button>
         </form>}
+        {(data.Holidays?.length ?? 0) > 0 && <p className="mb-3 text-xs text-muted-foreground">{t(lang, "holiday.inWeek", (data.Holidays ?? []).join(", "))}</p>}
         <ul className="divide-y divide-border text-sm">
           {data.TeamSummary.map(member => {
             // Approved and merely on track used to share one green dot.
@@ -397,6 +400,8 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
               ? "bg-emerald-700 ring-2 ring-emerald-700/30"
               : member.Status === "ok"
               ? "bg-emerald-400"
+              : member.Status === "away"
+              ? "bg-sky-400"
               : member.Status === "warn"
               ? "bg-amber-500"
               : "bg-destructive"
@@ -405,6 +410,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
                 <span aria-hidden="true" className={`size-2.5 shrink-0 rounded-full ${dotClass}`} />
                 <a href={`/timesheet?date=${data.DateISO}&person=${member.UserID}`} className={`truncate underline-offset-4 hover:underline ${data.Person === member.UserID ? "font-semibold" : "font-medium"}`}>{member.Name}</a>
                 {member.MissingDays > 0 && <span className="text-xs text-muted-foreground">{t(lang, "ts.missingDays", member.MissingDays)}</span>}
+                {member.AwayLabel && <span className="text-xs text-sky-700 dark:text-sky-400">{member.AwayLabel}</span>}
               </div>
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs text-muted-foreground tabular-nums">{member.TrackedLabel} / {member.NormLabel} ({member.Percent}%)</span>
@@ -423,6 +429,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </ul>
       </DisclosureSection>
     })()}
+    {data.Approval.CanManage && data.People.length > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} />}
     <div className="flex flex-wrap items-center gap-2">
       <StatusLine text={saving.size > 0 ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
@@ -532,4 +539,49 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
     <p className="text-sm text-muted-foreground">{t(lang, "ts.hint")}</p>
     <TimeEditRequests lang={lang} csrf={data.CSRFToken} days={data.Days} rows={data.Rows} requests={data.EditRequests} canDecide={data.CanDecide} />
   </main>
+}
+
+// AbsencesCard records a person's vacation, sick leave or day off and the
+// workspace's holidays. Those days leave the norm in the team summary, so a
+// holiday week or a vacation does not read as an empty timesheet.
+function AbsencesCard({ lang, csrf, week, people }: { lang: string; csrf: string; week: string; people: Array<{ ID: number; Name: string }> }) {
+  const [person, setPerson] = React.useState(String(people[0]?.ID ?? ""))
+  const [kind, setKind] = React.useState("vacation")
+  return <DisclosureSection id="ts-absences" title={t(lang, "absence.title")} description={t(lang, "absence.hint")} defaultOpen={false}>
+    <div className="grid gap-6 md:grid-cols-2">
+      <form method="post" action="/api/absences" className="grid gap-3">
+        <input type="hidden" name="csrf_token" value={csrf} />
+        <input type="hidden" name="week" value={week} />
+        <input type="hidden" name="user_id" value={person} />
+        <input type="hidden" name="kind" value={kind === "clear" ? "" : kind} />
+        <div className="grid gap-1.5"><Label htmlFor="absence-person">{t(lang, "absence.person")}</Label>
+          <Select value={person} onValueChange={setPerson}><SelectTrigger id="absence-person"><SelectValue /></SelectTrigger><SelectContent>{people.map(p => <SelectItem key={p.ID} value={String(p.ID)}>{p.Name}</SelectItem>)}</SelectContent></Select></div>
+        <div className="grid gap-1.5"><Label htmlFor="absence-kind">{t(lang, "absence.kind")}</Label>
+          <Select value={kind} onValueChange={setKind}><SelectTrigger id="absence-kind"><SelectValue /></SelectTrigger><SelectContent>
+            <SelectItem value="vacation">{t(lang, "absence.vacation")}</SelectItem>
+            <SelectItem value="sick">{t(lang, "absence.sick")}</SelectItem>
+            <SelectItem value="dayoff">{t(lang, "absence.dayoff")}</SelectItem>
+            <SelectItem value="clear">{t(lang, "absence.clear")}</SelectItem>
+          </SelectContent></Select></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-1.5"><Label htmlFor="absence-from">{t(lang, "inv.from")}</Label><DateField id="absence-from" name="from" required /></div>
+          <div className="grid gap-1.5"><Label htmlFor="absence-to">{t(lang, "inv.to")}</Label><DateField id="absence-to" name="to" /></div>
+        </div>
+        <Button type="submit" size="sm" variant="outline" className="w-fit">{t(lang, "absence.save")}</Button>
+      </form>
+      <form method="post" action="/api/holidays" className="grid gap-3">
+        <input type="hidden" name="csrf_token" value={csrf} />
+        <input type="hidden" name="week" value={week} />
+        <div className="grid gap-1.5"><Label htmlFor="holiday-name">{t(lang, "holiday.name")}</Label><Input id="holiday-name" name="name" maxLength={80} placeholder={t(lang, "holiday.namePh")} /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-1.5"><Label htmlFor="holiday-from">{t(lang, "inv.from")}</Label><DateField id="holiday-from" name="from" required /></div>
+          <div className="grid gap-1.5"><Label htmlFor="holiday-to">{t(lang, "inv.to")}</Label><DateField id="holiday-to" name="to" /></div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" size="sm" variant="outline">{t(lang, "holiday.save")}</Button>
+          <Button type="submit" size="sm" variant="ghost" name="clear" value="1">{t(lang, "holiday.clear")}</Button>
+        </div>
+      </form>
+    </div>
+  </DisclosureSection>
 }

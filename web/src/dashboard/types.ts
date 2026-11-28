@@ -514,6 +514,7 @@ export interface TimesheetData {
   // viewer's own (member). People fills the manager's selector (TIME-24).
   Person: number
   People: Array<{ ID: number; Name: string }>
+  Holidays?: string[]
   TeamSummary?: Array<{
     UserID: number
     Name: string
@@ -522,7 +523,8 @@ export interface TimesheetData {
     Percent: number
     MissingDays: number
     Approved: boolean
-    Status: "approved" | "ok" | "warn" | "empty"
+    Status: "approved" | "ok" | "away" | "warn" | "empty"
+      AwayLabel?: string
   }>
   // This week's scheduled minutes by project: the row answers "how much of
   // the plan did this time cover". Absent key = no plan for the project.

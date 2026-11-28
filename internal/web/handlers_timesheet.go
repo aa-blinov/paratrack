@@ -58,7 +58,19 @@ type timesheetTeamMemberStatus struct {
 	Percent      int
 	MissingDays  int
 	Approved     bool
-	Status       string // "approved" | "ok" | "warn" | "empty"
+	Status       string // "approved" | "ok" | "away" | "warn" | "empty"
+	// AwayLabel names the member's absences in the week ("отпуск: 3 дн.").
+	AwayLabel string
+}
+
+// sortedKeys is a map's keys in order.
+func sortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 type timesheetData struct {
@@ -100,6 +112,8 @@ type timesheetData struct {
 	// Flash is the answer of the last approve or reopen, shown above the week.
 	Flash   string
 	FlashOK bool
+	// Holidays names the workspace's days off in the week, for a manager.
+	Holidays []string
 }
 
 // weekPlanByProject sums the schedule's per-project plan for the week the
@@ -292,6 +306,18 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Approval = approval
 	data.TeamSummary = s.timesheetTeamSummary(r, weekStart, now, approval)
+	if canManage(r) {
+		if hol, err := s.services.Scheduling.TeamHolidays(r.Context(), teamID(r), weekStart.Format("2006-01-02"), weekStart.AddDate(0, 0, 7).Format("2006-01-02")); err == nil {
+			for _, d := range sortedKeys(hol) {
+				day, _ := time.ParseInLocation("2006-01-02", d, userLoc(r))
+				label := fmtDay(resolveLang(r), day)
+				if hol[d] != "" {
+					label += " (" + hol[d] + ")"
+				}
+				data.Holidays = append(data.Holidays, label)
+			}
+		}
+	}
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", &data)
 }
 
@@ -590,6 +616,26 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 	if err != nil {
 		return nil
 	}
+	// Absences and the workspace's days off leave the norm: a week with a
+	// holiday or a vacation is judged on the days that were to be worked.
+	from, until := days[0].Format("2006-01-02"), weekStart.AddDate(0, 0, 7).Format("2006-01-02")
+	holidays, err := s.services.Scheduling.TeamHolidays(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil
+	}
+	marks, err := s.services.Scheduling.DayMarks(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil
+	}
+	absent := map[int64]map[string]string{}
+	for _, m := range marks {
+		if absenceKinds[m.Kind] {
+			if absent[m.UserID] == nil {
+				absent[m.UserID] = map[string]string{}
+			}
+			absent[m.UserID][m.Day] = m.Kind
+		}
+	}
 	approvedByID := make(map[int64]bool, len(approval.MemberApprovals))
 	for _, ma := range approval.MemberApprovals {
 		approvedByID[ma.UserID] = true
@@ -605,6 +651,8 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 		perDay := tracked[m.UserID]
 		totalSecs := 0
 		missingDays := 0
+		workDays := 0
+		awayByKind := map[string]int{}
 		for i, d := range days {
 			sec := 0
 			if i < len(perDay) {
@@ -614,7 +662,16 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 			// A weekday by the calendar, not by its place in the week: a
 			// workspace whose weeks start on Sunday has Sunday at index 0.
 			weekday := d.Weekday() != time.Saturday && d.Weekday() != time.Sunday
-			if weekday && !d.After(today) && sec == 0 {
+			key := d.Format("2006-01-02")
+			if kind := absent[m.UserID][key]; kind != "" && weekday {
+				awayByKind[kind]++
+				continue
+			}
+			if _, off := holidays[key]; off || !weekday {
+				continue
+			}
+			workDays++
+			if !d.After(today) && sec == 0 {
 				missingDays++
 			}
 		}
@@ -622,7 +679,13 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 		if capMin <= 0 {
 			capMin = 480
 		}
-		normMin := capMin * 5
+		normMin := capMin * workDays
+		var awayParts []string
+		for _, kind := range []string{"vacation", "sick", "dayoff"} {
+			if n := awayByKind[kind]; n > 0 {
+				awayParts = append(awayParts, fmt.Sprintf(i18n.T(lang, "absence.days"), dayMarkLabel(lang, kind), n))
+			}
+		}
 		pct := 0
 		if normMin > 0 {
 			pct = (totalSecs / 60) * 100 / normMin
@@ -632,9 +695,12 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 		switch {
 		case isApproved:
 			status = "approved"
+		case workDays == 0 && totalSecs == 0:
+			// Away, or nothing to work, the whole week: on track by definition.
+			status = "away"
 		case totalSecs == 0:
 			status = "empty"
-		case pct >= 80 && missingDays == 0:
+		case (pct >= 80 || normMin == 0) && missingDays == 0:
 			status = "ok"
 		}
 		out = append(out, timesheetTeamMemberStatus{
@@ -646,9 +712,10 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 			MissingDays:  missingDays,
 			Approved:     isApproved,
 			Status:       status,
+			AwayLabel:    strings.Join(awayParts, ", "),
 		})
 	}
-	rank := map[string]int{"empty": 0, "warn": 1, "ok": 2, "approved": 3}
+	rank := map[string]int{"empty": 0, "warn": 1, "ok": 2, "away": 2, "approved": 3}
 	sort.Slice(out, func(i, j int) bool {
 		if rank[out[i].Status] != rank[out[j].Status] {
 			return rank[out[i].Status] < rank[out[j].Status]
@@ -744,7 +811,7 @@ func (s *Server) handleTimesheetApproveOnTrack(w http.ResponseWriter, r *http.Re
 	}
 	var approved, failed []string
 	for _, member := range s.timesheetTeamSummary(r, weekStart, now, approval) {
-		if member.Status != "ok" {
+		if member.Status != "ok" && member.Status != "away" {
 			continue
 		}
 		request := appmodel.TimesheetApprovalRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), Start: weekStart, End: weekStart.AddDate(0, 0, 7), UserID: member.UserID}

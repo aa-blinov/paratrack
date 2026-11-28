@@ -28,6 +28,8 @@ type Store interface {
 	TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error)
 	WorkdayOf(ctx context.Context, teamID, userID int64, day string) (appmodel.WorkdayMark, bool, error)
 	DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error)
+	SetTeamHoliday(ctx context.Context, request appmodel.TeamHolidayRequest) error
+	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
 	GetProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
@@ -146,6 +148,22 @@ func (s *Service) SetDayMark(ctx context.Context, request appmodel.DayMarkReques
 		return ErrInvalidScheduleCell
 	}
 	return s.store.SetDayMark(ctx, request)
+}
+
+// SetTeamHoliday marks or clears a workspace day off.
+func (s *Service) SetTeamHoliday(ctx context.Context, request appmodel.TeamHolidayRequest) error {
+	if request.TeamID <= 0 || request.Day == "" {
+		return ErrInvalidScheduleCell
+	}
+	return s.store.SetTeamHoliday(ctx, request)
+}
+
+// TeamHolidays lists the workspace's days off over a stretch of days.
+func (s *Service) TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.TeamHolidays(ctx, teamID, from, until)
 }
 
 // DayMarks lists the workspace's marks for the days from `from` up to `until` (TIME-13).
