@@ -611,7 +611,10 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 				sec = perDay[i]
 			}
 			totalSecs += sec
-			if i < 5 && !d.After(today) && sec == 0 {
+			// A weekday by the calendar, not by its place in the week: a
+			// workspace whose weeks start on Sunday has Sunday at index 0.
+			weekday := d.Weekday() != time.Saturday && d.Weekday() != time.Sunday
+			if weekday && !d.After(today) && sec == 0 {
 				missingDays++
 			}
 		}
@@ -717,12 +720,18 @@ func (s *Server) handleTimesheetApproveOnTrack(w http.ResponseWriter, r *http.Re
 	}
 	lang := resolveLang(r)
 	loc := userLoc(r)
-	weekStart, err := time.ParseInLocation("2006-01-02", r.PostForm.Get("start"), loc)
+	day, err := time.ParseInLocation("2006-01-02", r.PostForm.Get("start"), loc)
 	if err != nil {
 		http.Redirect(w, r, "/timesheet?flash="+encodeFlash(false, i18n.T(lang, "err.invalidInput")), http.StatusSeeOther)
 		return
 	}
+	// The form names a week by its first day; any other day is taken to mean
+	// its week, never an arbitrary seven-day span.
+	weekStart := startOfWeek(r, day)
 	back := "/timesheet?date=" + weekStart.Format("2006-01-02")
+	if person := r.URL.Query().Get("person"); person != "" {
+		back += "&person=" + url.QueryEscape(person)
+	}
 	now := userNow(r)
 	approval, err := s.timesheetApprovalFor(r, weekStart, now)
 	if err != nil {

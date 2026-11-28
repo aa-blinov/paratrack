@@ -42,7 +42,8 @@ func TestApproveEveryoneOnTrack(t *testing.T) {
 		}
 	}
 
-	resp := owner.do("POST", "/api/timesheet/approve-on-track", url.Values{"start": {monday.Format("2006-01-02")}}, nil)
+	// A Wednesday is taken to mean its week, not a span from Wednesday.
+	resp := owner.do("POST", "/api/timesheet/approve-on-track", url.Values{"start": {monday.AddDate(0, 0, 2).Format("2006-01-02")}}, nil)
 	resp.Body.Close()
 	view := reactData[timesheetData](t, readBody(t, owner.do("GET", resp.Header.Get("Location"), nil, nil)))
 	// Test accounts all register with the same display name, so the flash is
@@ -59,5 +60,18 @@ func TestApproveEveryoneOnTrack(t *testing.T) {
 	}
 	if !approved(fullID) || approved(emptyID) {
 		t.Fatalf("approved: full=%v empty=%v", approved(fullID), approved(emptyID))
+	}
+	var startsAt string
+	if err := sql.QueryRowContext(ctx, `SELECT starts_at FROM timesheet_approvals WHERE team_id = ? AND user_id = ?`, teamID, fullID).Scan(&startsAt); err != nil {
+		t.Fatal(err)
+	}
+	// Stored as an instant: Monday's midnight in the viewer's zone, which
+	// is within a day of Monday in UTC, and nowhere near the Wednesday sent.
+	at, err := time.Parse(time.RFC3339Nano, startsAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if at.Before(monday.AddDate(0, 0, -1)) || !at.Before(monday.AddDate(0, 0, 1)) {
+		t.Fatalf("the approval starts %s, want the Monday %s", startsAt, monday.Format("2006-01-02"))
 	}
 }
