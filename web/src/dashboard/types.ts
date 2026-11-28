@@ -565,12 +565,13 @@ export interface PayrollDetailData {
     Status: string
     Notes: string
     PeriodLabel: string
-    Lines: Array<{ Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
+    Lines: Array<{ ID?: number; Adjustment?: boolean; Label: string; Hours: string; Rate: string; Amount: string; Days?: Array<{ Day: string; Hours: string }> }>
     Total: string
     TotalCents: number
     Hours: string
     WeeksLabel: string
   }
+  Members?: Array<{ ID: number; Name: string }>
   Flash: string
   FlashOK: boolean
 }

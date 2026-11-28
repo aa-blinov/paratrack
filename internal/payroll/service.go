@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
@@ -26,6 +27,8 @@ type Store interface {
 	GetPayrollRunDetails(context.Context, appmodel.PayrollRunLookupQuery) (appmodel.PayrollRunDetails, error)
 	MarkPayrollPaidWithRecipients(context.Context, appmodel.PayrollMutationRequest) (bool, []int64, error)
 	DeletePayrollDraft(context.Context, appmodel.PayrollMutationRequest) error
+	AddPayrollAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
+	DeletePayrollAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	ListMemberPayrollSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
@@ -268,6 +271,40 @@ func (s *Service) CreateRun(ctx context.Context, request appmodel.PayrollDraftRe
 		s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.create", run.Number, "")
 	}
 	return run, overlaps, nil
+}
+
+// AddAdjustment adds a one-off bonus or deduction line to a draft pay run.
+func (s *Service) AddAdjustment(ctx context.Context, request appmodel.PayrollAdjustmentRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidTeam
+	}
+	if request.RunID <= 0 || request.UserID <= 0 {
+		return ErrNotFound
+	}
+	request.Label = strings.TrimSpace(request.Label)
+	if request.Label == "" || request.AmountCents == 0 {
+		return fmt.Errorf("adjustment label and non-zero amount are required")
+	}
+	if err := s.store.AddPayrollAdjustment(ctx, request); err != nil {
+		return fmt.Errorf("add payroll adjustment: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.adjustment_add", fmt.Sprint(request.RunID), request.Label)
+	return nil
+}
+
+// DeleteAdjustment removes a one-off adjustment line from a draft pay run.
+func (s *Service) DeleteAdjustment(ctx context.Context, request appmodel.PayrollAdjustmentDeleteRequest) error {
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return ErrInvalidTeam
+	}
+	if request.RunID <= 0 || request.LineID <= 0 {
+		return ErrNotFound
+	}
+	if err := s.store.DeletePayrollAdjustment(ctx, request); err != nil {
+		return fmt.Errorf("delete payroll adjustment: %w", err)
+	}
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.adjustment_delete", fmt.Sprint(request.RunID), fmt.Sprint(request.LineID))
+	return nil
 }
 
 func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action, target, meta string) {

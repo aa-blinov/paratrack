@@ -1,12 +1,14 @@
+import * as React from "react"
 import { Flash } from "@/components/flash"
 import { openDisclosure } from "@/components/ui/collapsible"
-import { ArrowLeft, Download, Printer, Trash2 } from "lucide-react"
+import { ArrowLeft, Download, Plus, Printer, Trash2 } from "lucide-react"
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
@@ -105,6 +107,8 @@ export function PayrollPage({ data }: { data: PayrollData }) {
 
 export function PayrollDetail({ data }: { data: PayrollDetailData }) {
   const lang = data.Lang
+  const members = data.Members ?? []
+  const [adjUser, setAdjUser] = React.useState(members[0] ? String(members[0].ID) : "")
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
     <div className="no-print space-y-3">
@@ -125,12 +129,33 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
       <div className="grid gap-3 sm:hidden print:hidden">{data.Run.Lines.map((line, index) => <article key={`${line.Label}:${index}`} className="grid gap-3 border-b pb-3 last:border-0 last:pb-0"><h2 className="break-words font-medium">{line.Label}</h2>{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{line.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "pay.payRate")}</dt><dd className="font-mono tabular-nums">{line.Rate}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono font-medium tabular-nums">{line.Amount}</dd></div></dl></article>)}<dl className="grid grid-cols-2 gap-x-4 border-t pt-3 text-sm font-semibold"><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.hours")}</span>{data.Run.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "stats.total")}</dt><dd className="flex items-baseline justify-between gap-2 font-mono tabular-nums"><span className="font-sans text-xs text-muted-foreground">{t(lang, "inv.amount")}</span>{data.Run.Total}</dd></div></dl></div>
       <div className="hidden overflow-x-auto sm:block print:block"><Table className="doc-table">
         <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "inv.hours")}</TableHead><TableHead className="text-right">{t(lang, "pay.payRate")}</TableHead><TableHead className="text-right">{t(lang, "inv.amount")}</TableHead></TableRow></TableHeader>
-        <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Amount}</TableCell></TableRow>)}</TableBody>
+        <TableBody>{data.Run.Lines.map((line, index) => <TableRow key={`${line.Label}:${index}`}><TableCell>{line.Label}{line.Days && line.Days.length > 0 && <PayrollDays lang={lang} days={line.Days} />}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Hours}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{line.Rate}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums"><span className="inline-flex items-center gap-2">{line.Amount}{data.Run.Status === "draft" && line.Adjustment && line.ID ? <form method="POST" action={`/payroll/${data.Run.ID}/adjustments/${line.ID}/delete`} className="no-print inline"><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" aria-label={t(lang, "pay.adjDelete")}><Trash2 aria-hidden="true" className="size-3.5" /></Button></form> : null}</span></TableCell></TableRow>)}</TableBody>
         <tfoot><tr className="border-t font-semibold"><td className="p-2">{t(lang, "pdf.total")}</td><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Hours}</td><td /><td className="whitespace-nowrap p-2 text-right font-mono">{data.Run.Total}</td></tr></tfoot>
       </Table></div>
       {data.Run.Notes && <p className="whitespace-pre-line text-sm">{data.Run.Notes}</p>}
       <p className="text-xs text-muted-foreground">{t(lang, "pay.footNote")}</p>
     </CardContent></Card>
+    {data.Run.Status === "draft" && members.length > 0 && <div className="no-print">
+      <DisclosureSection id="payroll-adjustment" title={t(lang, "pay.adjTitle")} defaultOpen={false}>
+        <form method="POST" action={`/payroll/${data.Run.ID}/adjustments`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[12rem_1fr_10rem_auto] lg:items-end">
+          <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+          <input type="hidden" name="user_id" value={adjUser} />
+          <div className="space-y-1.5">
+            <Label htmlFor="adj-user">{t(lang, "pay.adjMember")}</Label>
+            <Select value={adjUser} onValueChange={setAdjUser}><SelectTrigger id="adj-user" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{members.map(m => <SelectItem key={m.ID} value={String(m.ID)}>{m.Name}</SelectItem>)}</SelectContent></Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="adj-label">{t(lang, "pay.adjLabel")}</Label>
+            <Input id="adj-label" name="label" required maxLength={160} placeholder={t(lang, "pay.adjLabelPh")} style={{ fontSize: 16 }} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="adj-amount">{t(lang, "pay.adjAmount")}</Label>
+            <Input id="adj-amount" name="amount" required inputMode="decimal" placeholder={t(lang, "pay.adjAmountPh")} style={{ fontSize: 16 }} />
+          </div>
+          <Button type="submit" variant="outline"><Plus aria-hidden="true" />{t(lang, "pay.adjAdd")}</Button>
+        </form>
+      </DisclosureSection>
+    </div>}
   </main>
 }
 

@@ -345,6 +345,8 @@ type PayrollWorkflow interface {
 	UnapprovedPayrollStarts(context.Context, int64, time.Time, time.Time) ([]time.Time, error)
 	MemberSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UpdateMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
+	AddAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
+	DeleteAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
 }
 
 // PayrollPaymentWorkflow includes payment-transition side effects used by the

@@ -289,15 +289,30 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	vms := make([]payrollLineVM, 0, len(lines))
 	for _, l := range lines {
+		isAdj := l.Seconds == 0 && l.RateCents == 0
+		hours := fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds))
+		rate := moneyL(resolveLang(r), l.RateCents, run.Currency)
+		var lineDays []payrollDayVM
+		if isAdj {
+			hours = "—"
+			rate = "—"
+		} else {
+			lineDays = payrollDays(resolveLang(r), days, tracked[l.UserID])
+		}
 		vms = append(vms, payrollLineVM{
-			Label: l.Label, Hours: fmtHoursL(resolveLang(r), money.HoursHundredths(l.Seconds)),
-			Rate: moneyL(resolveLang(r), l.RateCents, run.Currency), Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
-			Days: payrollDays(resolveLang(r), days, tracked[l.UserID]),
+			ID: l.ID, Adjustment: isAdj, Label: l.Label, Hours: hours, Rate: rate,
+			Amount: moneyL(resolveLang(r), l.AmountCents, run.Currency),
+			Days:   lineDays,
 		})
+	}
+	var members []memberOption
+	if run.Status == "draft" {
+		members = s.memberOptions(r)
 	}
 	data := payrollDetailPage{
 		pageData:     pageData{Title: run.Number, Active: "payroll", Lang: lang, ReactApp: true},
 		PayrollReact: true, PayrollDetail: true,
+		Members: members,
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
 			PeriodLabel: periodSpan(resolveLang(r), fmtDate(resolveLang(r), run.PeriodStart.In(loc)), fmtDate(resolveLang(r), run.PeriodEnd.In(loc).AddDate(0, 0, -1))),
@@ -316,10 +331,12 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 type payrollLineVM struct {
-	Label  string
-	Hours  string
-	Rate   string
-	Amount string
+	ID         int64
+	Adjustment bool
+	Label      string
+	Hours      string
+	Rate       string
+	Amount     string
 	// Days is what the person logged on each day of the run, days with no time left out (FIN-18).
 	Days []payrollDayVM
 }
@@ -406,6 +423,7 @@ type payrollDetailPage struct {
 	PayrollReact  bool
 	PayrollDetail bool
 	Run           payrollVM
+	Members       []memberOption
 	Flash         string
 	FlashOK       bool
 }
@@ -442,6 +460,83 @@ func (s *Server) handlePayrollDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.Redirect(w, r, "/payroll?flash=run_deleted", http.StatusSeeOther)
+}
+
+func parseSignedCents(raw string) (int, error) {
+	v := strings.NewReplacer(" ", "", "\u00a0", "", "\u202f", "", ",", ".").Replace(strings.TrimSpace(raw))
+	if v == "" {
+		return 0, errors.New("empty amount")
+	}
+	sign := 1
+	if strings.HasPrefix(v, "-") {
+		sign = -1
+		v = v[1:]
+	} else if strings.HasPrefix(v, "+") {
+		v = v[1:]
+	}
+	cents, err := money.ParseCents(v)
+	if err != nil || cents == 0 {
+		return 0, errors.New("bad amount")
+	}
+	return sign * cents, nil
+}
+
+// handlePayrollAddAdjustment appends a bonus or deduction line to a draft run.
+func (s *Server) handlePayrollAddAdjustment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.invalid form")), http.StatusSeeOther)
+		return
+	}
+	uid, err := strconv.ParseInt(r.PostForm.Get("user_id"), 10, 64)
+	if err != nil || uid <= 0 {
+		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
+		return
+	}
+	cents, err := parseSignedCents(r.PostForm.Get("amount"))
+	if err != nil {
+		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
+		return
+	}
+	label := strings.TrimSpace(r.PostForm.Get("label"))
+	if label == "" {
+		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.adjBad")), http.StatusSeeOther)
+		return
+	}
+	if err := s.services.Payroll.AddAdjustment(r.Context(), appmodel.PayrollAdjustmentRequest{
+		TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), UserID: uid, Label: label, AmountCents: cents,
+	}); err != nil {
+		msg := s.payrollErrorMessage(r, err)
+		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, msg), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(true, "adjustment added"), http.StatusSeeOther)
+}
+
+// handlePayrollDeleteAdjustment removes a one-off adjustment line from a draft run.
+func (s *Server) handlePayrollDeleteAdjustment(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	lineID, err := strconv.ParseInt(r.PathValue("line"), 10, 64)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.services.Payroll.DeleteAdjustment(r.Context(), appmodel.PayrollAdjustmentDeleteRequest{
+		TeamID: teamID(r), RunID: id, LineID: lineID, CallerID: authenticatedUserID(r),
+	}); err != nil {
+		msg := s.payrollErrorMessage(r, err)
+		http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(false, msg), http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/payroll/"+strconv.FormatInt(id, 10)+"?flash="+encodeFlash(true, "adjustment deleted"), http.StatusSeeOther)
 }
 
 // handleMemberPay saves a member's pay rate + daily capacity.

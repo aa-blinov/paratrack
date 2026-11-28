@@ -37,6 +37,24 @@ type PayrollDraftRequest struct {
 	ConfirmOverlap bool
 }
 
+// PayrollAdjustmentRequest adds a one-off bonus or deduction line to a draft pay run.
+type PayrollAdjustmentRequest struct {
+	TeamID      int64
+	RunID       int64
+	CallerID    int64
+	UserID      int64
+	Label       string
+	AmountCents int
+}
+
+// PayrollAdjustmentDeleteRequest removes a one-off adjustment line from a draft pay run.
+type PayrollAdjustmentDeleteRequest struct {
+	TeamID   int64
+	RunID    int64
+	LineID   int64
+	CallerID int64
+}
+
 // InvoiceDraftRequest carries the inputs for one draft invoice creation.
 type InvoiceDraftRequest struct {
 	TeamID   int64

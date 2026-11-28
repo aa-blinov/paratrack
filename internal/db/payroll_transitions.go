@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -93,6 +94,82 @@ func (d *DB) DeletePayrollDraft(ctx context.Context, request appmodel.PayrollMut
 			return ErrNotFound
 		}
 		return model.ErrForbidden
+	}
+	return tx.Commit()
+}
+
+// AddPayrollAdjustment appends a one-off bonus or deduction line to a draft run.
+func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollAdjustmentRequest) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status FROM payroll_runs WHERE id = ? AND team_id = ? FOR UPDATE`, request.RunID, request.TeamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status != "draft" {
+		return model.ErrForbidden
+	}
+	var userName string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT u.name FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? AND m.user_id = ?`,
+		request.TeamID, request.UserID).Scan(&userName); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	label := strings.TrimSpace(userName) + " — " + strings.TrimSpace(request.Label)
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO payroll_lines (run_id, user_id, label, seconds, rate_cents, amount_cents) VALUES (?, ?, ?, 0, 0, ?)`,
+		request.RunID, request.UserID, label, request.AmountCents); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// DeletePayrollAdjustment removes a one-off adjustment line from a draft run.
+func (d *DB) DeletePayrollAdjustment(ctx context.Context, request appmodel.PayrollAdjustmentDeleteRequest) error {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return err
+	}
+	var status string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT status FROM payroll_runs WHERE id = ? AND team_id = ? FOR UPDATE`, request.RunID, request.TeamID).Scan(&status); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if status != "draft" {
+		return model.ErrForbidden
+	}
+	res, err := tx.ExecContext(ctx,
+		`DELETE FROM payroll_lines WHERE id = ? AND run_id = ? AND seconds = 0 AND rate_cents = 0`,
+		request.LineID, request.RunID)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
 	}
 	return tx.Commit()
 }
