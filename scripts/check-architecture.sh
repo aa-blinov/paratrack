@@ -18,13 +18,13 @@ package_deps() {
 	printf '%s\n' "$package_info" | awk -F '|' -v package="$1" '$1 == package { print $3; exit }'
 }
 
-historical_go_files=$(find cmd internal -type f -name '*.go' -print | awk '/\/[^/]*wave[0-9]+[^/]*\.go$/')
+historical_go_files=$(find cmd internal -type f -name '*.go' -print | grep -E '/[^/]*wave[0-9]+[^/]*\.go$' || true)
 if [ -n "$historical_go_files" ]; then
 	echo "architecture check: Go filenames must describe behavior, not implementation history:" >&2
 	printf '%s\n' "$historical_go_files" >&2
 	exit 1
 fi
-historical_e2e_files=$(find e2e -type f -name '*.py' -print | awk '/\/[^/]*wave[0-9]+[^/]*\.py$/')
+historical_e2e_files=$(find e2e -type f -name '*.py' -print | grep -E '/[^/]*wave[0-9]+[^/]*\.py$' || true)
 if [ -n "$historical_e2e_files" ]; then
 	echo "architecture check: E2E filenames must describe behavior, not implementation history:" >&2
 	printf '%s\n' "$historical_e2e_files" >&2
