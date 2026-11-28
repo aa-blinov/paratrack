@@ -120,6 +120,39 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 		t.Fatalf("a valid sole trader pair was refused: %q", loc)
 	}
 
+	// "Update the client card too" on a project with no card says so and
+	// saves nothing, rather than report a save that skipped the card.
+	noCard := e.do("POST", invLoc+"/edit", url.Values{"client": {"Acme"}, "client_details": {"ООО Новая"}, "update_client_card": {"1"}}, nil)
+	noCard.Body.Close()
+	if loc := noCard.Header.Get("Location"); strings.Contains(loc, "flash=updated") {
+		t.Fatalf("a card update with no card reported success: %q", loc)
+	}
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT client_details FROM invoices WHERE id = ?`, invID).Scan(&clientDetails); err != nil {
+		t.Fatal(err)
+	}
+	if clientDetails == "ООО Новая" {
+		t.Fatal("the draft was saved although the card update was refused")
+	}
+	// An email that is not an address is refused before anything is written.
+	badMail := e.do("POST", invLoc+"/edit", url.Values{"client": {"Acme"}, "client_email": {"not-an-address"}}, nil)
+	badMail.Body.Close()
+	if loc := badMail.Header.Get("Location"); strings.Contains(loc, "flash=updated") {
+		t.Fatalf("a malformed email was saved: %q", loc)
+	}
+	// A draft saved before the check, with a wrong number in it, can still
+	// get a new due date while its details stay as they are.
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE invoices SET client_details = 'ИНН 7707083894' WHERE id = ?`, invID); err != nil {
+		t.Fatal(err)
+	}
+	legacy := e.do("POST", invLoc+"/edit", url.Values{"client": {"Acme"}, "client_details": {"ИНН 7707083894"}, "notes": {"новый срок"}}, nil)
+	legacy.Body.Close()
+	if loc := legacy.Header.Get("Location"); !strings.Contains(loc, "flash=updated") {
+		t.Fatalf("a legacy draft could not be edited with its details unchanged: %q", loc)
+	}
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE invoices SET client_details = '' WHERE id = ?`, invID); err != nil {
+		t.Fatal(err)
+	}
+
 	// The client card refuses a wrong number too, at create and at update.
 	cardResp := e.do("POST", "/clients", url.Values{"name": {"Бета"}, "details": {"ИНН 7707083894"}}, nil)
 	cardResp.Body.Close()

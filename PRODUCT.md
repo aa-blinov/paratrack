@@ -185,10 +185,13 @@ Deliberately not true, and worth knowing before a change:
   check out are refused wherever they are written: the client card, a new
   invoice and a draft edit. A draft edit updates the client card only when
   "Update the client card too" is ticked, and an empty field never clears the
-  card. A card saved before the check can still be edited while its details
-  stay as they are.
+  card; on a project without a card the edit is refused with that reason. A
+  card or a draft saved before the check can still be edited while its
+  details stay as they are.
 - A token whose owner has no seat in its workspace any more is answered
-  403, an unknown or revoked one 401.
+  403, an unknown or revoked one 401. The browser extension shows the
+  server's reason for either on every action, and "server unreachable" only
+  when nothing answered.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.

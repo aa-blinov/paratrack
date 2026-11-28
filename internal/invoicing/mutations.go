@@ -156,7 +156,9 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	// A draft can already have a client link or a payment link, which were
 	// checked when they were made. Client numbers that do not check out are
 	// refused here, so an edit can never put them in front of the client.
-	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 {
+	// Details left as they were do not block changing the due date of a draft
+	// saved before the check existed.
+	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 && request.Details != current.Invoice.ClientDetails {
 		return &model.RequisitesError{Client: true, Fields: bad}
 	}
 	request.ProjectID = current.Invoice.ProjectID

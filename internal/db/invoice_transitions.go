@@ -237,16 +237,26 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 		// card serves every project of that client. An empty field leaves the
 		// card's own value in place.
 		if request.UpdateClientCard {
-			if _, err := tx.ExecContext(ctx,
+			res, err := tx.ExecContext(ctx,
 				`UPDATE clients SET name = COALESCE(NULLIF(?, ''), name), email = COALESCE(NULLIF(?, ''), email),
 				        details = COALESCE(NULLIF(?, ''), details), updated_at = ?
 				  WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?)`,
-				client, email, details, FormatTime(d.currentTime().UTC()), teamID, projectID, teamID); err != nil {
+				client, email, details, FormatTime(d.currentTime().UTC()), teamID, projectID, teamID)
+			if err != nil {
 				if isUniqueViolation(err) {
-					return ErrDuplicate
+					return model.ErrAlreadyExists
 				}
 				return fmt.Errorf("update client card: %w", err)
 			}
+			// Asked to update a card the project does not have: say so
+			// rather than report a save that skipped it.
+			if n, err := res.RowsAffected(); err != nil {
+				return err
+			} else if n == 0 {
+				return model.ErrNoClientCard
+			}
+		} else if request.UpdateClientCard {
+			return model.ErrNoClientCard
 		}
 	}
 	return tx.Commit()

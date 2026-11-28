@@ -16,6 +16,7 @@ var (
 	ErrInvoiceNotPayable       = errors.New("invoice is not waiting for payment")
 	ErrInvoiceTotal            = errors.New("invoice total cannot be negative")
 	ErrPayrollChanged          = errors.New("pay run changed since the preview")
+	ErrNoClientCard            = errors.New("the invoice's project has no client card")
 	ErrPaymentAmount           = errors.New("payment must be above zero and not more than what is still owed")
 	ErrPaymentDate             = errors.New("payment day must be a date")
 	ErrTokenInvalid            = errors.New("api token invalid")
