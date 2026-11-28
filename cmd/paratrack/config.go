@@ -239,3 +239,7 @@ func calendarCredentialsFrom(getenv func(string) string, prefix string) (app.Cal
 	}
 	return client, nil
 }
+
+func loadCLIRemoteConfig() (string, string) {
+	return strings.TrimSpace(os.Getenv("PARATRACK_URL")), strings.TrimSpace(os.Getenv("PARATRACK_TOKEN"))
+}

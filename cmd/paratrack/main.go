@@ -38,6 +38,10 @@ func main() {
 		os.Exit(2)
 	}
 	runtime := cli.NewRuntime(os.Stdin, os.Stdout, os.Stderr)
+	runtime.RemoteURL, runtime.RemoteToken = loadCLIRemoteConfig()
+	if runtime.RemoteURL != "" {
+		runtime.HTTPClient = netclients.External()
+	}
 	logger := log.Default()
 	now := func() time.Time { return time.Now().In(location) }
 	runtime.Now = now

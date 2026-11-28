@@ -39,7 +39,16 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 		rt.Now = time.Now
 	}
 	if len(args) == 0 {
+		if rt.remoteEnabled() {
+			_, err := runRemote(rt, "status", nil)
+			return err
+		}
 		return runStatus(rt)
+	}
+	if rt.remoteEnabled() {
+		if handled, err := runRemote(rt, args[0], args[1:]); handled {
+			return err
+		}
 	}
 	switch args[0] {
 	case "status", "st":
