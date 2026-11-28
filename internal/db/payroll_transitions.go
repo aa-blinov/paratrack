@@ -215,12 +215,59 @@ func percentOfCents(base, bps int) int {
 // with no earnings, whose percent adjustments came to zero, so the screen and
 // the audit can say what changed.
 func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error) {
-	var result appmodel.PayrollRecalculateResult
 	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return appmodel.PayrollRecalculateResult{}, err
+	}
+	defer func() { _ = tx.Rollback() }()
+	result, err := recalculatePayrollTx(ctx, tx, request)
 	if err != nil {
 		return result, err
 	}
+	// Applied from a preview: if the timesheet moved since, the manager
+	// confirmed numbers that are no longer the ones being written.
+	if request.ExpectAfterCents != nil && *request.ExpectAfterCents != result.AfterCents {
+		return result, model.ErrPayrollChanged
+	}
+	return result, tx.Commit()
+}
+
+// PreviewPayrollRecalculation works out what RecalculatePayrollDraft would do
+// and writes nothing: the same transaction, rolled back. What the manager
+// confirms is exactly what the recalculation computes.
+func (d *DB) PreviewPayrollRecalculation(ctx context.Context, request appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error) {
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return appmodel.PayrollRecalculateResult{}, err
+	}
 	defer func() { _ = tx.Rollback() }()
+	return recalculatePayrollTx(ctx, tx, request)
+}
+
+func payrollTotalsByUserTx(ctx context.Context, tx *Tx, runID int64) (map[int64]int, error) {
+	out := map[int64]int{}
+	err := queryRows(ctx, tx, "payroll totals by person",
+		`SELECT user_id, COALESCE(SUM(amount_cents), 0) FROM payroll_lines WHERE run_id = ? GROUP BY user_id`,
+		func(rows *sql.Rows) error {
+			var id int64
+			var cents int
+			if err := rows.Scan(&id, &cents); err != nil {
+				return err
+			}
+			out[id] = cents
+			return nil
+		}, runID)
+	return out, err
+}
+
+func userNameTx(ctx context.Context, tx *Tx, id int64) (string, error) {
+	var name string
+	err := tx.QueryRowContext(ctx, `SELECT name FROM users WHERE id = ?`, id).Scan(&name)
+	return name, err
+}
+
+func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error) {
+	var result appmodel.PayrollRecalculateResult
 	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
 		return result, err
 	}
@@ -240,7 +287,8 @@ func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.Payro
 	if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
 		return result, err
 	}
-	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payroll_lines WHERE run_id = ?`, run.ID).Scan(&result.BeforeCents); err != nil {
+	before, err := payrollTotalsByUserTx(ctx, tx, run.ID)
+	if err != nil {
 		return result, err
 	}
 	// A run made before the member list existed has only its lines to say
@@ -311,15 +359,50 @@ func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.Payro
 		}
 	}
 	for user := range zeroed {
-		var name string
-		if err := tx.QueryRowContext(ctx, `SELECT name FROM users WHERE id = ?`, user).Scan(&name); err != nil {
+		name, err := userNameTx(ctx, tx, user)
+		if err != nil {
 			return result, err
 		}
 		result.NoEarnings = append(result.NoEarnings, name)
 	}
 	sort.Strings(result.NoEarnings)
-	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount_cents), 0) FROM payroll_lines WHERE run_id = ?`, run.ID).Scan(&result.AfterCents); err != nil {
+	after, err := payrollTotalsByUserTx(ctx, tx, run.ID)
+	if err != nil {
 		return result, err
 	}
-	return result, tx.Commit()
+	people := map[int64]bool{}
+	for id := range members {
+		people[id] = true
+	}
+	for id := range before {
+		people[id] = true
+	}
+	for id := range people {
+		name, err := userNameTx(ctx, tx, id)
+		if err != nil {
+			return result, err
+		}
+		result.People = append(result.People, appmodel.PayrollRecalculatePerson{Name: name, BeforeCents: before[id], AfterCents: after[id]})
+		result.BeforeCents += before[id]
+		result.AfterCents += after[id]
+	}
+	sort.Slice(result.People, func(a, b int) bool { return result.People[a].Name < result.People[b].Name })
+	// Who the period would pay but the run is not for: someone who joined
+	// after the draft, or was left out of a partial run on purpose. Named,
+	// not added: whether they belong on this run is the manager's call.
+	outside := map[int64]bool{}
+	for _, l := range lines {
+		if !members[l.UserID] && l.AmountCents > 0 {
+			outside[l.UserID] = true
+		}
+	}
+	for id := range outside {
+		name, err := userNameTx(ctx, tx, id)
+		if err != nil {
+			return result, err
+		}
+		result.NotInRun = append(result.NotInRun, name)
+	}
+	sort.Strings(result.NotInRun)
+	return result, nil
 }

@@ -161,9 +161,11 @@ Deliberately not true, and worth knowing before a change:
   earned in the run. "Recalculate" prices a draft again from the current
   timesheet for the people on it (kept with the run, so someone whose hours
   were all taken off comes back when they return); fixed adjustments stay,
-  percent ones are taken of the new earnings. The flash names the total
-  before and after and who was left with no earnings; the audit log keeps
-  both totals. A draft invoice takes manual one-off lines and discounts
+  percent ones are taken of the new earnings. It opens as a preview first:
+  per person, what they get now and what they would get, who would be left
+  with no earnings, and who the period pays but the run is not for. Nothing is
+  written until the manager confirms, and a confirmation is refused if the
+  numbers moved since the preview. The audit log keeps both totals. A draft invoice takes manual one-off lines and discounts
   without touching the sessions; a discount cannot take the total below
   zero, and an invoice with a negative total cannot be sent. The labelled
   numbers in Russian details (ИНН, КПП, ОГРН, БИК, р/с, к/с) are checked by

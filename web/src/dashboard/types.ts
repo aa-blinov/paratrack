@@ -584,8 +584,19 @@ export interface PayrollDetailData {
     WeeksLabel: string
   }
   Members?: Array<{ ID: number; Name: string }>
+  RecalcPreview?: PayrollRecalcPreview
   Flash: string
   FlashOK: boolean
+}
+
+export interface PayrollRecalcPreview {
+  Before: string
+  After: string
+  AfterCents: number
+  Changed: boolean
+  People?: Array<{ Name: string; Before: string; After: string; Delta: string; Changed: boolean }>
+  NoEarnings?: string[]
+  NotInRun?: string[]
 }
 
 export interface ScheduleDay {

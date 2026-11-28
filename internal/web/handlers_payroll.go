@@ -340,10 +340,33 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 	if run.Status == "draft" {
 		members = s.memberOptions(r)
 	}
+	// "Recalculate" opens this preview first: per person, what they get now
+	// and what they would get, with the warnings, and nothing written until
+	// the manager confirms the new total.
+	var preview *payrollRecalcPreviewVM
+	if run.Status == "draft" && r.URL.Query().Get("preview") == "recalculate" {
+		res, err := s.services.Payroll.PreviewRecalculation(r.Context(), appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: run.ID, CallerID: authenticatedUserID(r)})
+		if err != nil {
+			http.Redirect(w, r, "/payroll/"+strconv.FormatInt(run.ID, 10)+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)
+			return
+		}
+		lang := resolveLang(r)
+		preview = &payrollRecalcPreviewVM{
+			Before: moneyL(lang, res.BeforeCents, run.Currency), After: moneyL(lang, res.AfterCents, run.Currency),
+			AfterCents: res.AfterCents, Changed: res.BeforeCents != res.AfterCents,
+			NoEarnings: res.NoEarnings, NotInRun: res.NotInRun,
+		}
+		for _, p := range res.People {
+			preview.People = append(preview.People, payrollRecalcPersonVM{
+				Name: p.Name, Before: moneyL(lang, p.BeforeCents, run.Currency), After: moneyL(lang, p.AfterCents, run.Currency),
+				Delta: signedMoneyL(lang, p.AfterCents-p.BeforeCents, run.Currency), Changed: p.BeforeCents != p.AfterCents,
+			})
+		}
+	}
 	data := payrollDetailPage{
 		pageData:     pageData{Title: run.Number, Active: "payroll", Lang: lang, ReactApp: true},
 		PayrollReact: true, PayrollDetail: true,
-		Members: members,
+		Members: members, RecalcPreview: preview,
 		Run: payrollVM{
 			ID: run.ID, Number: run.Number, Status: run.Status, Notes: run.Notes,
 			PeriodLabel: periodSpan(resolveLang(r), fmtDate(resolveLang(r), run.PeriodStart.In(loc)), fmtDate(resolveLang(r), run.PeriodEnd.In(loc).AddDate(0, 0, -1))),
@@ -461,6 +484,7 @@ type payrollDetailPage struct {
 	PayrollDetail bool
 	Run           payrollVM
 	Members       []memberOption
+	RecalcPreview *payrollRecalcPreviewVM `json:",omitempty"`
 	Flash         string
 	FlashOK       bool
 }
@@ -598,9 +622,21 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 		return
 	}
 	back := "/payroll/" + strconv.FormatInt(id, 10)
-	result, err := s.services.Payroll.RecalculateDraft(r.Context(), appmodel.PayrollRecalculateRequest{
-		TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r),
-	})
+	req := appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r)}
+	if raw := strings.TrimSpace(r.FormValue("expect_after")); raw != "" {
+		expect, err := strconv.Atoi(raw)
+		if err != nil {
+			http.Redirect(w, r, back+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.invalid form")), http.StatusSeeOther)
+			return
+		}
+		req.ExpectAfterCents = &expect
+	}
+	result, err := s.services.Payroll.RecalculateDraft(r.Context(), req)
+	if errors.Is(err, model.ErrPayrollChanged) {
+		// The numbers moved while the preview was open: show the new ones.
+		http.Redirect(w, r, back+"?preview=recalculate&flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcChanged")), http.StatusSeeOther)
+		return
+	}
 	if err != nil {
 		http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)
 		return
@@ -801,4 +837,35 @@ func payrollProjects(lang i18n.Lang, byProj map[int64]int, names map[int64]strin
 		out[i] = payrollProjectVM{Project: p.name, Hours: fmtHoursL(lang, money.HoursHundredths(p.secs))}
 	}
 	return out
+}
+
+// payrollRecalcPreviewVM is what a recalculation would change, shown before it
+// is applied.
+type payrollRecalcPreviewVM struct {
+	Before     string
+	After      string
+	AfterCents int
+	Changed    bool
+	People     []payrollRecalcPersonVM
+	NoEarnings []string
+	NotInRun   []string
+}
+
+type payrollRecalcPersonVM struct {
+	Name    string
+	Before  string
+	After   string
+	Delta   string
+	Changed bool
+}
+
+// signedMoneyL writes a difference with its sign, "+1 200,00 ₽" or "−300,00 ₽".
+func signedMoneyL(lang i18n.Lang, cents int, currency string) string {
+	switch {
+	case cents > 0:
+		return "+" + moneyL(lang, cents, currency)
+	case cents < 0:
+		return "−" + moneyL(lang, -cents, currency)
+	}
+	return moneyL(lang, 0, currency)
 }

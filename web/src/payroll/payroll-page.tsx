@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DisclosureSection } from "@/components/disclosure-section"
 import { translate as t } from "@/i18n"
-import type { PayrollData, PayrollDetailData } from "@/dashboard/types"
+import type { PayrollData, PayrollDetailData, PayrollRecalcPreview } from "@/dashboard/types"
 import { DateField } from "@/components/date-field"
 import { OverlapConfirm } from "@/payroll/overlap-confirm"
 
@@ -138,13 +138,14 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
   const [adjUnit, setAdjUnit] = React.useState<"amount" | "percent">("amount")
   return <main className="mx-auto w-full max-w-5xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
+    {data.RecalcPreview && <RecalcPreview lang={lang} runID={data.Run.ID} csrfToken={data.CSRFToken} preview={data.RecalcPreview} />}
     <div className="no-print space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-sm"><a href="/payroll" className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="size-4" />{t(lang, "pay.title")}</a><span aria-hidden="true" className="text-muted-foreground">/</span><span className="font-mono">{data.Run.Number}</span><Status lang={lang} status={data.Run.Status} /></div>
       <div className="flex flex-wrap items-center gap-2">
         {data.Run.Status !== "paid" && <form method="POST" action={`/payroll/${data.Run.ID}/paid`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm">{t(lang, "pay.markPaid")}</Button></form>}
         {/* After a timesheet edit the draft would otherwise pay the old
             hours, and a percent bonus would stay worked out from them. */}
-        {data.Run.Status === "draft" && <form method="POST" action={`/payroll/${data.Run.ID}/recalculate`}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}>{t(lang, "pay.recalculate")}</Button></form>}
+        {data.Run.Status === "draft" && !data.RecalcPreview && <Button asChild size="sm" variant="outline" title={t(lang, "pay.recalculateHint")}><a href={`/payroll/${data.Run.ID}?preview=recalculate#recalc-preview`}>{t(lang, "pay.recalculate")}</a></Button>}
         <Button type="button" variant="outline" size="sm" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv`} download><Download aria-hidden="true" />{t(lang, "pay.exportCSV")}</a></Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv?by=day`} download><Download aria-hidden="true" />{t(lang, "pay.exportDays")}</a></Button>
@@ -201,4 +202,35 @@ function PayrollDays({ lang, days }: { lang: string; days: Array<{ Day: string; 
 
 function PayrollProjects({ lang, projects }: { lang: string; projects: Array<{ Project: string; Hours: string }> }) {
   return <details className="mt-1 text-xs font-normal text-muted-foreground"><summary className="cursor-pointer">{t(lang, "pay.byProject")}</summary><ul className="mt-1 grid gap-0.5">{projects.map(p => <li key={p.Project} className="flex justify-between gap-3"><span>{p.Project}</span><span className="font-mono tabular-nums">{p.Hours}</span></li>)}</ul></details>
+}
+
+// RecalcPreview is what "Recalculate" would change, per person, before any of
+// it is written. Applying sends the new total the manager saw; if the
+// timesheet moved in between, the server refuses and shows a fresh preview.
+function RecalcPreview({ lang, runID, csrfToken, preview }: { lang: string; runID: number; csrfToken: string; preview: PayrollRecalcPreview }) {
+  const people = preview.People ?? []
+  return <Card id="recalc-preview" className="no-print scroll-mt-20">
+    <CardHeader><CardTitle>{t(lang, "pay.recalcPreviewTitle")}</CardTitle></CardHeader>
+    <CardContent className="space-y-4 text-sm">
+      {!preview.Changed && <p>{t(lang, "pay.recalcNoChange")}</p>}
+      {people.length > 0 && <div className="overflow-x-auto"><Table>
+        <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcNow")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcThen")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcDelta")}</TableHead></TableRow></TableHeader>
+        <TableBody>
+          {people.map(p => <TableRow key={p.Name} className={p.Changed ? "font-medium" : "text-muted-foreground"}>
+            <TableCell>{p.Name}</TableCell>
+            <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.Before}</TableCell>
+            <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.After}</TableCell>
+            <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.Changed ? p.Delta : ""}</TableCell>
+          </TableRow>)}
+          <TableRow className="border-t font-semibold"><TableCell>{t(lang, "pdf.total")}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{preview.Before}</TableCell><TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{preview.After}</TableCell><TableCell /></TableRow>
+        </TableBody>
+      </Table></div>}
+      {(preview.NoEarnings?.length ?? 0) > 0 && <p role="status" className="rounded-md border border-warning/40 bg-warning/5 p-3">{t(lang, "pay.recalcNoEarnings", (preview.NoEarnings ?? []).join(", "))}</p>}
+      {(preview.NotInRun?.length ?? 0) > 0 && <p role="status" className="rounded-md border border-border p-3 text-muted-foreground">{t(lang, "pay.recalcNotInRun", (preview.NotInRun ?? []).join(", "))}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {preview.Changed && <form method="POST" action={`/payroll/${runID}/recalculate`}><input type="hidden" name="csrf_token" value={csrfToken} /><input type="hidden" name="expect_after" value={String(preview.AfterCents)} /><Button type="submit" size="sm">{t(lang, "pay.recalcApply")}</Button></form>}
+        <Button asChild size="sm" variant="ghost"><a href={`/payroll/${runID}`}>{preview.Changed ? t(lang, "pay.recalcCancel") : t(lang, "pay.recalcClose")}</a></Button>
+      </div>
+    </CardContent>
+  </Card>
 }

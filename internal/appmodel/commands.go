@@ -60,6 +60,9 @@ type PayrollRecalculateRequest struct {
 	RunID    int64
 	CallerID int64
 	At       time.Time
+	// ExpectAfterCents is the new total the manager saw in the preview; when
+	// set, a recalculation that comes out different is refused.
+	ExpectAfterCents *int
 }
 
 // PayrollRecalculateResult says what a recalculation changed: the run's total
@@ -69,6 +72,17 @@ type PayrollRecalculateResult struct {
 	BeforeCents int
 	AfterCents  int
 	NoEarnings  []string
+	// People is each person on the run with what they get before and after.
+	People []PayrollRecalculatePerson
+	// NotInRun names who the period would pay but the run is not for.
+	NotInRun []string
+}
+
+// PayrollRecalculatePerson is one person's pay before and after a recalculation.
+type PayrollRecalculatePerson struct {
+	Name        string
+	BeforeCents int
+	AfterCents  int
 }
 
 // PayrollAdjustmentDeleteRequest removes a one-off adjustment line from a draft pay run.

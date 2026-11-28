@@ -30,6 +30,7 @@ type Store interface {
 	AddPayrollAdjustment(context.Context, appmodel.PayrollAdjustmentRequest) error
 	DeletePayrollAdjustment(context.Context, appmodel.PayrollAdjustmentDeleteRequest) error
 	RecalculatePayrollDraft(context.Context, appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error)
+	PreviewPayrollRecalculation(context.Context, appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error)
 	SetMemberPay(context.Context, appmodel.PayrollMemberPayRequest) error
 	ListMemberPayrollSettings(context.Context, int64) ([]model.MemberPayrollSettings, error)
 	UnapprovedPayrollTime(context.Context, int64, time.Time, time.Time) (*model.PayrollNotApprovedError, error)
@@ -326,6 +327,23 @@ func (s *Service) RecalculateDraft(ctx context.Context, request appmodel.Payroll
 	// the recalculation that changed it.
 	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.recalculate", fmt.Sprint(request.RunID),
 		fmt.Sprintf("%d -> %d", result.BeforeCents, result.AfterCents))
+	return result, nil
+}
+
+// PreviewRecalculation says what RecalculateDraft would change, per person,
+// without changing anything.
+func (s *Service) PreviewRecalculation(ctx context.Context, request appmodel.PayrollRecalculateRequest) (appmodel.PayrollRecalculateResult, error) {
+	if request.TeamID <= 0 || request.CallerID <= 0 {
+		return appmodel.PayrollRecalculateResult{}, ErrInvalidTeam
+	}
+	if request.RunID <= 0 {
+		return appmodel.PayrollRecalculateResult{}, ErrNotFound
+	}
+	request.At = s.now()
+	result, err := s.store.PreviewPayrollRecalculation(ctx, request)
+	if err != nil {
+		return result, fmt.Errorf("preview payroll recalculation: %w", err)
+	}
 	return result, nil
 }
 

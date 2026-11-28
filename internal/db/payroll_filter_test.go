@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -106,7 +107,30 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 300000 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}); err != nil {
+	// The preview says what would change and writes nothing.
+	preview, err := d.PreviewPayrollRecalculation(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now})
+	if err != nil {
+		t.Fatalf("preview: %v", err)
+	}
+	if preview.BeforeCents != 262000 || preview.AfterCents != 368000 || len(preview.People) != 1 || preview.People[0].AfterCents != 368000 {
+		t.Fatalf("preview: %+v", preview)
+	}
+	if len(preview.NotInRun) != 1 {
+		t.Fatalf("dev1 is paid by the period but not on this run: %+v", preview.NotInRun)
+	}
+	unchanged, err := d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unchanged.Lines[0].AmountCents != 200000 {
+		t.Fatalf("the preview wrote: %+v", unchanged.Lines)
+	}
+	// Confirming numbers that are no longer the ones being written is refused.
+	stale := preview.AfterCents + 1
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now, ExpectAfterCents: &stale}); !errors.Is(err, model.ErrPayrollChanged) {
+		t.Fatalf("stale confirmation: err = %v", err)
+	}
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now, ExpectAfterCents: &preview.AfterCents}); err != nil {
 		t.Fatalf("recalculate: %v", err)
 	}
 	after, err := d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
