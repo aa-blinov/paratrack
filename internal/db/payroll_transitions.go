@@ -2,7 +2,9 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sort"
@@ -224,9 +226,9 @@ func (d *DB) RecalculatePayrollDraft(ctx context.Context, request appmodel.Payro
 	if err != nil {
 		return result, err
 	}
-	// Applied from a preview: if the timesheet moved since, the manager
-	// confirmed numbers that are no longer the ones being written.
-	if request.ExpectAfterCents != nil && *request.ExpectAfterCents != result.AfterCents {
+	// Applied only from a preview: if anyone's amount moved since, the
+	// manager confirmed numbers that are no longer the ones being written.
+	if request.Expect == "" || request.Expect != result.Fingerprint {
 		return result, model.ErrPayrollChanged
 	}
 	return result, tx.Commit()
@@ -349,11 +351,15 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 		}, run.ID, model.PayrollLineAdjustment); err != nil {
 		return result, err
 	}
+	// Everyone on the run left with no hours and no salary is named, with or
+	// without a percent bonus: a fixed bonus alone is still worth a look.
 	zeroed := map[int64]bool{}
-	for _, p := range percents {
-		if base[p.user] <= 0 {
-			zeroed[p.user] = true
+	for id := range members {
+		if base[id] <= 0 {
+			zeroed[id] = true
 		}
+	}
+	for _, p := range percents {
 		if _, err := tx.ExecContext(ctx, `UPDATE payroll_lines SET amount_cents = ? WHERE id = ?`, percentOfCents(base[p.user], p.bps), p.id); err != nil {
 			return result, err
 		}
@@ -382,11 +388,26 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 		if err != nil {
 			return result, err
 		}
-		result.People = append(result.People, appmodel.PayrollRecalculatePerson{Name: name, BeforeCents: before[id], AfterCents: after[id]})
+		result.People = append(result.People, appmodel.PayrollRecalculatePerson{UserID: id, Name: name, BeforeCents: before[id], AfterCents: after[id]})
 		result.BeforeCents += before[id]
 		result.AfterCents += after[id]
+		if before[id] != after[id] {
+			result.Changed = true
+		}
 	}
-	sort.Slice(result.People, func(a, b int) bool { return result.People[a].Name < result.People[b].Name })
+	sort.Slice(result.People, func(a, b int) bool {
+		if result.People[a].Name != result.People[b].Name {
+			return result.People[a].Name < result.People[b].Name
+		}
+		return result.People[a].UserID < result.People[b].UserID
+	})
+	fp := sha256.New()
+	byID := append([]appmodel.PayrollRecalculatePerson(nil), result.People...)
+	sort.Slice(byID, func(a, b int) bool { return byID[a].UserID < byID[b].UserID })
+	for _, p := range byID {
+		fmt.Fprintf(fp, "%d:%d;", p.UserID, p.AfterCents)
+	}
+	result.Fingerprint = hex.EncodeToString(fp.Sum(nil)[:12])
 	// Who the period would pay but the run is not for: someone who joined
 	// after the draft, or was left out of a partial run on purpose. Named,
 	// not added: whether they belong on this run is the manager's call.

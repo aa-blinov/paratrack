@@ -592,9 +592,9 @@ export interface PayrollDetailData {
 export interface PayrollRecalcPreview {
   Before: string
   After: string
-  AfterCents: number
+  Expect: string
   Changed: boolean
-  People?: Array<{ Name: string; Before: string; After: string; Delta: string; Changed: boolean }>
+  People?: Array<{ UserID: number; Name: string; Before: string; After: string; Delta: string; Changed: boolean }>
   NoEarnings?: string[]
   NotInRun?: string[]
 }

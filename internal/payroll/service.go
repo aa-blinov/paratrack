@@ -325,8 +325,7 @@ func (s *Service) RecalculateDraft(ctx context.Context, request appmodel.Payroll
 	}
 	// The journal keeps both totals, so a changed payout can be traced to
 	// the recalculation that changed it.
-	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.recalculate", fmt.Sprint(request.RunID),
-		fmt.Sprintf("%d -> %d", result.BeforeCents, result.AfterCents))
+	s.recordAudit(ctx, request.TeamID, request.CallerID, "payroll.recalculate", fmt.Sprint(request.RunID), recalculationAuditMeta(result))
 	return result, nil
 }
 
@@ -355,4 +354,17 @@ func (s *Service) recordAudit(ctx context.Context, teamID, actorID int64, action
 	}); err != nil {
 		s.logger.Printf("payroll: record %s audit for team %d: %v", action, teamID, err)
 	}
+}
+
+// recalculationAuditMeta writes what a recalculation changed for the journal:
+// the totals, then each person whose amount moved, in cents.
+func recalculationAuditMeta(result appmodel.PayrollRecalculateResult) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "%d -> %d", result.BeforeCents, result.AfterCents)
+	for _, p := range result.People {
+		if p.BeforeCents != p.AfterCents {
+			fmt.Fprintf(&b, "; %s: %d -> %d", p.Name, p.BeforeCents, p.AfterCents)
+		}
+	}
+	return b.String()
 }

@@ -205,8 +205,8 @@ function PayrollProjects({ lang, projects }: { lang: string; projects: Array<{ P
 }
 
 // RecalcPreview is what "Recalculate" would change, per person, before any of
-// it is written. Applying sends the new total the manager saw; if the
-// timesheet moved in between, the server refuses and shows a fresh preview.
+// it is written. Applying sends the fingerprint of every person's new amount;
+// if anyone's moved in between, the server refuses and shows a fresh preview.
 function RecalcPreview({ lang, runID, csrfToken, preview }: { lang: string; runID: number; csrfToken: string; preview: PayrollRecalcPreview }) {
   const people = preview.People ?? []
   return <Card id="recalc-preview" className="no-print scroll-mt-20">
@@ -216,7 +216,7 @@ function RecalcPreview({ lang, runID, csrfToken, preview }: { lang: string; runI
       {people.length > 0 && <div className="overflow-x-auto"><Table>
         <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcNow")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcThen")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcDelta")}</TableHead></TableRow></TableHeader>
         <TableBody>
-          {people.map(p => <TableRow key={p.Name} className={p.Changed ? "font-medium" : "text-muted-foreground"}>
+          {people.map(p => <TableRow key={p.UserID} className={p.Changed ? "font-medium" : "text-muted-foreground"}>
             <TableCell>{p.Name}</TableCell>
             <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.Before}</TableCell>
             <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.After}</TableCell>
@@ -228,7 +228,7 @@ function RecalcPreview({ lang, runID, csrfToken, preview }: { lang: string; runI
       {(preview.NoEarnings?.length ?? 0) > 0 && <p role="status" className="rounded-md border border-warning/40 bg-warning/5 p-3">{t(lang, "pay.recalcNoEarnings", (preview.NoEarnings ?? []).join(", "))}</p>}
       {(preview.NotInRun?.length ?? 0) > 0 && <p role="status" className="rounded-md border border-border p-3 text-muted-foreground">{t(lang, "pay.recalcNotInRun", (preview.NotInRun ?? []).join(", "))}</p>}
       <div className="flex flex-wrap items-center gap-2">
-        {preview.Changed && <form method="POST" action={`/payroll/${runID}/recalculate`}><input type="hidden" name="csrf_token" value={csrfToken} /><input type="hidden" name="expect_after" value={String(preview.AfterCents)} /><Button type="submit" size="sm">{t(lang, "pay.recalcApply")}</Button></form>}
+        {preview.Changed && <form method="POST" action={`/payroll/${runID}/recalculate`}><input type="hidden" name="csrf_token" value={csrfToken} /><input type="hidden" name="expect" value={preview.Expect} /><Button type="submit" size="sm">{t(lang, "pay.recalcApply")}</Button></form>}
         <Button asChild size="sm" variant="ghost"><a href={`/payroll/${runID}`}>{preview.Changed ? t(lang, "pay.recalcCancel") : t(lang, "pay.recalcClose")}</a></Button>
       </div>
     </CardContent>

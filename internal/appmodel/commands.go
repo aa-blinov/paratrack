@@ -60,9 +60,11 @@ type PayrollRecalculateRequest struct {
 	RunID    int64
 	CallerID int64
 	At       time.Time
-	// ExpectAfterCents is the new total the manager saw in the preview; when
-	// set, a recalculation that comes out different is refused.
-	ExpectAfterCents *int
+	// Expect is the fingerprint of the preview the manager confirmed: every
+	// person's amount after the recalculation. A recalculation whose own
+	// fingerprint differs is refused, so money that moved between two people
+	// with the total unchanged is caught too.
+	Expect string
 }
 
 // PayrollRecalculateResult says what a recalculation changed: the run's total
@@ -74,12 +76,17 @@ type PayrollRecalculateResult struct {
 	NoEarnings  []string
 	// People is each person on the run with what they get before and after.
 	People []PayrollRecalculatePerson
+	// Changed is true when anyone's amount moves, even if the total does not.
+	Changed bool
+	// Fingerprint identifies every person's amount after the recalculation.
+	Fingerprint string
 	// NotInRun names who the period would pay but the run is not for.
 	NotInRun []string
 }
 
 // PayrollRecalculatePerson is one person's pay before and after a recalculation.
 type PayrollRecalculatePerson struct {
+	UserID      int64
 	Name        string
 	BeforeCents int
 	AfterCents  int

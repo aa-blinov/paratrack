@@ -125,12 +125,14 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if unchanged.Lines[0].AmountCents != 200000 {
 		t.Fatalf("the preview wrote: %+v", unchanged.Lines)
 	}
-	// Confirming numbers that are no longer the ones being written is refused.
-	stale := preview.AfterCents + 1
-	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now, ExpectAfterCents: &stale}); !errors.Is(err, model.ErrPayrollChanged) {
-		t.Fatalf("stale confirmation: err = %v", err)
+	// Without a confirmed preview, or with one whose numbers moved, nothing
+	// is applied.
+	for _, expect := range []string{"", preview.Fingerprint + "x"} {
+		if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now, Expect: expect}); !errors.Is(err, model.ErrPayrollChanged) {
+			t.Fatalf("confirmation %q: err = %v", expect, err)
+		}
 	}
-	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now, ExpectAfterCents: &preview.AfterCents}); err != nil {
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now, Expect: preview.Fingerprint}); err != nil {
 		t.Fatalf("recalculate: %v", err)
 	}
 	after, err := d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
@@ -160,7 +162,17 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 0 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
 		t.Fatal(err)
 	}
-	res, err := d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now})
+	// apply confirms a fresh preview, the way the screen does.
+	apply := func() (appmodel.PayrollRecalculateResult, error) {
+		req := appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}
+		p, err := d.PreviewPayrollRecalculation(ownerCtx, req)
+		if err != nil {
+			return p, err
+		}
+		req.Expect = p.Fingerprint
+		return d.RecalculatePayrollDraft(ownerCtx, req)
+	}
+	res, err := apply()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +182,7 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 300000 WHERE team_id = ? AND user_id = ?`, teamID, dev2ID); err != nil {
 		t.Fatal(err)
 	}
-	if res, err = d.RecalculatePayrollDraft(ownerCtx, appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run2.ID, CallerID: ownerID, At: now}); err != nil || res.AfterCents != 368000 || len(res.NoEarnings) != 0 {
+	if res, err = apply(); err != nil || res.AfterCents != 368000 || len(res.NoEarnings) != 0 {
 		t.Fatalf("dev2 did not come back: %+v err=%v", res, err)
 	}
 	after, err = d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run2.ID})
@@ -189,5 +201,73 @@ func TestPayrollUserFilterAndPercentAdjustment(t *testing.T) {
 		TeamID: teamID, RunID: run2.ID, CallerID: ownerID, LineID: pricedID,
 	}); err == nil {
 		t.Fatal("a priced line was deleted as an adjustment")
+	}
+}
+
+// Hours moved from one person to another with the total unchanged: the
+// preview must say something changed, and a confirmation made before the
+// move must not apply after it.
+func TestPayrollRecalculationSeesMoneyMovingBetweenPeople(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	now := time.Date(2026, 11, 23, 10, 0, 0, 0, time.UTC)
+	ownerID := seedApprovalUser(t, d, "owner-pay-shift@test.local")
+	annaID := seedApprovalUser(t, d, "anna-pay-shift@test.local")
+	borisID := seedApprovalUser(t, d, "boris-pay-shift@test.local")
+	teamID, err := d.CreateOwnedTeam(ctx, appmodel.TeamCreateRequest{Slug: "pay-shift", Name: "Shift", OwnerID: ownerID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, uid := range []int64{annaID, borisID} {
+		if _, err := d.TestSQL().ExecContext(ctx,
+			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents) VALUES (?, ?, 'member', ?, 200000)`,
+			teamID, uid, FormatTime(now)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var actID int64
+	if err := d.TestSQL().QueryRowContext(ctx, `INSERT INTO activities (name, team_id) VALUES ('Dev', ?) RETURNING id`, teamID).Scan(&actID); err != nil {
+		t.Fatal(err)
+	}
+	weekStart := time.Date(2026, 11, 16, 0, 0, 0, 0, time.UTC)
+	seedClosedSession(t, d, teamID, annaID, actID, weekStart.Add(9*time.Hour))
+	seedClosedSession(t, d, teamID, borisID, actID, weekStart.Add(11*time.Hour))
+	ownerCtx := requestctx.WithActor(ctx, ownerID)
+	if err := d.ApproveTimesheetWeek(ownerCtx, appmodel.TimesheetApprovalRequest{TeamID: teamID, CallerID: ownerID, Start: weekStart, End: weekStart.AddDate(0, 0, 7)}); err != nil {
+		t.Fatal(err)
+	}
+	run, _, err := d.CreatePayrollDraft(ownerCtx, appmodel.PayrollDraftRequest{TeamID: teamID, CallerID: ownerID, CreatedAt: now, Start: weekStart, End: weekStart.AddDate(0, 0, 7)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := appmodel.PayrollRecalculateRequest{TeamID: teamID, RunID: run.ID, CallerID: ownerID, At: now}
+	before, err := d.PreviewPayrollRecalculation(ownerCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Changed {
+		t.Fatalf("nothing moved yet: %+v", before)
+	}
+	// Anna's rate goes down by what Boris's goes up: the total is the same.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 150000 WHERE team_id = ? AND user_id = ?`, teamID, annaID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET hourly_pay_cents = 250000 WHERE team_id = ? AND user_id = ?`, teamID, borisID); err != nil {
+		t.Fatal(err)
+	}
+	moved, err := d.PreviewPayrollRecalculation(ownerCtx, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !moved.Changed || moved.BeforeCents != moved.AfterCents {
+		t.Fatalf("money moved between two people with the total unchanged: %+v", moved)
+	}
+	req.Expect = before.Fingerprint
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, req); !errors.Is(err, model.ErrPayrollChanged) {
+		t.Fatalf("a confirmation made before the move applied after it: err = %v", err)
+	}
+	req.Expect = moved.Fingerprint
+	if _, err := d.RecalculatePayrollDraft(ownerCtx, req); err != nil {
+		t.Fatal(err)
 	}
 }

@@ -353,12 +353,12 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		lang := resolveLang(r)
 		preview = &payrollRecalcPreviewVM{
 			Before: moneyL(lang, res.BeforeCents, run.Currency), After: moneyL(lang, res.AfterCents, run.Currency),
-			AfterCents: res.AfterCents, Changed: res.BeforeCents != res.AfterCents,
+			Expect: res.Fingerprint, Changed: res.Changed,
 			NoEarnings: res.NoEarnings, NotInRun: res.NotInRun,
 		}
 		for _, p := range res.People {
 			preview.People = append(preview.People, payrollRecalcPersonVM{
-				Name: p.Name, Before: moneyL(lang, p.BeforeCents, run.Currency), After: moneyL(lang, p.AfterCents, run.Currency),
+				UserID: p.UserID, Name: p.Name, Before: moneyL(lang, p.BeforeCents, run.Currency), After: moneyL(lang, p.AfterCents, run.Currency),
 				Delta: signedMoneyL(lang, p.AfterCents-p.BeforeCents, run.Currency), Changed: p.BeforeCents != p.AfterCents,
 			})
 		}
@@ -622,15 +622,9 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 		return
 	}
 	back := "/payroll/" + strconv.FormatInt(id, 10)
-	req := appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r)}
-	if raw := strings.TrimSpace(r.FormValue("expect_after")); raw != "" {
-		expect, err := strconv.Atoi(raw)
-		if err != nil {
-			http.Redirect(w, r, back+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "flash.msg.invalid form")), http.StatusSeeOther)
-			return
-		}
-		req.ExpectAfterCents = &expect
-	}
+	// Only a confirmed preview applies: without its fingerprint (an old tab,
+	// a script) the request is answered with a fresh preview.
+	req := appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), Expect: strings.TrimSpace(r.FormValue("expect"))}
 	result, err := s.services.Payroll.RecalculateDraft(r.Context(), req)
 	if errors.Is(err, model.ErrPayrollChanged) {
 		// The numbers moved while the preview was open: show the new ones.
@@ -844,7 +838,7 @@ func payrollProjects(lang i18n.Lang, byProj map[int64]int, names map[int64]strin
 type payrollRecalcPreviewVM struct {
 	Before     string
 	After      string
-	AfterCents int
+	Expect     string
 	Changed    bool
 	People     []payrollRecalcPersonVM
 	NoEarnings []string
@@ -852,6 +846,7 @@ type payrollRecalcPreviewVM struct {
 }
 
 type payrollRecalcPersonVM struct {
+	UserID  int64
 	Name    string
 	Before  string
 	After   string
