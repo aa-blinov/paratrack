@@ -656,6 +656,7 @@
   "audit.target": "Target",
   "audit.empty": "Nothing recorded yet.",
   "inv.payOnline": "Pay online",
+  "inv.payQR": "Scan in a Russian bank app: the details, amount and purpose fill in by themselves.",
   "inv.payLink": "Create payment link",
   "stripe.title": "Online payments",
   "stripe.blurb": "Stripe Checkout lets clients pay the invoice online. Without it you can still mark invoices paid by hand.",

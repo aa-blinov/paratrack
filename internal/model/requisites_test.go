@@ -29,3 +29,11 @@ func TestRequisiteProblems(t *testing.T) {
 		}
 	}
 }
+
+func TestParseRequisites(t *testing.T) {
+	f := ParseRequisites("ИП Иванов Иван Иванович, ИНН/КПП 500100732259/\nр/с 4070 2810 9380 0000 0001 в ПАО Сбербанк, БИК 044525225\nк/с 30101810400000000225")
+	want := RequisiteFields{Org: "ИП Иванов Иван Иванович", INN: "500100732259", Bank: "ПАО Сбербанк", BIK: "044525225", Corr: "30101810400000000225", Acc: "40702810938000000001"}
+	if f != want {
+		t.Fatalf("ParseRequisites = %+v, want %+v", f, want)
+	}
+}

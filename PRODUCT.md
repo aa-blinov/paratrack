@@ -108,7 +108,8 @@ Confirmed by the code:
   timer on the checked-out branch's last name part (other characters than
   letters, digits, dot, dash and underscore become dashes), in the
   background, after a one-second settle so quick successive checkouts end on
-  the branch still checked out, skipping main/master/develop/trunk. It never
+  the branch still checked out; checking out main/master/develop/trunk
+  pauses the timers, since review there is not the feature's time. It never
   touches a hook it did not write and refuses when core.hooksPath belongs to
   a hook manager. `paratrack completion bash|zsh|fish` completes commands
   and, after start and focus, the caller's own recent activities (400 ms at
@@ -194,6 +195,9 @@ Deliberately not true, and worth knowing before a change:
   sent, emailed, paid straight from a draft, given a payment link or a client
   link. A draft carries the workspace's current details: saving them in the
   settings passes them to every unsent invoice; a sent one keeps its copy.
+  A rouble invoice that owes money carries a bank-app payment QR code in its
+  PDF (ГОСТ Р 56042, ST00012) when the seller's details name an account, a
+  БИК and a bank that check out (rsc.io/qr draws it).
   The "ИНН/КПП 7707083893/770701001" pair is read as 1C prints it, also
   with no КПП for a sole trader ("…/" or "…/ -"). Client numbers that do not
   check out are refused wherever they are written: the client card, a new

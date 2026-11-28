@@ -170,3 +170,59 @@ type ClientCardMismatchError struct {
 func (e *ClientCardMismatchError) Error() string {
 	return "the invoice names another client than the card " + e.Card
 }
+
+// RequisiteFields are the parts of saved details a payment needs.
+type RequisiteFields struct {
+	Org, INN, KPP, OGRN, Bank, BIK, Corr, Acc string
+}
+
+var requisiteBank = regexp.MustCompile(`(?i)^\s+в\s+([^,;]+)`)
+
+// ParseRequisites reads saved details into fields the same way the browser's
+// builder does (web/src/settings/requisites.ts): each labelled number is cut
+// out of its line, the bank follows "р/с … в", and the first line's remaining
+// text is the organisation.
+func ParseRequisites(text string) RequisiteFields {
+	var f RequisiteFields
+	set := map[string]*string{
+		RequisiteINN: &f.INN, RequisiteKPP: &f.KPP, RequisiteOGRN: &f.OGRN,
+		RequisiteBIK: &f.BIK, RequisiteCorr: &f.Corr, RequisiteAcc: &f.Acc,
+	}
+	for index, line := range strings.Split(NormalizeDetails(text), "\n") {
+		left := strings.TrimSpace(line)
+		if left == "" {
+			continue
+		}
+		if m := requisiteINNKPP.FindStringSubmatch(left); m != nil {
+			if f.INN == "" {
+				f.INN = m[1]
+			}
+			if f.KPP == "" && m[2] != "" && m[2] != "-" {
+				f.KPP = m[2]
+			}
+			left = strings.Replace(left, m[0], " ", 1)
+		}
+		for _, p := range requisitePatterns {
+			loc := p.re.FindStringSubmatchIndex(left)
+			if loc == nil || *set[p.field] != "" {
+				continue
+			}
+			*set[p.field] = strings.ReplaceAll(left[loc[2]:loc[3]], " ", "")
+			cut := left[loc[0]:loc[1]]
+			if p.field == RequisiteAcc {
+				if b := requisiteBank.FindStringSubmatch(left[loc[1]:]); b != nil {
+					if f.Bank == "" {
+						f.Bank = strings.TrimSpace(b[1])
+					}
+					cut += b[0]
+				}
+			}
+			left = strings.Replace(left, cut, " ", 1)
+		}
+		left = strings.Trim(left, " ,;")
+		if index == 0 && f.Org == "" && left != "" {
+			f.Org = left
+		}
+	}
+	return f
+}

@@ -158,6 +158,24 @@ func renderDocPDF(inv invoiceVM, teamName string, lang i18n.Lang, act bool) ([]b
 		pdf.SetFont("Inter", "", 9)
 		pdf.MultiCell(0, 5, inv.Notes, "", "L", false)
 	}
+	// The bank-app payment code, beside the totals' block it pays.
+	if !act {
+		if png := paymentQRPNG(inv, teamName); png != nil {
+			opt := fpdf.ImageOptions{ImageType: "PNG", ReadDpi: false}
+			pdf.RegisterImageOptionsReader("payqr", opt, bytes.NewReader(png))
+			if pdf.Ok() {
+				pdf.Ln(4)
+				y := pdf.GetY()
+				pdf.ImageOptions("payqr", 15, y, 32, 32, false, opt, 0, "")
+				pdf.SetXY(50, y+10)
+				pdf.SetFont("Inter", "", 9)
+				pdf.MultiCell(0, 5, T("inv.payQR"), "", "L", false)
+				pdf.SetY(y + 34)
+			} else {
+				pdf.ClearError()
+			}
+		}
+	}
 	if inv.PaymentURL != "" && !act {
 		pdf.Ln(3)
 		pdf.SetFont("Inter", "", 9)
