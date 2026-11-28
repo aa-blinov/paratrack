@@ -393,12 +393,8 @@ def main() -> int:
             "() => getComputedStyle(document.body).pointerEvents !== 'none'", timeout=5000,
         )
         page.click('button[type="submit"]:has-text("Start")')
-        # No project on this timer: the start asks once (TIME-12), and the confirmed start runs.
-        question = page.get_by_role("alertdialog")
-        question.wait_for(state="visible", timeout=3000)
-        question.locator("button").last.click()
         # Wait specifically inside #active-list — not the form input —
-        # so we know the HTMX swap has happened.
+        # so we know the React refresh has happened.
         page.wait_for_selector('#active-list [data-session-id]:has-text("writing")', timeout=5000)
         check("active list contains 'writing' after React refresh", True)
         after = page.locator("#active-list time[data-state=running]").count()

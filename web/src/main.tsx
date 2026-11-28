@@ -251,7 +251,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
       return
     }
     setActivityRequired(false)
-    if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note, ask_no_project: "1" })) {
+    if (await mutate("/api/start", { activity: activity.trim(), project_id: project, note, ...(mode === "solo" ? {} : { ask_no_project: "1" }) })) {
       setActivity("")
       setNote("")
       // A project picked for one timer stuck to the next ones, and personal
@@ -342,7 +342,7 @@ function DashboardApp({ initial, restoreFocus }: { initial: DashboardData; resto
         стоит в шапке, а не четвёртой цифрой в ряду под таймерами. */}
     <header className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2"><div className="min-w-0"><h1 className="text-2xl font-semibold tracking-tight">{labels.title}</h1></div>
       <div className="grid justify-items-start sm:justify-items-end" data-today-total><span className="text-xs text-muted-foreground">{t(lang, "dash.trackedToday")}</span><span className="font-mono text-2xl font-semibold tabular-nums">{data.TodayTotal}</span><span className="text-xs text-muted-foreground">{t(lang, "dash.dayNorm", data.DayNormLabel)}</span>{data.Earned && <span className="text-xs text-muted-foreground" data-earned>{t(lang, "dash.earnedMonth", data.Earned)}</span>}{data.TopToday && <span className="text-xs text-muted-foreground">{labels.top}: {data.TopToday}</span>}</div></header>
-    <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />
+    {mode !== "solo" && <WorkdayPanel lang={lang} csrfToken={data.CSRFToken} started={data.Workday?.Started ?? ""} ended={data.Workday?.Ended ?? ""} />}
     {undoWidget}
     {error && <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
     {queuedNote && <p role="status" className="rounded-md border p-3 text-sm text-muted-foreground">{queuedNote}</p>}

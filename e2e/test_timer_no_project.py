@@ -44,6 +44,8 @@ def main() -> int:
         context = browser.new_context(viewport={"width": 1280, "height": 900})
         page = context.new_page()
         register(page, context, "Таймер без проекта", f"timer-no-project{stamp}@example.com", "timer-no-project-qa-pass-2026")
+        token = next((c["value"] for c in context.cookies() if c["name"] in ("__Host-paratrack_csrf", "paratrack_csrf")), "")
+        page.request.post(f"{BASE}/api/team/modules", form={"preset": "studio"}, headers={"X-CSRF-Token": token})
         page.goto(f"{BASE}/", wait_until="networkidle")
 
         print("\n== 1. Starting asks first and starts nothing")
