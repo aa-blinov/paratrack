@@ -113,3 +113,28 @@ func TestVoidedInvoiceGivesItsHoursBackAndTellsTheClient(t *testing.T) {
 }
 
 func jsonUnmarshal(raw string, v any) error { return json.Unmarshal([]byte(raw), v) }
+
+// The accountant's register dates an invoice by the day it was issued, not
+// the day its draft was made, and the letter file keeps that day.
+func TestRegisterAndLetterUseTheIssueDay(t *testing.T) {
+	e, _, _, id := issuedInvoiceEnv(t, "issue-day@x.test")
+	if _, err := e.db.TestSQL().ExecContext(t.Context(), `UPDATE invoices SET created_at = '2026-06-03T09:00:00Z' WHERE id = ?`, id); err != nil {
+		t.Fatal(err)
+	}
+	letter := e.do("GET", "/invoices/"+itoa64(id)+"/letter.eml", nil, nil)
+	body := readBody(t, letter)
+	if letter.StatusCode != 200 || (!strings.Contains(body, "act-INV-2026-901.pdf") || !strings.Contains(body, "INV-2026-901-sessions.csv")) {
+		t.Fatalf("the letter file (%d) lacks the act or the breakdown", letter.StatusCode)
+	}
+	e.do("POST", "/invoices/"+itoa64(id)+"/status", url.Values{"status": {"sent"}}, nil).Body.Close()
+	var issuedOn string
+	e.db.TestSQL().QueryRowContext(t.Context(), `SELECT issued_on FROM invoices WHERE id = ?`, id).Scan(&issuedOn)
+	today := time.Now().UTC().Format("2006-01-02")
+	if issuedOn == "" || issuedOn == "2026-06-03" {
+		t.Fatalf("issued_on = %q, want the send day", issuedOn)
+	}
+	csv := readBody(t, e.do("GET", "/invoices/export.csv?export_from="+issuedOn+"&export_to="+issuedOn, nil, nil))
+	if !strings.Contains(csv, "INV-2026-901,"+issuedOn) {
+		t.Fatalf("the register (want %s, today %s): %q", issuedOn, today, csv)
+	}
+}

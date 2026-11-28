@@ -220,18 +220,18 @@ func (r *restorer) Member(m appmodel.ExportMember) error {
 	if userID == r.callerID {
 		r.ownerSet = true
 		return r.exec("owner settings",
-			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes)
-			 VALUES (?, ?, 'owner', ?, ?, ?, ?)`,
-			r.teamID, r.callerID, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes)
+			`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days)
+			 VALUES (?, ?, 'owner', ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'))`,
+			r.teamID, r.callerID, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays))
 	}
 	role := m.Role
 	if role == "owner" {
 		role = "admin"
 	}
 	return r.exec("member "+m.Email,
-		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		r.teamID, userID, role, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes)
+		`INSERT INTO memberships (team_id, user_id, role, joined_at, hourly_pay_cents, capacity_minutes, admin_minutes, work_days)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(NULLIF(?, ''), '12345'))`,
+		r.teamID, userID, role, m.JoinedAt, m.HourlyPayCents, m.CapacityMinutes, m.AdminMinutes, restoredWorkDays(m.WorkDays))
 }
 
 func (r *restorer) Client(c appmodel.ExportClient) error {
@@ -551,4 +551,14 @@ func newWebhookSecret() (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(b[:]), nil
+}
+
+// restoredWorkDays keeps a file's work days only when they read as a week:
+// anything else restores as the default Monday to Friday.
+func restoredWorkDays(raw string) string {
+	days, ok := model.NormalizeWorkDays(raw)
+	if !ok {
+		return ""
+	}
+	return days
 }

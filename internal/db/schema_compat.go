@@ -27,6 +27,10 @@ var columnMigrations = []struct {
 	// sent, read for every later copy, so a renamed member or project or a new
 	// logo does not change a document already issued.
 	{"invoices", "issued_snapshot", "TEXT NOT NULL DEFAULT ''"},
+	// The day the invoice was issued (sent), YYYY-MM-DD in the workspace's
+	// calendar: the date on the document, in its QR, and in the accountant's
+	// register. Empty while a draft.
+	{"invoices", "issued_on", "TEXT NOT NULL DEFAULT ''"},
 	// A voided invoice keeps its number and lines, says why it was voided and
 	// when, and gives its hours back to be billed again.
 	{"invoices", "void_reason", "TEXT NOT NULL DEFAULT ''"},

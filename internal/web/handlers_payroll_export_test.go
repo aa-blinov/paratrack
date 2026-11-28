@@ -92,7 +92,7 @@ func TestInvoicesExportExcelDialectKeepsAnEmptyCountEmpty(t *testing.T) {
 		{InvoiceNumber: "INV-1", IssuedAt: issued, Client: "Ромашка", Label: "Сайт", Seconds: 5400, RateCents: 250000, AmountCents: 375000, Currency: "RUB", Status: "sent", UnapprovedWeeks: &count},
 		{InvoiceNumber: "INV-0", IssuedAt: issued, Client: "Ромашка", Label: "Старый", Seconds: 3600, RateCents: 250000, AmountCents: 250000, Currency: "RUB", Status: "paid"},
 	}
-	if err := writeInvoicesExportCSV(&out, rows, "ИП Иванов", time.UTC, csvDialect{excel: true, lang: "en"}); err != nil {
+	if err := writeInvoicesExportCSV(&out, rows, func(int64) string { return "ИП Иванов" }, time.UTC, csvDialect{excel: true, lang: "en"}); err != nil {
 		t.Fatal(err)
 	}
 	lines := strings.Split(strings.TrimSpace(out.String()), "\n")

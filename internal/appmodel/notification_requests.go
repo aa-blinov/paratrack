@@ -16,7 +16,10 @@ const (
 	NotificationTopicCRMNextStep      = "crm_next_step"
 	NotificationTopicDayFill          = "day.fill"
 	NotificationTopicLongTimer        = "timer.long"
-	NotificationTopicProjectBudget    = "project.budget"
+	// NotificationTopicGoalLimit is a limit goal nearly used up or crossed:
+	// its own topic, so turning off goal congratulations keeps the warnings.
+	NotificationTopicGoalLimit     = "goal.limit"
+	NotificationTopicProjectBudget = "project.budget"
 )
 
 // ErrInvalidNotificationTopic means a caller asked to mute something the

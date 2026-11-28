@@ -42,6 +42,7 @@ var notificationTopics = []string{
 	appmodel.NotificationTopicCRMNextStep,
 	appmodel.NotificationTopicDayFill,
 	appmodel.NotificationTopicLongTimer,
+	appmodel.NotificationTopicGoalLimit,
 	appmodel.NotificationTopicProjectBudget,
 }
 

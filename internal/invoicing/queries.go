@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
 	"github.com/aa-blinov/paratrack/internal/model"
@@ -27,10 +28,21 @@ func (s *Service) ExportLines(ctx context.Context, query appmodel.InvoiceExportQ
 		if inv.Status == "draft" || !clientMatches(inv, query) {
 			continue
 		}
-		if !query.From.IsZero() && inv.CreatedAt.Before(query.From) {
+		// The period is the documents' own dates: the day each was issued.
+		issued := inv.CreatedAt
+		if inv.IssuedOn != "" && (!query.From.IsZero() || !query.To.IsZero()) {
+			loc := query.From.Location()
+			if query.From.IsZero() {
+				loc = query.To.Location()
+			}
+			if day, err := time.ParseInLocation("2006-01-02", inv.IssuedOn, loc); err == nil {
+				issued = day
+			}
+		}
+		if !query.From.IsZero() && issued.Before(query.From) {
 			continue
 		}
-		if !query.To.IsZero() && !inv.CreatedAt.Before(query.To) {
+		if !query.To.IsZero() && !issued.Before(query.To) {
 			continue
 		}
 		for _, line := range item.Lines {
@@ -39,6 +51,7 @@ func (s *Service) ExportLines(ctx context.Context, query appmodel.InvoiceExportQ
 				currency = inv.Currency
 			}
 			out = append(out, appmodel.InvoiceExportLine{
+				InvoiceID: inv.ID, IssuedOn: inv.IssuedOn,
 				InvoiceNumber: inv.Number, IssuedAt: inv.CreatedAt, Client: inv.ClientName, Status: inv.Status,
 				Label: line.Label, Seconds: line.Seconds, RateCents: line.RateCents, AmountCents: line.AmountCents,
 				Currency: currency, UnapprovedWeeks: inv.UnapprovedWeeks,

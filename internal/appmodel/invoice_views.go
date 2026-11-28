@@ -134,6 +134,8 @@ type InvoiceSnapshotSaveRequest struct {
 	TeamID    int64
 	InvoiceID int64
 	Data      string
+	// IssuedOn is the issue day kept with the snapshot, YYYY-MM-DD.
+	IssuedOn string
 }
 
 // InvoiceHideNames is whether a sent invoice was frozen with the executors'
@@ -156,15 +158,20 @@ type InvoiceExportQuery struct {
 
 // InvoiceExportLine is one line of an issued invoice, as the accountant's export lists it.
 type InvoiceExportLine struct {
+	InvoiceID     int64
 	InvoiceNumber string
-	IssuedAt      time.Time
-	Client        string
-	Status        string
-	Label         string
-	Seconds       int
-	RateCents     int
-	AmountCents   int
-	Currency      string
+	// IssuedOn is the issue day as the document states it, YYYY-MM-DD; for
+	// an invoice issued before the day was kept it is empty and IssuedAt
+	// (its creation) stands in.
+	IssuedOn    string
+	IssuedAt    time.Time
+	Client      string
+	Status      string
+	Label       string
+	Seconds     int
+	RateCents   int
+	AmountCents int
+	Currency    string
 	// UnapprovedWeeks is nil for an invoice made before the count was recorded.
 	UnapprovedWeeks *int
 }

@@ -21,6 +21,10 @@ type TeamHolidayRequest struct {
 	Clear  bool
 	// Work marks the days as worked (a transferred Saturday), not as off.
 	Work bool
+	// Names, when set, gives each day its own name (a calendar's holidays);
+	// Keep leaves a day the workspace already marked as it is.
+	Names map[string]string
+	Keep  bool
 }
 
 // AbsenceRequest records a member's absence over days, or clears it with an

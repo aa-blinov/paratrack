@@ -140,7 +140,32 @@ func (s *Server) handleInvoicesExportCSV(w http.ResponseWriter, r *http.Request)
 	s.audit(r, "invoice.export", "", "")
 	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
 	w.Header().Set("Content-Disposition", `attachment; filename="invoices-export.csv"`)
-	if err := writeInvoicesExportCSV(w, rows, s.sellerName(r), loc, dialectOf(r)); err != nil {
+	// An issued invoice is exported as it went out: its kept line labels and
+	// seller, so the register and the document agree.
+	seller := s.sellerName(r)
+	issued := map[int64]invoiceIssued{}
+	position := map[int64]int{}
+	for i := range rows {
+		id := rows[i].InvoiceID
+		snap, seen := issued[id]
+		if !seen {
+			if raw, err := s.services.Invoicing.Queries.IssuedSnapshot(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: id}); err == nil && raw != "" {
+				_ = json.Unmarshal([]byte(raw), &snap)
+			}
+			issued[id] = snap
+		}
+		if n := position[id]; n < len(snap.Labels) {
+			rows[i].Label = snap.Labels[n]
+		}
+		position[id]++
+	}
+	executor := func(id int64) string {
+		if name := issued[id].Seller; name != "" {
+			return name
+		}
+		return seller
+	}
+	if err := writeInvoicesExportCSV(w, rows, executor, loc, dialectOf(r)); err != nil {
 		s.logInternalError(err)
 	}
 }
@@ -379,7 +404,7 @@ func (s *Server) handleInvoiceMarkPaid(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if inv, vm, _, err := s.invoiceVMFor(r, id, false); err == nil && inv.Status == "draft" {
-		if err := s.freezeIssued(r, inv, &vm); err != nil {
+		if err := s.freezeIssuedUnlessKept(r, inv, &vm); err != nil {
 			s.logInternalError(err)
 		}
 	}

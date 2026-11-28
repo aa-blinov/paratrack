@@ -432,3 +432,17 @@ func (d *DB) migrateAbsencesOutOfDayMarks(ctx context.Context) error {
 	})
 	return err
 }
+
+// migrateInvoiceIssueDays gives every invoice issued before the issue day was
+// kept the day it reads now: its creation day in the workspace's calendar.
+// From then on the register, the document and its QR all read this column,
+// and a later send day never moves an invoice that already went out.
+func (d *DB) migrateInvoiceIssueDays(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "invoice issue days", func(tx *Tx) error {
+		return tx.execRawContext(ctx,
+			`UPDATE invoices i SET issued_on = to_char(i.created_at::timestamptz AT TIME ZONE COALESCE(NULLIF(t.timezone, ''), 'UTC'), 'YYYY-MM-DD')
+			   FROM teams t
+			  WHERE t.id = i.team_id AND i.status <> 'draft' AND i.issued_on = ''`)
+	})
+	return err
+}

@@ -161,6 +161,8 @@ type timesheetData struct {
 	// Absences lists, for a manager, who is away from a week before this one
 	// to two months after, as spans that can be removed.
 	Absences []absenceSpanVM
+	// CalendarYears are the years the production calendar can fill.
+	CalendarYears []int
 }
 
 // weekPlanByProject sums the schedule's per-project plan for the week the
@@ -364,6 +366,7 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 				data.Holidays = append(data.Holidays, label)
 			}
 		}
+		data.CalendarYears = ruCalendarYears()
 		names := map[int64]string{}
 		for _, p := range people {
 			names[p.ID] = p.Name

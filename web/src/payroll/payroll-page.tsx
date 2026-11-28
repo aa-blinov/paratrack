@@ -150,6 +150,7 @@ export function PayrollDetail({ data }: { data: PayrollDetailData }) {
         <Button type="button" variant="outline" size="sm" data-print><Printer aria-hidden="true" />{t(lang, "inv.print")}</Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv`} download><Download aria-hidden="true" />{t(lang, "pay.exportCSV")}</a></Button>
         <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv?by=day`} download><Download aria-hidden="true" />{t(lang, "pay.exportDays")}</a></Button>
+        <Button asChild variant="outline" size="sm"><a href={`/payroll/${data.Run.ID}/export.csv?format=excel`} download><Download aria-hidden="true" />{t(lang, "rep.csvExcel")}</a></Button>
         {!data.CanManage ? null : data.Run.Status === "paid"
           ? <p className="ms-auto max-w-sm text-xs text-muted-foreground">{t(lang, "pay.deleteLocked")}</p>
           : <form method="POST" action={`/payroll/${data.Run.ID}/delete`} className="ms-auto" data-confirm={t(lang, "pay.confirmDelete", data.Run.Number)}><input type="hidden" name="csrf_token" value={data.CSRFToken} /><Button type="submit" variant="destructive" size="sm" aria-label={t(lang, "pay.delete")}><Trash2 aria-hidden="true" />{t(lang, "pay.delete")}</Button></form>}

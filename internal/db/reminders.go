@@ -277,12 +277,18 @@ func (d *DB) ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTime
 // with the time tracked on them so far and their rate, for the budget warnings.
 func (d *DB) BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, error) {
 	var out []appmodel.BudgetProject
-	today := d.currentTime().UTC().Format("2006-01-02")
+	// The plan still ahead starts tomorrow in the workspace's calendar: what
+	// was planned for today is either tracked already or being tracked, and
+	// counting it whole besides would warn of an overrun that is not there.
+	now := FormatTime(d.currentTime().UTC())
 	err := queryRows(ctx, d.sql, "budget projects",
 		`SELECT p.team_id, p.id, p.name, p.slug, COALESCE(p.lead_user_id, 0),
 		        COALESCE(p.estimate_minutes, 0), COALESCE(p.budget_cents, 0), COALESCE(p.billable_rate_cents, 0),
-		        COALESCE((SELECT SUM(e.minutes) FROM schedule_entries e WHERE e.project_id = p.id AND e.day >= ?), 0)
+		        COALESCE((SELECT SUM(e.minutes) FROM schedule_entries e
+		                   WHERE e.project_id = p.id
+		                     AND e.day > to_char((?::timestamptz) AT TIME ZONE COALESCE(NULLIF(t.timezone, ''), 'UTC'), 'YYYY-MM-DD')), 0)
 		   FROM projects p
+		   JOIN teams t ON t.id = p.team_id
 		  WHERE p.archived = 0 AND (COALESCE(p.estimate_minutes, 0) > 0 OR COALESCE(p.budget_cents, 0) > 0)
 		  ORDER BY p.id`,
 		func(rows *sql.Rows) error {
@@ -292,7 +298,7 @@ func (d *DB) BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, erro
 			}
 			out = append(out, p)
 			return nil
-		}, today)
+		}, now)
 	if err != nil {
 		return nil, err
 	}
@@ -319,10 +325,17 @@ func (d *DB) BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, erro
 // ClaimBudgetNotice records one warning level of a project, once.
 func (d *DB) ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNoticeRequest) (bool, error) {
 	result, err := d.sql.ExecContext(ctx,
-		`INSERT INTO project_budget_reminders (project_id, level, created_at, basis) VALUES (?, ?, ?, ?)
+		`INSERT INTO project_budget_reminders (project_id, level, created_at, basis)
+		 SELECT ?, ?, ?, ?
+		  WHERE NOT EXISTS (
+		        -- A warning never steps back: after "will go over" or "went
+		        -- over" for these figures, "nearing the limit" is not sent.
+		        SELECT 1 FROM project_budget_reminders h
+		         WHERE h.project_id = ? AND h.level > ? AND h.basis = ?)
 		 ON CONFLICT (project_id, level) DO UPDATE SET created_at = excluded.created_at, basis = excluded.basis
 		 WHERE project_budget_reminders.basis <> excluded.basis`,
-		request.ProjectID, request.Level, FormatTime(d.currentTime().UTC()), request.Basis)
+		request.ProjectID, request.Level, FormatTime(d.currentTime().UTC()), request.Basis,
+		request.ProjectID, request.Level, request.Basis)
 	if err != nil {
 		return false, fmt.Errorf("claim budget notice: %w", err)
 	}

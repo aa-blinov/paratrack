@@ -23,6 +23,7 @@ export function TaskReport({ lang, from, to, note, rows, total }: { lang: string
       </div>
       <Button type="submit" variant="outline" size="sm">{t(lang, "tasks.reportShow")}</Button>
       <Button asChild variant="ghost" size="sm"><a href={csvHref} download>{t(lang, "tasks.reportCSV")}</a></Button>
+      <Button asChild variant="ghost" size="sm"><a href={`${csvHref}&format=excel`} download>{t(lang, "rep.csvExcel")}</a></Button>
     </form>
 
     {note ? <p role="alert" className="rounded-md border border-destructive/40 p-3 text-sm text-destructive">{note}</p>

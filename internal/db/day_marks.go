@@ -81,9 +81,17 @@ func (d *DB) SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRe
 			if request.Work {
 				kind = "work"
 			}
-			_, err = tx.ExecContext(ctx,
-				`INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, ?, ?, ?)
-				 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name, kind = excluded.kind`, request.TeamID, day, request.Name, kind)
+			name := request.Name
+			if named, ok := request.Names[day]; ok {
+				name = named
+			}
+			q := `INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, ?, ?, ?)
+				 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name, kind = excluded.kind`
+			if request.Keep {
+				q = `INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, ?, ?, ?)
+				 ON CONFLICT (team_id, day) DO NOTHING`
+			}
+			_, err = tx.ExecContext(ctx, q, request.TeamID, day, name, kind)
 		}
 		if err != nil {
 			return err

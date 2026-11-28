@@ -49,6 +49,7 @@ type invoiceVM struct {
 	PaymentURL                            string
 	Currency                              string
 	IssuedLabel                           string
+	IssuedISO                             string `json:"-"`
 	SellerDetails, ClientDetails, VATNote string
 	ClientEmail, Receipt                  string
 	// HasClientCard is a draft whose project has a client card the edit form
@@ -216,6 +217,7 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 		Hours:      fmtHoursL(lang, details.TotalHoursHundredths),
 		PaymentURL: inv.PaymentURL, Currency: inv.Currency, TeamID: inv.TeamID,
 		IssuedLabel:   fmtDate(lang, inv.CreatedAt.In(userLoc(r))),
+		IssuedISO:     inv.CreatedAt.In(userLoc(r)).Format("2006-01-02"),
 		SellerDetails: inv.SellerDetails, ClientDetails: inv.ClientDetails, VATNote: inv.VATNote,
 		ClientEmail: inv.ClientEmail, Receipt: inv.Receipt,
 		DueISO: inv.DueDate, DueLabel: invoiceDueLabel(lang, inv.DueDate),
@@ -432,11 +434,14 @@ type invoiceIssued struct {
 	IssuedOn string                       `json:"issued_on"`
 	Labels   []string                     `json:"labels"`
 	Sessions []appmodel.InvoiceSessionRow `json:"sessions"`
+	// Revision is the draft's revision the look was kept at: a draft edited
+	// after its letter went out is kept again when it is marked sent.
+	Revision int64 `json:"revision"`
 }
 
 // issuedFrom captures an invoice as it reads now, issued on the given day.
 func (s *Server) issuedFrom(r *http.Request, inv model.Invoice, vm invoiceVM, issuedOn time.Time) (invoiceIssued, error) {
-	issued := invoiceIssued{Seller: vm.Seller, Logo: string(vm.Logo), IssuedOn: issuedOn.Format("2006-01-02")}
+	issued := invoiceIssued{Seller: vm.Seller, Logo: string(vm.Logo), IssuedOn: issuedOn.Format("2006-01-02"), Revision: inv.Revision}
 	for _, line := range vm.Lines {
 		issued.Labels = append(issued.Labels, line.Label)
 	}
@@ -461,10 +466,11 @@ func (s *Server) freezeIssued(r *http.Request, inv model.Invoice, vm *invoiceVM)
 	if err != nil {
 		return err
 	}
-	if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: teamID(r), InvoiceID: inv.ID, Data: string(data)}); err != nil {
+	if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: teamID(r), InvoiceID: inv.ID, Data: string(data), IssuedOn: issued.IssuedOn}); err != nil {
 		return err
 	}
 	vm.IssuedLabel = fmtDate(resolveLang(r), today)
+	vm.IssuedISO = issued.IssuedOn
 	return nil
 }
 
@@ -478,12 +484,18 @@ func (s *Server) applyIssuedSnapshot(r *http.Request, inv model.Invoice, vm *inv
 	}
 	var issued invoiceIssued
 	if raw == "" {
-		issued, err = s.issuedFrom(r, inv, *vm, inv.CreatedAt.In(userLoc(r)))
+		// An invoice issued before the look was kept: its kept day if the
+		// migration set one, else its creation day.
+		day := inv.CreatedAt.In(userLoc(r))
+		if kept, err := time.ParseInLocation("2006-01-02", inv.IssuedOn, userLoc(r)); err == nil {
+			day = kept
+		}
+		issued, err = s.issuedFrom(r, inv, *vm, day)
 		if err != nil {
 			return err
 		}
 		if data, err := json.Marshal(issued); err == nil {
-			if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: inv.TeamID, InvoiceID: inv.ID, Data: string(data)}); err != nil {
+			if err := s.services.Invoicing.Queries.SaveIssuedSnapshot(r.Context(), appmodel.InvoiceSnapshotSaveRequest{TeamID: inv.TeamID, InvoiceID: inv.ID, Data: string(data), IssuedOn: issued.IssuedOn}); err != nil {
 				s.logInternalError(err)
 			}
 		}
@@ -493,6 +505,7 @@ func (s *Server) applyIssuedSnapshot(r *http.Request, inv model.Invoice, vm *inv
 	vm.Seller, vm.Logo = issued.Seller, logoURL(issued.Logo)
 	if day, err := time.Parse("2006-01-02", issued.IssuedOn); err == nil {
 		vm.IssuedLabel = fmtDate(resolveLang(r), day)
+		vm.IssuedISO = issued.IssuedOn
 	}
 	if len(issued.Labels) == len(vm.Lines) {
 		for i := range vm.Lines {
@@ -500,4 +513,17 @@ func (s *Server) applyIssuedSnapshot(r *http.Request, inv model.Invoice, vm *inv
 		}
 	}
 	return nil
+}
+
+// freezeIssuedUnlessKept keeps the look as issued today unless a letter file
+// already kept it: a draft whose letter went out on Monday and is marked sent
+// on Wednesday is the Monday document.
+func (s *Server) freezeIssuedUnlessKept(r *http.Request, inv model.Invoice, vm *invoiceVM) error {
+	if raw, err := s.services.Invoicing.Queries.IssuedSnapshot(r.Context(), appmodel.InvoiceLookupQuery{TeamID: inv.TeamID, InvoiceID: inv.ID}); err == nil && raw != "" {
+		var kept invoiceIssued
+		if json.Unmarshal([]byte(raw), &kept) == nil && kept.Revision == inv.Revision {
+			return nil
+		}
+	}
+	return s.freezeIssued(r, inv, vm)
 }

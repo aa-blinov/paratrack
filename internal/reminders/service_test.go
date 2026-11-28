@@ -529,7 +529,7 @@ func TestGoalLimitsWarnAtEightyAndWhenCrossed(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	store.goalProgress[0].AchievedMinutes, store.goalProgress[0].PercentComplete = 61, 101
+	store.goalProgress[0].AchievedMinutes, store.goalProgress[0].PercentComplete = 60, 100
 	if err := svc.goalLimits(t.Context(), now); err != nil {
 		t.Fatal(err)
 	}
@@ -571,5 +571,28 @@ func TestBudgetForecastAndRaisedEstimate(t *testing.T) {
 	}
 	if len(rec.sent) != 2 || !strings.Contains(rec.sent[1].Title, "выйдет") {
 		t.Fatalf("after raising the estimate: %+v", rec.sent)
+	}
+}
+
+// The worker looks at the running timers every minute, between the slow passes.
+func TestRunWatchesTimersEveryMinute(t *testing.T) {
+	if timerInterval != time.Minute {
+		t.Fatalf("timers are watched every %v, want a minute", timerInterval)
+	}
+	now := time.Date(2026, 11, 11, 15, 0, 0, 0, time.UTC)
+	at := now.Add(-5 * time.Hour)
+	store := &fakeStore{teams: []int64{1}, claimed: map[string]bool{}, running: []appmodel.RunningSession{
+		{TeamID: 1, UserID: 5, SessionID: 51, Activity: "Вёрстка", LastResumeAt: &at, ThresholdHours: 4},
+	}}
+	rec := &recorder{}
+	service, err := New(Dependencies{Store: store, Planner: fakePlanner{}, Sender: rec, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.TimerPass(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.sent) != 1 || rec.sent[0].Topic != TopicLongTimer {
+		t.Fatalf("timer pass sent %+v", rec.sent)
 	}
 }

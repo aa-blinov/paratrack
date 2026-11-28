@@ -50,7 +50,7 @@ func summarizeExport(out appmodel.WorkspaceExport) []string {
 
 	var lines []string
 	for _, m := range out.Members {
-		lines = append(lines, "member "+m.Email+" "+m.Role+" rate="+itoa(m.HourlyPayCents)+" cap="+itoa(m.CapacityMinutes)+" admin="+itoa(m.AdminMinutes))
+		lines = append(lines, "member "+m.Email+" "+m.Role+" rate="+itoa(m.HourlyPayCents)+" cap="+itoa(m.CapacityMinutes)+" admin="+itoa(m.AdminMinutes)+" days="+m.WorkDays)
 	}
 	for _, c := range out.Clients {
 		lines = append(lines, "client "+c.Name+" "+c.Email+" "+c.Details+" "+c.Currency)
@@ -141,9 +141,16 @@ func TestRestoredWorkspaceHoldsWhatWasExported(t *testing.T) {
 	ctx := t.Context()
 	d := openTestDB(t)
 	ws := seedRichWorkspace(t, d, "roundtrip")
+	// A part-timer's week travels with the file.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE memberships SET work_days = '123' WHERE team_id = ? AND user_id = ?`, ws.teamID, ws.memberID); err != nil {
+		t.Fatal(err)
+	}
 	file, err := exportFile(ctx, d, appmodel.WorkspaceExportRequest{TeamID: ws.teamID, CallerID: ws.ownerID})
 	if err != nil {
 		t.Fatalf("export: %v", err)
+	}
+	if !bytes.Contains(file, []byte(`"work_days":"123"`)) {
+		t.Fatal("the file does not carry the part-timer's work days")
 	}
 	before, err := workspacefile.Read(bytes.NewReader(file))
 	if err != nil {

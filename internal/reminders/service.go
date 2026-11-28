@@ -190,6 +190,11 @@ func (s *Service) taskDues(ctx context.Context, now time.Time) error {
 func (s *Service) Run(ctx context.Context, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	// The timers are watched every minute: a limit of an hour and a
+	// four-hour threshold are worth nothing told an hour late. The rest of
+	// the pass (deadlines, the schedule) keeps the slower interval.
+	fast := time.NewTicker(min(interval, timerInterval))
+	defer fast.Stop()
 	for {
 		if err := s.Pass(ctx); err != nil && ctx.Err() == nil {
 			// A failed pass retries on the next tick; nothing is marked sent.
@@ -197,12 +202,43 @@ func (s *Service) Run(ctx context.Context, interval time.Duration) {
 			// until someone notices a deadline that went unnudged.
 			s.logf("reminders: pass failed, retrying next tick: %v", err)
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
+	timers:
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				break timers
+			case <-fast.C:
+				if err := s.TimerPass(ctx); err != nil && ctx.Err() == nil {
+					s.logf("reminders: timer pass failed, retrying next minute: %v", err)
+				}
+			}
 		}
 	}
+}
+
+// timerInterval is how often the running timers are looked at.
+const timerInterval = time.Minute
+
+// TimerPass runs the sections that watch running timers: the forgotten
+// timer and the limit goals.
+func (s *Service) TimerPass(ctx context.Context) error {
+	now := s.now().UTC()
+	var errs []error
+	for _, section := range []struct {
+		name string
+		run  func(context.Context, time.Time) error
+	}{
+		{"long timer reminders", s.longTimers},
+		{"goal limit reminders", s.goalLimits},
+	} {
+		if err := section.run(ctx, now); err != nil {
+			s.logf("reminders: %s: %v", section.name, err)
+			errs = append(errs, fmt.Errorf("%s: %w", section.name, err))
+		}
+	}
+	return errors.Join(errs...)
 }
 
 // Pass sends every nudge that is due and not yet sent. Each section runs on
@@ -307,12 +343,17 @@ func (s *Service) overloads(ctx context.Context, now time.Time) error {
 				if err != nil {
 					return err
 				}
-				awake := without(managers, night)
-				if len(awake) == 0 {
-					// Every manager is asleep: the notice is not claimed, so a
-					// later pass delivers it into an awake workspace.
+				// One claim serves every manager, so it waits until none of
+				// them is asleep, as the budget warning does: claimed while
+				// one sleeps, it would never reach them.
+				asleep := false
+				for _, id := range managers {
+					asleep = asleep || night[id]
+				}
+				if asleep || len(managers) == 0 {
 					continue
 				}
+				awake := managers
 				claimed, err := s.store.ClaimOverloadNotice(ctx, appmodel.OverloadNoticeRequest{TeamID: teamID, UserID: row.UserID, Week: week.Format("2006-01-02")})
 				if err != nil {
 					return err
@@ -565,7 +606,7 @@ func (s *Service) goalLimits(ctx context.Context, now time.Time) error {
 			}
 			level := 0
 			switch {
-			case p.PercentComplete > 100:
+			case p.PercentComplete >= 100:
 				level = 100
 			case p.PercentComplete >= 80:
 				level = 80
@@ -594,7 +635,7 @@ func (s *Service) goalLimits(ctx context.Context, now time.Time) error {
 				title = "Лимит превышен"
 			}
 			if err := s.sender.Send(ctx, Notification{
-				TeamID: teamID, UserIDs: users, Topic: appmodel.NotificationTopicGoalAchieved,
+				TeamID: teamID, UserIDs: users, Topic: appmodel.NotificationTopicGoalLimit,
 				Title: title,
 				Body:  fmt.Sprintf("«%s»: %d из %d мин", p.ActivityName, p.AchievedMinutes, p.Goal.TargetMinutes),
 				URL:   "/goals",
@@ -688,12 +729,19 @@ func (s *Service) budgets(ctx context.Context, now time.Time) error {
 		case 90:
 			title = "По плану проект выйдет за предел"
 		}
-		if err := s.sender.Send(ctx, Notification{
+		notification := Notification{
 			TeamID: p.TeamID, UserIDs: awake, Topic: TopicBudget,
 			Title: title, Body: fmt.Sprintf("%s: %s (%d%%)", p.Name, what, used),
 			URL: "/projects/" + p.Slug,
-		}); err != nil {
+		}
+		if err := s.sender.Send(ctx, notification); err != nil {
 			return err
+		}
+		// Money is what a manager reads mail for; the letter repeats the push.
+		if s.mailer != nil {
+			if err := s.mailer.Email(ctx, notification); err != nil {
+				s.logf("reminders: budget letter for project %d: %v", p.ProjectID, err)
+			}
 		}
 	}
 	return nil

@@ -70,6 +70,8 @@ type InvoicePayment struct {
 }
 
 type Invoice struct {
+	// IssuedOn is the day the invoice was sent, YYYY-MM-DD; empty for a draft.
+	IssuedOn      string
 	ID            int64
 	TeamID        int64
 	Number        string

@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -53,13 +54,29 @@ func (s *Server) handleHolidaysPreset(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "holiday.presetMissing")), http.StatusSeeOther)
 		return
 	}
+	// One transaction for the year, so a failure leaves no half-filled
+	// calendar; a day the manager already marked keeps its mark.
+	request := appmodel.TeamHolidayRequest{TeamID: teamID(r), Names: map[string]string{}, Keep: true}
 	for _, day := range days {
-		if err := s.services.Scheduling.SetTeamHolidays(r.Context(), appmodel.TeamHolidayRequest{TeamID: teamID(r), Days: []string{day.day}, Name: day.name}); err != nil {
-			s.logInternalError(err)
-			http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "err.internal")), http.StatusSeeOther)
-			return
-		}
+		request.Days = append(request.Days, day.day)
+		request.Names[day.day] = day.name
+	}
+	if err := s.services.Scheduling.SetTeamHolidays(r.Context(), request); err != nil {
+		s.logInternalError(err)
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "err.internal")), http.StatusSeeOther)
+		return
 	}
 	s.audit(r, "holiday.preset", strconv.Itoa(year), "ru")
 	http.Redirect(w, r, back+"&flash="+encodeFlash(true, fmt.Sprintf(i18n.T(lang, "holiday.presetDone"), len(days), year)), http.StatusSeeOther)
+}
+
+// ruCalendarYears are the years the calendar preset can fill, in order, for
+// the timesheet's year picker.
+func ruCalendarYears() []int {
+	years := make([]int, 0, len(ruProductionCalendar))
+	for year := range ruProductionCalendar {
+		years = append(years, year)
+	}
+	sort.Ints(years)
+	return years
 }

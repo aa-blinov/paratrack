@@ -123,8 +123,8 @@ func (d *DB) InvoiceIssuedSnapshot(ctx context.Context, query appmodel.InvoiceLo
 // replaced on every send attempt; an issued invoice's is written only once.
 func (d *DB) SaveInvoiceIssuedSnapshot(ctx context.Context, request appmodel.InvoiceSnapshotSaveRequest) error {
 	_, err := d.sql.ExecContext(ctx,
-		`UPDATE invoices SET issued_snapshot = ? WHERE id = ? AND team_id = ? AND (status = 'draft' OR issued_snapshot = '')`,
-		request.Data, request.InvoiceID, request.TeamID)
+		`UPDATE invoices SET issued_snapshot = ?, issued_on = ? WHERE id = ? AND team_id = ? AND (status = 'draft' OR issued_snapshot = '')`,
+		request.Data, request.IssuedOn, request.InvoiceID, request.TeamID)
 	return err
 }
 

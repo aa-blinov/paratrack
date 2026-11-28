@@ -516,6 +516,7 @@ export interface TimesheetData {
   Person: number
   People: Array<{ ID: number; Name: string }>
   Holidays?: string[]
+  CalendarYears?: number[]
   Absences?: Array<{ UserID: number; Name: string; Kind: string; Label: string; From: string; To: string }>
   TeamSummary?: Array<{
     UserID: number

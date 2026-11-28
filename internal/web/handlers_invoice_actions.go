@@ -138,7 +138,7 @@ func (s *Server) handleInvoiceStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	// The look the client gets is kept before the invoice leaves the draft.
 	if inv, vm, _, err := s.invoiceVMFor(r, id, false); err == nil && inv.Status == "draft" {
-		if err := s.freezeIssued(r, inv, &vm); err != nil {
+		if err := s.freezeIssuedUnlessKept(r, inv, &vm); err != nil {
 			s.logInternalError(err)
 		}
 	}
@@ -376,10 +376,19 @@ func unapprovedWeekLabels(lang i18n.Lang, weeks []time.Time) []string {
 // mail program (FIN-10). It is the way out when this server has no SMTP host: a
 // mailto link cannot carry the file.
 func (s *Server) handleInvoiceLetter(w http.ResponseWriter, r *http.Request) {
-	_, vm, _, err := s.loadInvoiceVM(r, false)
+	inv, vm, _, err := s.loadInvoiceVM(r, false)
 	if err != nil {
 		s.invoiceLoadError(w, r, err)
 		return
+	}
+	// The letter file is a way of issuing the invoice like the send: the look
+	// is kept as it goes into the letter, so marking it sent afterwards keeps
+	// the same day, and the letter carries the act and the breakdown too.
+	if inv.Status == "draft" {
+		if err := s.freezeIssued(r, inv, &vm); err != nil {
+			s.writeInternalError(w, err)
+			return
+		}
 	}
 	lang := resolveLang(r)
 	seller := vm.Seller
@@ -388,8 +397,22 @@ func (s *Server) handleInvoiceLetter(w http.ResponseWriter, r *http.Request) {
 		s.writeInternalError(w, err)
 		return
 	}
+	act, err := renderDocPDF(vm, seller, lang, true)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	sessions, err := s.invoiceSessionsCSV(r, inv.ID)
+	if err != nil {
+		s.writeInternalError(w, err)
+		return
+	}
+	number := strings.ReplaceAll(vm.Number, " ", "-")
 	subj, ev := invoiceEmail(lang, vm, seller)
-	msg, err := s.buildEmail(r, vm.ClientEmail, subj, ev, mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf})
+	msg, err := s.buildEmail(r, vm.ClientEmail, subj, ev,
+		mailport.Attachment{Name: invoicePDFName(vm), ContentType: "application/pdf", Data: pdf},
+		mailport.Attachment{Name: "act-" + number + ".pdf", ContentType: "application/pdf", Data: act},
+		mailport.Attachment{Name: number + "-sessions.csv", ContentType: "text/csv; charset=utf-8", Data: sessions})
 	if err != nil {
 		s.writeInternalError(w, err)
 		return

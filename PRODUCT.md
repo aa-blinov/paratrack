@@ -172,6 +172,24 @@ Confirmed by the code:
   the day-fill reminder follow them; a worked Saturday reminds too. The
   timesheet fills the Russian production calendar's weekdays off for 2026 in
   one click, each named.
+- The issue day is one column (`invoices.issued_on`): the document, its QR
+  (always ДД.ММ.ГГГГ, whatever the screen's language), and the accountant's
+  register (date and period filter) read it; the register also uses the kept
+  line labels and seller. Invoices issued before it was kept took their
+  creation day once. The letter file (.eml) issues the invoice like the send:
+  the look is kept, and the letter carries the act and the session breakdown;
+  marking the invoice sent later keeps that day unless the draft changed.
+- Running timers are watched every minute (the forgotten timer, limit goals);
+  the rest of the reminders keep their hourly pass. Limits have their own
+  notification topic and are "crossed" at 100%. The budget forecast counts
+  the plan from tomorrow in the workspace's calendar; budget warnings never
+  step back to a lower level for the same figures, go out by mail too, and
+  overload and budget notices both wait until no recipient is asleep.
+- A workspace file carries each member's work days. The production calendar
+  never overwrites a day the manager marked, and fills a year in one
+  transaction; the timesheet offers each year the server has a calendar for.
+  Payroll and task reports have an Excel download; the accountant's export
+  starts with Excel ticked.
 - A manager can revoke an invoice's client links: every link made for it
   stops opening at once and answers 404, the same as an expired one.
 - A goal is a target ("at least") or a limit ("at most", `goals.kind =

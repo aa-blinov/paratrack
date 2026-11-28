@@ -229,7 +229,7 @@ func (d csvDialect) number(s string) string {
 
 // writeInvoicesExportCSV writes one row per invoice line. Amounts are decimal in the
 // currency of the line; the executor is the workspace's seller name on every row.
-func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, executor string, loc *time.Location, d csvDialect) error {
+func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, executor func(int64) string, loc *time.Location, d csvDialect) error {
 	out, err := d.writer(w)
 	if err != nil {
 		return err
@@ -239,7 +239,7 @@ func writeInvoicesExportCSV(w io.Writer, rows []appmodel.InvoiceExportLine, exec
 	}
 	for _, row := range rows {
 		if err := out.Write([]string{
-			row.InvoiceNumber, d.date(row.IssuedAt.In(loc).Format("2006-01-02")), csvNeutralizeCell(row.Client), csvNeutralizeCell(executor), csvNeutralizeCell(row.Label),
+			row.InvoiceNumber, d.date(exportIssueDay(row, loc)), csvNeutralizeCell(row.Client), csvNeutralizeCell(executor(row.InvoiceID)), csvNeutralizeCell(row.Label),
 			d.number(formatHoursDecimal(row.Seconds)), d.number(money.FormatCents(row.RateCents)), d.number(money.FormatCents(row.AmountCents)),
 			row.Currency, row.Status, unapprovedWeeksCell(row.UnapprovedWeeks),
 		}); err != nil {
@@ -297,4 +297,13 @@ func (d csvDialect) source(code string) string {
 		return code
 	}
 	return paymentSource(d.lang, code)
+}
+
+// exportIssueDay is the day the document states: the kept issue day, or the
+// creation day of an invoice issued before the day was kept.
+func exportIssueDay(row appmodel.InvoiceExportLine, loc *time.Location) string {
+	if row.IssuedOn != "" {
+		return row.IssuedOn
+	}
+	return row.IssuedAt.In(loc).Format("2006-01-02")
 }

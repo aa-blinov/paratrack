@@ -161,11 +161,11 @@ func readTeamSettings(ctx context.Context, tx *Tx, teamID int64) (appmodel.Expor
 func exportMembers(ctx context.Context, tx *Tx, teamID int64, sink appmodel.WorkspaceSink) error {
 	return queryRows(ctx, tx, "export members",
 		`SELECT u.email, u.name, m.role, COALESCE(m.hourly_pay_cents, 0), COALESCE(m.capacity_minutes, 0),
-		        COALESCE(m.admin_minutes, 0), m.joined_at
+		        COALESCE(m.admin_minutes, 0), m.joined_at, COALESCE(m.work_days, '')
 		 FROM memberships m JOIN users u ON u.id = m.user_id WHERE m.team_id = ? ORDER BY u.email`,
 		func(rows *sql.Rows) error {
 			var m appmodel.ExportMember
-			if err := rows.Scan(&m.Email, &m.Name, &m.Role, &m.HourlyPayCents, &m.CapacityMinutes, &m.AdminMinutes, &m.JoinedAt); err != nil {
+			if err := rows.Scan(&m.Email, &m.Name, &m.Role, &m.HourlyPayCents, &m.CapacityMinutes, &m.AdminMinutes, &m.JoinedAt, &m.WorkDays); err != nil {
 				return err
 			}
 			return sink.Member(m)

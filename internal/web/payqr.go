@@ -3,6 +3,7 @@ package web
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"rsc.io/qr"
 
@@ -47,8 +48,12 @@ func paymentQR(inv invoiceVM, sellerName string) (payload string, ok bool) {
 	}
 	// The client's accountant reads the purpose: the invoice's date and how
 	// VAT stands, so the payment needs no follow-up question.
+	// The purpose is read by a Russian bank and accountant whatever language
+	// the screen speaks, so the date is written ДД.ММ.ГГГГ.
 	purpose := "Оплата по счёту № " + inv.Number
-	if inv.IssuedLabel != "" {
+	if day, err := time.Parse("2006-01-02", inv.IssuedISO); err == nil {
+		purpose += " от " + day.Format("02.01.2006")
+	} else if inv.IssuedLabel != "" {
 		purpose += " от " + inv.IssuedLabel
 	}
 	if inv.VATIncluded != "" {

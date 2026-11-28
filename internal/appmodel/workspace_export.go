@@ -72,6 +72,9 @@ type ExportMember struct {
 	CapacityMinutes int64
 	AdminMinutes    int64
 	JoinedAt        string
+	// WorkDays are the weekdays the member works, ISO digits; empty in a
+	// file written before they were kept, which restores as Monday to Friday.
+	WorkDays string
 }
 
 type ExportClient struct {

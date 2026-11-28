@@ -55,8 +55,8 @@ func TestNotificationTopicSaveKeepsTheWholeSelection(t *testing.T) {
 
 	page := readBody(t, e.do("GET", "/settings/notifications", nil, nil))
 	data := reactData[notifyPage](t, page)
-	if len(data.Topics) != 11 {
-		t.Fatalf("topics = %+v, want the eleven events the app sends", data.Topics)
+	if len(data.Topics) != 12 {
+		t.Fatalf("topics = %+v, want the twelve events the app sends", data.Topics)
 	}
 	muted := map[string]bool{}
 	for _, topic := range data.Topics {

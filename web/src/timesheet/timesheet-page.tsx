@@ -429,7 +429,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </ul>
       </DisclosureSection>
     })()}
-    {data.Approval.CanManage && data.People.length > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} absences={data.Absences ?? []} />}
+    {data.Approval.CanManage && data.People.length > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} absences={data.Absences ?? []} years={data.CalendarYears ?? []} />}
     <div className="flex flex-wrap items-center gap-2">
       <StatusLine text={saving.size > 0 ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
@@ -544,7 +544,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 // AbsencesCard records a person's vacation, sick leave or day off and the
 // workspace's holidays. Those days leave the norm in the team summary, so a
 // holiday week or a vacation does not read as an empty timesheet.
-function AbsencesCard({ lang, csrf, week, people, absences }: { lang: string; csrf: string; week: string; people: Array<{ ID: number; Name: string }>; absences: Array<{ UserID: number; Name: string; Kind: string; Label: string; From: string; To: string }> }) {
+function AbsencesCard({ lang, csrf, week, people, absences, years }: { lang: string; csrf: string; week: string; people: Array<{ ID: number; Name: string }>; absences: Array<{ UserID: number; Name: string; Kind: string; Label: string; From: string; To: string }>; years: number[] }) {
   const [person, setPerson] = React.useState(String(people[0]?.ID ?? ""))
   const [kind, setKind] = React.useState("vacation")
   return <DisclosureSection id="ts-absences" title={t(lang, "absence.title")} description={t(lang, "absence.hint")} defaultOpen={false}>
@@ -599,12 +599,14 @@ function AbsencesCard({ lang, csrf, week, people, absences }: { lang: string; cs
       </form>
       {/* The production calendar fills the year's weekdays off at once,
           named; anything set by hand stays as it is. */}
-      <form method="post" action="/api/holidays/preset" className="flex flex-wrap items-center gap-2">
-        <input type="hidden" name="csrf_token" value={csrf} />
-        <input type="hidden" name="week" value={week} />
-        <input type="hidden" name="year" value="2026" />
-        <Button type="submit" size="sm" variant="outline">{t(lang, "holiday.presetRu", "2026")}</Button>
-      </form>
+      {years.length > 0 && <div className="flex flex-wrap items-center gap-2">
+        {years.map(year => <form key={year} method="post" action="/api/holidays/preset">
+          <input type="hidden" name="csrf_token" value={csrf} />
+          <input type="hidden" name="week" value={week} />
+          <input type="hidden" name="year" value={String(year)} />
+          <Button type="submit" size="sm" variant="outline">{t(lang, "holiday.presetRu", String(year))}</Button>
+        </form>)}
+      </div>}
     </div>
   </DisclosureSection>
 }

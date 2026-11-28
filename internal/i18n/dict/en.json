@@ -2462,5 +2462,6 @@
   "holiday.presetRu": "Russian holidays for %s",
   "holiday.presetDone": "Holidays added: %d (%d).",
   "holiday.presetMissing": "No calendar for that year yet.",
-  "inv.sendNoAct": "Without the act: the client signs it after paying"
+  "inv.sendNoAct": "Without the act: the client signs it after paying",
+  "push.evGoalLimit": "A limit goal nearly used up or crossed"
 }
