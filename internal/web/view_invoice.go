@@ -337,11 +337,11 @@ func (s *Server) executorNamesToHide(r *http.Request, inv model.Invoice) (map[st
 	if !inv.ByPerson {
 		return nil, nil
 	}
-	settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r))
+	hide, err := s.invoiceHidesNames(r, inv)
 	if err != nil {
-		return nil, fmt.Errorf("load invoice settings: %w", err)
+		return nil, err
 	}
-	if !settings.HideExecutorNames {
+	if !hide {
 		return nil, nil
 	}
 	snapshot, err := s.services.MemberAdmin.Management(r.Context(), teamID(r))
@@ -376,4 +376,21 @@ func vatIncludedCents(totalCents, ratePercent int) int {
 	}
 	denominator := 100 + ratePercent
 	return (totalCents*ratePercent*2 + denominator) / (2 * denominator)
+}
+
+// invoiceHidesNames is whether an invoice leaves the executors' names off: as
+// frozen when it was sent, or, for a draft, as the workspace switch is now.
+func (s *Server) invoiceHidesNames(r *http.Request, inv model.Invoice) (bool, error) {
+	frozen, err := s.services.Invoicing.Queries.HideNames(r.Context(), appmodel.InvoiceLookupQuery{TeamID: teamID(r), InvoiceID: inv.ID})
+	if err != nil {
+		return false, fmt.Errorf("load the invoice's name setting: %w", err)
+	}
+	if frozen.Frozen {
+		return frozen.Hide, nil
+	}
+	settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r))
+	if err != nil {
+		return false, fmt.Errorf("load invoice settings: %w", err)
+	}
+	return settings.HideExecutorNames, nil
 }

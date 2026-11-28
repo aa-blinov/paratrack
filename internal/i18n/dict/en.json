@@ -640,6 +640,8 @@
   "inv.exportExcel": "For Excel",
   "inv.linkTitle": "Link for the client",
   "inv.linkMake": "Client link, PDF without sign-in",
+  "inv.linkRevoke": "Revoke all links",
+  "inv.linkRevoked": "Links closed: %d. The old links no longer open the invoice.",
   "inv.linkExpires": "Works until %s. Anyone with the link can open the invoice.",
   "ts.approveConfirm": "Approve the week? Time and timesheet edits for these days will close for members. A manager can reopen the week.",
   "inv.deleteLocked": "A sent or paid invoice cannot be deleted: the client has it and it is in the payment journal. Only a draft can be deleted.",

@@ -65,8 +65,10 @@ func (d *DB) EnqueueInvoiceEmail(ctx context.Context, request appmodel.InvoiceEm
 	}
 	now := FormatTime(d.currentTime().UTC())
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE invoices SET status = 'sending', client_email = ? WHERE id = ? AND team_id = ? AND status = 'draft'`,
-		recipient, invoiceID, teamID); err != nil {
+		`UPDATE invoices SET status = 'sending', client_email = ?,
+		        hide_names = COALESCE(hide_names, (SELECT hide_executor_names FROM teams WHERE id = ?))
+		  WHERE id = ? AND team_id = ? AND status = 'draft'`,
+		recipient, teamID, invoiceID, teamID); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx,

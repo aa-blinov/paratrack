@@ -18,6 +18,10 @@ var columnMigrations = []struct {
 	// A transferred working Saturday sits in the workspace calendar beside
 	// the holidays: 'work' makes a weekend day count in the norm.
 	{"team_holidays", "kind", "TEXT NOT NULL DEFAULT 'off'"},
+	// Whether a sent invoice leaves the executors' names off, as it went out:
+	// NULL while a draft follows the workspace switch, set when it is sent,
+	// so turning the switch later does not rewrite a document already issued.
+	{"invoices", "hide_names", "BIGINT"},
 	// An adjustment given as a percent keeps the percent, in basis points, so
 	// recalculating a draft takes it of the new earnings instead of leaving
 	// the amount worked out from hours that have since changed.

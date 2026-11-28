@@ -129,6 +129,13 @@ type PaymentLedgerRow struct {
 	Note          string
 }
 
+// InvoiceHideNames is whether a sent invoice was frozen with the executors'
+// names hidden; Frozen is false for a draft, which follows the workspace.
+type InvoiceHideNames struct {
+	Frozen bool
+	Hide   bool
+}
+
 type InvoiceExportQuery struct {
 	TeamID int64
 	Client string

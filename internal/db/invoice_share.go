@@ -62,3 +62,42 @@ func (d *DB) FindInvoiceShareLink(ctx context.Context, query appmodel.InvoiceSha
 	}
 	return link, err
 }
+
+// RevokeInvoiceShareLinks closes every client link to an invoice before it
+// would expire, for a manager of the workspace, and says how many it closed.
+func (d *DB) RevokeInvoiceShareLinks(ctx context.Context, request appmodel.InvoiceShareRevokeRequest) (int64, error) {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 {
+		return 0, ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	if _, _, err := lockTeamManager(ctx, tx, request.TeamID, request.CallerID); err != nil {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM invoice_share_links WHERE team_id = ? AND invoice_id = ?`, request.TeamID, request.InvoiceID)
+	if err != nil {
+		return 0, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	return n, tx.Commit()
+}
+
+// InvoiceHideNames reads whether a sent invoice was frozen with the
+// executors' names hidden.
+func (d *DB) InvoiceHideNames(ctx context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error) {
+	var hide sql.NullInt64
+	err := d.sql.QueryRowContext(ctx, `SELECT hide_names FROM invoices WHERE id = ? AND team_id = ?`, query.InvoiceID, query.TeamID).Scan(&hide)
+	if errors.Is(err, sql.ErrNoRows) {
+		return appmodel.InvoiceHideNames{}, ErrNotFound
+	}
+	if err != nil {
+		return appmodel.InvoiceHideNames{}, err
+	}
+	return appmodel.InvoiceHideNames{Frozen: hide.Valid, Hide: hide.Valid && hide.Int64 != 0}, nil
+}

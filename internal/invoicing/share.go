@@ -50,3 +50,17 @@ func ShareTokenHash(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
+
+// RevokeShareLinks closes every client link to an invoice now, before the
+// thirty days run out: a link sent to the wrong person, or to an invoice that
+// was redone, stops opening.
+func (s *Service) RevokeShareLinks(ctx context.Context, request appmodel.InvoiceShareRevokeRequest) (int64, error) {
+	if request.TeamID <= 0 || request.InvoiceID <= 0 || request.CallerID <= 0 {
+		return 0, ErrInvalidInvoice
+	}
+	n, err := s.writer.RevokeInvoiceShareLinks(ctx, request)
+	if err != nil {
+		return 0, fmt.Errorf("revoke share links: %w", err)
+	}
+	return n, nil
+}

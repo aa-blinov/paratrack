@@ -377,6 +377,7 @@ type InvoiceDependencies struct {
 type InvoiceShares interface {
 	CreateShareLink(context.Context, appmodel.InvoiceShareRequest) (string, time.Time, error)
 	ResolveShareLink(context.Context, string, time.Time) (appmodel.InvoiceShareLookup, error)
+	RevokeShareLinks(context.Context, appmodel.InvoiceShareRevokeRequest) (int64, error)
 }
 
 // InvoiceQueries provides the read capabilities used by invoice pages and
@@ -386,6 +387,7 @@ type InvoiceQueries interface {
 	UnapprovedWeeks(context.Context, int64, int64, time.Time, time.Time) ([]time.Time, error)
 	Get(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetailResult, error)
 	Sessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
+	HideNames(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error)
 	Reconcile(context.Context, appmodel.ReconcileQuery) ([]appmodel.ClientReconciliation, error)
 	ExportLines(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.InvoiceExportLine, error)
 	PaymentLedger(context.Context, appmodel.InvoiceExportQuery) ([]appmodel.PaymentLedgerRow, error)

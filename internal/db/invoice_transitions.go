@@ -319,7 +319,9 @@ func (d *DB) MarkInvoiceSentOnce(ctx context.Context, request appmodel.InvoiceMu
 		return err
 	}
 	result, err := tx.ExecContext(ctx,
-		`UPDATE invoices SET status = 'sent' WHERE id = ? AND team_id = ? AND status = 'draft'`, id, teamID)
+		`UPDATE invoices SET status = 'sent',
+		        hide_names = COALESCE(hide_names, (SELECT hide_executor_names FROM teams WHERE id = ?))
+		  WHERE id = ? AND team_id = ? AND status = 'draft'`, teamID, id, teamID)
 	if err != nil {
 		return err
 	}

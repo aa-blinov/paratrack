@@ -12,6 +12,7 @@ export function ClientLink({ invoiceID, csrfToken, lang }: { invoiceID: number; 
   const [link, setLink] = React.useState<{ url: string; expires: string } | null>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
+  const [notice, setNotice] = React.useState("")
 
   async function make() {
     setBusy(true)
@@ -33,8 +34,33 @@ export function ClientLink({ invoiceID, csrfToken, lang }: { invoiceID: number; 
     }
   }
 
+  // A link sent to the wrong person, or to an invoice that was redone, stops
+  // opening now instead of after thirty days.
+  async function revoke() {
+    setBusy(true)
+    setError("")
+    try {
+      const response = await fetch(`/api/invoices/${invoiceID}/share`, {
+        method: "DELETE",
+        credentials: "same-origin",
+        headers: { Accept: "application/json", "X-CSRF-Token": csrfToken },
+      })
+      if (!response.ok) throw new Error(await responseMessage(response))
+      const json = (await response.json()) as { revoked: number }
+      setLink(null)
+      setNotice(t(lang, "inv.linkRevoked", json.revoked))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : t(lang, "err.generic"))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const revokeButton = <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void revoke()}>{t(lang, "inv.linkRevoke")}</Button>
+
   if (!link) return <div className="grid gap-2">
-    <div><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void make()}><LinkIcon aria-hidden="true" />{t(lang, "inv.linkMake")}</Button></div>
+    <div className="flex flex-wrap gap-2"><Button type="button" size="sm" variant="ghost" disabled={busy} onClick={() => void make()}><LinkIcon aria-hidden="true" />{t(lang, "inv.linkMake")}</Button>{revokeButton}</div>
+    {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
   </div>
 
@@ -42,5 +68,6 @@ export function ClientLink({ invoiceID, csrfToken, lang }: { invoiceID: number; 
     <Label htmlFor="client-link" className="text-xs">{t(lang, "inv.linkTitle")}</Label>
     <Input id="client-link" readOnly value={link.url} onFocus={event => event.currentTarget.select()} />
     <p className="text-xs text-muted-foreground">{t(lang, "inv.linkExpires", link.expires)}</p>
+    <div>{revokeButton}</div>
   </div>
 }

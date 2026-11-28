@@ -153,12 +153,12 @@ func (s *Server) invoiceSessionsCSV(r *http.Request, invoiceID int64) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	settings, err := s.services.Teams.Settings.Settings(r.Context(), teamID(r))
+	hide, err := s.invoiceHidesNames(r, model.Invoice{ID: invoiceID})
 	if err != nil {
 		return nil, err
 	}
 	var buf bytes.Buffer
-	if err := writeInvoiceSessionsCSV(&buf, rows, userLoc(r), settings.HideExecutorNames); err != nil {
+	if err := writeInvoiceSessionsCSV(&buf, rows, userLoc(r), hide); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
@@ -386,4 +386,34 @@ func (s *Server) handlePaymentLedgerCSV(w http.ResponseWriter, r *http.Request) 
 	if err := writePaymentLedgerCSV(w, rows, dialectOf(r)); err != nil {
 		s.logInternalError(err)
 	}
+}
+
+// invoiceShareRevokeResponse says how many client links were closed.
+type invoiceShareRevokeResponse struct {
+	Revoked int64 `json:"revoked"`
+}
+
+func (invoiceShareRevokeResponse) isJSONResponse() {}
+
+// handleInvoiceShareRevoke closes every client link to the invoice now.
+func (s *Server) handleInvoiceShareRevoke(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		return
+	}
+	n, err := s.services.Invoicing.Shares.RevokeShareLinks(r.Context(), appmodel.InvoiceShareRevokeRequest{TeamID: teamID(r), InvoiceID: id, CallerID: authenticatedUserID(r)})
+	if err != nil {
+		switch {
+		case errors.Is(err, model.ErrNotFound):
+			s.writeJSONStatus(w, http.StatusNotFound, apiErrorResponse{Error: "not found"})
+		case errors.Is(err, model.ErrForbidden):
+			s.writeJSONStatus(w, http.StatusForbidden, apiErrorResponse{Error: "forbidden"})
+		default:
+			s.writeInternalJSONError(w, err)
+		}
+		return
+	}
+	s.audit(r, "invoice.share_revoke", strconv.FormatInt(id, 10), strconv.FormatInt(n, 10))
+	s.writeJSON(w, invoiceShareRevokeResponse{Revoked: n})
 }

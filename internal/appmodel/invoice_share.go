@@ -13,6 +13,13 @@ type InvoiceShareRequest struct {
 	ExpiresAt time.Time
 }
 
+// InvoiceShareRevokeRequest closes every client link to one invoice.
+type InvoiceShareRevokeRequest struct {
+	TeamID    int64
+	InvoiceID int64
+	CallerID  int64
+}
+
 // InvoiceShareLookupQuery opens a client's link by the hash of its token, while the
 // link has not expired.
 type InvoiceShareLookupQuery struct {

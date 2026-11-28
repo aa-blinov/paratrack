@@ -16,6 +16,7 @@ import (
 // Reader exposes team-scoped invoice and billable-time queries.
 type Reader interface {
 	ListInvoiceDetails(context.Context, int64) ([]appmodel.InvoiceDetails, error)
+	InvoiceHideNames(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error)
 	GetInvoiceDetails(context.Context, appmodel.InvoiceLookupQuery) (appmodel.InvoiceDetails, error)
 	FindInvoiceShareLink(context.Context, appmodel.InvoiceShareLookupQuery) (appmodel.InvoiceShareLookup, error)
 	ListInvoiceSessions(context.Context, appmodel.InvoiceLookupQuery) ([]appmodel.InvoiceSessionRow, error)
@@ -44,6 +45,7 @@ type Writer interface {
 	MarkInvoicePaidFromStripe(context.Context, appmodel.InvoiceStripePaymentRequest) (bool, error)
 	RebuildInvoice(context.Context, appmodel.InvoiceMutationRequest) error
 	CreateInvoiceShareLink(context.Context, appmodel.InvoiceShareRequest) error
+	RevokeInvoiceShareLinks(context.Context, appmodel.InvoiceShareRevokeRequest) (int64, error)
 	DeleteInvoice(context.Context, appmodel.InvoiceMutationRequest) error
 	UpdateInvoiceMetaAndProjectClient(context.Context, appmodel.InvoiceDraftUpdateRequest) error
 	RecordInvoicePayment(context.Context, appmodel.InvoicePaymentRequest) (bool, error)

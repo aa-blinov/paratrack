@@ -300,3 +300,12 @@ func (s *Service) PaymentLedger(ctx context.Context, query appmodel.InvoiceExpor
 	})
 	return out, nil
 }
+
+// HideNames says whether a sent invoice was frozen with the executors' names
+// hidden, so the document reads as it went out.
+func (s *Service) HideNames(ctx context.Context, query appmodel.InvoiceLookupQuery) (appmodel.InvoiceHideNames, error) {
+	if query.TeamID <= 0 || query.InvoiceID <= 0 {
+		return appmodel.InvoiceHideNames{}, ErrInvalidInvoice
+	}
+	return s.reader.InvoiceHideNames(ctx, query)
+}
