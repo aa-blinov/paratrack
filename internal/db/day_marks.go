@@ -77,9 +77,13 @@ func (d *DB) SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRe
 		if request.Clear {
 			_, err = tx.ExecContext(ctx, `DELETE FROM team_holidays WHERE team_id = ? AND day = ?`, request.TeamID, day)
 		} else {
+			kind := "off"
+			if request.Work {
+				kind = "work"
+			}
 			_, err = tx.ExecContext(ctx,
-				`INSERT INTO team_holidays (team_id, day, name) VALUES (?, ?, ?)
-				 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name`, request.TeamID, day, request.Name)
+				`INSERT INTO team_holidays (team_id, day, name, kind) VALUES (?, ?, ?, ?)
+				 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name, kind = excluded.kind`, request.TeamID, day, request.Name, kind)
 		}
 		if err != nil {
 			return err
@@ -150,7 +154,27 @@ func (d *DB) TeamHolidays(ctx context.Context, teamID int64, from, until string)
 	}
 	out := map[string]string{}
 	err := queryRows(ctx, d.sql, "team holidays",
-		`SELECT day, name FROM team_holidays WHERE team_id = ? AND day >= ? AND day < ? ORDER BY day`,
+		`SELECT day, name FROM team_holidays WHERE team_id = ? AND day >= ? AND day < ? AND kind = 'off' ORDER BY day`,
+		func(rows *sql.Rows) error {
+			var day, name string
+			if err := rows.Scan(&day, &name); err != nil {
+				return err
+			}
+			out[day] = name
+			return nil
+		}, teamID, from, until)
+	return out, err
+}
+
+// TeamWorkdays lists the weekend days the workspace works (transfers) from
+// `from` up to `until`, as day -> name.
+func (d *DB) TeamWorkdays(ctx context.Context, teamID int64, from, until string) (map[string]string, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	out := map[string]string{}
+	err := queryRows(ctx, d.sql, "team workdays",
+		`SELECT day, name FROM team_holidays WHERE team_id = ? AND day >= ? AND day < ? AND kind = 'work' ORDER BY day`,
 		func(rows *sql.Rows) error {
 			var day, name string
 			if err := rows.Scan(&day, &name); err != nil {

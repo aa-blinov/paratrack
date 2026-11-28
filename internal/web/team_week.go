@@ -75,6 +75,10 @@ func (s *Server) teamWeekOf(r *http.Request, now time.Time) (*teamWeekView, erro
 	if err != nil {
 		return nil, err
 	}
+	workdays, err := s.services.Scheduling.TeamWorkdays(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil, err
+	}
 	people := s.taskPeople(r)
 	sort.SliceStable(people, func(i, j int) bool { return people[i].Name < people[j].Name })
 	for _, person := range people {
@@ -87,7 +91,8 @@ func (s *Server) teamWeekOf(r *http.Request, now time.Time) (*teamWeekView, erro
 			}
 			total += seconds
 			// A weekend with no time is a day off, not a shortfall.
-			weekend := day.Weekday() == time.Saturday || day.Weekday() == time.Sunday
+			_, worked := workdays[day.Format("2006-01-02")]
+			weekend := (day.Weekday() == time.Saturday || day.Weekday() == time.Sunday) && !worked
 			below := !day.After(today) && seconds < dayNormSeconds && (!weekend || seconds > 0)
 			key := fmt.Sprintf("%d/%s", person.ID, day.Format("2006-01-02"))
 			holiday, isHoliday := holidays[day.Format("2006-01-02")]

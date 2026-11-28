@@ -541,6 +541,7 @@
   "holiday.name": "Holiday",
   "holiday.namePh": "Unity Day",
   "holiday.save": "Mark as days off",
+  "holiday.work": "A working day (a transfer, e.g. a Saturday)",
   "holiday.clear": "Remove",
   "holiday.saved": "Days off marked: %d.",
   "holiday.cleared": "Days off removed: %d.",

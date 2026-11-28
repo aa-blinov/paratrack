@@ -94,3 +94,59 @@ func TestAbsencesAndHolidaysLeaveTheNorm(t *testing.T) {
 		t.Fatalf("approved: worker=%v away=%v", approved(workerID), approved(awayID))
 	}
 }
+
+// A transferred working Saturday counts in the norm: left empty it is a gap,
+// worked it brings the member back on track.
+func TestWorkingSaturdayCountsInTheNorm(t *testing.T) {
+	owner := newAPIEnv(t)
+	owner.register("saturday-owner@x.test")
+	worker := newAPIEnvSharedDB(t, owner)
+	worker.register("saturday-worker@x.test")
+	joinStudio(t, owner, map[string]*apiEnv{"saturday-worker@x.test": worker}, "saturday-worker@x.test")
+	ctx := t.Context()
+	sql := owner.db.TestSQL()
+	var teamID, workerID, actID int64
+	if err := sql.QueryRowContext(ctx, `SELECT m.team_id, u.id FROM memberships m JOIN users u ON u.id = m.user_id WHERE u.email = 'saturday-worker@x.test' AND m.role <> 'owner'`).Scan(&teamID, &workerID); err != nil {
+		t.Fatal(err)
+	}
+	if err := sql.QueryRowContext(ctx, `INSERT INTO activities (name, team_id) VALUES ('Работа', ?) RETURNING id`, teamID).Scan(&actID); err != nil {
+		t.Fatal(err)
+	}
+	fortnight := time.Now().AddDate(0, 0, -14)
+	monday := time.Date(fortnight.Year(), fortnight.Month(), fortnight.Day(), 0, 0, 0, 0, time.UTC).AddDate(0, 0, -(int(fortnight.Weekday())+6)%7)
+	work := func(i int) {
+		start := monday.AddDate(0, 0, i).Add(9 * time.Hour)
+		if _, err := sql.ExecContext(ctx,
+			`INSERT INTO sessions (activity_id, team_id, user_id, start_at, end_at, accumulated_seconds) VALUES (?, ?, ?, ?, ?, 28800)`,
+			actID, teamID, workerID, start.Format(time.RFC3339), start.Add(8*time.Hour).Format(time.RFC3339)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 5; i++ {
+		work(i)
+	}
+	week := monday.Format("2006-01-02")
+	status := func() timesheetTeamMemberStatus {
+		t.Helper()
+		view := reactData[timesheetData](t, readBody(t, owner.do("GET", "/timesheet?date="+week, nil, nil)))
+		for _, m := range view.TeamSummary {
+			if m.UserID == workerID {
+				return m
+			}
+		}
+		t.Fatal("the worker is not in the summary")
+		return timesheetTeamMemberStatus{}
+	}
+	if s := status(); s.Status != "ok" {
+		t.Fatalf("a plain week: %+v", s)
+	}
+	saturday := monday.AddDate(0, 0, 5).Format("2006-01-02")
+	owner.do("POST", "/api/holidays", url.Values{"week": {week}, "from": {saturday}, "name": {"Перенос"}, "work": {"1"}}, nil).Body.Close()
+	if s := status(); s.MissingDays != 1 || s.Status == "ok" {
+		t.Fatalf("an empty working Saturday is a gap: %+v", s)
+	}
+	work(5)
+	if s := status(); s.Status != "ok" || s.MissingDays != 0 || s.Percent != 100 {
+		t.Fatalf("a worked Saturday: %+v", s)
+	}
+}

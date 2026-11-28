@@ -541,6 +541,7 @@
   "holiday.name": "Праздник",
   "holiday.namePh": "День народного единства",
   "holiday.save": "Отметить нерабочими",
+  "holiday.work": "Рабочий день (перенос, например суббота)",
   "holiday.clear": "Снять",
   "holiday.saved": "Нерабочих дней отмечено: %d.",
   "holiday.cleared": "Нерабочие дни сняты: %d.",

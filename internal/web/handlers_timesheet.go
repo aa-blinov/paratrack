@@ -677,6 +677,10 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 	if err != nil {
 		return nil
 	}
+	workdays, err := s.services.Scheduling.TeamWorkdays(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil
+	}
 	absences, err := s.services.Scheduling.Absences(r.Context(), teamID(r), from, until)
 	if err != nil {
 		return nil
@@ -713,8 +717,9 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 			totalSecs += sec
 			// A weekday by the calendar, not by its place in the week: a
 			// workspace whose weeks start on Sunday has Sunday at index 0.
-			weekday := d.Weekday() != time.Saturday && d.Weekday() != time.Sunday
 			key := d.Format("2006-01-02")
+			_, worked := workdays[key]
+			weekday := (d.Weekday() != time.Saturday && d.Weekday() != time.Sunday) || worked
 			if kind := absent[m.UserID][key]; kind != "" && weekday {
 				awayByKind[kind]++
 				continue

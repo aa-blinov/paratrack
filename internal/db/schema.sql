@@ -321,6 +321,8 @@ CREATE TABLE IF NOT EXISTS team_holidays (
     team_id BIGINT NOT NULL,
     day TEXT NOT NULL,
     name TEXT NOT NULL DEFAULT '',
+    -- 'off' is a day off; 'work' a weekend day that is worked (a transfer).
+    kind TEXT NOT NULL DEFAULT 'off',
     PRIMARY KEY (team_id, day),
     FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE
 );

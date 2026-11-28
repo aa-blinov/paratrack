@@ -278,6 +278,7 @@ type SchedulingWorkflow interface {
 	SetAbsence(ctx context.Context, request appmodel.AbsenceRequest) error
 	Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error)
 	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
+	TeamWorkdays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error)
 	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error
 	RemoveLine(ctx context.Context, request appmodel.ScheduleLineRequest) error

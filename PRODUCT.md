@@ -191,7 +191,9 @@ Deliberately not true, and worth knowing before a change:
   on track" (80% of the norm, no empty weekday by the calendar) for a
   finished week; a date inside a week means that whole week. A manager
   records a member's vacation, sick leave or day off over a span of days
-  and the workspace's holidays ("Absences and holidays" on the timesheet);
+  and the workspace's holidays and transferred working days (a Saturday
+  marked as worked counts in the norm, the schedule and the team week)
+  ("Absences and holidays" on the timesheet);
   those days leave the norm, and a member away the whole week is "away",
   which the button approves too. Absences live in their own table
   (member_absences), apart from the member's own day marks, which can no

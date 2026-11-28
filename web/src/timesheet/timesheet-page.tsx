@@ -591,6 +591,7 @@ function AbsencesCard({ lang, csrf, week, people, absences }: { lang: string; cs
           <div className="grid gap-1.5"><Label htmlFor="holiday-from">{t(lang, "inv.from")}</Label><DateField id="holiday-from" name="from" required /></div>
           <div className="grid gap-1.5"><Label htmlFor="holiday-to">{t(lang, "inv.to")}</Label><DateField id="holiday-to" name="to" /></div>
         </div>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="work" value="1" className="accent-primary" />{t(lang, "holiday.work")}</label>
         <div className="flex flex-wrap gap-2">
           <Button type="submit" size="sm" variant="outline">{t(lang, "holiday.save")}</Button>
           <Button type="submit" size="sm" variant="ghost" name="clear" value="1">{t(lang, "holiday.clear")}</Button>

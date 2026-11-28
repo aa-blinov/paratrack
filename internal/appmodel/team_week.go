@@ -19,6 +19,8 @@ type TeamHolidayRequest struct {
 	Days   []string
 	Name   string
 	Clear  bool
+	// Work marks the days as worked (a transferred Saturday), not as off.
+	Work bool
 }
 
 // AbsenceRequest records a member's absence over days, or clears it with an

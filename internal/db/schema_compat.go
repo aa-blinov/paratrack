@@ -15,6 +15,9 @@ var columnMigrations = []struct {
 	// "max" makes a goal a limit ("no more than an hour on social media"):
 	// crossing it is a warning, not an achievement.
 	{"goals", "kind", "TEXT NOT NULL DEFAULT 'min'"},
+	// A transferred working Saturday sits in the workspace calendar beside
+	// the holidays: 'work' makes a weekend day count in the norm.
+	{"team_holidays", "kind", "TEXT NOT NULL DEFAULT 'off'"},
 	// An adjustment given as a percent keeps the percent, in basis points, so
 	// recalculating a draft takes it of the new earnings instead of leaving
 	// the amount worked out from hours that have since changed.

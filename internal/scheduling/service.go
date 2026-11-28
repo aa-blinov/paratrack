@@ -32,6 +32,7 @@ type Store interface {
 	SetAbsence(ctx context.Context, request appmodel.AbsenceRequest) error
 	Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error)
 	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
+	TeamWorkdays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
 	GetProjectWeeklyNorm(ctx context.Context, teamID, projectID int64) (int, bool, error)
@@ -92,6 +93,10 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 	if err != nil {
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule absences: %w", err)
 	}
+	workdays, err := s.store.TeamWorkdays(ctx, query.TeamID, from, until)
+	if err != nil {
+		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule workdays: %w", err)
+	}
 	away := map[int64]map[string]string{}
 	for _, a := range absences {
 		if away[a.UserID] == nil {
@@ -111,7 +116,7 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 		for i := 0; i < 7; i++ {
 			day := query.WeekStart.AddDate(0, 0, i)
 			key := day.Format("2006-01-02")
-			weekday := day.Weekday() != time.Saturday && day.Weekday() != time.Sunday
+			weekday := (day.Weekday() != time.Saturday && day.Weekday() != time.Sunday) || hasKey(workdays, key)
 			switch {
 			case away[stored.UserID][key] != "":
 				marks[i] = away[stored.UserID][key]
@@ -220,6 +225,14 @@ func (s *Service) Absences(ctx context.Context, teamID int64, from, until string
 		return nil, ErrInvalidScheduleCell
 	}
 	return s.store.Absences(ctx, teamID, from, until)
+}
+
+// TeamWorkdays lists the weekend days the workspace works over a stretch of days.
+func (s *Service) TeamWorkdays(ctx context.Context, teamID int64, from, until string) (map[string]string, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.TeamWorkdays(ctx, teamID, from, until)
 }
 
 // TeamHolidays lists the workspace's days off over a stretch of days.

@@ -93,7 +93,7 @@ func (s *Server) handleHoliday(w http.ResponseWriter, r *http.Request) {
 	}
 	clear := r.PostForm.Get("clear") != ""
 	name := strings.TrimSpace(r.PostForm.Get("name"))
-	if err := s.services.Scheduling.SetTeamHolidays(r.Context(), appmodel.TeamHolidayRequest{TeamID: teamID(r), Days: days, Name: name, Clear: clear}); err != nil {
+	if err := s.services.Scheduling.SetTeamHolidays(r.Context(), appmodel.TeamHolidayRequest{TeamID: teamID(r), Days: days, Name: name, Clear: clear, Work: r.PostForm.Get("work") != ""}); err != nil {
 		s.logInternalError(err)
 		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "err.internal")), http.StatusSeeOther)
 		return
