@@ -625,6 +625,10 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 	// Only a confirmed preview applies: without its fingerprint (an old tab,
 	// a script) the request is answered with a fresh preview.
 	req := appmodel.PayrollRecalculateRequest{TeamID: teamID(r), RunID: id, CallerID: authenticatedUserID(r), Expect: strings.TrimSpace(r.FormValue("expect"))}
+	if req.Expect == "" {
+		http.Redirect(w, r, back+"?preview=recalculate&flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcConfirm")), http.StatusSeeOther)
+		return
+	}
 	result, err := s.services.Payroll.RecalculateDraft(r.Context(), req)
 	if errors.Is(err, model.ErrPayrollChanged) {
 		// The numbers moved while the preview was open: show the new ones.

@@ -169,7 +169,8 @@ Deliberately not true, and worth knowing before a change:
   amount of anyone on the run moved since the preview (money moving between
   two people with the total unchanged counts). A recalculation without a
   confirmed preview is refused. The audit log keeps both totals and every
-  person whose amount moved. A draft invoice takes manual one-off lines and discounts
+  person whose amount moved, with their id. A run shows each person's
+  adjustments under their own lines. A draft invoice takes manual one-off lines and discounts
   without touching the sessions; a discount cannot take the total below
   zero, and an invoice with a negative total cannot be sent. The labelled
   numbers in Russian details (ИНН, КПП, ОГРН, БИК, р/с, к/с) are checked by
@@ -180,7 +181,10 @@ Deliberately not true, and worth knowing before a change:
   settings passes them to every unsent invoice; a sent one keeps its copy.
   The "ИНН/КПП 7707083893/770701001" pair is read as 1C prints it, also
   with no КПП for a sole trader ("…/" or "…/ -"). Client numbers that do not
-  check out are refused when a draft is edited.
+  check out are refused wherever they are written: the client card, a new
+  invoice and a draft edit; a number fixed in a draft goes back to the card.
+- A token whose owner has no seat in its workspace any more is answered
+  403, an unknown or revoked one 401.
 - Pay runs are hourly or a fixed monthly salary per calendar month the run touches. There is no per-piece scheme.
 - A pay run downloads as CSV, one row per person or, by day, one row per person per day with the week it falls in. The amounts stay on the person rows.
 - Rate limiting is per process, with at most 10,000 tracked keys per limiter.

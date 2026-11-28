@@ -246,20 +246,21 @@ func (d *DB) PreviewPayrollRecalculation(ctx context.Context, request appmodel.P
 	return recalculatePayrollTx(ctx, tx, request)
 }
 
-func payrollTotalsByUserTx(ctx context.Context, tx *Tx, runID int64) (map[int64]int, error) {
-	out := map[int64]int{}
+// payrollTotalsByUserTx is each person's amount and priced seconds in a run.
+func payrollTotalsByUserTx(ctx context.Context, tx *Tx, runID int64) (map[int64]int, map[int64]int, error) {
+	cents, secs := map[int64]int{}, map[int64]int{}
 	err := queryRows(ctx, tx, "payroll totals by person",
-		`SELECT user_id, COALESCE(SUM(amount_cents), 0) FROM payroll_lines WHERE run_id = ? GROUP BY user_id`,
+		`SELECT user_id, COALESCE(SUM(amount_cents), 0), COALESCE(SUM(seconds), 0) FROM payroll_lines WHERE run_id = ? GROUP BY user_id`,
 		func(rows *sql.Rows) error {
 			var id int64
-			var cents int
-			if err := rows.Scan(&id, &cents); err != nil {
+			var c, sec int
+			if err := rows.Scan(&id, &c, &sec); err != nil {
 				return err
 			}
-			out[id] = cents
+			cents[id], secs[id] = c, sec
 			return nil
 		}, runID)
-	return out, err
+	return cents, secs, err
 }
 
 func userNameTx(ctx context.Context, tx *Tx, id int64) (string, error) {
@@ -289,7 +290,7 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 	if err := lockClosedPeriodSpan(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
 		return result, err
 	}
-	before, err := payrollTotalsByUserTx(ctx, tx, run.ID)
+	before, beforeSecs, err := payrollTotalsByUserTx(ctx, tx, run.ID)
 	if err != nil {
 		return result, err
 	}
@@ -372,7 +373,7 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 		result.NoEarnings = append(result.NoEarnings, name)
 	}
 	sort.Strings(result.NoEarnings)
-	after, err := payrollTotalsByUserTx(ctx, tx, run.ID)
+	after, afterSecs, err := payrollTotalsByUserTx(ctx, tx, run.ID)
 	if err != nil {
 		return result, err
 	}
@@ -391,7 +392,9 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 		result.People = append(result.People, appmodel.PayrollRecalculatePerson{UserID: id, Name: name, BeforeCents: before[id], AfterCents: after[id]})
 		result.BeforeCents += before[id]
 		result.AfterCents += after[id]
-		if before[id] != after[id] {
+		// Hours count as a change even when the money rounds the same: the
+		// run and its CSV would still show the old hours.
+		if before[id] != after[id] || beforeSecs[id] != afterSecs[id] {
 			result.Changed = true
 		}
 	}
@@ -404,8 +407,10 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 	fp := sha256.New()
 	byID := append([]appmodel.PayrollRecalculatePerson(nil), result.People...)
 	sort.Slice(byID, func(a, b int) bool { return byID[a].UserID < byID[b].UserID })
+	// Before and after both: a confirmation stands for the screen the
+	// manager saw, so the journal's "before" is the one they read.
 	for _, p := range byID {
-		fmt.Fprintf(fp, "%d:%d;", p.UserID, p.AfterCents)
+		fmt.Fprintf(fp, "%d:%d:%d:%d:%d;", p.UserID, p.BeforeCents, beforeSecs[p.UserID], p.AfterCents, afterSecs[p.UserID])
 	}
 	result.Fingerprint = hex.EncodeToString(fp.Sum(nil)[:12])
 	// Who the period would pay but the run is not for: someone who joined

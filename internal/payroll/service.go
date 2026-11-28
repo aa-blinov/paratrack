@@ -363,7 +363,7 @@ func recalculationAuditMeta(result appmodel.PayrollRecalculateResult) string {
 	fmt.Fprintf(&b, "%d -> %d", result.BeforeCents, result.AfterCents)
 	for _, p := range result.People {
 		if p.BeforeCents != p.AfterCents {
-			fmt.Fprintf(&b, "; %s: %d -> %d", p.Name, p.BeforeCents, p.AfterCents)
+			fmt.Fprintf(&b, "; %s (#%d): %d -> %d", p.Name, p.UserID, p.BeforeCents, p.AfterCents)
 		}
 	}
 	return b.String()
