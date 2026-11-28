@@ -66,6 +66,7 @@
   "err.activityRequired": "Name an activity.",
   "err.nameRequired": "Name is required.",
   "err.noWorkspaceSeat": "The token is valid, but you no longer have access to this workspace.",
+  "err.readOnlyToken": "This API token is read-only.",
   "err.alreadyStopped": "The timer is already stopped.",
   "err.activeSessionExists": "{name} is already running.",
   "err.activeSessionExistsPlain": "This activity is already running.",

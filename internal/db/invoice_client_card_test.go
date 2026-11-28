@@ -1,10 +1,12 @@
 package db
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/aa-blinov/paratrack/internal/appmodel"
+	"github.com/aa-blinov/paratrack/internal/model"
 	"github.com/aa-blinov/paratrack/internal/requestctx"
 )
 
@@ -55,6 +57,12 @@ func TestDraftEditUpdatesClientCardOnlyWhenAsked(t *testing.T) {
 	edit("new@romashka.test", "", true)
 	if _, email, details := card(); email != "new@romashka.test" || details != "ИНН 7707083893, договор №12" {
 		t.Fatalf("asked, with empty details: %q %q", email, details)
+	}
+	// An invoice over every project has no card to update: refused, not skipped.
+	if err := d.UpdateInvoiceMetaAndProjectClient(ctx, appmodel.InvoiceDraftUpdateRequest{
+		TeamID: teamID, InvoiceID: inv.ID, CallerID: ownerID, Client: "Ромашка", UpdateClientCard: true,
+	}); !errors.Is(err, model.ErrNoClientCard) {
+		t.Fatalf("card update on an invoice with no project: err = %v", err)
 	}
 	edit("", "ИНН 500100732259", true)
 	if _, email, details := card(); email != "new@romashka.test" || details != "ИНН 500100732259" {

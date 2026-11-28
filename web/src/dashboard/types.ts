@@ -674,6 +674,7 @@ export interface InvoiceProjectOption {
   Rate: string
   ClientName: string
   ClientDetails: string
+  HasClientCard?: boolean
   ClientEmail: string
   Selected: boolean
   Eligible: boolean
@@ -737,6 +738,7 @@ export interface InvoiceDetailData {
     IssuedLabel: string
     SellerDetails: string
     ClientDetails: string
+  HasClientCard?: boolean
     VATNote: string
     ClientEmail: string
     Receipt: string

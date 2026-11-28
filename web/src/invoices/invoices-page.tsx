@@ -328,7 +328,7 @@ export function InvoiceDetailPage({ data }: { data: InvoiceDetailData }) {
           {/* The next invoice takes the client from the card, so a fix that
               should last goes there; the card serves every project of the
               client, hence a choice and not a side effect. */}
-          <label className="flex cursor-pointer items-start gap-2 text-sm sm:col-span-2"><Checkbox name="update_client_card" value="1" className="mt-0.5" /><span>{t(lang, "inv.updateClientCard")}<span className="mt-1 block text-xs text-muted-foreground">{t(lang, "inv.updateClientCardHint")}</span></span></label>
+          {inv.HasClientCard && <label className="flex cursor-pointer items-start gap-2 text-sm sm:col-span-2"><Checkbox name="update_client_card" value="1" className="mt-0.5" /><span>{t(lang, "inv.updateClientCard")}<span className="mt-1 block text-xs text-muted-foreground">{t(lang, "inv.updateClientCardHint")}</span></span></label>}
           <div className="sm:col-span-2"><Button type="submit" size="sm">{t(lang, "inv.save")}</Button></div>
         </form>
         <form method="POST" action={`/invoices/${inv.ID}/lines`} className="mt-3 grid gap-3 border-t pt-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">

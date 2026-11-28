@@ -47,10 +47,13 @@ type invoiceVM struct {
 	IssuedLabel                           string
 	SellerDetails, ClientDetails, VATNote string
 	ClientEmail, Receipt                  string
-	DueISO, DueLabel                      string
-	Overdue                               bool
-	TeamID                                int64
-	Logo                                  template.URL
+	// HasClientCard is a draft whose project has a client card the edit form
+	// can update; without one the "update the card too" box is not offered.
+	HasClientCard    bool
+	DueISO, DueLabel string
+	Overdue          bool
+	TeamID           int64
+	Logo             template.URL
 	// The payment journal (FIN-08): what is paid, what is still owed, and the entries.
 	PaidLabel, RemainingLabel string
 	Remaining, PartialPaid    bool
@@ -207,6 +210,11 @@ func (s *Server) invoiceVMFor(r *http.Request, id int64, includeStripeReadiness 
 		Overdue: invoiceOverdue(inv.Status, inv.DueDate, userNow(r).Format("2006-01-02")),
 	}
 	vm.DriftMessage = invoiceDriftMessage(lang, inv.Status, details.InvoicedSeconds, details.TrackedSeconds)
+	if inv.Status == "draft" && inv.ProjectID > 0 {
+		if card, err := s.services.Clients.ForProject(r.Context(), appmodel.ProjectScopeQuery{TeamID: inv.TeamID, ProjectID: inv.ProjectID}); err == nil && card.ID > 0 {
+			vm.HasClientCard = true
+		}
+	}
 	paid, owed := journalTotals(inv.Status, details.TotalCents, details.PaidCents)
 	vm.PaidLabel = moneyL(lang, paid, inv.Currency)
 	vm.RemainingLabel = moneyL(lang, owed, inv.Currency)

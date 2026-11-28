@@ -66,6 +66,7 @@
   "err.activityRequired": "Укажите активность.",
   "err.nameRequired": "Укажите название.",
   "err.noWorkspaceSeat": "Токен действует, но доступа к этому пространству у вас больше нет.",
+  "err.readOnlyToken": "Этот токен только для чтения: менять через него ничего нельзя.",
   "err.alreadyStopped": "Таймер уже остановлен.",
   "err.activeSessionExists": "У «{name}» уже идёт запись.",
   "err.activeSessionExistsPlain": "У этой активности уже идёт запись.",

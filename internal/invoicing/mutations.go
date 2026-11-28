@@ -157,8 +157,12 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	// checked when they were made. Client numbers that do not check out are
 	// refused here, so an edit can never put them in front of the client.
 	// Details left as they were do not block changing the due date of a draft
-	// saved before the check existed.
-	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 && request.Details != current.Invoice.ClientDetails {
+	// saved before the check existed, but they never travel on to the
+	// client card, which refuses them. Line endings are compared as text:
+	// a textarea sends CRLF where the database keeps LF.
+	request.Details = strings.ReplaceAll(request.Details, "\r\n", "\n")
+	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 &&
+		(request.UpdateClientCard || request.Details != strings.ReplaceAll(current.Invoice.ClientDetails, "\r\n", "\n")) {
 		return &model.RequisitesError{Client: true, Fields: bad}
 	}
 	request.ProjectID = current.Invoice.ProjectID

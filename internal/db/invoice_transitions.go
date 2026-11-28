@@ -220,6 +220,11 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 	} else if affected == 0 {
 		return ErrInvoiceNotDraft
 	}
+	// An invoice over every project has no project, so no card to update:
+	// the box asked for something this invoice cannot do.
+	if request.UpdateClientCard && projectID <= 0 {
+		return model.ErrNoClientCard
+	}
 	if projectID > 0 {
 		res, err := tx.ExecContext(ctx,
 			`UPDATE projects SET client_name = ?, client_details = ?, client_email = ? WHERE id = ? AND team_id = ?`,
@@ -255,8 +260,6 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 			} else if n == 0 {
 				return model.ErrNoClientCard
 			}
-		} else if request.UpdateClientCard {
-			return model.ErrNoClientCard
 		}
 	}
 	return tx.Commit()
