@@ -46,6 +46,25 @@ type OverloadNoticeRequest struct {
 }
 
 // DayFillCandidatesQuery asks for the members who started no session in [From, To).
+// BudgetProject is a project with an estimate or a budget, and what it has used.
+type BudgetProject struct {
+	TeamID          int64
+	ProjectID       int64
+	Name            string
+	Slug            string
+	LeadUserID      int64
+	EstimateMinutes int
+	BudgetCents     int
+	RateCents       int
+	TrackedSeconds  int
+}
+
+// BudgetNoticeRequest claims one budget warning level of a project.
+type BudgetNoticeRequest struct {
+	ProjectID int64
+	Level     int
+}
+
 // LongTimerNoticeRequest claims the one long-timer reminder of a session.
 type LongTimerNoticeRequest struct {
 	SessionID int64

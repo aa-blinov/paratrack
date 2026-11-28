@@ -16,6 +16,7 @@ const (
 	NotificationTopicCRMNextStep      = "crm_next_step"
 	NotificationTopicDayFill          = "day.fill"
 	NotificationTopicLongTimer        = "timer.long"
+	NotificationTopicProjectBudget    = "project.budget"
 )
 
 // ErrInvalidNotificationTopic means a caller asked to mute something the

@@ -42,6 +42,7 @@ var notificationTopics = []string{
 	appmodel.NotificationTopicCRMNextStep,
 	appmodel.NotificationTopicDayFill,
 	appmodel.NotificationTopicLongTimer,
+	appmodel.NotificationTopicProjectBudget,
 }
 
 func isNotificationTopic(topic string) bool {

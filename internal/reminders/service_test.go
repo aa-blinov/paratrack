@@ -25,8 +25,26 @@ type fakeStore struct {
 	// userZones holds the hand-set zone of each member; empty means they never chose.
 	userZones map[int64]string
 	// running are the timers running now; longClaims keys the sessions reminded.
-	running    []appmodel.RunningSession
-	longClaims map[int64]bool
+	running      []appmodel.RunningSession
+	longClaims   map[int64]bool
+	budget       []appmodel.BudgetProject
+	budgetClaims map[string]bool
+}
+
+func (f *fakeStore) BudgetProjects(context.Context) ([]appmodel.BudgetProject, error) {
+	return f.budget, nil
+}
+
+func (f *fakeStore) ClaimBudgetNotice(_ context.Context, request appmodel.BudgetNoticeRequest) (bool, error) {
+	if f.budgetClaims == nil {
+		f.budgetClaims = map[string]bool{}
+	}
+	key := fmt.Sprintf("%d:%d", request.ProjectID, request.Level)
+	if f.budgetClaims[key] {
+		return false, nil
+	}
+	f.budgetClaims[key] = true
+	return true, nil
 }
 
 func (f *fakeStore) RunningSessions(context.Context) ([]appmodel.RunningSession, error) {
@@ -409,5 +427,51 @@ func TestLongTimerReminder(t *testing.T) {
 	}
 	if count != 2 {
 		t.Fatalf("a second pass reminded again: %d", count)
+	}
+}
+
+// A project warns at four fifths of its estimate and again when it is used
+// up, each once; the money budget counts at the project's rate.
+func TestBudgetReminders(t *testing.T) {
+	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
+	store := &fakeStore{teams: []int64{1}, claimed: map[string]bool{}, managers: []int64{1}, budget: []appmodel.BudgetProject{
+		{TeamID: 1, ProjectID: 10, Name: "Сайт", Slug: "sayt", EstimateMinutes: 600, TrackedSeconds: 8 * 3600},
+		{TeamID: 1, ProjectID: 20, Name: "Лендинг", Slug: "landing", BudgetCents: 1000000, RateCents: 200000, TrackedSeconds: 6 * 3600},
+		{TeamID: 1, ProjectID: 30, Name: "Тихий", Slug: "quiet", EstimateMinutes: 600, TrackedSeconds: 2 * 3600},
+	}}
+	rec := &recorder{}
+	service, err := New(Dependencies{Store: store, Planner: fakePlanner{}, Sender: rec, Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := service.Pass(ctx); err != nil {
+		t.Fatal(err)
+	}
+	budget := func() []Notification {
+		var out []Notification
+		for _, n := range rec.sent {
+			if n.Topic == TopicBudget {
+				out = append(out, n)
+			}
+		}
+		return out
+	}
+	got := budget()
+	if len(got) != 2 || !strings.Contains(got[0].Body, "Сайт") || !strings.Contains(got[0].Body, "80%") || !strings.Contains(got[1].Title, "вышел") {
+		t.Fatalf("budget warnings: %+v", got)
+	}
+	if err := service.Pass(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(budget()) != 2 {
+		t.Fatalf("a second pass warned again: %+v", budget())
+	}
+	store.budget[0].TrackedSeconds = 11 * 3600
+	if err := service.Pass(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if got := budget(); len(got) != 3 || !strings.Contains(got[2].Title, "вышел") {
+		t.Fatalf("used up after four fifths: %+v", got)
 	}
 }

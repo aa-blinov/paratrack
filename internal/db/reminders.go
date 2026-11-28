@@ -269,3 +269,41 @@ func (d *DB) ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTime
 	}
 	return n == 1, nil
 }
+
+// BudgetProjects lists the live projects with an estimate or a money budget,
+// with the time tracked on them so far and their rate, for the budget warnings.
+func (d *DB) BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, error) {
+	var out []appmodel.BudgetProject
+	err := queryRows(ctx, d.sql, "budget projects",
+		`SELECT p.team_id, p.id, p.name, p.slug, COALESCE(p.lead_user_id, 0),
+		        COALESCE(p.estimate_minutes, 0), COALESCE(p.budget_cents, 0), COALESCE(p.billable_rate_cents, 0),
+		        COALESCE((SELECT SUM(s.accumulated_seconds) FROM sessions s JOIN activities a ON a.id = s.activity_id
+		                   WHERE a.project_id = p.id AND s.end_at IS NOT NULL), 0)
+		   FROM projects p
+		  WHERE p.archived = 0 AND (COALESCE(p.estimate_minutes, 0) > 0 OR COALESCE(p.budget_cents, 0) > 0)
+		  ORDER BY p.id`,
+		func(rows *sql.Rows) error {
+			var p appmodel.BudgetProject
+			if err := rows.Scan(&p.TeamID, &p.ProjectID, &p.Name, &p.Slug, &p.LeadUserID, &p.EstimateMinutes, &p.BudgetCents, &p.RateCents, &p.TrackedSeconds); err != nil {
+				return err
+			}
+			out = append(out, p)
+			return nil
+		})
+	return out, err
+}
+
+// ClaimBudgetNotice records one warning level of a project, once.
+func (d *DB) ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNoticeRequest) (bool, error) {
+	result, err := d.sql.ExecContext(ctx,
+		`INSERT INTO project_budget_reminders (project_id, level, created_at) VALUES (?, ?, ?) ON CONFLICT (project_id, level) DO NOTHING`,
+		request.ProjectID, request.Level, FormatTime(d.currentTime().UTC()))
+	if err != nil {
+		return false, fmt.Errorf("claim budget notice: %w", err)
+	}
+	n, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n == 1, nil
+}

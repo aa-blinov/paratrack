@@ -21,6 +21,7 @@ const (
 	TopicTaskDue   = "task.due"
 	TopicDayFill   = appmodel.NotificationTopicDayFill
 	TopicLongTimer = appmodel.NotificationTopicLongTimer
+	TopicBudget    = appmodel.NotificationTopicProjectBudget
 	// TopicCRMNextStep is the topic a person switches off for next-step reminders.
 	TopicCRMNextStep = appmodel.NotificationTopicCRMNextStep
 )
@@ -40,6 +41,8 @@ type Store interface {
 	DayFillCandidates(ctx context.Context, query appmodel.DayFillCandidatesQuery) ([]int64, error)
 	ClaimDayFillNotice(ctx context.Context, request appmodel.DayFillNoticeRequest) (bool, error)
 	RunningSessions(ctx context.Context) ([]appmodel.RunningSession, error)
+	BudgetProjects(ctx context.Context) ([]appmodel.BudgetProject, error)
+	ClaimBudgetNotice(ctx context.Context, request appmodel.BudgetNoticeRequest) (bool, error)
 	ClaimLongTimerNotice(ctx context.Context, request appmodel.LongTimerNoticeRequest) (bool, error)
 	TeamLocation(ctx context.Context, teamID int64) (*time.Location, error)
 	// UserTimeZones reads the hand-set zone of each named member ("tz" of their
@@ -215,6 +218,7 @@ func (s *Service) Pass(ctx context.Context) error {
 		{"crm next step reminders", s.crmSteps},
 		{"day fill reminders", s.dayFill},
 		{"long timer reminders", s.longTimers},
+		{"budget reminders", s.budgets},
 	}
 	var errs []error
 	for _, section := range sections {
@@ -527,6 +531,78 @@ func (s *Service) longTimers(ctx context.Context, now time.Time) error {
 			Title: fmt.Sprintf("Таймер идёт уже %d ч", hours),
 			Body:  fmt.Sprintf("«%s» всё ещё идёт. Если вы его забыли, остановите и поправьте время.", r.Activity),
 			URL:   "/",
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// budgets warns the managers and the project's lead when a project has used
+// four fifths of its estimate or budget, and again when it has used it all,
+// each once. The estimate is hours; the budget is money, counted at the
+// project's rate. The warning comes before the overrun, not after someone
+// opens the project and sees it.
+func (s *Service) budgets(ctx context.Context, now time.Time) error {
+	projects, err := s.store.BudgetProjects(ctx)
+	if err != nil {
+		return err
+	}
+	for _, p := range projects {
+		used := 0
+		what := ""
+		if p.EstimateMinutes > 0 {
+			used = p.TrackedSeconds * 100 / (p.EstimateMinutes * 60)
+			what = fmt.Sprintf("%d из %d ч оценки", p.TrackedSeconds/3600, p.EstimateMinutes/60)
+		}
+		if p.BudgetCents > 0 && p.RateCents > 0 {
+			spent := int(int64(p.TrackedSeconds) * int64(p.RateCents) / 3600)
+			if share := spent * 100 / p.BudgetCents; share > used {
+				used = share
+				what = fmt.Sprintf("%d из %d бюджета", spent/100, p.BudgetCents/100)
+			}
+		}
+		level := 0
+		switch {
+		case used >= 100:
+			level = 100
+		case used >= 80:
+			level = 80
+		}
+		if level == 0 {
+			continue
+		}
+		managers, err := s.store.ManagerIDs(ctx, p.TeamID)
+		if err != nil {
+			return err
+		}
+		recipients := managers
+		if p.LeadUserID > 0 && !contains(recipients, p.LeadUserID) {
+			recipients = append(recipients, p.LeadUserID)
+		}
+		night, err := s.teamNightOnes(ctx, p.TeamID, recipients, now)
+		if err != nil {
+			return err
+		}
+		awake := without(recipients, night)
+		if len(awake) == 0 {
+			continue
+		}
+		claimed, err := s.store.ClaimBudgetNotice(ctx, appmodel.BudgetNoticeRequest{ProjectID: p.ProjectID, Level: level})
+		if err != nil {
+			return err
+		}
+		if !claimed {
+			continue
+		}
+		title := "Проект подходит к пределу"
+		if level == 100 {
+			title = "Проект вышел за предел"
+		}
+		if err := s.sender.Send(ctx, Notification{
+			TeamID: p.TeamID, UserIDs: awake, Topic: TopicBudget,
+			Title: title, Body: fmt.Sprintf("%s: %s (%d%%)", p.Name, what, used),
+			URL: "/projects/" + p.Slug,
 		}); err != nil {
 			return err
 		}
