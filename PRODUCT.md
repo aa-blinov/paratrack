@@ -198,7 +198,9 @@ Deliberately not true, and worth knowing before a change:
   edit is refused with that reason, and the box is offered only when a card
   exists. Details that do not check out never travel to the card or to the
   project's copy the next invoice falls back to. Details are stored with LF
-  line endings. A
+  line endings. A new invoice remembers the client's email and details on the
+  client card when its project has one (never clearing a filled field or
+  renaming the card), and on the project's own copy only when it has none. A
   card or a draft saved before the check can still be edited while its
   details stay as they are.
 - A token whose owner has no seat in its workspace any more is answered

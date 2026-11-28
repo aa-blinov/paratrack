@@ -272,10 +272,26 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 		return Invoice{}, nil, err
 	}
 	if options.RememberClient && projectID > 0 {
-		if _, err := tx.ExecContext(ctx,
-			`UPDATE projects SET client_name = ?, client_details = ?, client_email = ? WHERE id = ? AND team_id = ?`,
-			strings.TrimSpace(clientName), strings.TrimSpace(options.ClientDetails), strings.TrimSpace(options.ClientEmail), projectID, teamID); err != nil {
-			return Invoice{}, nil, fmt.Errorf("remember project client: %w", err)
+		// The client card, when the project has one, is where the next invoice
+		// reads the client from, so that is what is remembered: the email and
+		// the details, never clearing a filled field and never renaming the
+		// card (a name another client has would fail the whole invoice). A
+		// project without a card keeps its own copy, as before.
+		res, err := tx.ExecContext(ctx,
+			`UPDATE clients SET email = COALESCE(NULLIF(?, ''), email), details = COALESCE(NULLIF(?, ''), details), updated_at = ?
+			  WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?)`,
+			strings.TrimSpace(options.ClientEmail), strings.TrimSpace(options.ClientDetails), createdAt, teamID, projectID, teamID)
+		if err != nil {
+			return Invoice{}, nil, fmt.Errorf("remember client on its card: %w", err)
+		}
+		if n, err := res.RowsAffected(); err != nil {
+			return Invoice{}, nil, err
+		} else if n == 0 {
+			if _, err := tx.ExecContext(ctx,
+				`UPDATE projects SET client_name = ?, client_details = ?, client_email = ? WHERE id = ? AND team_id = ?`,
+				strings.TrimSpace(clientName), strings.TrimSpace(options.ClientDetails), strings.TrimSpace(options.ClientEmail), projectID, teamID); err != nil {
+				return Invoice{}, nil, fmt.Errorf("remember project client: %w", err)
+			}
 		}
 	}
 	if err := d.recordWebhookEventTx(ctx, tx, teamID, webhookport.InvoiceCreatedEvent{InvoiceID: invoiceID, Number: number, Client: strings.TrimSpace(clientName)}, now); err != nil {
