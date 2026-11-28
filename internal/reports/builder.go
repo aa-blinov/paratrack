@@ -327,12 +327,6 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report task links: %w", err)
 	}
-	unlinkedSeconds := 0
-	for _, session := range sessions {
-		if _, ok := linked[session.Activity.ID]; !ok {
-			unlinkedSeconds += session.Session.TrackedSecondsInWindow(query.From, query.To, query.Now)
-		}
-	}
 	teamCurrency, err := b.teams.Currency(ctx, query.TeamID)
 	if err != nil {
 		return AggregateResult{}, fmt.Errorf("load report currency: %w", err)
@@ -356,6 +350,26 @@ func (b *Builder) Build(ctx context.Context, query BuildQuery) (AggregateResult,
 	projectByID := make(map[int64]model.Project, len(projects))
 	for _, project := range projects {
 		projectByID[project.ID] = project
+	}
+	if query.ProjectID > 0 || query.ClientID > 0 {
+		kept := sessions[:0]
+		for _, session := range sessions {
+			project, ok := projectByID[session.Activity.ProjectID]
+			if query.ProjectID > 0 && session.Activity.ProjectID != query.ProjectID {
+				continue
+			}
+			if query.ClientID > 0 && (!ok || project.ClientID != query.ClientID) {
+				continue
+			}
+			kept = append(kept, session)
+		}
+		sessions = kept
+	}
+	unlinkedSeconds := 0
+	for _, session := range sessions {
+		if _, ok := linked[session.Activity.ID]; !ok {
+			unlinkedSeconds += session.Session.TrackedSecondsInWindow(query.From, query.To, query.Now)
+		}
 	}
 	projectCurrencies, err := b.projects.Currencies(ctx, query.TeamID)
 	if err != nil {

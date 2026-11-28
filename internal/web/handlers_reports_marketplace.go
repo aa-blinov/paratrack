@@ -52,14 +52,49 @@ type reportVM struct {
 	ShowUnlinked    bool
 	UnlinkedLabel   string
 	UnlinkedPercent string
+	// The report's scope: one project, one client's projects, or everything.
+	ProjectID int64
+	ClientID  int64
+	Scope     string
+	Projects  []reportScopeOption
+	Clients   []reportScopeOption
+}
+
+// reportScopeOption is a project or client the report can be narrowed to.
+type reportScopeOption struct {
+	ID   int64
+	Name string
 }
 
 // buildReport adapts request-specific labels and formatting around the
 // transport-independent report aggregation workflow.
 func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, to time.Time) (reportVM, error) {
+	// A report for one project or one client is what a PM sends that client
+	// for the month; the ids are only taken when they name this workspace's own.
+	var projects, clients []reportScopeOption
+	var projectID, clientID int64
+	scope := ""
+	wantProject, _ := strconv.ParseInt(r.URL.Query().Get("project_id"), 10, 64)
+	wantClient, _ := strconv.ParseInt(r.URL.Query().Get("client_id"), 10, 64)
+	if list, err := s.services.Projects.Queries.List(r.Context(), appmodel.ProjectCatalogQuery{TeamID: teamID(r), IncludeArchived: true}); err == nil {
+		for _, p := range list {
+			projects = append(projects, reportScopeOption{ID: p.ID, Name: p.Name})
+			if p.ID == wantProject {
+				projectID, scope = p.ID, i18n.T(resolveLang(r), "rep.scopeProject")+": "+p.Name
+			}
+		}
+	}
+	if list, err := s.services.Clients.List(r.Context(), appmodel.ClientCatalogQuery{TeamID: teamID(r), IncludeArchived: true}); err == nil {
+		for _, c := range list {
+			clients = append(clients, reportScopeOption{ID: c.ID, Name: c.Name})
+			if c.ID == wantClient && projectID == 0 {
+				clientID, scope = c.ID, i18n.T(resolveLang(r), "rep.scopeClient")+": "+c.Name
+			}
+		}
+	}
 	result, err := s.services.ReportBuilder.Build(r.Context(), appmodel.ReportBuildQuery{
 		TeamID: teamID(r), From: from, To: to, Now: userNow(r), Location: userLoc(r),
-		GroupBy: tpl.GroupBy, Billable: tpl.Billable,
+		GroupBy: tpl.GroupBy, Billable: tpl.Billable, ProjectID: projectID, ClientID: clientID,
 		Labels: appmodel.ReportLabels{
 			Uncategorized: i18n.T(resolveLang(r), "dash.uncategorized"),
 			Unassigned:    i18n.T(resolveLang(r), "report.unassigned"),
@@ -69,7 +104,9 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 	if err != nil {
 		return reportVM{}, err
 	}
-	showPlan := tpl.GroupBy == appmodel.ReportGroupUser
+	// The plan is per person across the whole workspace: set against one
+	// project's hours it would read as underload, so a scoped report has none.
+	showPlan := tpl.GroupBy == appmodel.ReportGroupUser && projectID == 0 && clientID == 0
 	var planned map[int64]int
 	if showPlan {
 		planned, err = s.services.Scheduling.PlannedMinutesByUser(r.Context(), teamID(r), from, to)
@@ -167,6 +204,11 @@ func (s *Server) buildReport(r *http.Request, tpl catalog.ReportTemplate, from, 
 		ShowUnlinked:    result.UnlinkedSeconds > 0,
 		UnlinkedLabel:   reportHours(r, false, result.UnlinkedSeconds),
 		UnlinkedPercent: unlinkedPercent(result.UnlinkedSeconds, result.TotalSeconds),
+		ProjectID:       projectID,
+		ClientID:        clientID,
+		Scope:           scope,
+		Projects:        projects,
+		Clients:         clients,
 	}, nil
 }
 

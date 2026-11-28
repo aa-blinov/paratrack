@@ -838,6 +838,11 @@ export interface ReportRunData {
     TotalAmount: string
     ShowPlan: boolean
     TotalPlan: string
+    ProjectID?: number
+    ClientID?: number
+    Scope?: string
+    Projects?: Array<{ ID: number; Name: string }>
+    Clients?: Array<{ ID: number; Name: string }>
     ShowUnlinked: boolean
     UnlinkedLabel: string
     UnlinkedPercent: string

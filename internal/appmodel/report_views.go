@@ -22,6 +22,11 @@ type ReportBuildQuery struct {
 	GroupBy  ReportGroup
 	Billable bool
 	Labels   ReportLabels
+	// ProjectID and ClientID narrow the report to one project or to every
+	// project of one client card (0 = the whole workspace), so a month can be
+	// closed and sent per project.
+	ProjectID int64
+	ClientID  int64
 }
 
 type ReportStatsQuery struct {
