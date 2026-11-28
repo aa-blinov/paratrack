@@ -16,13 +16,17 @@ import (
 // falls back to the last answer moved forward by the time since, marks that
 // answer as not fresh, says "offline" when it has nothing, and never fails.
 func TestRemoteStatusShortForPrompts(t *testing.T) {
-	var hang, refuse bool
+	var hang, refuse, forbid bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if hang {
 			time.Sleep(2 * time.Second)
 		}
 		if refuse {
 			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		if forbid {
+			w.WriteHeader(http.StatusForbidden)
 			return
 		}
 		switch {
@@ -89,7 +93,11 @@ func TestRemoteStatusShortForPrompts(t *testing.T) {
 	if _, err := os.Stat(rt.StatusCachePath); !os.IsNotExist(err) {
 		t.Fatalf("a refused token must drop the cache: %v", err)
 	}
-	refuse = false
+	refuse, forbid = false, true
+	if got := short(); got != "access?" {
+		t.Fatalf("token without a seat line = %q", got)
+	}
+	forbid = false
 	_ = short()
 
 	hang = false
