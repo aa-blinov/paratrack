@@ -30,6 +30,13 @@ async function api(path, opts = {}) {
     credentials: "omit",
   });
   if (res.status === 401) throw new Error("unauthorized");
+  // A token that works but has no seat in its workspace any more: say so,
+  // instead of reading the error body as "no timer running".
+  if (res.status === 403) {
+    let text = "";
+    try { text = (await res.json()).error || ""; } catch (_) {}
+    throw new Error("forbidden: " + (text || "no access to this workspace"));
+  }
   return res;
 }
 
@@ -102,7 +109,7 @@ async function refresh() {
   try {
     active = await (await api("/api/active")).json();
   } catch (e) {
-    setStatus("server unreachable");
+    setStatus(String(e.message || "").startsWith("forbidden") ? e.message.replace(/^forbidden: /, "") : "server unreachable");
     return;
   }
   const items = Array.isArray(active.Items) ? active.Items : [];
