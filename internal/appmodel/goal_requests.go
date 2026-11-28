@@ -9,6 +9,7 @@ type GoalUpsertRequest struct {
 	ActivityName string
 	Period       string
 	Minutes      int
+	Kind         string
 }
 
 // GoalDeleteRequest identifies a caller-authorized goal to remove.
@@ -24,6 +25,8 @@ type GoalDeleteRequest struct {
 type GoalTarget struct {
 	Period  string
 	Minutes int
+	// Kind is "max" for a limit; anything else is a target to reach.
+	Kind string
 }
 
 // GoalSetRequest applies multiple period targets atomically for one activity.

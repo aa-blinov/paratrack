@@ -147,6 +147,7 @@ type ExportGoal struct {
 	ActivityID    int64
 	Period        string
 	TargetMinutes int64
+	Kind          string
 }
 
 type ExportTask struct {

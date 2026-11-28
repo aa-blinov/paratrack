@@ -99,6 +99,7 @@ type goalResponse struct {
 	TeamID        int64     `json:"team_id"`
 	Period        string    `json:"period"`
 	TargetMinutes int       `json:"target_minutes"`
+	Kind          string    `json:"kind"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }
@@ -108,7 +109,7 @@ func (goalResponse) isJSONResponse() {}
 func goalFor(goal model.Goal) goalResponse {
 	return goalResponse{
 		ID: goal.ID, ActivityID: goal.ActivityID, TeamID: goal.TeamID,
-		Period: goal.Period, TargetMinutes: goal.TargetMinutes,
+		Period: goal.Period, Kind: goal.Kind, TargetMinutes: goal.TargetMinutes,
 		CreatedAt: goal.CreatedAt, UpdatedAt: goal.UpdatedAt,
 	}
 }

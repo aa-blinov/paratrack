@@ -161,7 +161,7 @@ func (s *Service) UpsertForManager(ctx context.Context, request appmodel.GoalUps
 	}
 	goals, err := s.SetForManager(ctx, appmodel.GoalSetRequest{
 		TeamID: request.TeamID, CallerID: request.CallerID, ActivityName: request.ActivityName,
-		Targets: []appmodel.GoalTarget{{Period: request.Period, Minutes: request.Minutes}},
+		Targets: []appmodel.GoalTarget{{Period: request.Period, Minutes: request.Minutes, Kind: request.Kind}},
 	})
 	if err != nil {
 		return model.Goal{}, err

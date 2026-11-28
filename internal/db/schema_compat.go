@@ -12,6 +12,9 @@ var columnMigrations = []struct {
 	// same shape as a salary line (no hours, no rate), so only this column
 	// tells the two apart: a percent is taken of the salary, never of a bonus.
 	{"payroll_lines", "kind", "TEXT NOT NULL DEFAULT ''"},
+	// "max" makes a goal a limit ("no more than an hour on social media"):
+	// crossing it is a warning, not an achievement.
+	{"goals", "kind", "TEXT NOT NULL DEFAULT 'min'"},
 	// An adjustment given as a percent keeps the percent, in basis points, so
 	// recalculating a draft takes it of the new earnings instead of leaving
 	// the amount worked out from hours that have since changed.

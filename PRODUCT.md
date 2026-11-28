@@ -115,6 +115,12 @@ Confirmed by the code:
 - An emailed invoice carries its act and the breakdown by session (CSV)
   besides the invoice PDF. With the executors' names hidden on invoices, the
   breakdown leaves the person column empty too.
+- A goal is a target ("at least") or a limit ("at most", `goals.kind =
+  'max'`): crossing a limit sends "Лимит превышен", never a congratulation,
+  and the goal shows red.
+- A project with an estimate (hours) or a money budget (counted at its rate)
+  warns its managers and lead at 80% and again at 100%, each once
+  ("project.budget", mutable).
 - A timer running longer than its owner set (4 hours unless they chose
   otherwise in the preferences, 0 turns it off) gets one push per session
   ("timer.long", mutable like the others); at night it waits for the

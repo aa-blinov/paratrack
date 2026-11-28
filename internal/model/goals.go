@@ -11,6 +11,8 @@ type Goal struct {
 	TeamID        int64
 	Period        string // daily | weekly | monthly
 	TargetMinutes int
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	// Kind is "min" (reach at least the target) or "max" (stay under it).
+	Kind      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }

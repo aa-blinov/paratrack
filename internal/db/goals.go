@@ -18,7 +18,7 @@ import (
 func (d *DB) UpsertGoalForManager(ctx context.Context, request appmodel.GoalUpsertRequest) (model.Goal, error) {
 	goals, err := d.UpsertGoalsForManager(ctx, appmodel.GoalSetRequest{
 		TeamID: request.TeamID, CallerID: request.CallerID, ActivityName: request.ActivityName,
-		Targets: []appmodel.GoalTarget{{Period: request.Period, Minutes: request.Minutes}},
+		Targets: []appmodel.GoalTarget{{Period: request.Period, Minutes: request.Minutes, Kind: request.Kind}},
 	})
 	if err != nil {
 		return model.Goal{}, err
@@ -81,10 +81,14 @@ func (d *DB) UpsertGoalsForManager(ctx context.Context, request appmodel.GoalSet
 		default:
 			return nil, fmt.Errorf("period must be daily|weekly|monthly, got %q", target.Period)
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO goals (activity_id, team_id, period, target_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(team_id, activity_id, period) DO UPDATE SET target_minutes = excluded.target_minutes, updated_at = excluded.updated_at`, activityID, request.TeamID, target.Period, target.Minutes, now, now); err != nil {
+		kind := "min"
+		if target.Kind == "max" {
+			kind = "max"
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO goals (activity_id, team_id, period, target_minutes, kind, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(team_id, activity_id, period) DO UPDATE SET target_minutes = excluded.target_minutes, kind = excluded.kind, updated_at = excluded.updated_at`, activityID, request.TeamID, target.Period, target.Minutes, kind, now, now); err != nil {
 			return nil, err
 		}
-		goal, err := scanGoal(tx.QueryRowContext(ctx, `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, target.Period))
+		goal, err := scanGoal(tx.QueryRowContext(ctx, `SELECT id, activity_id, team_id, period, target_minutes, kind, created_at, updated_at FROM goals WHERE team_id = ? AND activity_id = ? AND period = ?`, request.TeamID, activityID, target.Period))
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +178,7 @@ func (d *DB) ListGoals(ctx context.Context, query appmodel.GoalListQuery) ([]mod
 	if query.TeamID <= 0 || (query.ActivityID != nil && *query.ActivityID <= 0) {
 		return nil, ErrNotFound
 	}
-	q := `SELECT id, activity_id, team_id, period, target_minutes, created_at, updated_at FROM goals WHERE team_id = ?`
+	q := `SELECT id, activity_id, team_id, period, target_minutes, kind, created_at, updated_at FROM goals WHERE team_id = ?`
 	args := []any{query.TeamID}
 	if query.ActivityID != nil {
 		q += ` AND activity_id = ?`
@@ -396,7 +400,7 @@ func scanGoal(r row) (model.Goal, error) {
 		createdAt string
 		updatedAt string
 	)
-	if err := r.Scan(&g.ID, &g.ActivityID, &teamID, &g.Period, &g.TargetMinutes, &createdAt, &updatedAt); err != nil {
+	if err := r.Scan(&g.ID, &g.ActivityID, &teamID, &g.Period, &g.TargetMinutes, &g.Kind, &createdAt, &updatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return model.Goal{}, model.ErrGoalNotFound
 		}

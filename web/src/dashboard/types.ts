@@ -315,6 +315,7 @@ export interface GoalView {
   ActivityName: string
   Color: string
   Period: string
+  Kind?: string
   TargetMinutes: number
   TargetLabel: string
   AchievedMinutes: number

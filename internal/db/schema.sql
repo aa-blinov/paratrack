@@ -162,6 +162,7 @@ CREATE TABLE IF NOT EXISTS goals (
     team_id BIGINT NOT NULL DEFAULT 0,
     period TEXT NOT NULL CHECK(period IN ('daily', 'weekly', 'monthly')),
     target_minutes BIGINT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'min',
     created_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     updated_at TEXT NOT NULL DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US') || '000Z'),
     FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE,
@@ -281,6 +282,16 @@ CREATE TABLE IF NOT EXISTS payroll_lines (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_payroll_lines_run ON payroll_lines(run_id);
+
+-- The budget warnings a project got: level 80 (four fifths used) and 100
+-- (used up), each once.
+CREATE TABLE IF NOT EXISTS project_budget_reminders (
+    project_id BIGINT NOT NULL,
+    level INT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (project_id, level),
+    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
 
 -- The one "your timer is still running" reminder a session gets.
 CREATE TABLE IF NOT EXISTS long_timer_reminders (

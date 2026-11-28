@@ -14,7 +14,7 @@ import type { GoalView, GoalsData } from "@/dashboard/types"
 import { responseMessage } from "@/lib/response-message"
 import { ColorMark } from "@/components/color-mark"
 
-type ProgressItem = { goal: { id: number; activity_id: number; period: string; target_minutes: number }; activity_name: string; achieved_minutes: number; percent_complete: number; period_start: string; period_end: string }
+type ProgressItem = { goal: { id: number; activity_id: number; period: string; target_minutes: number; kind?: string }; activity_name: string; achieved_minutes: number; percent_complete: number; period_start: string; period_end: string }
 
 // Each period edge is midnight in the workspace zone, and the first ten characters of its
 // text are that calendar day there. The label is built from the day, not from the instant:
@@ -30,6 +30,7 @@ function dateLabel(day: Date, lang: string) {
 export function GoalsPage({ data }: { data: GoalsData }) {
   const [goals, setGoals] = React.useState(data.Goals)
   const [period, setPeriod] = React.useState("daily")
+  const [kind, setKind] = React.useState("min")
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState("")
   const lang = data.Lang
@@ -61,7 +62,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
     const colors = new Map(data.Activities.map(activity => [activity.Name, activity.Color]))
     setGoals(payload.progress.map(item => ({
       ID: item.goal.id, ActivityName: item.activity_name, Color: colors.get(item.activity_name) || "#6366f1", Period: item.goal.period,
-      TargetMinutes: item.goal.target_minutes, TargetLabel: durationLabel(item.goal.target_minutes * 60, lang),
+      TargetMinutes: item.goal.target_minutes, TargetLabel: durationLabel(item.goal.target_minutes * 60, lang), Kind: item.goal.kind,
       AchievedMinutes: item.achieved_minutes, AchievedLabel: durationLabel(item.achieved_minutes * 60, lang), Percent: item.percent_complete,
       PeriodStartLabel: dateLabel(dayOf(item.period_start), lang), PeriodEndLabel: dateLabel(new Date(dayOf(item.period_end).getTime() - 864e5), lang), PeriodRangeLabel: t(lang, `goals.${item.goal.period}`),
     })))
@@ -71,7 +72,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
     event.preventDefault()
     const formElement = event.currentTarget
     const form = new FormData(formElement)
-    const body = new URLSearchParams({ activity: String(form.get("activity") || ""), period, minutes: String(form.get("minutes") || "") })
+    const body = new URLSearchParams({ activity: String(form.get("activity") || ""), period, minutes: String(form.get("minutes") || ""), kind })
     setBusy(true); setError("")
     try {
       // A queued goal is taken: the form clears, the banner says it waits,
@@ -106,6 +107,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
         <datalist id="goal-activities">{data.Activities.map(activity => <option key={activity.ID} value={activity.Name} />)}</datalist>
         <div className="grid gap-2"><Label htmlFor="goal-activity">{t(lang, "dash.activity")}</Label><Input id="goal-activity" name="activity" list="goal-activities" placeholder={t(lang, "ph.activity")} required /></div>
         <div className="grid gap-2"><Label htmlFor="goal-period">{t(lang, "goals.period")}</Label><Select value={period} onValueChange={setPeriod}><SelectTrigger id="goal-period" className="w-full"><SelectValue /></SelectTrigger><SelectContent>{(["daily", "weekly", "monthly"] as const).map(item => <SelectItem key={item} value={item}>{t(lang, `goals.${item}`)}</SelectItem>)}</SelectContent></Select></div>
+        <div className="grid gap-2"><Label htmlFor="goal-kind">{t(lang, "goals.kind")}</Label><Select value={kind} onValueChange={setKind}><SelectTrigger id="goal-kind" className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="min">{t(lang, "goals.kindMin")}</SelectItem><SelectItem value="max">{t(lang, "goals.kindMax")}</SelectItem></SelectContent></Select></div>
         <div className="grid gap-2"><Label htmlFor="goal-minutes">{t(lang, "goals.minutes")}</Label><Input id="goal-minutes" name="minutes" type="number" min="1" max="10000" required placeholder="120" /></div>
         <Button type="submit" disabled={busy}><Flag aria-hidden="true" />{t(lang, "goals.set")}</Button>
       </form>
@@ -114,7 +116,7 @@ export function GoalsPage({ data }: { data: GoalsData }) {
       {goals.map(goal => <div key={`${goal.ActivityName}:${goal.Period}`} className="grid gap-2">
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
           <div className="flex min-w-0 flex-wrap items-center gap-x-2"><strong className="inline-flex items-start gap-2"><ColorMark color={goal.Color} />{goal.ActivityName}</strong><span className="text-muted-foreground">{goal.PeriodRangeLabel} ({goal.PeriodStartLabel} – {goal.PeriodEndLabel})</span></div>
-          <div className="flex items-center gap-2"><span className="whitespace-nowrap font-mono tabular-nums">{goal.AchievedLabel}<span className="text-muted-foreground"> / {goal.TargetLabel}</span></span>{data.CanManage && <Button variant="ghost" size="icon" disabled={busy} title={t(lang, "goals.delete")} aria-label={t(lang, "goals.delete")} onClick={() => void remove(goal)}><Trash2 aria-hidden="true" /></Button>}</div>
+          <div className="flex items-center gap-2"><span className={`whitespace-nowrap font-mono tabular-nums${goal.Kind === "max" && goal.Percent > 100 ? " text-destructive" : ""}`}>{goal.AchievedLabel}<span className="text-muted-foreground"> / {goal.Kind === "max" ? t(lang, "goals.limitOf", goal.TargetLabel) : goal.TargetLabel}</span></span>{data.CanManage && <Button variant="ghost" size="icon" disabled={busy} title={t(lang, "goals.delete")} aria-label={t(lang, "goals.delete")} onClick={() => void remove(goal)}><Trash2 aria-hidden="true" /></Button>}</div>
         </div>
         <Progress value={Math.min(goal.Percent, 100)} aria-label={`${goal.ActivityName}: ${goal.AchievedLabel} / ${goal.TargetLabel}`} />
       </div>)}

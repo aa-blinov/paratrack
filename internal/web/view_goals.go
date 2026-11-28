@@ -12,6 +12,7 @@ type goalView struct {
 	ActivityName     string
 	Color            string
 	Period           string
+	Kind             string
 	TargetMinutes    int
 	TargetLabel      string // "2h", "1h 30m"
 	AchievedMinutes  int

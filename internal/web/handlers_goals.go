@@ -100,7 +100,7 @@ func (s *Server) handleGoalsUpsert(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, i18n.T(resolveLang(r), "err.goalMinutes"), 400)
 		return
 	}
-	g, err := s.services.Goals.UpsertForManager(r.Context(), appmodel.GoalUpsertRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), ActivityName: activityName, Period: period, Minutes: mins})
+	g, err := s.services.Goals.UpsertForManager(r.Context(), appmodel.GoalUpsertRequest{TeamID: teamID(r), CallerID: authenticatedUserID(r), ActivityName: activityName, Period: period, Minutes: mins, Kind: strings.TrimSpace(r.FormValue("kind"))})
 	if err != nil {
 		if isGoalValidationError(err) {
 			http.Error(w, i18n.T(resolveLang(r), "err.goalInvalid"), 400)
@@ -166,6 +166,7 @@ func toGoalViews(progress []appmodel.GoalProgress, lang i18n.Lang, colors map[st
 			ActivityName:     p.ActivityName,
 			Color:            activityColor(colors, p.ActivityName),
 			Period:           p.Goal.Period,
+			Kind:             p.Goal.Kind,
 			TargetMinutes:    p.Goal.TargetMinutes,
 			TargetLabel:      fmtMinutesL(lang, p.Goal.TargetMinutes),
 			AchievedMinutes:  p.AchievedMinutes,

@@ -331,8 +331,12 @@ func (r *restorer) Goal(g appmodel.ExportGoal) error {
 	if err != nil {
 		return err
 	}
-	return r.exec("goal", `INSERT INTO goals (activity_id, team_id, period, target_minutes, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?)`, activityID, r.teamID, g.Period, g.TargetMinutes, r.now, r.now)
+	kind := "min"
+	if g.Kind == "max" {
+		kind = "max"
+	}
+	return r.exec("goal", `INSERT INTO goals (activity_id, team_id, period, target_minutes, kind, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)`, activityID, r.teamID, g.Period, g.TargetMinutes, kind, r.now, r.now)
 }
 
 func (r *restorer) Invoice(inv appmodel.ExportInvoice) error {

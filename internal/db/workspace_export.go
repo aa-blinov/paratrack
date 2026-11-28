@@ -253,10 +253,10 @@ func exportActivities(ctx context.Context, tx *Tx, teamID int64, sink appmodel.W
 
 func exportGoals(ctx context.Context, tx *Tx, teamID int64, sink appmodel.WorkspaceSink) error {
 	return queryRows(ctx, tx, "export goals",
-		`SELECT id, activity_id, period, target_minutes FROM goals WHERE team_id = ? ORDER BY id`,
+		`SELECT id, activity_id, period, target_minutes, kind FROM goals WHERE team_id = ? ORDER BY id`,
 		func(rows *sql.Rows) error {
 			var g appmodel.ExportGoal
-			if err := rows.Scan(&g.ID, &g.ActivityID, &g.Period, &g.TargetMinutes); err != nil {
+			if err := rows.Scan(&g.ID, &g.ActivityID, &g.Period, &g.TargetMinutes, &g.Kind); err != nil {
 				return err
 			}
 			return sink.Goal(g)

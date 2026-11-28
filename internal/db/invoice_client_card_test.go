@@ -210,3 +210,37 @@ func TestRunningSessionsCarryTheThreshold(t *testing.T) {
 		}
 	}
 }
+
+// Projects with an estimate or a budget come with the time tracked on them.
+func TestBudgetProjectsSumTrackedTime(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Бюджеты", "budget-projects")
+	ownerID := teamOwner(t, d, teamID)
+	var projectID, actID int64
+	if err := d.TestSQL().QueryRowContext(ctx,
+		`INSERT INTO projects (team_id, name, slug, estimate_minutes, budget_cents, billable_rate_cents) VALUES (?, 'Сайт', 'budget-site', 600, 1000000, 200000) RETURNING id`, teamID).Scan(&projectID); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.TestSQL().QueryRowContext(ctx, `INSERT INTO activities (name, team_id, project_id) VALUES ('Вёрстка', ?, ?) RETURNING id`, teamID, projectID).Scan(&actID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx,
+		`INSERT INTO sessions (activity_id, team_id, user_id, start_at, end_at, accumulated_seconds) VALUES (?, ?, ?, '2026-11-02T09:00:00Z', '2026-11-02T12:00:00Z', 10800)`,
+		actID, teamID, ownerID); err != nil {
+		t.Fatal(err)
+	}
+	projects, err := d.BudgetProjects(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range projects {
+		if p.ProjectID == projectID {
+			if p.TrackedSeconds != 10800 || p.EstimateMinutes != 600 || p.BudgetCents != 1000000 || p.RateCents != 200000 {
+				t.Fatalf("budget project: %+v", p)
+			}
+			return
+		}
+	}
+	t.Fatal("the project is not listed")
+}

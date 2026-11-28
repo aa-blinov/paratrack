@@ -156,7 +156,7 @@ func (n trackingPushNotifications) GoalAchieved(ctx context.Context, request app
 	}
 	return n.push.EnqueueNotification(push.EnqueueNotificationRequest{
 		TeamID: request.TeamID, UserIDs: []int64{request.UserID},
-		Notification: push.Notification{Title: "Цель достигнута", Body: request.Goal.ActivityName + ": " + period, URL: "/goals", Topic: appmodel.NotificationTopicGoalAchieved},
+		Notification: push.Notification{Title: goalPushTitle(request.Goal.Goal.Kind), Body: request.Goal.ActivityName + ": " + period, URL: "/goals", Topic: appmodel.NotificationTopicGoalAchieved},
 	})
 }
 
@@ -298,4 +298,13 @@ func recurringLetterText(lang i18n.Lang, month string, drafts []invoicing.DraftS
 	text := fmt.Sprintf(i18n.T(lang, "mail.recurring.intro"), month) + "\n\n" + strings.Join(lines, "\n") +
 		"\n\n" + i18n.T(lang, "mail.recurring.outro")
 	return subject, text
+}
+
+// goalPushTitle words the push for the goal's kind: crossing a target is an
+// achievement, crossing a limit is a warning, never a congratulation.
+func goalPushTitle(kind string) string {
+	if kind == "max" {
+		return "Лимит превышен"
+	}
+	return "Цель достигнута"
 }

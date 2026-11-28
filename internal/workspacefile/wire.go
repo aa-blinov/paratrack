@@ -100,6 +100,7 @@ type ExportGoal struct {
 	ActivityID    int64  `json:"activity_id"`
 	Period        string `json:"period"`
 	TargetMinutes int64  `json:"target_minutes"`
+	Kind          string `json:"kind,omitempty"`
 }
 
 type ExportTask struct {
@@ -438,6 +439,7 @@ func encodeExportGoal(v appmodel.ExportGoal) ExportGoal {
 	out.ActivityID = v.ActivityID
 	out.Period = v.Period
 	out.TargetMinutes = v.TargetMinutes
+	out.Kind = v.Kind
 	return out
 }
 
@@ -447,6 +449,7 @@ func decodeExportGoal(v ExportGoal) appmodel.ExportGoal {
 	out.ActivityID = v.ActivityID
 	out.Period = v.Period
 	out.TargetMinutes = v.TargetMinutes
+	out.Kind = v.Kind
 	return out
 }
 
