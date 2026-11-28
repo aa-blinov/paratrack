@@ -45,7 +45,7 @@ func (d *DB) ListPayrollRunDetails(ctx context.Context, query appmodel.PayrollRu
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ?
-		 ORDER BY r.created_at DESC, r.id DESC, COALESCE((SELECT MIN(x.label) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id AND x.kind <> 'adjustment'), (SELECT MIN(split_part(x.label, ' — ', 1)) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id), (SELECT COALESCE(NULLIF(u.name, ''), u.email) FROM users u WHERE u.id = l.user_id)), l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID)
+		 ORDER BY r.created_at DESC, r.id DESC, COALESCE((SELECT MIN(x.label) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id AND x.kind <> 'adjustment'), (SELECT MIN(NULLIF(split_part(x.label, ' — ', 1), '')) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id), (SELECT COALESCE(NULLIF(u.name, ''), u.email) FROM users u WHERE u.id = l.user_id)), l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +104,7 @@ func (d *DB) GetPayrollRunDetails(ctx context.Context, query appmodel.PayrollRun
 		 FROM payroll_runs r
 		 LEFT JOIN payroll_lines l ON l.run_id = r.id
 		 WHERE r.team_id = ? AND r.id = ?
-		 ORDER BY COALESCE((SELECT MIN(x.label) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id AND x.kind <> 'adjustment'), (SELECT MIN(split_part(x.label, ' — ', 1)) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id), (SELECT COALESCE(NULLIF(u.name, ''), u.email) FROM users u WHERE u.id = l.user_id)), l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID, query.RunID)
+		 ORDER BY COALESCE((SELECT MIN(x.label) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id AND x.kind <> 'adjustment'), (SELECT MIN(NULLIF(split_part(x.label, ' — ', 1), '')) FROM payroll_lines x WHERE x.run_id = l.run_id AND x.user_id = l.user_id), (SELECT COALESCE(NULLIF(u.name, ''), u.email) FROM users u WHERE u.id = l.user_id)), l.user_id, (l.kind = 'adjustment'), l.id`, query.TeamID, query.RunID)
 	if err != nil {
 		return appmodel.PayrollRunDetails{}, err
 	}

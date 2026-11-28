@@ -108,13 +108,20 @@ func TestPayrollRecalculationThroughTheScreens(t *testing.T) {
 	stale := e.do("POST", runPath+"/recalculate", url.Values{"expect": {open.RecalcPreview.Expect}}, nil)
 	stale.Body.Close()
 	staleView := reactData[payrollDetailPage](t, readBody(t, e.do("GET", stale.Header.Get("Location"), nil, nil)))
-	if !strings.Contains(staleView.Flash, "Пересчитать можно только черновик") {
+	if !strings.Contains(staleView.Flash, "Ведомость уже не черновик") {
 		t.Fatalf("applying a preview of a run paid since: %q", staleView.Flash)
+	}
+	// +6% added in a tab opened before the run was paid: the same honest words.
+	late := e.do("POST", runPath+"/adjustments", url.Values{"user_id": {strconv.FormatInt(yanaID, 10)}, "label": {"Налог"}, "unit": {"percent"}, "amount": {"6"}}, nil)
+	late.Body.Close()
+	lateView := reactData[payrollDetailPage](t, readBody(t, e.do("GET", late.Header.Get("Location"), nil, nil)))
+	if !strings.Contains(lateView.Flash, "Ведомость уже не черновик") {
+		t.Fatalf("+6%% on a paid run: %q", lateView.Flash)
 	}
 	paid := e.do("POST", runPath+"/recalculate", nil, nil)
 	paid.Body.Close()
 	after := reactData[payrollDetailPage](t, readBody(t, e.do("GET", paid.Header.Get("Location"), nil, nil)))
-	if !strings.Contains(after.Flash, "Пересчитать можно только черновик") {
+	if !strings.Contains(after.Flash, "Ведомость уже не черновик") {
 		t.Fatalf("a paid run answers about recalculating: %q", after.Flash)
 	}
 }

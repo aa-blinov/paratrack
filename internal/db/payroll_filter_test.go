@@ -296,4 +296,33 @@ func TestPayrollRecalculationSeesMoneyMovingBetweenPeople(t *testing.T) {
 	if len(details.Lines) != 2 || details.Lines[0].UserID != annaID || details.Lines[1].UserID != borisID || details.Lines[1].Kind != model.PayrollLineAdjustment {
 		t.Fatalf("lines by name, Boris's bonus on its own: %+v", details.Lines)
 	}
+	// Renaming Boris to a name that sorts first does not reorder a run made
+	// before: the order follows the names written on its lines.
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET name = 'Аарон' WHERE id = ?`, borisID); err != nil {
+		t.Fatal(err)
+	}
+	if details, err = d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if details.Lines[0].UserID != annaID {
+		t.Fatalf("a rename reordered the run: %+v", details.Lines)
+	}
+	// Someone with no name and only an email, with a bonus alone, sorts by
+	// the email instead of floating to the top with an empty key.
+	zoyaID := seedApprovalUser(t, d, "zoya-pay-shift@test.local")
+	if _, err := d.TestSQL().ExecContext(ctx, `UPDATE users SET name = '' WHERE id = ?`, zoyaID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, 'member', ?)`, teamID, zoyaID, FormatTime(now)); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.AddPayrollAdjustment(ownerCtx, appmodel.PayrollAdjustmentRequest{TeamID: teamID, RunID: run.ID, CallerID: ownerID, UserID: zoyaID, Label: "Премия", AmountCents: 10000}); err != nil {
+		t.Fatal(err)
+	}
+	if details, err = d.GetPayrollRunDetails(ctx, appmodel.PayrollRunLookupQuery{TeamID: teamID, RunID: run.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if last := details.Lines[len(details.Lines)-1]; last.UserID != zoyaID {
+		t.Fatalf("an unnamed person floated up: %+v", details.Lines)
+	}
 }

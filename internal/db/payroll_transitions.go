@@ -121,7 +121,7 @@ func (d *DB) AddPayrollAdjustment(ctx context.Context, request appmodel.PayrollA
 		return err
 	}
 	if status != "draft" {
-		return model.ErrForbidden
+		return model.ErrPayrollNotDraft
 	}
 	var userName string
 	if err := tx.QueryRowContext(ctx,
@@ -183,7 +183,7 @@ func (d *DB) DeletePayrollAdjustment(ctx context.Context, request appmodel.Payro
 		return err
 	}
 	if status != "draft" {
-		return model.ErrForbidden
+		return model.ErrPayrollNotDraft
 	}
 	res, err := tx.ExecContext(ctx,
 		`DELETE FROM payroll_lines WHERE id = ? AND run_id = ? AND kind = ?`,
