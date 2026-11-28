@@ -83,12 +83,16 @@ paratrack add               # сессия задним числом
 Starship (`~/.config/starship.toml`):
 
 ```toml
+command_timeout = 800
+
 [custom.paratrack]
 command = "paratrack status --short"
 when = true
 format = "[$output]($style) "
 style = "dimmed"
 ```
+
+`command_timeout` стоит в начале файла: по умолчанию у starship 500 мс, а запуску программы и ответу сервера нужно чуть больше. Если строка начала показывать `?` без цифр, последний ответ старше 15 минут; `auth?` значит, что токен больше не принимается и пора снова выполнить `paratrack auth login`.
 
 tmux (`~/.tmux.conf`):
 

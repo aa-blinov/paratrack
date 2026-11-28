@@ -15,10 +15,14 @@ import (
 // falls back to the last answer moved forward by the time since, marks that
 // answer as not fresh, says "offline" when it has nothing, and never fails.
 func TestRemoteStatusShortForPrompts(t *testing.T) {
-	var hang bool
+	var hang, refuse bool
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if hang {
 			time.Sleep(2 * time.Second)
+		}
+		if refuse {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
 		switch {
 		case r.URL.Path == "/api/active":
@@ -60,6 +64,20 @@ func TestRemoteStatusShortForPrompts(t *testing.T) {
 	if waited := time.Since(began); waited > time.Second {
 		t.Fatalf("status --short waited %s for a hanging server", waited)
 	}
+
+	// A cached line older than its shelf life shows no numbers.
+	now = now.Add(20 * time.Minute)
+	if got := short(); got != "?" {
+		t.Fatalf("stale cache line = %q", got)
+	}
+
+	// A refused token says so instead of hiding behind the cache.
+	hang, refuse = false, true
+	if got := short(); got != "auth?" {
+		t.Fatalf("refused token line = %q", got)
+	}
+	refuse = false
+	_ = short()
 
 	hang = false
 	if err := RunWithRuntime([]string{"stop", "7"}, rt); err != nil {

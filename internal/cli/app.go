@@ -46,6 +46,8 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 		return runStatus(rt)
 	}
 	if len(args) > 0 && args[0] == "auth" {
+		// Another account or server: the cached prompt line belongs to the old one.
+		rt.dropStatusCache()
 		return runAuth(rt, args[1:])
 	}
 	if rt.remoteEnabled() {

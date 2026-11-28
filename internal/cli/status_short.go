@@ -16,6 +16,11 @@ import (
 // terminal whenever the network was slow.
 const statusShortTimeout = 400 * time.Millisecond
 
+// statusCacheMaxAge is how long a cached line is worth drawing. Past it the
+// timer may have been stopped in the browser long ago, and "72h05m ?" would
+// be a confident lie; the line says only "?".
+const statusCacheMaxAge = 15 * time.Minute
+
 // statusCache is the last answer `status --short` got from the server. When
 // the server cannot be reached in time, the line is drawn from it, with the
 // running timers moved forward by the time since, and marked as not fresh.
@@ -37,7 +42,15 @@ func (rt *Runtime) remoteStatusShort() error {
 	ctx, cancel := context.WithTimeout(rt.Context, statusShortTimeout)
 	defer cancel()
 	now := rt.now()
-	if _, body, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/active", nil); err == nil {
+	code, body, err := rt.remoteDoContext(ctx, http.MethodGet, "/api/active", nil)
+	// A refused token is not a network problem: the cache would hide it
+	// forever behind "?", so the line asks for a new login instead.
+	if code == http.StatusUnauthorized || code == http.StatusForbidden {
+		rt.dropStatusCache()
+		fmt.Fprintln(rt.Out, "auth?")
+		return nil
+	}
+	if err == nil {
 		var res remoteActiveResponse
 		if err := json.Unmarshal(body, &res); err == nil {
 			cache := statusCache{FetchedAt: now.Unix()}
@@ -57,6 +70,10 @@ func (rt *Runtime) remoteStatusShort() error {
 	elapsed := int(now.Unix() - cache.FetchedAt)
 	if elapsed < 0 {
 		elapsed = 0
+	}
+	if time.Duration(elapsed)*time.Second > statusCacheMaxAge {
+		fmt.Fprintln(rt.Out, "?")
+		return nil
 	}
 	fmt.Fprintln(rt.Out, formatStatusShort(cache.Items, elapsed, true))
 	return nil
@@ -123,7 +140,17 @@ func (rt *Runtime) writeStatusCache(cache statusCache) {
 	if err := os.MkdirAll(filepath.Dir(rt.StatusCachePath), 0o700); err != nil {
 		return
 	}
-	_ = os.WriteFile(rt.StatusCachePath, data, 0o600)
+	// Written aside and renamed into place, so a prompt in another terminal
+	// never reads half a file and flashes "offline".
+	tmp, err := os.CreateTemp(filepath.Dir(rt.StatusCachePath), ".status-*.json")
+	if err != nil {
+		return
+	}
+	_, werr := tmp.Write(data)
+	cerr := tmp.Close()
+	if werr != nil || cerr != nil || os.Chmod(tmp.Name(), 0o600) != nil || os.Rename(tmp.Name(), rt.StatusCachePath) != nil {
+		_ = os.Remove(tmp.Name())
+	}
 }
 
 // dropStatusCache forgets the cached line after a command that changed the
