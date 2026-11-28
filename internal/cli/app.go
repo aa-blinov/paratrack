@@ -45,9 +45,15 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 		}
 		return runStatus(rt)
 	}
+	if len(args) > 0 && args[0] == "auth" {
+		return runAuth(rt, args[1:])
+	}
 	if rt.remoteEnabled() {
 		if handled, err := runRemote(rt, args[0], args[1:]); handled {
 			return err
+		}
+		if args[0] != "web" && args[0] != "-h" && args[0] != "--help" && args[0] != "help" {
+			return fmt.Errorf("command %q is not available in remote CLI mode (supported: status, start, stop, pause, resume, focus, add, log, stats, auth)", args[0])
 		}
 	}
 	switch args[0] {
@@ -117,5 +123,7 @@ Aliases: s=stop, p=pause, r=resume, sw=switch, st=status, a=add, l=log
   paratrack project color   <slug|id> <#hex>        set color
   paratrack project archive <slug|id>               archive
   paratrack project unarchive <slug|id>             unarchive
-  paratrack project delete <slug|id>                delete`)
+  paratrack auth login --url <url> --token <token>  save remote CLI config
+  paratrack auth status                             show remote CLI config
+  paratrack auth logout                             remove saved remote config`)
 }

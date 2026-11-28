@@ -1,12 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
 	"net/netip"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -240,6 +242,51 @@ func calendarCredentialsFrom(getenv func(string) string, prefix string) (app.Cal
 	return client, nil
 }
 
-func loadCLIRemoteConfig() (string, string) {
-	return strings.TrimSpace(os.Getenv("PARATRACK_URL")), strings.TrimSpace(os.Getenv("PARATRACK_TOKEN"))
+type cliRemoteFileConfig struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
+
+func defaultCLIRemoteConfigPath() string {
+	dir, err := os.UserConfigDir()
+	if err != nil || strings.TrimSpace(dir) == "" {
+		return ""
+	}
+	return filepath.Join(dir, "paratrack", "config.json")
+}
+
+func readCLIRemoteFile(path string) (string, string) {
+	if strings.TrimSpace(path) == "" {
+		return "", ""
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", ""
+	}
+	var cfg cliRemoteFileConfig
+	if json.Unmarshal(data, &cfg) == nil {
+		return strings.TrimSpace(cfg.URL), strings.TrimSpace(cfg.Token)
+	}
+	return "", ""
+}
+
+func loadCLIRemoteConfig(configPath string) (string, string) {
+	u := strings.TrimSpace(os.Getenv("PARATRACK_URL"))
+	tok := strings.TrimSpace(os.Getenv("PARATRACK_TOKEN"))
+	if u != "" && tok != "" {
+		return u, tok
+	}
+	for _, candidate := range []string{".paratrack", configPath} {
+		fu, ftok := readCLIRemoteFile(candidate)
+		if u == "" {
+			u = fu
+		}
+		if tok == "" {
+			tok = ftok
+		}
+		if u != "" && tok != "" {
+			break
+		}
+	}
+	return u, tok
 }

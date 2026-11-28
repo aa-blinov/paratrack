@@ -29,19 +29,20 @@ type Runtime struct {
 	// ServiceLoader lazily supplies the application graph for commands that
 	// need persistence. The process root owns the returned closer.
 	ServiceLoader func(context.Context) (*cliport.Services, io.Closer, error)
-	// Optional remote API mode (PARATRACK_URL + PARATRACK_TOKEN) for team members
-	// without direct database access.
-	RemoteURL     string
-	RemoteToken   string
-	HTTPClient    *http.Client
-	services      *cliport.Services
-	serviceCloser io.Closer
-	serviceErr    error
-	servicesReady bool
-	commandMu     sync.Mutex
-	mu            sync.Mutex
-	closed        bool
-	closeErr      error
+	// Optional remote API mode (PARATRACK_URL + PARATRACK_TOKEN or config file)
+	// for team members without direct database access.
+	RemoteURL        string
+	RemoteToken      string
+	RemoteConfigPath string
+	HTTPClient       *http.Client
+	services         *cliport.Services
+	serviceCloser    io.Closer
+	serviceErr       error
+	servicesReady    bool
+	commandMu        sync.Mutex
+	mu               sync.Mutex
+	closed           bool
+	closeErr         error
 }
 
 func (rt *Runtime) application() (*cliport.Services, error) {
