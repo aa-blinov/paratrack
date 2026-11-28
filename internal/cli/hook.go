@@ -20,22 +20,29 @@ const hookMarker = "# paratrack-hook"
 // in the background and never fails the checkout. Quick successive checkouts
 // are settled after a short pause, and only the branch still checked out is
 // sent, so focus calls arriving out of order cannot leave the timer on a
-// branch that was already left.
+// branch that was already left. Checking out main, master, develop or trunk
+// pauses the timers instead: reviewing there is not the feature's time.
 func hookScript(binary string) string {
 	return `#!/bin/sh
 ` + hookMarker + ` — written by "paratrack hook install", removed by "paratrack hook uninstall".
 # Switches the paratrack timer to the branch you check out.
 [ "$3" = "1" ] || exit 0
 branch=$(git symbolic-ref --quiet --short HEAD) || exit 0
-case "$branch" in main|master|develop|trunk) exit 0 ;; esac
-name=$(printf '%s' "${branch##*/}" | tr -c 'A-Za-z0-9._-' '-')
+case "$branch" in
+  main|master|develop|trunk) name=":pause" ;;
+  *) name=$(printf '%s' "${branch##*/}" | tr -c 'A-Za-z0-9._-' '-') ;;
+esac
 [ -n "$name" ] || exit 0
 mark=$(git rev-parse --git-path paratrack-focus)
 printf '%s' "$name" > "$mark"
 ( sleep 1
   [ "$(cat "$mark" 2>/dev/null)" = "$name" ] || exit 0
   [ "$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" = "$branch" ] || exit 0
-  "` + binary + `" focus "$name" >/dev/null 2>&1 ) &
+  if [ "$name" = ":pause" ]; then
+    "` + binary + `" pause >/dev/null 2>&1
+  else
+    "` + binary + `" focus "$name" >/dev/null 2>&1
+  fi ) &
 exit 0
 `
 }

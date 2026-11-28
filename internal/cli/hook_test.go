@@ -71,6 +71,22 @@ func TestGitHookFocusesTheBranch(t *testing.T) {
 		t.Fatalf("the hook called %q, want focus on the branch", called)
 	}
 
+	// Back on main the timers pause: reviewing there is not the feature's time.
+	if err := os.Remove(record); err != nil {
+		t.Fatal(err)
+	}
+	git(t, repo, "checkout", "-q", "main")
+	called = nil
+	for i := 0; i < 400; i++ {
+		if called, err = os.ReadFile(record); err == nil && len(called) > 0 {
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if strings.TrimSpace(string(called)) != "pause" {
+		t.Fatalf("checking out main called %q, want pause", called)
+	}
+
 	// Someone else's hook is left alone, both ways.
 	if err := os.WriteFile(hook, []byte("#!/bin/sh\necho mine\n"), 0o755); err != nil {
 		t.Fatal(err)
