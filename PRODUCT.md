@@ -198,7 +198,10 @@ Deliberately not true, and worth knowing before a change:
   longer overwrite or clear them; the timesheet lists the spans with a way to
   remove them. Nobody away, and nobody on a workspace holiday, gets the
   evening "fill your day" reminder, and the team week on Stats names those
-  days instead of flagging them. The schedule does not show them yet. Approved
+  days instead of flagging them. The schedule counts a week's capacity on
+  its working days only (a holiday or an absence takes the day out, admin
+  time shrinks with it), names the absences on the person's row, and the
+  overload reminder reads the same numbers. Approved
   and on track have different marks.
 - A pay run cannot cover the current week, because the week has to end and be
   approved first. A pay run can cover a chosen set of members, or only the

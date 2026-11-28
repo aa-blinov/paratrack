@@ -634,6 +634,7 @@ export interface SchedulePerson {
   LoadPct: number
   TrackedLabel: string
   TrackedPct: number
+  AwayLabel?: string
   Lines: ScheduleLine[]
 }
 

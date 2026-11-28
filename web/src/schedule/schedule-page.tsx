@@ -466,6 +466,7 @@ export function SchedulePage({ initial }: { initial: ScheduleData }) {
                   <TableRow className="border-b bg-muted/30">
                     <TableHead scope="rowgroup" className="sticky left-0 z-10 max-w-56 bg-muted/30 px-3 py-2 text-left font-medium">
                       <span className="grid-name block truncate" title={person.UserName}>{person.UserName}</span>
+                      {person.AwayLabel && <span className="block text-xs text-sky-700 dark:text-sky-400">{person.AwayLabel}</span>}
                       <span className={`block text-xs font-mono ${live.load === "overload" ? "text-destructive" : "text-muted-foreground"}`}>
                         {t(lang, "sch.planned")} {durationLabel(live.planned, format, lang)} {t(lang, "sch.of")} {person.AvailableLabel}{person.AvailableMin > 0 ? `, ${live.pct}%` : ""}{live.load === "overload" ? `, ${t(lang, "sch.overload")}` : live.load === "idle" ? `, ${t(lang, "sch.idle")}` : ""}
                       </span>

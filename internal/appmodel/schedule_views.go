@@ -18,11 +18,15 @@ type ScheduleRow struct {
 
 type ScheduleViewRow struct {
 	ScheduleRow
-	// AvailableMinutes is capacity for five working days less admin time: the
-	// hours the week can carry for clients.
+	// AvailableMinutes is capacity for the week's working days (weekdays that
+	// are neither a workspace holiday nor the member's absence) less admin
+	// time: the hours the week can carry for clients.
 	AvailableMinutes int
-	LoadPercent      int
-	TrackedPercent   int
+	// Away names, per day of the week, the member's absence ("vacation",
+	// "sick", "dayoff") or "holiday"; empty for a day to be worked.
+	Away           [7]string
+	LoadPercent    int
+	TrackedPercent int
 }
 
 type ScheduleSnapshot struct {

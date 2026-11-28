@@ -2,6 +2,7 @@ package web
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -57,6 +58,8 @@ type schedPerson struct {
 	TrackedLabel string
 	TrackedPct   int
 	Lines        []schedLine
+	// AwayLabel names the week's absences and days off ("отпуск: 3 дн.").
+	AwayLabel string
 }
 
 type schedulePage struct {
@@ -189,6 +192,23 @@ func (s *Server) loadSchedulePlan(r *http.Request, weekStart time.Time) (schedPl
 			person.TrackedLabel = fmtDur(r, rc.Tracked*60)
 			person.TrackedPct = rc.TrackedPercent
 		}
+		counts := map[string]int{}
+		for _, kind := range rc.Away {
+			if kind != "" {
+				counts[kind]++
+			}
+		}
+		var parts []string
+		for _, kind := range []string{"vacation", "sick", "dayoff", "holiday"} {
+			if n := counts[kind]; n > 0 {
+				label := i18n.T(resolveLang(r), "holiday.mark")
+				if kind != "holiday" {
+					label = dayMarkLabel(resolveLang(r), kind)
+				}
+				parts = append(parts, fmt.Sprintf(i18n.T(resolveLang(r), "absence.days"), label, n))
+			}
+		}
+		person.AwayLabel = strings.Join(parts, ", ")
 		var projectIDs []int64
 		// Every project in ByProject is on this person's schedule: one with
 		// hours, or a line that has no hours yet.

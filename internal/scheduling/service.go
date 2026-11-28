@@ -80,6 +80,25 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 	if err != nil {
 		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list weekly schedule: %w", err)
 	}
+	// Holidays and absences take days out of what the week can carry: a
+	// person on vacation planned for forty hours was an overload nobody saw.
+	from := query.WeekStart.Format("2006-01-02")
+	until := query.WeekStart.AddDate(0, 0, 7).Format("2006-01-02")
+	holidays, err := s.store.TeamHolidays(ctx, query.TeamID, from, until)
+	if err != nil {
+		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule holidays: %w", err)
+	}
+	absences, err := s.store.Absences(ctx, query.TeamID, from, until)
+	if err != nil {
+		return appmodel.ScheduleSnapshot{}, fmt.Errorf("list schedule absences: %w", err)
+	}
+	away := map[int64]map[string]string{}
+	for _, a := range absences {
+		if away[a.UserID] == nil {
+			away[a.UserID] = map[string]string{}
+		}
+		away[a.UserID][a.Day] = a.Kind
+	}
 	rows := make([]Row, 0, len(storedRows))
 	totalMinutes := 0
 	for _, stored := range storedRows {
@@ -87,7 +106,22 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 		if err != nil {
 			return appmodel.ScheduleSnapshot{}, fmt.Errorf("sum weekly schedule minutes: %w", err)
 		}
-		row := Row{ScheduleRow: stored, AvailableMinutes: weekAvailableMinutes(stored.Capacity, stored.AdminMinutes)}
+		var marks [7]string
+		workDays := 0
+		for i := 0; i < 7; i++ {
+			day := query.WeekStart.AddDate(0, 0, i)
+			key := day.Format("2006-01-02")
+			weekday := day.Weekday() != time.Saturday && day.Weekday() != time.Sunday
+			switch {
+			case away[stored.UserID][key] != "":
+				marks[i] = away[stored.UserID][key]
+			case hasKey(holidays, key):
+				marks[i] = "holiday"
+			case weekday:
+				workDays++
+			}
+		}
+		row := Row{ScheduleRow: stored, AvailableMinutes: weekAvailableMinutesFor(stored.Capacity, stored.AdminMinutes, workDays), Away: marks}
 		row.LoadPercent = weekLoadPercent(stored.Total, row.AvailableMinutes)
 		row.TrackedPercent = weekLoadPercent(stored.Tracked, row.AvailableMinutes)
 		rows = append(rows, row)
@@ -102,7 +136,19 @@ func (s *Service) List(ctx context.Context, query appmodel.ScheduleQuery) (appmo
 // weekAvailableMinutes is the capacity of five working days less the admin
 // time the member keeps; never below zero.
 func weekAvailableMinutes(capacityPerDay, adminMinutes int) int {
-	return max(capacityPerDay*5-adminMinutes, 0)
+	return weekAvailableMinutesFor(capacityPerDay, adminMinutes, 5)
+}
+
+// weekAvailableMinutesFor is the capacity of the week's working days less the
+// admin time, which shrinks with the days: a week of two working days keeps
+// two fifths of it. Never below zero.
+func weekAvailableMinutesFor(capacityPerDay, adminMinutes, workDays int) int {
+	return max(capacityPerDay*workDays-adminMinutes*workDays/5, 0)
+}
+
+func hasKey(m map[string]string, key string) bool {
+	_, ok := m[key]
+	return ok
 }
 
 // weekLoadPercent is minutes against the available time of the week. A member

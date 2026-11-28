@@ -12,8 +12,10 @@ import (
 )
 
 type scheduleStoreStub struct {
-	rows  []appmodel.ScheduleRow
-	query appmodel.ScheduleQuery
+	rows     []appmodel.ScheduleRow
+	query    appmodel.ScheduleQuery
+	absences []appmodel.Absence
+	holidays map[string]string
 }
 
 type scheduleCellStoreStub struct {
@@ -293,12 +295,12 @@ func (scheduleStoreStub) SetAbsence(context.Context, appmodel.AbsenceRequest) er
 	return nil
 }
 
-func (scheduleStoreStub) Absences(context.Context, int64, string, string) ([]appmodel.Absence, error) {
-	return nil, nil
+func (s scheduleStoreStub) Absences(context.Context, int64, string, string) ([]appmodel.Absence, error) {
+	return s.absences, nil
 }
 
-func (scheduleStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {
-	return nil, nil
+func (s scheduleStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {
+	return s.holidays, nil
 }
 
 func (scheduleCellStoreStub) SetTeamHolidays(context.Context, appmodel.TeamHolidayRequest) error {
@@ -315,4 +317,33 @@ func (scheduleCellStoreStub) Absences(context.Context, int64, string, string) ([
 
 func (scheduleCellStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {
 	return nil, nil
+}
+
+// A holiday and a member's absence take days out of what the week can carry,
+// so a person on vacation shows as overloaded by any plan, not as free.
+func TestScheduleCapacitySkipsHolidaysAndAbsences(t *testing.T) {
+	monday := time.Date(2026, 11, 2, 0, 0, 0, 0, time.UTC)
+	store := &scheduleStoreStub{
+		rows:     []appmodel.ScheduleRow{{UserID: 1, Capacity: 480, Total: 960}, {UserID: 2, Capacity: 480}},
+		absences: []appmodel.Absence{{UserID: 1, Day: "2026-11-03", Kind: "vacation"}, {UserID: 1, Day: "2026-11-05", Kind: "vacation"}},
+		holidays: map[string]string{"2026-11-04": "Праздник"},
+	}
+	service, err := New(Dependencies{Store: store, Projects: &scheduleProjectCatalogStub{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.List(context.Background(), appmodel.ScheduleQuery{TeamID: 1, WeekStart: monday, Now: monday})
+	if err != nil {
+		t.Fatal(err)
+	}
+	byUser := map[int64]appmodel.ScheduleViewRow{}
+	for _, row := range snapshot.Rows {
+		byUser[row.UserID] = row
+	}
+	if got := byUser[1]; got.AvailableMinutes != 2*480 || got.Away[1] != "vacation" || got.Away[2] != "holiday" || got.LoadPercent != 100 {
+		t.Fatalf("member on vacation: %+v", got)
+	}
+	if got := byUser[2]; got.AvailableMinutes != 4*480 {
+		t.Fatalf("member at work with a holiday: %+v", got)
+	}
 }
