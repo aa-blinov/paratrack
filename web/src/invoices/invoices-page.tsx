@@ -141,9 +141,6 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
     {flash}
     {data.RequisitesEmpty && <p role="note" className="rounded-md border border-border bg-muted/40 p-3 text-sm">{t(lang, "inv.requisitesEmpty")} <a href="/settings/money#requisites" className="underline underline-offset-4">{t(lang, "inv.requisitesFill")}</a></p>}
 
-    <AccountantExport lang={lang} clients={Array.from(new Set(data.Items.map(item => item.Client).filter(Boolean)))} />
-    <ReconcileCard lang={lang} reconcile={data.Reconcile} />
-
     {rounding && <p data-rounding className="text-xs text-muted-foreground">{rounding}</p>}
 
     {!data.Billable && <div role="alert" className="flex flex-col gap-3 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm sm:flex-row sm:items-center">
@@ -240,6 +237,8 @@ export function InvoicesPage({ data }: { data: InvoicesData }) {
       </form>
       <p className="mt-3 text-xs text-muted-foreground">{t(lang, "inv.rateHint")}</p>
     </DisclosureSection>
+    <AccountantExport lang={lang} clients={Array.from(new Set(data.Items.map(item => item.Client).filter(Boolean)))} />
+    <ReconcileCard lang={lang} reconcile={data.Reconcile} />
   </main>
 }
 

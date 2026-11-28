@@ -25,7 +25,37 @@ export function PayrollPage({ data }: { data: PayrollData }) {
   return <main className="mx-auto w-full max-w-6xl space-y-5">
     <Flash message={data.Flash} ok={data.FlashOK} />
     <header className="flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-2xl font-semibold tracking-tight">{t(lang, "pay.title")}</h1><p className="mt-1 text-sm text-muted-foreground">{t(lang, "pay.blurb")}</p></div>{data.Items.length > 0 && <Button asChild size="sm"><a href="#new-payroll" onClick={() => openDisclosure("new-payroll")}>{t(lang, "pay.generate")}</a></Button>}</header>
+    {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
 
+
+
+    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "pay.list")}</CardTitle></CardHeader><CardContent>
+      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/payroll/${item.ID}`} className="py-1 font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><Status lang={lang} status={item.Status} /></div><p className="text-xs text-muted-foreground">{item.Period}{item.DuplicateOf && <span className="block mt-0.5">{t(lang, "pay.duplicateOf", item.DuplicateOf)}</span>}</p>{item.Members && <p className="text-xs text-muted-foreground">{item.Members}</p>}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
+      <div className="hidden overflow-x-auto sm:block"><Table>
+        <TableHeader><TableRow><TableHead>{t(lang, "inv.number")}</TableHead><TableHead>{t(lang, "pay.members")}</TableHead><TableHead>{t(lang, "inv.period")}</TableHead><TableHead>{t(lang, "inv.hours")}</TableHead><TableHead>{t(lang, "inv.amount")}</TableHead><TableHead>{t(lang, "team.status")}</TableHead></TableRow></TableHeader>
+        <TableBody>{data.Items.map(item => <TableRow key={item.ID}>
+          <TableCell><a href={`/payroll/${item.ID}`} className="font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Members}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}{item.DuplicateOf && <span className="block mt-0.5">{t(lang, "pay.duplicateOf", item.DuplicateOf)}</span>}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><Status lang={lang} status={item.Status} /></TableCell>
+        </TableRow>)}</TableBody>
+      </Table>
+      </div>
+    </CardContent></Card> : <Card><CardContent className="p-5">
+      <EmptyState title={t(lang, "pay.empty")} text={t(lang, "pay.emptyHint")}>
+        <ol className="grid list-decimal gap-1.5 ps-5 text-sm text-muted-foreground">
+          <li><a className="text-foreground underline underline-offset-4" href="/settings/members">{t(lang, "pay.stepRates")}</a></li>
+          <li>{t(lang, "pay.stepTime")}</li>
+          <li>{t(lang, "pay.stepForm")}</li>
+        </ol>
+      </EmptyState>
+    </CardContent></Card>}
+    <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
+      <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
+        <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><DateField id="pay-start" name="start" required defaultValue={data.DefStart} /></div>
+        <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><DateField id="pay-end" name="end" required defaultValue={data.DefEnd} /></div>
+        <div className="flex min-w-0 items-center gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
+      </form>
+      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
+    </DisclosureSection>
     <section aria-labelledby="unapproved-title" className="space-y-3 rounded-lg border border-border p-4 text-sm">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <h2 id="unapproved-title" className="font-medium">{t(lang, "pay.unapprovedTitle")}</h2>
@@ -70,37 +100,6 @@ export function PayrollPage({ data }: { data: PayrollData }) {
         </form>
       </li>)}</ul> : <p className="text-muted-foreground">{t(lang, "pay.periodNone")}</p>}
     </section>
-    {!!data.Overlap && <OverlapConfirm lang={lang} csrfToken={data.CSRFToken} overlap={data.Overlap} start={data.DefStart} end={data.DefEnd} notes={data.DefNotes} />}
-
-
-
-    {data.Items.length ? <Card><CardHeader><CardTitle>{t(lang, "pay.list")}</CardTitle></CardHeader><CardContent>
-      <div className="grid gap-3 sm:hidden">{data.Items.map(item => <article key={item.ID} className="grid gap-2 border-b pb-3 last:border-0 last:pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><a href={`/payroll/${item.ID}`} className="py-1 font-mono font-medium underline-offset-4 hover:underline">{item.Number}</a><Status lang={lang} status={item.Status} /></div><p className="text-xs text-muted-foreground">{item.Period}{item.DuplicateOf && <span className="block mt-0.5">{t(lang, "pay.duplicateOf", item.DuplicateOf)}</span>}</p>{item.Members && <p className="text-xs text-muted-foreground">{item.Members}</p>}<dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm"><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.hours")}</dt><dd className="font-mono tabular-nums">{item.Hours}</dd></div><div><dt className="text-xs text-muted-foreground">{t(lang, "inv.amount")}</dt><dd className="font-mono tabular-nums">{item.Total}</dd></div></dl></article>)}</div>
-      <div className="hidden overflow-x-auto sm:block"><Table>
-        <TableHeader><TableRow><TableHead>{t(lang, "inv.number")}</TableHead><TableHead>{t(lang, "pay.members")}</TableHead><TableHead>{t(lang, "inv.period")}</TableHead><TableHead>{t(lang, "inv.hours")}</TableHead><TableHead>{t(lang, "inv.amount")}</TableHead><TableHead>{t(lang, "team.status")}</TableHead></TableRow></TableHeader>
-        <TableBody>{data.Items.map(item => <TableRow key={item.ID}>
-          <TableCell><a href={`/payroll/${item.ID}`} className="font-mono underline-offset-4 hover:underline">{item.Number}</a></TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Members}</TableCell><TableCell className="whitespace-nowrap text-xs text-muted-foreground">{item.Period}{item.DuplicateOf && <span className="block mt-0.5">{t(lang, "pay.duplicateOf", item.DuplicateOf)}</span>}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Hours}</TableCell><TableCell className="whitespace-nowrap font-mono tabular-nums">{item.Total}</TableCell><TableCell><Status lang={lang} status={item.Status} /></TableCell>
-        </TableRow>)}</TableBody>
-      </Table>
-      </div>
-    </CardContent></Card> : <Card><CardContent className="p-5">
-      <EmptyState title={t(lang, "pay.empty")} text={t(lang, "pay.emptyHint")}>
-        <ol className="grid list-decimal gap-1.5 ps-5 text-sm text-muted-foreground">
-          <li><a className="text-foreground underline underline-offset-4" href="/settings/members">{t(lang, "pay.stepRates")}</a></li>
-          <li>{t(lang, "pay.stepTime")}</li>
-          <li>{t(lang, "pay.stepForm")}</li>
-        </ol>
-      </EmptyState>
-    </CardContent></Card>}
-    <DisclosureSection id="new-payroll" title={t(lang, "pay.generate")} description={t(lang, "pay.newHint")} defaultOpen={!data.Items.length || Boolean(data.Overlap) || !data.FlashOK && Boolean(data.Flash)}>
-      <form method="POST" action="/payroll" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
-        <input type="hidden" name="csrf_token" value={data.CSRFToken} />
-        <div className="space-y-2"><Label htmlFor="pay-start">{t(lang, "inv.from")}</Label><DateField id="pay-start" name="start" required defaultValue={data.DefStart} /></div>
-        <div className="space-y-2"><Label htmlFor="pay-end">{t(lang, "inv.to")}</Label><DateField id="pay-end" name="end" required defaultValue={data.DefEnd} /></div>
-        <div className="flex min-w-0 items-center gap-2 sm:col-span-2"><Input type="text" name="notes" defaultValue={data.DefNotes} aria-label={t(lang, "stats.note")} className="min-w-0 flex-1" placeholder={t(lang, "pay.notesPh")} /><Button type="submit" className="shrink-0">{t(lang, "pay.create")}</Button></div>
-      </form>
-      <p className="mt-3 text-xs text-muted-foreground">{t(lang, "pay.rateHint")} <a href="/settings/members" className="underline underline-offset-4">{t(lang, "pay.rateLink")}</a></p>
-    </DisclosureSection>
   </main>
 }
 

@@ -73,7 +73,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 			ClientDetails: clientDetails, ClientEmail: clientEmail,
 			ProjectID: projectID, ByPerson: byPerson, RememberClient: projectID > 0,
 		},
-		ConfirmUnapproved: r.PostForm.Get("confirm_unapproved") == "1",
+		ConfirmUnapproved: r.PostForm.Get("confirm_unapproved") == "1" || !s.teamModules(r)["payroll"],
 	})
 	var billed *model.AlreadyBilledInPeriodError
 	if errors.As(err, &billed) && len(billed.Invoices) > 0 {
@@ -289,6 +289,10 @@ func (unapprovedWeeksResponse) isJSONResponse() {}
 // handleInvoiceUnapproved names the weeks of a period that still carry unapproved
 // billable time, so the invoice form asks the manager before it submits (FIN-12).
 func (s *Server) handleInvoiceUnapproved(w http.ResponseWriter, r *http.Request) {
+	if !s.teamModules(r)["payroll"] {
+		s.writeJSON(w, unapprovedWeeksResponse{Weeks: []string{}})
+		return
+	}
 	start, end, ok := invoicePeriod(r, r.URL.Query().Get("start"), r.URL.Query().Get("end"))
 	if !ok {
 		http.Error(w, i18n.T(resolveLang(r), "err.badDate"), http.StatusBadRequest)
