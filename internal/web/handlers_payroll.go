@@ -363,11 +363,16 @@ func (s *Server) handlePayrollDetail(w http.ResponseWriter, r *http.Request) {
 		for _, p := range res.People {
 			preview.People = append(preview.People, payrollRecalcPersonVM{
 				UserID: p.UserID, Name: p.Name, Before: moneyL(lang, p.BeforeCents, run.Currency), After: moneyL(lang, p.AfterCents, run.Currency),
-				Delta:       signedMoneyL(lang, p.AfterCents-p.BeforeCents, run.Currency),
-				Changed:     p.BeforeCents != p.AfterCents || p.BeforeSeconds != p.AfterSeconds,
-				HoursBefore: fmtHoursL(lang, money.HoursHundredths(p.BeforeSeconds)),
-				HoursAfter:  fmtHoursL(lang, money.HoursHundredths(p.AfterSeconds)),
+				Delta:        signedMoneyL(lang, p.AfterCents-p.BeforeCents, run.Currency),
+				Changed:      p.BeforeCents != p.AfterCents || p.BeforeSeconds != p.AfterSeconds,
+				HoursBefore:  fmtHoursL(lang, money.HoursHundredths(p.BeforeSeconds)),
+				HoursAfter:   fmtHoursL(lang, money.HoursHundredths(p.AfterSeconds)),
+				HoursChanged: p.BeforeSeconds != p.AfterSeconds,
 			})
+			// A change smaller than a hundredth of an hour still shows what moved.
+			if v := &preview.People[len(preview.People)-1]; v.HoursChanged && v.HoursBefore == v.HoursAfter {
+				v.HoursBefore, v.HoursAfter = clockSeconds(p.BeforeSeconds), clockSeconds(p.AfterSeconds)
+			}
 		}
 	}
 	data := payrollDetailPage{
@@ -637,8 +642,13 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 	if req.Expect == "" {
 		// Only a draft has a preview; for anything else the plain error
 		// below says it is not a draft.
-		if detail, err := s.services.Payroll.GetRun(r.Context(), teamID(r), id); err == nil && detail.Run.Status != "draft" {
-			http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, model.ErrForbidden)), http.StatusSeeOther)
+		detail, err := s.services.Payroll.GetRun(r.Context(), teamID(r), id)
+		if err != nil {
+			http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, err)), http.StatusSeeOther)
+			return
+		}
+		if detail.Run.Status != "draft" {
+			http.Redirect(w, r, back+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcDraftOnly")), http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, back+"?preview=recalculate&flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcConfirm")), http.StatusSeeOther)
@@ -865,14 +875,15 @@ type payrollRecalcPreviewVM struct {
 }
 
 type payrollRecalcPersonVM struct {
-	UserID      int64
-	HoursBefore string
-	HoursAfter  string
-	Name        string
-	Before      string
-	After       string
-	Delta       string
-	Changed     bool
+	UserID       int64
+	HoursBefore  string
+	HoursAfter   string
+	HoursChanged bool
+	Name         string
+	Before       string
+	After        string
+	Delta        string
+	Changed      bool
 }
 
 // signedMoneyL writes a difference with its sign, "+1 200,00 ₽" or "−300,00 ₽".
@@ -884,4 +895,10 @@ func signedMoneyL(lang i18n.Lang, cents int, currency string) string {
 		return "−" + moneyL(lang, -cents, currency)
 	}
 	return moneyL(lang, 0, currency)
+}
+
+// clockSeconds writes a duration to the second, "1:00:30", for an hours
+// change too small to show in hundredths of an hour.
+func clockSeconds(secs int) string {
+	return fmt.Sprintf("%d:%02d:%02d", secs/3600, secs%3600/60, secs%60)
 }

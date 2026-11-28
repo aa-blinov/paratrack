@@ -217,7 +217,7 @@ function RecalcPreview({ lang, runID, csrfToken, preview }: { lang: string; runI
         <TableHeader><TableRow><TableHead>{t(lang, "pay.member")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcNow")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcThen")}</TableHead><TableHead className="text-right">{t(lang, "pay.recalcDelta")}</TableHead></TableRow></TableHeader>
         <TableBody>
           {people.map(p => <TableRow key={p.UserID} className={p.Changed ? "font-medium" : "text-muted-foreground"}>
-            <TableCell>{p.Name}{p.HoursBefore !== p.HoursAfter && <span className="block text-xs font-normal text-muted-foreground">{t(lang, "pay.recalcHours", p.HoursBefore, p.HoursAfter)}</span>}</TableCell>
+            <TableCell>{p.Name}{p.HoursChanged && <span className="block text-xs font-normal text-muted-foreground">{t(lang, "pay.recalcHours", p.HoursBefore, p.HoursAfter)}</span>}</TableCell>
             <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.Before}</TableCell>
             <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.After}</TableCell>
             <TableCell className="whitespace-nowrap text-right font-mono tabular-nums">{p.Changed ? p.Delta : ""}</TableCell>

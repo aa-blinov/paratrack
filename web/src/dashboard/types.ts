@@ -594,7 +594,7 @@ export interface PayrollRecalcPreview {
   After: string
   Expect: string
   Changed: boolean
-  People?: Array<{ UserID: number; Name: string; Before: string; After: string; Delta: string; Changed: boolean; HoursBefore: string; HoursAfter: string }>
+  People?: Array<{ UserID: number; Name: string; Before: string; After: string; Delta: string; Changed: boolean; HoursBefore: string; HoursAfter: string; HoursChanged: boolean }>
   NoEarnings?: string[]
   NotInRun?: string[]
 }
