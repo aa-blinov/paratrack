@@ -198,7 +198,7 @@ def main() -> int:
 
         print("\n== Clients")
         add_client(page, 'ООО «Ромашка»', "buh@romashka.ru",
-                   "ИНН 7701234567, КПП 770101001\n125167, Москва, Ленинградское ш., 23",
+                   "ИНН 7707083893, КПП 770101001\n125167, Москва, Ленинградское ш., 23",
                    "Оплата по договору №12, счёт ждут до 10 числа.", None)
         add_client(page, "Acme Corp", "ap@acme.test",
                    "77 Buckingham St, London", "Pays in USD, invoice monthly.", "USD")

@@ -355,6 +355,10 @@ func (s *Server) redirectClientFlash(w http.ResponseWriter, r *http.Request, id 
 }
 
 func (s *Server) clientFlashError(err error, lang i18n.Lang) string {
+	var details *model.RequisitesError
+	if errors.As(err, &details) {
+		return requisitesMessage(lang, details)
+	}
 	switch {
 	case errors.Is(err, model.ErrAlreadyExists):
 		return "clients.nameTaken"

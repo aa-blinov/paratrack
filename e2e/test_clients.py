@@ -143,7 +143,7 @@ def main() -> int:
         # ---------------------------------------------------------------- 2
         print("\n== 2. A client card is filed")
         page.evaluate("document.querySelector('details#client-new') && (document.querySelector('details#client-new').open = true)")
-        fill_client(page, 'form[action="/clients"]', client_name, "buh@romashka.ru", "ИНН 7701234567")
+        fill_client(page, 'form[action="/clients"]', client_name, "buh@romashka.ru", "ИНН 7707083893")
         submit_form(page, 'form[action="/clients"]')
         check("card is listed", client_name in page.content(), page.url)
         check("the address it was given is kept", "buh@romashka.ru" in page.content())

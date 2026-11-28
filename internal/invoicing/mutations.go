@@ -39,6 +39,9 @@ func (s *Service) CreateDraftWithOverlapCheck(ctx context.Context, request appmo
 	if request.TeamID <= 0 || request.CallerID <= 0 {
 		return DraftCreation{}, ErrInvalidTeam
 	}
+	if bad := model.RequisiteProblems(request.Options.ClientDetails); len(bad) > 0 {
+		return DraftCreation{}, &model.RequisitesError{Client: true, Fields: bad}
+	}
 	// Unapproved time is a warning, not a lock: the manager confirms it once (D-3).
 	// The count stays on the invoice, so the accountant's export can tell a draft
 	// made over unapproved weeks from a clean one.
@@ -143,18 +146,18 @@ func (s *Service) UpdateDraftDetails(ctx context.Context, request appmodel.Invoi
 	if request.Client == "" {
 		return ErrInvalidClient
 	}
-	// A draft can already have a client link or a payment link, which were
-	// checked when they were made. Client numbers that do not check out are
-	// refused here, so an edit can never put them in front of the client.
-	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 {
-		return &model.RequisitesError{Client: true, Fields: bad}
-	}
 	current, err := s.reader.GetInvoiceDetails(ctx, appmodel.InvoiceLookupQuery{TeamID: request.TeamID, InvoiceID: request.InvoiceID})
 	if err != nil {
 		return fmt.Errorf("load invoice for edit: %w", err)
 	}
 	if current.Invoice.Status != "draft" {
 		return model.ErrInvoiceNotDraft
+	}
+	// A draft can already have a client link or a payment link, which were
+	// checked when they were made. Client numbers that do not check out are
+	// refused here, so an edit can never put them in front of the client.
+	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 {
+		return &model.RequisitesError{Client: true, Fields: bad}
 	}
 	request.ProjectID = current.Invoice.ProjectID
 	request.Details, request.Email, request.Notes = strings.TrimSpace(request.Details), strings.TrimSpace(request.Email), strings.TrimSpace(request.Notes)

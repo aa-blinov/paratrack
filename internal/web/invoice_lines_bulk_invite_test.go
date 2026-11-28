@@ -113,6 +113,23 @@ func TestInvoiceManualLinesAndBulkInvites(t *testing.T) {
 	if strings.Contains(clientDetails, "7707083894") {
 		t.Fatalf("client details saved: %q", clientDetails)
 	}
+	// A sole trader's pair with no КПП is fine.
+	okResp := e.do("POST", invLoc+"/edit", url.Values{"client": {"Acme"}, "client_details": {"ИП Петров, ИНН/КПП 500100732259/"}}, nil)
+	okResp.Body.Close()
+	if loc := okResp.Header.Get("Location"); !strings.Contains(loc, "flash=updated") {
+		t.Fatalf("a valid sole trader pair was refused: %q", loc)
+	}
+
+	// The client card refuses a wrong number too, at create and at update.
+	cardResp := e.do("POST", "/clients", url.Values{"name": {"Бета"}, "details": {"ИНН 7707083894"}}, nil)
+	cardResp.Body.Close()
+	var cards int
+	if err := e.db.TestSQL().QueryRowContext(t.Context(), `SELECT COUNT(*) FROM clients WHERE name = 'Бета'`).Scan(&cards); err != nil {
+		t.Fatal(err)
+	}
+	if cards != 0 {
+		t.Fatal("a client card with a wrong ИНН was created")
+	}
 
 	// Details typed by hand are checked on the server too: a wrong ИНН is
 	// not saved, whatever the browser let through.

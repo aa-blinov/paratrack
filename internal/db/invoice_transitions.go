@@ -232,6 +232,14 @@ func (d *DB) UpdateInvoiceMetaAndProjectClient(ctx context.Context, request appm
 		} else if affected == 0 {
 			return ErrNotFound
 		}
+		// The next invoice takes the details from the client's card before
+		// the project's copy, so a number fixed here goes to the card too;
+		// otherwise the old one would come back with the next invoice.
+		if _, err := tx.ExecContext(ctx,
+			`UPDATE clients SET details = ? WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?)`,
+			details, teamID, projectID, teamID); err != nil {
+			return fmt.Errorf("update client card details: %w", err)
+		}
 	}
 	return tx.Commit()
 }

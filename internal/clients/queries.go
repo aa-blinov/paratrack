@@ -39,6 +39,9 @@ func (s *Service) Create(ctx context.Context, request appmodel.ClientCreateReque
 	if request.TeamID <= 0 {
 		return model.Client{}, appmodel.ErrInvalidClientTeam
 	}
+	if bad := model.RequisiteProblems(request.Details); len(bad) > 0 {
+		return model.Client{}, &model.RequisitesError{Client: true, Fields: bad}
+	}
 	return s.writes.CreateClient(ctx, request)
 }
 
@@ -46,6 +49,11 @@ func (s *Service) Create(ctx context.Context, request appmodel.ClientCreateReque
 func (s *Service) Update(ctx context.Context, request appmodel.ClientUpdateRequest) (model.Client, error) {
 	if request.TeamID <= 0 || request.ClientID <= 0 {
 		return model.Client{}, appmodel.ErrInvalidClientTeam
+	}
+	// The card is where the next invoice takes the client's details from,
+	// so a number that does not check out is stopped here, not at sending.
+	if bad := model.RequisiteProblems(request.Update.Details); len(bad) > 0 {
+		return model.Client{}, &model.RequisitesError{Client: true, Fields: bad}
 	}
 	return s.writes.UpdateClient(ctx, request)
 }
