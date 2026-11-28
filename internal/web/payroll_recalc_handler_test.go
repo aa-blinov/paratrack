@@ -59,12 +59,16 @@ func TestPayrollRecalculationThroughTheScreens(t *testing.T) {
 	for _, l := range detail.Run.Lines {
 		under[l.Label] = l.Under
 	}
+	if _, ok := under["Яна — Премия"]; !ok {
+		t.Fatalf("Yana's bonus is not on the run: %+v", detail.Run.Lines)
+	}
 	if len(detail.Run.Lines) != 3 || !under[detail.Run.Lines[1].Label] || under["Яна — Премия"] {
 		t.Fatalf("the owner's compensation sits under their line, Yana's bonus on its own row: %+v", detail.Run.Lines)
 	}
 
-	// Thirty-six seconds more: the money may round the same, the hours do not.
-	if _, err := sql.ExecContext(ctx, `UPDATE sessions SET accumulated_seconds = accumulated_seconds + 36 WHERE team_id = ? AND user_id = ?`, teamID, ownerID); err != nil {
+	// Ten seconds more: 7200 s and 7210 s are both 2,00 h, so the preview has
+	// to show the change to the second.
+	if _, err := sql.ExecContext(ctx, `UPDATE sessions SET accumulated_seconds = accumulated_seconds + 10 WHERE team_id = ? AND user_id = ?`, teamID, ownerID); err != nil {
 		t.Fatal(err)
 	}
 	preview := reactData[payrollDetailPage](t, readBody(t, e.do("GET", runPath+"?preview=recalculate", nil, nil)))
@@ -77,7 +81,7 @@ func TestPayrollRecalculationThroughTheScreens(t *testing.T) {
 			owner = &preview.RecalcPreview.People[i]
 		}
 	}
-	if owner == nil || !owner.HoursChanged || owner.HoursBefore == owner.HoursAfter {
+	if owner == nil || !owner.HoursChanged || owner.HoursBefore != "2:00:00" || owner.HoursAfter != "2:00:10" {
 		t.Fatalf("the owner's hours change is not shown: %+v", owner)
 	}
 
@@ -90,11 +94,23 @@ func TestPayrollRecalculationThroughTheScreens(t *testing.T) {
 	if err := sql.QueryRowContext(ctx, `SELECT meta FROM audit_log WHERE team_id = ? AND action = 'payroll.recalculate' ORDER BY id DESC LIMIT 1`, teamID).Scan(&meta); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(meta, fmt.Sprintf("(#%d)", ownerID)) || !strings.Contains(meta, "s -> ") {
+	if !strings.Contains(meta, fmt.Sprintf("(#%d)", ownerID)) || !strings.Contains(meta, "(7200s -> 7210s)") {
 		t.Fatalf("audit meta lacks the owner's id and hours: %q", meta)
 	}
 
+	// The run is paid while a preview is still open in another tab: applying
+	// that preview answers about recalculating, not about deleting.
+	if _, err := sql.ExecContext(ctx, `UPDATE sessions SET accumulated_seconds = accumulated_seconds + 10 WHERE team_id = ? AND user_id = ?`, teamID, ownerID); err != nil {
+		t.Fatal(err)
+	}
+	open := reactData[payrollDetailPage](t, readBody(t, e.do("GET", runPath+"?preview=recalculate", nil, nil)))
 	e.do("POST", runPath+"/paid", nil, nil).Body.Close()
+	stale := e.do("POST", runPath+"/recalculate", url.Values{"expect": {open.RecalcPreview.Expect}}, nil)
+	stale.Body.Close()
+	staleView := reactData[payrollDetailPage](t, readBody(t, e.do("GET", stale.Header.Get("Location"), nil, nil)))
+	if !strings.Contains(staleView.Flash, "Пересчитать можно только черновик") {
+		t.Fatalf("applying a preview of a run paid since: %q", staleView.Flash)
+	}
 	paid := e.do("POST", runPath+"/recalculate", nil, nil)
 	paid.Body.Close()
 	after := reactData[payrollDetailPage](t, readBody(t, e.do("GET", paid.Header.Get("Location"), nil, nil)))

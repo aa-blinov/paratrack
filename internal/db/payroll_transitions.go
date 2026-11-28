@@ -282,7 +282,7 @@ func recalculatePayrollTx(ctx context.Context, tx *Tx, request appmodel.PayrollR
 		return result, err
 	}
 	if run.Status != "draft" {
-		return result, model.ErrForbidden
+		return result, model.ErrPayrollNotDraft
 	}
 	if err := requireApprovedPayrollTime(ctx, tx, request.TeamID, run.PeriodStart, run.PeriodEnd); err != nil {
 		return result, err

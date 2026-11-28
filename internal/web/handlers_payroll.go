@@ -23,6 +23,8 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 		return fmt.Sprintf(i18n.T(resolveLang(r), "pay.notApproved"), notApproved.Count, notApproved.First.In(loc).Format("02.01.2006"), notApproved.Last.In(loc).Format("02.01.2006"))
 	}
 	switch {
+	case errors.Is(err, model.ErrPayrollNotDraft):
+		return i18n.T(resolveLang(r), "pay.recalcDraftOnly")
 	case errors.Is(err, appmodel.ErrNoPayRates):
 		return "no member has an hourly rate"
 	case errors.Is(err, appmodel.ErrNoPayableTime):
@@ -32,10 +34,9 @@ func (s *Server) payrollErrorMessage(r *http.Request, err error) string {
 	case errors.Is(err, appmodel.ErrInvalidPayrollTeam), errors.Is(err, model.ErrNotFound):
 		return "pay run not found"
 	case errors.Is(err, appmodel.ErrForbidden), errors.Is(err, model.ErrForbidden):
-		// Reachable today only from the delete route: the other payroll
-		// routes answer ErrForbidden before the handler runs, and the
-		// draft-only transition is what actually refuses here. The flash
-		// says that, not "you lack the role" (the caller is the manager).
+		// The draft-only refusal of deleting or editing a run; the caller is
+		// the manager, so the flash says that and not "you lack the role".
+		// A recalculation has its own ErrPayrollNotDraft above.
 		return "pay run is draft only"
 	default:
 		s.logInternalError(err)
@@ -648,7 +649,7 @@ func (s *Server) handlePayrollRecalculate(w http.ResponseWriter, r *http.Request
 			return
 		}
 		if detail.Run.Status != "draft" {
-			http.Redirect(w, r, back+"?flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcDraftOnly")), http.StatusSeeOther)
+			http.Redirect(w, r, back+"?flash="+encodeFlash(false, s.payrollErrorMessage(r, model.ErrPayrollNotDraft)), http.StatusSeeOther)
 			return
 		}
 		http.Redirect(w, r, back+"?preview=recalculate&flash="+encodeFlash(false, i18n.T(resolveLang(r), "pay.recalcConfirm")), http.StatusSeeOther)
