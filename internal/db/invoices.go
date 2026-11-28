@@ -272,21 +272,22 @@ func (d *DB) CreateInvoiceDraft(ctx context.Context, request appmodel.InvoiceDra
 		return Invoice{}, nil, err
 	}
 	if options.RememberClient && projectID > 0 {
-		// The client card, when the project has one, is where the next invoice
-		// reads the client from, so that is what is remembered: the email and
-		// the details, never clearing a filled field and never renaming the
-		// card (a name another client has would fail the whole invoice). A
+		// A project with a client card reads the client from the card, and
+		// the card serves every project of that client: it changes only when
+		// the manager ticks it, through the same rule as a draft edit. A
 		// project without a card keeps its own copy, as before.
-		res, err := tx.ExecContext(ctx,
-			`UPDATE clients SET email = COALESCE(NULLIF(?, ''), email), details = COALESCE(NULLIF(?, ''), details), updated_at = ?
-			  WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?)`,
-			strings.TrimSpace(options.ClientEmail), strings.TrimSpace(options.ClientDetails), createdAt, teamID, projectID, teamID)
+		hasCard, err := projectHasClientCardTx(ctx, tx, teamID, projectID)
 		if err != nil {
-			return Invoice{}, nil, fmt.Errorf("remember client on its card: %w", err)
-		}
-		if n, err := res.RowsAffected(); err != nil {
 			return Invoice{}, nil, err
-		} else if n == 0 {
+		}
+		switch {
+		case hasCard && options.UpdateClientCard:
+			if err := updateClientCardTx(ctx, tx, teamID, projectID, clientName, options.ClientEmail, options.ClientDetails, createdAt); err != nil {
+				return Invoice{}, nil, err
+			}
+		case options.UpdateClientCard:
+			return Invoice{}, nil, model.ErrNoClientCard
+		case !hasCard:
 			if _, err := tx.ExecContext(ctx,
 				`UPDATE projects SET client_name = ?, client_details = ?, client_email = ? WHERE id = ? AND team_id = ?`,
 				strings.TrimSpace(clientName), strings.TrimSpace(options.ClientDetails), strings.TrimSpace(options.ClientEmail), projectID, teamID); err != nil {
@@ -457,4 +458,44 @@ func scanInvoice(row interface{ Scan(...any) error }) (Invoice, error) {
 		inv.UnapprovedWeeks = &weeks
 	}
 	return inv, nil
+}
+
+func projectHasClientCardTx(ctx context.Context, tx *Tx, teamID, projectID int64) (bool, error) {
+	var has bool
+	err := tx.QueryRowContext(ctx,
+		`SELECT EXISTS(SELECT 1 FROM projects p JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id WHERE p.id = ? AND p.team_id = ?)`,
+		projectID, teamID).Scan(&has)
+	return has, err
+}
+
+// updateClientCardTx writes an invoice's email and details to the client card
+// of its project. The invoice must name that client: another name typed into
+// the form would otherwise put a different company's numbers on this card,
+// and every later invoice to it would carry them. Empty fields leave the
+// card's own, and the card is never renamed from an invoice.
+func updateClientCardTx(ctx context.Context, tx *Tx, teamID, projectID int64, clientName, email, details, at string) error {
+	res, err := tx.ExecContext(ctx,
+		`UPDATE clients SET email = COALESCE(NULLIF(?, ''), email), details = COALESCE(NULLIF(?, ''), details), updated_at = ?
+		  WHERE team_id = ? AND id = (SELECT client_id FROM projects WHERE id = ? AND team_id = ?) AND name = ?`,
+		strings.TrimSpace(email), strings.TrimSpace(details), at, teamID, projectID, teamID, strings.TrimSpace(clientName))
+	if err != nil {
+		return fmt.Errorf("update client card: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	var cardName string
+	if err := tx.QueryRowContext(ctx,
+		`SELECT cl.name FROM projects p JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id WHERE p.id = ? AND p.team_id = ?`,
+		projectID, teamID).Scan(&cardName); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return model.ErrNoClientCard
+		}
+		return err
+	}
+	return &model.ClientCardMismatchError{Card: cardName}
 }

@@ -72,6 +72,8 @@ type invoiceProjectOpt struct {
 	Rate                                   string // money per hour, empty when the project has none
 	ClientName, ClientDetails, ClientEmail string
 	Selected, Eligible                     bool
+	// HasClientCard offers "update the client card too" on the new invoice.
+	HasClientCard bool
 }
 
 type unassignedActivityView struct {

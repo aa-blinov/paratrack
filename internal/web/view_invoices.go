@@ -80,7 +80,7 @@ func (s *Server) buildInvoicesPage(r *http.Request) (invoicesPage, error) {
 		project := projectOption.Project
 		option := invoiceProjectOpt{
 			ID: project.ID, Name: project.Name, Selected: project.ID == want,
-			Eligible: projectOption.Eligible,
+			Eligible: projectOption.Eligible, HasClientCard: projectOption.Client.Card,
 		}
 		// The rate prices every line of a draft, yet nothing on the page said
 		// what it was: a person had to open the project to learn the number

@@ -105,10 +105,14 @@ Confirmed by the code:
   belongs to one server and token and is not shown for another. Locally,
   without a server, `--short` keeps the same contract.
 - `paratrack hook install` writes a git post-checkout hook that focuses the
-  timer on the checked-out branch's last name part, in the background,
-  skipping main/master/develop/trunk, and never touches a hook it did not
-  write. `paratrack completion bash|zsh|fish` completes commands and, after
-  start and focus, recent activities from the server. "Only this" (and the
+  timer on the checked-out branch's last name part (other characters than
+  letters, digits, dot, dash and underscore become dashes), in the
+  background, after a one-second settle so quick successive checkouts end on
+  the branch still checked out, skipping main/master/develop/trunk. It never
+  touches a hook it did not write and refuses when core.hooksPath belongs to
+  a hook manager. `paratrack completion bash|zsh|fish` completes commands
+  and, after start and focus, the caller's own recent activities (400 ms at
+  most); names are offered as quoted text, never evaluated. "Only this" (and the
   remote `focus`) starts an activity the workspace has not seen yet. It is a real
   feature rather than a development tool. `stats` counts a running timer the way the web stats do,
   so the CLI and the screen agree on today.
@@ -161,7 +165,8 @@ Deliberately not true, and worth knowing before a change:
 - Approval works per workspace week or per member within a week. The
   timesheet shows a manager every member's week on one screen: hours against
   the norm, empty weekdays, and approval per person, with "approve everyone
-  on track" (80% of the norm, no empty weekday) for a finished week. Approved
+  on track" (80% of the norm, no empty weekday by the calendar) for a
+  finished week; a date inside a week means that whole week. Approved
   and on track have different marks.
 - A pay run cannot cover the current week, because the week has to end and be
   approved first. A pay run can cover a chosen set of members, or only the
@@ -199,8 +204,10 @@ Deliberately not true, and worth knowing before a change:
   exists. Details that do not check out never travel to the card or to the
   project's copy the next invoice falls back to. Details are stored with LF
   line endings. A new invoice remembers the client's email and details on the
-  client card when its project has one (never clearing a filled field or
-  renaming the card), and on the project's own copy only when it has none. A
+  client card only when "Update the client card too" is ticked and the
+  invoice names that card's client (another name is refused), never clearing
+  a filled field or renaming the card; a project without a card keeps its
+  own copy. A project with a card fills the form from the card alone. A
   card or a draft saved before the check can still be edited while its
   details stay as they are.
 - A token whose owner has no seat in its workspace any more is answered

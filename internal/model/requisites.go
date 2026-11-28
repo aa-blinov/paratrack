@@ -160,3 +160,13 @@ func (e *RequisitesError) Error() string {
 	}
 	return side + " details do not check out: " + strings.Join(e.Fields, ", ")
 }
+
+// ClientCardMismatchError refuses to write an invoice's client details to a
+// card named differently: the invoice is for another client than the card.
+type ClientCardMismatchError struct {
+	Card string
+}
+
+func (e *ClientCardMismatchError) Error() string {
+	return "the invoice names another client than the card " + e.Card
+}

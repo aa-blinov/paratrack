@@ -37,22 +37,46 @@ func TestNewInvoiceRemembersTheClientOnItsCard(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	resp := e.do("POST", "/invoices", url.Values{
-		"client": {"Ромашка"}, "project_id": {pid}, "start": {"2020-01-01"}, "end": {"2030-01-01"}, "confirm_unapproved": {"1"},
-		"client_details": {"ИНН 500100732259"}, "client_email": {""},
-	}, nil)
-	resp.Body.Close()
-	if loc := resp.Header.Get("Location"); !strings.HasPrefix(loc, "/invoices/") {
-		t.Fatalf("create invoice: %d %q", resp.StatusCode, loc)
+	create := func(client string, updateCard bool) string {
+		t.Helper()
+		form := url.Values{
+			"client": {client}, "project_id": {pid}, "start": {"2020-01-01"}, "end": {"2030-01-01"}, "confirm_unapproved": {"1"},
+			"client_details": {"ИНН 500100732259"}, "client_email": {""},
+		}
+		if updateCard {
+			form.Set("update_client_card", "1")
+		}
+		resp := e.do("POST", "/invoices", form, nil)
+		resp.Body.Close()
+		return resp.Header.Get("Location")
 	}
-	var email, details, copyDetails string
-	if err := sql.QueryRowContext(ctx, `SELECT email, details FROM clients WHERE id = ?`, clientID).Scan(&email, &details); err != nil {
-		t.Fatal(err)
+	card := func() (email, details string) {
+		t.Helper()
+		if err := sql.QueryRowContext(ctx, `SELECT email, details FROM clients WHERE id = ?`, clientID).Scan(&email, &details); err != nil {
+			t.Fatal(err)
+		}
+		return
 	}
+
+	// Another company's name typed into the form never reaches this card.
+	if loc := create("Лютик", true); strings.HasPrefix(loc, "/invoices/") && !strings.Contains(loc, "flash=") {
+		t.Fatalf("an invoice to another client updated the card: %q", loc)
+	}
+	if _, details := card(); details != "ИНН 7707083893" {
+		t.Fatalf("the card took another client's details: %q", details)
+	}
+	// Without the box the card stays as it was, like a draft edit.
+	if loc := create("Ромашка", false); !strings.HasPrefix(loc, "/invoices/") {
+		t.Fatalf("create invoice: %q", loc)
+	}
+	if _, details := card(); details != "ИНН 7707083893" {
+		t.Fatalf("the card changed without the box: %q", details)
+	}
+	var copyDetails string
 	if err := sql.QueryRowContext(ctx, `SELECT client_details FROM projects WHERE id = ?`, proj.ID).Scan(&copyDetails); err != nil {
 		t.Fatal(err)
 	}
-	if details != "ИНН 500100732259" || email != "old@romashka.test" || copyDetails != "старая копия" {
-		t.Fatalf("card %q %q, project copy %q", email, details, copyDetails)
+	if copyDetails != "старая копия" {
+		t.Fatalf("a project with a card had its copy rewritten: %q", copyDetails)
 	}
 }

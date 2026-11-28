@@ -677,6 +677,7 @@ export interface InvoiceProjectOption {
   ClientEmail: string
   Selected: boolean
   Eligible: boolean
+  HasClientCard?: boolean
 }
 
 export interface InvoicesData {

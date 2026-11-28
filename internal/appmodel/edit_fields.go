@@ -45,6 +45,9 @@ type InvoiceOptions struct {
 	ProjectID      int64
 	ByPerson       bool
 	RememberClient bool
+	// UpdateClientCard writes the email and details to the project's client
+	// card, only when ticked and only when the invoice names that client.
+	UpdateClientCard bool
 }
 
 // TokenOptions define the scope and lifetime of a newly minted API token.

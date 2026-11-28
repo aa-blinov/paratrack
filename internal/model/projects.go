@@ -67,4 +67,7 @@ type ProjectClient struct {
 	Name    string
 	Details string
 	Email   string
+	// Card is true when the client comes from a client card; the fields are
+	// then the card's alone, never patched with the project's old copy.
+	Card bool
 }

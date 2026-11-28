@@ -72,6 +72,7 @@ func (s *Server) handleInvoiceCreate(w http.ResponseWriter, r *http.Request) {
 		Options: appmodel.InvoiceOptions{
 			ClientDetails: clientDetails, ClientEmail: clientEmail,
 			ProjectID: projectID, ByPerson: byPerson, RememberClient: projectID > 0,
+			UpdateClientCard: r.PostForm.Get("update_client_card") != "",
 		},
 		ConfirmUnapproved: r.PostForm.Get("confirm_unapproved") == "1" || !s.teamModules(r)["payroll"],
 	})

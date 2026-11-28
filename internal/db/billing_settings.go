@@ -200,9 +200,10 @@ type ProjectClient = model.ProjectClient
 func (d *DB) ListProjectClients(ctx context.Context, teamID int64) (map[int64]model.ProjectClient, error) {
 	rows, err := d.sql.QueryContext(ctx,
 		`SELECT p.id,
-		        COALESCE(NULLIF(cl.name, ''), p.client_name),
-		        COALESCE(NULLIF(cl.details, ''), p.client_details),
-		        COALESCE(NULLIF(cl.email, ''), p.client_email)
+		        CASE WHEN cl.id IS NOT NULL THEN cl.name::text ELSE p.client_name END,
+		        CASE WHEN cl.id IS NOT NULL THEN cl.details ELSE p.client_details END,
+		        CASE WHEN cl.id IS NOT NULL THEN cl.email ELSE p.client_email END,
+		        cl.id IS NOT NULL
 		 FROM projects p
 		 LEFT JOIN clients cl ON cl.id = p.client_id AND cl.team_id = p.team_id
 		 WHERE p.team_id = ? AND p.archived = 0`, teamID)
@@ -214,7 +215,7 @@ func (d *DB) ListProjectClients(ctx context.Context, teamID int64) (map[int64]mo
 	for rows.Next() {
 		var id int64
 		var client model.ProjectClient
-		if err := rows.Scan(&id, &client.Name, &client.Details, &client.Email); err != nil {
+		if err := rows.Scan(&id, &client.Name, &client.Details, &client.Email, &client.Card); err != nil {
 			return nil, err
 		}
 		clients[id] = client
