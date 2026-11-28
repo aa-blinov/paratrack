@@ -34,15 +34,18 @@ type Runtime struct {
 	RemoteURL        string
 	RemoteToken      string
 	RemoteConfigPath string
-	HTTPClient       *http.Client
-	services         *cliport.Services
-	serviceCloser    io.Closer
-	serviceErr       error
-	servicesReady    bool
-	commandMu        sync.Mutex
-	mu               sync.Mutex
-	closed           bool
-	closeErr         error
+	// StatusCachePath holds the last `status --short` answer, so an offline
+	// prompt still shows the running timer.
+	StatusCachePath string
+	HTTPClient      *http.Client
+	services        *cliport.Services
+	serviceCloser   io.Closer
+	serviceErr      error
+	servicesReady   bool
+	commandMu       sync.Mutex
+	mu              sync.Mutex
+	closed          bool
+	closeErr        error
 }
 
 func (rt *Runtime) application() (*cliport.Services, error) {

@@ -50,6 +50,13 @@ func RunWithRuntime(args []string, rt *Runtime) error {
 	}
 	if rt.remoteEnabled() {
 		if handled, err := runRemote(rt, args[0], args[1:]); handled {
+			switch args[0] {
+			case "status", "st", "stats", "log":
+			default:
+				if err == nil {
+					rt.dropStatusCache()
+				}
+			}
 			return err
 		}
 		if args[0] != "web" && args[0] != "-h" && args[0] != "--help" && args[0] != "help" {

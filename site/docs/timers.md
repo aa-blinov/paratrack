@@ -74,4 +74,27 @@ paratrack stop              # стоп
 paratrack add               # сессия задним числом
 ```
 
+Работать можно и с чужим сервером: создайте токен в «Настройки → Токены» и один раз выполните `paratrack auth login --url https://ваш-сервер --token pt_…`.
+
+### Таймер в строке терминала
+
+`paratrack status --short` печатает одну строку вроде `вёрстка 1h05m` и отвечает не дольше чем за 0,4 секунды. Если сервер не успел ответить, строка берётся из последнего ответа, таймер досчитывается на месте, а в конце стоит `?`. Без связи и без сохранённого ответа будет `offline`. Команда не завершается ошибкой, поэтому её можно ставить в приглашение.
+
+Starship (`~/.config/starship.toml`):
+
+```toml
+[custom.paratrack]
+command = "paratrack status --short"
+when = true
+format = "[$output]($style) "
+style = "dimmed"
+```
+
+tmux (`~/.tmux.conf`):
+
+```bash
+set -g status-right '#(paratrack status --short)'
+set -g status-interval 30
+```
+
 Полный список команд в разделе [Свой сервер]({{ '/docs/self-host/' | relative_url }}#cli).

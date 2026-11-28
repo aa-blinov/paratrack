@@ -39,6 +39,7 @@ func main() {
 	}
 	runtime := cli.NewRuntime(os.Stdin, os.Stdout, os.Stderr)
 	runtime.RemoteConfigPath = defaultCLIRemoteConfigPath()
+	runtime.StatusCachePath = defaultCLIStatusCachePath()
 	runtime.RemoteURL, runtime.RemoteToken = loadCLIRemoteConfig(runtime.RemoteConfigPath)
 	if runtime.RemoteURL != "" {
 		runtime.HTTPClient = netclients.External()

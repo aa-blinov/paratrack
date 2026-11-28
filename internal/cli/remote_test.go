@@ -33,7 +33,7 @@ func TestRemoteCLITokenFlow(t *testing.T) {
 			addedTag = r.FormValue("name")
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodGet && r.URL.Path == "/api/active":
-			_, _ = io.WriteString(w, `{"Items":[{"ID":7,"ActivityName":"API work","ProjectName":"Core","Duration":"12m","Paused":false,"Note":""}]}`)
+			_, _ = io.WriteString(w, `{"Items":[{"ID":7,"ActivityName":"API work","ProjectName":"Core","Duration":"12m","DurationSecs":720,"Paused":false,"Note":""}]}`)
 		case r.Method == http.MethodPost && r.URL.Path == "/api/sessions/7/stop":
 			w.WriteHeader(http.StatusNoContent)
 		case r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/focus/"):

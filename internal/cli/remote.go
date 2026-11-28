@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -22,6 +23,7 @@ type remoteActiveItem struct {
 	ActivityName string `json:"ActivityName"`
 	ProjectName  string `json:"ProjectName"`
 	Duration     string `json:"Duration"`
+	DurationSecs int    `json:"DurationSecs"`
 	Paused       bool   `json:"Paused"`
 	Note         string `json:"Note"`
 }
@@ -85,6 +87,10 @@ func (rt *Runtime) httpClient() (*http.Client, error) {
 }
 
 func (rt *Runtime) remoteDo(method, path string, form url.Values) (int, []byte, error) {
+	return rt.remoteDoContext(rt.Context, method, path, form)
+}
+
+func (rt *Runtime) remoteDoContext(ctx context.Context, method, path string, form url.Values) (int, []byte, error) {
 	client, err := rt.httpClient()
 	if err != nil {
 		return 0, nil, err
@@ -94,7 +100,7 @@ func (rt *Runtime) remoteDo(method, path string, form url.Values) (int, []byte, 
 	if form != nil {
 		bodyReader = strings.NewReader(form.Encode())
 	}
-	req, err := http.NewRequestWithContext(rt.Context, method, base+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, base+path, bodyReader)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -283,6 +289,9 @@ func runRemote(rt *Runtime, cmd string, args []string) (handled bool, err error)
 		if err := parseFlagsAnyOrder(fs, args); err != nil {
 			return true, &ExitError{Code: 2, Err: err}
 		}
+		if *shortFlag {
+			return true, rt.remoteStatusShort()
+		}
 		items, err := rt.remoteActive()
 		if err != nil {
 			return true, err
@@ -291,22 +300,6 @@ func runRemote(rt *Runtime, cmd string, args []string) (handled bool, err error)
 			enc := json.NewEncoder(rt.Out)
 			enc.SetIndent("", "  ")
 			return true, enc.Encode(remoteActiveResponse{Items: items})
-		}
-		if *shortFlag {
-			if len(items) == 0 {
-				fmt.Fprintln(rt.Out, "idle")
-				return true, nil
-			}
-			parts := make([]string, 0, len(items))
-			for _, item := range items {
-				label := item.ActivityName + " " + item.Duration
-				if item.Paused {
-					label = item.ActivityName + " (paused) " + item.Duration
-				}
-				parts = append(parts, label)
-			}
-			fmt.Fprintln(rt.Out, strings.Join(parts, " | "))
-			return true, nil
 		}
 		if len(items) == 0 {
 			fmt.Fprintln(rt.Out, "no active timers")

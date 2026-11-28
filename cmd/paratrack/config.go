@@ -255,6 +255,14 @@ func defaultCLIRemoteConfigPath() string {
 	return filepath.Join(dir, "paratrack", "config.json")
 }
 
+func defaultCLIStatusCachePath() string {
+	dir, err := os.UserCacheDir()
+	if err != nil || strings.TrimSpace(dir) == "" {
+		return ""
+	}
+	return filepath.Join(dir, "paratrack", "status.json")
+}
+
 func readCLIRemoteFile(path string) (string, string) {
 	if strings.TrimSpace(path) == "" {
 		return "", ""
