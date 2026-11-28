@@ -531,6 +531,8 @@
   "absence.saved": "Days marked: %d.",
   "absence.cleared": "Mark removed from days: %d.",
   "absence.bad": "Check the person and the dates: up to 62 days.",
+  "absence.remove": "Remove",
+  "holiday.mark": "day off",
   "absence.days": "%s: %d d",
   "holiday.name": "Holiday",
   "holiday.namePh": "Unity Day",

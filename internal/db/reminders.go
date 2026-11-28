@@ -110,8 +110,13 @@ func (d *DB) DayFillCandidates(ctx context.Context, query appmodel.DayFillCandid
 		      SELECT 1 FROM sessions s
 		       WHERE s.team_id = m.team_id AND s.user_id = m.user_id
 		         AND s.start_at >= ? AND s.start_at < ?)
+		    AND NOT EXISTS (
+		      SELECT 1 FROM member_absences a
+		       WHERE a.team_id = m.team_id AND a.user_id = m.user_id AND a.day = ?)
+		    AND NOT EXISTS (
+		      SELECT 1 FROM team_holidays h WHERE h.team_id = m.team_id AND h.day = ?)
 		  ORDER BY m.user_id`,
-		query.TeamID, FormatTime(query.From), FormatTime(query.To))
+		query.TeamID, FormatTime(query.From), FormatTime(query.To), query.Day, query.Day)
 	if err != nil {
 		return nil, fmt.Errorf("list members without time: %w", err)
 	}

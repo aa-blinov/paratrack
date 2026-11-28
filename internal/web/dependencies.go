@@ -274,7 +274,9 @@ type SchedulingWorkflow interface {
 	TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error)
 	WorkdayOf(ctx context.Context, teamID, userID int64, day string) (appmodel.WorkdayMark, bool, error)
 	DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error)
-	SetTeamHoliday(ctx context.Context, request appmodel.TeamHolidayRequest) error
+	SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRequest) error
+	SetAbsence(ctx context.Context, request appmodel.AbsenceRequest) error
+	Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error)
 	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	MovePlanFromDay(ctx context.Context, request appmodel.PlanMoveRequest) (int, error)
 	AddLine(ctx context.Context, request appmodel.ScheduleLineRequest) error

@@ -13,12 +13,31 @@ type PersonDayQuery struct {
 
 // DayMarkRequest records or clears a member's own mark on one day: an overload or an
 // idle day, with a note. An empty kind clears the day's mark (TIME-13).
-// TeamHolidayRequest marks a workspace day off, or clears it.
+// TeamHolidayRequest marks workspace days off, or clears them.
 type TeamHolidayRequest struct {
 	TeamID int64
-	Day    string
+	Days   []string
 	Name   string
 	Clear  bool
+}
+
+// AbsenceRequest records a member's absence over days, or clears it with an
+// empty Kind.
+type AbsenceRequest struct {
+	TeamID int64
+	UserID int64
+	Days   []string
+	Kind   string
+	Note   string
+	Now    time.Time
+}
+
+// Absence is one day of a member's vacation, sick leave or day off.
+type Absence struct {
+	UserID int64
+	Day    string
+	Kind   string
+	Note   string
 }
 
 type DayMarkRequest struct {

@@ -70,6 +70,18 @@ func TestAbsencesAndHolidaysLeaveTheNorm(t *testing.T) {
 		t.Fatalf("a week of vacation is away: %+v", s)
 	}
 
+	// The member's own mark lives apart: clearing or setting it on a day of
+	// their vacation leaves the vacation as the manager recorded it.
+	away.do("POST", "/api/day-marks", url.Values{"day": {week}, "kind": {""}}, nil).Body.Close()
+	away.do("POST", "/api/day-marks", url.Values{"day": {week}, "kind": {"idle"}}, nil).Body.Close()
+	var kept int
+	if err := sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM member_absences WHERE team_id = ? AND user_id = ?`, teamID, awayID).Scan(&kept); err != nil {
+		t.Fatal(err)
+	}
+	if kept != 7 {
+		t.Fatalf("the member's own mark changed their vacation: %d days left", kept)
+	}
+
 	owner.do("POST", "/api/timesheet/approve-on-track", url.Values{"start": {week}}, nil).Body.Close()
 	approved := func(id int64) bool {
 		var n int

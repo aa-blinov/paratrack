@@ -28,7 +28,9 @@ type Store interface {
 	TrackedSecondsByProject(ctx context.Context, query appmodel.PersonDayQuery) (map[int64]int, error)
 	WorkdayOf(ctx context.Context, teamID, userID int64, day string) (appmodel.WorkdayMark, bool, error)
 	DayMarks(ctx context.Context, teamID int64, from, until string) ([]appmodel.DayMark, error)
-	SetTeamHoliday(ctx context.Context, request appmodel.TeamHolidayRequest) error
+	SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRequest) error
+	SetAbsence(ctx context.Context, request appmodel.AbsenceRequest) error
+	Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error)
 	TeamHolidays(ctx context.Context, teamID int64, from, until string) (map[string]string, error)
 	PlannedMinutesForProjectFrom(ctx context.Context, teamID, projectID int64, from time.Time) (int, error)
 	SetProjectWeeklyNorm(ctx context.Context, request appmodel.ProjectWeeklyNormRequest) error
@@ -150,12 +152,28 @@ func (s *Service) SetDayMark(ctx context.Context, request appmodel.DayMarkReques
 	return s.store.SetDayMark(ctx, request)
 }
 
-// SetTeamHoliday marks or clears a workspace day off.
-func (s *Service) SetTeamHoliday(ctx context.Context, request appmodel.TeamHolidayRequest) error {
-	if request.TeamID <= 0 || request.Day == "" {
+// SetTeamHolidays marks or clears workspace days off.
+func (s *Service) SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRequest) error {
+	if request.TeamID <= 0 || len(request.Days) == 0 {
 		return ErrInvalidScheduleCell
 	}
-	return s.store.SetTeamHoliday(ctx, request)
+	return s.store.SetTeamHolidays(ctx, request)
+}
+
+// SetAbsence records or clears a member's absence over days.
+func (s *Service) SetAbsence(ctx context.Context, request appmodel.AbsenceRequest) error {
+	if request.TeamID <= 0 || request.UserID <= 0 || len(request.Days) == 0 {
+		return ErrInvalidScheduleCell
+	}
+	return s.store.SetAbsence(ctx, request)
+}
+
+// Absences lists the workspace's absences over a stretch of days.
+func (s *Service) Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error) {
+	if teamID <= 0 {
+		return nil, ErrInvalidScheduleCell
+	}
+	return s.store.Absences(ctx, teamID, from, until)
 }
 
 // TeamHolidays lists the workspace's days off over a stretch of days.

@@ -60,6 +60,21 @@ func (s *Server) teamWeekOf(r *http.Request, now time.Time) (*teamWeekView, erro
 	if err != nil {
 		return nil, err
 	}
+	// A member's absence and the workspace's days off are not a shortfall:
+	// the cell names them instead of flagging the missing hours.
+	from, until := days[0].Format("2006-01-02"), days[6].AddDate(0, 0, 1).Format("2006-01-02")
+	absences, err := s.services.Scheduling.Absences(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil, err
+	}
+	away := map[string]string{}
+	for _, a := range absences {
+		away[fmt.Sprintf("%d/%s", a.UserID, a.Day)] = a.Kind
+	}
+	holidays, err := s.services.Scheduling.TeamHolidays(r.Context(), teamID(r), from, until)
+	if err != nil {
+		return nil, err
+	}
 	people := s.taskPeople(r)
 	sort.SliceStable(people, func(i, j int) bool { return people[i].Name < people[j].Name })
 	for _, person := range people {
@@ -74,10 +89,21 @@ func (s *Server) teamWeekOf(r *http.Request, now time.Time) (*teamWeekView, erro
 			// A weekend with no time is a day off, not a shortfall.
 			weekend := day.Weekday() == time.Saturday || day.Weekday() == time.Sunday
 			below := !day.After(today) && seconds < dayNormSeconds && (!weekend || seconds > 0)
+			key := fmt.Sprintf("%d/%s", person.ID, day.Format("2006-01-02"))
+			holiday, isHoliday := holidays[day.Format("2006-01-02")]
+			if away[key] != "" || isHoliday {
+				below = false
+			}
 			cell := teamWeekCell{Label: cellLabel(r, seconds), Below: below}
-			if mark, ok := marks[fmt.Sprintf("%d/%s", person.ID, day.Format("2006-01-02"))]; ok {
+			if mark, ok := marks[key]; ok {
 				cell.Mark = dayMarkLabel(lang, mark.Kind)
 				cell.Note = mark.Note
+			}
+			if kind := away[key]; kind != "" {
+				cell.Mark = dayMarkLabel(lang, kind)
+			} else if isHoliday && cell.Mark == "" {
+				cell.Mark = i18n.T(lang, "holiday.mark")
+				cell.Note = holiday
 			}
 			row.Cells = append(row.Cells, cell)
 		}

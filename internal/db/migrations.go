@@ -415,3 +415,20 @@ func (d *DB) migrateProjectCopiesToCards(ctx context.Context) error {
 	})
 	return err
 }
+
+// migrateAbsencesOutOfDayMarks moves the vacations, sick leave and days off
+// once recorded as day marks into member_absences: a member's own mark used
+// to share that row and could overwrite or clear the absence.
+func (d *DB) migrateAbsencesOutOfDayMarks(ctx context.Context) error {
+	_, err := d.runDataMigration(ctx, "20261128_absences_out_of_day_marks", func(tx *Tx) error {
+		if err := tx.execRawContext(ctx,
+			`INSERT INTO member_absences (team_id, user_id, day, kind, note, created_at)
+			 SELECT team_id, user_id, day, kind, note, created_at FROM day_marks
+			  WHERE kind IN ('vacation', 'sick', 'dayoff')
+			 ON CONFLICT (team_id, user_id, day) DO NOTHING`); err != nil {
+			return err
+		}
+		return tx.execRawContext(ctx, `DELETE FROM day_marks WHERE kind IN ('vacation', 'sick', 'dayoff')`)
+	})
+	return err
+}

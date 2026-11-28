@@ -285,16 +285,32 @@ func TestSetCellWithoutProjectsReturnsApplicationOutcome(t *testing.T) {
 	}
 }
 
-func (scheduleStoreStub) SetTeamHoliday(context.Context, appmodel.TeamHolidayRequest) error {
+func (scheduleStoreStub) SetTeamHolidays(context.Context, appmodel.TeamHolidayRequest) error {
 	return nil
+}
+
+func (scheduleStoreStub) SetAbsence(context.Context, appmodel.AbsenceRequest) error {
+	return nil
+}
+
+func (scheduleStoreStub) Absences(context.Context, int64, string, string) ([]appmodel.Absence, error) {
+	return nil, nil
 }
 
 func (scheduleStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {
 	return nil, nil
 }
 
-func (scheduleCellStoreStub) SetTeamHoliday(context.Context, appmodel.TeamHolidayRequest) error {
+func (scheduleCellStoreStub) SetTeamHolidays(context.Context, appmodel.TeamHolidayRequest) error {
 	return nil
+}
+
+func (scheduleCellStoreStub) SetAbsence(context.Context, appmodel.AbsenceRequest) error {
+	return nil
+}
+
+func (scheduleCellStoreStub) Absences(context.Context, int64, string, string) ([]appmodel.Absence, error) {
+	return nil, nil
 }
 
 func (scheduleCellStoreStub) TeamHolidays(context.Context, int64, string, string) (map[string]string, error) {

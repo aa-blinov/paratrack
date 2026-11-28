@@ -110,3 +110,52 @@ func TestProjectClientCopiesBecomeCards(t *testing.T) {
 		t.Fatalf("card %q %q %q", name, email, details)
 	}
 }
+
+// Nobody away, and nobody at all on a workspace holiday, is asked to fill
+// the day; old absence day marks move to their own table.
+func TestDayFillSkipsAbsencesAndHolidays(t *testing.T) {
+	ctx := t.Context()
+	d := openTestDB(t)
+	teamID := seedTeam(t, d, "Отпуска", "day-fill-away")
+	ownerID := teamOwner(t, d, teamID)
+	awayID := seedApprovalUser(t, d, "away-fill@test.local")
+	if _, err := d.TestSQL().ExecContext(ctx, `INSERT INTO memberships (team_id, user_id, role, joined_at) VALUES (?, ?, 'member', '2026-01-01T00:00:00Z')`, teamID, awayID); err != nil {
+		t.Fatal(err)
+	}
+	day := time.Date(2026, 11, 25, 0, 0, 0, 0, time.UTC)
+	query := appmodel.DayFillCandidatesQuery{TeamID: teamID, From: day, To: day.AddDate(0, 0, 1), Day: "2026-11-25"}
+	if err := d.SetAbsence(ctx, appmodel.AbsenceRequest{TeamID: teamID, UserID: awayID, Days: []string{"2026-11-25"}, Kind: "vacation", Now: day}); err != nil {
+		t.Fatal(err)
+	}
+	ids, err := d.DayFillCandidates(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != ownerID {
+		t.Fatalf("asked to fill the day: %v, want only the owner", ids)
+	}
+	if err := d.SetTeamHolidays(ctx, appmodel.TeamHolidayRequest{TeamID: teamID, Days: []string{"2026-11-25"}, Name: "Праздник"}); err != nil {
+		t.Fatal(err)
+	}
+	if ids, err = d.DayFillCandidates(ctx, query); err != nil || len(ids) != 0 {
+		t.Fatalf("asked on a holiday: %v %v", ids, err)
+	}
+
+	// An absence written as a day mark before is moved, once.
+	if _, err := d.TestSQL().ExecContext(ctx, `INSERT INTO day_marks (team_id, user_id, day, kind, note, created_at) VALUES (?, ?, '2026-11-26', 'sick', '', '2026-11-26T00:00:00Z')`, teamID, awayID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := d.TestSQL().ExecContext(ctx, `DELETE FROM paratrack_migrations WHERE name = '20261128_absences_out_of_day_marks'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.migrateAbsencesOutOfDayMarks(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var marks, absences int
+	if err := d.TestSQL().QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM day_marks WHERE team_id = ?), (SELECT COUNT(*) FROM member_absences WHERE team_id = ? AND day = '2026-11-26')`, teamID, teamID).Scan(&marks, &absences); err != nil {
+		t.Fatal(err)
+	}
+	if marks != 0 || absences != 1 {
+		t.Fatalf("after the move: %d marks, %d absences", marks, absences)
+	}
+}

@@ -355,7 +355,7 @@ func (s *Service) dayFill(ctx context.Context, now time.Time) error {
 		}
 		day := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
 		users, err := s.store.DayFillCandidates(ctx, appmodel.DayFillCandidatesQuery{
-			TeamID: teamID, From: day, To: day.AddDate(0, 0, 1),
+			TeamID: teamID, From: day, To: day.AddDate(0, 0, 1), Day: day.Format("2006-01-02"),
 		})
 		if err != nil {
 			return err

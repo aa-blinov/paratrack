@@ -429,7 +429,7 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
         </ul>
       </DisclosureSection>
     })()}
-    {data.Approval.CanManage && data.People.length > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} />}
+    {data.Approval.CanManage && data.People.length > 0 && <AbsencesCard lang={lang} csrf={data.CSRFToken} week={data.DateISO} people={data.People} absences={data.Absences ?? []} />}
     <div className="flex flex-wrap items-center gap-2">
       <StatusLine text={saving.size > 0 ? t(lang, "ts.saving") : noticeText} className="text-sm" />
       {lastEdit && <Button type="button" variant="ghost" size="sm" disabled={busy} title={t(lang, "ts.undoCell", lastEdit.activity, lastEdit.date)} onClick={() => void undoLastEdit()}>{t(lang, "toast.undo")}</Button>}
@@ -544,10 +544,24 @@ export function TimesheetPage({ initial }: { initial: TimesheetData }) {
 // AbsencesCard records a person's vacation, sick leave or day off and the
 // workspace's holidays. Those days leave the norm in the team summary, so a
 // holiday week or a vacation does not read as an empty timesheet.
-function AbsencesCard({ lang, csrf, week, people }: { lang: string; csrf: string; week: string; people: Array<{ ID: number; Name: string }> }) {
+function AbsencesCard({ lang, csrf, week, people, absences }: { lang: string; csrf: string; week: string; people: Array<{ ID: number; Name: string }>; absences: Array<{ UserID: number; Name: string; Kind: string; Label: string; From: string; To: string }> }) {
   const [person, setPerson] = React.useState(String(people[0]?.ID ?? ""))
   const [kind, setKind] = React.useState("vacation")
   return <DisclosureSection id="ts-absences" title={t(lang, "absence.title")} description={t(lang, "absence.hint")} defaultOpen={false}>
+    {absences.length > 0 && <ul className="mb-4 divide-y divide-border text-sm">
+      {absences.map(a => <li key={`${a.UserID}:${a.From}:${a.Kind}`} className="flex flex-wrap items-center justify-between gap-2 py-1.5">
+        <span><span className="font-medium">{a.Name}</span>: {a.Label}</span>
+        <form method="post" action="/api/absences" className="inline">
+          <input type="hidden" name="csrf_token" value={csrf} />
+          <input type="hidden" name="week" value={week} />
+          <input type="hidden" name="user_id" value={String(a.UserID)} />
+          <input type="hidden" name="kind" value="" />
+          <input type="hidden" name="from" value={a.From} />
+          <input type="hidden" name="to" value={a.To} />
+          <Button type="submit" size="sm" variant="ghost" className="h-7 px-2 text-xs">{t(lang, "absence.remove")}</Button>
+        </form>
+      </li>)}
+    </ul>}
     <div className="grid gap-6 md:grid-cols-2">
       <form method="post" action="/api/absences" className="grid gap-3">
         <input type="hidden" name="csrf_token" value={csrf} />

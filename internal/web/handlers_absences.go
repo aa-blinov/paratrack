@@ -64,13 +64,11 @@ func (s *Server) handleAbsence(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "absence.bad")), http.StatusSeeOther)
 		return
 	}
-	for _, day := range days {
-		if err := s.services.Scheduling.SetDayMark(r.Context(), appmodel.DayMarkRequest{
-			TeamID: teamID(r), UserID: userID, Day: day, Kind: kind, Note: strings.TrimSpace(r.PostForm.Get("note")), Now: userNow(r),
-		}); err != nil {
-			http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "absence.bad")), http.StatusSeeOther)
-			return
-		}
+	if err := s.services.Scheduling.SetAbsence(r.Context(), appmodel.AbsenceRequest{
+		TeamID: teamID(r), UserID: userID, Days: days, Kind: kind, Note: strings.TrimSpace(r.PostForm.Get("note")), Now: userNow(r),
+	}); err != nil {
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "absence.bad")), http.StatusSeeOther)
+		return
 	}
 	s.audit(r, "absence.set", strconv.FormatInt(userID, 10), fmt.Sprintf("%s %s..%s", kind, days[0], days[len(days)-1]))
 	key := "absence.saved"
@@ -95,11 +93,10 @@ func (s *Server) handleHoliday(w http.ResponseWriter, r *http.Request) {
 	}
 	clear := r.PostForm.Get("clear") != ""
 	name := strings.TrimSpace(r.PostForm.Get("name"))
-	for _, day := range days {
-		if err := s.services.Scheduling.SetTeamHoliday(r.Context(), appmodel.TeamHolidayRequest{TeamID: teamID(r), Day: day, Name: name, Clear: clear}); err != nil {
-			s.writeInternalError(w, err)
-			return
-		}
+	if err := s.services.Scheduling.SetTeamHolidays(r.Context(), appmodel.TeamHolidayRequest{TeamID: teamID(r), Days: days, Name: name, Clear: clear}); err != nil {
+		s.logInternalError(err)
+		http.Redirect(w, r, back+"&flash="+encodeFlash(false, i18n.T(lang, "err.internal")), http.StatusSeeOther)
+		return
 	}
 	s.audit(r, "holiday.set", days[0]+".."+days[len(days)-1], name)
 	key := "holiday.saved"

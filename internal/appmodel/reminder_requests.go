@@ -50,6 +50,9 @@ type DayFillCandidatesQuery struct {
 	TeamID int64
 	From   time.Time
 	To     time.Time
+	// Day is the window's date in the workspace zone: nobody absent on it,
+	// and nobody at all on a workspace holiday, is asked to fill it.
+	Day string
 }
 
 // DayFillNoticeRequest claims the one "fill your day" notice a person gets on a

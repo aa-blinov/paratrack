@@ -282,6 +282,21 @@ CREATE TABLE IF NOT EXISTS payroll_lines (
 );
 CREATE INDEX IF NOT EXISTS idx_payroll_lines_run ON payroll_lines(run_id);
 
+-- A member's vacation, sick leave or day off, recorded by a manager. Kept
+-- apart from the member's own day marks (overload, idle) so that neither can
+-- overwrite or clear the other.
+CREATE TABLE IF NOT EXISTS member_absences (
+    team_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    day TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (team_id, user_id, day),
+    FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 -- The workspace's days off (public holidays): no one is expected to work, so
 -- they are not in anyone's norm.
 CREATE TABLE IF NOT EXISTS team_holidays (

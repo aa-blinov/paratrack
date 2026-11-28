@@ -531,6 +531,8 @@
   "absence.saved": "Отмечено дней: %d.",
   "absence.cleared": "Отметка снята с дней: %d.",
   "absence.bad": "Проверьте человека и даты: период до 62 дней.",
+  "absence.remove": "Снять",
+  "holiday.mark": "нерабочий день",
   "absence.days": "%s: %d дн.",
   "holiday.name": "Праздник",
   "holiday.namePh": "День народного единства",

@@ -63,6 +63,50 @@ type timesheetTeamMemberStatus struct {
 	AwayLabel string
 }
 
+// absenceSpanVM is a run of consecutive days one member is away for one reason.
+type absenceSpanVM struct {
+	UserID int64
+	Name   string
+	Kind   string
+	Label  string
+	From   string
+	To     string
+}
+
+// absenceSpans folds the days into runs per member and reason, for the list
+// the manager reads and removes from.
+func absenceSpans(lang i18n.Lang, loc *time.Location, absences []appmodel.Absence, names map[int64]string) []absenceSpanVM {
+	var out []absenceSpanVM
+	for _, a := range absences {
+		day, err := time.ParseInLocation("2006-01-02", a.Day, loc)
+		if err != nil {
+			continue
+		}
+		merged := false
+		for i := range out {
+			last, _ := time.ParseInLocation("2006-01-02", out[i].To, loc)
+			if out[i].UserID == a.UserID && out[i].Kind == a.Kind && last.AddDate(0, 0, 1).Equal(day) {
+				out[i].To = a.Day
+				merged = true
+				break
+			}
+		}
+		if !merged {
+			out = append(out, absenceSpanVM{UserID: a.UserID, Name: names[a.UserID], Kind: a.Kind, From: a.Day, To: a.Day})
+		}
+	}
+	for i := range out {
+		from, _ := time.ParseInLocation("2006-01-02", out[i].From, loc)
+		to, _ := time.ParseInLocation("2006-01-02", out[i].To, loc)
+		span := fmtDay(lang, from)
+		if out[i].To != out[i].From {
+			span = periodSpan(lang, fmtDay(lang, from), fmtDay(lang, to))
+		}
+		out[i].Label = dayMarkLabel(lang, out[i].Kind) + ", " + span
+	}
+	return out
+}
+
 // sortedKeys is a map's keys in order.
 func sortedKeys(m map[string]string) []string {
 	keys := make([]string, 0, len(m))
@@ -114,6 +158,9 @@ type timesheetData struct {
 	FlashOK bool
 	// Holidays names the workspace's days off in the week, for a manager.
 	Holidays []string
+	// Absences lists, for a manager, who is away from a week before this one
+	// to two months after, as spans that can be removed.
+	Absences []absenceSpanVM
 }
 
 // weekPlanByProject sums the schedule's per-project plan for the week the
@@ -316,6 +363,13 @@ func (s *Server) handleTimesheet(w http.ResponseWriter, r *http.Request) {
 				}
 				data.Holidays = append(data.Holidays, label)
 			}
+		}
+		names := map[int64]string{}
+		for _, p := range people {
+			names[p.ID] = p.Name
+		}
+		if list, err := s.services.Scheduling.Absences(r.Context(), teamID(r), weekStart.AddDate(0, 0, -7).Format("2006-01-02"), weekStart.AddDate(0, 0, 63).Format("2006-01-02")); err == nil {
+			data.Absences = absenceSpans(resolveLang(r), userLoc(r), list, names)
 		}
 	}
 	s.renderPageForRequest(w, r, "Timesheet", "timesheet", &data)
@@ -623,18 +677,16 @@ func (s *Server) timesheetTeamSummary(r *http.Request, weekStart, now time.Time,
 	if err != nil {
 		return nil
 	}
-	marks, err := s.services.Scheduling.DayMarks(r.Context(), teamID(r), from, until)
+	absences, err := s.services.Scheduling.Absences(r.Context(), teamID(r), from, until)
 	if err != nil {
 		return nil
 	}
 	absent := map[int64]map[string]string{}
-	for _, m := range marks {
-		if absenceKinds[m.Kind] {
-			if absent[m.UserID] == nil {
-				absent[m.UserID] = map[string]string{}
-			}
-			absent[m.UserID][m.Day] = m.Kind
+	for _, a := range absences {
+		if absent[a.UserID] == nil {
+			absent[a.UserID] = map[string]string{}
 		}
+		absent[a.UserID][a.Day] = a.Kind
 	}
 	approvedByID := make(map[int64]bool, len(approval.MemberApprovals))
 	for _, ma := range approval.MemberApprovals {

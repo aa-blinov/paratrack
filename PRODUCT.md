@@ -105,13 +105,14 @@ Confirmed by the code:
   belongs to one server and token and is not shown for another. Locally,
   without a server, `--short` keeps the same contract.
 - `paratrack hook install` writes a git post-checkout hook that focuses the
-  timer on the checked-out branch's last name part (other characters than
-  letters, digits, dot, dash and underscore become dashes), in the
+  timer on the checked-out branch's last name part (letters of any alphabet,
+  digits, dot, dash and underscore kept, anything else a dash; the name is
+  made by `focus --branch` in Go), in the
   background, after a one-second settle so quick successive checkouts end on
   the branch still checked out; checking out main/master/develop/trunk
   pauses the timers, since review there is not the feature's time. It never
   touches a hook it did not write and refuses when core.hooksPath belongs to
-  a hook manager. `paratrack completion bash|zsh|fish` completes commands
+  a hook manager; `paratrack hook print` gives the script to paste there. `paratrack completion bash|zsh|fish` completes commands
   and, after start and focus, the caller's own recent activities (400 ms at
   most); names are offered as quoted text, never evaluated. "Only this" (and the
   remote `focus`) starts an activity the workspace has not seen yet. It is a real
@@ -171,7 +172,12 @@ Deliberately not true, and worth knowing before a change:
   records a member's vacation, sick leave or day off over a span of days
   and the workspace's holidays ("Absences and holidays" on the timesheet);
   those days leave the norm, and a member away the whole week is "away",
-  which the button approves too. The schedule does not show them yet. Approved
+  which the button approves too. Absences live in their own table
+  (member_absences), apart from the member's own day marks, which can no
+  longer overwrite or clear them; the timesheet lists the spans with a way to
+  remove them. Nobody away, and nobody on a workspace holiday, gets the
+  evening "fill your day" reminder, and the team week on Stats names those
+  days instead of flagging them. The schedule does not show them yet. Approved
   and on track have different marks.
 - A pay run cannot cover the current week, because the week has to end and be
   approved first. A pay run can cover a chosen set of members, or only the
@@ -199,9 +205,12 @@ Deliberately not true, and worth knowing before a change:
   sent, emailed, paid straight from a draft, given a payment link or a client
   link. A draft carries the workspace's current details: saving them in the
   settings passes them to every unsent invoice; a sent one keeps its copy.
-  A rouble invoice that owes money carries a bank-app payment QR code in its
-  PDF (ГОСТ Р 56042, ST00012) when the seller's details name an account, a
-  БИК and a bank that check out (rsc.io/qr draws it).
+  A rouble invoice that still owes money carries a bank-app payment QR code
+  in its PDF (ГОСТ Р 56042, ST00012) for the amount still owed, when the
+  seller's details name an account, a БИК and a bank that check out
+  (rsc.io/qr draws it); a paid invoice carries none. The purpose names the
+  invoice date and how VAT stands. A payment dated into a closed month is
+  refused.
   The "ИНН/КПП 7707083893/770701001" pair is read as 1C prints it, also
   with no КПП for a sole trader ("…/" or "…/ -"). Client numbers that do not
   check out are refused wherever they are written: the client card, a new

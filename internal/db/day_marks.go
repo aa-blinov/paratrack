@@ -62,21 +62,84 @@ func (d *DB) DayMarks(ctx context.Context, teamID int64, from, until string) ([]
 	return out, rows.Err()
 }
 
-// SetTeamHoliday marks a workspace day off (a public holiday nobody is
-// expected to work), or clears it.
-func (d *DB) SetTeamHoliday(ctx context.Context, request appmodel.TeamHolidayRequest) error {
-	teamID, day, name, clear := request.TeamID, request.Day, request.Name, request.Clear
-	if teamID <= 0 || day == "" {
+// SetTeamHolidays marks workspace days off (public holidays nobody is
+// expected to work), or clears them, all days in one transaction.
+func (d *DB) SetTeamHolidays(ctx context.Context, request appmodel.TeamHolidayRequest) error {
+	if request.TeamID <= 0 || len(request.Days) == 0 {
 		return ErrNotFound
 	}
-	if clear {
-		_, err := d.sql.ExecContext(ctx, `DELETE FROM team_holidays WHERE team_id = ? AND day = ?`, teamID, day)
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	_, err := d.sql.ExecContext(ctx,
-		`INSERT INTO team_holidays (team_id, day, name) VALUES (?, ?, ?)
-		 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name`, teamID, day, name)
-	return err
+	defer func() { _ = tx.Rollback() }()
+	for _, day := range request.Days {
+		if request.Clear {
+			_, err = tx.ExecContext(ctx, `DELETE FROM team_holidays WHERE team_id = ? AND day = ?`, request.TeamID, day)
+		} else {
+			_, err = tx.ExecContext(ctx,
+				`INSERT INTO team_holidays (team_id, day, name) VALUES (?, ?, ?)
+				 ON CONFLICT (team_id, day) DO UPDATE SET name = excluded.name`, request.TeamID, day, request.Name)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// SetAbsence records a member's absence over days, or clears it, all days in
+// one transaction. The member must belong to the workspace.
+func (d *DB) SetAbsence(ctx context.Context, request appmodel.AbsenceRequest) error {
+	if request.TeamID <= 0 || request.UserID <= 0 || len(request.Days) == 0 {
+		return ErrNotFound
+	}
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+	var member bool
+	if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM memberships WHERE team_id = ? AND user_id = ?)`, request.TeamID, request.UserID).Scan(&member); err != nil {
+		return err
+	}
+	if !member {
+		return model.ErrForbidden
+	}
+	for _, day := range request.Days {
+		if request.Kind == "" {
+			_, err = tx.ExecContext(ctx, `DELETE FROM member_absences WHERE team_id = ? AND user_id = ? AND day = ?`, request.TeamID, request.UserID, day)
+		} else {
+			_, err = tx.ExecContext(ctx,
+				`INSERT INTO member_absences (team_id, user_id, day, kind, note, created_at) VALUES (?, ?, ?, ?, ?, ?)
+				 ON CONFLICT (team_id, user_id, day) DO UPDATE SET kind = excluded.kind, note = excluded.note, created_at = excluded.created_at`,
+				request.TeamID, request.UserID, day, request.Kind, request.Note, FormatTime(request.Now))
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// Absences lists the workspace's absences from `from` up to `until`, both
+// YYYY-MM-DD.
+func (d *DB) Absences(ctx context.Context, teamID int64, from, until string) ([]appmodel.Absence, error) {
+	if teamID <= 0 {
+		return nil, ErrNotFound
+	}
+	var out []appmodel.Absence
+	err := queryRows(ctx, d.sql, "absences",
+		`SELECT user_id, day, kind, note FROM member_absences WHERE team_id = ? AND day >= ? AND day < ? ORDER BY day, user_id`,
+		func(rows *sql.Rows) error {
+			var a appmodel.Absence
+			if err := rows.Scan(&a.UserID, &a.Day, &a.Kind, &a.Note); err != nil {
+				return err
+			}
+			out = append(out, a)
+			return nil
+		}, teamID, from, until)
+	return out, err
 }
 
 // TeamHolidays lists the workspace's days off from `from` up to `until`, both
